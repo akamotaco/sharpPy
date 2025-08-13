@@ -1,0 +1,14 @@
+C:\Users\m11\Desktop\work\sharppy\obj\Debug\net8.0\sharppy.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\m11\Desktop\work\sharppy\obj\Debug\net8.0\sharppy.AssemblyInfoInputs.cache
+C:\Users\m11\Desktop\work\sharppy\obj\Debug\net8.0\sharppy.AssemblyInfo.cs
+C:\Users\m11\Desktop\work\sharppy\obj\Debug\net8.0\sharppy.csproj.CoreCompileInputs.cache
+C:\Users\m11\Desktop\work\sharppy\bin\Debug\net8.0\sharppy.exe
+C:\Users\m11\Desktop\work\sharppy\bin\Debug\net8.0\sharppy.deps.json
+C:\Users\m11\Desktop\work\sharppy\bin\Debug\net8.0\sharppy.runtimeconfig.json
+C:\Users\m11\Desktop\work\sharppy\bin\Debug\net8.0\sharppy.dll
+C:\Users\m11\Desktop\work\sharppy\bin\Debug\net8.0\sharppy.pdb
+C:\Users\m11\Desktop\work\sharppy\obj\Debug\net8.0\sharppy.dll
+C:\Users\m11\Desktop\work\sharppy\obj\Debug\net8.0\refint\sharppy.dll
+C:\Users\m11\Desktop\work\sharppy\obj\Debug\net8.0\sharppy.pdb
+C:\Users\m11\Desktop\work\sharppy\obj\Debug\net8.0\sharppy.genruntimeconfig.cache
+C:\Users\m11\Desktop\work\sharppy\obj\Debug\net8.0\ref\sharppy.dll
