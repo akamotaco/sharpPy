@@ -1,6 +1,10 @@
-namespace PurePythonInterpreter
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace SharpPy
 {
-    // Python Data Types
+    // Python Data Types (No changes needed for line tracking as these don't throw location-specific exceptions)
     public class PythonList
     {
         public List<object> Items { get; } = new List<object>();
@@ -9,12 +13,14 @@ namespace PurePythonInterpreter
         {
             return name switch
             {
-                "append" => new BuiltinFunction("append", args => {
+                "append" => new BuiltinFunction("append", args =>
+                {
                     if (args.Count != 1) throw new PythonException("TypeError", "append() takes exactly one argument");
                     Items.Add(args[0]);
                     return null;
                 }),
-                "extend" => new BuiltinFunction("extend", args => {
+                "extend" => new BuiltinFunction("extend", args =>
+                {
                     if (args.Count != 1) throw new PythonException("TypeError", "extend() takes exactly one argument");
                     if (args[0] is PythonList other)
                         Items.AddRange(other.Items);
@@ -25,7 +31,8 @@ namespace PurePythonInterpreter
                     else throw new PythonException("TypeError", "extend() argument must be iterable");
                     return null;
                 }),
-                "insert" => new BuiltinFunction("insert", args => {
+                "insert" => new BuiltinFunction("insert", args =>
+                {
                     if (args.Count != 2) throw new PythonException("TypeError", "insert() takes exactly two arguments");
                     if (args[0] is double index && args[1] is object value)
                     {
@@ -36,49 +43,57 @@ namespace PurePythonInterpreter
                     }
                     return null;
                 }),
-                "remove" => new BuiltinFunction("remove", args => {
+                "remove" => new BuiltinFunction("remove", args =>
+                {
                     if (args.Count != 1) throw new PythonException("TypeError", "remove() takes exactly one argument");
                     if (!Items.Remove(args[0]))
                         throw new PythonException("ValueError", "list.remove(x): x not in list");
                     return null;
                 }),
-                "pop" => new BuiltinFunction("pop", args => {
+                "pop" => new BuiltinFunction("pop", args =>
+                {
                     if (args.Count > 1) throw new PythonException("TypeError", "pop() takes at most 1 argument");
                     if (Items.Count == 0) throw new PythonException("IndexError", "pop from empty list");
-                    
+
                     int index = args.Count == 0 ? Items.Count - 1 : (int)(double)args[0];
                     if (index < 0) index += Items.Count;
                     if (index < 0 || index >= Items.Count) throw new PythonException("IndexError", "pop index out of range");
-                    
+
                     var item = Items[index];
                     Items.RemoveAt(index);
                     return item;
                 }),
-                "clear" => new BuiltinFunction("clear", args => {
+                "clear" => new BuiltinFunction("clear", args =>
+                {
                     if (args.Count != 0) throw new PythonException("TypeError", "clear() takes no arguments");
                     Items.Clear();
                     return null;
                 }),
-                "index" => new BuiltinFunction("index", args => {
+                "index" => new BuiltinFunction("index", args =>
+                {
                     if (args.Count != 1) throw new PythonException("TypeError", "index() takes exactly one argument");
                     int idx = Items.IndexOf(args[0]);
                     if (idx == -1) throw new PythonException("ValueError", $"{args[0]} is not in list");
                     return (double)idx;
                 }),
-                "count" => new BuiltinFunction("count", args => {
+                "count" => new BuiltinFunction("count", args =>
+                {
                     if (args.Count != 1) throw new PythonException("TypeError", "count() takes exactly one argument");
                     return (double)Items.Count(item => Equals(item, args[0]));
                 }),
-                "sort" => new BuiltinFunction("sort", args => {
+                "sort" => new BuiltinFunction("sort", args =>
+                {
                     if (args.Count > 1) throw new PythonException("TypeError", "sort() takes at most 1 argument");
-                    Items.Sort((a, b) => {
+                    Items.Sort((a, b) =>
+                    {
                         if (a is double da && b is double db) return da.CompareTo(db);
                         if (a is string sa && b is string sb) return sa.CompareTo(sb);
                         return 0;
                     });
                     return null;
                 }),
-                "reverse" => new BuiltinFunction("reverse", args => {
+                "reverse" => new BuiltinFunction("reverse", args =>
+                {
                     if (args.Count != 0) throw new PythonException("TypeError", "reverse() takes no arguments");
                     Items.Reverse();
                     return null;
@@ -109,11 +124,13 @@ namespace PurePythonInterpreter
         {
             return name switch
             {
-                "count" => new BuiltinFunction("count", args => {
+                "count" => new BuiltinFunction("count", args =>
+                {
                     if (args.Count != 1) throw new PythonException("TypeError", "count() takes exactly one argument");
                     return (double)Items.Count(item => Equals(item, args[0]));
                 }),
-                "index" => new BuiltinFunction("index", args => {
+                "index" => new BuiltinFunction("index", args =>
+                {
                     if (args.Count != 1) throw new PythonException("TypeError", "index() takes exactly one argument");
                     int idx = Items.IndexOf(args[0]);
                     if (idx == -1) throw new PythonException("ValueError", $"{args[0]} is not in tuple");
@@ -147,25 +164,29 @@ namespace PurePythonInterpreter
         {
             return name switch
             {
-                "get" => new BuiltinFunction("get", args => {
+                "get" => new BuiltinFunction("get", args =>
+                {
                     if (args.Count < 1 || args.Count > 2) throw new PythonException("TypeError", "get() takes 1 or 2 arguments");
                     var key = args[0];
                     var defaultValue = args.Count == 2 ? args[1] : null;
                     return Items.ContainsKey(key) ? Items[key] : defaultValue;
                 }),
-                "keys" => new BuiltinFunction("keys", args => {
+                "keys" => new BuiltinFunction("keys", args =>
+                {
                     if (args.Count != 0) throw new PythonException("TypeError", "keys() takes no arguments");
                     var list = new PythonList();
                     list.Items.AddRange(Items.Keys);
                     return list;
                 }),
-                "values" => new BuiltinFunction("values", args => {
+                "values" => new BuiltinFunction("values", args =>
+                {
                     if (args.Count != 0) throw new PythonException("TypeError", "values() takes no arguments");
                     var list = new PythonList();
                     list.Items.AddRange(Items.Values);
                     return list;
                 }),
-                "items" => new BuiltinFunction("items", args => {
+                "items" => new BuiltinFunction("items", args =>
+                {
                     if (args.Count != 0) throw new PythonException("TypeError", "items() takes no arguments");
                     var list = new PythonList();
                     foreach (var kvp in Items)
@@ -177,7 +198,8 @@ namespace PurePythonInterpreter
                     }
                     return list;
                 }),
-                "pop" => new BuiltinFunction("pop", args => {
+                "pop" => new BuiltinFunction("pop", args =>
+                {
                     if (args.Count < 1 || args.Count > 2) throw new PythonException("TypeError", "pop() takes 1 or 2 arguments");
                     var key = args[0];
                     if (Items.ContainsKey(key))
@@ -189,12 +211,14 @@ namespace PurePythonInterpreter
                     if (args.Count == 2) return args[1];
                     throw new PythonException("KeyError", $"KeyError: {key}");
                 }),
-                "clear" => new BuiltinFunction("clear", args => {
+                "clear" => new BuiltinFunction("clear", args =>
+                {
                     if (args.Count != 0) throw new PythonException("TypeError", "clear() takes no arguments");
                     Items.Clear();
                     return null;
                 }),
-                "update" => new BuiltinFunction("update", args => {
+                "update" => new BuiltinFunction("update", args =>
+                {
                     if (args.Count != 1) throw new PythonException("TypeError", "update() takes exactly one argument");
                     if (args[0] is PythonDict other)
                     {
@@ -227,13 +251,13 @@ namespace PurePythonInterpreter
         }
     }
 
-    // Function Classes
+    // Function Classes (Enhanced with better error handling)
     public abstract class Function
     {
         public string Name { get; }
         protected Function(string name) => Name = name;
         public abstract object Call(List<object> arguments);
-        
+
         public override string ToString() => $"<function {Name}>";
     }
 
@@ -259,16 +283,16 @@ namespace PurePythonInterpreter
                 throw new PythonException("TypeError", $"Function {Name} expects {Parameters.Count} arguments, got {arguments.Count}");
 
             var funcEnv = new Environment(ClosureEnv);
-            
+
             // Type checking for parameters
             for (int i = 0; i < Parameters.Count; i++)
             {
                 var param = Parameters[i];
                 var arg = arguments[i];
-                
+
                 if (param.TypeHint != null && !param.TypeHint.IsCompatible(arg))
                     throw new PythonException("TypeError", $"Argument {i + 1} for parameter '{param.Name}' expected {param.TypeHint}, got {GetValueType(arg)}");
-                
+
                 funcEnv.SetVariable(param.Name, arg);
             }
 
@@ -277,11 +301,11 @@ namespace PurePythonInterpreter
                 object result = null;
                 foreach (var stmt in Body)
                     result = stmt.Evaluate(funcEnv);
-                
+
                 // Type checking for return value
                 if (ReturnTypeHint != null && result != null && !ReturnTypeHint.IsCompatible(result))
                     throw new PythonException("TypeError", $"Return value expected {ReturnTypeHint}, got {GetValueType(result)}");
-                
+
                 return result;
             }
             catch (ReturnException ex)
@@ -364,7 +388,7 @@ namespace PurePythonInterpreter
         public PythonInstance CreateInstance(List<object> args = null)
         {
             var instance = new PythonInstance(this);
-            
+
             // __init__ 메서드가 있다면 호출
             if (ClassEnv.HasVariable("__init__"))
             {
@@ -376,7 +400,7 @@ namespace PurePythonInterpreter
                     initMethod.Call(initArgs);
                 }
             }
-            
+
             return instance;
         }
 
@@ -394,18 +418,18 @@ namespace PurePythonInterpreter
             InstanceEnv = new Environment(pythonClass.ClassEnv);
         }
 
-        public object GetAttribute(string name) 
+        public object GetAttribute(string name)
         {
             try
             {
                 var value = InstanceEnv.GetVariable(name);
-                
+
                 // If it's a user function, bind it to this instance
                 if (value is UserFunction userFunction)
                 {
                     return new BoundMethod(name, userFunction, this);
                 }
-                
+
                 return value;
             }
             catch (PythonException)
@@ -413,9 +437,9 @@ namespace PurePythonInterpreter
                 throw new PythonException("AttributeError", $"'{Class.Name}' object has no attribute '{name}'");
             }
         }
-        
+
         public void SetAttribute(string name, object value) => InstanceEnv.SetVariable(name, value);
-        
+
         public override string ToString() => $"<{Class.Name} object>";
     }
 }

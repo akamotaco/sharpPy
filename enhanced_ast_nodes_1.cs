@@ -1,0 +1,469 @@
+using System;
+using System.Text;
+using System.Collections.Generic;
+
+namespace SharpPy
+{
+    // Enhanced AST Node Base Class with Line/Column Information
+    public abstract class ASTNode
+    {
+        public int Line { get; set; }
+        public int Column { get; set; }
+
+        protected ASTNode(int line = 0, int column = 0)
+        {
+            Line = line;
+            Column = column;
+        }
+
+        public abstract object Evaluate(Environment env);
+
+        // Helper method to create PythonException with current node's location
+        protected PythonException CreateException(string type, string message, string fileName = "<string>")
+        {
+            return new PythonException(type, message, Line, Column, fileName);
+        }
+    }
+
+    // Expression Nodes with Line/Column Tracking
+    public class NumberNode : ASTNode
+    {
+        public double Value { get; }
+        
+        public NumberNode(double value, int line = 0, int column = 0) : base(line, column) 
+            => Value = value;
+            
+        public override object Evaluate(Environment env) => Value;
+    }
+
+    public class StringNode : ASTNode
+    {
+        public string Value { get; }
+        
+        public StringNode(string value, int line = 0, int column = 0) : base(line, column) 
+            => Value = value;
+            
+        public override object Evaluate(Environment env) => Value;
+    }
+
+    public class BooleanNode : ASTNode
+    {
+        public bool Value { get; }
+        
+        public BooleanNode(bool value, int line = 0, int column = 0) : base(line, column) 
+            => Value = value;
+            
+        public override object Evaluate(Environment env) => Value;
+    }
+
+    public class NoneNode : ASTNode
+    {
+        public NoneNode(int line = 0, int column = 0) : base(line, column) { }
+        
+        public override object Evaluate(Environment env) => null;
+    }
+
+    public class VariableNode : ASTNode
+    {
+        public string Name { get; }
+        
+        public VariableNode(string name, int line = 0, int column = 0) : base(line, column) 
+            => Name = name;
+
+        public override object Evaluate(Environment env)
+        {
+            try
+            {
+                return env.GetVariable(Name);
+            }
+            catch (PythonException ex)
+            {
+                // Re-throw with current location if not already set
+                if (ex.Line == 0)
+                    throw CreateException(ex.Type, ex.Message);
+                throw;
+            }
+        }
+    }
+
+    public class ListNode : ASTNode
+    {
+        public List<ASTNode> Elements { get; }
+        
+        public ListNode(List<ASTNode> elements, int line = 0, int column = 0) : base(line, column) 
+            => Elements = elements;
+
+        public override object Evaluate(Environment env)
+        {
+            try
+            {
+                var list = new PythonList();
+                foreach (var element in Elements)
+                    list.Items.Add(element.Evaluate(env));
+                return list;
+            }
+            catch (PythonException)
+            {
+                throw; // Re-throw PythonExceptions as-is
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Internal error creating list: {ex.Message}");
+            }
+        }
+    }
+
+    public class TupleNode : ASTNode
+    {
+        public List<ASTNode> Elements { get; }
+        
+        public TupleNode(List<ASTNode> elements, int line = 0, int column = 0) : base(line, column) 
+            => Elements = elements;
+
+        public override object Evaluate(Environment env)
+        {
+            try
+            {
+                var tuple = new PythonTuple();
+                foreach (var element in Elements)
+                    tuple.Items.Add(element.Evaluate(env));
+                return tuple;
+            }
+            catch (PythonException)
+            {
+                throw; // Re-throw PythonExceptions as-is
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Internal error creating tuple: {ex.Message}");
+            }
+        }
+    }
+
+    public class DictNode : ASTNode
+    {
+        public List<(ASTNode Key, ASTNode Value)> Pairs { get; }
+        
+        public DictNode(List<(ASTNode, ASTNode)> pairs, int line = 0, int column = 0) : base(line, column) 
+            => Pairs = pairs;
+
+        public override object Evaluate(Environment env)
+        {
+            try
+            {
+                var dict = new PythonDict();
+                foreach (var (key, value) in Pairs)
+                {
+                    var keyObj = key.Evaluate(env);
+                    var valueObj = value.Evaluate(env);
+                    dict.Items[keyObj] = valueObj;
+                }
+                return dict;
+            }
+            catch (PythonException)
+            {
+                throw; // Re-throw PythonExceptions as-is
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Internal error creating dict: {ex.Message}");
+            }
+        }
+    }
+
+    public class IndexNode : ASTNode
+    {
+        public ASTNode Object { get; }
+        public ASTNode Index { get; }
+
+        public IndexNode(ASTNode obj, ASTNode index, int line = 0, int column = 0) : base(line, column)
+        {
+            Object = obj;
+            Index = index;
+        }
+
+        public override object Evaluate(Environment env)
+        {
+            try
+            {
+                var obj = Object.Evaluate(env);
+                var index = Index.Evaluate(env);
+
+                if (obj is PythonList list && index is double d)
+                {
+                    int i = (int)d;
+                    if (i < 0) i += list.Items.Count;
+                    if (i >= 0 && i < list.Items.Count)
+                        return list.Items[i];
+                    throw CreateException("IndexError", "list index out of range");
+                }
+                else if (obj is PythonTuple tuple && index is double d3)
+                {
+                    int i = (int)d3;
+                    if (i < 0) i += tuple.Items.Count;
+                    if (i >= 0 && i < tuple.Items.Count)
+                        return tuple.Items[i];
+                    throw CreateException("IndexError", "tuple index out of range");
+                }
+                else if (obj is PythonDict dict)
+                {
+                    if (dict.Items.ContainsKey(index))
+                        return dict.Items[index];
+                    throw CreateException("KeyError", $"KeyError: {index}");
+                }
+                else if (obj is string str && index is double d2)
+                {
+                    int i = (int)d2;
+                    if (i < 0) i += str.Length;
+                    if (i >= 0 && i < str.Length)
+                        return str[i].ToString();
+                    throw CreateException("IndexError", "string index out of range");
+                }
+
+                throw CreateException("TypeError", $"'{obj?.GetType()}' object is not subscriptable");
+            }
+            catch (PythonException)
+            {
+                throw; // Re-throw PythonExceptions as-is
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Internal error during indexing: {ex.Message}");
+            }
+        }
+    }
+
+    public class SliceNode : ASTNode
+    {
+        public ASTNode Object { get; }
+        public ASTNode Start { get; }
+        public ASTNode Stop { get; }
+        public ASTNode Step { get; }
+
+        public SliceNode(ASTNode obj, ASTNode start = null, ASTNode stop = null, ASTNode step = null, int line = 0, int column = 0) : base(line, column)
+        {
+            Object = obj;
+            Start = start;
+            Stop = stop;
+            Step = step;
+        }
+
+        public override object Evaluate(Environment env)
+        {
+            try
+            {
+                var obj = Object.Evaluate(env);
+
+                if (obj is PythonList list)
+                    return SliceList(list, env);
+                else if (obj is PythonTuple tuple)
+                    return SliceTuple(tuple, env);
+                else if (obj is string str)
+                    return SliceString(str, env);
+
+                throw CreateException("TypeError", $"'{obj?.GetType()}' object is not subscriptable");
+            }
+            catch (PythonException)
+            {
+                throw; // Re-throw PythonExceptions as-is
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Internal error during slicing: {ex.Message}");
+            }
+        }
+
+        private PythonList SliceList(PythonList list, Environment env)
+        {
+            int count = list.Items.Count;
+            int start = GetSliceIndex(Start?.Evaluate(env), 0, count);
+            int stop = GetSliceIndex(Stop?.Evaluate(env), count, count);
+            int step = GetSliceStep(Step?.Evaluate(env));
+
+            var result = new PythonList();
+
+            if (step > 0)
+            {
+                for (int i = start; i < stop; i += step)
+                    if (i >= 0 && i < count)
+                        result.Items.Add(list.Items[i]);
+            }
+            else if (step < 0)
+            {
+                if (Start == null) start = count - 1;
+                if (Stop == null) stop = -1;
+                for (int i = start; i > stop; i += step)
+                    if (i >= 0 && i < count)
+                        result.Items.Add(list.Items[i]);
+            }
+
+            return result;
+        }
+
+        private PythonTuple SliceTuple(PythonTuple tuple, Environment env)
+        {
+            int count = tuple.Items.Count;
+            int start = GetSliceIndex(Start?.Evaluate(env), 0, count);
+            int stop = GetSliceIndex(Stop?.Evaluate(env), count, count);
+            int step = GetSliceStep(Step?.Evaluate(env));
+
+            var result = new PythonTuple();
+
+            if (step > 0)
+            {
+                for (int i = start; i < stop; i += step)
+                    if (i >= 0 && i < count)
+                        result.Items.Add(tuple.Items[i]);
+            }
+            else if (step < 0)
+            {
+                if (Start == null) start = count - 1;
+                if (Stop == null) stop = -1;
+                for (int i = start; i > stop; i += step)
+                    if (i >= 0 && i < count)
+                        result.Items.Add(tuple.Items[i]);
+            }
+
+            return result;
+        }
+
+        private string SliceString(string str, Environment env)
+        {
+            int count = str.Length;
+            int start = GetSliceIndex(Start?.Evaluate(env), 0, count);
+            int stop = GetSliceIndex(Stop?.Evaluate(env), count, count);
+            int step = GetSliceStep(Step?.Evaluate(env));
+
+            var result = new StringBuilder();
+
+            if (step > 0)
+            {
+                for (int i = start; i < stop; i += step)
+                    if (i >= 0 && i < count)
+                        result.Append(str[i]);
+            }
+            else if (step < 0)
+            {
+                if (Start == null) start = count - 1;
+                if (Stop == null) stop = -1;
+                for (int i = start; i > stop; i += step)
+                    if (i >= 0 && i < count)
+                        result.Append(str[i]);
+            }
+
+            return result.ToString();
+        }
+
+        private int GetSliceIndex(object indexObj, int defaultValue, int count)
+        {
+            if (indexObj == null) return defaultValue;
+            if (indexObj is double d)
+            {
+                int index = (int)d;
+                if (index < 0) index += count;
+                return Math.Max(0, Math.Min(index, count));
+            }
+            return defaultValue;
+        }
+
+        private int GetSliceStep(object stepObj)
+        {
+            if (stepObj == null) return 1;
+            if (stepObj is double d)
+            {
+                int step = (int)d;
+                if (step == 0) throw CreateException("ValueError", "slice step cannot be zero");
+                return step;
+            }
+            return 1;
+        }
+    }
+
+    public class AttributeNode : ASTNode
+    {
+        public ASTNode Object { get; }
+        public string Attribute { get; }
+
+        public AttributeNode(ASTNode obj, string attribute, int line = 0, int column = 0) : base(line, column)
+        {
+            Object = obj;
+            Attribute = attribute;
+        }
+
+        public override object Evaluate(Environment env)
+        {
+            try
+            {
+                var obj = Object.Evaluate(env);
+
+                if (obj is PythonInstance instance)
+                    return instance.GetAttribute(Attribute);
+                else if (obj is PythonList list)
+                    return list.GetMethod(Attribute);
+                else if (obj is PythonTuple tuple)
+                    return tuple.GetMethod(Attribute);
+                else if (obj is PythonDict dict)
+                    return dict.GetMethod(Attribute);
+                else if (obj is PythonModule module)
+                    return module.GetAttribute(Attribute);
+
+                throw CreateException("AttributeError", $"'{obj?.GetType()}' object has no attribute '{Attribute}'");
+            }
+            catch (PythonException)
+            {
+                throw; // Re-throw PythonExceptions as-is
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Internal error accessing attribute: {ex.Message}");
+            }
+        }
+    }
+
+    public class ConditionalExpressionNode : ASTNode
+    {
+        public ASTNode Condition { get; }
+        public ASTNode TrueValue { get; }
+        public ASTNode FalseValue { get; }
+
+        public ConditionalExpressionNode(ASTNode trueValue, ASTNode condition, ASTNode falseValue, int line = 0, int column = 0) : base(line, column)
+        {
+            TrueValue = trueValue;
+            Condition = condition;
+            FalseValue = falseValue;
+        }
+
+        public override object Evaluate(Environment env)
+        {
+            try
+            {
+                var conditionResult = Condition.Evaluate(env);
+
+                if (IsTrue(conditionResult))
+                    return TrueValue.Evaluate(env);
+                else
+                    return FalseValue.Evaluate(env);
+            }
+            catch (PythonException)
+            {
+                throw; // Re-throw PythonExceptions as-is
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Internal error in conditional expression: {ex.Message}");
+            }
+        }
+
+        private bool IsTrue(object obj)
+        {
+            if (obj == null) return false;
+            if (obj is bool b) return b;
+            if (obj is double d) return d != 0;
+            if (obj is string s) return !string.IsNullOrEmpty(s);
+            if (obj is PythonList l) return l.Items.Count > 0;
+            if (obj is PythonTuple t) return t.Items.Count > 0;
+            if (obj is PythonDict dict) return dict.Items.Count > 0;
+            return true;
+        }
+    }
+}

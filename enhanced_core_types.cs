@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.IO;
 
-namespace PurePythonInterpreter
+namespace SharpPy
 {
     // Core Enums
     public enum TokenType
@@ -26,6 +26,41 @@ namespace PurePythonInterpreter
     {
         Number, String, Boolean, None, List, Dict, Tuple, Function, Class, Instance, Module
     }
+
+    // Enhanced Exception Classes with Line/Column Information
+    public class PythonException : Exception
+    {
+        public string Type { get; }
+        public int Line { get; }
+        public int Column { get; }
+        public string FileName { get; }
+
+        public PythonException(string type, string message, int line = 0, int column = 0, string fileName = "<string>") 
+            : base(message) 
+        { 
+            Type = type;
+            Line = line;
+            Column = column;
+            FileName = fileName;
+        }
+
+        public override string ToString()
+        {
+            if (Line > 0)
+                return $"  File \"{FileName}\", line {Line}, column {Column}\n{Type}: {Message}";
+            else
+                return $"  File \"{FileName}\"\n{Type}: {Message}";
+        }
+    }
+
+    public class ReturnException : Exception
+    {
+        public object Value { get; }
+        public ReturnException(object value) => Value = value;
+    }
+
+    public class BreakException : Exception { }
+    public class ContinueException : Exception { }
 
     // Type Hint System
     public abstract class TypeHint
@@ -137,23 +172,7 @@ namespace PurePythonInterpreter
         }
     }
 
-    // Exception Classes
-    public class PythonException : Exception
-    {
-        public string Type { get; }
-        public PythonException(string type, string message) : base(message) => Type = type;
-    }
-
-    public class ReturnException : Exception
-    {
-        public object Value { get; }
-        public ReturnException(object value) => Value = value;
-    }
-
-    public class BreakException : Exception { }
-    public class ContinueException : Exception { }
-
-    // Token Class
+    // Enhanced Token Class with Line/Column Information
     public class Token
     {
         public TokenType Type { get; }

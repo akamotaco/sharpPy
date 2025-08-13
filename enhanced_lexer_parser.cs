@@ -1,8 +1,11 @@
+using System;
 using System.Text;
+using System.Collections.Generic;
+using System.Linq;
 
-namespace PurePythonInterpreter
+namespace SharpPy
 {
-    // Lexer (Tokenizer)
+    // Lexer (Tokenizer) - Enhanced but no major changes needed as it already tracks line/column
     public class Lexer
     {
         private string input;
@@ -98,7 +101,7 @@ namespace PurePythonInterpreter
             if (currentChar == quote)
                 Advance(); // Skip closing quote
             else
-                throw new PythonException("SyntaxError", $"Unterminated string literal at line {startLine}, column {startColumn}");
+                throw new PythonException("SyntaxError", $"Unterminated string literal", startLine, startColumn);
 
             return sb.ToString();
         }
@@ -164,7 +167,7 @@ namespace PurePythonInterpreter
 
                         if (indentStack.Peek() != indentLevel)
                         {
-                            throw new PythonException("IndentationError", $"Unindent does not match any outer indentation level at line {tokenLine}");
+                            throw new PythonException("IndentationError", $"Unindent does not match any outer indentation level", tokenLine, tokenColumn);
                         }
                     }
 
@@ -296,7 +299,7 @@ namespace PurePythonInterpreter
                         tokens.Add(new Token(TokenType.DOT, ".", tokenLine, tokenColumn));
                         break;
                     default:
-                        throw new PythonException("SyntaxError", $"Unexpected character: {currentChar} at line {tokenLine}, column {tokenColumn}");
+                        throw new PythonException("SyntaxError", $"Unexpected character: {currentChar}", tokenLine, tokenColumn);
                 }
                 Advance();
             }
@@ -313,7 +316,7 @@ namespace PurePythonInterpreter
         }
     }
 
-    // Parser
+    // Enhanced Parser with Line/Column Tracking for AST Nodes
     public partial class Parser
     {
         private List<Token> tokens;
@@ -350,7 +353,7 @@ namespace PurePythonInterpreter
         private void Expect(TokenType tokenType)
         {
             if (currentToken.Type != tokenType)
-                throw new PythonException("SyntaxError", $"Expected {tokenType}, got {currentToken.Type} at line {currentToken.Line}, column {currentToken.Column}");
+                throw new PythonException("SyntaxError", $"Expected {tokenType}, got {currentToken.Type}", currentToken.Line, currentToken.Column);
             Advance();
         }
 
@@ -373,9 +376,13 @@ namespace PurePythonInterpreter
                     statements.Add(statement);
                     SkipNewlines();
                 }
+                catch (PythonException)
+                {
+                    throw; // Re-throw PythonExceptions as-is (they already have location info)
+                }
                 catch (Exception ex)
                 {
-                    throw new PythonException("SyntaxError", $"Parse error at line {currentToken.Line}, column {currentToken.Column}: {ex.Message}");
+                    throw new PythonException("SyntaxError", $"Parse error: {ex.Message}", currentToken.Line, currentToken.Column);
                 }
             }
 
@@ -403,6 +410,9 @@ namespace PurePythonInterpreter
 
         private ASTNode ParseFunctionDef()
         {
+            int line = currentToken.Line;
+            int column = currentToken.Column;
+            
             Expect(TokenType.DEF);
             string name = currentToken.Value;
             Expect(TokenType.IDENTIFIER);
@@ -438,7 +448,7 @@ namespace PurePythonInterpreter
                 }
                 else if (currentToken.Type != TokenType.RPAREN)
                 {
-                    throw new PythonException("SyntaxError", $"Expected ',' or ')' in parameter list at line {currentToken.Line}, column {currentToken.Column}");
+                    throw new PythonException("SyntaxError", $"Expected ',' or ')' in parameter list", currentToken.Line, currentToken.Column);
                 }
             }
             Expect(TokenType.RPAREN);
@@ -455,13 +465,13 @@ namespace PurePythonInterpreter
 
             var body = ParseBlock();
 
-            return new FunctionDefNode(name, parameters, body, returnTypeHint);
+            return new FunctionDefNode(name, parameters, body, returnTypeHint, line, column);
         }
 
         private TypeHint ParseTypeHint()
         {
             if (currentToken.Type != TokenType.IDENTIFIER)
-                throw new PythonException("SyntaxError", $"Expected type hint at line {currentToken.Line}, column {currentToken.Column}");
+                throw new PythonException("SyntaxError", $"Expected type hint", currentToken.Line, currentToken.Column);
 
             string typeName = currentToken.Value;
             Advance();
@@ -502,7 +512,7 @@ namespace PurePythonInterpreter
                     }
                     else if (currentToken.Type != TokenType.RBRACKET)
                     {
-                        throw new PythonException("SyntaxError", $"Expected ',' or ']' in generic type at line {currentToken.Line}, column {currentToken.Column}");
+                        throw new PythonException("SyntaxError", $"Expected ',' or ']' in generic type", currentToken.Line, currentToken.Column);
                     }
                 }
 

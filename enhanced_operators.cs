@@ -1,13 +1,17 @@
-namespace PurePythonInterpreter
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace SharpPy
 {
-    // Operator Nodes
+    // Enhanced Binary Operator Node with Line/Column Tracking
     public class BinaryOpNode : ASTNode
     {
         public ASTNode Left { get; }
         public string Operator { get; }
         public ASTNode Right { get; }
 
-        public BinaryOpNode(ASTNode left, string op, ASTNode right)
+        public BinaryOpNode(ASTNode left, string op, ASTNode right, int line = 0, int column = 0) : base(line, column)
         {
             Left = left;
             Operator = op;
@@ -16,30 +20,41 @@ namespace PurePythonInterpreter
 
         public override object Evaluate(Environment env)
         {
-            var leftVal = Left.Evaluate(env);
-            var rightVal = Right.Evaluate(env);
-
-            return Operator switch
+            try
             {
-                "+" => Add(leftVal, rightVal),
-                "-" => Subtract(leftVal, rightVal),
-                "*" => Multiply(leftVal, rightVal),
-                "/" => Divide(leftVal, rightVal),
-                "%" => Modulo(leftVal, rightVal),
-                "**" => Power(leftVal, rightVal),
-                "==" => IsEqual(leftVal, rightVal),
-                "!=" => !IsEqual(leftVal, rightVal),
-                "<" => IsLess(leftVal, rightVal),
-                ">" => IsGreater(leftVal, rightVal),
-                "<=" => IsLessOrEqual(leftVal, rightVal),
-                ">=" => IsGreaterOrEqual(leftVal, rightVal),
-                "and" => IsTrue(leftVal) && IsTrue(rightVal),
-                "or" => IsTrue(leftVal) || IsTrue(rightVal),
-                "in" => IsIn(leftVal, rightVal),
-                "is" => IsIdentical(leftVal, rightVal),
-                "is not" => !IsIdentical(leftVal, rightVal),
-                _ => throw new PythonException("TypeError", $"Unknown operator: {Operator}")
-            };
+                var leftVal = Left.Evaluate(env);
+                var rightVal = Right.Evaluate(env);
+
+                return Operator switch
+                {
+                    "+" => Add(leftVal, rightVal),
+                    "-" => Subtract(leftVal, rightVal),
+                    "*" => Multiply(leftVal, rightVal),
+                    "/" => Divide(leftVal, rightVal),
+                    "%" => Modulo(leftVal, rightVal),
+                    "**" => Power(leftVal, rightVal),
+                    "==" => IsEqual(leftVal, rightVal),
+                    "!=" => !IsEqual(leftVal, rightVal),
+                    "<" => IsLess(leftVal, rightVal),
+                    ">" => IsGreater(leftVal, rightVal),
+                    "<=" => IsLessOrEqual(leftVal, rightVal),
+                    ">=" => IsGreaterOrEqual(leftVal, rightVal),
+                    "and" => IsTrue(leftVal) && IsTrue(rightVal),
+                    "or" => IsTrue(leftVal) || IsTrue(rightVal),
+                    "in" => IsIn(leftVal, rightVal),
+                    "is" => IsIdentical(leftVal, rightVal),
+                    "is not" => !IsIdentical(leftVal, rightVal),
+                    _ => throw CreateException("TypeError", $"Unknown operator: {Operator}")
+                };
+            }
+            catch (PythonException)
+            {
+                throw; // Re-throw PythonExceptions as-is
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Internal error in binary operation '{Operator}': {ex.Message}");
+            }
         }
 
         private object Add(object left, object right)
@@ -67,13 +82,13 @@ namespace PurePythonInterpreter
                 foreach (var kvp in rd.Items) newDict.Items[kvp.Key] = kvp.Value;
                 return newDict;
             }
-            throw new PythonException("TypeError", $"Cannot add {GetTypeName(left)} and {GetTypeName(right)}");
+            throw CreateException("TypeError", $"Cannot add {GetTypeName(left)} and {GetTypeName(right)}");
         }
 
         private object Subtract(object left, object right)
         {
             if (left is double l && right is double r) return l - r;
-            throw new PythonException("TypeError", $"Cannot subtract {GetTypeName(right)} from {GetTypeName(left)}");
+            throw CreateException("TypeError", $"Cannot subtract {GetTypeName(right)} from {GetTypeName(left)}");
         }
 
         private object Multiply(object left, object right)
@@ -109,61 +124,61 @@ namespace PurePythonInterpreter
                     newTuple.Items.AddRange(tuple2.Items);
                 return newTuple;
             }
-            throw new PythonException("TypeError", $"Cannot multiply {GetTypeName(left)} and {GetTypeName(right)}");
+            throw CreateException("TypeError", $"Cannot multiply {GetTypeName(left)} and {GetTypeName(right)}");
         }
 
         private object Divide(object left, object right)
         {
             if (left is double l && right is double r)
             {
-                if (r == 0) throw new PythonException("ZeroDivisionError", "Division by zero");
+                if (r == 0) throw CreateException("ZeroDivisionError", "Division by zero");
                 return l / r;
             }
-            throw new PythonException("TypeError", $"Cannot divide {GetTypeName(left)} by {GetTypeName(right)}");
+            throw CreateException("TypeError", $"Cannot divide {GetTypeName(left)} by {GetTypeName(right)}");
         }
 
         private object Modulo(object left, object right)
         {
-            if (left is double l && right is double r) 
+            if (left is double l && right is double r)
             {
-                if (r == 0) throw new PythonException("ZeroDivisionError", "Modulo by zero");
+                if (r == 0) throw CreateException("ZeroDivisionError", "Modulo by zero");
                 return l % r;
             }
-            throw new PythonException("TypeError", $"Cannot modulo {GetTypeName(left)} by {GetTypeName(right)}");
+            throw CreateException("TypeError", $"Cannot modulo {GetTypeName(left)} by {GetTypeName(right)}");
         }
 
         private object Power(object left, object right)
         {
             if (left is double l && right is double r) return Math.Pow(l, r);
-            throw new PythonException("TypeError", $"Cannot raise {GetTypeName(left)} to power of {GetTypeName(right)}");
+            throw CreateException("TypeError", $"Cannot raise {GetTypeName(left)} to power of {GetTypeName(right)}");
         }
 
         private bool IsEqual(object left, object right) => Equals(left, right);
-        
+
         private bool IsLess(object left, object right)
         {
             if (left is double l && right is double r) return l < r;
             if (left is string ls && right is string rs) return string.Compare(ls, rs) < 0;
-            throw new PythonException("TypeError", $"'<' not supported between instances of '{GetTypeName(left)}' and '{GetTypeName(right)}'");
+            throw CreateException("TypeError", $"'<' not supported between instances of '{GetTypeName(left)}' and '{GetTypeName(right)}'");
         }
-        
+
         private bool IsGreater(object left, object right)
         {
             if (left is double l && right is double r) return l > r;
             if (left is string ls && right is string rs) return string.Compare(ls, rs) > 0;
-            throw new PythonException("TypeError", $"'>' not supported between instances of '{GetTypeName(left)}' and '{GetTypeName(right)}'");
+            throw CreateException("TypeError", $"'>' not supported between instances of '{GetTypeName(left)}' and '{GetTypeName(right)}'");
         }
-        
-        private bool IsLessOrEqual(object left, object right) 
+
+        private bool IsLessOrEqual(object left, object right)
         {
             try { return IsEqual(left, right) || IsLess(left, right); }
-            catch { throw new PythonException("TypeError", $"'<=' not supported between instances of '{GetTypeName(left)}' and '{GetTypeName(right)}'"); }
+            catch { throw CreateException("TypeError", $"'<=' not supported between instances of '{GetTypeName(left)}' and '{GetTypeName(right)}'"); }
         }
-        
-        private bool IsGreaterOrEqual(object left, object right) 
+
+        private bool IsGreaterOrEqual(object left, object right)
         {
             try { return IsEqual(left, right) || IsGreater(left, right); }
-            catch { throw new PythonException("TypeError", $"'>=' not supported between instances of '{GetTypeName(left)}' and '{GetTypeName(right)}'"); }
+            catch { throw CreateException("TypeError", $"'>=' not supported between instances of '{GetTypeName(left)}' and '{GetTypeName(right)}'"); }
         }
 
         private bool IsIn(object item, object container)
@@ -172,7 +187,7 @@ namespace PurePythonInterpreter
             if (container is PythonTuple tuple) return tuple.Items.Contains(item);
             if (container is string str && item is string s) return str.Contains(s);
             if (container is PythonDict dict) return dict.Items.ContainsKey(item);
-            throw new PythonException("TypeError", $"argument of type '{GetTypeName(container)}' is not iterable");
+            throw CreateException("TypeError", $"argument of type '{GetTypeName(container)}' is not iterable");
         }
 
         private bool IsIdentical(object left, object right)
@@ -180,10 +195,10 @@ namespace PurePythonInterpreter
             // None 비교 - Python에서 가장 일반적인 "is" 사용법
             if (left == null && right == null) return true;
             if (left == null || right == null) return false;
-            
+
             // 동일한 참조인지 확인
             if (ReferenceEquals(left, right)) return true;
-            
+
             // Python에서 작은 정수들과 일부 문자열은 인턴된다 (같은 객체를 재사용)
             // 이를 시뮬레이션하기 위해 특정 값들에 대해 값 비교를 한다
             if (left is double ld && right is double rd)
@@ -192,25 +207,25 @@ namespace PurePythonInterpreter
                 if (ld == rd && ld >= -5 && ld <= 256 && ld == Math.Truncate(ld))
                     return true;
             }
-            
+
             // 빈 튜플은 싱글톤
             if (left is PythonTuple lt && right is PythonTuple rt)
             {
                 if (lt.Items.Count == 0 && rt.Items.Count == 0)
                     return true;
             }
-            
+
             // 불린 값들은 싱글톤
             if (left is bool lb && right is bool rb)
                 return lb == rb;
-            
+
             // 작은 문자열들도 종종 인턴됨 (단순화를 위해 길이 1인 문자열만)
             if (left is string ls && right is string rs)
             {
                 if (ls.Length <= 1 && rs.Length <= 1)
                     return ls == rs;
             }
-            
+
             return false;
         }
 
@@ -242,12 +257,13 @@ namespace PurePythonInterpreter
         }
     }
 
+    // Enhanced Unary Operator Node with Line/Column Tracking
     public class UnaryOpNode : ASTNode
     {
         public string Operator { get; }
         public ASTNode Operand { get; }
 
-        public UnaryOpNode(string op, ASTNode operand)
+        public UnaryOpNode(string op, ASTNode operand, int line = 0, int column = 0) : base(line, column)
         {
             Operator = op;
             Operand = operand;
@@ -255,13 +271,24 @@ namespace PurePythonInterpreter
 
         public override object Evaluate(Environment env)
         {
-            var value = Operand.Evaluate(env);
-            return Operator switch
+            try
             {
-                "-" => value is double d ? -d : throw new PythonException("TypeError", "Cannot negate non-number"),
-                "not" => !IsTrue(value),
-                _ => throw new PythonException("TypeError", $"Unknown unary operator: {Operator}")
-            };
+                var value = Operand.Evaluate(env);
+                return Operator switch
+                {
+                    "-" => value is double d ? -d : throw CreateException("TypeError", "Cannot negate non-number"),
+                    "not" => !IsTrue(value),
+                    _ => throw CreateException("TypeError", $"Unknown unary operator: {Operator}")
+                };
+            }
+            catch (PythonException)
+            {
+                throw; // Re-throw PythonExceptions as-is
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Internal error in unary operation '{Operator}': {ex.Message}");
+            }
         }
 
         private bool IsTrue(object obj)
@@ -277,13 +304,13 @@ namespace PurePythonInterpreter
         }
     }
 
-    // Assignment Nodes
+    // Enhanced Assignment Nodes with Line/Column Tracking
     public class AssignmentNode : ASTNode
     {
         public string VariableName { get; }
         public ASTNode Value { get; }
 
-        public AssignmentNode(string name, ASTNode value)
+        public AssignmentNode(string name, ASTNode value, int line = 0, int column = 0) : base(line, column)
         {
             VariableName = name;
             Value = value;
@@ -291,9 +318,20 @@ namespace PurePythonInterpreter
 
         public override object Evaluate(Environment env)
         {
-            var value = Value.Evaluate(env);
-            env.SetVariable(VariableName, value);
-            return value;
+            try
+            {
+                var value = Value.Evaluate(env);
+                env.SetVariable(VariableName, value);
+                return value;
+            }
+            catch (PythonException)
+            {
+                throw; // Re-throw PythonExceptions as-is
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Internal error in assignment to '{VariableName}': {ex.Message}");
+            }
         }
     }
 
@@ -302,7 +340,7 @@ namespace PurePythonInterpreter
         public List<string> VariableNames { get; }
         public ASTNode Value { get; }
 
-        public MultipleAssignmentNode(List<string> names, ASTNode value)
+        public MultipleAssignmentNode(List<string> names, ASTNode value, int line = 0, int column = 0) : base(line, column)
         {
             VariableNames = names;
             Value = value;
@@ -310,44 +348,55 @@ namespace PurePythonInterpreter
 
         public override object Evaluate(Environment env)
         {
-            var value = Value.Evaluate(env);
-            
-            // 값을 iterable로 변환
-            List<object> items;
-            if (value is PythonList list)
-                items = list.Items;
-            else if (value is PythonTuple tuple)
-                items = tuple.Items;
-            else if (value is string str)
-                items = str.Select(c => c.ToString()).Cast<object>().ToList();
-            else
-                throw new PythonException("TypeError", "Cannot unpack non-iterable object");
-
-            // 언더스코어(_) 처리 - 무시할 변수들
-            var validNames = new List<string>();
-            var validIndices = new List<int>();
-            
-            for (int i = 0; i < VariableNames.Count; i++)
+            try
             {
-                if (VariableNames[i] != "_")
+                var value = Value.Evaluate(env);
+
+                // 값을 iterable로 변환
+                List<object> items;
+                if (value is PythonList list)
+                    items = list.Items;
+                else if (value is PythonTuple tuple)
+                    items = tuple.Items;
+                else if (value is string str)
+                    items = str.Select(c => c.ToString()).Cast<object>().ToList();
+                else
+                    throw CreateException("TypeError", "Cannot unpack non-iterable object");
+
+                // 언더스코어(_) 처리 - 무시할 변수들
+                var validNames = new List<string>();
+                var validIndices = new List<int>();
+
+                for (int i = 0; i < VariableNames.Count; i++)
                 {
-                    validNames.Add(VariableNames[i]);
-                    validIndices.Add(i);
+                    if (VariableNames[i] != "_")
+                    {
+                        validNames.Add(VariableNames[i]);
+                        validIndices.Add(i);
+                    }
                 }
+
+                // 길이 검증 (언더스코어는 제외하고)
+                if (items.Count != VariableNames.Count)
+                    throw CreateException("ValueError", $"Cannot unpack {items.Count} values into {VariableNames.Count} variables");
+
+                // 변수에 값 할당 (언더스코어는 건너뛰기)
+                for (int i = 0; i < validNames.Count; i++)
+                {
+                    int actualIndex = validIndices[i];
+                    env.SetVariable(validNames[i], items[actualIndex]);
+                }
+
+                return value;
             }
-
-            // 길이 검증 (언더스코어는 제외하고)
-            if (items.Count != VariableNames.Count)
-                throw new PythonException("ValueError", $"Cannot unpack {items.Count} values into {VariableNames.Count} variables");
-
-            // 변수에 값 할당 (언더스코어는 건너뛰기)
-            for (int i = 0; i < validNames.Count; i++)
+            catch (PythonException)
             {
-                int actualIndex = validIndices[i];
-                env.SetVariable(validNames[i], items[actualIndex]);
+                throw; // Re-throw PythonExceptions as-is
             }
-
-            return value;
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Internal error in multiple assignment: {ex.Message}");
+            }
         }
     }
 
@@ -357,7 +406,7 @@ namespace PurePythonInterpreter
         public ASTNode Index { get; }
         public ASTNode Value { get; }
 
-        public IndexAssignmentNode(ASTNode obj, ASTNode index, ASTNode value)
+        public IndexAssignmentNode(ASTNode obj, ASTNode index, ASTNode value, int line = 0, int column = 0) : base(line, column)
         {
             Object = obj;
             Index = index;
@@ -366,28 +415,39 @@ namespace PurePythonInterpreter
 
         public override object Evaluate(Environment env)
         {
-            var obj = Object.Evaluate(env);
-            var index = Index.Evaluate(env);
-            var value = Value.Evaluate(env);
-
-            if (obj is PythonList list && index is double d)
+            try
             {
-                int i = (int)d;
-                if (i < 0) i += list.Items.Count;
-                if (i >= 0 && i < list.Items.Count)
+                var obj = Object.Evaluate(env);
+                var index = Index.Evaluate(env);
+                var value = Value.Evaluate(env);
+
+                if (obj is PythonList list && index is double d)
                 {
-                    list.Items[i] = value;
+                    int i = (int)d;
+                    if (i < 0) i += list.Items.Count;
+                    if (i >= 0 && i < list.Items.Count)
+                    {
+                        list.Items[i] = value;
+                        return value;
+                    }
+                    throw CreateException("IndexError", "list assignment index out of range");
+                }
+                else if (obj is PythonDict dict)
+                {
+                    dict.Items[index] = value;
                     return value;
                 }
-                throw new PythonException("IndexError", "list assignment index out of range");
-            }
-            else if (obj is PythonDict dict)
-            {
-                dict.Items[index] = value;
-                return value;
-            }
 
-            throw new PythonException("TypeError", $"'{obj?.GetType()}' object does not support item assignment");
+                throw CreateException("TypeError", $"'{obj?.GetType()}' object does not support item assignment");
+            }
+            catch (PythonException)
+            {
+                throw; // Re-throw PythonExceptions as-is
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Internal error in index assignment: {ex.Message}");
+            }
         }
     }
 
@@ -397,7 +457,7 @@ namespace PurePythonInterpreter
         public string Attribute { get; }
         public ASTNode Value { get; }
 
-        public AttributeAssignmentNode(ASTNode obj, string attribute, ASTNode value)
+        public AttributeAssignmentNode(ASTNode obj, string attribute, ASTNode value, int line = 0, int column = 0) : base(line, column)
         {
             Object = obj;
             Attribute = attribute;
@@ -406,16 +466,27 @@ namespace PurePythonInterpreter
 
         public override object Evaluate(Environment env)
         {
-            var obj = Object.Evaluate(env);
-            var value = Value.Evaluate(env);
-
-            if (obj is PythonInstance instance)
+            try
             {
-                instance.SetAttribute(Attribute, value);
-                return value;
-            }
+                var obj = Object.Evaluate(env);
+                var value = Value.Evaluate(env);
 
-            throw new PythonException("AttributeError", $"'{obj?.GetType()}' object has no attribute '{Attribute}'");
+                if (obj is PythonInstance instance)
+                {
+                    instance.SetAttribute(Attribute, value);
+                    return value;
+                }
+
+                throw CreateException("AttributeError", $"'{obj?.GetType()}' object has no attribute '{Attribute}'");
+            }
+            catch (PythonException)
+            {
+                throw; // Re-throw PythonExceptions as-is
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Internal error in attribute assignment: {ex.Message}");
+            }
         }
     }
 }

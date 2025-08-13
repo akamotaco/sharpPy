@@ -1,6 +1,11 @@
-namespace PurePythonInterpreter
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+
+namespace SharpPy
 {
-    // Module System
+    // Enhanced Module System with better error handling
     public class PythonModule
     {
         public string Name { get; }
@@ -14,7 +19,7 @@ namespace PurePythonInterpreter
 
         public object GetAttribute(string name) => ModuleEnv.GetVariable(name);
         public void SetAttribute(string name, object value) => ModuleEnv.SetVariable(name, value);
-        
+
         public override string ToString() => $"<module '{Name}'>";
     }
 
@@ -42,14 +47,18 @@ namespace PurePythonInterpreter
                 {
                     string code = File.ReadAllText(filename);
                     module = new PythonModule(name);
-                    
+
                     var interpreter = new PythonInterpreter();
                     interpreter.SetGlobalEnv(module.ModuleEnv);
-                    interpreter.Execute(code);
-                    
+                    interpreter.Execute(code, filename); // Pass filename for better error reporting
+
                     loadedModules[name] = module;
                     return module;
                 }
+            }
+            catch (PythonException ex)
+            {
+                throw new PythonException("ImportError", $"Failed to import module '{name}': {ex.Message}", ex.Line, ex.Column, ex.FileName);
             }
             catch (Exception ex)
             {
@@ -73,52 +82,59 @@ namespace PurePythonInterpreter
         private static PythonModule CreateMathModule()
         {
             var module = new PythonModule("math");
-            
+
             module.SetAttribute("pi", Math.PI);
             module.SetAttribute("e", Math.E);
-            
-            module.SetAttribute("sqrt", new BuiltinFunction("sqrt", args => {
-                if (args.Count != 1 || !(args[0] is double)) 
+
+            module.SetAttribute("sqrt", new BuiltinFunction("sqrt", args =>
+            {
+                if (args.Count != 1 || !(args[0] is double))
                     throw new PythonException("TypeError", "sqrt() takes exactly one numeric argument");
                 return Math.Sqrt((double)args[0]);
             }));
-            
-            module.SetAttribute("pow", new BuiltinFunction("pow", args => {
-                if (args.Count != 2 || !(args[0] is double) || !(args[1] is double)) 
+
+            module.SetAttribute("pow", new BuiltinFunction("pow", args =>
+            {
+                if (args.Count != 2 || !(args[0] is double) || !(args[1] is double))
                     throw new PythonException("TypeError", "pow() takes exactly two numeric arguments");
                 return Math.Pow((double)args[0], (double)args[1]);
             }));
-            
-            module.SetAttribute("sin", new BuiltinFunction("sin", args => {
-                if (args.Count != 1 || !(args[0] is double)) 
+
+            module.SetAttribute("sin", new BuiltinFunction("sin", args =>
+            {
+                if (args.Count != 1 || !(args[0] is double))
                     throw new PythonException("TypeError", "sin() takes exactly one numeric argument");
                 return Math.Sin((double)args[0]);
             }));
-            
-            module.SetAttribute("cos", new BuiltinFunction("cos", args => {
-                if (args.Count != 1 || !(args[0] is double)) 
+
+            module.SetAttribute("cos", new BuiltinFunction("cos", args =>
+            {
+                if (args.Count != 1 || !(args[0] is double))
                     throw new PythonException("TypeError", "cos() takes exactly one numeric argument");
                 return Math.Cos((double)args[0]);
             }));
-            
-            module.SetAttribute("tan", new BuiltinFunction("tan", args => {
-                if (args.Count != 1 || !(args[0] is double)) 
+
+            module.SetAttribute("tan", new BuiltinFunction("tan", args =>
+            {
+                if (args.Count != 1 || !(args[0] is double))
                     throw new PythonException("TypeError", "tan() takes exactly one numeric argument");
                 return Math.Tan((double)args[0]);
             }));
-            
-            module.SetAttribute("floor", new BuiltinFunction("floor", args => {
-                if (args.Count != 1 || !(args[0] is double)) 
+
+            module.SetAttribute("floor", new BuiltinFunction("floor", args =>
+            {
+                if (args.Count != 1 || !(args[0] is double))
                     throw new PythonException("TypeError", "floor() takes exactly one numeric argument");
                 return Math.Floor((double)args[0]);
             }));
-            
-            module.SetAttribute("ceil", new BuiltinFunction("ceil", args => {
-                if (args.Count != 1 || !(args[0] is double)) 
+
+            module.SetAttribute("ceil", new BuiltinFunction("ceil", args =>
+            {
+                if (args.Count != 1 || !(args[0] is double))
                     throw new PythonException("TypeError", "ceil() takes exactly one numeric argument");
                 return Math.Ceiling((double)args[0]);
             }));
-            
+
             return module;
         }
 
@@ -126,19 +142,22 @@ namespace PurePythonInterpreter
         {
             var module = new PythonModule("random");
             var random = new Random();
-            
-            module.SetAttribute("random", new BuiltinFunction("random", args => {
+
+            module.SetAttribute("random", new BuiltinFunction("random", args =>
+            {
                 if (args.Count != 0) throw new PythonException("TypeError", "random() takes no arguments");
                 return random.NextDouble();
             }));
-            
-            module.SetAttribute("randint", new BuiltinFunction("randint", args => {
-                if (args.Count != 2 || !(args[0] is double) || !(args[1] is double)) 
+
+            module.SetAttribute("randint", new BuiltinFunction("randint", args =>
+            {
+                if (args.Count != 2 || !(args[0] is double) || !(args[1] is double))
                     throw new PythonException("TypeError", "randint() takes exactly two integer arguments");
                 return (double)random.Next((int)(double)args[0], (int)(double)args[1] + 1);
             }));
-            
-            module.SetAttribute("choice", new BuiltinFunction("choice", args => {
+
+            module.SetAttribute("choice", new BuiltinFunction("choice", args =>
+            {
                 if (args.Count != 1) throw new PythonException("TypeError", "choice() takes exactly one argument");
                 if (args[0] is PythonList list)
                 {
@@ -152,8 +171,9 @@ namespace PurePythonInterpreter
                 }
                 throw new PythonException("TypeError", "choice() argument must be a sequence");
             }));
-            
-            module.SetAttribute("shuffle", new BuiltinFunction("shuffle", args => {
+
+            module.SetAttribute("shuffle", new BuiltinFunction("shuffle", args =>
+            {
                 if (args.Count != 1) throw new PythonException("TypeError", "shuffle() takes exactly one argument");
                 if (args[0] is PythonList list)
                 {
@@ -166,20 +186,22 @@ namespace PurePythonInterpreter
                 }
                 throw new PythonException("TypeError", "shuffle() argument must be a list");
             }));
-            
+
             return module;
         }
 
         private static PythonModule CreateOsModule()
         {
             var module = new PythonModule("os");
-            
-            module.SetAttribute("getcwd", new BuiltinFunction("getcwd", args => {
+
+            module.SetAttribute("getcwd", new BuiltinFunction("getcwd", args =>
+            {
                 if (args.Count != 0) throw new PythonException("TypeError", "getcwd() takes no arguments");
                 return Directory.GetCurrentDirectory();
             }));
-            
-            module.SetAttribute("listdir", new BuiltinFunction("listdir", args => {
+
+            module.SetAttribute("listdir", new BuiltinFunction("listdir", args =>
+            {
                 string path = args.Count == 0 ? "." : args[0]?.ToString() ?? ".";
                 var list = new PythonList();
                 try
@@ -193,39 +215,42 @@ namespace PurePythonInterpreter
                 }
                 return list;
             }));
-            
+
             module.SetAttribute("path", CreateOsPathModule());
-            
+
             return module;
         }
-        
+
         private static PythonModule CreateOsPathModule()
         {
             var module = new PythonModule("path");
-            
-            module.SetAttribute("exists", new BuiltinFunction("exists", args => {
+
+            module.SetAttribute("exists", new BuiltinFunction("exists", args =>
+            {
                 if (args.Count != 1) throw new PythonException("TypeError", "exists() takes exactly one argument");
                 string path = args[0]?.ToString() ?? "";
                 return File.Exists(path) || Directory.Exists(path);
             }));
-            
-            module.SetAttribute("isfile", new BuiltinFunction("isfile", args => {
+
+            module.SetAttribute("isfile", new BuiltinFunction("isfile", args =>
+            {
                 if (args.Count != 1) throw new PythonException("TypeError", "isfile() takes exactly one argument");
                 string path = args[0]?.ToString() ?? "";
                 return File.Exists(path);
             }));
-            
-            module.SetAttribute("isdir", new BuiltinFunction("isdir", args => {
+
+            module.SetAttribute("isdir", new BuiltinFunction("isdir", args =>
+            {
                 if (args.Count != 1) throw new PythonException("TypeError", "isdir() takes exactly one argument");
                 string path = args[0]?.ToString() ?? "";
                 return Directory.Exists(path);
             }));
-            
+
             return module;
         }
     }
 
-    // Environment Class (Variable Scope Management)
+    // Enhanced Environment Class with better error handling
     public class Environment
     {
         private Dictionary<string, object> variables = new Dictionary<string, object>();
@@ -234,24 +259,26 @@ namespace PurePythonInterpreter
         public Environment(Environment parent = null)
         {
             this.parent = parent;
-            if (parent == null) SetupBuiltins();
+            if (parent == null) SetupBuiltins(this);
         }
 
-        private void SetupBuiltins()
+        static private void SetupBuiltins(Environment env)
         {
-            SetVariable("print", new BuiltinFunction("print", args =>
+            env.SetVariable("print", new BuiltinFunction("print", args =>
             {
-                var output = string.Join(" ", args.Select(arg => {
+                var output = string.Join(" ", args.Select(arg =>
+                {
                     if (arg == null) return "None";
                     if (arg is string s) return s;
                     if (arg is bool b) return b ? "True" : "False";
                     return arg.ToString();
                 }));
+
                 Console.WriteLine(output);
                 return null;
             }));
 
-            SetVariable("len", new BuiltinFunction("len", args =>
+            env.SetVariable("len", new BuiltinFunction("len", args =>
             {
                 if (args.Count != 1) throw new PythonException("TypeError", "len() takes exactly one argument");
                 var obj = args[0];
@@ -262,7 +289,7 @@ namespace PurePythonInterpreter
                 throw new PythonException("TypeError", $"object of type '{GetTypeName(obj)}' has no len()");
             }));
 
-            SetVariable("str", new BuiltinFunction("str", args =>
+            env.SetVariable("str", new BuiltinFunction("str", args =>
             {
                 if (args.Count != 1) throw new PythonException("TypeError", "str() takes exactly one argument");
                 var obj = args[0];
@@ -271,7 +298,7 @@ namespace PurePythonInterpreter
                 return obj.ToString();
             }));
 
-            SetVariable("int", new BuiltinFunction("int", args =>
+            env.SetVariable("int", new BuiltinFunction("int", args =>
             {
                 if (args.Count != 1) throw new PythonException("TypeError", "int() takes exactly one argument");
                 if (args[0] is double d) return Math.Truncate(d);
@@ -280,7 +307,7 @@ namespace PurePythonInterpreter
                 throw new PythonException("ValueError", $"invalid literal for int(): '{args[0]}'");
             }));
 
-            SetVariable("float", new BuiltinFunction("float", args =>
+            env.SetVariable("float", new BuiltinFunction("float", args =>
             {
                 if (args.Count != 1) throw new PythonException("TypeError", "float() takes exactly one argument");
                 if (args[0] is double d) return d;
@@ -289,13 +316,13 @@ namespace PurePythonInterpreter
                 throw new PythonException("ValueError", $"invalid literal for float(): '{args[0]}'");
             }));
 
-            SetVariable("bool", new BuiltinFunction("bool", args =>
+            env.SetVariable("bool", new BuiltinFunction("bool", args =>
             {
                 if (args.Count != 1) throw new PythonException("TypeError", "bool() takes exactly one argument");
                 return IsTrue(args[0]);
             }));
 
-            SetVariable("list", new BuiltinFunction("list", args =>
+            env.SetVariable("list", new BuiltinFunction("list", args =>
             {
                 var list = new PythonList();
                 if (args.Count == 1)
@@ -313,9 +340,9 @@ namespace PurePythonInterpreter
                 return list;
             }));
 
-            SetVariable("dict", new BuiltinFunction("dict", args => new PythonDict()));
+            env.SetVariable("dict", new BuiltinFunction("dict", args => new PythonDict()));
 
-            SetVariable("tuple", new BuiltinFunction("tuple", args =>
+            env.SetVariable("tuple", new BuiltinFunction("tuple", args =>
             {
                 var tuple = new PythonTuple();
                 if (args.Count == 1)
@@ -333,12 +360,12 @@ namespace PurePythonInterpreter
                 return tuple;
             }));
 
-            SetVariable("range", new BuiltinFunction("range", args =>
+            env.SetVariable("range", new BuiltinFunction("range", args =>
             {
                 if (args.Count < 1 || args.Count > 3) throw new PythonException("TypeError", "range() takes 1 to 3 arguments");
-                
+
                 int start = 0, stop, step = 1;
-                
+
                 if (args.Count == 1)
                     stop = (int)(double)args[0];
                 else if (args.Count == 2)
@@ -353,7 +380,7 @@ namespace PurePythonInterpreter
                     step = (int)(double)args[2];
                     if (step == 0) throw new PythonException("ValueError", "range() step argument must not be zero");
                 }
-                
+
                 var list = new PythonList();
                 if (step > 0)
                     for (int i = start; i < stop; i += step)
@@ -361,25 +388,25 @@ namespace PurePythonInterpreter
                 else
                     for (int i = start; i > stop; i += step)
                         list.Items.Add((double)i);
-                
+
                 return list;
             }));
 
-            SetVariable("input", new BuiltinFunction("input", args =>
+            env.SetVariable("input", new BuiltinFunction("input", args =>
             {
                 if (args.Count > 1) throw new PythonException("TypeError", "input() takes at most 1 argument");
                 if (args.Count == 1) Console.Write(args[0]);
                 return Console.ReadLine() ?? "";
             }));
 
-            SetVariable("abs", new BuiltinFunction("abs", args =>
+            env.SetVariable("abs", new BuiltinFunction("abs", args =>
             {
                 if (args.Count != 1) throw new PythonException("TypeError", "abs() takes exactly one argument");
                 if (args[0] is double d) return Math.Abs(d);
                 throw new PythonException("TypeError", "abs() argument must be a number");
             }));
 
-            SetVariable("max", new BuiltinFunction("max", args =>
+            env.SetVariable("max", new BuiltinFunction("max", args =>
             {
                 if (args.Count == 0) throw new PythonException("TypeError", "max expected at least 1 argument, got 0");
                 if (args.Count == 1 && args[0] is PythonList list)
@@ -390,7 +417,7 @@ namespace PurePythonInterpreter
                 return args.Cast<double>().Max();
             }));
 
-            SetVariable("min", new BuiltinFunction("min", args =>
+            env.SetVariable("min", new BuiltinFunction("min", args =>
             {
                 if (args.Count == 0) throw new PythonException("TypeError", "min expected at least 1 argument, got 0");
                 if (args.Count == 1 && args[0] is PythonList list)
@@ -401,21 +428,21 @@ namespace PurePythonInterpreter
                 return args.Cast<double>().Min();
             }));
 
-            SetVariable("sum", new BuiltinFunction("sum", args =>
+            env.SetVariable("sum", new BuiltinFunction("sum", args =>
             {
                 if (args.Count < 1 || args.Count > 2) throw new PythonException("TypeError", "sum() takes 1 or 2 arguments");
                 double start = args.Count == 2 ? (double)args[1] : 0;
-                
+
                 if (args[0] is PythonList list)
                     return list.Items.Cast<double>().Sum() + start;
                 throw new PythonException("TypeError", "sum() argument must be a sequence of numbers");
             }));
 
-            SetVariable("enumerate", new BuiltinFunction("enumerate", args =>
+            env.SetVariable("enumerate", new BuiltinFunction("enumerate", args =>
             {
                 if (args.Count < 1 || args.Count > 2) throw new PythonException("TypeError", "enumerate() takes 1 or 2 arguments");
                 int start = args.Count == 2 ? (int)(double)args[1] : 0;
-                
+
                 var result = new PythonList();
                 if (args[0] is PythonList list)
                 {
@@ -450,14 +477,14 @@ namespace PurePythonInterpreter
                 return result;
             }));
 
-            SetVariable("zip", new BuiltinFunction("zip", args =>
+            env.SetVariable("zip", new BuiltinFunction("zip", args =>
             {
                 if (args.Count == 0) return new PythonList();
-                
+
                 var iterables = new List<PythonList>();
                 foreach (var arg in args)
                 {
-                    if (arg is PythonList list) 
+                    if (arg is PythonList list)
                         iterables.Add(list);
                     else if (arg is PythonTuple tuple)
                     {
@@ -473,10 +500,10 @@ namespace PurePythonInterpreter
                     }
                     else throw new PythonException("TypeError", "zip argument must be iterable");
                 }
-                
+
                 var result = new PythonList();
                 int minLen = iterables.Min(it => it.Items.Count);
-                
+
                 for (int i = 0; i < minLen; i++)
                 {
                     var tuple = new PythonTuple();
@@ -484,18 +511,18 @@ namespace PurePythonInterpreter
                         tuple.Items.Add(iterable.Items[i]);
                     result.Items.Add(tuple);
                 }
-                
+
                 return result;
             }));
 
-            SetVariable("type", new BuiltinFunction("type", args =>
+            env.SetVariable("type", new BuiltinFunction("type", args =>
             {
                 if (args.Count != 1) throw new PythonException("TypeError", "type() takes exactly one argument");
                 return GetTypeName(args[0]);
             }));
         }
 
-        private bool IsTrue(object obj)
+        static private bool IsTrue(object obj)
         {
             if (obj == null) return false;
             if (obj is bool b) return b;
@@ -507,7 +534,7 @@ namespace PurePythonInterpreter
             return true;
         }
 
-        private string GetTypeName(object obj)
+        static private string GetTypeName(object obj)
         {
             return obj switch
             {
