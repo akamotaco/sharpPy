@@ -120,7 +120,7 @@ namespace SharpPy
                     string code = File.ReadAllText(foundPath);
                     module = new PythonModule(name);
 
-                    var interpreter = new PythonInterpreter();
+                    var interpreter = new SharpPy.PythonInterpreter();
                     interpreter.SetGlobalEnv(module.ModuleEnv);
                     interpreter.Execute(code, foundPath);
 
@@ -151,7 +151,7 @@ namespace SharpPy
                 if (File.Exists(initFile))
                 {
                     string code = File.ReadAllText(initFile);
-                    var interpreter = new PythonInterpreter();
+                    var interpreter = new SharpPy.PythonInterpreter();
                     interpreter.SetGlobalEnv(module.ModuleEnv);
                     interpreter.Execute(code, initFile);
                 }
@@ -167,7 +167,7 @@ namespace SharpPy
                         {
                             var submodule = new PythonModule($"{packageName}.{fileName}");
                             string code = File.ReadAllText(pyFile);
-                            var interpreter = new PythonInterpreter();
+                            var interpreter = new SharpPy.PythonInterpreter();
                             interpreter.SetGlobalEnv(submodule.ModuleEnv);
                             interpreter.Execute(code, pyFile);
                             
@@ -822,6 +822,86 @@ namespace SharpPy
                     throw new PythonException("TypeError", "all() argument must be iterable");
 
                 return items.All(IsTrue);
+            }));
+
+            env.SetVariable("eval", new BuiltinFunction("eval", args =>
+            {
+                if (args.Count < 1 || args.Count > 3) 
+                    throw new PythonException("TypeError", "eval() takes 1 to 3 arguments");
+                
+                var expression = args[0];
+                if (!(expression is string exprStr))
+                    throw new PythonException("TypeError", "eval() first argument must be a string");
+                
+                var globals = args.Count > 1 && args[1] != null ? args[1] as Environment : env;
+                var locals = args.Count > 2 && args[2] != null ? args[2] as Environment : globals;
+                
+                if (globals == null) globals = env;
+                if (locals == null) locals = globals;
+                
+                try
+                {
+                    return PythonCompiler.Eval(exprStr, globals, locals);
+                }
+                catch (Exception ex)
+                {
+                    throw new PythonException("SyntaxError", $"Error in eval(): {ex.Message}");
+                }
+            }));
+
+            env.SetVariable("exec", new BuiltinFunction("exec", args =>
+            {
+                if (args.Count < 1 || args.Count > 3) 
+                    throw new PythonException("TypeError", "exec() takes 1 to 3 arguments");
+                
+                var source = args[0];
+                if (!(source is string sourceStr))
+                    throw new PythonException("TypeError", "exec() first argument must be a string");
+                
+                var globals = args.Count > 1 && args[1] != null ? args[1] as Environment : env;
+                var locals = args.Count > 2 && args[2] != null ? args[2] as Environment : globals;
+                
+                if (globals == null) globals = env;
+                if (locals == null) locals = globals;
+                
+                try
+                {
+                    PythonCompiler.Exec(sourceStr, globals, locals);
+                    return null; // exec returns None
+                }
+                catch (Exception ex)
+                {
+                    throw new PythonException("SyntaxError", $"Error in exec(): {ex.Message}");
+                }
+            }));
+
+            env.SetVariable("compile", new BuiltinFunction("compile", args =>
+            {
+                if (args.Count != 3) 
+                    throw new PythonException("TypeError", "compile() takes exactly 3 arguments");
+                
+                var source = args[0];
+                var filename = args[1];
+                var mode = args[2];
+                
+                if (!(source is string sourceStr))
+                    throw new PythonException("TypeError", "compile() first argument must be a string");
+                if (!(filename is string filenameStr))
+                    throw new PythonException("TypeError", "compile() second argument must be a string");
+                if (!(mode is string modeStr))
+                    throw new PythonException("TypeError", "compile() third argument must be a string");
+                
+                if (modeStr != "exec" && modeStr != "eval")
+                    throw new PythonException("ValueError", "compile() mode must be 'exec' or 'eval'");
+                
+                try
+                {
+                    return PythonCompiler.Compile(sourceStr, filenameStr, modeStr);
+                }
+                catch (Exception ex)
+                {
+                    throw new PythonException("SyntaxError", $"Error in compile(): {ex.Message}");
+                }
             }));
         }
 

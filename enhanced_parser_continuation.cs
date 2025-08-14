@@ -408,7 +408,7 @@ namespace SharpPy
                    currentToken.Type == TokenType.FINALLY;
         }
 
-        private ASTNode ParseExpression() => ParseConditionalExpression();
+        internal ASTNode ParseExpression() => ParseConditionalExpression();
 
         private ASTNode ParseConditionalExpression()
         {
