@@ -11,12 +11,14 @@ namespace SharpPy
     public enum TokenType
     {
         // Literals
-        NUMBER, STRING, BOOLEAN, NONE, IDENTIFIER,
+        NUMBER, STRING, BOOLEAN, NONE, IDENTIFIER, FSTRING, // Added FSTRING
         // Keywords
         DEF, CLASS, IF, ELSE, ELIF, FOR, WHILE, IN, IS, BREAK, CONTINUE,
         TRY, EXCEPT, FINALLY, RAISE, IMPORT, FROM, AS, RETURN, AND, OR, NOT, LAMBDA,
+        WITH, DEL, // Added WITH and DEL for with statement and del keyword
         // Operators
         OPERATOR, ASSIGN,
+        COMPOUND_ASSIGN, // Added for +=, -=, *=, /=, etc.
         // Delimiters
         LPAREN, RPAREN, LBRACKET, RBRACKET, LBRACE, RBRACE, COLON, COMMA, DOT,
         // Special

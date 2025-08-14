@@ -6,7 +6,7 @@ using System.Linq;
 
 namespace SharpPy
 {
-    // Lexer (Tokenizer) - Enhanced but no major changes needed as it already tracks line/column
+    // Lexer (Tokenizer) - Enhanced with F-String and Compound Assignment Support
     public class Lexer
     {
         private string input;
@@ -107,6 +107,47 @@ namespace SharpPy
             return sb.ToString();
         }
 
+        private string ReadFString(char quote)
+        {
+            var sb = new StringBuilder();
+            int startLine = line;
+            int startColumn = column;
+            Advance(); // Skip opening quote
+
+            while (currentChar != '\0' && currentChar != quote)
+            {
+                if (currentChar == '\\')
+                {
+                    Advance();
+                    switch (currentChar)
+                    {
+                        case 'n': sb.Append('\n'); break;
+                        case 't': sb.Append('\t'); break;
+                        case 'r': sb.Append('\r'); break;
+                        case '\\': sb.Append('\\'); break;
+                        case '\'': sb.Append('\''); break;
+                        case '"': sb.Append('"'); break;
+                        case '0': sb.Append('\0'); break;
+                        case '{': sb.Append('{'); break;  // Allow escaping braces
+                        case '}': sb.Append('}'); break;
+                        default: sb.Append(currentChar); break;
+                    }
+                }
+                else
+                {
+                    sb.Append(currentChar);
+                }
+                Advance();
+            }
+
+            if (currentChar == quote)
+                Advance(); // Skip closing quote
+            else
+                throw new PythonException("SyntaxError", $"Unterminated f-string literal", startLine, startColumn);
+
+            return sb.ToString();
+        }
+
         private string ReadIdentifier()
         {
             var sb = new StringBuilder();
@@ -201,6 +242,16 @@ namespace SharpPy
                     continue;
                 }
 
+                // Check for f-strings
+                if (currentChar == 'f' && position + 1 < input.Length && 
+                    (input[position + 1] == '"' || input[position + 1] == '\''))
+                {
+                    Advance(); // Skip 'f'
+                    char quote = currentChar;
+                    tokens.Add(new Token(TokenType.FSTRING, ReadFString(quote), tokenLine, tokenColumn));
+                    continue;
+                }
+
                 if (currentChar == '"' || currentChar == '\'')
                 {
                     char quote = currentChar;
@@ -236,6 +287,8 @@ namespace SharpPy
                         "or" => TokenType.OR,
                         "not" => TokenType.NOT,
                         "lambda" => TokenType.LAMBDA,
+                        "with" => TokenType.WITH,  // Added WITH
+                        "del" => TokenType.DEL,    // Added DEL
                         "True" => TokenType.BOOLEAN,
                         "False" => TokenType.BOOLEAN,
                         "None" => TokenType.NONE,
@@ -245,10 +298,31 @@ namespace SharpPy
                     continue;
                 }
 
-                // Two-character operators
+                // Check for compound assignment operators first
                 if (position + 1 < input.Length)
                 {
                     string twoChar = input.Substring(position, 2);
+                    
+                    // Compound assignment operators
+                    if (new[] { "+=", "-=", "*=", "/=", "%=" }.Contains(twoChar))
+                    {
+                        tokens.Add(new Token(TokenType.COMPOUND_ASSIGN, twoChar, tokenLine, tokenColumn));
+                        Advance();
+                        Advance();
+                        continue;
+                    }
+                    
+                    // Check for **=
+                    if (position + 2 < input.Length && input.Substring(position, 3) == "**=")
+                    {
+                        tokens.Add(new Token(TokenType.COMPOUND_ASSIGN, "**=", tokenLine, tokenColumn));
+                        Advance();
+                        Advance();
+                        Advance();
+                        continue;
+                    }
+                    
+                    // Other two-character operators
                     if (new[] { "==", "!=", "<=", ">=", "**", "->" }.Contains(twoChar))
                     {
                         tokens.Add(new Token(TokenType.OPERATOR, twoChar, tokenLine, tokenColumn));
@@ -401,6 +475,8 @@ namespace SharpPy
                 TokenType.FOR => ParseFor(),
                 TokenType.WHILE => ParseWhile(),
                 TokenType.TRY => ParseTry(),
+                TokenType.WITH => ParseWith(),  // Added WITH statement parsing
+                TokenType.DEL => ParseDel(),    // Added DEL statement parsing
                 TokenType.IMPORT => ParseImport(),
                 TokenType.FROM => ParseImport(), // FROM...IMPORT도 ParseImport에서 처리
                 TokenType.RETURN => ParseReturn(),
@@ -583,6 +659,7 @@ namespace SharpPy
                    currentToken.Type == TokenType.IDENTIFIER ||
                    currentToken.Type == TokenType.NUMBER ||
                    currentToken.Type == TokenType.STRING ||
+                   currentToken.Type == TokenType.FSTRING ||  // Added FSTRING
                    currentToken.Type == TokenType.BOOLEAN ||
                    currentToken.Type == TokenType.NONE ||
                    currentToken.Type == TokenType.LBRACKET ||
@@ -592,6 +669,7 @@ namespace SharpPy
                    currentToken.Type == TokenType.FOR ||
                    currentToken.Type == TokenType.WHILE ||
                    currentToken.Type == TokenType.TRY ||
+                   currentToken.Type == TokenType.WITH ||  // Added WITH
                    currentToken.Type == TokenType.RETURN ||
                    currentToken.Type == TokenType.BREAK ||
                    currentToken.Type == TokenType.CONTINUE ||

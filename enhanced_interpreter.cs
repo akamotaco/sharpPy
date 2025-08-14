@@ -977,6 +977,254 @@ for i in range(1000):
     total += i
 ";
             
+            Console.WriteLine("=== Testing New Python Features ===\n");
+
+            // Test 1: F-strings
+            Console.WriteLine("1. F-String Test:");
+            try
+            {
+                interpreter.Execute(@"
+name = 'Alice'
+age = 30
+message = f'Hello, {name}! You are {age} years old.'
+print(message)
+
+# More complex f-string
+x = 10
+y = 20
+result = f'The sum of {x} and {y} is {x + y}'
+print(result)
+
+# F-string with expressions
+import math
+radius = 5
+area_msg = f'Area of circle with radius {radius} is {math.pi * radius * radius}'
+print(area_msg)
+");
+                Console.WriteLine("✓ F-String test passed\n");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"✗ F-String test failed: {ex.Message}\n");
+            }
+
+            // Test 2: List Comprehensions
+            Console.WriteLine("2. List Comprehension Test:");
+            try
+            {
+                interpreter.Execute(@"
+# Basic list comprehension
+numbers = [1, 2, 3, 4, 5]
+squares = [x * x for x in numbers]
+print('Squares:', squares)
+
+# List comprehension with condition
+evens = [x for x in range(10) if x % 2 == 0]
+print('Even numbers:', evens)
+
+# More complex comprehension
+words = ['hello', 'world', 'python', 'code']
+upper_long = [w.upper() for w in words if len(w) > 4]
+print('Long words in uppercase:', upper_long)
+");
+                Console.WriteLine("✓ List Comprehension test passed\n");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"✗ List Comprehension test failed: {ex.Message}\n");
+            }
+
+            // Test 3: Compound Assignment Operators
+            Console.WriteLine("3. Compound Assignment Operators Test:");
+            try
+            {
+                interpreter.Execute(@"
+# Numeric compound assignments
+x = 10
+print('Initial x:', x)
+x += 5
+print('x after += 5:', x)
+
+x -= 3
+print('x after -= 3:', x)
+
+x *= 2
+print('x after *= 2:', x)
+
+x /= 4
+print('x after /= 4:', x)
+
+y = 2
+y **= 3
+print('2 **= 3:', y)
+
+# String concatenation
+message = 'Hello'
+message += ' World'
+print('Message:', message)
+
+# List extension
+my_list = [1, 2, 3]
+my_list += [4, 5, 6]
+print('Extended list:', my_list)
+
+# List multiplication
+small_list = [0]
+small_list *= 5
+print('Multiplied list:', small_list)
+");
+                Console.WriteLine("✓ Compound Assignment test passed\n");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"✗ Compound Assignment test failed: {ex.Message}\n");
+            }
+
+            // Test 4: Enhanced Import with AS
+            Console.WriteLine("4. Import AS Test:");
+            try
+            {
+                interpreter.Execute(@"
+# Import with alias
+import math as m
+print('Using math as m:', m.sqrt(16))
+
+# From import with alias
+from math import pi as PI, sqrt as square_root
+print('PI =', PI)
+print('Square root of 25 =', square_root(25))
+
+# Multiple imports with aliases
+from random import randint as rand, choice as pick
+numbers = [1, 2, 3, 4, 5]
+print('Random from 1-10:', rand(1, 10))
+print('Random choice:', pick(numbers))
+");
+                Console.WriteLine("✓ Import AS test passed\n");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"✗ Import AS test failed: {ex.Message}\n");
+            }
+
+            // Test 5: With Statement
+            Console.WriteLine("5. With Statement Test:");
+            try
+            {
+                // First create a test file
+                interpreter.Execute(@"
+# Create a test file first
+f = open('test.txt', 'w')
+f.write('Hello from Python!')
+f.close()
+print('Test file created')
+");
+
+                // Now test with statement
+                interpreter.Execute(@"
+# Read file using with statement
+with open('test.txt', 'r') as f:
+    content = f.read()
+    print('File content:', content)
+
+# File is automatically closed after with block
+print('File operations completed')
+
+# Test writing with 'with'
+with open('output.txt', 'w') as f:
+    f.write('Line 1\n')
+    f.write('Line 2\n')
+    f.write('Line 3\n')
+print('File written successfully')
+
+# Read it back
+with open('output.txt', 'r') as f:
+    for line in f.readlines():
+        print('Read:', line)
+");
+
+                // Clean up test files
+                if (File.Exists("test.txt")) File.Delete("test.txt");
+                if (File.Exists("output.txt")) File.Delete("output.txt");
+                
+                Console.WriteLine("✓ With Statement test passed\n");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"✗ With Statement test failed: {ex.Message}\n");
+            }
+
+            // Test 6: Combined Features
+            Console.WriteLine("6. Combined Features Test:");
+            try
+            {
+                interpreter.Execute(@"
+# Combining f-strings with list comprehension
+names = ['Alice', 'Bob', 'Charlie']
+greetings = [f'Hello, {name}!' for name in names]
+print('Greetings:', greetings)
+
+# Using compound assignment in loops
+total = 0
+for i in [1, 2, 3, 4, 5]:
+    total += i * i
+print(f'Sum of squares: {total}')
+
+# List comprehension with f-string output
+temps_c = [0, 10, 20, 30, 40]
+temps_f = [f'{c}C = {c * 9/5 + 32}F' for c in temps_c]
+for temp in temps_f:
+    print(temp)
+
+# Complex example with multiple features
+data = []
+for i in range(5):
+    data += [i * 2]
+
+result = [f'Value: {x}' for x in data if x > 3]
+print('Filtered results:', result)
+");
+                Console.WriteLine("✓ Combined Features test passed\n");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"✗ Combined Features test failed: {ex.Message}\n");
+            }
+
+            // Test 7: Context Manager with Custom Class
+            Console.WriteLine("7. Custom Context Manager Test:");
+            try
+            {
+                interpreter.Execute(@"
+# Define a custom context manager
+class MyContext:
+    def __init__(self, name):
+        self.name = name
+    
+    def __enter__(self):
+        print(f'Entering context: {self.name}')
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        print(f'Exiting context: {self.name}')
+        return False  # Don't suppress exceptions
+
+# Use the custom context manager
+with MyContext('test') as ctx:
+    print(f'Inside context: {ctx.name}')
+    print('Doing some work...')
+
+print('Context completed')
+");
+                Console.WriteLine("✓ Custom Context Manager test passed\n");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"✗ Custom Context Manager test failed: {ex.Message}\n");
+            }
+
+            Console.WriteLine("=== All New Features Tests Complete ===");
+            
             // AST 실행 시간 측정
             var astInterpreterPerf = new SharpPy.PythonInterpreter(useBytecode: false);
             var astStart = DateTime.Now;

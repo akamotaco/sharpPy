@@ -824,6 +824,56 @@ namespace SharpPy
                 return items.All(IsTrue);
             }));
 
+            // ADD globals() function - returns current environment variables as dict
+            env.SetVariable("globals", new BuiltinFunction("globals", args =>
+            {
+                if (args.Count != 0) throw new PythonException("TypeError", "globals() takes no arguments");
+                
+                var globalsDict = new PythonDict();
+                var allVars = env.GetAllVariables();
+                
+                foreach (var kvp in allVars)
+                {
+                    globalsDict.Items[kvp.Key] = kvp.Value;
+                }
+                
+                return globalsDict;
+            }));
+
+            // ADD open() function for with statement support
+            env.SetVariable("open", new BuiltinFunction("open", args =>
+            {
+                if (args.Count < 1 || args.Count > 2) 
+                    throw new PythonException("TypeError", "open() takes 1 or 2 arguments");
+                
+                string path = args[0]?.ToString();
+                if (string.IsNullOrEmpty(path))
+                    throw new PythonException("TypeError", "open() argument 1 must be a string");
+                
+                string mode = args.Count > 1 ? args[1]?.ToString() ?? "r" : "r";
+                
+                try
+                {
+                    return new FileObject(path, mode);
+                }
+                catch (FileNotFoundException)
+                {
+                    throw new PythonException("FileNotFoundError", $"No such file or directory: '{path}'");
+                }
+                catch (DirectoryNotFoundException)
+                {
+                    throw new PythonException("FileNotFoundError", $"No such file or directory: '{path}'");
+                }
+                catch (IOException ex)
+                {
+                    throw new PythonException("IOError", $"Cannot open file '{path}': {ex.Message}");
+                }
+                catch (Exception ex)
+                {
+                    throw new PythonException("IOError", $"Error opening file '{path}': {ex.Message}");
+                }
+            }));
+
             env.SetVariable("eval", new BuiltinFunction("eval", args =>
             {
                 if (args.Count < 1 || args.Count > 3) 
@@ -947,6 +997,22 @@ namespace SharpPy
             if (parent != null)
                 return parent.GetVariable(name);
             throw new PythonException("NameError", $"Name '{name}' is not defined");
+        }
+
+        public void DeleteVariable(string name)
+        {
+            if (variables.ContainsKey(name))
+            {
+                variables.Remove(name);
+            }
+            else if (parent != null)
+            {
+                parent.DeleteVariable(name);
+            }
+            else
+            {
+                throw new PythonException("NameError", $"Name '{name}' is not defined");
+            }
         }
 
         public bool HasVariable(string name) => variables.ContainsKey(name) || (parent?.HasVariable(name) ?? false);
