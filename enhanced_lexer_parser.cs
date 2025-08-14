@@ -400,6 +400,7 @@ namespace SharpPy
                 TokenType.WHILE => ParseWhile(),
                 TokenType.TRY => ParseTry(),
                 TokenType.IMPORT => ParseImport(),
+                TokenType.FROM => ParseImport(), // FROM...IMPORT도 ParseImport에서 처리
                 TokenType.RETURN => ParseReturn(),
                 TokenType.BREAK => ParseBreak(),
                 TokenType.CONTINUE => ParseContinue(),

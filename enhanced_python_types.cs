@@ -321,7 +321,7 @@ namespace SharpPy
         {
             return value switch
             {
-                double => "int",
+                double d => Math.Abs(d - Math.Truncate(d)) < 1e-16 ? "int" : "float", // 1e-15보다 작은 허용치
                 string => "str",
                 bool => "bool",
                 null => "None",

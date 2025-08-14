@@ -579,8 +579,8 @@ namespace SharpPy
         {
             try
             {
-                var module = ModuleSystem.ImportModule(ModuleName);
-                string name = Alias ?? ModuleName;
+                var module = ModuleSystem.ImportModule(ModuleName, env.SearchPaths);
+                string name = Alias ?? ModuleName.Split('.').Last(); // 패키지의 경우 마지막 이름 사용
                 env.SetVariable(name, module);
                 return module;
             }
@@ -591,6 +591,69 @@ namespace SharpPy
             catch (Exception ex)
             {
                 throw CreateException("ImportError", $"Failed to import module '{ModuleName}': {ex.Message}");
+            }
+        }
+    }
+
+    public class FromImportNode : ASTNode
+    {
+        public string ModuleName { get; }
+        public List<(string Name, string Alias)> ImportItems { get; }
+        public bool ImportAll { get; }
+
+        public FromImportNode(string moduleName, List<(string, string)> importItems, bool importAll = false, int line = 0, int column = 0) : base(line, column)
+        {
+            ModuleName = moduleName;
+            ImportItems = importItems ?? new List<(string, string)>();
+            ImportAll = importAll;
+        }
+
+        public override object Evaluate(Environment env)
+        {
+            try
+            {
+                var module = ModuleSystem.ImportModule(ModuleName, env.SearchPaths);
+                
+                if (ImportAll)
+                {
+                    // from module import * - Import all public attributes
+                    var allVariables = module.ModuleEnv.GetAllVariables();
+                    foreach (var kvp in allVariables)
+                    {
+                        // Skip private attributes (starting with _)
+                        if (!kvp.Key.StartsWith("_"))
+                        {
+                            env.SetVariable(kvp.Key, kvp.Value);
+                        }
+                    }
+                }
+                else
+                {
+                    // from module import specific items
+                    foreach (var (name, alias) in ImportItems)
+                    {
+                        try
+                        {
+                            var value = module.GetAttribute(name);
+                            string varName = alias ?? name;
+                            env.SetVariable(varName, value);
+                        }
+                        catch (PythonException)
+                        {
+                            throw CreateException("ImportError", $"Cannot import name '{name}' from '{ModuleName}'");
+                        }
+                    }
+                }
+                
+                return null;
+            }
+            catch (PythonException)
+            {
+                throw; // Re-throw PythonExceptions as-is
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("ImportError", $"Failed to import from module '{ModuleName}': {ex.Message}");
             }
         }
     }

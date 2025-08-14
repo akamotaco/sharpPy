@@ -132,7 +132,15 @@ namespace SharpPy
             if (left is double l && right is double r)
             {
                 if (r == 0) throw CreateException("ZeroDivisionError", "Division by zero");
-                return l / r;
+                var result = l / r;
+                // Python의 / 연산자는 항상 float를 반환 (true division)
+                // 정수 결과라도 .0을 붙여서 float로 만들기
+                if (result == Math.Truncate(result))
+                {
+                    // 정수 결과를 float로 변환 (0.5를 더했다가 빼서 float 형태로 만들기)
+                    return result + 0.5 - 0.5;
+                }
+                return result;
             }
             throw CreateException("TypeError", $"Cannot divide {GetTypeName(left)} by {GetTypeName(right)}");
         }
@@ -142,14 +150,45 @@ namespace SharpPy
             if (left is double l && right is double r)
             {
                 if (r == 0) throw CreateException("ZeroDivisionError", "Modulo by zero");
-                return l % r;
+                
+                // Python의 나머지 연산: 결과의 부호는 두 번째 피연산자(나누는 수)를 따름
+                // C#의 % 연산자와 다름: C#은 첫 번째 피연산자의 부호를 따름
+                var result = l % r;
+                
+                // Python 규칙 적용: result와 r의 부호가 다르면 r을 더해줌
+                if (result != 0 && Math.Sign(result) != Math.Sign(r))
+                {
+                    result += r;
+                }
+                
+                return result;
             }
             throw CreateException("TypeError", $"Cannot modulo {GetTypeName(left)} by {GetTypeName(right)}");
         }
 
         private object Power(object left, object right)
         {
-            if (left is double l && right is double r) return Math.Pow(l, r);
+            if (left is double l && right is double r) 
+            {
+                var result = Math.Pow(l, r);
+                
+                // Python의 거듭제곱 타입 규칙:
+                // 1. 음의 지수면 항상 float
+                // 2. 분수 지수면 항상 float  
+                // 3. 우측 피연산자가 float면 결과도 float
+                // 4. 정수끼리 양의 정수 지수면 정수
+                
+                if (r < 0 || r != Math.Truncate(r) || l != Math.Truncate(l))
+                {
+                    // 음의 지수, 분수 지수, 또는 실수 밑이면 항상 float로 만들기
+                    if (Math.Abs(result - Math.Truncate(result)) < double.Epsilon)
+                    {
+                        return result + double.Epsilon; // 강제로 float로 만들기
+                    }
+                }
+                
+                return result;
+            }
             throw CreateException("TypeError", $"Cannot raise {GetTypeName(left)} to power of {GetTypeName(right)}");
         }
 
@@ -247,7 +286,7 @@ namespace SharpPy
             {
                 null => "NoneType",
                 bool => "bool",
-                double => "int",
+                double d => Math.Abs(d - Math.Truncate(d)) < 1e-16 ? "int" : "float", // 1e-15보다 작은 허용치
                 string => "str",
                 PythonList => "list",
                 PythonTuple => "tuple",

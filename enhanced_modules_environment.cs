@@ -17,7 +17,18 @@ namespace SharpPy
             ModuleEnv = new Environment();
         }
 
-        public object GetAttribute(string name) => ModuleEnv.GetVariable(name);
+        public object GetAttribute(string name)
+        {
+            try
+            {
+                return ModuleEnv.GetVariable(name);
+            }
+            catch (PythonException)
+            {
+                throw new PythonException("AttributeError", $"module '{Name}' has no attribute '{name}'");
+            }
+        }
+
         public void SetAttribute(string name, object value) => ModuleEnv.SetVariable(name, value);
 
         public override string ToString() => $"<module '{Name}'>";
@@ -27,7 +38,7 @@ namespace SharpPy
     {
         private static Dictionary<string, PythonModule> loadedModules = new Dictionary<string, PythonModule>();
 
-        public static PythonModule ImportModule(string name)
+        public static PythonModule ImportModule(string name, List<string> searchPaths = null)
         {
             if (loadedModules.ContainsKey(name))
                 return loadedModules[name];
@@ -39,18 +50,78 @@ namespace SharpPy
                 return module;
             }
 
-            // Try to load from file
+            // Use default search paths if none provided
+            if (searchPaths == null)
+            {
+                searchPaths = new List<string> { "." };
+            }
+
+            // Try to load from file system using search paths
             try
             {
-                string filename = name + ".py";
-                if (File.Exists(filename))
+                string foundPath = null;
+
+                // Handle package.module notation (e.g., "folder.m")
+                if (name.Contains('.'))
                 {
-                    string code = File.ReadAllText(filename);
+                    var parts = name.Split('.');
+                    var relativePath = string.Join(Path.DirectorySeparatorChar.ToString(), parts) + ".py";
+                    
+                    // Search in all paths
+                    foreach (var searchPath in searchPaths)
+                    {
+                        var candidatePath = Path.Combine(searchPath, relativePath);
+                        if (File.Exists(candidatePath))
+                        {
+                            foundPath = candidatePath;
+                            break;
+                        }
+                        
+                        // Try folder/module structure
+                        var folderPath = Path.Combine(searchPath, parts[0], parts[1] + ".py");
+                        if (File.Exists(folderPath))
+                        {
+                            foundPath = folderPath;
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    // Simple module name - could be a file or a package directory
+                    foreach (var searchPath in searchPaths)
+                    {
+                        // First try as a .py file
+                        var candidatePath = Path.Combine(searchPath, name + ".py");
+                        if (File.Exists(candidatePath))
+                        {
+                            foundPath = candidatePath;
+                            break;
+                        }
+                        
+                        // Then try as a package directory
+                        var packageDir = Path.Combine(searchPath, name);
+                        if (Directory.Exists(packageDir))
+                        {
+                            // Create a package module (directory-based)
+                            module = CreatePackageModule(name, packageDir);
+                            if (module != null)
+                            {
+                                loadedModules[name] = module;
+                                return module;
+                            }
+                        }
+                    }
+                }
+
+                if (foundPath != null)
+                {
+                    string code = File.ReadAllText(foundPath);
                     module = new PythonModule(name);
 
                     var interpreter = new PythonInterpreter();
                     interpreter.SetGlobalEnv(module.ModuleEnv);
-                    interpreter.Execute(code, filename); // Pass filename for better error reporting
+                    interpreter.Execute(code, foundPath);
 
                     loadedModules[name] = module;
                     return module;
@@ -66,6 +137,58 @@ namespace SharpPy
             }
 
             throw new PythonException("ImportError", $"No module named '{name}'");
+        }
+
+        private static PythonModule CreatePackageModule(string packageName, string packageDir)
+        {
+            try
+            {
+                var module = new PythonModule(packageName);
+                
+                // Check for __init__.py first (traditional Python package)
+                var initFile = Path.Combine(packageDir, "__init__.py");
+                if (File.Exists(initFile))
+                {
+                    string code = File.ReadAllText(initFile);
+                    var interpreter = new PythonInterpreter();
+                    interpreter.SetGlobalEnv(module.ModuleEnv);
+                    interpreter.Execute(code, initFile);
+                }
+                
+                // Add all .py files in the directory as submodules
+                var pyFiles = Directory.GetFiles(packageDir, "*.py");
+                foreach (var pyFile in pyFiles)
+                {
+                    var fileName = Path.GetFileNameWithoutExtension(pyFile);
+                    if (fileName != "__init__") // Skip __init__.py as it's already processed
+                    {
+                        try
+                        {
+                            var submodule = new PythonModule($"{packageName}.{fileName}");
+                            string code = File.ReadAllText(pyFile);
+                            var interpreter = new PythonInterpreter();
+                            interpreter.SetGlobalEnv(submodule.ModuleEnv);
+                            interpreter.Execute(code, pyFile);
+                            
+                            // Add submodule to package
+                            module.SetAttribute(fileName, submodule);
+                            
+                            // Also cache the submodule for direct access
+                            loadedModules[$"{packageName}.{fileName}"] = submodule;
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Warning: Failed to load submodule {fileName}: {ex.Message}");
+                        }
+                    }
+                }
+                
+                return module;
+            }
+            catch (Exception ex)
+            {
+                throw new PythonException("ImportError", $"Failed to create package module '{packageName}': {ex.Message}");
+            }
         }
 
         private static PythonModule CreateBuiltinModule(string name)
@@ -255,11 +378,20 @@ namespace SharpPy
     {
         private Dictionary<string, object> variables = new Dictionary<string, object>();
         private Environment parent;
+        public List<string> SearchPaths { get; set; }
 
         public Environment(Environment parent = null)
         {
             this.parent = parent;
-            if (parent == null) SetupBuiltins(this);
+            if (parent == null) 
+            {
+                SetupBuiltins(this);
+                SearchPaths = new List<string> { "." }; // Default search path
+            }
+            else
+            {
+                SearchPaths = parent.SearchPaths; // Inherit search paths from parent
+            }
         }
 
         static private void SetupBuiltins(Environment env)
@@ -540,7 +672,7 @@ namespace SharpPy
             {
                 null => "NoneType",
                 bool => "bool",
-                double => "int",
+                double d => Math.Abs(d - Math.Truncate(d)) < 1e-16 ? "int" : "float", // 1e-15보다 작은 허용치
                 string => "str",
                 PythonList => "list",
                 PythonTuple => "tuple",

@@ -171,19 +171,89 @@ namespace SharpPy
             int line = currentToken.Line;
             int column = currentToken.Column;
 
-            Expect(TokenType.IMPORT);
-            string moduleName = currentToken.Value;
-            Expect(TokenType.IDENTIFIER);
-
-            string alias = null;
-            if (currentToken.Type == TokenType.AS)
+            if (currentToken.Type == TokenType.FROM)
             {
-                Advance();
-                alias = currentToken.Value;
+                // from module import name [as alias], name2 [as alias2], ...
+                Expect(TokenType.FROM);
+                
+                // Parse module name (could be package.module)
+                string moduleName = currentToken.Value;
                 Expect(TokenType.IDENTIFIER);
+                
+                // Handle package.module notation
+                while (currentToken.Type == TokenType.DOT)
+                {
+                    Advance(); // Skip '.'
+                    moduleName += "." + currentToken.Value;
+                    Expect(TokenType.IDENTIFIER);
+                }
+                
+                Expect(TokenType.IMPORT);
+                
+                // Check for "import *"
+                if (currentToken.Type == TokenType.OPERATOR && currentToken.Value == "*")
+                {
+                    Advance(); // Skip '*'
+                    return new FromImportNode(moduleName, null, true, line, column); // ImportAll = true
+                }
+                
+                // Parse import items
+                var importItems = new List<(string, string)>();
+                
+                do
+                {
+                    string itemName = currentToken.Value;
+                    Expect(TokenType.IDENTIFIER);
+                    
+                    string alias = null;
+                    if (currentToken.Type == TokenType.AS)
+                    {
+                        Advance(); // Skip 'as'
+                        alias = currentToken.Value;
+                        Expect(TokenType.IDENTIFIER);
+                    }
+                    
+                    importItems.Add((itemName, alias));
+                    
+                    if (currentToken.Type == TokenType.COMMA)
+                    {
+                        Advance(); // Skip ','
+                    }
+                    else
+                    {
+                        break;
+                    }
+                } while (currentToken.Type == TokenType.IDENTIFIER);
+                
+                return new FromImportNode(moduleName, importItems, false, line, column);
             }
+            else
+            {
+                // import module [as alias]
+                Expect(TokenType.IMPORT);
+                
+                // Parse module name (could be package.module)
+                string moduleName = currentToken.Value;
+                Expect(TokenType.IDENTIFIER);
+                
+                // Handle package.module notation
+                while (currentToken.Type == TokenType.DOT)
+                {
+                    Advance(); // Skip '.'
+                    moduleName += "." + currentToken.Value;
+                    Expect(TokenType.IDENTIFIER);
+                }
 
-            return new ImportNode(moduleName, alias, line, column);
+                string alias = null;
+                if (currentToken.Type == TokenType.AS)
+                {
+                    Advance(); // Skip 'as'
+                    alias = currentToken.Value;
+                    Expect(TokenType.IDENTIFIER);
+                }
+
+                return new ImportNode(moduleName, alias, line, column);
+            }
         }
 
         private ASTNode ParseReturn()

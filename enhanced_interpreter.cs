@@ -4,12 +4,38 @@ using System.IO;
 
 namespace SharpPy
 {
-    // Enhanced Python Interpreter Main Class with Line Number Error Reporting
+    // Enhanced Python Interpreter Main Class with Path System and Line Number Error Reporting
     public class PythonInterpreter
     {
         private Environment globalEnv;
+        public List<string> SearchPaths { get; private set; }
 
-        public PythonInterpreter() => globalEnv = new Environment();
+        public PythonInterpreter() 
+        {
+            globalEnv = new Environment();
+            SearchPaths = new List<string>
+            {
+                ".", // Current directory
+                "./lib", // Standard library directory (if exists)
+                "./modules" // Additional modules directory (if exists)
+            };
+            globalEnv.SearchPaths = SearchPaths;
+        }
+
+        public void AddSearchPath(string path)
+        {
+            if (!SearchPaths.Contains(path))
+            {
+                SearchPaths.Add(path);
+                globalEnv.SearchPaths = SearchPaths; // Update environment
+            }
+        }
+
+        public void RemoveSearchPath(string path)
+        {
+            SearchPaths.Remove(path);
+            globalEnv.SearchPaths = SearchPaths; // Update environment
+        }
 
         public void SetGlobalEnv(Environment env) => globalEnv = env;
         public Environment GetGlobalEnv() => globalEnv;
