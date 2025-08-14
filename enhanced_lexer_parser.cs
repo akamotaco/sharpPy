@@ -1,3 +1,4 @@
+// enhanced_lexer_parser.cs
 using System;
 using System.Text;
 using System.Collections.Generic;
@@ -479,7 +480,8 @@ namespace SharpPy
 
             var pythonType = typeName switch
             {
-                "int" => PythonType.Number,
+                "int" => PythonType.Int,
+                "float" => PythonType.Float,
                 "str" => PythonType.String,
                 "bool" => PythonType.Boolean,
                 "list" => PythonType.List,
@@ -594,6 +596,7 @@ namespace SharpPy
                    currentToken.Type == TokenType.CONTINUE ||
                    currentToken.Type == TokenType.RAISE ||
                    currentToken.Type == TokenType.IMPORT ||
+                   currentToken.Type == TokenType.FROM ||
                    currentToken.Type == TokenType.NOT;
         }
     }

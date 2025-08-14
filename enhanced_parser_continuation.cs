@@ -1,3 +1,4 @@
+// enhanced_parser_continuation.cs
 using System.Collections.Generic;
 using System.Linq;
 
@@ -720,9 +721,25 @@ namespace SharpPy
             switch (currentToken.Type)
             {
                 case TokenType.NUMBER:
-                    double value = double.Parse(currentToken.Value);
+                    string numberStr = currentToken.Value;
+                    object numberValue;
+                    
+                    // Parse as int or float
+                    if (numberStr.Contains('.'))
+                    {
+                        numberValue = double.Parse(numberStr);
+                    }
+                    else
+                    {
+                        // Try to parse as int first, fallback to double if too large
+                        if (int.TryParse(numberStr, out int intValue))
+                            numberValue = intValue;
+                        else
+                            numberValue = double.Parse(numberStr);
+                    }
+                    
                     Advance();
-                    return new NumberNode(value, line, column);
+                    return new NumberNode(numberValue, line, column);
 
                 case TokenType.STRING:
                     string strValue = currentToken.Value;

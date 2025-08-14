@@ -1,3 +1,4 @@
+// enhanced_modules_environment.cs
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -211,51 +212,51 @@ namespace SharpPy
 
             module.SetAttribute("sqrt", new BuiltinFunction("sqrt", args =>
             {
-                if (args.Count != 1 || !(args[0] is double))
+                if (args.Count != 1 || !NumberHelper.IsNumber(args[0]))
                     throw new PythonException("TypeError", "sqrt() takes exactly one numeric argument");
-                return Math.Sqrt((double)args[0]);
+                return Math.Sqrt(NumberHelper.ToDouble(args[0]));
             }));
 
             module.SetAttribute("pow", new BuiltinFunction("pow", args =>
             {
-                if (args.Count != 2 || !(args[0] is double) || !(args[1] is double))
+                if (args.Count != 2 || !NumberHelper.IsNumber(args[0]) || !NumberHelper.IsNumber(args[1]))
                     throw new PythonException("TypeError", "pow() takes exactly two numeric arguments");
-                return Math.Pow((double)args[0], (double)args[1]);
+                return Math.Pow(NumberHelper.ToDouble(args[0]), NumberHelper.ToDouble(args[1]));
             }));
 
             module.SetAttribute("sin", new BuiltinFunction("sin", args =>
             {
-                if (args.Count != 1 || !(args[0] is double))
+                if (args.Count != 1 || !NumberHelper.IsNumber(args[0]))
                     throw new PythonException("TypeError", "sin() takes exactly one numeric argument");
-                return Math.Sin((double)args[0]);
+                return Math.Sin(NumberHelper.ToDouble(args[0]));
             }));
 
             module.SetAttribute("cos", new BuiltinFunction("cos", args =>
             {
-                if (args.Count != 1 || !(args[0] is double))
+                if (args.Count != 1 || !NumberHelper.IsNumber(args[0]))
                     throw new PythonException("TypeError", "cos() takes exactly one numeric argument");
-                return Math.Cos((double)args[0]);
+                return Math.Cos(NumberHelper.ToDouble(args[0]));
             }));
 
             module.SetAttribute("tan", new BuiltinFunction("tan", args =>
             {
-                if (args.Count != 1 || !(args[0] is double))
+                if (args.Count != 1 || !NumberHelper.IsNumber(args[0]))
                     throw new PythonException("TypeError", "tan() takes exactly one numeric argument");
-                return Math.Tan((double)args[0]);
+                return Math.Tan(NumberHelper.ToDouble(args[0]));
             }));
 
             module.SetAttribute("floor", new BuiltinFunction("floor", args =>
             {
-                if (args.Count != 1 || !(args[0] is double))
+                if (args.Count != 1 || !NumberHelper.IsNumber(args[0]))
                     throw new PythonException("TypeError", "floor() takes exactly one numeric argument");
-                return Math.Floor((double)args[0]);
+                return (int)Math.Floor(NumberHelper.ToDouble(args[0]));
             }));
 
             module.SetAttribute("ceil", new BuiltinFunction("ceil", args =>
             {
-                if (args.Count != 1 || !(args[0] is double))
+                if (args.Count != 1 || !NumberHelper.IsNumber(args[0]))
                     throw new PythonException("TypeError", "ceil() takes exactly one numeric argument");
-                return Math.Ceiling((double)args[0]);
+                return (int)Math.Ceiling(NumberHelper.ToDouble(args[0]));
             }));
 
             return module;
@@ -274,9 +275,9 @@ namespace SharpPy
 
             module.SetAttribute("randint", new BuiltinFunction("randint", args =>
             {
-                if (args.Count != 2 || !(args[0] is double) || !(args[1] is double))
+                if (args.Count != 2 || !NumberHelper.IsNumber(args[0]) || !NumberHelper.IsNumber(args[1]))
                     throw new PythonException("TypeError", "randint() takes exactly two integer arguments");
-                return (double)random.Next((int)(double)args[0], (int)(double)args[1] + 1);
+                return random.Next(NumberHelper.ToInt(args[0]), NumberHelper.ToInt(args[1]) + 1);
             }));
 
             module.SetAttribute("choice", new BuiltinFunction("choice", args =>
@@ -414,10 +415,10 @@ namespace SharpPy
             {
                 if (args.Count != 1) throw new PythonException("TypeError", "len() takes exactly one argument");
                 var obj = args[0];
-                if (obj is string s) return (double)s.Length;
-                if (obj is PythonList list) return (double)list.Items.Count;
-                if (obj is PythonTuple tuple) return (double)tuple.Items.Count;
-                if (obj is PythonDict dict) return (double)dict.Items.Count;
+                if (obj is string s) return s.Length;
+                if (obj is PythonList list) return list.Items.Count;
+                if (obj is PythonTuple tuple) return tuple.Items.Count;
+                if (obj is PythonDict dict) return dict.Items.Count;
                 throw new PythonException("TypeError", $"object of type '{GetTypeName(obj)}' has no len()");
             }));
 
@@ -433,9 +434,10 @@ namespace SharpPy
             env.SetVariable("int", new BuiltinFunction("int", args =>
             {
                 if (args.Count != 1) throw new PythonException("TypeError", "int() takes exactly one argument");
-                if (args[0] is double d) return Math.Truncate(d);
-                if (args[0] is bool b) return b ? 1.0 : 0.0;
-                if (double.TryParse(args[0]?.ToString(), out var result)) return Math.Truncate(result);
+                if (args[0] is int i) return i;
+                if (args[0] is double d) return (int)Math.Truncate(d);
+                if (args[0] is bool b) return b ? 1 : 0;
+                if (int.TryParse(args[0]?.ToString(), out var result)) return result;
                 throw new PythonException("ValueError", $"invalid literal for int(): '{args[0]}'");
             }));
 
@@ -443,6 +445,7 @@ namespace SharpPy
             {
                 if (args.Count != 1) throw new PythonException("TypeError", "float() takes exactly one argument");
                 if (args[0] is double d) return d;
+                if (args[0] is int i) return (double)i;
                 if (args[0] is bool b) return b ? 1.0 : 0.0;
                 if (double.TryParse(args[0]?.ToString(), out var result)) return result;
                 throw new PythonException("ValueError", $"invalid literal for float(): '{args[0]}'");
@@ -499,27 +502,27 @@ namespace SharpPy
                 int start = 0, stop, step = 1;
 
                 if (args.Count == 1)
-                    stop = (int)(double)args[0];
+                    stop = NumberHelper.ToInt(args[0]);
                 else if (args.Count == 2)
                 {
-                    start = (int)(double)args[0];
-                    stop = (int)(double)args[1];
+                    start = NumberHelper.ToInt(args[0]);
+                    stop = NumberHelper.ToInt(args[1]);
                 }
                 else
                 {
-                    start = (int)(double)args[0];
-                    stop = (int)(double)args[1];
-                    step = (int)(double)args[2];
+                    start = NumberHelper.ToInt(args[0]);
+                    stop = NumberHelper.ToInt(args[1]);
+                    step = NumberHelper.ToInt(args[2]);
                     if (step == 0) throw new PythonException("ValueError", "range() step argument must not be zero");
                 }
 
                 var list = new PythonList();
                 if (step > 0)
                     for (int i = start; i < stop; i += step)
-                        list.Items.Add((double)i);
+                        list.Items.Add(i);
                 else
                     for (int i = start; i > stop; i += step)
-                        list.Items.Add((double)i);
+                        list.Items.Add(i);
 
                 return list;
             }));
@@ -534,6 +537,10 @@ namespace SharpPy
             env.SetVariable("abs", new BuiltinFunction("abs", args =>
             {
                 if (args.Count != 1) throw new PythonException("TypeError", "abs() takes exactly one argument");
+                if (!NumberHelper.IsNumber(args[0]))
+                    throw new PythonException("TypeError", "abs() argument must be a number");
+                
+                if (args[0] is int i) return Math.Abs(i);
                 if (args[0] is double d) return Math.Abs(d);
                 throw new PythonException("TypeError", "abs() argument must be a number");
             }));
@@ -544,9 +551,9 @@ namespace SharpPy
                 if (args.Count == 1 && args[0] is PythonList list)
                 {
                     if (list.Items.Count == 0) throw new PythonException("ValueError", "max() arg is an empty sequence");
-                    return list.Items.Cast<double>().Max();
+                    return list.Items.Select(NumberHelper.ToDouble).Max();
                 }
-                return args.Cast<double>().Max();
+                return args.Select(NumberHelper.ToDouble).Max();
             }));
 
             env.SetVariable("min", new BuiltinFunction("min", args =>
@@ -555,25 +562,31 @@ namespace SharpPy
                 if (args.Count == 1 && args[0] is PythonList list)
                 {
                     if (list.Items.Count == 0) throw new PythonException("ValueError", "min() arg is an empty sequence");
-                    return list.Items.Cast<double>().Min();
+                    return list.Items.Select(NumberHelper.ToDouble).Min();
                 }
-                return args.Cast<double>().Min();
+                return args.Select(NumberHelper.ToDouble).Min();
             }));
 
             env.SetVariable("sum", new BuiltinFunction("sum", args =>
             {
                 if (args.Count < 1 || args.Count > 2) throw new PythonException("TypeError", "sum() takes 1 or 2 arguments");
-                double start = args.Count == 2 ? (double)args[1] : 0;
+                double start = args.Count == 2 ? NumberHelper.ToDouble(args[1]) : 0;
 
                 if (args[0] is PythonList list)
-                    return list.Items.Cast<double>().Sum() + start;
+                {
+                    var sum = list.Items.Select(NumberHelper.ToDouble).Sum() + start;
+                    // Return int if all items are int and result is whole number
+                    if (list.Items.All(item => item is int) && sum == Math.Truncate(sum) && args.Count < 2)
+                        return (int)sum;
+                    return sum;
+                }
                 throw new PythonException("TypeError", "sum() argument must be a sequence of numbers");
             }));
 
             env.SetVariable("enumerate", new BuiltinFunction("enumerate", args =>
             {
                 if (args.Count < 1 || args.Count > 2) throw new PythonException("TypeError", "enumerate() takes 1 or 2 arguments");
-                int start = args.Count == 2 ? (int)(double)args[1] : 0;
+                int start = args.Count == 2 ? NumberHelper.ToInt(args[1]) : 0;
 
                 var result = new PythonList();
                 if (args[0] is PythonList list)
@@ -581,7 +594,7 @@ namespace SharpPy
                     for (int i = 0; i < list.Items.Count; i++)
                     {
                         var tuple = new PythonTuple();
-                        tuple.Items.Add((double)(start + i));
+                        tuple.Items.Add(start + i);
                         tuple.Items.Add(list.Items[i]);
                         result.Items.Add(tuple);
                     }
@@ -591,7 +604,7 @@ namespace SharpPy
                     for (int i = 0; i < sourceTuple.Items.Count; i++)
                     {
                         var tuple = new PythonTuple();
-                        tuple.Items.Add((double)(start + i));
+                        tuple.Items.Add(start + i);
                         tuple.Items.Add(sourceTuple.Items[i]);
                         result.Items.Add(tuple);
                     }
@@ -601,7 +614,7 @@ namespace SharpPy
                     for (int i = 0; i < str.Length; i++)
                     {
                         var tuple = new PythonTuple();
-                        tuple.Items.Add((double)(start + i));
+                        tuple.Items.Add(start + i);
                         tuple.Items.Add(str[i].ToString());
                         result.Items.Add(tuple);
                     }
@@ -658,6 +671,7 @@ namespace SharpPy
         {
             if (obj == null) return false;
             if (obj is bool b) return b;
+            if (obj is int i) return i != 0;
             if (obj is double d) return d != 0;
             if (obj is string s) return !string.IsNullOrEmpty(s);
             if (obj is PythonList l) return l.Items.Count > 0;
@@ -672,7 +686,8 @@ namespace SharpPy
             {
                 null => "NoneType",
                 bool => "bool",
-                double d => Math.Abs(d - Math.Truncate(d)) < 1e-16 ? "int" : "float", // 1e-15보다 작은 허용치
+                int => "int",
+                double => "float",
                 string => "str",
                 PythonList => "list",
                 PythonTuple => "tuple",

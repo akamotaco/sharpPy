@@ -1,3 +1,4 @@
+// enhanced_operators.cs
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -59,8 +60,15 @@ namespace SharpPy
 
         private object Add(object left, object right)
         {
-            if (left is double l && right is double r) return l + r;
-            if (left is string || right is string) return left?.ToString() + right?.ToString();
+            // Numeric addition
+            if (NumberHelper.IsNumber(left) && NumberHelper.IsNumber(right))
+                return NumberHelper.Add(left, right);
+            
+            // String concatenation
+            if (left is string || right is string) 
+                return left?.ToString() + right?.ToString();
+            
+            // List concatenation
             if (left is PythonList ll && right is PythonList rl)
             {
                 var newList = new PythonList();
@@ -68,6 +76,8 @@ namespace SharpPy
                 newList.Items.AddRange(rl.Items);
                 return newList;
             }
+            
+            // Tuple concatenation
             if (left is PythonTuple lt && right is PythonTuple rt)
             {
                 var newTuple = new PythonTuple();
@@ -75,6 +85,8 @@ namespace SharpPy
                 newTuple.Items.AddRange(rt.Items);
                 return newTuple;
             }
+            
+            // Dict concatenation
             if (left is PythonDict ld && right is PythonDict rd)
             {
                 var newDict = new PythonDict();
@@ -82,113 +94,86 @@ namespace SharpPy
                 foreach (var kvp in rd.Items) newDict.Items[kvp.Key] = kvp.Value;
                 return newDict;
             }
+            
             throw CreateException("TypeError", $"Cannot add {GetTypeName(left)} and {GetTypeName(right)}");
         }
 
         private object Subtract(object left, object right)
         {
-            if (left is double l && right is double r) return l - r;
+            if (NumberHelper.IsNumber(left) && NumberHelper.IsNumber(right))
+                return NumberHelper.Subtract(left, right);
+            
             throw CreateException("TypeError", $"Cannot subtract {GetTypeName(right)} from {GetTypeName(left)}");
         }
 
         private object Multiply(object left, object right)
         {
-            if (left is double l && right is double r) return l * r;
-            if (left is string s && right is double n) return string.Concat(Enumerable.Repeat(s, (int)n));
-            if (left is double n2 && right is string s2) return string.Concat(Enumerable.Repeat(s2, (int)n2));
-            if (left is PythonList list && right is double n3)
+            // Numeric multiplication
+            if (NumberHelper.IsNumber(left) && NumberHelper.IsNumber(right))
+                return NumberHelper.Multiply(left, right);
+            
+            // String repetition
+            if (left is string s && NumberHelper.IsNumber(right))
+                return string.Concat(Enumerable.Repeat(s, NumberHelper.ToInt(right)));
+            if (NumberHelper.IsNumber(left) && right is string s2)
+                return string.Concat(Enumerable.Repeat(s2, NumberHelper.ToInt(left)));
+            
+            // List repetition
+            if (left is PythonList list && NumberHelper.IsNumber(right))
             {
                 var newList = new PythonList();
-                for (int i = 0; i < (int)n3; i++)
+                for (int i = 0; i < NumberHelper.ToInt(right); i++)
                     newList.Items.AddRange(list.Items);
                 return newList;
             }
-            if (left is double n4 && right is PythonList list2)
+            if (NumberHelper.IsNumber(left) && right is PythonList list2)
             {
                 var newList = new PythonList();
-                for (int i = 0; i < (int)n4; i++)
+                for (int i = 0; i < NumberHelper.ToInt(left); i++)
                     newList.Items.AddRange(list2.Items);
                 return newList;
             }
-            if (left is PythonTuple tuple && right is double n5)
+            
+            // Tuple repetition
+            if (left is PythonTuple tuple && NumberHelper.IsNumber(right))
             {
                 var newTuple = new PythonTuple();
-                for (int i = 0; i < (int)n5; i++)
+                for (int i = 0; i < NumberHelper.ToInt(right); i++)
                     newTuple.Items.AddRange(tuple.Items);
                 return newTuple;
             }
-            if (left is double n6 && right is PythonTuple tuple2)
+            if (NumberHelper.IsNumber(left) && right is PythonTuple tuple2)
             {
                 var newTuple = new PythonTuple();
-                for (int i = 0; i < (int)n6; i++)
+                for (int i = 0; i < NumberHelper.ToInt(left); i++)
                     newTuple.Items.AddRange(tuple2.Items);
                 return newTuple;
             }
+            
             throw CreateException("TypeError", $"Cannot multiply {GetTypeName(left)} and {GetTypeName(right)}");
         }
 
         private object Divide(object left, object right)
         {
-            if (left is double l && right is double r)
-            {
-                if (r == 0) throw CreateException("ZeroDivisionError", "Division by zero");
-                var result = l / r;
-                // Python의 / 연산자는 항상 float를 반환 (true division)
-                // 정수 결과라도 .0을 붙여서 float로 만들기
-                if (result == Math.Truncate(result))
-                {
-                    // 정수 결과를 float로 변환 (0.5를 더했다가 빼서 float 형태로 만들기)
-                    return result + 0.5 - 0.5;
-                }
-                return result;
-            }
+            if (NumberHelper.IsNumber(left) && NumberHelper.IsNumber(right))
+                return NumberHelper.Divide(left, right);
+            
             throw CreateException("TypeError", $"Cannot divide {GetTypeName(left)} by {GetTypeName(right)}");
         }
 
         private object Modulo(object left, object right)
         {
-            if (left is double l && right is double r)
-            {
-                if (r == 0) throw CreateException("ZeroDivisionError", "Modulo by zero");
-                
-                // Python의 나머지 연산: 결과의 부호는 두 번째 피연산자(나누는 수)를 따름
-                // C#의 % 연산자와 다름: C#은 첫 번째 피연산자의 부호를 따름
-                var result = l % r;
-                
-                // Python 규칙 적용: result와 r의 부호가 다르면 r을 더해줌
-                if (result != 0 && Math.Sign(result) != Math.Sign(r))
-                {
-                    result += r;
-                }
-                
-                return result;
-            }
+            if (NumberHelper.IsNumber(left) && NumberHelper.IsNumber(right))
+                return NumberHelper.Modulo(left, right);
+            
             throw CreateException("TypeError", $"Cannot modulo {GetTypeName(left)} by {GetTypeName(right)}");
         }
 
         private object Power(object left, object right)
         {
-            if (left is double l && right is double r) 
-            {
-                var result = Math.Pow(l, r);
-                
-                // Python의 거듭제곱 타입 규칙:
-                // 1. 음의 지수면 항상 float
-                // 2. 분수 지수면 항상 float  
-                // 3. 우측 피연산자가 float면 결과도 float
-                // 4. 정수끼리 양의 정수 지수면 정수
-                
-                if (r < 0 || r != Math.Truncate(r) || l != Math.Truncate(l))
-                {
-                    // 음의 지수, 분수 지수, 또는 실수 밑이면 항상 float로 만들기
-                    if (Math.Abs(result - Math.Truncate(result)) < double.Epsilon)
-                    {
-                        return result + double.Epsilon; // 강제로 float로 만들기
-                    }
-                }
-                
-                return result;
-            }
+            if (NumberHelper.IsNumber(left) && NumberHelper.IsNumber(right))
+                return NumberHelper.Power(left, right);
+            
             throw CreateException("TypeError", $"Cannot raise {GetTypeName(left)} to power of {GetTypeName(right)}");
         }
 
@@ -196,15 +181,21 @@ namespace SharpPy
 
         private bool IsLess(object left, object right)
         {
-            if (left is double l && right is double r) return l < r;
-            if (left is string ls && right is string rs) return string.Compare(ls, rs) < 0;
+            if (NumberHelper.IsNumber(left) && NumberHelper.IsNumber(right))
+                return NumberHelper.ToDouble(left) < NumberHelper.ToDouble(right);
+            if (left is string ls && right is string rs) 
+                return string.Compare(ls, rs) < 0;
+            
             throw CreateException("TypeError", $"'<' not supported between instances of '{GetTypeName(left)}' and '{GetTypeName(right)}'");
         }
 
         private bool IsGreater(object left, object right)
         {
-            if (left is double l && right is double r) return l > r;
-            if (left is string ls && right is string rs) return string.Compare(ls, rs) > 0;
+            if (NumberHelper.IsNumber(left) && NumberHelper.IsNumber(right))
+                return NumberHelper.ToDouble(left) > NumberHelper.ToDouble(right);
+            if (left is string ls && right is string rs) 
+                return string.Compare(ls, rs) > 0;
+            
             throw CreateException("TypeError", $"'>' not supported between instances of '{GetTypeName(left)}' and '{GetTypeName(right)}'");
         }
 
@@ -231,34 +222,33 @@ namespace SharpPy
 
         private bool IsIdentical(object left, object right)
         {
-            // None 비교 - Python에서 가장 일반적인 "is" 사용법
+            // None comparison - most common "is" usage in Python
             if (left == null && right == null) return true;
             if (left == null || right == null) return false;
 
-            // 동일한 참조인지 확인
+            // Same reference check
             if (ReferenceEquals(left, right)) return true;
 
-            // Python에서 작은 정수들과 일부 문자열은 인턴된다 (같은 객체를 재사용)
-            // 이를 시뮬레이션하기 위해 특정 값들에 대해 값 비교를 한다
-            if (left is double ld && right is double rd)
+            // Python-like interning simulation for small integers and some strings
+            if (left is int li && right is int ri)
             {
-                // 작은 정수들 (-5 ~ 256)은 Python에서 인턴됨
-                if (ld == rd && ld >= -5 && ld <= 256 && ld == Math.Truncate(ld))
+                // Small integers (-5 to 256) are interned in Python
+                if (li == ri && li >= -5 && li <= 256)
                     return true;
             }
 
-            // 빈 튜플은 싱글톤
+            // Empty tuples are singletons
             if (left is PythonTuple lt && right is PythonTuple rt)
             {
                 if (lt.Items.Count == 0 && rt.Items.Count == 0)
                     return true;
             }
 
-            // 불린 값들은 싱글톤
+            // Boolean values are singletons
             if (left is bool lb && right is bool rb)
                 return lb == rb;
 
-            // 작은 문자열들도 종종 인턴됨 (단순화를 위해 길이 1인 문자열만)
+            // Small strings are often interned (simplified to length 1)
             if (left is string ls && right is string rs)
             {
                 if (ls.Length <= 1 && rs.Length <= 1)
@@ -272,6 +262,7 @@ namespace SharpPy
         {
             if (obj == null) return false;
             if (obj is bool b) return b;
+            if (obj is int i) return i != 0;
             if (obj is double d) return d != 0;
             if (obj is string s) return !string.IsNullOrEmpty(s);
             if (obj is PythonList l) return l.Items.Count > 0;
@@ -286,7 +277,8 @@ namespace SharpPy
             {
                 null => "NoneType",
                 bool => "bool",
-                double d => Math.Abs(d - Math.Truncate(d)) < 1e-16 ? "int" : "float", // 1e-15보다 작은 허용치
+                int => "int",
+                double => "float",
                 string => "str",
                 PythonList => "list",
                 PythonTuple => "tuple",
@@ -315,7 +307,8 @@ namespace SharpPy
                 var value = Operand.Evaluate(env);
                 return Operator switch
                 {
-                    "-" => value is double d ? -d : throw CreateException("TypeError", "Cannot negate non-number"),
+                    "-" => NumberHelper.IsNumber(value) ? NumberHelper.Negate(value) : 
+                           throw CreateException("TypeError", "Cannot negate non-number"),
                     "not" => !IsTrue(value),
                     _ => throw CreateException("TypeError", $"Unknown unary operator: {Operator}")
                 };
@@ -334,6 +327,7 @@ namespace SharpPy
         {
             if (obj == null) return false;
             if (obj is bool b) return b;
+            if (obj is int i) return i != 0;
             if (obj is double d) return d != 0;
             if (obj is string s) return !string.IsNullOrEmpty(s);
             if (obj is PythonList l) return l.Items.Count > 0;
@@ -391,7 +385,7 @@ namespace SharpPy
             {
                 var value = Value.Evaluate(env);
 
-                // 값을 iterable로 변환
+                // Convert value to iterable
                 List<object> items;
                 if (value is PythonList list)
                     items = list.Items;
@@ -402,7 +396,7 @@ namespace SharpPy
                 else
                     throw CreateException("TypeError", "Cannot unpack non-iterable object");
 
-                // 언더스코어(_) 처리 - 무시할 변수들
+                // Handle underscore (_) - variables to ignore
                 var validNames = new List<string>();
                 var validIndices = new List<int>();
 
@@ -415,11 +409,11 @@ namespace SharpPy
                     }
                 }
 
-                // 길이 검증 (언더스코어는 제외하고)
+                // Length validation (excluding underscores)
                 if (items.Count != VariableNames.Count)
                     throw CreateException("ValueError", $"Cannot unpack {items.Count} values into {VariableNames.Count} variables");
 
-                // 변수에 값 할당 (언더스코어는 건너뛰기)
+                // Assign values to variables (skip underscores)
                 for (int i = 0; i < validNames.Count; i++)
                 {
                     int actualIndex = validIndices[i];
@@ -460,9 +454,9 @@ namespace SharpPy
                 var index = Index.Evaluate(env);
                 var value = Value.Evaluate(env);
 
-                if (obj is PythonList list && index is double d)
+                if (obj is PythonList list && NumberHelper.IsNumber(index))
                 {
-                    int i = (int)d;
+                    int i = NumberHelper.ToInt(index);
                     if (i < 0) i += list.Items.Count;
                     if (i >= 0 && i < list.Items.Count)
                     {

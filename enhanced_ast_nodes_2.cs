@@ -1,3 +1,4 @@
+// enhanced_ast_nodes_2.cs
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -175,6 +176,7 @@ namespace SharpPy
         {
             if (obj == null) return false;
             if (obj is bool b) return b;
+            if (obj is int i) return i != 0;
             if (obj is double d) return d != 0;
             if (obj is string s) return !string.IsNullOrEmpty(s);
             if (obj is PythonList l) return l.Items.Count > 0;
@@ -395,6 +397,7 @@ namespace SharpPy
         {
             if (obj == null) return false;
             if (obj is bool b) return b;
+            if (obj is int i) return i != 0;
             if (obj is double d) return d != 0;
             if (obj is string s) return !string.IsNullOrEmpty(s);
             if (obj is PythonList l) return l.Items.Count > 0;
@@ -644,7 +647,7 @@ namespace SharpPy
                         }
                     }
                 }
-                
+
                 return null;
             }
             catch (PythonException)

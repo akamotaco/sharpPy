@@ -1,3 +1,4 @@
+// enhanced_ast_nodes_1.cs
 using System;
 using System.Text;
 using System.Collections.Generic;
@@ -28,9 +29,9 @@ namespace SharpPy
     // Expression Nodes with Line/Column Tracking
     public class NumberNode : ASTNode
     {
-        public double Value { get; }
+        public object Value { get; } // Can be int or double
         
-        public NumberNode(double value, int line = 0, int column = 0) : base(line, column) 
+        public NumberNode(object value, int line = 0, int column = 0) : base(line, column) 
             => Value = value;
             
         public override object Evaluate(Environment env) => Value;
@@ -189,17 +190,17 @@ namespace SharpPy
                 var obj = Object.Evaluate(env);
                 var index = Index.Evaluate(env);
 
-                if (obj is PythonList list && index is double d)
+                if (obj is PythonList list && NumberHelper.IsNumber(index))
                 {
-                    int i = (int)d;
+                    int i = NumberHelper.ToInt(index);
                     if (i < 0) i += list.Items.Count;
                     if (i >= 0 && i < list.Items.Count)
                         return list.Items[i];
                     throw CreateException("IndexError", "list index out of range");
                 }
-                else if (obj is PythonTuple tuple && index is double d3)
+                else if (obj is PythonTuple tuple && NumberHelper.IsNumber(index))
                 {
-                    int i = (int)d3;
+                    int i = NumberHelper.ToInt(index);
                     if (i < 0) i += tuple.Items.Count;
                     if (i >= 0 && i < tuple.Items.Count)
                         return tuple.Items[i];
@@ -211,9 +212,9 @@ namespace SharpPy
                         return dict.Items[index];
                     throw CreateException("KeyError", $"KeyError: {index}");
                 }
-                else if (obj is string str && index is double d2)
+                else if (obj is string str && NumberHelper.IsNumber(index))
                 {
-                    int i = (int)d2;
+                    int i = NumberHelper.ToInt(index);
                     if (i < 0) i += str.Length;
                     if (i >= 0 && i < str.Length)
                         return str[i].ToString();
@@ -357,9 +358,9 @@ namespace SharpPy
         private int GetSliceIndex(object indexObj, int defaultValue, int count)
         {
             if (indexObj == null) return defaultValue;
-            if (indexObj is double d)
+            if (NumberHelper.IsNumber(indexObj))
             {
-                int index = (int)d;
+                int index = NumberHelper.ToInt(indexObj);
                 if (index < 0) index += count;
                 return Math.Max(0, Math.Min(index, count));
             }
@@ -369,9 +370,9 @@ namespace SharpPy
         private int GetSliceStep(object stepObj)
         {
             if (stepObj == null) return 1;
-            if (stepObj is double d)
+            if (NumberHelper.IsNumber(stepObj))
             {
-                int step = (int)d;
+                int step = NumberHelper.ToInt(stepObj);
                 if (step == 0) throw CreateException("ValueError", "slice step cannot be zero");
                 return step;
             }
@@ -458,6 +459,7 @@ namespace SharpPy
         {
             if (obj == null) return false;
             if (obj is bool b) return b;
+            if (obj is int i) return i != 0;
             if (obj is double d) return d != 0;
             if (obj is string s) return !string.IsNullOrEmpty(s);
             if (obj is PythonList l) return l.Items.Count > 0;

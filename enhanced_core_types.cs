@@ -1,3 +1,4 @@
+// enhanced_core_types.cs
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -24,7 +25,7 @@ namespace SharpPy
 
     public enum PythonType
     {
-        Number, String, Boolean, None, List, Dict, Tuple, Function, Class, Instance, Module
+        Int, Float, String, Boolean, None, List, Dict, Tuple, Function, Class, Instance, Module
     }
 
     // Enhanced Exception Classes with Line/Column Information
@@ -79,7 +80,8 @@ namespace SharpPy
         {
             return Type switch
             {
-                PythonType.Number => value is double,
+                PythonType.Int => value is int,
+                PythonType.Float => value is double,
                 PythonType.String => value is string,
                 PythonType.Boolean => value is bool,
                 PythonType.None => value == null,
@@ -97,7 +99,8 @@ namespace SharpPy
         {
             return Type switch
             {
-                PythonType.Number => "int",
+                PythonType.Int => "int",
+                PythonType.Float => "float",
                 PythonType.String => "str",
                 PythonType.Boolean => "bool",
                 PythonType.None => "None",
@@ -189,5 +192,107 @@ namespace SharpPy
         }
 
         public override string ToString() => $"Token({Type}, {Value}) at {Line}:{Column}";
+    }
+
+    // Helper class for number operations
+    public static class NumberHelper
+    {
+        public static bool IsNumber(object obj) => obj is int || obj is double;
+        
+        public static bool IsInteger(object obj) => obj is int;
+        
+        public static bool IsFloat(object obj) => obj is double;
+
+        public static double ToDouble(object obj)
+        {
+            return obj switch
+            {
+                int i => (double)i,
+                double d => d,
+                _ => throw new ArgumentException("Not a number")
+            };
+        }
+
+        public static int ToInt(object obj)
+        {
+            return obj switch
+            {
+                int i => i,
+                double d => (int)Math.Truncate(d),
+                _ => throw new ArgumentException("Not a number")
+            };
+        }
+
+        // Python-like division: returns float for true division
+        public static object Divide(object left, object right)
+        {
+            var leftD = ToDouble(left);
+            var rightD = ToDouble(right);
+            
+            if (rightD == 0) throw new PythonException("ZeroDivisionError", "Division by zero");
+            return leftD / rightD;
+        }
+
+        // Python-like arithmetic: preserves int when possible
+        public static object Add(object left, object right)
+        {
+            if (left is int li && right is int ri)
+                return li + ri;
+            
+            return ToDouble(left) + ToDouble(right);
+        }
+
+        public static object Subtract(object left, object right)
+        {
+            if (left is int li && right is int ri)
+                return li - ri;
+            
+            return ToDouble(left) - ToDouble(right);
+        }
+
+        public static object Multiply(object left, object right)
+        {
+            if (left is int li && right is int ri)
+                return li * ri;
+            
+            return ToDouble(left) * ToDouble(right);
+        }
+
+        public static object Modulo(object left, object right)
+        {
+            if (left is int li && right is int ri)
+            {
+                if (ri == 0) throw new PythonException("ZeroDivisionError", "Modulo by zero");
+                return li % ri;
+            }
+            
+            var leftD = ToDouble(left);
+            var rightD = ToDouble(right);
+            if (rightD == 0) throw new PythonException("ZeroDivisionError", "Modulo by zero");
+            return leftD % rightD;
+        }
+
+        public static object Power(object left, object right)
+        {
+            var leftD = ToDouble(left);
+            var rightD = ToDouble(right);
+            var result = Math.Pow(leftD, rightD);
+            
+            // If both operands are int and result is a whole number, return int
+            if (left is int && right is int && result == Math.Truncate(result) && result >= int.MinValue && result <= int.MaxValue)
+                return (int)result;
+            
+            return result;
+        }
+
+        public static object Negate(object operand)
+        {
+            return operand switch
+            {
+                int i => -i,
+                double d => -d,
+                _ => throw new ArgumentException("Cannot negate non-number")
+            };
+        }
     }
 }

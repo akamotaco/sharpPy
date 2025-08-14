@@ -1,10 +1,11 @@
+// enhanced_python_types.cs
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace SharpPy
 {
-    // Python Data Types (No changes needed for line tracking as these don't throw location-specific exceptions)
+    // Python Data Types (Updated for int/float support)
     public class PythonList
     {
         public List<object> Items { get; } = new List<object>();
@@ -34,13 +35,14 @@ namespace SharpPy
                 "insert" => new BuiltinFunction("insert", args =>
                 {
                     if (args.Count != 2) throw new PythonException("TypeError", "insert() takes exactly two arguments");
-                    if (args[0] is double index && args[1] is object value)
-                    {
-                        int i = (int)index;
-                        if (i < 0) i = Math.Max(0, Items.Count + i);
-                        if (i > Items.Count) i = Items.Count;
-                        Items.Insert(i, value);
-                    }
+                    if (!NumberHelper.IsNumber(args[0]))
+                        throw new PythonException("TypeError", "insert() first argument must be an integer");
+                    
+                    int i = NumberHelper.ToInt(args[0]);
+                    var value = args[1];
+                    if (i < 0) i = Math.Max(0, Items.Count + i);
+                    if (i > Items.Count) i = Items.Count;
+                    Items.Insert(i, value);
                     return null;
                 }),
                 "remove" => new BuiltinFunction("remove", args =>
@@ -55,7 +57,7 @@ namespace SharpPy
                     if (args.Count > 1) throw new PythonException("TypeError", "pop() takes at most 1 argument");
                     if (Items.Count == 0) throw new PythonException("IndexError", "pop from empty list");
 
-                    int index = args.Count == 0 ? Items.Count - 1 : (int)(double)args[0];
+                    int index = args.Count == 0 ? Items.Count - 1 : NumberHelper.ToInt(args[0]);
                     if (index < 0) index += Items.Count;
                     if (index < 0 || index >= Items.Count) throw new PythonException("IndexError", "pop index out of range");
 
@@ -74,19 +76,20 @@ namespace SharpPy
                     if (args.Count != 1) throw new PythonException("TypeError", "index() takes exactly one argument");
                     int idx = Items.IndexOf(args[0]);
                     if (idx == -1) throw new PythonException("ValueError", $"{args[0]} is not in list");
-                    return (double)idx;
+                    return idx;
                 }),
                 "count" => new BuiltinFunction("count", args =>
                 {
                     if (args.Count != 1) throw new PythonException("TypeError", "count() takes exactly one argument");
-                    return (double)Items.Count(item => Equals(item, args[0]));
+                    return Items.Count(item => Equals(item, args[0]));
                 }),
                 "sort" => new BuiltinFunction("sort", args =>
                 {
                     if (args.Count > 1) throw new PythonException("TypeError", "sort() takes at most 1 argument");
                     Items.Sort((a, b) =>
                     {
-                        if (a is double da && b is double db) return da.CompareTo(db);
+                        if (NumberHelper.IsNumber(a) && NumberHelper.IsNumber(b))
+                            return NumberHelper.ToDouble(a).CompareTo(NumberHelper.ToDouble(b));
                         if (a is string sa && b is string sb) return sa.CompareTo(sb);
                         return 0;
                     });
@@ -127,14 +130,14 @@ namespace SharpPy
                 "count" => new BuiltinFunction("count", args =>
                 {
                     if (args.Count != 1) throw new PythonException("TypeError", "count() takes exactly one argument");
-                    return (double)Items.Count(item => Equals(item, args[0]));
+                    return Items.Count(item => Equals(item, args[0]));
                 }),
                 "index" => new BuiltinFunction("index", args =>
                 {
                     if (args.Count != 1) throw new PythonException("TypeError", "index() takes exactly one argument");
                     int idx = Items.IndexOf(args[0]);
                     if (idx == -1) throw new PythonException("ValueError", $"{args[0]} is not in tuple");
-                    return (double)idx;
+                    return idx;
                 }),
                 _ => throw new PythonException("AttributeError", $"'tuple' object has no attribute '{name}'")
             };
@@ -321,7 +324,8 @@ namespace SharpPy
         {
             return value switch
             {
-                double d => Math.Abs(d - Math.Truncate(d)) < 1e-16 ? "int" : "float", // 1e-15보다 작은 허용치
+                int => "int",
+                double => "float",
                 string => "str",
                 bool => "bool",
                 null => "None",
