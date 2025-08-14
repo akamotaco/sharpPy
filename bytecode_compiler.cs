@@ -123,6 +123,10 @@ namespace SharpPy
                     CompileFunctionCall(call);
                     break;
 
+                case FunctionDefNode funcDef:
+                    CompileFunctionDef(funcDef);
+                    break;
+
                 case LambdaNode lambda:
                     CompileLambda(lambda);
                     break;
@@ -145,6 +149,43 @@ namespace SharpPy
 
                 case ConditionalExpressionNode condExpr:
                     CompileConditionalExpression(condExpr);
+                    break;
+
+                case MultipleAssignmentNode multiAssign:
+                    CompileMultipleAssignment(multiAssign);
+                    break;
+
+                case ImportNode import:
+                    CompileImport(import);
+                    break;
+
+                case FromImportNode fromImport:
+                    CompileFromImport(fromImport);
+                    break;
+
+                case ClassDefNode classDef:
+                    CompileClassDef(classDef);
+                    break;
+
+                case TryNode tryNode:
+                    CompileTry(tryNode);
+                    break;
+
+                case RaiseNode raiseNode:
+                    CompileRaise(raiseNode);
+                    break;
+
+                case BreakNode:
+                    Emit(OpCode.BREAK_LOOP, 0, node.Line);
+                    break;
+
+                case ContinueNode:
+                    Emit(OpCode.CONTINUE_LOOP, 0, node.Line);
+                    break;
+
+                case BlockNode block:
+                    foreach (var stmt in block.Statements)
+                        CompileNode(stmt);
                     break;
 
                 default:
@@ -348,6 +389,126 @@ namespace SharpPy
             
             // Patch end jump
             instructions[endLabel - 1] = new Instruction(OpCode.JUMP_ABSOLUTE, instructions.Count, node.Line);
+        }
+
+        private void CompileFunctionDef(FunctionDefNode node)
+        {
+            // Create a nested compiler for the function
+            var funcCompiler = new BytecodeCompiler(filename);
+            funcCompiler.currentFunctionName = node.Name;
+
+            // Add parameter names as local variables
+            foreach (var param in node.Parameters)
+                funcCompiler.AddVarName(param.Name);
+
+            // Compile function body
+            foreach (var stmt in node.Body)
+                funcCompiler.CompileNode(stmt);
+
+            // Add implicit return None if no explicit return
+            if (funcCompiler.instructions.Count == 0 || 
+                funcCompiler.instructions.Last().OpCode != OpCode.RETURN_VALUE)
+            {
+                funcCompiler.EmitLoadConst(null);
+                funcCompiler.Emit(OpCode.RETURN_VALUE);
+            }
+
+            var funcCode = new CodeObject(
+                node.Name,
+                filename,
+                funcCompiler.instructions,
+                funcCompiler.constants,
+                funcCompiler.names,
+                funcCompiler.varNames,
+                node.Parameters.Count
+            );
+
+            // Create function object at runtime
+            EmitLoadConst(funcCode);
+            Emit(OpCode.MAKE_FUNCTION, node.Parameters.Count, node.Line);
+            EmitStoreName(node.Name);
+        }
+
+        private void CompileMultipleAssignment(MultipleAssignmentNode node)
+        {
+            CompileNode(node.Value);
+            
+            // For now, use a simplified approach
+            // In a full implementation, we'd use UNPACK_SEQUENCE opcode
+            for (int i = 0; i < node.VariableNames.Count; i++)
+            {
+                if (i < node.VariableNames.Count - 1)
+                {
+                    Emit(OpCode.LOAD_CONST, GetConstantIndex(i)); // Load index
+                    Emit(OpCode.LOAD_INDEX); // Custom opcode for indexing
+                }
+                else
+                {
+                    // Last item, just use the value directly
+                    Emit(OpCode.LOAD_CONST, GetConstantIndex(i));
+                    Emit(OpCode.LOAD_INDEX);
+                }
+                
+                if (node.VariableNames[i] != "_") // Skip underscore variables
+                    EmitStoreName(node.VariableNames[i]);
+                else
+                    Emit(OpCode.POP_TOP); // Discard underscore values
+            }
+        }
+
+        private void CompileImport(ImportNode node)
+        {
+            EmitLoadConst(node.ModuleName);
+            Emit(OpCode.IMPORT_NAME, 0, node.Line);
+            
+            var storeName = node.Alias ?? node.ModuleName;
+            EmitStoreName(storeName);
+        }
+
+        private void CompileFromImport(FromImportNode node)
+        {
+            EmitLoadConst(node.ModuleName);
+            Emit(OpCode.IMPORT_NAME, 0, node.Line);
+            
+            if (node.ImportAll)
+            {
+                // from module import * - simplified implementation
+                EmitStoreName("*temp_module*");
+                // In a real implementation, we'd iterate through module attributes
+            }
+            else
+            {
+                foreach (var (itemName, alias) in node.ImportItems)
+                {
+                    EmitLoadConst(itemName);
+                    Emit(OpCode.IMPORT_FROM, 0, node.Line);
+                    
+                    var storeName = alias ?? itemName;
+                    EmitStoreName(storeName);
+                }
+            }
+        }
+
+        private void CompileClassDef(ClassDefNode node)
+        {
+            // Simplified class compilation
+            // In a full implementation, we'd create a proper class object
+            EmitLoadConst($"<class {node.Name}>");
+            EmitStoreName(node.Name);
+        }
+
+        private void CompileTry(TryNode node)
+        {
+            // Simplified try/except compilation
+            // In a full implementation, we'd use exception handling opcodes
+            foreach (var stmt in node.TryBody)
+                CompileNode(stmt);
+        }
+
+        private void CompileRaise(RaiseNode node)
+        {
+            CompileNode(node.Exception);
+            Emit(OpCode.RAISE_VARARGS, 1, node.Line);
         }
 
         // Helper methods for emitting instructions

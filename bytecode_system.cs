@@ -59,6 +59,7 @@ namespace SharpPy
         STORE_INDEX = 64,
         LOAD_ATTR = 65,
         STORE_ATTR = 66,
+        UNPACK_SEQUENCE = 67,
 
         // Loop operations
         GET_ITER = 70,
@@ -354,6 +355,27 @@ namespace SharpPy
                             }
                             break;
 
+                        case OpCode.IMPORT_NAME:
+                            ExecuteImportName();
+                            break;
+
+                        case OpCode.IMPORT_FROM:
+                            ExecuteImportFrom();
+                            break;
+
+                        case OpCode.LOAD_INDEX:
+                            ExecuteLoadIndex();
+                            break;
+
+                        case OpCode.RAISE_VARARGS:
+                            ExecuteRaise(arg);
+                            break;
+
+                        case OpCode.BREAK_LOOP:
+                        case OpCode.CONTINUE_LOOP:
+                            // These would be handled by loop compilation
+                            break;
+
                         case OpCode.NOP:
                             break;
 
@@ -510,8 +532,7 @@ namespace SharpPy
             if (codeObject == null)
                 throw new PythonException("TypeError", "MAKE_FUNCTION expects CodeObject");
 
-            // For now, create a simple function wrapper
-            // In a full implementation, we'd handle defaults, closure, etc.
+            // Create a function that can be called later
             var function = new BytecodeFunction(codeObject, currentFrame.Locals);
             currentFrame.Stack.Push(function);
         }
@@ -559,6 +580,88 @@ namespace SharpPy
             }
             
             throw new PythonException("TypeError", "FOR_ITER expects iterator");
+        }
+
+        private void ExecuteImportName()
+        {
+            var moduleName = currentFrame.Stack.Pop() as string;
+            if (moduleName == null)
+                throw new PythonException("TypeError", "IMPORT_NAME expects string");
+
+            try
+            {
+                var module = ModuleSystem.ImportModule(moduleName);
+                currentFrame.Stack.Push(module);
+            }
+            catch (Exception ex)
+            {
+                throw new PythonException("ImportError", $"Failed to import module '{moduleName}': {ex.Message}");
+            }
+        }
+
+        private void ExecuteImportFrom()
+        {
+            var itemName = currentFrame.Stack.Pop() as string;
+            var module = currentFrame.Stack.Pop() as PythonModule;
+            
+            if (itemName == null || module == null)
+                throw new PythonException("TypeError", "IMPORT_FROM expects string and module");
+
+            try
+            {
+                var value = module.GetAttribute(itemName);
+                currentFrame.Stack.Push(value);
+            }
+            catch (Exception)
+            {
+                throw new PythonException("ImportError", $"cannot import name '{itemName}' from module '{module.Name}'");
+            }
+        }
+
+        private void ExecuteLoadIndex()
+        {
+            var index = currentFrame.Stack.Pop();
+            var obj = currentFrame.Stack.Pop();
+
+            if (obj is PythonList list && NumberHelper.IsNumber(index))
+            {
+                int i = NumberHelper.ToInt(index);
+                if (i < 0) i += list.Items.Count;
+                if (i >= 0 && i < list.Items.Count)
+                {
+                    currentFrame.Stack.Push(list.Items[i]);
+                    return;
+                }
+                throw new PythonException("IndexError", "list index out of range");
+            }
+            else if (obj is PythonTuple tuple && NumberHelper.IsNumber(index))
+            {
+                int i = NumberHelper.ToInt(index);
+                if (i < 0) i += tuple.Items.Count;
+                if (i >= 0 && i < tuple.Items.Count)
+                {
+                    currentFrame.Stack.Push(tuple.Items[i]);
+                    return;
+                }
+                throw new PythonException("IndexError", "tuple index out of range");
+            }
+
+            throw new PythonException("TypeError", "object is not subscriptable");
+        }
+
+        private void ExecuteRaise(int argCount)
+        {
+            if (argCount == 1)
+            {
+                var exception = currentFrame.Stack.Pop();
+                if (exception is string message)
+                    throw new PythonException("Exception", message);
+                throw new PythonException("Exception", exception?.ToString() ?? "");
+            }
+            else
+            {
+                throw new PythonException("Exception", "Exception raised");
+            }
         }
 
         private bool IsTrue(object obj)
@@ -635,12 +738,17 @@ namespace SharpPy
             var funcEnv = new Environment(closure);
             
             // Bind arguments to parameter names
-            for (int i = 0; i < code.VarNames.Count && i < arguments.Count; i++)
+            for (int i = 0; i < Math.Min(code.VarNames.Count, arguments.Count); i++)
             {
                 funcEnv.SetVariable(code.VarNames[i], arguments[i]);
             }
 
-            var vm = new VirtualMachine(closure);
+            // Find the global environment (root parent)
+            var globalEnv = closure;
+            while (globalEnv.parent != null)
+                globalEnv = globalEnv.parent;
+
+            var vm = new VirtualMachine(globalEnv);
             return vm.Execute(code, funcEnv);
         }
     }

@@ -378,7 +378,7 @@ namespace SharpPy
     public class Environment
     {
         private Dictionary<string, object> variables = new Dictionary<string, object>();
-        private Environment parent;
+        public Environment parent;
         public List<string> SearchPaths { get; set; }
 
         public Environment(Environment parent = null)
