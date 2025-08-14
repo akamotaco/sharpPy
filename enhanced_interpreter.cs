@@ -661,6 +661,172 @@ animal = Animal('Generic')
 animal.speak()
 ");
 
+
+        // 딕셔너리 업데이트 테스트
+        Console.WriteLine("\n=== Dictionary Operations ===");
+        interpreter.Execute(@"
+# 딕셔너리 업데이트
+dict1 = {'a': 1, 'b': 2}
+dict2 = {'b': 3, 'c': 4}
+print('Before update - dict1:', dict1)
+print('dict2:', dict2)
+
+dict1.update(dict2)
+print('After update - dict1:', dict1)
+
+# 딕셔너리 메서드들
+print('Keys:', dict1.keys())
+print('Values:', dict1.values())
+print('Items:', dict1.items())
+print('Get with default:', dict1.get('d', 'not found'))
+");
+
+        // 컬렉션 결합 테스트  
+        Console.WriteLine("\n=== Collection Concatenation ===");
+        interpreter.Execute(@"
+list1 = [1, 2, 3]
+list2 = [4, 5, 6]
+combined = list1 + list2
+print('Combined lists:', combined)
+
+# 튜플 결합
+tuple1 = (1, 2, 3)
+tuple2 = (4, 5, 6)
+combined_tuple = tuple1 + tuple2
+print('Combined tuples:', combined_tuple)
+
+# 딕셔너리 결합
+dict1 = {'a': 1, 'b': 2}
+dict2 = {'c': 3, 'd': 4}
+combined_dict = dict1 + dict2
+print('Combined dicts:', combined_dict)
+
+# 리스트 반복
+repeated = [1, 2] * 3
+print('Repeated list:', repeated)
+");
+
+        // 내장 함수 테스트
+        Console.WriteLine("\n=== Built-in Functions ===");
+        interpreter.Execute(@"
+# 범위와 열거
+numbers = list(range(5))
+print('Range 5:', numbers)
+print('Range 2 to 8:', list(range(2, 8)))
+print('Range with step:', list(range(0, 10, 2)))
+
+# 열거와 압축
+data = ['a', 'b', 'c']
+for i, item in enumerate(data):
+print('Index', i, ':', item)
+
+# zip 함수
+list1 = [1, 2, 3]
+list2 = ['a', 'b', 'c']
+zipped = zip(list1, list2)
+print('Zipped:', zipped)
+
+# 수학 함수들
+numbers = [1, 5, 3, 9, 2]
+print('Max:', max(numbers))
+print('Min:', min(numbers))
+print('Sum:', sum(numbers))
+print('Length:', len(numbers))
+");
+
+        // is 연산자 테스트
+        Console.WriteLine("\n=== Identity Operators (is/is not) ===");
+        interpreter.Execute(@"
+# None 체크
+x = None
+y = None
+print('x is None:', x is None)
+print('x is not None:', x is not None)
+print('None is None:', None is None)
+
+# 작은 정수 (인턴됨)
+a = 5
+b = 5
+print('5 is 5:', a is b)
+
+c = 100
+d = 100  
+print('100 is 100:', c is d)
+
+# 큰 정수 (인턴되지 않음)
+big1 = 1000
+big2 = 1000
+print('1000 is 1000:', big1 is big2)
+
+# 불린 값
+true1 = True
+true2 = True
+print('True is True:', true1 is true2)
+print('True is not False:', True is not False)
+
+# 리스트는 다른 객체
+list1 = [1, 2, 3]
+list2 = [1, 2, 3]
+print('list1 == list2:', list1 == list2)
+print('list1 is list2:', list1 is list2)
+print('list1 is not list2:', list1 is not list2)
+
+# 빈 튜플은 싱글톤
+empty1 = ()
+empty2 = ()
+print('() is ():', empty1 is empty2)
+");
+
+        // 복합 예제
+        Console.WriteLine("\n=== Advanced Example ===");
+        interpreter.Execute(@"
+def fibonacci_tuple(n: int) -> tuple[int, int]:
+    # 피보나치 수열의 n번째와 (n+1)번째 값을 튜플로 반환
+    if n <= 0:
+        return (0, 1)
+    a, b = 0, 1
+    for i in range(n):
+        a, b = b, a + b
+    return (a, b)
+
+# 여러 값 언패킹
+print('Fibonacci sequence:')
+for i in range(8):
+    current, next_val = fibonacci_tuple(i)
+    print('Fib(' + str(i) + ') = ' + str(current) + ', Fib(' + str(i + 1) + ') = ' + str(next_val))
+
+# 튜플을 이용한 데이터 처리
+student_data = [
+    ('Alice', 85, 'Math'),
+    ('Bob', 92, 'Science'),
+    ('Charlie', 78, 'History')
+]
+
+print('\\nStudent grades:')
+for name, score, subject in student_data:
+    grade = 'A' if score >= 90 else 'B' if score >= 80 else 'C'
+    print(name + ': ' + str(score) + ' in ' + subject + ' (Grade: ' + grade + ')')
+");
+
+        // 모듈 테스트
+        Console.WriteLine("\n=== Module System ===");
+            interpreter.Execute(@"
+import math
+print('Pi:', math.pi)
+print('Square root of 16:', math.sqrt(16))
+print('2 to the power of 8:', math.pow(2, 8))
+
+import random
+print('Random number:', random.random())
+print('Random int 1-10:', random.randint(1, 10))
+
+numbers = [1, 2, 3, 4, 5]
+print('Original list:', numbers)
+random.shuffle(numbers)
+print('Shuffled list:', numbers)
+print('Random choice:', random.choice(numbers))
+");
+
             // 수학 연산 테스트
             Console.WriteLine("\n=== Math Operations ===");
             interpreter.Execute(@"
