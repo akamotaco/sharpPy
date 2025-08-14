@@ -235,6 +235,7 @@ namespace SharpPy
                         "and" => TokenType.AND,
                         "or" => TokenType.OR,
                         "not" => TokenType.NOT,
+                        "lambda" => TokenType.LAMBDA,
                         "True" => TokenType.BOOLEAN,
                         "False" => TokenType.BOOLEAN,
                         "None" => TokenType.NONE,

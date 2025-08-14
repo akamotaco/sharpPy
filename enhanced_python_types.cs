@@ -340,6 +340,66 @@ namespace SharpPy
         }
     }
 
+    public class LambdaFunction : Function
+    {
+        public List<Parameter> Parameters { get; }
+        public ASTNode Body { get; }
+        public Environment ClosureEnv { get; }
+
+        public LambdaFunction(List<Parameter> parameters, ASTNode body, Environment closureEnv)
+            : base("<lambda>")
+        {
+            Parameters = parameters;
+            Body = body;
+            ClosureEnv = closureEnv;
+        }
+
+        public override object Call(List<object> arguments)
+        {
+            if (arguments.Count != Parameters.Count)
+                throw new PythonException("TypeError", $"Lambda function expects {Parameters.Count} arguments, got {arguments.Count}");
+
+            var funcEnv = new Environment(ClosureEnv);
+
+            // Bind parameters to arguments
+            for (int i = 0; i < Parameters.Count; i++)
+            {
+                var param = Parameters[i];
+                var arg = arguments[i];
+
+                // Type checking for parameters (if type hints are provided)
+                if (param.TypeHint != null && !param.TypeHint.IsCompatible(arg))
+                    throw new PythonException("TypeError", $"Argument {i + 1} for parameter '{param.Name}' expected {param.TypeHint}, got {GetValueType(arg)}");
+
+                funcEnv.SetVariable(param.Name, arg);
+            }
+
+            // Evaluate the lambda body (single expression)
+            return Body.Evaluate(funcEnv);
+        }
+
+        private string GetValueType(object value)
+        {
+            return value switch
+            {
+                int => "int",
+                double => "float",
+                string => "str",
+                bool => "bool",
+                null => "None",
+                PythonList => "list",
+                PythonTuple => "tuple",
+                PythonDict => "dict",
+                Function => "function",
+                PythonClass => "class",
+                PythonInstance => "object",
+                _ => value.GetType().Name
+            };
+        }
+
+        public override string ToString() => "<lambda>";
+    }
+    
     public class BuiltinFunction : Function
     {
         private Func<List<object>, object> implementation;

@@ -468,4 +468,32 @@ namespace SharpPy
             return true;
         }
     }
+
+    public class LambdaNode : ASTNode
+    {
+        public List<Parameter> Parameters { get; }
+        public ASTNode Body { get; }
+
+        public LambdaNode(List<Parameter> parameters, ASTNode body, int line = 0, int column = 0) : base(line, column)
+        {
+            Parameters = parameters ?? new List<Parameter>();
+            Body = body;
+        }
+
+        public override object Evaluate(Environment env)
+        {
+            try
+            {
+                return new LambdaFunction(Parameters, Body, env);
+            }
+            catch (PythonException)
+            {
+                throw; // Re-throw PythonExceptions as-is
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Internal error creating lambda: {ex.Message}");
+            }
+        }
+    }
 }

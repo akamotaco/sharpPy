@@ -14,7 +14,7 @@ namespace SharpPy
         NUMBER, STRING, BOOLEAN, NONE, IDENTIFIER,
         // Keywords
         DEF, CLASS, IF, ELSE, ELIF, FOR, WHILE, IN, IS, BREAK, CONTINUE,
-        TRY, EXCEPT, FINALLY, RAISE, IMPORT, FROM, AS, RETURN, AND, OR, NOT,
+        TRY, EXCEPT, FINALLY, RAISE, IMPORT, FROM, AS, RETURN, AND, OR, NOT, LAMBDA,
         // Operators
         OPERATOR, ASSIGN,
         // Delimiters

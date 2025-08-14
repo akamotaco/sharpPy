@@ -760,6 +760,9 @@ namespace SharpPy
                     Advance();
                     return new VariableNode(name, line, column);
 
+                case TokenType.LAMBDA:
+                    return ParseLambda();
+
                 case TokenType.LBRACKET:
                     return ParseList();
 
@@ -810,6 +813,57 @@ namespace SharpPy
                 default:
                     throw new PythonException("SyntaxError", $"Unexpected token: {currentToken.Type}", currentToken.Line, currentToken.Column);
             }
+        }
+
+        private ASTNode ParseLambda()
+        {
+            int line = currentToken.Line;
+            int column = currentToken.Column;
+
+            Expect(TokenType.LAMBDA);
+
+            // Parse parameters (same format as function parameters but no parentheses)
+            var parameters = new List<Parameter>();
+            
+            // Check if there are parameters (if not immediately followed by colon)
+            if (currentToken.Type != TokenType.COLON)
+            {
+                do
+                {
+                    if (currentToken.Type != TokenType.IDENTIFIER)
+                    {
+                        throw new PythonException("SyntaxError", $"Expected parameter name in lambda", currentToken.Line, currentToken.Column);
+                    }
+
+                    string paramName = currentToken.Value;
+                    Advance();
+
+                    // For simplicity, we'll skip type hints in lambda for now
+                    // Lambda type hints are rarely used in practice
+                    parameters.Add(new Parameter(paramName, null));
+
+                    if (currentToken.Type == TokenType.COMMA)
+                    {
+                        Advance(); // Skip comma
+                        // Must have another parameter after comma
+                        if (currentToken.Type == TokenType.COLON)
+                        {
+                            throw new PythonException("SyntaxError", $"Expected parameter after ',' in lambda", currentToken.Line, currentToken.Column);
+                        }
+                    }
+                    else
+                    {
+                        break;
+                    }
+                } while (currentToken.Type != TokenType.COLON);
+            }
+
+            Expect(TokenType.COLON);
+
+            // Parse lambda body (single expression)
+            var body = ParseExpression();
+
+            return new LambdaNode(parameters, body, line, column);
         }
 
         private ASTNode ParseList()
