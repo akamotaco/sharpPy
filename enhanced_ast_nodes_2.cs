@@ -61,6 +61,7 @@ namespace SharpPy
                 return function switch
                 {
                     UserFunction userFunc => userFunc.Call(args),
+                    LambdaFunction lambdaFunc => lambdaFunc.Call(args),
                     BuiltinFunction builtinFunc => builtinFunc.Call(args),
                     BoundMethod boundMethod => boundMethod.Call(args),
                     PythonClass pythonClass => pythonClass.CreateInstance(args),
