@@ -786,6 +786,63 @@ print('Shuffled list:', numbers)
 print('Random choice:', random.choice(numbers))
 ");
 
+            Console.WriteLine("\n=== Lambda Functions Test ===");
+            interpreter.Execute(@"
+# Basic lambda functions
+double = lambda x: x * 2
+print('double(5) =', double(5))
+
+add = lambda x, y: x + y
+print('add(3, 4) =', add(3, 4))
+
+# Lambda with no parameters
+get_pi = lambda: 3.14159
+print('get_pi() =', get_pi())
+
+# Lambda with type hints (if you want to be explicit)
+square = lambda x: x * x
+print('square(6) =', square(6))
+
+# Using lambda with built-in functions
+numbers = [1, 2, 3, 4, 5]
+print('Original numbers:', numbers)
+
+# map with lambda
+doubled = map(lambda x: x * 2, numbers)
+print('Doubled with map:', doubled)
+
+# filter with lambda
+evens = filter(lambda x: x % 2 == 0, numbers)
+print('Even numbers:', evens)
+
+# sorted with lambda (sort by string length)
+words = ['python', 'java', 'go', 'javascript', 'c']
+print('Words:', words)
+sorted_by_length = sorted(words, lambda x: len(x))
+print('Sorted by length:', sorted_by_length)
+
+# any and all with conditions
+print('Any even number?', any(map(lambda x: x % 2 == 0, numbers)))
+print('All positive?', all(map(lambda x: x > 0, numbers)))
+
+# More complex lambda examples
+points = [(1, 2), (3, 1), (2, 4), (0, 3)]
+print('Points:', points)
+# Sort by distance from origin
+sorted_points = sorted(points, lambda p: p[0]**2 + p[1]**2)
+print('Sorted by distance from origin:', sorted_points)
+
+# Lambda returning lambda (higher-order function)
+make_multiplier = lambda n: lambda x: x * n
+times_3 = make_multiplier(3)
+print('times_3(4) =', times_3(4))
+
+# Using lambda with conditional expression
+abs_lambda = lambda x: x if x >= 0 else -x
+print('abs_lambda(-5) =', abs_lambda(-5))
+print('abs_lambda(3) =', abs_lambda(3))
+");
+
             Console.WriteLine("\n=== Demo Complete ===");
             Console.WriteLine("Starting interactive mode...");
             Console.WriteLine("(You can also run: PythonInterpreter.exe filename.py)");
