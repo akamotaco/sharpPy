@@ -660,15 +660,22 @@ namespace SharpPy
                 if (!(source is PythonString sourceStr))
                     throw new PythonException("TypeError", "exec() first argument must be a string");
                 
-                // If no globals provided, use current environment
-                // But if globals() was explicitly passed, we should use it and update it
+                // Special handling for globals() dict passed as second argument
                 if (args.Count > 1 && args[1] is PythonDict gDict)
                 {
-                    // Special case: when globals() dict is passed, we need to execute in current env
-                    // and update the dict afterwards
                     try
                     {
-                        PythonCompiler.Exec(sourceStr.Value, env, env);
+                        // Execute in current environment and update the dict
+                        var lexer = new Lexer(sourceStr.Value);
+                        var tokens = lexer.Tokenize();
+                        var parser = new Parser(tokens);
+                        var ast = parser.Parse();
+                        
+                        // Execute statements
+                        foreach (var statement in ast)
+                        {
+                            statement.Evaluate(env);
+                        }
                         
                         // Update the passed dict with any new variables
                         var currentVars = env.GetAllVariables();

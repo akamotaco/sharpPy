@@ -9,6 +9,7 @@ using System.IO;
 namespace SharpPy
 {
     // F-String Node
+    // enhanced_ast_nodes_3.cs의 FStringNode 클래스 수정
     public class FStringNode : ASTNode
     {
         public string Template { get; }
@@ -23,19 +24,69 @@ namespace SharpPy
         private List<(string Text, ASTNode Expression)> ParseFString(string template)
         {
             var parts = new List<(string Text, ASTNode Expression)>();
-            var regex = new Regex(@"\{([^}]+)\}");
-            int lastIndex = 0;
-
-            foreach (Match match in regex.Matches(template))
+            int position = 0;
+            
+            while (position < template.Length)
             {
-                // Add text before the expression
-                if (match.Index > lastIndex)
+                int braceStart = template.IndexOf('{', position);
+                
+                if (braceStart == -1)
                 {
-                    parts.Add((template.Substring(lastIndex, match.Index - lastIndex), null));
+                    // No more expressions, add remaining text
+                    if (position < template.Length)
+                    {
+                        parts.Add((template.Substring(position), null));
+                    }
+                    break;
                 }
-
-                // Parse the expression inside {}
-                string exprStr = match.Groups[1].Value;
+                
+                // Check for escaped braces {{
+                if (braceStart + 1 < template.Length && template[braceStart + 1] == '{')
+                {
+                    // Add text including single {
+                    parts.Add((template.Substring(position, braceStart - position) + "{", null));
+                    position = braceStart + 2;
+                    continue;
+                }
+                
+                // Add text before the expression
+                if (braceStart > position)
+                {
+                    parts.Add((template.Substring(position, braceStart - position), null));
+                }
+                
+                // Find matching closing brace (handle nested braces in expressions)
+                int braceEnd = braceStart + 1;
+                int braceDepth = 1;
+                
+                while (braceEnd < template.Length && braceDepth > 0)
+                {
+                    if (template[braceEnd] == '{')
+                        braceDepth++;
+                    else if (template[braceEnd] == '}')
+                    {
+                        // Check for escaped closing brace }}
+                        if (braceEnd + 1 < template.Length && template[braceEnd + 1] == '}')
+                        {
+                            braceEnd++; // Skip escaped brace
+                        }
+                        else
+                        {
+                            braceDepth--;
+                        }
+                    }
+                    braceEnd++;
+                }
+                
+                if (braceDepth != 0)
+                {
+                    // No matching brace found, treat as literal text
+                    parts.Add((template.Substring(braceStart), null));
+                    break;
+                }
+                
+                // Extract and parse the expression
+                string exprStr = template.Substring(braceStart + 1, braceEnd - braceStart - 2);
                 
                 try
                 {
@@ -53,16 +104,30 @@ namespace SharpPy
                     parts.Add(("{" + exprStr + "}", null));
                 }
                 
-                lastIndex = match.Index + match.Length;
+                position = braceEnd;
             }
-
-            // Add remaining text
-            if (lastIndex < template.Length)
-            {
-                parts.Add((template.Substring(lastIndex), null));
-            }
-
+            
             return parts;
+        }
+        
+        private int FindMatchingBrace(string template, int start)
+        {
+            // Simple search for closing brace - handles basic cases
+            // For nested braces in format specifiers, would need more complex parsing
+            for (int i = start + 1; i < template.Length; i++)
+            {
+                if (template[i] == '}')
+                {
+                    // Check for escaped closing brace }}
+                    if (i + 1 < template.Length && template[i + 1] == '}')
+                    {
+                        i++; // Skip escaped brace
+                        continue;
+                    }
+                    return i;
+                }
+            }
+            return -1;
         }
 
         public override PythonTypeObject Evaluate(Environment env)

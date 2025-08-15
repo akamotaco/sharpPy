@@ -153,6 +153,52 @@ namespace SharpPy
             throw new PythonException("SyntaxError", $"Unterminated triple-quoted string literal", startLine, startColumn);
         }
 
+        private string ReadTripleQuotedFString(string quoteType)
+        {
+            var sb = new StringBuilder();
+            int startLine = line;
+            int startColumn = column;
+            
+            // Skip the opening triple quotes
+            for (int i = 0; i < 3; i++)
+                Advance();
+
+            // Read until we find the closing triple quotes
+            while (position + 2 < input.Length)
+            {
+                if (currentChar == quoteType[0] && 
+                    position + 1 < input.Length && input[position + 1] == quoteType[0] &&
+                    position + 2 < input.Length && input[position + 2] == quoteType[0])
+                {
+                    // Found closing triple quotes
+                    for (int i = 0; i < 3; i++)
+                        Advance();
+                    return sb.ToString();
+                }
+                
+                sb.Append(currentChar);
+                Advance();
+            }
+
+            // Handle end of string
+            while (currentChar != '\0')
+            {
+                if (currentChar == quoteType[0] && 
+                    position + 1 < input.Length && input[position + 1] == quoteType[0] &&
+                    position + 2 < input.Length && input[position + 2] == quoteType[0])
+                {
+                    // Found closing triple quotes
+                    for (int i = 0; i < 3; i++)
+                        Advance();
+                    return sb.ToString();
+                }
+                sb.Append(currentChar);
+                Advance();
+            }
+
+            throw new PythonException("SyntaxError", $"Unterminated triple-quoted f-string literal", startLine, startColumn);
+        }
+
         private string ReadFString(char quote)
         {
             var sb = new StringBuilder();
@@ -302,21 +348,21 @@ namespace SharpPy
                 if (currentChar == 'f' && position + 1 < input.Length && 
                     (input[position + 1] == '"' || input[position + 1] == '\''))
                 {
-                    // Make sure it's not f''' or f"""
+                    // Check if it's a triple-quoted f-string
                     if (position + 3 < input.Length)
                     {
                         char quoteChar = input[position + 1];
                         if (input[position + 2] == quoteChar && input[position + 3] == quoteChar)
                         {
-                            // This is an f-triple-quoted string, which we don't support yet
-                            // Treat it as a regular triple-quoted string for now
+                            // This is an f-triple-quoted string
                             Advance(); // Skip 'f'
-                            string content = ReadTripleQuotedString(quoteChar.ToString());
-                            tokens.Add(new Token(TokenType.STRING, content, tokenLine, tokenColumn));
+                            string content = ReadTripleQuotedFString(quoteChar.ToString());
+                            tokens.Add(new Token(TokenType.FSTRING, content, tokenLine, tokenColumn));
                             continue;
                         }
                     }
                     
+                    // Regular f-string
                     Advance(); // Skip 'f'
                     char quote = currentChar;
                     tokens.Add(new Token(TokenType.FSTRING, ReadFString(quote), tokenLine, tokenColumn));
