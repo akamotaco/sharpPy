@@ -597,8 +597,23 @@ namespace SharpPy
                     throw new PythonException("TypeError", "eval() takes 1 to 3 arguments");
                 
                 var expression = args[0];
-                if (!(expression is PythonString exprStr))
-                    throw new PythonException("TypeError", "eval() first argument must be a string");
+                
+                // Handle both string and code object as first argument
+                CodeObject codeObject = null;
+                if (expression is PythonString exprStr)
+                {
+                    // Compile the string expression
+                    codeObject = PythonCompiler.Compile(exprStr.Value, "<eval>", "eval");
+                }
+                else if (expression is PythonCodeObject pyCodeObj)
+                {
+                    // Use the pre-compiled code object
+                    codeObject = pyCodeObj.Code;
+                }
+                else
+                {
+                    throw new PythonException("TypeError", "eval() first argument must be a string or code object");
+                }
                 
                 // Handle globals argument - can be Environment or Dict
                 Environment globals = env;
@@ -626,7 +641,9 @@ namespace SharpPy
                 
                 try
                 {
-                    return PythonCompiler.Eval(exprStr.Value, globals, locals);
+                    // Execute the code object directly
+                    var vm = new VirtualMachine(globals);
+                    return vm.Execute(locals, codeObject);
                 }
                 catch (Exception ex)
                 {
@@ -643,17 +660,37 @@ namespace SharpPy
                 if (!(source is PythonString sourceStr))
                     throw new PythonException("TypeError", "exec() first argument must be a string");
                 
+                // If no globals provided, use current environment
+                // But if globals() was explicitly passed, we should use it and update it
+                if (args.Count > 1 && args[1] is PythonDict gDict)
+                {
+                    // Special case: when globals() dict is passed, we need to execute in current env
+                    // and update the dict afterwards
+                    try
+                    {
+                        PythonCompiler.Exec(sourceStr.Value, env, env);
+                        
+                        // Update the passed dict with any new variables
+                        var currentVars = env.GetAllVariables();
+                        foreach (var kvp in currentVars)
+                        {
+                            gDict.Items[new PythonString(kvp.Key)] = kvp.Value;
+                        }
+                        
+                        return PythonNone.Instance;
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new PythonException("SyntaxError", $"Error in exec(): {ex.Message}");
+                    }
+                }
+                
                 // Handle globals argument - can be Environment or Dict
                 Environment globals = env;
                 if (args.Count > 1 && args[1] != null && !(args[1] is PythonNone))
                 {
                     if (args[1] is Environment g)
                         globals = g;
-                    else if (args[1] is PythonDict gDict)
-                    {
-                        // Convert dict to environment, preserving the current environment as parent
-                        globals = Environment.FromDict(gDict, env);
-                    }
                     else
                         throw new PythonException("TypeError", "exec() globals must be a dict or environment");
                 }
@@ -675,18 +712,6 @@ namespace SharpPy
                 try
                 {
                     PythonCompiler.Exec(sourceStr.Value, globals, locals);
-                    
-                    // If we created a temporary environment from a dict, 
-                    // we need to copy back the changes to the original dict
-                    if (args.Count > 1 && args[1] is PythonDict originalDict)
-                    {
-                        // Update the original dict with changes from the environment
-                        foreach (var kvp in globals.GetAllVariables())
-                        {
-                            originalDict.Items[new PythonString(kvp.Key)] = kvp.Value;
-                        }
-                    }
-                    
                     return PythonNone.Instance;
                 }
                 catch (Exception ex)
