@@ -38,17 +38,18 @@ namespace SharpPy
         {
             try
             {
+                var env = this.globalEnv;
                 if (useBytecode)
-                {
-                    // Bytecode execution path
-                    var codeObject = PythonCompiler.Compile(code, filename, "exec");
-                    return virtualMachine.Execute(codeObject);
-                }
-                else
-                {
-                    // Traditional AST execution path
-                    return ExecuteAST(code, filename);
-                }
+                    {
+                        // Bytecode execution path
+                        var codeObject = PythonCompiler.Compile(code, filename, "exec");
+                        return virtualMachine.Execute(env, codeObject);
+                    }
+                    else
+                    {
+                        // Traditional AST execution path
+                        return ExecuteAST(code, filename);
+                    }
             }
             catch (PythonException ex)
             {
@@ -178,12 +179,12 @@ namespace SharpPy
             Console.WriteLine(); // Add empty line for readability
         }
 
-        public object CompileAndExecute(string code, string filename = "<string>")
+        public object CompileAndExecute(Environment env, string code, string filename = "<string>")
         {
             try
             {
                 var codeObject = PythonCompiler.Compile(code, filename);
-                return virtualMachine.Execute(codeObject);
+                return virtualMachine.Execute(env, codeObject);
             }
             catch (PythonException ex)
             {
@@ -205,8 +206,9 @@ namespace SharpPy
 
         public object LoadAndExecuteBytecode(string bytecodeFile)
         {
+            var env = this.globalEnv;
             var codeObject = BytecodeSerializer.LoadFromFile(bytecodeFile);
-            return virtualMachine.Execute(codeObject);
+            return virtualMachine.Execute(env, codeObject);
         }
 
         public void ShowBytecode(string code, string filename = "<string>")
@@ -219,11 +221,12 @@ namespace SharpPy
         {
             try
             {
+                var env = this.globalEnv;
                 if (!File.Exists(filename))
-                {
-                    Console.WriteLine($"Error: File '{filename}' not found");
-                    return;
-                }
+                    {
+                        Console.WriteLine($"Error: File '{filename}' not found");
+                        return;
+                    }
 
                 // Check if it's a bytecode file
                 if (filename.EndsWith(".pyc"))

@@ -205,9 +205,9 @@ namespace SharpPy
             frameStack = new Stack<Frame>();
         }
 
-        public PythonTypeObject Execute(CodeObject code, Environment locals = null)
+        public PythonTypeObject Execute(Environment locals, CodeObject code)
         {
-            locals = locals ?? new Environment(globalEnv);
+            // locals = locals ?? new Environment(globalEnv);
             currentFrame = new Frame(code, locals, globalEnv);
             frameStack.Push(currentFrame);
 
@@ -792,7 +792,7 @@ namespace SharpPy
                 globalEnv = globalEnv.parent;
 
             var vm = new VirtualMachine(globalEnv);
-            return vm.Execute(code, funcEnv);
+            return vm.Execute(funcEnv, code);
         }
     }
 }

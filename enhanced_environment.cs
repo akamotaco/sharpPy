@@ -649,13 +649,19 @@ namespace SharpPy
                         globals = e;
                     else if (args[1] is PythonDict dict)
                     {
+                        Console.WriteLine("Converting dict to environment");
                         // Convert dict to environment
                         globals = new Environment();
                         foreach (var kvp in dict.Items)
                         {
+                            Console.WriteLine(kvp);
                             if (kvp.Key is PythonString key)
+                            {
+                                Console.WriteLine("var1 set: " + key.Value +"/" + kvp.Value);
                                 globals.SetVariable(key.Value, kvp.Value);
+                            }
                         }
+                        Console.WriteLine("finish");
                     }
                 }
                 
@@ -665,13 +671,19 @@ namespace SharpPy
                         locals = e;
                     else if (args[2] is PythonDict dict)
                     {
+                        Console.WriteLine("Converting dict to environment2");
                         // Convert dict to environment
                         locals = new Environment(globals);
                         foreach (var kvp in dict.Items)
                         {
+                            Console.WriteLine(kvp);
                             if (kvp.Key is PythonString key)
+                            {
+                                Console.WriteLine("var2 set: " + key.Value +"/" + kvp.Value);
                                 locals.SetVariable(key.Value, kvp.Value);
+                            }
                         }
+                        Console.WriteLine("finish2");
                     }
                 }
                 
