@@ -9,10 +9,10 @@ namespace SharpPy
     public class BytecodeCompiler
     {
         private List<Instruction> instructions;
-        private List<object> constants;
+        private List<PythonTypeObject> constants;
         private List<string> names;
         private List<string> varNames;
-        private Dictionary<object, int> constantMap;
+        private Dictionary<PythonTypeObject, int> constantMap;
         private Dictionary<string, int> nameMap;
         private Dictionary<string, int> varNameMap;
         private string filename;
@@ -22,10 +22,10 @@ namespace SharpPy
         {
             this.filename = filename;
             instructions = new List<Instruction>();
-            constants = new List<object>();
+            constants = new List<PythonTypeObject>();
             names = new List<string>();
             varNames = new List<string>();
-            constantMap = new Dictionary<object, int>();
+            constantMap = new Dictionary<PythonTypeObject, int>();
             nameMap = new Dictionary<string, int>();
             varNameMap = new Dictionary<string, int>();
             currentFunctionName = "<module>";
@@ -41,7 +41,7 @@ namespace SharpPy
             // Add final return None if no explicit return
             if (instructions.Count == 0 || instructions.Last().OpCode != OpCode.RETURN_VALUE)
             {
-                EmitLoadConst(null);
+                EmitLoadConst(PythonNone.Instance);
                 Emit(OpCode.RETURN_VALUE);
             }
 
@@ -75,19 +75,25 @@ namespace SharpPy
             switch (node)
             {
                 case NumberNode num:
-                    EmitLoadConst(num.Value);
+                    var numValue = num.Value;
+                    if (numValue is int i)
+                        EmitLoadConst(new PythonInt(i));
+                    else if (numValue is double d)
+                        EmitLoadConst(new PythonFloat(d));
+                    else
+                        throw new PythonException("CompileError", $"Invalid number type: {numValue?.GetType()}");
                     break;
 
                 case StringNode str:
-                    EmitLoadConst(str.Value);
+                    EmitLoadConst(new PythonString(str.Value));
                     break;
 
                 case BooleanNode boolean:
-                    EmitLoadConst(boolean.Value);
+                    EmitLoadConst(new PythonBool(boolean.Value));
                     break;
 
                 case NoneNode:
-                    EmitLoadConst(null);
+                    EmitLoadConst(PythonNone.Instance);
                     break;
 
                 case VariableNode var:
@@ -313,7 +319,7 @@ namespace SharpPy
             );
 
             // Create lambda function object at runtime
-            EmitLoadConst(lambdaCode);
+            EmitLoadConst(new PythonCodeObject(lambdaCode));
             Emit(OpCode.MAKE_FUNCTION, node.Parameters.Count, node.Line);
         }
 
@@ -382,7 +388,7 @@ namespace SharpPy
             if (node.Value != null)
                 CompileNode(node.Value);
             else
-                EmitLoadConst(null);
+                EmitLoadConst(PythonNone.Instance);
             
             Emit(OpCode.RETURN_VALUE, 0, node.Line);
         }
@@ -426,7 +432,7 @@ namespace SharpPy
             if (funcCompiler.instructions.Count == 0 || 
                 funcCompiler.instructions.Last().OpCode != OpCode.RETURN_VALUE)
             {
-                funcCompiler.EmitLoadConst(null);
+                funcCompiler.EmitLoadConst(PythonNone.Instance);
                 funcCompiler.Emit(OpCode.RETURN_VALUE);
             }
 
@@ -441,7 +447,7 @@ namespace SharpPy
             );
 
             // Create function object at runtime
-            EmitLoadConst(funcCode);
+            EmitLoadConst(new PythonCodeObject(funcCode));
             Emit(OpCode.MAKE_FUNCTION, node.Parameters.Count, node.Line);
             EmitStoreName(node.Name);
         }
@@ -456,13 +462,13 @@ namespace SharpPy
             {
                 if (i < node.VariableNames.Count - 1)
                 {
-                    Emit(OpCode.LOAD_CONST, GetConstantIndex(i)); // Load index
+                    Emit(OpCode.LOAD_CONST, GetConstantIndex(new PythonInt(i))); // Load index
                     Emit(OpCode.LOAD_INDEX); // Custom opcode for indexing
                 }
                 else
                 {
                     // Last item, just use the value directly
-                    Emit(OpCode.LOAD_CONST, GetConstantIndex(i));
+                    Emit(OpCode.LOAD_CONST, GetConstantIndex(new PythonInt(i)));
                     Emit(OpCode.LOAD_INDEX);
                 }
                 
@@ -475,7 +481,7 @@ namespace SharpPy
 
         private void CompileImport(ImportNode node)
         {
-            EmitLoadConst(node.ModuleName);
+            EmitLoadConst(new PythonString(node.ModuleName));
             Emit(OpCode.IMPORT_NAME, 0, node.Line);
             
             var storeName = node.Alias ?? node.ModuleName;
@@ -484,7 +490,7 @@ namespace SharpPy
 
         private void CompileFromImport(FromImportNode node)
         {
-            EmitLoadConst(node.ModuleName);
+            EmitLoadConst(new PythonString(node.ModuleName));
             Emit(OpCode.IMPORT_NAME, 0, node.Line);
             
             if (node.ImportAll)
@@ -497,7 +503,7 @@ namespace SharpPy
             {
                 foreach (var (itemName, alias) in node.ImportItems)
                 {
-                    EmitLoadConst(itemName);
+                    EmitLoadConst(new PythonString(itemName));
                     Emit(OpCode.IMPORT_FROM, 0, node.Line);
                     
                     var storeName = alias ?? itemName;
@@ -510,7 +516,7 @@ namespace SharpPy
         {
             // Simplified class compilation
             // In a full implementation, we'd create a proper class object
-            EmitLoadConst($"<class {node.Name}>");
+            EmitLoadConst(new PythonString($"<class {node.Name}>"));
             EmitStoreName(node.Name);
         }
 
@@ -532,7 +538,11 @@ namespace SharpPy
         private void CompileFString(FStringNode node)
         {
             // Build the f-string at runtime
+<<<<<<< HEAD
             EmitLoadConst("");  // Start with empty string
+=======
+            EmitLoadConst(new PythonString(""));  // Start with empty string
+>>>>>>> 74a5dd318898d5811fa086a2ddc1ea40fd50435f
             
             foreach (var (text, expr) in node.Parts)
             {
@@ -546,7 +556,11 @@ namespace SharpPy
                 }
                 else if (!string.IsNullOrEmpty(text))
                 {
+<<<<<<< HEAD
                     EmitLoadConst(text);
+=======
+                    EmitLoadConst(new PythonString(text));
+>>>>>>> 74a5dd318898d5811fa086a2ddc1ea40fd50435f
                 }
                 else
                 {
@@ -658,7 +672,7 @@ namespace SharpPy
             instructions.Add(new Instruction(opCode, arg, lineNumber));
         }
 
-        private void EmitLoadConst(object value)
+        private void EmitLoadConst(PythonTypeObject value)
         {
             var index = GetConstantIndex(value);
             Emit(OpCode.LOAD_CONST, index);
@@ -676,14 +690,15 @@ namespace SharpPy
             Emit(OpCode.STORE_NAME, index);
         }
 
-        private int GetConstantIndex(object value)
+        private int GetConstantIndex(PythonTypeObject value)
         {
-            if (constantMap.TryGetValue(value ?? "None", out var index))
+            var key = value ?? PythonNone.Instance;
+            if (constantMap.TryGetValue(key, out var index))
                 return index;
             
             index = constants.Count;
             constants.Add(value);
-            constantMap[value ?? "None"] = index;
+            constantMap[key] = index;
             return index;
         }
 

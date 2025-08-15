@@ -17,7 +17,7 @@ namespace SharpPy
             Column = column;
         }
 
-        public abstract object Evaluate(Environment env);
+        public abstract PythonTypeObject Evaluate(Environment env);
 
         // Helper method to create PythonException with current node's location
         protected PythonException CreateException(string type, string message, string fileName = "<string>")
@@ -34,7 +34,15 @@ namespace SharpPy
         public NumberNode(object value, int line = 0, int column = 0) : base(line, column) 
             => Value = value;
             
-        public override object Evaluate(Environment env) => Value;
+        public override PythonTypeObject Evaluate(Environment env)
+        {
+            if (Value is int i)
+                return new PythonInt(i);
+            else if (Value is double d)
+                return new PythonFloat(d);
+            else
+                throw CreateException("TypeError", $"Invalid number type: {Value?.GetType()}");
+        }
     }
 
     public class StringNode : ASTNode
@@ -44,7 +52,7 @@ namespace SharpPy
         public StringNode(string value, int line = 0, int column = 0) : base(line, column) 
             => Value = value;
             
-        public override object Evaluate(Environment env) => Value;
+        public override PythonTypeObject Evaluate(Environment env) => new PythonString(Value);
     }
 
     public class BooleanNode : ASTNode
@@ -54,14 +62,14 @@ namespace SharpPy
         public BooleanNode(bool value, int line = 0, int column = 0) : base(line, column) 
             => Value = value;
             
-        public override object Evaluate(Environment env) => Value;
+        public override PythonTypeObject Evaluate(Environment env) => new PythonBool(Value);
     }
 
     public class NoneNode : ASTNode
     {
         public NoneNode(int line = 0, int column = 0) : base(line, column) { }
         
-        public override object Evaluate(Environment env) => null;
+        public override PythonTypeObject Evaluate(Environment env) => PythonNone.Instance;
     }
 
     public class VariableNode : ASTNode
@@ -71,7 +79,7 @@ namespace SharpPy
         public VariableNode(string name, int line = 0, int column = 0) : base(line, column) 
             => Name = name;
 
-        public override object Evaluate(Environment env)
+        public override PythonTypeObject Evaluate(Environment env)
         {
             try
             {
@@ -94,7 +102,7 @@ namespace SharpPy
         public ListNode(List<ASTNode> elements, int line = 0, int column = 0) : base(line, column) 
             => Elements = elements;
 
-        public override object Evaluate(Environment env)
+        public override PythonTypeObject Evaluate(Environment env)
         {
             try
             {
@@ -121,7 +129,7 @@ namespace SharpPy
         public TupleNode(List<ASTNode> elements, int line = 0, int column = 0) : base(line, column) 
             => Elements = elements;
 
-        public override object Evaluate(Environment env)
+        public override PythonTypeObject Evaluate(Environment env)
         {
             try
             {
@@ -148,7 +156,7 @@ namespace SharpPy
         public DictNode(List<(ASTNode, ASTNode)> pairs, int line = 0, int column = 0) : base(line, column) 
             => Pairs = pairs;
 
-        public override object Evaluate(Environment env)
+        public override PythonTypeObject Evaluate(Environment env)
         {
             try
             {
@@ -183,7 +191,7 @@ namespace SharpPy
             Index = index;
         }
 
-        public override object Evaluate(Environment env)
+        public override PythonTypeObject Evaluate(Environment env)
         {
             try
             {
@@ -193,35 +201,24 @@ namespace SharpPy
                 if (obj is PythonList list && NumberHelper.IsNumber(index))
                 {
                     int i = NumberHelper.ToInt(index);
-                    if (i < 0) i += list.Items.Count;
-                    if (i >= 0 && i < list.Items.Count)
-                        return list.Items[i];
-                    throw CreateException("IndexError", "list index out of range");
+                    return list.GetItem(i);
                 }
                 else if (obj is PythonTuple tuple && NumberHelper.IsNumber(index))
                 {
                     int i = NumberHelper.ToInt(index);
-                    if (i < 0) i += tuple.Items.Count;
-                    if (i >= 0 && i < tuple.Items.Count)
-                        return tuple.Items[i];
-                    throw CreateException("IndexError", "tuple index out of range");
+                    return tuple.GetItem(i);
                 }
                 else if (obj is PythonDict dict)
                 {
-                    if (dict.Items.ContainsKey(index))
-                        return dict.Items[index];
-                    throw CreateException("KeyError", $"KeyError: {index}");
+                    return dict.GetItem(index);
                 }
-                else if (obj is string str && NumberHelper.IsNumber(index))
+                else if (obj is PythonString str && NumberHelper.IsNumber(index))
                 {
                     int i = NumberHelper.ToInt(index);
-                    if (i < 0) i += str.Length;
-                    if (i >= 0 && i < str.Length)
-                        return str[i].ToString();
-                    throw CreateException("IndexError", "string index out of range");
+                    return str.GetItem(i);
                 }
 
-                throw CreateException("TypeError", $"'{obj?.GetType()}' object is not subscriptable");
+                throw CreateException("TypeError", $"'{obj?.Type}' object is not subscriptable");
             }
             catch (PythonException)
             {
@@ -249,7 +246,7 @@ namespace SharpPy
             Step = step;
         }
 
-        public override object Evaluate(Environment env)
+        public override PythonTypeObject Evaluate(Environment env)
         {
             try
             {
@@ -259,10 +256,10 @@ namespace SharpPy
                     return SliceList(list, env);
                 else if (obj is PythonTuple tuple)
                     return SliceTuple(tuple, env);
-                else if (obj is string str)
+                else if (obj is PythonString str)
                     return SliceString(str, env);
 
-                throw CreateException("TypeError", $"'{obj?.GetType()}' object is not subscriptable");
+                throw CreateException("TypeError", $"'{obj?.Type}' object is not subscriptable");
             }
             catch (PythonException)
             {
@@ -277,23 +274,25 @@ namespace SharpPy
         private PythonList SliceList(PythonList list, Environment env)
         {
             int count = list.Items.Count;
-            int start = GetSliceIndex(Start?.Evaluate(env), 0, count);
-            int stop = GetSliceIndex(Stop?.Evaluate(env), count, count);
+            int? start = GetSliceIndex(Start?.Evaluate(env), 0, count);
+            int? stop = GetSliceIndex(Stop?.Evaluate(env), count, count);
             int step = GetSliceStep(Step?.Evaluate(env));
 
             var result = new PythonList();
 
             if (step > 0)
             {
-                for (int i = start; i < stop; i += step)
+                int actualStart = start ?? 0;
+                int actualStop = stop ?? count;
+                for (int i = actualStart; i < actualStop; i += step)
                     if (i >= 0 && i < count)
                         result.Items.Add(list.Items[i]);
             }
             else if (step < 0)
             {
-                if (Start == null) start = count - 1;
-                if (Stop == null) stop = -1;
-                for (int i = start; i > stop; i += step)
+                int actualStart = start ?? count - 1;
+                int actualStop = stop ?? -1;
+                for (int i = actualStart; i > actualStop; i += step)
                     if (i >= 0 && i < count)
                         result.Items.Add(list.Items[i]);
             }
@@ -304,23 +303,25 @@ namespace SharpPy
         private PythonTuple SliceTuple(PythonTuple tuple, Environment env)
         {
             int count = tuple.Items.Count;
-            int start = GetSliceIndex(Start?.Evaluate(env), 0, count);
-            int stop = GetSliceIndex(Stop?.Evaluate(env), count, count);
+            int? start = GetSliceIndex(Start?.Evaluate(env), 0, count);
+            int? stop = GetSliceIndex(Stop?.Evaluate(env), count, count);
             int step = GetSliceStep(Step?.Evaluate(env));
 
             var result = new PythonTuple();
 
             if (step > 0)
             {
-                for (int i = start; i < stop; i += step)
+                int actualStart = start ?? 0;
+                int actualStop = stop ?? count;
+                for (int i = actualStart; i < actualStop; i += step)
                     if (i >= 0 && i < count)
                         result.Items.Add(tuple.Items[i]);
             }
             else if (step < 0)
             {
-                if (Start == null) start = count - 1;
-                if (Stop == null) stop = -1;
-                for (int i = start; i > stop; i += step)
+                int actualStart = start ?? count - 1;
+                int actualStop = stop ?? -1;
+                for (int i = actualStart; i > actualStop; i += step)
                     if (i >= 0 && i < count)
                         result.Items.Add(tuple.Items[i]);
             }
@@ -328,36 +329,18 @@ namespace SharpPy
             return result;
         }
 
-        private string SliceString(string str, Environment env)
+        private PythonString SliceString(PythonString str, Environment env)
         {
-            int count = str.Length;
-            int start = GetSliceIndex(Start?.Evaluate(env), 0, count);
-            int stop = GetSliceIndex(Stop?.Evaluate(env), count, count);
-            int step = GetSliceStep(Step?.Evaluate(env));
-
-            var result = new StringBuilder();
-
-            if (step > 0)
-            {
-                for (int i = start; i < stop; i += step)
-                    if (i >= 0 && i < count)
-                        result.Append(str[i]);
-            }
-            else if (step < 0)
-            {
-                if (Start == null) start = count - 1;
-                if (Stop == null) stop = -1;
-                for (int i = start; i > stop; i += step)
-                    if (i >= 0 && i < count)
-                        result.Append(str[i]);
-            }
-
-            return result.ToString();
+            return str.Slice(
+                GetSliceIndex(Start?.Evaluate(env), null, str.Length),
+                GetSliceIndex(Stop?.Evaluate(env), null, str.Length),
+                GetSliceStep(Step?.Evaluate(env))
+            );
         }
 
-        private int GetSliceIndex(object indexObj, int defaultValue, int count)
+        private int? GetSliceIndex(PythonTypeObject indexObj, int? defaultValue, int count)
         {
-            if (indexObj == null) return defaultValue;
+            if (indexObj == null || indexObj is PythonNone) return defaultValue;
             if (NumberHelper.IsNumber(indexObj))
             {
                 int index = NumberHelper.ToInt(indexObj);
@@ -367,9 +350,9 @@ namespace SharpPy
             return defaultValue;
         }
 
-        private int GetSliceStep(object stepObj)
+        private int GetSliceStep(PythonTypeObject stepObj)
         {
-            if (stepObj == null) return 1;
+            if (stepObj == null || stepObj is PythonNone) return 1;
             if (NumberHelper.IsNumber(stepObj))
             {
                 int step = NumberHelper.ToInt(stepObj);
@@ -391,7 +374,7 @@ namespace SharpPy
             Attribute = attribute;
         }
 
-        public override object Evaluate(Environment env)
+        public override PythonTypeObject Evaluate(Environment env)
         {
             try
             {
@@ -408,7 +391,7 @@ namespace SharpPy
                 else if (obj is PythonModule module)
                     return module.GetAttribute(Attribute);
 
-                throw CreateException("AttributeError", $"'{obj?.GetType()}' object has no attribute '{Attribute}'");
+                throw CreateException("AttributeError", $"'{obj?.Type}' object has no attribute '{Attribute}'");
             }
             catch (PythonException)
             {
@@ -434,13 +417,13 @@ namespace SharpPy
             FalseValue = falseValue;
         }
 
-        public override object Evaluate(Environment env)
+        public override PythonTypeObject Evaluate(Environment env)
         {
             try
             {
                 var conditionResult = Condition.Evaluate(env);
 
-                if (IsTrue(conditionResult))
+                if (conditionResult.IsTrue())
                     return TrueValue.Evaluate(env);
                 else
                     return FalseValue.Evaluate(env);
@@ -453,19 +436,6 @@ namespace SharpPy
             {
                 throw CreateException("RuntimeError", $"Internal error in conditional expression: {ex.Message}");
             }
-        }
-
-        private bool IsTrue(object obj)
-        {
-            if (obj == null) return false;
-            if (obj is bool b) return b;
-            if (obj is int i) return i != 0;
-            if (obj is double d) return d != 0;
-            if (obj is string s) return !string.IsNullOrEmpty(s);
-            if (obj is PythonList l) return l.Items.Count > 0;
-            if (obj is PythonTuple t) return t.Items.Count > 0;
-            if (obj is PythonDict dict) return dict.Items.Count > 0;
-            return true;
         }
     }
 
@@ -480,7 +450,7 @@ namespace SharpPy
             Body = body;
         }
 
-        public override object Evaluate(Environment env)
+        public override PythonTypeObject Evaluate(Environment env)
         {
             try
             {

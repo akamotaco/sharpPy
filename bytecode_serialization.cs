@@ -1,4 +1,4 @@
-// bytecode_serialization.cs
+// bytecode_serialization_complete.cs
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -90,7 +90,7 @@ namespace SharpPy
                 writer.Write(instruction.LineNumber);
             }
             
-            // Write constants
+            // Write constants (now PythonTypeObject)
             writer.Write(code.Constants.Count);
             foreach (var constant in code.Constants)
             {
@@ -129,9 +129,9 @@ namespace SharpPy
                 instructions.Add(new Instruction(opCode, argument, lineNumber));
             }
             
-            // Read constants
+            // Read constants (now PythonTypeObject)
             var constantCount = reader.ReadInt32();
-            var constants = new List<object>();
+            var constants = new List<PythonTypeObject>();
             for (int i = 0; i < constantCount; i++)
             {
                 constants.Add(ReadConstant(reader));
@@ -156,36 +156,64 @@ namespace SharpPy
             return new CodeObject(name, filename, instructions, constants, names, varNames, argumentCount);
         }
 
-        private static void WriteConstant(BinaryWriter writer, object constant)
+        private static void WriteConstant(BinaryWriter writer, PythonTypeObject constant)
         {
-            if (constant == null)
+            if (constant == null || constant is PythonNone)
             {
                 writer.Write((byte)0); // None
             }
-            else if (constant is bool b)
+            else if (constant is PythonBool b)
             {
                 writer.Write((byte)1);
-                writer.Write(b);
+                writer.Write(b.Value);
             }
-            else if (constant is int i)
+            else if (constant is PythonInt i)
             {
                 writer.Write((byte)2);
-                writer.Write(i);
+                writer.Write(i.Value);
             }
-            else if (constant is double d)
+            else if (constant is PythonFloat f)
             {
                 writer.Write((byte)3);
-                writer.Write(d);
+                writer.Write(f.Value);
             }
-            else if (constant is string s)
+            else if (constant is PythonString s)
             {
                 writer.Write((byte)4);
-                writer.Write(s);
+                writer.Write(s.Value);
             }
-            else if (constant is CodeObject code)
+            else if (constant is PythonCodeObject codeObj)
             {
                 writer.Write((byte)5);
-                WriteCodeObject(writer, code);
+                WriteCodeObject(writer, codeObj.Code);
+            }
+            else if (constant is PythonList list)
+            {
+                writer.Write((byte)6);
+                writer.Write(list.Items.Count);
+                foreach (var item in list.Items)
+                {
+                    WriteConstant(writer, item);
+                }
+            }
+            else if (constant is PythonTuple tuple)
+            {
+                writer.Write((byte)7);
+                writer.Write(tuple.Items.Count);
+                foreach (var item in tuple.Items)
+                {
+                    WriteConstant(writer, item);
+                }
+            }
+            else if (constant is PythonDict dict)
+            {
+                writer.Write((byte)8);
+                writer.Write(dict.Items.Count);
+                foreach (var kvp in dict.Items)
+                {
+                    WriteConstant(writer, kvp.Key);
+                    WriteConstant(writer, kvp.Value);
+                }
             }
             else
             {
@@ -193,19 +221,57 @@ namespace SharpPy
             }
         }
 
-        private static object ReadConstant(BinaryReader reader)
+        private static PythonTypeObject ReadConstant(BinaryReader reader)
         {
             var type = reader.ReadByte();
             return type switch
             {
-                0 => null,
-                1 => reader.ReadBoolean(),
-                2 => reader.ReadInt32(),
-                3 => reader.ReadDouble(),
-                4 => reader.ReadString(),
-                5 => ReadCodeObject(reader),
+                0 => PythonNone.Instance,
+                1 => new PythonBool(reader.ReadBoolean()),
+                2 => new PythonInt(reader.ReadInt32()),
+                3 => new PythonFloat(reader.ReadDouble()),
+                4 => new PythonString(reader.ReadString()),
+                5 => new PythonCodeObject(ReadCodeObject(reader)),
+                6 => ReadList(reader),
+                7 => ReadTuple(reader),
+                8 => ReadDict(reader),
                 _ => throw new InvalidDataException($"Unknown constant type: {type}")
             };
+        }
+
+        private static PythonList ReadList(BinaryReader reader)
+        {
+            var count = reader.ReadInt32();
+            var list = new PythonList();
+            for (int i = 0; i < count; i++)
+            {
+                list.Items.Add(ReadConstant(reader));
+            }
+            return list;
+        }
+
+        private static PythonTuple ReadTuple(BinaryReader reader)
+        {
+            var count = reader.ReadInt32();
+            var tuple = new PythonTuple();
+            for (int i = 0; i < count; i++)
+            {
+                tuple.Items.Add(ReadConstant(reader));
+            }
+            return tuple;
+        }
+
+        private static PythonDict ReadDict(BinaryReader reader)
+        {
+            var count = reader.ReadInt32();
+            var dict = new PythonDict();
+            for (int i = 0; i < count; i++)
+            {
+                var key = ReadConstant(reader);
+                var value = ReadConstant(reader);
+                dict.Items[key] = value;
+            }
+            return dict;
         }
     }
 
@@ -234,7 +300,7 @@ namespace SharpPy
             }
         }
 
-        public static object Eval(string expression, Environment globals = null, Environment locals = null)
+        public static PythonTypeObject Eval(string expression, Environment globals = null, Environment locals = null)
         {
             globals = globals ?? new Environment();
             locals = locals ?? globals;
@@ -244,7 +310,7 @@ namespace SharpPy
             return vm.Execute(code, locals);
         }
 
-        public static object Exec(string source, Environment globals = null, Environment locals = null)
+        public static PythonTypeObject Exec(string source, Environment globals = null, Environment locals = null)
         {
             globals = globals ?? new Environment();
             locals = locals ?? globals;
@@ -271,14 +337,7 @@ namespace SharpPy
                 for (int i = 0; i < code.Constants.Count; i++)
                 {
                     var constant = code.Constants[i];
-                    var constStr = constant switch
-                    {
-                        null => "None",
-                        string s => $"'{s}'",
-                        bool b => b ? "True" : "False",
-                        CodeObject c => $"<code object {c.Name}>",
-                        _ => constant.ToString()
-                    };
+                    var constStr = GetConstantRepresentation(constant);
                     sb.AppendLine($"  {i}: {constStr}");
                 }
                 sb.AppendLine();
@@ -319,16 +378,57 @@ namespace SharpPy
             return sb.ToString();
         }
 
-        private static string GetConstantRepresentation(object constant)
+        private static string GetConstantRepresentation(PythonTypeObject constant)
         {
             return constant switch
             {
                 null => "None",
-                string s => $"'{s}'",
-                bool b => b ? "True" : "False",
-                CodeObject c => $"<code object {c.Name}>",
-                _ => constant.ToString()
+                PythonNone => "None",
+                PythonString s => $"'{s.Value}'",
+                PythonBool b => b.Value ? "True" : "False",
+                PythonInt i => i.Value.ToString(),
+                PythonFloat f => f.Value.ToString(),
+                PythonCodeObject c => $"<code object {c.Code.Name}>",
+                PythonList l => $"[{string.Join(", ", l.Items.Select(GetConstantRepresentation))}]",
+                PythonTuple t => $"({string.Join(", ", t.Items.Select(GetConstantRepresentation))})",
+                PythonDict d => "{...}",
+                _ => constant.ToPythonString()
             };
+        }
+    }
+
+    // Helper class for advanced bytecode optimization (optional)
+    public static class BytecodeOptimizer
+    {
+        public static CodeObject Optimize(CodeObject code)
+        {
+            // Perform peephole optimizations
+            var optimizedInstructions = new List<Instruction>(code.Instructions);
+            
+            // Example: Remove consecutive LOAD_CONST + POP_TOP
+            for (int i = 0; i < optimizedInstructions.Count - 1; i++)
+            {
+                if (optimizedInstructions[i].OpCode == OpCode.LOAD_CONST &&
+                    optimizedInstructions[i + 1].OpCode == OpCode.POP_TOP)
+                {
+                    // Replace with NOP
+                    optimizedInstructions[i] = new Instruction(OpCode.NOP);
+                    optimizedInstructions[i + 1] = new Instruction(OpCode.NOP);
+                }
+            }
+            
+            // Remove NOPs
+            optimizedInstructions.RemoveAll(inst => inst.OpCode == OpCode.NOP);
+            
+            return new CodeObject(
+                code.Name,
+                code.Filename,
+                optimizedInstructions,
+                code.Constants,
+                code.Names,
+                code.VarNames,
+                code.ArgumentCount
+            );
         }
     }
 }
