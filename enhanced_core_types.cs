@@ -27,7 +27,7 @@ namespace SharpPy
 
     public enum PythonType
     {
-        Int, Float, String, Boolean, None, List, Dict, Tuple, Function, Class, Instance, Module
+        Int, Float, String, Boolean, None, List, Dict, Tuple, Function, Class, Instance, Module, Environment
     }
 
     // Base class for all Python objects
@@ -305,55 +305,55 @@ namespace SharpPy
     // Python String type
     public class PythonString : PythonTypeObject
     {
-        public string Value { get; }
-        
+        public string Value { get; private set; }
+
         public PythonString(string value) => Value = value ?? "";
-        
+
         public override PythonType Type => PythonType.String;
         public override bool IsTrue() => !string.IsNullOrEmpty(Value);
         public override string ToPythonString() => Value;
         public override object GetRawValue() => Value;
         public override bool IsSequence() => true;
-        
+
         public override bool Equals(PythonTypeObject other)
         {
             if (other is PythonString ps) return Value == ps.Value;
             return false;
         }
-        
+
         public override PythonInt ToInt()
         {
             if (int.TryParse(Value, out var result))
                 return new PythonInt(result);
             throw new PythonException("ValueError", $"invalid literal for int() with base 10: '{Value}'");
         }
-        
+
         public override PythonFloat ToFloat()
         {
             if (double.TryParse(Value, out var result))
                 return new PythonFloat(result);
             throw new PythonException("ValueError", $"could not convert string to float: '{Value}'");
         }
-        
+
         public override PythonString ToStr() => this;
-        
+
         public override int GetHashCode() => Value.GetHashCode();
-        
+
         // String operations
         public PythonString Add(PythonTypeObject other)
         {
             if (other is PythonString ps) return new PythonString(Value + ps.Value);
             return new PythonString(Value + other.ToPythonString());
         }
-        
+
         public PythonString Repeat(int times)
         {
             if (times < 0) times = 0;
             return new PythonString(string.Concat(Enumerable.Repeat(Value, times)));
         }
-        
+
         public int Length => Value.Length;
-        
+
         public PythonString GetItem(int index)
         {
             if (index < 0) index += Value.Length;
@@ -361,25 +361,25 @@ namespace SharpPy
                 throw new PythonException("IndexError", "string index out of range");
             return new PythonString(Value[index].ToString());
         }
-        
+
         public PythonString Slice(int? start, int? stop, int? step)
         {
             int actualStep = step ?? 1;
             if (actualStep == 0)
                 throw new PythonException("ValueError", "slice step cannot be zero");
-                
+
             int length = Value.Length;
             int actualStart = start ?? (actualStep > 0 ? 0 : length - 1);
             int actualStop = stop ?? (actualStep > 0 ? length : -1);
-            
+
             if (actualStart < 0) actualStart += length;
             if (actualStop < 0) actualStop += length;
-            
+
             actualStart = Math.Max(0, Math.Min(actualStart, length));
             actualStop = Math.Max(-1, Math.Min(actualStop, length));
-            
+
             var result = new StringBuilder();
-            
+
             if (actualStep > 0)
             {
                 for (int i = actualStart; i < actualStop; i += actualStep)
@@ -396,15 +396,35 @@ namespace SharpPy
                         result.Append(Value[i]);
                 }
             }
-            
+
             return new PythonString(result.ToString());
         }
-        
+
         public bool Contains(PythonTypeObject other)
         {
             if (other is PythonString ps)
                 return Value.Contains(ps.Value);
             return false;
+        }
+
+        public BuiltinFunction GetMethod(string name)
+        {
+            return name switch
+            {
+                "upper" => new BuiltinFunction("upper", args =>
+                {
+                    if (args.Count != 0) throw new PythonException("TypeError", "append() takes exactly no argument");
+                    this.Value = this.Value.ToUpper();
+                    return PythonNone.Instance;
+                }),
+                "lower" => new BuiltinFunction("lower", args =>
+                {
+                    if (args.Count != 0) throw new PythonException("TypeError", "append() takes exactly no argument");
+                    this.Value = this.Value.ToLower();
+                    return PythonNone.Instance;
+                }),
+                _ => throw new PythonException("AttributeError", $"'list' object has no attribute '{name}'")
+            };
         }
     }
 

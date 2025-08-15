@@ -1,4 +1,4 @@
-// enhanced_modules_environment.cs (일부)
+// enhanced_environment_complete.cs
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -7,11 +7,13 @@ using System.Linq;
 namespace SharpPy
 {
     // Enhanced Environment Class with PythonTypeObject
-    public class Environment
+    public class Environment : PythonTypeObject
     {
         private Dictionary<string, PythonTypeObject> variables = new Dictionary<string, PythonTypeObject>();
         public Environment parent;
         public List<string> SearchPaths { get; set; }
+
+        public override PythonType Type => PythonType.Environment;
 
         public Environment(Environment parent = null)
         {
@@ -250,7 +252,7 @@ namespace SharpPy
                     for (int i = 0; i < list.Items.Count; i++)
                     {
                         var tuple = new PythonTuple();
-                        tuple.Items.Add(start + i);
+                        tuple.Items.Add(new PythonInt(start + i));
                         tuple.Items.Add(list.Items[i]);
                         result.Items.Add(tuple);
                     }
@@ -260,18 +262,18 @@ namespace SharpPy
                     for (int i = 0; i < sourceTuple.Items.Count; i++)
                     {
                         var tuple = new PythonTuple();
-                        tuple.Items.Add(start + i);
+                        tuple.Items.Add(new PythonInt(start + i));
                         tuple.Items.Add(sourceTuple.Items[i]);
                         result.Items.Add(tuple);
                     }
                 }
-                else if (args[0] is string str)
+                else if (args[0] is PythonString str)
                 {
-                    for (int i = 0; i < str.Length; i++)
+                    for (int i = 0; i < str.Value.Length; i++)
                     {
                         var tuple = new PythonTuple();
-                        tuple.Items.Add(start + i);
-                        tuple.Items.Add(str[i].ToString());
+                        tuple.Items.Add(new PythonInt(start + i));
+                        tuple.Items.Add(new PythonString(str.Value[i].ToString()));
                         result.Items.Add(tuple);
                     }
                 }
@@ -293,10 +295,11 @@ namespace SharpPy
                         tupleList.Items.AddRange(tuple.Items);
                         iterables.Add(tupleList);
                     }
-                    else if (arg is string str)
+                    else if (arg is PythonString str)
                     {
                         var strList = new PythonList();
-                        strList.Items.AddRange(str.Select(c => c.ToString()));
+                        foreach (char c in str.Value)
+                            strList.Items.Add(new PythonString(c.ToString()));
                         iterables.Add(strList);
                     }
                     else throw new PythonException("TypeError", "zip argument must be iterable");
@@ -322,10 +325,6 @@ namespace SharpPy
                 return new PythonString(GetTypeName(args[0]));
             }));
 
-            // Add more builtin functions here...
-        }
-
-
             env.SetVariable("map", new BuiltinFunction("map", args =>
             {
                 if (args.Count != 2) throw new PythonException("TypeError", "map() takes exactly 2 arguments");
@@ -335,20 +334,24 @@ namespace SharpPy
                 if (!(func is Function function))
                     throw new PythonException("TypeError", "map() first argument must be callable");
 
-                List<object> items;
+                List<PythonTypeObject> items;
                 if (iterable is PythonList list)
                     items = list.Items;
                 else if (iterable is PythonTuple tuple)
                     items = tuple.Items;
-                else if (iterable is string str)
-                    items = str.Select(c => c.ToString()).Cast<object>().ToList();
+                else if (iterable is PythonString str)
+                {
+                    items = new List<PythonTypeObject>();
+                    foreach (char c in str.Value)
+                        items.Add(new PythonString(c.ToString()));
+                }
                 else
                     throw new PythonException("TypeError", "map() second argument must be iterable");
 
                 var result = new PythonList();
                 foreach (var item in items)
                 {
-                    var mappedValue = function.Call(new List<object> { item });
+                    var mappedValue = function.Call(new List<PythonTypeObject> { item });
                     result.Items.Add(mappedValue);
                 }
                 return result;
@@ -360,19 +363,23 @@ namespace SharpPy
                 var func = args[0];
                 var iterable = args[1];
 
-                List<object> items;
+                List<PythonTypeObject> items;
                 if (iterable is PythonList list)
                     items = list.Items;
                 else if (iterable is PythonTuple tuple)
                     items = tuple.Items;
-                else if (iterable is string str)
-                    items = str.Select(c => c.ToString()).Cast<object>().ToList();
+                else if (iterable is PythonString str)
+                {
+                    items = new List<PythonTypeObject>();
+                    foreach (char c in str.Value)
+                        items.Add(new PythonString(c.ToString()));
+                }
                 else
                     throw new PythonException("TypeError", "filter() second argument must be iterable");
 
                 var result = new PythonList();
                 
-                if (func == null)
+                if (func is PythonNone)
                 {
                     // filter(None, iterable) filters truthy values
                     foreach (var item in items)
@@ -385,7 +392,7 @@ namespace SharpPy
                 {
                     foreach (var item in items)
                     {
-                        var filterResult = function.Call(new List<object> { item });
+                        var filterResult = function.Call(new List<PythonTypeObject> { item });
                         if (IsTrue(filterResult))
                             result.Items.Add(item);
                     }
@@ -404,36 +411,40 @@ namespace SharpPy
                 var iterable = args[0];
                 var keyFunc = args.Count > 1 ? args[1] : null;
 
-                List<object> items;
+                List<PythonTypeObject> items;
                 if (iterable is PythonList list)
-                    items = new List<object>(list.Items);
+                    items = new List<PythonTypeObject>(list.Items);
                 else if (iterable is PythonTuple tuple)
-                    items = new List<object>(tuple.Items);
-                else if (iterable is string str)
-                    items = str.Select(c => c.ToString()).Cast<object>().ToList();
+                    items = new List<PythonTypeObject>(tuple.Items);
+                else if (iterable is PythonString str)
+                {
+                    items = new List<PythonTypeObject>();
+                    foreach (char c in str.Value)
+                        items.Add(new PythonString(c.ToString()));
+                }
                 else
                     throw new PythonException("TypeError", "sorted() argument must be iterable");
 
-                if (keyFunc == null)
+                if (keyFunc == null || keyFunc is PythonNone)
                 {
                     // Default sorting
                     items.Sort((a, b) =>
                     {
                         if (NumberHelper.IsNumber(a) && NumberHelper.IsNumber(b))
                             return NumberHelper.ToDouble(a).CompareTo(NumberHelper.ToDouble(b));
-                        if (a is string sa && b is string sb) return sa.CompareTo(sb);
+                        if (a is PythonString sa && b is PythonString sb) return string.Compare(sa.Value, sb.Value);
                         return 0;
                     });
                 }
                 else if (keyFunc is Function function)
                 {
                     // Sort with key function
-                    var keyed = items.Select(item => new { Item = item, Key = function.Call(new List<object> { item }) }).ToList();
+                    var keyed = items.Select(item => new { Item = item, Key = function.Call(new List<PythonTypeObject> { item }) }).ToList();
                     keyed.Sort((a, b) =>
                     {
                         if (NumberHelper.IsNumber(a.Key) && NumberHelper.IsNumber(b.Key))
                             return NumberHelper.ToDouble(a.Key).CompareTo(NumberHelper.ToDouble(b.Key));
-                        if (a.Key is string sa && b.Key is string sb) return sa.CompareTo(sb);
+                        if (a.Key is PythonString sa && b.Key is PythonString sb) return string.Compare(sa.Value, sb.Value);
                         return 0;
                     });
                     items = keyed.Select(x => x.Item).ToList();
@@ -453,17 +464,26 @@ namespace SharpPy
                 if (args.Count != 1) throw new PythonException("TypeError", "any() takes exactly one argument");
                 var iterable = args[0];
 
-                List<object> items;
+                List<PythonTypeObject> items;
                 if (iterable is PythonList list)
                     items = list.Items;
                 else if (iterable is PythonTuple tuple)
                     items = tuple.Items;
-                else if (iterable is string str)
-                    items = str.Select(c => c.ToString()).Cast<object>().ToList();
+                else if (iterable is PythonString str)
+                {
+                    items = new List<PythonTypeObject>();
+                    foreach (char c in str.Value)
+                        items.Add(new PythonString(c.ToString()));
+                }
                 else
                     throw new PythonException("TypeError", "any() argument must be iterable");
 
-                return items.Any(IsTrue);
+                foreach (var item in items)
+                {
+                    if (IsTrue(item))
+                        return new PythonBool(true);
+                }
+                return new PythonBool(false);
             }));
 
             env.SetVariable("all", new BuiltinFunction("all", args =>
@@ -471,17 +491,26 @@ namespace SharpPy
                 if (args.Count != 1) throw new PythonException("TypeError", "all() takes exactly one argument");
                 var iterable = args[0];
 
-                List<object> items;
+                List<PythonTypeObject> items;
                 if (iterable is PythonList list)
                     items = list.Items;
                 else if (iterable is PythonTuple tuple)
                     items = tuple.Items;
-                else if (iterable is string str)
-                    items = str.Select(c => c.ToString()).Cast<object>().ToList();
+                else if (iterable is PythonString str)
+                {
+                    items = new List<PythonTypeObject>();
+                    foreach (char c in str.Value)
+                        items.Add(new PythonString(c.ToString()));
+                }
                 else
                     throw new PythonException("TypeError", "all() argument must be iterable");
 
-                return items.All(IsTrue);
+                foreach (var item in items)
+                {
+                    if (!IsTrue(item))
+                        return new PythonBool(false);
+                }
+                return new PythonBool(true);
             }));
 
             // ADD globals() function - returns current environment variables as dict
@@ -494,7 +523,7 @@ namespace SharpPy
                 
                 foreach (var kvp in allVars)
                 {
-                    globalsDict.Items[kvp.Key] = kvp.Value;
+                    globalsDict.Items[new PythonString(kvp.Key)] = kvp.Value;
                 }
                 
                 return globalsDict;
@@ -506,11 +535,20 @@ namespace SharpPy
                 if (args.Count < 1 || args.Count > 2) 
                     throw new PythonException("TypeError", "open() takes 1 or 2 arguments");
                 
-                string path = args[0]?.ToString();
-                if (string.IsNullOrEmpty(path))
+                string path;
+                if (args[0] is PythonString ps)
+                    path = ps.Value;
+                else
                     throw new PythonException("TypeError", "open() argument 1 must be a string");
                 
-                string mode = args.Count > 1 ? args[1]?.ToString() ?? "r" : "r";
+                string mode = "r";
+                if (args.Count > 1)
+                {
+                    if (args[1] is PythonString ms)
+                        mode = ms.Value;
+                    else
+                        throw new PythonException("TypeError", "open() argument 2 must be a string");
+                }
                 
                 try
                 {
@@ -540,18 +578,51 @@ namespace SharpPy
                     throw new PythonException("TypeError", "eval() takes 1 to 3 arguments");
                 
                 var expression = args[0];
-                if (!(expression is string exprStr))
+                if (!(expression is PythonString exprStr))
                     throw new PythonException("TypeError", "eval() first argument must be a string");
                 
-                var globals = args.Count > 1 && args[1] != null ? args[1] as Environment : env;
-                var locals = args.Count > 2 && args[2] != null ? args[2] as Environment : globals;
+                Environment globals = null;
+                Environment locals = null;
+                
+                // args[1] and args[2] could be dict or environment
+                if (args.Count > 1 && !(args[1] is PythonNone))
+                {
+                    if (args[1] is Environment e)
+                        globals = e;
+                    else if (args[1] is PythonDict dict)
+                    {
+                        // Convert dict to environment
+                        globals = new Environment();
+                        foreach (var kvp in dict.Items)
+                        {
+                            if (kvp.Key is PythonString key)
+                                globals.SetVariable(key.Value, kvp.Value);
+                        }
+                    }
+                }
+                
+                if (args.Count > 2 && !(args[2] is PythonNone))
+                {
+                    if (args[2] is Environment e)
+                        locals = e;
+                    else if (args[2] is PythonDict dict)
+                    {
+                        // Convert dict to environment
+                        locals = new Environment(globals);
+                        foreach (var kvp in dict.Items)
+                        {
+                            if (kvp.Key is PythonString key)
+                                locals.SetVariable(key.Value, kvp.Value);
+                        }
+                    }
+                }
                 
                 if (globals == null) globals = env;
                 if (locals == null) locals = globals;
                 
                 try
                 {
-                    return PythonCompiler.Eval(exprStr, globals, locals);
+                    return PythonCompiler.Eval(exprStr.Value, globals, locals);
                 }
                 catch (Exception ex)
                 {
@@ -565,19 +636,52 @@ namespace SharpPy
                     throw new PythonException("TypeError", "exec() takes 1 to 3 arguments");
                 
                 var source = args[0];
-                if (!(source is string sourceStr))
+                if (!(source is PythonString sourceStr))
                     throw new PythonException("TypeError", "exec() first argument must be a string");
                 
-                var globals = args.Count > 1 && args[1] != null ? args[1] as Environment : env;
-                var locals = args.Count > 2 && args[2] != null ? args[2] as Environment : globals;
+                Environment globals = null;
+                Environment locals = null;
+                
+                // args[1] and args[2] could be dict or environment
+                if (args.Count > 1 && !(args[1] is PythonNone))
+                {
+                    if (args[1] is Environment e)
+                        globals = e;
+                    else if (args[1] is PythonDict dict)
+                    {
+                        // Convert dict to environment
+                        globals = new Environment();
+                        foreach (var kvp in dict.Items)
+                        {
+                            if (kvp.Key is PythonString key)
+                                globals.SetVariable(key.Value, kvp.Value);
+                        }
+                    }
+                }
+                
+                if (args.Count > 2 && !(args[2] is PythonNone))
+                {
+                    if (args[2] is Environment e)
+                        locals = e;
+                    else if (args[2] is PythonDict dict)
+                    {
+                        // Convert dict to environment
+                        locals = new Environment(globals);
+                        foreach (var kvp in dict.Items)
+                        {
+                            if (kvp.Key is PythonString key)
+                                locals.SetVariable(key.Value, kvp.Value);
+                        }
+                    }
+                }
                 
                 if (globals == null) globals = env;
                 if (locals == null) locals = globals;
                 
                 try
                 {
-                    PythonCompiler.Exec(sourceStr, globals, locals);
-                    return null; // exec returns None
+                    PythonCompiler.Exec(sourceStr.Value, globals, locals);
+                    return PythonNone.Instance; // exec returns None
                 }
                 catch (Exception ex)
                 {
@@ -594,38 +698,37 @@ namespace SharpPy
                 var filename = args[1];
                 var mode = args[2];
                 
-                if (!(source is string sourceStr))
+                if (!(source is PythonString sourceStr))
                     throw new PythonException("TypeError", "compile() first argument must be a string");
-                if (!(filename is string filenameStr))
+                if (!(filename is PythonString filenameStr))
                     throw new PythonException("TypeError", "compile() second argument must be a string");
-                if (!(mode is string modeStr))
+                if (!(mode is PythonString modeStr))
                     throw new PythonException("TypeError", "compile() third argument must be a string");
                 
-                if (modeStr != "exec" && modeStr != "eval")
+                if (modeStr.Value != "exec" && modeStr.Value != "eval")
                     throw new PythonException("ValueError", "compile() mode must be 'exec' or 'eval'");
                 
                 try
                 {
-                    return PythonCompiler.Compile(sourceStr, filenameStr, modeStr);
+                    var codeObject = PythonCompiler.Compile(sourceStr.Value, filenameStr.Value, modeStr.Value);
+                    return new PythonCodeObject(codeObject);
                 }
                 catch (Exception ex)
                 {
                     throw new PythonException("SyntaxError", $"Error in compile(): {ex.Message}");
                 }
             }));
+
+            // Constants
+            env.SetVariable("None", PythonNone.Instance);
+            env.SetVariable("True", new PythonBool(true));
+            env.SetVariable("False", new PythonBool(false));
         }
 
-        static private bool IsTrue(object obj)
+        static private bool IsTrue(PythonTypeObject obj)
         {
             if (obj == null) return false;
-            if (obj is bool b) return b;
-            if (obj is int i) return i != 0;
-            if (obj is double d) return d != 0;
-            if (obj is string s) return !string.IsNullOrEmpty(s);
-            if (obj is PythonList l) return l.Items.Count > 0;
-            if (obj is PythonTuple t) return t.Items.Count > 0;
-            if (obj is PythonDict dict) return dict.Items.Count > 0;
-            return true;
+            return obj.IsTrue();
         }
         
         static private int CompareValues(PythonTypeObject a, PythonTypeObject b)
@@ -697,6 +800,26 @@ namespace SharpPy
             foreach (var kvp in variables)
                 result[kvp.Key] = kvp.Value;
             return result;
+        }
+
+        public override bool IsTrue()
+        {
+            throw new NotImplementedException();
+        }
+
+        public override string ToPythonString()
+        {
+            throw new NotImplementedException();
+        }
+
+        public override bool Equals(PythonTypeObject other)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override object GetRawValue()
+        {
+            throw new NotImplementedException();
         }
     }
 }

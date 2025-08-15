@@ -390,6 +390,8 @@ namespace SharpPy
                     return dict.GetMethod(Attribute);
                 else if (obj is PythonModule module)
                     return module.GetAttribute(Attribute);
+                else if (obj is PythonString str)
+                    return str.GetMethod(Attribute);
 
                 throw CreateException("AttributeError", $"'{obj?.Type}' object has no attribute '{Attribute}'");
             }
