@@ -263,7 +263,7 @@ namespace SharpPy
             }
             catch (PythonException)
             {
-                throw; // Re-throw PythonExceptions as-is
+                throw;
             }
             catch (Exception ex)
             {
@@ -274,9 +274,23 @@ namespace SharpPy
         private PythonList SliceList(PythonList list, Environment env)
         {
             int count = list.Items.Count;
-            int? start = GetSliceIndex(Start?.Evaluate(env), 0, count);
-            int? stop = GetSliceIndex(Stop?.Evaluate(env), count, count);
+            
+            // First determine the step
             int step = GetSliceStep(Step?.Evaluate(env));
+            
+            // Then get start and stop with proper defaults based on step direction
+            int? start, stop;
+            if (step > 0)
+            {
+                start = GetSliceIndex(Start?.Evaluate(env), 0, count);
+                stop = GetSliceIndex(Stop?.Evaluate(env), count, count);
+            }
+            else
+            {
+                // For negative step, defaults are different
+                start = GetSliceIndex(Start?.Evaluate(env), count - 1, count);
+                stop = GetSliceIndex(Stop?.Evaluate(env), -count - 1, count); // Use -count-1 as default for negative step
+            }
 
             var result = new PythonList();
 
@@ -284,17 +298,23 @@ namespace SharpPy
             {
                 int actualStart = start ?? 0;
                 int actualStop = stop ?? count;
-                for (int i = actualStart; i < actualStop; i += step)
-                    if (i >= 0 && i < count)
+                for (int i = actualStart; i < actualStop && i < count; i += step)
+                    if (i >= 0)
                         result.Items.Add(list.Items[i]);
             }
             else if (step < 0)
             {
                 int actualStart = start ?? count - 1;
-                int actualStop = stop ?? -1;
-                for (int i = actualStart; i > actualStop; i += step)
-                    if (i >= 0 && i < count)
-                        result.Items.Add(list.Items[i]);
+                int actualStop = stop ?? -count - 1; // Stop at before -1 (inclusive of index 0)
+                
+                for (int i = actualStart; i >= 0 && i < count; i += step) // step is negative so i decreases
+                {
+                    result.Items.Add(list.Items[i]);
+                    if (i <= actualStop + count && actualStop < 0) // Handle negative stop index
+                        break;
+                    if (actualStop >= 0 && i <= actualStop)
+                        break;
+                }
             }
 
             return result;
@@ -303,9 +323,23 @@ namespace SharpPy
         private PythonTuple SliceTuple(PythonTuple tuple, Environment env)
         {
             int count = tuple.Items.Count;
-            int? start = GetSliceIndex(Start?.Evaluate(env), 0, count);
-            int? stop = GetSliceIndex(Stop?.Evaluate(env), count, count);
+            
+            // First determine the step
             int step = GetSliceStep(Step?.Evaluate(env));
+            
+            // Then get start and stop with proper defaults based on step direction
+            int? start, stop;
+            if (step > 0)
+            {
+                start = GetSliceIndex(Start?.Evaluate(env), 0, count);
+                stop = GetSliceIndex(Stop?.Evaluate(env), count, count);
+            }
+            else
+            {
+                // For negative step, defaults are different
+                start = GetSliceIndex(Start?.Evaluate(env), count - 1, count);
+                stop = GetSliceIndex(Stop?.Evaluate(env), -count - 1, count);
+            }
 
             var result = new PythonTuple();
 
@@ -313,17 +347,23 @@ namespace SharpPy
             {
                 int actualStart = start ?? 0;
                 int actualStop = stop ?? count;
-                for (int i = actualStart; i < actualStop; i += step)
-                    if (i >= 0 && i < count)
+                for (int i = actualStart; i < actualStop && i < count; i += step)
+                    if (i >= 0)
                         result.Items.Add(tuple.Items[i]);
             }
             else if (step < 0)
             {
                 int actualStart = start ?? count - 1;
-                int actualStop = stop ?? -1;
-                for (int i = actualStart; i > actualStop; i += step)
-                    if (i >= 0 && i < count)
-                        result.Items.Add(tuple.Items[i]);
+                int actualStop = stop ?? -count - 1;
+                
+                for (int i = actualStart; i >= 0 && i < count; i += step)
+                {
+                    result.Items.Add(tuple.Items[i]);
+                    if (i <= actualStop + count && actualStop < 0)
+                        break;
+                    if (actualStop >= 0 && i <= actualStop)
+                        break;
+                }
             }
 
             return result;
@@ -331,11 +371,23 @@ namespace SharpPy
 
         private PythonString SliceString(PythonString str, Environment env)
         {
-            return str.Slice(
-                GetSliceIndex(Start?.Evaluate(env), null, str.Length),
-                GetSliceIndex(Stop?.Evaluate(env), null, str.Length),
-                GetSliceStep(Step?.Evaluate(env))
-            );
+            // Use the same logic for string slicing
+            int count = str.Length;
+            int step = GetSliceStep(Step?.Evaluate(env));
+            
+            int? start, stop;
+            if (step > 0)
+            {
+                start = GetSliceIndex(Start?.Evaluate(env), 0, count);
+                stop = GetSliceIndex(Stop?.Evaluate(env), count, count);
+            }
+            else
+            {
+                start = GetSliceIndex(Start?.Evaluate(env), count - 1, count);
+                stop = GetSliceIndex(Stop?.Evaluate(env), -count - 1, count);
+            }
+            
+            return str.Slice(start, stop, step);
         }
 
         private int? GetSliceIndex(PythonTypeObject indexObj, int? defaultValue, int count)
@@ -345,7 +397,8 @@ namespace SharpPy
             {
                 int index = NumberHelper.ToInt(indexObj);
                 if (index < 0) index += count;
-                return Math.Max(0, Math.Min(index, count));
+                // Don't clamp for slice indices - Python allows out of range indices
+                return index;
             }
             return defaultValue;
         }
