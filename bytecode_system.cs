@@ -1,4 +1,4 @@
-// bytecode_system.cs (주요 부분)
+// bytecode_system.cs
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -7,14 +7,14 @@ using System.Text;
 
 namespace SharpPy
 {
-    // Bytecode Operation Codes (same as before)
+    // Bytecode Operation Codes (inspired by Python's opcodes)
     public enum OpCode : byte
     {
         // Stack operations
-        LOAD_CONST = 1,
-        LOAD_NAME = 2,
-        STORE_NAME = 3,
-        POP_TOP = 4,
+        LOAD_CONST = 1,     // Load constant onto stack
+        LOAD_NAME = 2,      // Load variable onto stack
+        STORE_NAME = 3,     // Store top of stack in variable
+        POP_TOP = 4,        // Remove top of stack
 
         // Arithmetic operations
         BINARY_ADD = 10,
@@ -77,10 +77,10 @@ namespace SharpPy
         IMPORT_FROM = 91,
 
         // Special
-        NOP = 255
+        NOP = 255           // No operation
     }
 
-    // Single bytecode instruction (same as before)
+    // Single bytecode instruction
     public struct Instruction
     {
         public OpCode OpCode { get; }
@@ -100,17 +100,17 @@ namespace SharpPy
         }
     }
 
-    // Code object containing bytecode and metadata - Updated with PythonTypeObject
+    // Code object containing bytecode and metadata
     public class CodeObject
     {
         public string Name { get; }
         public string Filename { get; }
         public List<Instruction> Instructions { get; }
-        public List<PythonTypeObject> Constants { get; }  // Changed from object to PythonTypeObject
+        public List<PythonTypeObject> Constants { get; }
         public List<string> Names { get; }
         public List<string> VarNames { get; }
         public int ArgumentCount { get; }
-        public Dictionary<int, int> LineNumberTable { get; }
+        public Dictionary<int, int> LineNumberTable { get; } // bytecode offset -> line number
 
         public CodeObject(string name, string filename, List<Instruction> instructions, 
                          List<PythonTypeObject> constants, List<string> names, List<string> varNames,
@@ -154,13 +154,30 @@ namespace SharpPy
         }
     }
 
-    // Stack frame for function calls - Updated with PythonTypeObject
+    // Wrapper for CodeObject as PythonTypeObject
+    public class PythonCodeObject : PythonTypeObject
+    {
+        public CodeObject Code { get; }
+
+        public PythonCodeObject(CodeObject code)
+        {
+            Code = code;
+        }
+
+        public override PythonType Type => PythonType.Instance;
+        public override bool IsTrue() => true;
+        public override string ToPythonString() => $"<code object {Code.Name} at {GetHashCode():X}>";
+        public override object GetRawValue() => Code;
+        public override bool Equals(PythonTypeObject other) => ReferenceEquals(this, other);
+    }
+
+    // Stack frame for function calls
     public class Frame
     {
         public CodeObject Code { get; }
         public Environment Locals { get; }
         public Environment Globals { get; }
-        public Stack<PythonTypeObject> Stack { get; }  // Changed from object to PythonTypeObject
+        public Stack<PythonTypeObject> Stack { get; }
         public int InstructionPointer { get; set; }
         public Frame Previous { get; }
 
@@ -175,7 +192,7 @@ namespace SharpPy
         }
     }
 
-    // Virtual Machine for executing bytecode - Updated with PythonTypeObject
+    // Virtual Machine for executing bytecode
     public class VirtualMachine
     {
         private Frame currentFrame;
@@ -551,10 +568,12 @@ namespace SharpPy
 
         private void ExecuteMakeFunction(int argCount)
         {
-            var codeObject = currentFrame.Stack.Pop() as CodeObject;
-            if (codeObject == null)
+            var codeObjectWrapper = currentFrame.Stack.Pop() as PythonCodeObject;
+            if (codeObjectWrapper == null)
                 throw new PythonException("TypeError", "MAKE_FUNCTION expects CodeObject");
 
+            var codeObject = codeObjectWrapper.Code;
+            
             // Create a function that can be called later
             var function = new BytecodeFunction(codeObject, currentFrame.Locals);
             currentFrame.Stack.Push(function);
@@ -658,6 +677,17 @@ namespace SharpPy
                 currentFrame.Stack.Push(tuple.GetItem(i));
                 return;
             }
+            else if (obj is PythonDict dict)
+            {
+                currentFrame.Stack.Push(dict.GetItem(index));
+                return;
+            }
+            else if (obj is PythonString str && NumberHelper.IsNumber(index))
+            {
+                int i = NumberHelper.ToInt(index);
+                currentFrame.Stack.Push(str.GetItem(i));
+                return;
+            }
 
             throw new PythonException("TypeError", "object is not subscriptable");
         }
@@ -678,12 +708,14 @@ namespace SharpPy
         }
     }
 
-    // Iterator implementations - Updated with PythonTypeObject
-public interface IIterator
-{
-    bool HasNext();
-    PythonTypeObject Next();
-}
+    // Simple iterator interface for bytecode VM
+    public interface IIterator
+    {
+        bool HasNext();
+        PythonTypeObject Next();
+    }
+
+    // Base iterator class that inherits from PythonTypeObject
     public abstract class BaseIterator : PythonTypeObject, IIterator
     {
         public override PythonType Type => PythonType.Instance;
@@ -729,7 +761,7 @@ public interface IIterator
         public override PythonTypeObject Next() => HasNext() ? new PythonString(str.Value[index++].ToString()) : PythonNone.Instance;
     }
 
-    // Bytecode-based function - Updated with PythonTypeObject
+    // Bytecode-based function (for lambda compiled to bytecode)
     public class BytecodeFunction : Function
     {
         private readonly CodeObject code;
