@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace SharpPy
 {
-    // Function and Class Definition Nodes with Line/Column Tracking
+    // Function and Class Definition Nodes with PythonTypeObject
     public class FunctionDefNode : ASTNode
     {
         public string Name { get; }
@@ -21,7 +21,7 @@ namespace SharpPy
             ReturnTypeHint = returnTypeHint;
         }
 
-        public override object Evaluate(Environment env)
+        public override PythonTypeObject Evaluate(Environment env)
         {
             try
             {
@@ -51,7 +51,7 @@ namespace SharpPy
             Arguments = arguments;
         }
 
-        public override object Evaluate(Environment env)
+        public override PythonTypeObject Evaluate(Environment env)
         {
             try
             {
@@ -65,7 +65,8 @@ namespace SharpPy
                     BuiltinFunction builtinFunc => builtinFunc.Call(args),
                     BoundMethod boundMethod => boundMethod.Call(args),
                     PythonClass pythonClass => pythonClass.CreateInstance(args),
-                    _ => throw CreateException("TypeError", $"'{function?.GetType()?.Name ?? "null"}' object is not callable")
+                    BytecodeFunction bytecodeFunc => bytecodeFunc.Call(args),
+                    _ => throw CreateException("TypeError", $"'{function?.Type}' object is not callable")
                 };
             }
             catch (PythonException)
@@ -96,7 +97,7 @@ namespace SharpPy
             Body = body;
         }
 
-        public override object Evaluate(Environment env)
+        public override PythonTypeObject Evaluate(Environment env)
         {
             try
             {
@@ -137,7 +138,7 @@ namespace SharpPy
         }
     }
 
-    // Control Flow Nodes with Line/Column Tracking
+    // Control Flow Nodes with PythonTypeObject
     public class IfNode : ASTNode
     {
         public ASTNode Condition { get; }
@@ -151,14 +152,14 @@ namespace SharpPy
             ElseBody = elseBody ?? new List<ASTNode>();
         }
 
-        public override object Evaluate(Environment env)
+        public override PythonTypeObject Evaluate(Environment env)
         {
             try
             {
                 var condition = Condition.Evaluate(env);
-                var body = IsTrue(condition) ? ThenBody : ElseBody;
+                var body = condition.IsTrue() ? ThenBody : ElseBody;
 
-                object result = null;
+                PythonTypeObject result = PythonNone.Instance;
                 foreach (var stmt in body)
                     result = stmt.Evaluate(env);
                 return result;
@@ -171,19 +172,6 @@ namespace SharpPy
             {
                 throw CreateException("RuntimeError", $"Internal error in if statement: {ex.Message}");
             }
-        }
-
-        private bool IsTrue(object obj)
-        {
-            if (obj == null) return false;
-            if (obj is bool b) return b;
-            if (obj is int i) return i != 0;
-            if (obj is double d) return d != 0;
-            if (obj is string s) return !string.IsNullOrEmpty(s);
-            if (obj is PythonList l) return l.Items.Count > 0;
-            if (obj is PythonTuple t) return t.Items.Count > 0;
-            if (obj is PythonDict dict) return dict.Items.Count > 0;
-            return true;
         }
     }
 
@@ -200,14 +188,14 @@ namespace SharpPy
             Body = body;
         }
 
-        public override object Evaluate(Environment env)
+        public override PythonTypeObject Evaluate(Environment env)
         {
             try
             {
                 var iterableObj = Iterable.Evaluate(env);
                 var items = GetIterableItems(iterableObj);
 
-                object result = null;
+                PythonTypeObject result = PythonNone.Instance;
 
                 try
                 {
@@ -246,13 +234,14 @@ namespace SharpPy
             }
         }
 
-        private List<object> GetIterableItems(object obj)
+        private List<PythonTypeObject> GetIterableItems(PythonTypeObject obj)
         {
             if (obj is PythonList list) return list.Items;
             if (obj is PythonTuple tuple) return tuple.Items;
-            if (obj is string str) return str.Select(c => c.ToString()).Cast<object>().ToList();
+            if (obj is PythonString str) 
+                return str.Value.Select(c => new PythonString(c.ToString()) as PythonTypeObject).ToList();
             if (obj is PythonDict dict) return dict.Items.Keys.ToList();
-            throw CreateException("TypeError", $"'{obj?.GetType()}' object is not iterable");
+            throw CreateException("TypeError", $"'{obj?.Type}' object is not iterable");
         }
     }
 
@@ -269,27 +258,27 @@ namespace SharpPy
             Body = body;
         }
 
-        public override object Evaluate(Environment env)
+        public override PythonTypeObject Evaluate(Environment env)
         {
             try
             {
                 var iterableObj = Iterable.Evaluate(env);
                 var items = GetIterableItems(iterableObj);
 
-                object result = null;
+                PythonTypeObject result = PythonNone.Instance;
 
                 try
                 {
                     foreach (var item in items)
                     {
                         // Unpack the item into multiple variables
-                        List<object> values;
+                        List<PythonTypeObject> values;
                         if (item is PythonTuple tuple)
                             values = tuple.Items;
                         else if (item is PythonList list)
                             values = list.Items;
                         else
-                            throw CreateException("ValueError", $"Cannot unpack non-sequence {item?.GetType()}");
+                            throw CreateException("ValueError", $"Cannot unpack non-sequence {item?.Type}");
 
                         if (values.Count != Variables.Count)
                             throw CreateException("ValueError", $"Cannot unpack {values.Count} values into {Variables.Count} variables");
@@ -331,13 +320,14 @@ namespace SharpPy
             }
         }
 
-        private List<object> GetIterableItems(object obj)
+        private List<PythonTypeObject> GetIterableItems(PythonTypeObject obj)
         {
             if (obj is PythonList list) return list.Items;
             if (obj is PythonTuple tuple) return tuple.Items;
-            if (obj is string str) return str.Select(c => c.ToString()).Cast<object>().ToList();
+            if (obj is PythonString str) 
+                return str.Value.Select(c => new PythonString(c.ToString()) as PythonTypeObject).ToList();
             if (obj is PythonDict dict) return dict.Items.Keys.ToList();
-            throw CreateException("TypeError", $"'{obj?.GetType()}' object is not iterable");
+            throw CreateException("TypeError", $"'{obj?.Type}' object is not iterable");
         }
     }
 
@@ -352,15 +342,15 @@ namespace SharpPy
             Body = body;
         }
 
-        public override object Evaluate(Environment env)
+        public override PythonTypeObject Evaluate(Environment env)
         {
             try
             {
-                object result = null;
+                PythonTypeObject result = PythonNone.Instance;
 
                 try
                 {
-                    while (IsTrue(Condition.Evaluate(env)))
+                    while (Condition.Evaluate(env).IsTrue())
                     {
                         try
                         {
@@ -393,31 +383,18 @@ namespace SharpPy
                 throw CreateException("RuntimeError", $"Internal error in while loop: {ex.Message}");
             }
         }
-
-        private bool IsTrue(object obj)
-        {
-            if (obj == null) return false;
-            if (obj is bool b) return b;
-            if (obj is int i) return i != 0;
-            if (obj is double d) return d != 0;
-            if (obj is string s) return !string.IsNullOrEmpty(s);
-            if (obj is PythonList l) return l.Items.Count > 0;
-            if (obj is PythonTuple t) return t.Items.Count > 0;
-            if (obj is PythonDict dict) return dict.Items.Count > 0;
-            return true;
-        }
     }
 
     public class BreakNode : ASTNode
     {
         public BreakNode(int line = 0, int column = 0) : base(line, column) { }
-        public override object Evaluate(Environment env) => throw new BreakException();
+        public override PythonTypeObject Evaluate(Environment env) => throw new BreakException();
     }
 
     public class ContinueNode : ASTNode
     {
         public ContinueNode(int line = 0, int column = 0) : base(line, column) { }
-        public override object Evaluate(Environment env) => throw new ContinueException();
+        public override PythonTypeObject Evaluate(Environment env) => throw new ContinueException();
     }
 
     public class ReturnNode : ASTNode
@@ -427,11 +404,11 @@ namespace SharpPy
         public ReturnNode(ASTNode value = null, int line = 0, int column = 0) : base(line, column) 
             => Value = value;
 
-        public override object Evaluate(Environment env)
+        public override PythonTypeObject Evaluate(Environment env)
         {
             try
             {
-                var returnValue = Value?.Evaluate(env);
+                var returnValue = Value?.Evaluate(env) ?? PythonNone.Instance;
                 throw new ReturnException(returnValue);
             }
             catch (ReturnException)
@@ -449,7 +426,7 @@ namespace SharpPy
         }
     }
 
-    // Exception Handling Nodes with Line/Column Tracking
+    // Exception Handling Nodes with PythonTypeObject
     public class TryNode : ASTNode
     {
         public List<ASTNode> TryBody { get; }
@@ -469,9 +446,9 @@ namespace SharpPy
             FinallyBody = finallyBody ?? new List<ASTNode>();
         }
 
-        public override object Evaluate(Environment env)
+        public override PythonTypeObject Evaluate(Environment env)
         {
-            object result = null;
+            PythonTypeObject result = PythonNone.Instance;
             bool exceptionCaught = false;
 
             try
@@ -496,7 +473,7 @@ namespace SharpPy
                     {
                         // except 절에서 exception variable만 설정 (새로운 scope 만들지 않음)
                         if (!string.IsNullOrEmpty(variable))
-                            env.SetVariable(variable, ex.Message);
+                            env.SetVariable(variable, new PythonString(ex.Message));
 
                         foreach (var stmt in body)
                             result = stmt.Evaluate(env); // 같은 env 사용
@@ -519,7 +496,7 @@ namespace SharpPy
                     {
                         // except 절에서 exception variable만 설정 (새로운 scope 만들지 않음)
                         if (!string.IsNullOrEmpty(variable))
-                            env.SetVariable(variable, ex.Message);
+                            env.SetVariable(variable, new PythonString(ex.Message));
 
                         foreach (var stmt in body)
                             result = stmt.Evaluate(env); // 같은 env 사용
@@ -547,14 +524,14 @@ namespace SharpPy
         public RaiseNode(ASTNode exception, int line = 0, int column = 0) : base(line, column) 
             => Exception = exception;
 
-        public override object Evaluate(Environment env)
+        public override PythonTypeObject Evaluate(Environment env)
         {
             try
             {
                 var ex = Exception.Evaluate(env);
-                if (ex is string message)
-                    throw CreateException("Exception", message);
-                throw CreateException("Exception", ex?.ToString() ?? "");
+                if (ex is PythonString message)
+                    throw CreateException("Exception", message.Value);
+                throw CreateException("Exception", ex?.ToPythonString() ?? "");
             }
             catch (PythonException)
             {
@@ -567,7 +544,7 @@ namespace SharpPy
         }
     }
 
-    // Import and Block Nodes with Line/Column Tracking
+    // Import and Block Nodes with PythonTypeObject
     public class ImportNode : ASTNode
     {
         public string ModuleName { get; }
@@ -579,7 +556,7 @@ namespace SharpPy
             Alias = alias;
         }
 
-        public override object Evaluate(Environment env)
+        public override PythonTypeObject Evaluate(Environment env)
         {
             try
             {
@@ -612,7 +589,7 @@ namespace SharpPy
             ImportAll = importAll;
         }
 
-        public override object Evaluate(Environment env)
+        public override PythonTypeObject Evaluate(Environment env)
         {
             try
             {
@@ -649,7 +626,7 @@ namespace SharpPy
                     }
                 }
 
-                return null;
+                return PythonNone.Instance;
             }
             catch (PythonException)
             {
@@ -669,11 +646,11 @@ namespace SharpPy
         public BlockNode(List<ASTNode> statements, int line = 0, int column = 0) : base(line, column) 
             => Statements = statements;
 
-        public override object Evaluate(Environment env)
+        public override PythonTypeObject Evaluate(Environment env)
         {
             try
             {
-                object result = null;
+                PythonTypeObject result = PythonNone.Instance;
                 foreach (var stmt in Statements)
                     result = stmt.Evaluate(env);
                 return result;
@@ -689,6 +666,110 @@ namespace SharpPy
             catch (Exception ex) when (!(ex is ReturnException || ex is BreakException || ex is ContinueException))
             {
                 throw CreateException("RuntimeError", $"Internal error in block: {ex.Message}");
+            }
+        }
+    }
+
+    public class MultipleAssignmentNode : ASTNode
+    {
+        public List<string> VariableNames { get; }
+        public ASTNode Value { get; }
+
+        public MultipleAssignmentNode(List<string> names, ASTNode value, int line = 0, int column = 0) : base(line, column)
+        {
+            VariableNames = names;
+            Value = value;
+        }
+
+        public override PythonTypeObject Evaluate(Environment env)
+        {
+            try
+            {
+                var value = Value.Evaluate(env);
+
+                // Convert value to iterable
+                List<PythonTypeObject> items;
+                if (value is PythonList list)
+                    items = list.Items;
+                else if (value is PythonTuple tuple)
+                    items = tuple.Items;
+                else if (value is PythonString str)
+                    items = str.Value.Select(c => new PythonString(c.ToString()) as PythonTypeObject).ToList();
+                else
+                    throw CreateException("TypeError", "Cannot unpack non-iterable object");
+
+                // Handle underscore (_) - variables to ignore
+                var validNames = new List<string>();
+                var validIndices = new List<int>();
+
+                for (int i = 0; i < VariableNames.Count; i++)
+                {
+                    if (VariableNames[i] != "_")
+                    {
+                        validNames.Add(VariableNames[i]);
+                        validIndices.Add(i);
+                    }
+                }
+
+                // Length validation (excluding underscores)
+                if (items.Count != VariableNames.Count)
+                    throw CreateException("ValueError", $"Cannot unpack {items.Count} values into {VariableNames.Count} variables");
+
+                // Assign values to variables (skip underscores)
+                for (int i = 0; i < validNames.Count; i++)
+                {
+                    int actualIndex = validIndices[i];
+                    env.SetVariable(validNames[i], items[actualIndex]);
+                }
+
+                return value;
+            }
+            catch (PythonException)
+            {
+                throw; // Re-throw PythonExceptions as-is
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Internal error in multiple assignment: {ex.Message}");
+            }
+        }
+    }
+
+    public class AttributeAssignmentNode : ASTNode
+    {
+        public ASTNode Object { get; }
+        public string Attribute { get; }
+        public ASTNode Value { get; }
+
+        public AttributeAssignmentNode(ASTNode obj, string attribute, ASTNode value, int line = 0, int column = 0) : base(line, column)
+        {
+            Object = obj;
+            Attribute = attribute;
+            Value = value;
+        }
+
+        public override PythonTypeObject Evaluate(Environment env)
+        {
+            try
+            {
+                var obj = Object.Evaluate(env);
+                var value = Value.Evaluate(env);
+
+                if (obj is PythonInstance instance)
+                {
+                    instance.SetAttribute(Attribute, value);
+                    return value;
+                }
+
+                throw CreateException("AttributeError", $"'{obj?.Type}' object has no attribute '{Attribute}'");
+            }
+            catch (PythonException)
+            {
+                throw; // Re-throw PythonExceptions as-is
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Internal error in attribute assignment: {ex.Message}");
             }
         }
     }

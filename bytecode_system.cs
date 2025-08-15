@@ -1,4 +1,4 @@
-// bytecode_system.cs
+// bytecode_system.cs (주요 부분)
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -7,14 +7,14 @@ using System.Text;
 
 namespace SharpPy
 {
-    // Bytecode Operation Codes (inspired by Python's opcodes)
+    // Bytecode Operation Codes (same as before)
     public enum OpCode : byte
     {
         // Stack operations
-        LOAD_CONST = 1,     // Load constant onto stack
-        LOAD_NAME = 2,      // Load variable onto stack
-        STORE_NAME = 3,     // Store top of stack in variable
-        POP_TOP = 4,        // Remove top of stack
+        LOAD_CONST = 1,
+        LOAD_NAME = 2,
+        STORE_NAME = 3,
+        POP_TOP = 4,
 
         // Arithmetic operations
         BINARY_ADD = 10,
@@ -77,10 +77,10 @@ namespace SharpPy
         IMPORT_FROM = 91,
 
         // Special
-        NOP = 255           // No operation
+        NOP = 255
     }
 
-    // Single bytecode instruction
+    // Single bytecode instruction (same as before)
     public struct Instruction
     {
         public OpCode OpCode { get; }
@@ -100,26 +100,26 @@ namespace SharpPy
         }
     }
 
-    // Code object containing bytecode and metadata
+    // Code object containing bytecode and metadata - Updated with PythonTypeObject
     public class CodeObject
     {
         public string Name { get; }
         public string Filename { get; }
         public List<Instruction> Instructions { get; }
-        public List<object> Constants { get; }
+        public List<PythonTypeObject> Constants { get; }  // Changed from object to PythonTypeObject
         public List<string> Names { get; }
         public List<string> VarNames { get; }
         public int ArgumentCount { get; }
-        public Dictionary<int, int> LineNumberTable { get; } // bytecode offset -> line number
+        public Dictionary<int, int> LineNumberTable { get; }
 
         public CodeObject(string name, string filename, List<Instruction> instructions, 
-                         List<object> constants, List<string> names, List<string> varNames,
+                         List<PythonTypeObject> constants, List<string> names, List<string> varNames,
                          int argumentCount = 0)
         {
             Name = name;
             Filename = filename;
             Instructions = instructions ?? new List<Instruction>();
-            Constants = constants ?? new List<object>();
+            Constants = constants ?? new List<PythonTypeObject>();
             Names = names ?? new List<string>();
             VarNames = varNames ?? new List<string>();
             ArgumentCount = argumentCount;
@@ -138,7 +138,7 @@ namespace SharpPy
             var sb = new StringBuilder();
             sb.AppendLine($"Code Object: {Name} ({Filename})");
             sb.AppendLine($"Arguments: {ArgumentCount}");
-            sb.AppendLine($"Constants: [{string.Join(", ", Constants.Select(c => c?.ToString() ?? "None"))}]");
+            sb.AppendLine($"Constants: [{string.Join(", ", Constants.Select(c => c?.ToPythonString() ?? "None"))}]");
             sb.AppendLine($"Names: [{string.Join(", ", Names)}]");
             sb.AppendLine($"Variables: [{string.Join(", ", VarNames)}]");
             sb.AppendLine("Bytecode:");
@@ -154,13 +154,13 @@ namespace SharpPy
         }
     }
 
-    // Stack frame for function calls
+    // Stack frame for function calls - Updated with PythonTypeObject
     public class Frame
     {
         public CodeObject Code { get; }
         public Environment Locals { get; }
         public Environment Globals { get; }
-        public Stack<object> Stack { get; }
+        public Stack<PythonTypeObject> Stack { get; }  // Changed from object to PythonTypeObject
         public int InstructionPointer { get; set; }
         public Frame Previous { get; }
 
@@ -169,13 +169,13 @@ namespace SharpPy
             Code = code;
             Locals = locals;
             Globals = globals;
-            Stack = new Stack<object>();
+            Stack = new Stack<PythonTypeObject>();
             InstructionPointer = 0;
             Previous = previous;
         }
     }
 
-    // Virtual Machine for executing bytecode
+    // Virtual Machine for executing bytecode - Updated with PythonTypeObject
     public class VirtualMachine
     {
         private Frame currentFrame;
@@ -188,7 +188,7 @@ namespace SharpPy
             frameStack = new Stack<Frame>();
         }
 
-        public object Execute(CodeObject code, Environment locals = null)
+        public PythonTypeObject Execute(CodeObject code, Environment locals = null)
         {
             locals = locals ?? new Environment(globalEnv);
             currentFrame = new Frame(code, locals, globalEnv);
@@ -205,7 +205,7 @@ namespace SharpPy
             }
         }
 
-        private object ExecuteFrame()
+        private PythonTypeObject ExecuteFrame()
         {
             var frame = currentFrame;
             var code = frame.Code;
@@ -274,7 +274,7 @@ namespace SharpPy
                             break;
 
                         case OpCode.UNARY_NOT:
-                            stack.Push(!IsTrue(stack.Pop()));
+                            stack.Push(new PythonBool(!stack.Pop().IsTrue()));
                             break;
 
                         case OpCode.COMPARE_EQ:
@@ -301,7 +301,7 @@ namespace SharpPy
                             continue;
 
                         case OpCode.JUMP_IF_FALSE:
-                            if (!IsTrue(stack.Pop()))
+                            if (!stack.Pop().IsTrue())
                             {
                                 frame.InstructionPointer = arg;
                                 continue;
@@ -309,7 +309,7 @@ namespace SharpPy
                             break;
 
                         case OpCode.JUMP_IF_TRUE:
-                            if (IsTrue(stack.Pop()))
+                            if (stack.Pop().IsTrue())
                             {
                                 frame.InstructionPointer = arg;
                                 continue;
@@ -325,7 +325,7 @@ namespace SharpPy
                             break;
 
                         case OpCode.RETURN_VALUE:
-                            return stack.Count > 0 ? stack.Pop() : null;
+                            return stack.Count > 0 ? stack.Pop() : PythonNone.Instance;
 
                         case OpCode.BUILD_LIST:
                             ExecuteBuildList(arg);
@@ -397,7 +397,7 @@ namespace SharpPy
                 }
             }
 
-            return stack.Count > 0 ? stack.Pop() : null;
+            return stack.Count > 0 ? stack.Pop() : PythonNone.Instance;
         }
 
         private void ExecuteBinaryOp(string op)
@@ -405,28 +405,25 @@ namespace SharpPy
             var right = currentFrame.Stack.Pop();
             var left = currentFrame.Stack.Pop();
             
-            var binOpNode = new BinaryOpNode(null, op, null);
-            // Use reflection to call the private methods or implement the logic here
-            object result = op switch
+            PythonTypeObject result = op switch
             {
                 "+" => AddValues(left, right),
-                "-" => NumberHelper.IsNumber(left) && NumberHelper.IsNumber(right) ? NumberHelper.Subtract(left, right) : throw new PythonException("TypeError", "Unsupported operand types"),
+                "-" => SubtractValues(left, right),
                 "*" => MultiplyValues(left, right),
-                "/" => NumberHelper.IsNumber(left) && NumberHelper.IsNumber(right) ? NumberHelper.Divide(left, right) : throw new PythonException("TypeError", "Unsupported operand types"),
-                "%" => NumberHelper.IsNumber(left) && NumberHelper.IsNumber(right) ? NumberHelper.Modulo(left, right) : throw new PythonException("TypeError", "Unsupported operand types"),
-                "**" => NumberHelper.IsNumber(left) && NumberHelper.IsNumber(right) ? NumberHelper.Power(left, right) : throw new PythonException("TypeError", "Unsupported operand types"),
+                "/" => DivideValues(left, right),
+                "%" => ModuloValues(left, right),
+                "**" => PowerValues(left, right),
                 _ => throw new PythonException("RuntimeError", $"Unknown binary operator: {op}")
             };
             
             currentFrame.Stack.Push(result);
         }
 
-        private object AddValues(object left, object right)
+        private PythonTypeObject AddValues(PythonTypeObject left, PythonTypeObject right)
         {
-            if (NumberHelper.IsNumber(left) && NumberHelper.IsNumber(right))
-                return NumberHelper.Add(left, right);
-            if (left is string || right is string) 
-                return left?.ToString() + right?.ToString();
+            if (left is PythonInt li) return li.Add(right);
+            if (left is PythonFloat lf) return lf.Add(right);
+            if (left is PythonString ls) return ls.Add(right);
             if (left is PythonList ll && right is PythonList rl)
             {
                 var newList = new PythonList();
@@ -437,15 +434,41 @@ namespace SharpPy
             throw new PythonException("TypeError", "Unsupported operand types for +");
         }
 
-        private object MultiplyValues(object left, object right)
+        private PythonTypeObject SubtractValues(PythonTypeObject left, PythonTypeObject right)
         {
-            if (NumberHelper.IsNumber(left) && NumberHelper.IsNumber(right))
-                return NumberHelper.Multiply(left, right);
-            if (left is string s && NumberHelper.IsNumber(right))
-                return string.Concat(Enumerable.Repeat(s, NumberHelper.ToInt(right)));
-            if (NumberHelper.IsNumber(left) && right is string s2)
-                return string.Concat(Enumerable.Repeat(s2, NumberHelper.ToInt(left)));
+            if (left is PythonInt li) return li.Subtract(right);
+            if (left is PythonFloat lf) return lf.Subtract(right);
+            throw new PythonException("TypeError", "Unsupported operand types for -");
+        }
+
+        private PythonTypeObject MultiplyValues(PythonTypeObject left, PythonTypeObject right)
+        {
+            if (left is PythonInt li) return li.Multiply(right);
+            if (left is PythonFloat lf) return lf.Multiply(right);
+            if (left is PythonString ls && NumberHelper.IsNumber(right))
+                return ls.Repeat(NumberHelper.ToInt(right));
             throw new PythonException("TypeError", "Unsupported operand types for *");
+        }
+
+        private PythonTypeObject DivideValues(PythonTypeObject left, PythonTypeObject right)
+        {
+            if (left is PythonInt li) return li.Divide(right);
+            if (left is PythonFloat lf) return lf.Divide(right);
+            throw new PythonException("TypeError", "Unsupported operand types for /");
+        }
+
+        private PythonTypeObject ModuloValues(PythonTypeObject left, PythonTypeObject right)
+        {
+            if (left is PythonInt li) return li.Modulo(right);
+            if (left is PythonFloat lf) return lf.Modulo(right);
+            throw new PythonException("TypeError", "Unsupported operand types for %");
+        }
+
+        private PythonTypeObject PowerValues(PythonTypeObject left, PythonTypeObject right)
+        {
+            if (left is PythonInt li) return li.Power(right);
+            if (left is PythonFloat lf) return lf.Power(right);
+            throw new PythonException("TypeError", "Unsupported operand types for **");
         }
 
         private void ExecuteCompare(string op)
@@ -455,8 +478,8 @@ namespace SharpPy
             
             bool result = op switch
             {
-                "==" => Equals(left, right),
-                "!=" => !Equals(left, right),
+                "==" => left.Equals(right),
+                "!=" => !left.Equals(right),
                 "<" => CompareValues(left, right) < 0,
                 ">" => CompareValues(left, right) > 0,
                 "<=" => CompareValues(left, right) <= 0,
@@ -464,27 +487,27 @@ namespace SharpPy
                 _ => throw new PythonException("RuntimeError", $"Unknown comparison operator: {op}")
             };
             
-            currentFrame.Stack.Push(result);
+            currentFrame.Stack.Push(new PythonBool(result));
         }
 
-        private int CompareValues(object left, object right)
+        private int CompareValues(PythonTypeObject left, PythonTypeObject right)
         {
             if (NumberHelper.IsNumber(left) && NumberHelper.IsNumber(right))
                 return NumberHelper.ToDouble(left).CompareTo(NumberHelper.ToDouble(right));
-            if (left is string ls && right is string rs) 
-                return string.Compare(ls, rs);
+            if (left is PythonString ls && right is PythonString rs) 
+                return string.Compare(ls.Value, rs.Value);
             throw new PythonException("TypeError", $"'<' not supported between instances");
         }
 
         private void ExecuteFunctionCall(int argCount)
         {
-            var args = new List<object>();
+            var args = new List<PythonTypeObject>();
             for (int i = 0; i < argCount; i++)
                 args.Insert(0, currentFrame.Stack.Pop());
             
             var function = currentFrame.Stack.Pop();
             
-            object result = function switch
+            PythonTypeObject result = function switch
             {
                 UserFunction userFunc => userFunc.Call(args),
                 LambdaFunction lambdaFunc => lambdaFunc.Call(args),
@@ -492,7 +515,7 @@ namespace SharpPy
                 BuiltinFunction builtinFunc => builtinFunc.Call(args),
                 BoundMethod boundMethod => boundMethod.Call(args),
                 PythonClass pythonClass => pythonClass.CreateInstance(args),
-                _ => throw new PythonException("TypeError", $"'{function?.GetType()?.Name ?? "null"}' object is not callable")
+                _ => throw new PythonException("TypeError", $"'{function?.Type}' object is not callable")
             };
             
             currentFrame.Stack.Push(result);
@@ -550,13 +573,13 @@ namespace SharpPy
             {
                 currentFrame.Stack.Push(new TupleIterator(tuple));
             }
-            else if (obj is string str)
+            else if (obj is PythonString str)
             {
                 currentFrame.Stack.Push(new StringIterator(str));
             }
             else
             {
-                throw new PythonException("TypeError", $"'{obj?.GetType()}' object is not iterable");
+                throw new PythonException("TypeError", $"'{obj?.Type}' object is not iterable");
             }
         }
 
@@ -584,24 +607,24 @@ namespace SharpPy
 
         private void ExecuteImportName()
         {
-            var moduleName = currentFrame.Stack.Pop() as string;
+            var moduleName = currentFrame.Stack.Pop() as PythonString;
             if (moduleName == null)
                 throw new PythonException("TypeError", "IMPORT_NAME expects string");
 
             try
             {
-                var module = ModuleSystem.ImportModule(moduleName);
+                var module = ModuleSystem.ImportModule(moduleName.Value);
                 currentFrame.Stack.Push(module);
             }
             catch (Exception ex)
             {
-                throw new PythonException("ImportError", $"Failed to import module '{moduleName}': {ex.Message}");
+                throw new PythonException("ImportError", $"Failed to import module '{moduleName.Value}': {ex.Message}");
             }
         }
 
         private void ExecuteImportFrom()
         {
-            var itemName = currentFrame.Stack.Pop() as string;
+            var itemName = currentFrame.Stack.Pop() as PythonString;
             var module = currentFrame.Stack.Pop() as PythonModule;
             
             if (itemName == null || module == null)
@@ -609,12 +632,12 @@ namespace SharpPy
 
             try
             {
-                var value = module.GetAttribute(itemName);
+                var value = module.GetAttribute(itemName.Value);
                 currentFrame.Stack.Push(value);
             }
             catch (Exception)
             {
-                throw new PythonException("ImportError", $"cannot import name '{itemName}' from module '{module.Name}'");
+                throw new PythonException("ImportError", $"cannot import name '{itemName.Value}' from module '{module.Name}'");
             }
         }
 
@@ -626,24 +649,14 @@ namespace SharpPy
             if (obj is PythonList list && NumberHelper.IsNumber(index))
             {
                 int i = NumberHelper.ToInt(index);
-                if (i < 0) i += list.Items.Count;
-                if (i >= 0 && i < list.Items.Count)
-                {
-                    currentFrame.Stack.Push(list.Items[i]);
-                    return;
-                }
-                throw new PythonException("IndexError", "list index out of range");
+                currentFrame.Stack.Push(list.GetItem(i));
+                return;
             }
             else if (obj is PythonTuple tuple && NumberHelper.IsNumber(index))
             {
                 int i = NumberHelper.ToInt(index);
-                if (i < 0) i += tuple.Items.Count;
-                if (i >= 0 && i < tuple.Items.Count)
-                {
-                    currentFrame.Stack.Push(tuple.Items[i]);
-                    return;
-                }
-                throw new PythonException("IndexError", "tuple index out of range");
+                currentFrame.Stack.Push(tuple.GetItem(i));
+                return;
             }
 
             throw new PythonException("TypeError", "object is not subscriptable");
@@ -654,71 +667,70 @@ namespace SharpPy
             if (argCount == 1)
             {
                 var exception = currentFrame.Stack.Pop();
-                if (exception is string message)
-                    throw new PythonException("Exception", message);
-                throw new PythonException("Exception", exception?.ToString() ?? "");
+                if (exception is PythonString message)
+                    throw new PythonException("Exception", message.Value);
+                throw new PythonException("Exception", exception?.ToPythonString() ?? "");
             }
             else
             {
                 throw new PythonException("Exception", "Exception raised");
             }
         }
-
-        private bool IsTrue(object obj)
-        {
-            if (obj == null) return false;
-            if (obj is bool b) return b;
-            if (obj is int i) return i != 0;
-            if (obj is double d) return d != 0;
-            if (obj is string s) return !string.IsNullOrEmpty(s);
-            if (obj is PythonList l) return l.Items.Count > 0;
-            if (obj is PythonTuple t) return t.Items.Count > 0;
-            if (obj is PythonDict dict) return dict.Items.Count > 0;
-            return true;
-        }
     }
 
-    // Simple iterator interface for bytecode VM
-    public interface IIterator
+    // Iterator implementations - Updated with PythonTypeObject
+    public interface IIterator : PythonTypeObject
     {
         bool HasNext();
-        object Next();
+        PythonTypeObject Next();
     }
 
-    public class ListIterator : IIterator
+    public abstract class BaseIterator : PythonTypeObject, IIterator
+    {
+        public override PythonType Type => PythonType.Instance;
+        public override bool IsTrue() => true;
+        public override string ToPythonString() => "<iterator>";
+        public override object GetRawValue() => this;
+        public override bool Equals(PythonTypeObject other) => ReferenceEquals(this, other);
+        
+        public abstract bool HasNext();
+        public abstract PythonTypeObject Next();
+    }
+
+    public class ListIterator : BaseIterator
     {
         private readonly PythonList list;
         private int index = 0;
 
         public ListIterator(PythonList list) => this.list = list;
 
-        public bool HasNext() => index < list.Items.Count;
-        public object Next() => HasNext() ? list.Items[index++] : null;
+        public override bool HasNext() => index < list.Items.Count;
+        public override PythonTypeObject Next() => HasNext() ? list.Items[index++] : PythonNone.Instance;
     }
 
-    public class TupleIterator : IIterator
+    public class TupleIterator : BaseIterator
     {
         private readonly PythonTuple tuple;
         private int index = 0;
 
         public TupleIterator(PythonTuple tuple) => this.tuple = tuple;
 
-        public bool HasNext() => index < tuple.Items.Count;
-        public object Next() => HasNext() ? tuple.Items[index++] : null;
+        public override bool HasNext() => index < tuple.Items.Count;
+        public override PythonTypeObject Next() => HasNext() ? tuple.Items[index++] : PythonNone.Instance;
     }
 
-    public class StringIterator : IIterator
+    public class StringIterator : BaseIterator
     {
-        private readonly string str;
+        private readonly PythonString str;
         private int index = 0;
 
-        public StringIterator(string str) => this.str = str;
+        public StringIterator(PythonString str) => this.str = str;
 
-        public bool HasNext() => index < str.Length;
-        public object Next() => HasNext() ? str[index++].ToString() : null;
+        public override bool HasNext() => index < str.Value.Length;
+        public override PythonTypeObject Next() => HasNext() ? new PythonString(str.Value[index++].ToString()) : PythonNone.Instance;
     }
 
-    // Bytecode-based function (for lambda compiled to bytecode)
+    // Bytecode-based function - Updated with PythonTypeObject
     public class BytecodeFunction : Function
     {
         private readonly CodeObject code;
@@ -730,7 +742,7 @@ namespace SharpPy
             this.closure = closure;
         }
 
-        public override object Call(List<object> arguments)
+        public override PythonTypeObject Call(List<PythonTypeObject> arguments)
         {
             if (arguments.Count != code.ArgumentCount)
                 throw new PythonException("TypeError", $"Function expects {code.ArgumentCount} arguments, got {arguments.Count}");
