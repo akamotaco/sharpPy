@@ -721,7 +721,7 @@ print('Range with step:', list(range(0, 10, 2)))
 # 열거와 압축
 data = ['a', 'b', 'c']
 for i, item in enumerate(data):
-print('Index', i, ':', item)
+    print('Index', i, ':', item)
 
 # zip 함수
 list1 = [1, 2, 3]
