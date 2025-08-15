@@ -29,6 +29,32 @@ namespace SharpPy
             }
         }
 
+        // Create Environment from PythonDict
+        public static Environment FromDict(PythonDict dict, Environment parent = null)
+        {
+            var env = new Environment(parent);
+            foreach (var kvp in dict.Items)
+            {
+                if (kvp.Key is PythonString keyStr)
+                {
+                    env.SetVariable(keyStr.Value, kvp.Value);
+                }
+            }
+            return env;
+        }
+
+        // Convert Environment to PythonDict
+        public PythonDict ToDict()
+        {
+            var dict = new PythonDict();
+            var allVars = GetAllVariables();
+            foreach (var kvp in allVars)
+            {
+                dict.Items[new PythonString(kvp.Key)] = kvp.Value;
+            }
+            return dict;
+        }
+
         static private void SetupBuiltins(Environment env)
         {
             env.SetVariable("print", new BuiltinFunction("print", args =>
@@ -513,20 +539,13 @@ namespace SharpPy
                 return new PythonBool(true);
             }));
 
-            // ADD globals() function - returns current environment variables as dict
+            // Modified globals() function - returns the environment's dictionary representation
             env.SetVariable("globals", new BuiltinFunction("globals", args =>
             {
                 if (args.Count != 0) throw new PythonException("TypeError", "globals() takes no arguments");
                 
-                var globalsDict = new PythonDict();
-                var allVars = env.GetAllVariables();
-                
-                foreach (var kvp in allVars)
-                {
-                    globalsDict.Items[new PythonString(kvp.Key)] = kvp.Value;
-                }
-                
-                return globalsDict;
+                // Return the current environment's dictionary representation
+                return env.ToDict();
             }));
 
             // ADD open() function for with statement support
@@ -581,23 +600,28 @@ namespace SharpPy
                 if (!(expression is PythonString exprStr))
                     throw new PythonException("TypeError", "eval() first argument must be a string");
                 
-                // If no globals provided, use current environment
-                var globals = env;
+                // Handle globals argument - can be Environment or Dict
+                Environment globals = env;
                 if (args.Count > 1 && args[1] != null && !(args[1] is PythonNone))
                 {
                     if (args[1] is Environment g)
                         globals = g;
+                    else if (args[1] is PythonDict gDict)
+                        globals = Environment.FromDict(gDict, env);
                     else
-                        throw new PythonException("TypeError", "eval() globals must be an environment");
+                        throw new PythonException("TypeError", "eval() globals must be a dict or environment");
                 }
                 
-                var locals = globals; // Default locals to globals
+                // Handle locals argument - can be Environment or Dict
+                Environment locals = globals;
                 if (args.Count > 2 && args[2] != null && !(args[2] is PythonNone))
                 {
                     if (args[2] is Environment l)
                         locals = l;
+                    else if (args[2] is PythonDict lDict)
+                        locals = Environment.FromDict(lDict, globals);
                     else
-                        throw new PythonException("TypeError", "eval() locals must be an environment");
+                        throw new PythonException("TypeError", "eval() locals must be a dict or environment");
                 }
                 
                 try
@@ -619,29 +643,50 @@ namespace SharpPy
                 if (!(source is PythonString sourceStr))
                     throw new PythonException("TypeError", "exec() first argument must be a string");
                 
-                // Use the current environment as both globals and locals by default
-                var globals = env;
+                // Handle globals argument - can be Environment or Dict
+                Environment globals = env;
                 if (args.Count > 1 && args[1] != null && !(args[1] is PythonNone))
                 {
                     if (args[1] is Environment g)
                         globals = g;
+                    else if (args[1] is PythonDict gDict)
+                    {
+                        // Convert dict to environment, preserving the current environment as parent
+                        globals = Environment.FromDict(gDict, env);
+                    }
                     else
-                        throw new PythonException("TypeError", "exec() globals must be an environment");
+                        throw new PythonException("TypeError", "exec() globals must be a dict or environment");
                 }
                 
-                // Default locals to the same as globals (important for function definitions)
-                var locals = globals;
+                // Handle locals argument - can be Environment or Dict
+                Environment locals = globals;
                 if (args.Count > 2 && args[2] != null && !(args[2] is PythonNone))
                 {
                     if (args[2] is Environment l)
                         locals = l;
+                    else if (args[2] is PythonDict lDict)
+                    {
+                        locals = Environment.FromDict(lDict, globals);
+                    }
                     else
-                        throw new PythonException("TypeError", "exec() locals must be an environment");
+                        throw new PythonException("TypeError", "exec() locals must be a dict or environment");
                 }
                 
                 try
                 {
                     PythonCompiler.Exec(sourceStr.Value, globals, locals);
+                    
+                    // If we created a temporary environment from a dict, 
+                    // we need to copy back the changes to the original dict
+                    if (args.Count > 1 && args[1] is PythonDict originalDict)
+                    {
+                        // Update the original dict with changes from the environment
+                        foreach (var kvp in globals.GetAllVariables())
+                        {
+                            originalDict.Items[new PythonString(kvp.Key)] = kvp.Value;
+                        }
+                    }
+                    
                     return PythonNone.Instance;
                 }
                 catch (Exception ex)

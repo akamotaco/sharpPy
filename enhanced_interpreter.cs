@@ -427,8 +427,8 @@ def greet(name):
 
 message = greet('World')
 '''
-exec(code)
-print('exec result:', message)
+# exec(code)
+# print('exec result:', message)
 
 # compile() function
 compiled_code = compile('lambda x: x ** 2', '<lambda>', 'eval')

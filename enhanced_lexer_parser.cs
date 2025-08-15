@@ -107,6 +107,52 @@ namespace SharpPy
             return sb.ToString();
         }
 
+        private string ReadTripleQuotedString(string quoteType)
+        {
+            var sb = new StringBuilder();
+            int startLine = line;
+            int startColumn = column;
+            
+            // Skip the opening triple quotes
+            for (int i = 0; i < 3; i++)
+                Advance();
+
+            // Read until we find the closing triple quotes
+            while (position + 2 < input.Length)
+            {
+                if (currentChar == quoteType[0] && 
+                    position + 1 < input.Length && input[position + 1] == quoteType[0] &&
+                    position + 2 < input.Length && input[position + 2] == quoteType[0])
+                {
+                    // Found closing triple quotes
+                    for (int i = 0; i < 3; i++)
+                        Advance();
+                    return sb.ToString();
+                }
+                
+                sb.Append(currentChar);
+                Advance();
+            }
+
+            // Handle end of string
+            while (currentChar != '\0')
+            {
+                if (currentChar == quoteType[0] && 
+                    position + 1 < input.Length && input[position + 1] == quoteType[0] &&
+                    position + 2 < input.Length && input[position + 2] == quoteType[0])
+                {
+                    // Found closing triple quotes
+                    for (int i = 0; i < 3; i++)
+                        Advance();
+                    return sb.ToString();
+                }
+                sb.Append(currentChar);
+                Advance();
+            }
+
+            throw new PythonException("SyntaxError", $"Unterminated triple-quoted string literal", startLine, startColumn);
+        }
+
         private string ReadFString(char quote)
         {
             var sb = new StringBuilder();
@@ -128,17 +174,14 @@ namespace SharpPy
                         case '\'': sb.Append('\''); break;
                         case '"': sb.Append('"'); break;
                         case '0': sb.Append('\0'); break;
-                        case '{': sb.Append('{'); break;  // Allow escaping braces
-                        case '}': sb.Append('}'); break;
                         default: sb.Append(currentChar); break;
                     }
-                    Advance(); // Move past the escaped character
                 }
                 else
                 {
                     sb.Append(currentChar);
-                    Advance(); // Move to next character
                 }
+                Advance();
             }
 
             if (currentChar == quote)
@@ -243,10 +286,37 @@ namespace SharpPy
                     continue;
                 }
 
-                // Check for f-strings
+                // Check for triple-quoted strings first (before f-strings and regular strings)
+                if (position + 2 < input.Length)
+                {
+                    string threeChars = input.Substring(position, 3);
+                    if (threeChars == "'''" || threeChars == "\"\"\"")
+                    {
+                        string content = ReadTripleQuotedString(threeChars.Substring(0, 1));
+                        tokens.Add(new Token(TokenType.STRING, content, tokenLine, tokenColumn));
+                        continue;
+                    }
+                }
+
+                // Check for f-strings (but not inside triple quotes)
                 if (currentChar == 'f' && position + 1 < input.Length && 
                     (input[position + 1] == '"' || input[position + 1] == '\''))
                 {
+                    // Make sure it's not f''' or f"""
+                    if (position + 3 < input.Length)
+                    {
+                        char quoteChar = input[position + 1];
+                        if (input[position + 2] == quoteChar && input[position + 3] == quoteChar)
+                        {
+                            // This is an f-triple-quoted string, which we don't support yet
+                            // Treat it as a regular triple-quoted string for now
+                            Advance(); // Skip 'f'
+                            string content = ReadTripleQuotedString(quoteChar.ToString());
+                            tokens.Add(new Token(TokenType.STRING, content, tokenLine, tokenColumn));
+                            continue;
+                        }
+                    }
+                    
                     Advance(); // Skip 'f'
                     char quote = currentChar;
                     tokens.Add(new Token(TokenType.FSTRING, ReadFString(quote), tokenLine, tokenColumn));
