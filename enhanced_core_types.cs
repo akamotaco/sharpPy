@@ -305,7 +305,7 @@ namespace SharpPy
     // Python String type
     public class PythonString : PythonTypeObject
     {
-        public string Value { get; private set; }
+        public string Value { get; }
 
         public PythonString(string value) => Value = value ?? "";
 
@@ -414,14 +414,12 @@ namespace SharpPy
                 "upper" => new BuiltinFunction("upper", args =>
                 {
                     if (args.Count != 0) throw new PythonException("TypeError", "append() takes exactly no argument");
-                    this.Value = this.Value.ToUpper();
-                    return PythonNone.Instance;
+                    return new PythonString(this.Value.ToUpper());
                 }),
                 "lower" => new BuiltinFunction("lower", args =>
                 {
                     if (args.Count != 0) throw new PythonException("TypeError", "append() takes exactly no argument");
-                    this.Value = this.Value.ToLower();
-                    return PythonNone.Instance;
+                    return new PythonString(this.Value.ToLower());
                 }),
                 _ => throw new PythonException("AttributeError", $"'list' object has no attribute '{name}'")
             };

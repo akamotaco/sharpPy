@@ -392,6 +392,8 @@ namespace SharpPy
                     return module.GetAttribute(Attribute);
                 else if (obj is PythonString str)
                     return str.GetMethod(Attribute);
+                else if (obj is FileObject file)
+                    return file.GetMethod(Attribute);
 
                 throw CreateException("AttributeError", $"'{obj?.Type}' object has no attribute '{Attribute}'");
             }
