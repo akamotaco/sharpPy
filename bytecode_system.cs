@@ -679,12 +679,11 @@ namespace SharpPy
     }
 
     // Iterator implementations - Updated with PythonTypeObject
-    public interface IIterator : PythonTypeObject
-    {
-        bool HasNext();
-        PythonTypeObject Next();
-    }
-
+public interface IIterator
+{
+    bool HasNext();
+    PythonTypeObject Next();
+}
     public abstract class BaseIterator : PythonTypeObject, IIterator
     {
         public override PythonType Type => PythonType.Instance;
