@@ -538,11 +538,7 @@ namespace SharpPy
         private void CompileFString(FStringNode node)
         {
             // Build the f-string at runtime
-<<<<<<< HEAD
-            EmitLoadConst("");  // Start with empty string
-=======
             EmitLoadConst(new PythonString(""));  // Start with empty string
->>>>>>> 74a5dd318898d5811fa086a2ddc1ea40fd50435f
             
             foreach (var (text, expr) in node.Parts)
             {
@@ -556,11 +552,7 @@ namespace SharpPy
                 }
                 else if (!string.IsNullOrEmpty(text))
                 {
-<<<<<<< HEAD
-                    EmitLoadConst(text);
-=======
                     EmitLoadConst(new PythonString(text));
->>>>>>> 74a5dd318898d5811fa086a2ddc1ea40fd50435f
                 }
                 else
                 {

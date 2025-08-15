@@ -239,6 +239,83 @@ namespace SharpPy
                 throw new PythonException("TypeError", "sum() argument must be a sequence of numbers");
             }));
 
+            env.SetVariable("enumerate", new BuiltinFunction("enumerate", args =>
+            {
+                if (args.Count < 1 || args.Count > 2) throw new PythonException("TypeError", "enumerate() takes 1 or 2 arguments");
+                int start = args.Count == 2 ? NumberHelper.ToInt(args[1]) : 0;
+
+                var result = new PythonList();
+                if (args[0] is PythonList list)
+                {
+                    for (int i = 0; i < list.Items.Count; i++)
+                    {
+                        var tuple = new PythonTuple();
+                        tuple.Items.Add(start + i);
+                        tuple.Items.Add(list.Items[i]);
+                        result.Items.Add(tuple);
+                    }
+                }
+                else if (args[0] is PythonTuple sourceTuple)
+                {
+                    for (int i = 0; i < sourceTuple.Items.Count; i++)
+                    {
+                        var tuple = new PythonTuple();
+                        tuple.Items.Add(start + i);
+                        tuple.Items.Add(sourceTuple.Items[i]);
+                        result.Items.Add(tuple);
+                    }
+                }
+                else if (args[0] is string str)
+                {
+                    for (int i = 0; i < str.Length; i++)
+                    {
+                        var tuple = new PythonTuple();
+                        tuple.Items.Add(start + i);
+                        tuple.Items.Add(str[i].ToString());
+                        result.Items.Add(tuple);
+                    }
+                }
+                return result;
+            }));
+
+            env.SetVariable("zip", new BuiltinFunction("zip", args =>
+            {
+                if (args.Count == 0) return new PythonList();
+
+                var iterables = new List<PythonList>();
+                foreach (var arg in args)
+                {
+                    if (arg is PythonList list)
+                        iterables.Add(list);
+                    else if (arg is PythonTuple tuple)
+                    {
+                        var tupleList = new PythonList();
+                        tupleList.Items.AddRange(tuple.Items);
+                        iterables.Add(tupleList);
+                    }
+                    else if (arg is string str)
+                    {
+                        var strList = new PythonList();
+                        strList.Items.AddRange(str.Select(c => c.ToString()));
+                        iterables.Add(strList);
+                    }
+                    else throw new PythonException("TypeError", "zip argument must be iterable");
+                }
+
+                var result = new PythonList();
+                int minLen = iterables.Min(it => it.Items.Count);
+
+                for (int i = 0; i < minLen; i++)
+                {
+                    var tuple = new PythonTuple();
+                    foreach (var iterable in iterables)
+                        tuple.Items.Add(iterable.Items[i]);
+                    result.Items.Add(tuple);
+                }
+
+                return result;
+            }));
+
             env.SetVariable("type", new BuiltinFunction("type", args =>
             {
                 if (args.Count != 1) throw new PythonException("TypeError", "type() takes exactly one argument");
@@ -248,11 +325,314 @@ namespace SharpPy
             // Add more builtin functions here...
         }
 
+
+            env.SetVariable("map", new BuiltinFunction("map", args =>
+            {
+                if (args.Count != 2) throw new PythonException("TypeError", "map() takes exactly 2 arguments");
+                var func = args[0];
+                var iterable = args[1];
+
+                if (!(func is Function function))
+                    throw new PythonException("TypeError", "map() first argument must be callable");
+
+                List<object> items;
+                if (iterable is PythonList list)
+                    items = list.Items;
+                else if (iterable is PythonTuple tuple)
+                    items = tuple.Items;
+                else if (iterable is string str)
+                    items = str.Select(c => c.ToString()).Cast<object>().ToList();
+                else
+                    throw new PythonException("TypeError", "map() second argument must be iterable");
+
+                var result = new PythonList();
+                foreach (var item in items)
+                {
+                    var mappedValue = function.Call(new List<object> { item });
+                    result.Items.Add(mappedValue);
+                }
+                return result;
+            }));
+
+            env.SetVariable("filter", new BuiltinFunction("filter", args =>
+            {
+                if (args.Count != 2) throw new PythonException("TypeError", "filter() takes exactly 2 arguments");
+                var func = args[0];
+                var iterable = args[1];
+
+                List<object> items;
+                if (iterable is PythonList list)
+                    items = list.Items;
+                else if (iterable is PythonTuple tuple)
+                    items = tuple.Items;
+                else if (iterable is string str)
+                    items = str.Select(c => c.ToString()).Cast<object>().ToList();
+                else
+                    throw new PythonException("TypeError", "filter() second argument must be iterable");
+
+                var result = new PythonList();
+                
+                if (func == null)
+                {
+                    // filter(None, iterable) filters truthy values
+                    foreach (var item in items)
+                    {
+                        if (IsTrue(item))
+                            result.Items.Add(item);
+                    }
+                }
+                else if (func is Function function)
+                {
+                    foreach (var item in items)
+                    {
+                        var filterResult = function.Call(new List<object> { item });
+                        if (IsTrue(filterResult))
+                            result.Items.Add(item);
+                    }
+                }
+                else
+                {
+                    throw new PythonException("TypeError", "filter() first argument must be None or callable");
+                }
+                
+                return result;
+            }));
+
+            env.SetVariable("sorted", new BuiltinFunction("sorted", args =>
+            {
+                if (args.Count < 1 || args.Count > 2) throw new PythonException("TypeError", "sorted() takes 1 or 2 arguments");
+                var iterable = args[0];
+                var keyFunc = args.Count > 1 ? args[1] : null;
+
+                List<object> items;
+                if (iterable is PythonList list)
+                    items = new List<object>(list.Items);
+                else if (iterable is PythonTuple tuple)
+                    items = new List<object>(tuple.Items);
+                else if (iterable is string str)
+                    items = str.Select(c => c.ToString()).Cast<object>().ToList();
+                else
+                    throw new PythonException("TypeError", "sorted() argument must be iterable");
+
+                if (keyFunc == null)
+                {
+                    // Default sorting
+                    items.Sort((a, b) =>
+                    {
+                        if (NumberHelper.IsNumber(a) && NumberHelper.IsNumber(b))
+                            return NumberHelper.ToDouble(a).CompareTo(NumberHelper.ToDouble(b));
+                        if (a is string sa && b is string sb) return sa.CompareTo(sb);
+                        return 0;
+                    });
+                }
+                else if (keyFunc is Function function)
+                {
+                    // Sort with key function
+                    var keyed = items.Select(item => new { Item = item, Key = function.Call(new List<object> { item }) }).ToList();
+                    keyed.Sort((a, b) =>
+                    {
+                        if (NumberHelper.IsNumber(a.Key) && NumberHelper.IsNumber(b.Key))
+                            return NumberHelper.ToDouble(a.Key).CompareTo(NumberHelper.ToDouble(b.Key));
+                        if (a.Key is string sa && b.Key is string sb) return sa.CompareTo(sb);
+                        return 0;
+                    });
+                    items = keyed.Select(x => x.Item).ToList();
+                }
+                else
+                {
+                    throw new PythonException("TypeError", "sorted() key argument must be callable");
+                }
+
+                var result = new PythonList();
+                result.Items.AddRange(items);
+                return result;
+            }));
+
+            env.SetVariable("any", new BuiltinFunction("any", args =>
+            {
+                if (args.Count != 1) throw new PythonException("TypeError", "any() takes exactly one argument");
+                var iterable = args[0];
+
+                List<object> items;
+                if (iterable is PythonList list)
+                    items = list.Items;
+                else if (iterable is PythonTuple tuple)
+                    items = tuple.Items;
+                else if (iterable is string str)
+                    items = str.Select(c => c.ToString()).Cast<object>().ToList();
+                else
+                    throw new PythonException("TypeError", "any() argument must be iterable");
+
+                return items.Any(IsTrue);
+            }));
+
+            env.SetVariable("all", new BuiltinFunction("all", args =>
+            {
+                if (args.Count != 1) throw new PythonException("TypeError", "all() takes exactly one argument");
+                var iterable = args[0];
+
+                List<object> items;
+                if (iterable is PythonList list)
+                    items = list.Items;
+                else if (iterable is PythonTuple tuple)
+                    items = tuple.Items;
+                else if (iterable is string str)
+                    items = str.Select(c => c.ToString()).Cast<object>().ToList();
+                else
+                    throw new PythonException("TypeError", "all() argument must be iterable");
+
+                return items.All(IsTrue);
+            }));
+
+            // ADD globals() function - returns current environment variables as dict
+            env.SetVariable("globals", new BuiltinFunction("globals", args =>
+            {
+                if (args.Count != 0) throw new PythonException("TypeError", "globals() takes no arguments");
+                
+                var globalsDict = new PythonDict();
+                var allVars = env.GetAllVariables();
+                
+                foreach (var kvp in allVars)
+                {
+                    globalsDict.Items[kvp.Key] = kvp.Value;
+                }
+                
+                return globalsDict;
+            }));
+
+            // ADD open() function for with statement support
+            env.SetVariable("open", new BuiltinFunction("open", args =>
+            {
+                if (args.Count < 1 || args.Count > 2) 
+                    throw new PythonException("TypeError", "open() takes 1 or 2 arguments");
+                
+                string path = args[0]?.ToString();
+                if (string.IsNullOrEmpty(path))
+                    throw new PythonException("TypeError", "open() argument 1 must be a string");
+                
+                string mode = args.Count > 1 ? args[1]?.ToString() ?? "r" : "r";
+                
+                try
+                {
+                    return new FileObject(path, mode);
+                }
+                catch (FileNotFoundException)
+                {
+                    throw new PythonException("FileNotFoundError", $"No such file or directory: '{path}'");
+                }
+                catch (DirectoryNotFoundException)
+                {
+                    throw new PythonException("FileNotFoundError", $"No such file or directory: '{path}'");
+                }
+                catch (IOException ex)
+                {
+                    throw new PythonException("IOError", $"Cannot open file '{path}': {ex.Message}");
+                }
+                catch (Exception ex)
+                {
+                    throw new PythonException("IOError", $"Error opening file '{path}': {ex.Message}");
+                }
+            }));
+
+            env.SetVariable("eval", new BuiltinFunction("eval", args =>
+            {
+                if (args.Count < 1 || args.Count > 3) 
+                    throw new PythonException("TypeError", "eval() takes 1 to 3 arguments");
+                
+                var expression = args[0];
+                if (!(expression is string exprStr))
+                    throw new PythonException("TypeError", "eval() first argument must be a string");
+                
+                var globals = args.Count > 1 && args[1] != null ? args[1] as Environment : env;
+                var locals = args.Count > 2 && args[2] != null ? args[2] as Environment : globals;
+                
+                if (globals == null) globals = env;
+                if (locals == null) locals = globals;
+                
+                try
+                {
+                    return PythonCompiler.Eval(exprStr, globals, locals);
+                }
+                catch (Exception ex)
+                {
+                    throw new PythonException("SyntaxError", $"Error in eval(): {ex.Message}");
+                }
+            }));
+
+            env.SetVariable("exec", new BuiltinFunction("exec", args =>
+            {
+                if (args.Count < 1 || args.Count > 3) 
+                    throw new PythonException("TypeError", "exec() takes 1 to 3 arguments");
+                
+                var source = args[0];
+                if (!(source is string sourceStr))
+                    throw new PythonException("TypeError", "exec() first argument must be a string");
+                
+                var globals = args.Count > 1 && args[1] != null ? args[1] as Environment : env;
+                var locals = args.Count > 2 && args[2] != null ? args[2] as Environment : globals;
+                
+                if (globals == null) globals = env;
+                if (locals == null) locals = globals;
+                
+                try
+                {
+                    PythonCompiler.Exec(sourceStr, globals, locals);
+                    return null; // exec returns None
+                }
+                catch (Exception ex)
+                {
+                    throw new PythonException("SyntaxError", $"Error in exec(): {ex.Message}");
+                }
+            }));
+
+            env.SetVariable("compile", new BuiltinFunction("compile", args =>
+            {
+                if (args.Count != 3) 
+                    throw new PythonException("TypeError", "compile() takes exactly 3 arguments");
+                
+                var source = args[0];
+                var filename = args[1];
+                var mode = args[2];
+                
+                if (!(source is string sourceStr))
+                    throw new PythonException("TypeError", "compile() first argument must be a string");
+                if (!(filename is string filenameStr))
+                    throw new PythonException("TypeError", "compile() second argument must be a string");
+                if (!(mode is string modeStr))
+                    throw new PythonException("TypeError", "compile() third argument must be a string");
+                
+                if (modeStr != "exec" && modeStr != "eval")
+                    throw new PythonException("ValueError", "compile() mode must be 'exec' or 'eval'");
+                
+                try
+                {
+                    return PythonCompiler.Compile(sourceStr, filenameStr, modeStr);
+                }
+                catch (Exception ex)
+                {
+                    throw new PythonException("SyntaxError", $"Error in compile(): {ex.Message}");
+                }
+            }));
+        }
+
+        static private bool IsTrue(object obj)
+        {
+            if (obj == null) return false;
+            if (obj is bool b) return b;
+            if (obj is int i) return i != 0;
+            if (obj is double d) return d != 0;
+            if (obj is string s) return !string.IsNullOrEmpty(s);
+            if (obj is PythonList l) return l.Items.Count > 0;
+            if (obj is PythonTuple t) return t.Items.Count > 0;
+            if (obj is PythonDict dict) return dict.Items.Count > 0;
+            return true;
+        }
+        
         static private int CompareValues(PythonTypeObject a, PythonTypeObject b)
         {
             if (NumberHelper.IsNumber(a) && NumberHelper.IsNumber(b))
                 return NumberHelper.ToDouble(a).CompareTo(NumberHelper.ToDouble(b));
-            if (a is PythonString sa && b is PythonString sb) 
+            if (a is PythonString sa && b is PythonString sb)
                 return string.Compare(sa.Value, sb.Value);
             return 0;
         }
