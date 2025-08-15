@@ -685,8 +685,14 @@ namespace SharpPy
         private int GetConstantIndex(PythonTypeObject value)
         {
             var key = value ?? PythonNone.Instance;
-            if (constantMap.TryGetValue(key, out var index))
-                return index;
+            // if (varNameMap.TryGetValue(name, out var index))
+            //     return index;
+            int index;
+            foreach (var kvp in varNameMap)
+            {
+                if (kvp.Key.Equals(value))
+                    return kvp.Value;
+            }
             
             index = constants.Count;
             constants.Add(value);
@@ -696,8 +702,14 @@ namespace SharpPy
 
         private int GetNameIndex(string name)
         {
-            if (nameMap.TryGetValue(name, out var index))
-                return index;
+            // if (varNameMap.TryGetValue(name, out var index))
+            //     return index;
+            int index;
+            foreach (var kvp in varNameMap)
+            {
+                if (kvp.Key.Equals(name))
+                    return kvp.Value;
+            }
             
             index = names.Count;
             names.Add(name);
@@ -707,8 +719,14 @@ namespace SharpPy
 
         private int AddVarName(string name)
         {
-            if (varNameMap.TryGetValue(name, out var index))
-                return index;
+            // if (varNameMap.TryGetValue(name, out var index))
+            //     return index;
+            int index;
+            foreach (var kvp in varNameMap)
+            {
+                if (kvp.Key.Equals(name))
+                    return kvp.Value;
+            }
             
             index = varNames.Count;
             varNames.Add(name);

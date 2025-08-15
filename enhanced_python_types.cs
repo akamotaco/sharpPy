@@ -291,7 +291,20 @@ namespace SharpPy
                 if (Items.Count != pd.Items.Count) return false;
                 foreach (var kvp in Items)
                 {
-                    if (!pd.Items.TryGetValue(kvp.Key, out var value) || !value.Equals(kvp.Value))
+                    // if (!pd.Items.TryGetValue(kvp.Key, out var value) || !value.Equals(kvp.Value))
+                    //     return false;
+                    bool found = false;
+                    foreach (var pdKvp in pd.Items)
+                    {
+                        if (pdKvp.Key.Equals(kvp.Key))
+                        {
+                            if (!pdKvp.Value.Equals(kvp.Value))
+                                return false; // 값이 다르면 바로 false
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) // 키를 못 찾았으면
                         return false;
                 }
                 return true;
@@ -314,7 +327,17 @@ namespace SharpPy
                     if (args.Count < 1 || args.Count > 2) throw new PythonException("TypeError", "get() takes 1 or 2 arguments");
                     var key = args[0];
                     var defaultValue = args.Count == 2 ? args[1] : PythonNone.Instance;
-                    return Items.TryGetValue(key, out var value) ? value : defaultValue;
+                    // return Items.TryGetValue(key, out var value) ? value : defaultValue;
+                    var res = defaultValue;
+                    foreach (var kvp in Items)
+                    {
+                        if (kvp.Key.Equals(key))
+                        {
+                            res = kvp.Value;
+                            break;
+                        }
+                    }
+                    return res;
                 }),
                 "keys" => new BuiltinFunction("keys", args =>
                 {

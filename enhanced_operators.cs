@@ -185,10 +185,16 @@ namespace SharpPy
                 return tuple.Items.Any(i => i.Equals(item));
             if (container is PythonString str && item is PythonString s) 
                 return str.Contains(s);
-            if (container is PythonDict dict) 
+            if (container is PythonDict dict)
             {
                 // For dict, 'in' checks keys (Python standard behavior)
-                return dict.ContainsKey(item);
+                // return dict.ContainsKey(item);
+                foreach (var key in dict.Items.Keys)
+                {
+                    if (key.Equals(item))
+                        return true;
+                }
+                return false;
             }
             throw CreateException("TypeError", $"argument of type '{container.Type}' is not iterable");
         }
