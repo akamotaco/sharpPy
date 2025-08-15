@@ -132,12 +132,13 @@ namespace SharpPy
                         case '}': sb.Append('}'); break;
                         default: sb.Append(currentChar); break;
                     }
+                    Advance(); // Move past the escaped character
                 }
                 else
                 {
                     sb.Append(currentChar);
+                    Advance(); // Move to next character
                 }
-                Advance();
             }
 
             if (currentChar == quote)
@@ -642,11 +643,9 @@ namespace SharpPy
             }
             else
             {
-                // 들여쓰기가 없는 경우 (단일 문장)
-                if (IsBlockStatement())
-                {
-                    statements.Add(ParseStatement());
-                }
+                // 들여쓰기가 없는 경우 - IndentationError를 발생시켜야 함
+                // for, while, if, def, class 등의 다음 라인은 반드시 들여쓰기가 있어야 함
+                throw new PythonException("IndentationError", "expected an indented block", currentToken.Line, currentToken.Column);
             }
 
             return statements;

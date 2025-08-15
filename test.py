@@ -8,3 +8,8 @@ print(float(5) )   # PythonFloat
 print(type(2) )    # 'int'
 print(type(2.0))   # 'float'
 print(type(2/1))   # 'float' (Python3 방식)
+
+print(globals())
+def a():
+    return 1
+print(globals())

@@ -581,44 +581,24 @@ namespace SharpPy
                 if (!(expression is PythonString exprStr))
                     throw new PythonException("TypeError", "eval() first argument must be a string");
                 
-                Environment globals = null;
-                Environment locals = null;
-                
-                // args[1] and args[2] could be dict or environment
-                if (args.Count > 1 && !(args[1] is PythonNone))
+                // If no globals provided, use current environment
+                var globals = env;
+                if (args.Count > 1 && args[1] != null && !(args[1] is PythonNone))
                 {
-                    if (args[1] is Environment e)
-                        globals = e;
-                    else if (args[1] is PythonDict dict)
-                    {
-                        // Convert dict to environment
-                        globals = new Environment();
-                        foreach (var kvp in dict.Items)
-                        {
-                            if (kvp.Key is PythonString key)
-                                globals.SetVariable(key.Value, kvp.Value);
-                        }
-                    }
+                    if (args[1] is Environment g)
+                        globals = g;
+                    else
+                        throw new PythonException("TypeError", "eval() globals must be an environment");
                 }
                 
-                if (args.Count > 2 && !(args[2] is PythonNone))
+                var locals = globals; // Default locals to globals
+                if (args.Count > 2 && args[2] != null && !(args[2] is PythonNone))
                 {
-                    if (args[2] is Environment e)
-                        locals = e;
-                    else if (args[2] is PythonDict dict)
-                    {
-                        // Convert dict to environment
-                        locals = new Environment(globals);
-                        foreach (var kvp in dict.Items)
-                        {
-                            if (kvp.Key is PythonString key)
-                                locals.SetVariable(key.Value, kvp.Value);
-                        }
-                    }
+                    if (args[2] is Environment l)
+                        locals = l;
+                    else
+                        throw new PythonException("TypeError", "eval() locals must be an environment");
                 }
-                
-                if (globals == null) globals = env;
-                if (locals == null) locals = globals;
                 
                 try
                 {
@@ -639,61 +619,30 @@ namespace SharpPy
                 if (!(source is PythonString sourceStr))
                     throw new PythonException("TypeError", "exec() first argument must be a string");
                 
-                Environment globals = null;
-                Environment locals = null;
-                
-                // args[1] and args[2] could be dict or environment
-                if (args.Count > 1 && !(args[1] is PythonNone))
+                // Use the current environment as both globals and locals by default
+                var globals = env;
+                if (args.Count > 1 && args[1] != null && !(args[1] is PythonNone))
                 {
-                    if (args[1] is Environment e)
-                        globals = e;
-                    else if (args[1] is PythonDict dict)
-                    {
-                        Console.WriteLine("Converting dict to environment");
-                        // Convert dict to environment
-                        globals = new Environment();
-                        foreach (var kvp in dict.Items)
-                        {
-                            Console.WriteLine(kvp);
-                            if (kvp.Key is PythonString key)
-                            {
-                                Console.WriteLine("var1 set: " + key.Value +"/" + kvp.Value);
-                                globals.SetVariable(key.Value, kvp.Value);
-                            }
-                        }
-                        Console.WriteLine("finish");
-                    }
+                    if (args[1] is Environment g)
+                        globals = g;
+                    else
+                        throw new PythonException("TypeError", "exec() globals must be an environment");
                 }
                 
-                if (args.Count > 2 && !(args[2] is PythonNone))
+                // Default locals to the same as globals (important for function definitions)
+                var locals = globals;
+                if (args.Count > 2 && args[2] != null && !(args[2] is PythonNone))
                 {
-                    if (args[2] is Environment e)
-                        locals = e;
-                    else if (args[2] is PythonDict dict)
-                    {
-                        Console.WriteLine("Converting dict to environment2");
-                        // Convert dict to environment
-                        locals = new Environment(globals);
-                        foreach (var kvp in dict.Items)
-                        {
-                            Console.WriteLine(kvp);
-                            if (kvp.Key is PythonString key)
-                            {
-                                Console.WriteLine("var2 set: " + key.Value +"/" + kvp.Value);
-                                locals.SetVariable(key.Value, kvp.Value);
-                            }
-                        }
-                        Console.WriteLine("finish2");
-                    }
+                    if (args[2] is Environment l)
+                        locals = l;
+                    else
+                        throw new PythonException("TypeError", "exec() locals must be an environment");
                 }
-                
-                if (globals == null) globals = env;
-                if (locals == null) locals = globals;
                 
                 try
                 {
                     PythonCompiler.Exec(sourceStr.Value, globals, locals);
-                    return PythonNone.Instance; // exec returns None
+                    return PythonNone.Instance;
                 }
                 catch (Exception ex)
                 {
