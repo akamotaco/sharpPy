@@ -370,11 +370,19 @@ namespace SharpPy
                 {
                     if (args.Count < 1 || args.Count > 2) throw new PythonException("TypeError", "pop() takes 1 or 2 arguments");
                     var key = args[0];
-                    if (Items.TryGetValue(key, out var value))
+                    foreach (var kvp in Items)
                     {
-                        Items.Remove(key);
-                        return value;
+                        if (kvp.Key.Equals(key))
+                        {
+                            Items.Remove(kvp.Key);
+                            return kvp.Value;
+                        }
                     }
+                    // if (Items.TryGetValue(key, out var value))
+                    // {
+                    //     Items.Remove(key);
+                    //     return value;
+                    // }
                     if (args.Count == 2) return args[1];
                     throw new PythonException("KeyError", $"KeyError: {key}");
                 }),
