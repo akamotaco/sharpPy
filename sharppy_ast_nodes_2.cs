@@ -148,12 +148,17 @@ namespace SharpPy
     {
         public ASTNode Condition { get; }
         public List<ASTNode> ThenBody { get; }
+        public List<(ASTNode Condition, List<ASTNode> Body)> ElifClauses { get; } // elif 추가
         public List<ASTNode> ElseBody { get; }
 
-        public IfNode(ASTNode condition, List<ASTNode> thenBody, List<ASTNode> elseBody = null, int line = 0, int column = 0) : base(line, column)
+        public IfNode(ASTNode condition, List<ASTNode> thenBody, 
+                    List<(ASTNode, List<ASTNode>)> elifClauses = null,
+                    List<ASTNode> elseBody = null, 
+                    int line = 0, int column = 0) : base(line, column)
         {
             Condition = condition;
             ThenBody = thenBody;
+            ElifClauses = elifClauses ?? new List<(ASTNode, List<ASTNode>)>();
             ElseBody = elseBody ?? new List<ASTNode>();
         }
 
@@ -161,13 +166,34 @@ namespace SharpPy
         {
             try
             {
+                // if 조건 확인
                 var condition = Condition.Evaluate(env);
-                var body = condition.IsTrue() ? ThenBody : ElseBody;
+                if (condition.IsTrue())
+                {
+                    PythonTypeObject result = PythonNone.Instance;
+                    foreach (var stmt in ThenBody)
+                        result = stmt.Evaluate(env);
+                    return result;
+                }
 
-                PythonTypeObject result = PythonNone.Instance;
-                foreach (var stmt in body)
-                    result = stmt.Evaluate(env);
-                return result;
+                // elif 체인 확인
+                foreach (var (elifCondition, elifBody) in ElifClauses)
+                {
+                    var elifCond = elifCondition.Evaluate(env);
+                    if (elifCond.IsTrue())
+                    {
+                        PythonTypeObject result = PythonNone.Instance;
+                        foreach (var stmt in elifBody)
+                            result = stmt.Evaluate(env);
+                        return result;
+                    }
+                }
+
+                // else 실행
+                PythonTypeObject elseResult = PythonNone.Instance;
+                foreach (var stmt in ElseBody)
+                    elseResult = stmt.Evaluate(env);
+                return elseResult;
             }
             catch (PythonException)
             {

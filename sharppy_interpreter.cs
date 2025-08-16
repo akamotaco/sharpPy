@@ -1266,6 +1266,63 @@ print('Context completed')
                 Console.WriteLine($"✗ Custom Context Manager test failed: {ex.Message}\n");
             }
 
+            Console.WriteLine("8. elif Test:");
+            try
+            {
+                interpreter.Execute(@"
+score = 85
+
+if score >= 90:
+    grade = 'A'
+elif score >= 80:
+    grade = 'B'
+elif score >= 70:
+    grade = 'C'
+elif score >= 60:
+    grade = 'D'
+else:
+    grade = 'F'
+
+print(f'Score: {score}, Grade: {grade}')
+
+# 중첩된 elif
+x = 10
+y = 5
+
+if x > 10:
+    print('x is greater than 10')
+elif x == 10:
+    if y > 5:
+        print('x is 10 and y is greater than 5')
+    elif y == 5:
+        print('x is 10 and y is 5')
+    else:
+        print('x is 10 and y is less than 5')
+elif x > 5:
+    print('x is between 6 and 9')
+else:
+    print('x is 5 or less')
+
+# elif without else
+temperature = 25
+
+if temperature > 30:
+    print('Hot')
+elif temperature > 20:
+    print('Warm')
+elif temperature > 10:
+    print('Cool')
+# No else clause
+
+print('Done')
+");
+                Console.WriteLine("✓ Custom Context Manager test passed\n");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"✗ Custom Context Manager test failed: {ex.Message}\n");
+            }
+
             Console.WriteLine("=== All New Features Tests Complete ===");
 
             // AST 실행 시간 측정

@@ -40,23 +40,36 @@ namespace SharpPy
             int line = currentToken.Line;
             int column = currentToken.Column;
 
+            // Parse if
             Expect(TokenType.IF);
             var condition = ParseExpression();
             Expect(TokenType.COLON);
             SkipNewlines();
-
             var thenBody = ParseBlock();
-            List<ASTNode> elseBody = null;
 
+            // Parse elif clauses
+            var elifClauses = new List<(ASTNode, List<ASTNode>)>();
+            while (currentToken.Type == TokenType.ELIF)
+            {
+                Advance(); // Skip 'elif'
+                var elifCondition = ParseExpression();
+                Expect(TokenType.COLON);
+                SkipNewlines();
+                var elifBody = ParseBlock();
+                elifClauses.Add((elifCondition, elifBody));
+            }
+
+            // Parse else clause
+            List<ASTNode> elseBody = null;
             if (currentToken.Type == TokenType.ELSE)
             {
-                Advance();
+                Advance(); // Skip 'else'
                 Expect(TokenType.COLON);
                 SkipNewlines();
                 elseBody = ParseBlock();
             }
 
-            return new IfNode(condition, thenBody, elseBody, line, column);
+            return new IfNode(condition, thenBody, elifClauses, elseBody, line, column);
         }
 
         private ASTNode ParseFor()

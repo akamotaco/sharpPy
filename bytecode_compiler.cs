@@ -324,25 +324,53 @@ namespace SharpPy
 
         private void CompileIf(IfNode node)
         {
+            var jumpTargets = new List<int>();
+            
+            // Compile if condition
             CompileNode(node.Condition);
-
-            var elseLabel = instructions.Count + 1;
-            Emit(OpCode.JUMP_IF_FALSE, elseLabel); // Will be patched
-
+            
+            var ifFalseLabel = instructions.Count + 1;
+            Emit(OpCode.JUMP_IF_FALSE, ifFalseLabel); // Will be patched
+            
+            // Compile if body
             foreach (var stmt in node.ThenBody)
                 CompileNode(stmt);
-
-            var endLabel = instructions.Count + 1;
-            Emit(OpCode.JUMP_ABSOLUTE, endLabel); // Will be patched
-
-            // Patch else jump
-            instructions[elseLabel - 1] = new Instruction(OpCode.JUMP_IF_FALSE, instructions.Count, node.Line);
-
+            
+            jumpTargets.Add(instructions.Count);
+            Emit(OpCode.JUMP_ABSOLUTE, 0); // Will be patched to jump to end
+            
+            // Patch if false jump
+            instructions[ifFalseLabel - 1] = new Instruction(OpCode.JUMP_IF_FALSE, instructions.Count, node.Line);
+            
+            // Compile elif clauses
+            foreach (var (elifCondition, elifBody) in node.ElifClauses)
+            {
+                CompileNode(elifCondition);
+                
+                var elifFalseLabel = instructions.Count + 1;
+                Emit(OpCode.JUMP_IF_FALSE, elifFalseLabel); // Will be patched
+                
+                // Compile elif body
+                foreach (var stmt in elifBody)
+                    CompileNode(stmt);
+                
+                jumpTargets.Add(instructions.Count);
+                Emit(OpCode.JUMP_ABSOLUTE, 0); // Will be patched to jump to end
+                
+                // Patch elif false jump
+                instructions[elifFalseLabel - 1] = new Instruction(OpCode.JUMP_IF_FALSE, instructions.Count, node.Line);
+            }
+            
+            // Compile else body
             foreach (var stmt in node.ElseBody)
                 CompileNode(stmt);
-
-            // Patch end jump
-            instructions[endLabel - 1] = new Instruction(OpCode.JUMP_ABSOLUTE, instructions.Count, node.Line);
+            
+            // Patch all jump-to-end instructions
+            var endLabel = instructions.Count;
+            foreach (var jumpIndex in jumpTargets)
+            {
+                instructions[jumpIndex] = new Instruction(OpCode.JUMP_ABSOLUTE, endLabel, node.Line);
+            }
         }
 
         private void CompileFor(ForNode node)
