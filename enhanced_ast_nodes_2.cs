@@ -591,9 +591,26 @@ namespace SharpPy
         {
             try
             {
-                var module = ModuleSystem.ImportModule(ModuleName, env.SearchPaths);                
+                var module = ModuleSystem.ImportModule(ModuleName, env.SearchPaths);
+                
+                // import * 체크 - "*"라는 특별한 이름으로 구분
+                if (ImportItems.Count == 1 && ImportItems[0].Name == "*")
                 {
-                    // from module import specific items
+                    // 모듈 자체의 변수만 가져옴 (builtin 제외)
+                    var moduleVars = module.ModuleEnv.GetOwnVariables();  // GetAllVariables 대신 GetOwnVariables 사용
+                    foreach (var kvp in moduleVars)
+                    {
+                        Console.WriteLine($"Importing {kvp.Key} from {ModuleName}");
+                        // 언더스코어로 시작하지 않는 것들만 import
+                        if (!kvp.Key.StartsWith("_"))
+                        {
+                            env.SetVariable(kvp.Key, kvp.Value);
+                        }
+                    }
+                }
+                else
+                {
+                    // 기존 코드 그대로 - from module import specific items
                     foreach (var (name, alias) in ImportItems)
                     {
                         try
@@ -613,7 +630,7 @@ namespace SharpPy
             }
             catch (PythonException)
             {
-                throw; // Re-throw PythonExceptions as-is
+                throw;
             }
             catch (Exception ex)
             {

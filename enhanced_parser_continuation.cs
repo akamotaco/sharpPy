@@ -234,6 +234,13 @@ namespace SharpPy
                 
                 Expect(TokenType.IMPORT);
                 
+                if (currentToken.Type == TokenType.OPERATOR && currentToken.Value == "*")
+                {
+                    Advance(); // Skip '*'
+                               // 빈 리스트와 특별한 이름 "*"를 사용하여 구분
+                    var allItems = new List<(string, string)> { ("*", null) };
+                    return new FromImportNode(moduleName, allItems, line, column);
+                }
                 // Check for "import *"
                 // if (currentToken.Type == TokenType.OPERATOR && currentToken.Value == "*")
                 // {

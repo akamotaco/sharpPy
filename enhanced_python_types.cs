@@ -696,7 +696,7 @@ namespace SharpPy
         public PythonModule(string name)
         {
             Name = name;
-            ModuleEnv = new Environment();
+            ModuleEnv = new Environment(null, false);  // builtin 없이 생성
         }
         
         public override PythonType Type => PythonType.Module;
