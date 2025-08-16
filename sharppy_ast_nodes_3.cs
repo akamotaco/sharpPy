@@ -1,5 +1,9 @@
 // enhanced_ast_nodes_3.cs
+using System;
+using System.Collections.Generic;
 using System.Text;
+using System.Linq;
+using System.IO;
 using System.Runtime.CompilerServices;
 
 namespace SharpPy

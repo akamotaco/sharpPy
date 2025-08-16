@@ -1,4 +1,8 @@
 // ModuleSystem class from enhanced_modules_environment.cs
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.IO;
 
 namespace SharpPy
 {

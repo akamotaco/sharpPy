@@ -1,5 +1,8 @@
 // bytecode_system.cs
+using System;
 using System.Text;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace SharpPy
 {
