@@ -1,18 +1,16 @@
 // enhanced_interpreter.cs
-
-// enhanced_interpreter.cs
 using System;
 using System.Linq;
 using System.IO;
 
 namespace SharpPy
 {
-    // Enhanced Python Interpreter Main Class with Bytecode Support
     public class PythonInterpreter
     {
         private Environment globalEnv;
         private VirtualMachine virtualMachine;
         private bool useBytecode;
+        private string currentFileName = "<string>"; // 현재 실행 중인 파일명 추적
 
         public PythonInterpreter(bool useBytecode = false)
         {
@@ -40,30 +38,43 @@ namespace SharpPy
         {
             try
             {
-                var env = this.globalEnv;
-                if (useBytecode)
+                var previousFileName = currentFileName;
+                currentFileName = filename;
+                
+                try
                 {
-                    // Bytecode execution path
-                    var codeObject = PythonCompiler.Compile(code, filename, "exec");
-                    return virtualMachine.Execute(env, codeObject);
+                    var env = this.globalEnv;
+                    if (useBytecode)
+                    {
+                        var codeObject = PythonCompiler.Compile(code, filename, "exec");
+                        return virtualMachine.Execute(env, codeObject);
+                    }
+                    else
+                    {
+                        return ExecuteAST(code, filename);
+                    }
                 }
-                else
+                finally
                 {
-                    // Traditional AST execution path
-                    return ExecuteAST(code, filename);
+                    currentFileName = previousFileName;
                 }
             }
             catch (PythonException ex)
             {
+                // 파일명 업데이트 (throw하지 않고 새 예외 객체 생성)
+                if (string.IsNullOrEmpty(ex.FileName) || ex.FileName == "<string>")
+                {
+                    ex = new PythonException(ex.Type, ex.Message, ex.Line, ex.Column, filename);
+                }
                 DisplayError(ex, code, filename);
-                return null;
+                return null;  // null 반환하여 실행 계속
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"  File \"{filename}\"");
                 Console.WriteLine($"Error: {ex.Message}");
                 Console.WriteLine($"Exception type: {ex.GetType().Name}");
-
+                
                 if (ex.StackTrace != null)
                 {
                     var relevantStack = ex.StackTrace.Split('\n')
@@ -75,7 +86,7 @@ namespace SharpPy
                     }
                 }
                 Console.WriteLine();
-                return null;
+                return null;  // null 반환하여 실행 계속
             }
         }
 
@@ -96,24 +107,39 @@ namespace SharpPy
                 }
                 catch (PythonException ex)
                 {
-                    // If the exception doesn't have line info, try to use the statement's line info
+                    // 파일명 정보만 업데이트하고 다시 throw
+                    if (ex.FileName == "<string>" && filename != "<string>")
+                    {
+                        throw new PythonException(ex.Type, ex.Message, 
+                            ex.Line > 0 ? ex.Line : statement.Line, 
+                            ex.Column > 0 ? ex.Column : statement.Column, 
+                            filename);
+                    }
                     if (ex.Line == 0 && statement.Line > 0)
                     {
-                        throw new PythonException(ex.Type, ex.Message, statement.Line, statement.Column, filename);
+                        throw new PythonException(ex.Type, ex.Message, 
+                            statement.Line, statement.Column, filename);
                     }
-                    else if (ex.FileName == "<string>" && filename != "<string>")
-                    {
-                        // Update filename if it's more specific
-                        throw new PythonException(ex.Type, ex.Message, ex.Line, ex.Column, filename);
-                    }
-                    throw; // Re-throw with existing location info
+                    throw;  // 여기서 throw는 OK (상위 Execute에서 catch)
                 }
-                catch (Exception ex) when (!(ex is PythonException))
+                catch (ReturnException)
                 {
-                    // Convert other exceptions to PythonException with location info
+                    throw;
+                }
+                catch (BreakException)
+                {
+                    throw;
+                }
+                catch (ContinueException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
                     int line = statement.Line > 0 ? statement.Line : 0;
                     int column = statement.Column > 0 ? statement.Column : 0;
-                    throw new PythonException("RuntimeError", $"Internal error: {ex.Message}", line, column, filename);
+                    throw new PythonException("RuntimeError", 
+                        $"Internal error: {ex.Message}", line, column, filename);
                 }
             }
 
@@ -122,21 +148,22 @@ namespace SharpPy
 
         private void DisplayError(PythonException ex, string code, string filename)
         {
-            // Enhanced error output with actual line numbers
+            // 실제 파일명 사용
+            string displayFileName = ex.FileName != "<string>" ? ex.FileName : filename;
+
             if (ex.Line > 0)
             {
-                Console.WriteLine($"  File \"{ex.FileName}\", line {ex.Line}, column {ex.Column}");
+                Console.WriteLine($"  File \"{displayFileName}\", line {ex.Line}, column {ex.Column}");
 
-                // Show the problematic line if we have access to the source
-                if (filename != "<string>" && File.Exists(filename))
+                // 파일이 존재하면 해당 줄 표시
+                if (displayFileName != "<string>" && File.Exists(displayFileName))
                 {
                     try
                     {
-                        var lines = File.ReadAllLines(filename);
+                        var lines = File.ReadAllLines(displayFileName);
                         if (ex.Line <= lines.Length)
                         {
                             Console.WriteLine($"    {lines[ex.Line - 1]}");
-                            // Add pointer to the column
                             if (ex.Column > 0)
                             {
                                 var pointer = new string(' ', ex.Column - 1) + "^";
@@ -146,39 +173,23 @@ namespace SharpPy
                     }
                     catch
                     {
-                        // Ignore file read errors
+                        // 파일 읽기 실패시 코드에서 표시
+                        ShowErrorFromCode(code, ex.Line, ex.Column);
                     }
                 }
-                else if (filename == "<string>")
+                else
                 {
-                    // For interactive/string execution, show the line from the code
-                    try
-                    {
-                        var lines = code.Split('\n');
-                        if (ex.Line <= lines.Length)
-                        {
-                            Console.WriteLine($"    {lines[ex.Line - 1]}");
-                            // Add pointer to the column
-                            if (ex.Column > 0)
-                            {
-                                var pointer = new string(' ', ex.Column - 1) + "^";
-                                Console.WriteLine($"    {pointer}");
-                            }
-                        }
-                    }
-                    catch
-                    {
-                        // Ignore errors in showing source line
-                    }
+                    // 인터랙티브 모드나 string 실행시
+                    ShowErrorFromCode(code, ex.Line, ex.Column);
                 }
             }
             else
             {
-                Console.WriteLine($"  File \"{ex.FileName}\"");
+                Console.WriteLine($"  File \"{displayFileName}\"");
             }
 
             Console.WriteLine($"{ex.Type}: {ex.Message}");
-            Console.WriteLine(); // Add empty line for readability
+            Console.WriteLine();
         }
 
         public object CompileAndExecute(Environment env, string code, string filename = "<string>")
@@ -190,8 +201,13 @@ namespace SharpPy
             }
             catch (PythonException ex)
             {
+                // 파일명 업데이트 (throw하지 않음)
+                if (ex.FileName == "<string>" && filename != "<string>")
+                {
+                    ex = new PythonException(ex.Type, ex.Message, ex.Line, ex.Column, filename);
+                }
                 DisplayError(ex, code, filename);
-                return null;
+                return null;  // null 반환
             }
         }
 
@@ -223,7 +239,6 @@ namespace SharpPy
         {
             try
             {
-                var env = this.globalEnv;
                 if (!File.Exists(filename))
                 {
                     Console.WriteLine($"Error: File '{filename}' not found");
@@ -238,12 +253,36 @@ namespace SharpPy
                 else
                 {
                     string code = File.ReadAllText(filename);
+                    // 파일명을 제대로 전달
                     Execute(code, filename);
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error reading file '{filename}': {ex.Message}");
+            }
+        }
+
+        private void ShowErrorFromCode(string code, int line, int column)
+        {
+            if (string.IsNullOrEmpty(code)) return;
+
+            try
+            {
+                var lines = code.Split('\n');
+                if (line > 0 && line <= lines.Length)
+                {
+                    Console.WriteLine($"    {lines[line - 1]}");
+                    if (column > 0)
+                    {
+                        var pointer = new string(' ', column - 1) + "^";
+                        Console.WriteLine($"    {pointer}");
+                    }
+                }
+            }
+            catch
+            {
+                // 무시
             }
         }
 
