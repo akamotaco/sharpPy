@@ -411,8 +411,13 @@ namespace SharpPy
         
         public PythonTypeObject GetItem(PythonTypeObject key)
         {
-            if (Items.TryGetValue(key, out var value))
-                return value;
+            // if (Items.TryGetValue(key, out var value))
+            foreach (var kvp in Items)
+            {
+                if (kvp.Key.Equals(key))
+                    return kvp.Value;
+            }
+
             throw new PythonException("KeyError", $"KeyError: {key}");
         }
         

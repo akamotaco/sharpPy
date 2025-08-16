@@ -580,35 +580,18 @@ namespace SharpPy
     {
         public string ModuleName { get; }
         public List<(string Name, string Alias)> ImportItems { get; }
-        public bool ImportAll { get; }
 
-        public FromImportNode(string moduleName, List<(string, string)> importItems, bool importAll = false, int line = 0, int column = 0) : base(line, column)
+        public FromImportNode(string moduleName, List<(string, string)> importItems, int line = 0, int column = 0) : base(line, column)
         {
             ModuleName = moduleName;
             ImportItems = importItems ?? new List<(string, string)>();
-            ImportAll = importAll;
         }
 
         public override PythonTypeObject Evaluate(Environment env)
         {
             try
             {
-                var module = ModuleSystem.ImportModule(ModuleName, env.SearchPaths);
-                
-                if (ImportAll)
-                {
-                    // from module import * - Import all public attributes
-                    var allVariables = module.ModuleEnv.GetAllVariables();
-                    foreach (var kvp in allVariables)
-                    {
-                        // Skip private attributes (starting with _)
-                        if (!kvp.Key.StartsWith("_"))
-                        {
-                            env.SetVariable(kvp.Key, kvp.Value);
-                        }
-                    }
-                }
-                else
+                var module = ModuleSystem.ImportModule(ModuleName, env.SearchPaths);                
                 {
                     // from module import specific items
                     foreach (var (name, alias) in ImportItems)

@@ -963,6 +963,7 @@ def dynamic_op(x, y):
     return x {op} y
 '''
     exec(code, globals())
+    print(globals())
     return dynamic_op
 
 # Create addition function dynamically

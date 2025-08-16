@@ -235,11 +235,11 @@ namespace SharpPy
                 Expect(TokenType.IMPORT);
                 
                 // Check for "import *"
-                if (currentToken.Type == TokenType.OPERATOR && currentToken.Value == "*")
-                {
-                    Advance(); // Skip '*'
-                    return new FromImportNode(moduleName, null, true, line, column); // ImportAll = true
-                }
+                // if (currentToken.Type == TokenType.OPERATOR && currentToken.Value == "*")
+                // {
+                //     Advance(); // Skip '*'
+                //     return new FromImportNode(moduleName, null, true, line, column); // ImportAll = true
+                // }
                 
                 // Parse import items
                 var importItems = new List<(string, string)>();
@@ -269,7 +269,7 @@ namespace SharpPy
                     }
                 } while (currentToken.Type == TokenType.IDENTIFIER);
                 
-                return new FromImportNode(moduleName, importItems, false, line, column);
+                return new FromImportNode(moduleName, importItems, line, column);
             }
             else
             {

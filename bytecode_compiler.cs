@@ -493,22 +493,13 @@ namespace SharpPy
             EmitLoadConst(new PythonString(node.ModuleName));
             Emit(OpCode.IMPORT_NAME, 0, node.Line);
             
-            if (node.ImportAll)
+            foreach (var (itemName, alias) in node.ImportItems)
             {
-                // from module import * - simplified implementation
-                EmitStoreName("*temp_module*");
-                // In a real implementation, we'd iterate through module attributes
-            }
-            else
-            {
-                foreach (var (itemName, alias) in node.ImportItems)
-                {
-                    EmitLoadConst(new PythonString(itemName));
-                    Emit(OpCode.IMPORT_FROM, 0, node.Line);
-                    
-                    var storeName = alias ?? itemName;
-                    EmitStoreName(storeName);
-                }
+                EmitLoadConst(new PythonString(itemName));
+                Emit(OpCode.IMPORT_FROM, 0, node.Line);
+                
+                var storeName = alias ?? itemName;
+                EmitStoreName(storeName);
             }
         }
 
