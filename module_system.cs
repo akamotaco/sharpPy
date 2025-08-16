@@ -1,8 +1,4 @@
 // ModuleSystem class from enhanced_modules_environment.cs
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 
 namespace SharpPy
 {
@@ -10,6 +6,7 @@ namespace SharpPy
     {
         private static Dictionary<string, PythonModule> loadedModules = new Dictionary<string, PythonModule>();
 
+        // module_system.cs의 ImportModule 함수만 수정
         public static PythonModule ImportModule(string name, List<string> searchPaths = null)
         {
             if (loadedModules.ContainsKey(name))
@@ -22,60 +19,138 @@ namespace SharpPy
                 return module;
             }
 
-            // Use default search paths if none provided
             if (searchPaths == null)
-            {
                 searchPaths = new List<string> { "." };
-            }
 
-            // Try to load from file system using search paths
             try
             {
-                string foundPath = null;
-
-                // Handle package.module notation (e.g., "folder.m")
-                if (name.Contains('.'))
+                // 점(.)으로 구분된 패키지 경로 처리
+                var parts = name.Split('.');
+                
+                foreach (var searchPath in searchPaths)
                 {
-                    var parts = name.Split('.');
-                    var relativePath = string.Join(Path.DirectorySeparatorChar.ToString(), parts) + ".py";
+                    // 1. 직접 .py 파일 확인 (예: folder/z/m.py)
+                    var directFilePath = Path.Combine(searchPath, 
+                        string.Join(Path.DirectorySeparatorChar.ToString(), parts) + ".py");
                     
-                    // Search in all paths
-                    foreach (var searchPath in searchPaths)
+                    if (File.Exists(directFilePath))
                     {
-                        var candidatePath = Path.Combine(searchPath, relativePath);
-                        if (File.Exists(candidatePath))
+                        module = new PythonModule(name);
+                        string code = File.ReadAllText(directFilePath);
+                        var interpreter = new SharpPy.PythonInterpreter();
+                        interpreter.SetGlobalEnv(module.ModuleEnv);
+                        interpreter.Execute(code, directFilePath);
+                        loadedModules[name] = module;
+                        return module;
+                    }
+
+                    // 2. 패키지 디렉토리 확인 (예: folder/z/)
+                    var packagePath = Path.Combine(searchPath, 
+                        string.Join(Path.DirectorySeparatorChar.ToString(), parts));
+                    
+                    if (Directory.Exists(packagePath))
+                    {
+                        module = CreatePackageModule(name, packagePath);
+                        if (module != null)
                         {
-                            foundPath = candidatePath;
-                            break;
-                        }
-                        
-                        // Try folder/module structure
-                        var folderPath = Path.Combine(searchPath, parts[0], parts[1] + ".py");
-                        if (File.Exists(folderPath))
-                        {
-                            foundPath = folderPath;
-                            break;
+                            loadedModules[name] = module;
+                            return module;
                         }
                     }
-                }
-                else
-                {
-                    // Simple module name - could be a file or a package directory
-                    foreach (var searchPath in searchPaths)
+
+                    // 3. 중간 패키지가 없는 경우 가상 패키지 생성
+                    // 예: "folder.z"를 import할 때 folder/z/ 디렉토리만 있고 
+                    // folder/__init__.py가 없어도 동작하도록
+                    if (parts.Length > 1)
                     {
-                        // First try as a .py file
-                        var candidatePath = Path.Combine(searchPath, name + ".py");
-                        if (File.Exists(candidatePath))
+                        // 부모 패키지 경로들을 차례로 확인하고 필요시 생성
+                        for (int i = 1; i <= parts.Length; i++)
                         {
-                            foundPath = candidatePath;
-                            break;
+                            var subParts = parts.Take(i).ToArray();
+                            var subName = string.Join(".", subParts);
+                            var subPath = Path.Combine(searchPath, 
+                                string.Join(Path.DirectorySeparatorChar.ToString(), subParts));
+                            
+                            // 이미 로드된 경우 스킵
+                            if (loadedModules.ContainsKey(subName))
+                                continue;
+                            
+                            // 디렉토리가 존재하면 패키지로 처리
+                            if (Directory.Exists(subPath))
+                            {
+                                var subModule = CreatePackageModule(subName, subPath);
+                                if (subModule != null)
+                                {
+                                    loadedModules[subName] = subModule;
+                                    
+                                    // 부모 패키지가 있으면 속성으로 추가
+                                    if (i > 1)
+                                    {
+                                        var parentName = string.Join(".", subParts.Take(i - 1));
+                                        if (loadedModules.TryGetValue(parentName, out var parentModule))
+                                        {
+                                            parentModule.SetAttribute(subParts.Last(), subModule);
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // 마지막 부분이 .py 파일인지 확인
+                            if (i == parts.Length)
+                            {
+                                var filePath = subPath + ".py";
+                                if (File.Exists(filePath))
+                                {
+                                    module = new PythonModule(subName);
+                                    string code = File.ReadAllText(filePath);
+                                    var interpreter = new SharpPy.PythonInterpreter();
+                                    interpreter.SetGlobalEnv(module.ModuleEnv);
+                                    interpreter.Execute(code, filePath);
+                                    loadedModules[subName] = module;
+                                    
+                                    // 부모 패키지에 속성으로 추가
+                                    if (i > 1)
+                                    {
+                                        var parentName = string.Join(".", subParts.Take(i - 1));
+                                        if (loadedModules.TryGetValue(parentName, out var parentModule))
+                                        {
+                                            parentModule.SetAttribute(subParts.Last(), module);
+                                        }
+                                    }
+                                    
+                                    return module;
+                                }
+                            }
                         }
                         
-                        // Then try as a package directory
+                        // 전체 이름으로 다시 확인
+                        if (loadedModules.ContainsKey(name))
+                            return loadedModules[name];
+                    }
+                }
+                
+                // 4. 단순 파일명인 경우 기존 로직 유지
+                if (parts.Length == 1)
+                {
+                    foreach (var searchPath in searchPaths)
+                    {
+                        // .py 파일 확인
+                        var filePath = Path.Combine(searchPath, name + ".py");
+                        if (File.Exists(filePath))
+                        {
+                            module = new PythonModule(name);
+                            string code = File.ReadAllText(filePath);
+                            var interpreter = new SharpPy.PythonInterpreter();
+                            interpreter.SetGlobalEnv(module.ModuleEnv);
+                            interpreter.Execute(code, filePath);
+                            loadedModules[name] = module;
+                            return module;
+                        }
+                        
+                        // 패키지 디렉토리 확인
                         var packageDir = Path.Combine(searchPath, name);
                         if (Directory.Exists(packageDir))
                         {
-                            // Create a package module (directory-based)
                             module = CreatePackageModule(name, packageDir);
                             if (module != null)
                             {
@@ -85,27 +160,17 @@ namespace SharpPy
                         }
                     }
                 }
-
-                if (foundPath != null)
-                {
-                    string code = File.ReadAllText(foundPath);
-                    module = new PythonModule(name);
-
-                    var interpreter = new SharpPy.PythonInterpreter();
-                    interpreter.SetGlobalEnv(module.ModuleEnv);
-                    interpreter.Execute(code, foundPath);
-
-                    loadedModules[name] = module;
-                    return module;
-                }
             }
             catch (PythonException ex)
             {
-                throw new PythonException("ImportError", $"Failed to import module '{name}': {ex.Message}", ex.Line, ex.Column, ex.FileName);
+                throw new PythonException("ImportError", 
+                    $"Failed to import module '{name}': {ex.Message}", 
+                    ex.Line, ex.Column, ex.FileName);
             }
             catch (Exception ex)
             {
-                throw new PythonException("ImportError", $"Failed to import module '{name}': {ex.Message}");
+                throw new PythonException("ImportError", 
+                    $"Failed to import module '{name}': {ex.Message}");
             }
 
             throw new PythonException("ImportError", $"No module named '{name}'");

@@ -1,10 +1,5 @@
 // enhanced_interpreter.cs
-using System;
-using System.Linq;
-using System.IO;
 
-namespace SharpPy
-{
 // enhanced_interpreter.cs
 using System;
 using System.Linq;
@@ -27,18 +22,18 @@ namespace SharpPy
             this.useBytecode = useBytecode;
         }
 
-        public void SetGlobalEnv(Environment env) 
+        public void SetGlobalEnv(Environment env)
         {
             globalEnv = env;
-            Console.WriteLine("일단 주석처리");
+            // Console.WriteLine("일단 주석처리");
             // 새로운 환경이 설정될 때 builtin이 없으면 추가
-                // if (!env.HasVariable("print"))
-                // {
-                //     Environment.SetupBuiltins(env);
-                // }
+            // if (!env.HasVariable("print"))
+            // {
+            //     Environment.SetupBuiltins(env);
+            // }
             virtualMachine = new VirtualMachine(globalEnv);
         }
-        
+
         public Environment GetGlobalEnv() => globalEnv;
 
         public object Execute(string code, string filename = "<string>")
@@ -47,16 +42,16 @@ namespace SharpPy
             {
                 var env = this.globalEnv;
                 if (useBytecode)
-                    {
-                        // Bytecode execution path
-                        var codeObject = PythonCompiler.Compile(code, filename, "exec");
-                        return virtualMachine.Execute(env, codeObject);
-                    }
-                    else
-                    {
-                        // Traditional AST execution path
-                        return ExecuteAST(code, filename);
-                    }
+                {
+                    // Bytecode execution path
+                    var codeObject = PythonCompiler.Compile(code, filename, "exec");
+                    return virtualMachine.Execute(env, codeObject);
+                }
+                else
+                {
+                    // Traditional AST execution path
+                    return ExecuteAST(code, filename);
+                }
             }
             catch (PythonException ex)
             {
@@ -68,7 +63,7 @@ namespace SharpPy
                 Console.WriteLine($"  File \"{filename}\"");
                 Console.WriteLine($"Error: {ex.Message}");
                 Console.WriteLine($"Exception type: {ex.GetType().Name}");
-                
+
                 if (ex.StackTrace != null)
                 {
                     var relevantStack = ex.StackTrace.Split('\n')
@@ -131,7 +126,7 @@ namespace SharpPy
             if (ex.Line > 0)
             {
                 Console.WriteLine($"  File \"{ex.FileName}\", line {ex.Line}, column {ex.Column}");
-                
+
                 // Show the problematic line if we have access to the source
                 if (filename != "<string>" && File.Exists(filename))
                 {
@@ -181,7 +176,7 @@ namespace SharpPy
             {
                 Console.WriteLine($"  File \"{ex.FileName}\"");
             }
-            
+
             Console.WriteLine($"{ex.Type}: {ex.Message}");
             Console.WriteLine(); // Add empty line for readability
         }
@@ -230,10 +225,10 @@ namespace SharpPy
             {
                 var env = this.globalEnv;
                 if (!File.Exists(filename))
-                    {
-                        Console.WriteLine($"Error: File '{filename}' not found");
-                        return;
-                    }
+                {
+                    Console.WriteLine($"Error: File '{filename}' not found");
+                    return;
+                }
 
                 // Check if it's a bytecode file
                 if (filename.EndsWith(".pyc"))
@@ -323,7 +318,6 @@ namespace SharpPy
             }
         }
     }
-    }
 
     // Enhanced Program Entry Point with better demo error handling
     class Program
@@ -340,7 +334,7 @@ namespace SharpPy
                     interpreter = new SharpPy.PythonInterpreter(useBytecode: true);
                     Console.WriteLine("Using Bytecode execution mode");
                 }
-                
+
                 if (args.Contains("--show-bytecode") && args.Length > 1)
                 {
                     var filename = args[^1]; // Last argument
@@ -379,7 +373,7 @@ namespace SharpPy
 
             // Bytecode 데모
             Console.WriteLine("\n=== Bytecode Compilation Demo ===");
-            
+
             // AST 모드로 실행
             Console.WriteLine("1. AST Mode Execution:");
             var astInterpreter = new SharpPy.PythonInterpreter(useBytecode: false);
@@ -456,15 +450,15 @@ def fibonacci(n):
 
 print('Fibonacci(10) =', fibonacci(10))
 ";
-                
+
                 Console.WriteLine("Compiling code to bytecode...");
                 interpreter.SaveBytecode(testCode, "<demo>", "demo.pyc");
                 Console.WriteLine("Saved bytecode to demo.pyc");
-                
+
                 // 바이트코드 파일에서 로드하고 실행
                 Console.WriteLine("Loading and executing from bytecode file...");
                 interpreter.LoadAndExecuteBytecode("demo.pyc");
-                
+
                 // 파일 정리
                 if (File.Exists("demo.pyc"))
                     File.Delete("demo.pyc");
@@ -672,9 +666,9 @@ animal.speak()
 ");
 
 
-        // 딕셔너리 업데이트 테스트
-        Console.WriteLine("\n=== Dictionary Operations ===");
-        interpreter.Execute(@"
+            // 딕셔너리 업데이트 테스트
+            Console.WriteLine("\n=== Dictionary Operations ===");
+            interpreter.Execute(@"
 # 딕셔너리 업데이트
 dict1 = {'a': 1, 'b': 2}
 dict2 = {'b': 3, 'c': 4}
@@ -691,9 +685,9 @@ print('Items:', dict1.items())
 print('Get with default:', dict1.get('d', 'not found'))
 ");
 
-        // 컬렉션 결합 테스트  
-        Console.WriteLine("\n=== Collection Concatenation ===");
-        interpreter.Execute(@"
+            // 컬렉션 결합 테스트  
+            Console.WriteLine("\n=== Collection Concatenation ===");
+            interpreter.Execute(@"
 list1 = [1, 2, 3]
 list2 = [4, 5, 6]
 combined = list1 + list2
@@ -716,9 +710,9 @@ repeated = [1, 2] * 3
 print('Repeated list:', repeated)
 ");
 
-        // 내장 함수 테스트
-        Console.WriteLine("\n=== Built-in Functions ===");
-        interpreter.Execute(@"
+            // 내장 함수 테스트
+            Console.WriteLine("\n=== Built-in Functions ===");
+            interpreter.Execute(@"
 # 범위와 열거
 numbers = list(range(5))
 print('Range 5:', numbers)
@@ -744,9 +738,9 @@ print('Sum:', sum(numbers))
 print('Length:', len(numbers))
 ");
 
-        // is 연산자 테스트
-        Console.WriteLine("\n=== Identity Operators (is/is not) ===");
-        interpreter.Execute(@"
+            // is 연산자 테스트
+            Console.WriteLine("\n=== Identity Operators (is/is not) ===");
+            interpreter.Execute(@"
 # None 체크
 x = None
 y = None
@@ -787,9 +781,9 @@ empty2 = ()
 print('() is ():', empty1 is empty2)
 ");
 
-        // 복합 예제
-        Console.WriteLine("\n=== Advanced Example ===");
-        interpreter.Execute(@"
+            // 복합 예제
+            Console.WriteLine("\n=== Advanced Example ===");
+            interpreter.Execute(@"
 def fibonacci_tuple(n: int) -> tuple[int, int]:
     # 피보나치 수열의 n번째와 (n+1)번째 값을 튜플로 반환
     if n <= 0:
@@ -818,8 +812,8 @@ for name, score, subject in student_data:
     print(name + ': ' + str(score) + ' in ' + subject + ' (Grade: ' + grade + ')')
 ");
 
-        // 모듈 테스트
-        Console.WriteLine("\n=== Module System ===");
+            // 모듈 테스트
+            Console.WriteLine("\n=== Module System ===");
             interpreter.Execute(@"
 import math
 print('Pi:', math.pi)
@@ -979,14 +973,14 @@ print('Dynamic function result:', add_func(10, 20))
 
             Console.WriteLine("\n=== Performance Comparison ===");
             Console.WriteLine("Comparing AST vs Bytecode execution performance...");
-            
+
             // 성능 비교를 위한 간단한 코드
             string perfTestCode = @"
 total = 0
 for i in range(1000):
     total += i
 ";
-            
+
             Console.WriteLine("=== Testing New Python Features ===\n");
 
             // Test 1: F-strings
@@ -1156,7 +1150,7 @@ with open('output.txt', 'r') as f:
                 // Clean up test files
                 if (File.Exists("test.txt")) File.Delete("test.txt");
                 if (File.Exists("output.txt")) File.Delete("output.txt");
-                
+
                 Console.WriteLine("✓ With Statement test passed\n");
             }
             catch (Exception ex)
@@ -1234,19 +1228,19 @@ print('Context completed')
             }
 
             Console.WriteLine("=== All New Features Tests Complete ===");
-            
+
             // AST 실행 시간 측정
             var astInterpreterPerf = new SharpPy.PythonInterpreter(useBytecode: false);
             var astStart = DateTime.Now;
             astInterpreterPerf.Execute(perfTestCode);
             var astTime = DateTime.Now - astStart;
-            
+
             // Bytecode 실행 시간 측정
             var bytecodeInterpreterPerf = new SharpPy.PythonInterpreter(useBytecode: true);
             var bytecodeStart = DateTime.Now;
             bytecodeInterpreterPerf.Execute(perfTestCode);
             var bytecodeTime = DateTime.Now - bytecodeStart;
-            
+
             Console.WriteLine($"AST execution time: {astTime.TotalMilliseconds:F2} ms");
             Console.WriteLine($"Bytecode execution time: {bytecodeTime.TotalMilliseconds:F2} ms");
             Console.WriteLine($"Performance ratio: {(astTime.TotalMilliseconds / bytecodeTime.TotalMilliseconds):F2}x");
