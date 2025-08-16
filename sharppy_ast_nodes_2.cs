@@ -578,7 +578,8 @@ namespace SharpPy
         public string ModuleName { get; }
         public string Alias { get; }
 
-        public ImportNode(string moduleName, string alias = null, int line = 0, int column = 0) : base(line, column)
+        public ImportNode(string moduleName, string alias = null, int line = 0, int column = 0) 
+            : base(line, column)
         {
             ModuleName = moduleName;
             Alias = alias;
@@ -588,6 +589,7 @@ namespace SharpPy
         {
             try
             {
+                // env.SearchPaths를 전달
                 var module = ModuleSystem.ImportModule(ModuleName, env.SearchPaths);
                 string name = Alias ?? ModuleName.Split('.').Last();
                 env.SetVariable(name, module);
@@ -599,7 +601,8 @@ namespace SharpPy
             }
             catch (Exception ex)
             {
-                throw CreateException("ImportError", $"Failed to import module '{ModuleName}': {ex.Message}");
+                throw CreateException("ImportError", 
+                    $"Failed to import module '{ModuleName}': {ex.Message}");
             }
         }
     }
@@ -609,7 +612,8 @@ namespace SharpPy
         public string ModuleName { get; }
         public List<(string Name, string Alias)> ImportItems { get; }
 
-        public FromImportNode(string moduleName, List<(string, string)> importItems, int line = 0, int column = 0) : base(line, column)
+        public FromImportNode(string moduleName, List<(string, string)> importItems, 
+                            int line = 0, int column = 0) : base(line, column)
         {
             ModuleName = moduleName;
             ImportItems = importItems ?? new List<(string, string)>();
@@ -619,11 +623,10 @@ namespace SharpPy
         {
             try
             {
-                var module = ModuleSystem.ImportModule(ModuleName, env.SearchPaths);
-                
-                // Check for import *
+                // env.SearchPaths를 전달
                 if (ImportItems.Count == 1 && ImportItems[0].Name == "*")
                 {
+                    var module = ModuleSystem.ImportModule(ModuleName, env.SearchPaths);
                     var allVars = module.ModuleEnv.GetAllVariables();
                     foreach (var kvp in allVars)
                     {
@@ -639,13 +642,14 @@ namespace SharpPy
                     {
                         try
                         {
-                            var value = module.GetAttribute(name);
+                            var value = ModuleSystem.ImportFrom(ModuleName, name, env.SearchPaths);
                             string varName = alias ?? name;
                             env.SetVariable(varName, value);
                         }
-                        catch (PythonException)
+                        catch (PythonException ex)
                         {
-                            throw CreateException("ImportError", $"Cannot import name '{name}' from '{ModuleName}'");
+                            throw CreateException("ImportError", 
+                                $"Cannot import name '{name}' from '{ModuleName}': {ex.Message}");
                         }
                     }
                 }
@@ -658,7 +662,8 @@ namespace SharpPy
             }
             catch (Exception ex)
             {
-                throw CreateException("ImportError", $"Failed to import from module '{ModuleName}': {ex.Message}");
+                throw CreateException("ImportError", 
+                    $"Failed to import from module '{ModuleName}': {ex.Message}");
             }
         }
     }

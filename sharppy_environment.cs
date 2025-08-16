@@ -18,7 +18,18 @@ namespace SharpPy
         public Environment(Environment parent = null)
         {
             this.parent = parent;
-            SearchPaths = parent?.SearchPaths ?? new List<string> { "." };
+            
+            // SearchPaths 초기화 및 상속
+            if (parent != null && parent.SearchPaths != null)
+            {
+                // 부모의 검색 경로를 복사 (참조가 아닌 복사)
+                SearchPaths = new List<string>(parent.SearchPaths);
+            }
+            else
+            {
+                // 기본 검색 경로
+                SearchPaths = new List<string> { "." };
+            }
         }
 
         // Create Environment from PythonDict

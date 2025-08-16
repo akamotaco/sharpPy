@@ -760,10 +760,20 @@ namespace SharpPy
         public string Name { get; }
         public Environment ModuleEnv { get; }
 
-        public PythonModule(string name)
+        public PythonModule(string name, List<string> searchPaths = null)
         {
             Name = name;
             ModuleEnv = new Environment(null);
+            
+            // searchPaths 설정
+            if (searchPaths != null)
+            {
+                ModuleEnv.SearchPaths = new List<string>(searchPaths);
+            }
+            else
+            {
+                ModuleEnv.SearchPaths = new List<string> { "." };
+            }
         }
         
         public override PythonType Type => PythonType.Module;
