@@ -249,14 +249,27 @@ namespace SharpPy
 
                         case OpCode.LOAD_NAME:
                             var name = code.Names[arg];
+                            PythonTypeObject value = null;
+                            
+                            // First try locals
                             try
                             {
-                                stack.Push(frame.Locals.GetVariable(name));
+                                value = frame.Locals.GetVariable(name);
                             }
                             catch (PythonException)
                             {
-                                stack.Push(frame.Globals.GetVariable(name));
+                                // Then try globals
+                                try
+                                {
+                                    value = frame.Globals.GetVariable(name);
+                                }
+                                catch (PythonException)
+                                {
+                                    throw new PythonException("NameError", $"name '{name}' is not defined");
+                                }
                             }
+                            
+                            stack.Push(value);
                             break;
 
                         case OpCode.STORE_NAME:
@@ -790,12 +803,13 @@ namespace SharpPy
             var funcEnv = new Environment(closure);
             
             // 파라미터를 funcEnv에 바인딩
+            // VarNames를 사용하지만, 실제 변수명으로 환경에 설정
             for (int i = 0; i < arguments.Count && i < code.VarNames.Count; i++)
             {
                 funcEnv.SetVariable(code.VarNames[i], arguments[i]);
             }
 
-            // Find the global environment (root parent)
+            // Find the global environment
             var globalEnv = closure;
             while (globalEnv.parent != null)
                 globalEnv = globalEnv.parent;

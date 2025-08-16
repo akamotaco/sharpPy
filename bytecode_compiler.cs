@@ -420,9 +420,13 @@ namespace SharpPy
             var funcCompiler = new BytecodeCompiler(filename);
             funcCompiler.currentFunctionName = node.Name;
 
-            // Add parameter names as local variables
+            // Add parameter names as local variables AND to names list
             foreach (var param in node.Parameters)
+            {
                 funcCompiler.AddVarName(param.Name);
+                // IMPORTANT: Also add to names list so LOAD_NAME can find them
+                funcCompiler.GetNameIndex(param.Name);
+            }
 
             // Compile function body
             foreach (var stmt in node.Body)
@@ -676,14 +680,10 @@ namespace SharpPy
         private int GetConstantIndex(PythonTypeObject value)
         {
             var key = value ?? PythonNone.Instance;
-            // if (varNameMap.TryGetValue(name, out var index))
-            //     return index;
-            int index;
-            foreach (var kvp in varNameMap)
-            {
-                if (kvp.Key.Equals(value))
-                    return kvp.Value;
-            }
+            
+            // constantMap을 올바르게 체크
+            if (constantMap.TryGetValue(key, out var index))
+                return index;
             
             index = constants.Count;
             constants.Add(value);
@@ -693,7 +693,8 @@ namespace SharpPy
 
         private int GetNameIndex(string name)
         {
-            if (varNameMap.TryGetValue(name, out var index))
+            // nameMap을 체크해야 함 (varNameMap이 아님!)
+            if (nameMap.TryGetValue(name, out var index))
                 return index;
             
             index = names.Count;
