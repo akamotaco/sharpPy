@@ -1,7 +1,4 @@
 // bytecode_compiler.cs
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace SharpPy
 {
@@ -420,9 +417,13 @@ namespace SharpPy
             var funcCompiler = new BytecodeCompiler(filename);
             funcCompiler.currentFunctionName = node.Name;
 
-            // Add parameter names as local variables
+            // Add parameter names as local variables AND to names list
             foreach (var param in node.Parameters)
+            {
                 funcCompiler.AddVarName(param.Name);
+                // IMPORTANT: Also add to names list so LOAD_NAME can find them
+                funcCompiler.GetNameIndex(param.Name);
+            }
 
             // Compile function body
             foreach (var stmt in node.Body)
@@ -493,22 +494,13 @@ namespace SharpPy
             EmitLoadConst(new PythonString(node.ModuleName));
             Emit(OpCode.IMPORT_NAME, 0, node.Line);
             
-            if (node.ImportAll)
+            foreach (var (itemName, alias) in node.ImportItems)
             {
-                // from module import * - simplified implementation
-                EmitStoreName("*temp_module*");
-                // In a real implementation, we'd iterate through module attributes
-            }
-            else
-            {
-                foreach (var (itemName, alias) in node.ImportItems)
-                {
-                    EmitLoadConst(new PythonString(itemName));
-                    Emit(OpCode.IMPORT_FROM, 0, node.Line);
-                    
-                    var storeName = alias ?? itemName;
-                    EmitStoreName(storeName);
-                }
+                EmitLoadConst(new PythonString(itemName));
+                Emit(OpCode.IMPORT_FROM, 0, node.Line);
+                
+                var storeName = alias ?? itemName;
+                EmitStoreName(storeName);
             }
         }
 
@@ -685,6 +677,8 @@ namespace SharpPy
         private int GetConstantIndex(PythonTypeObject value)
         {
             var key = value ?? PythonNone.Instance;
+            
+            // constantMap을 올바르게 체크
             if (constantMap.TryGetValue(key, out var index))
                 return index;
             
@@ -696,6 +690,7 @@ namespace SharpPy
 
         private int GetNameIndex(string name)
         {
+            // nameMap을 체크해야 함 (varNameMap이 아님!)
             if (nameMap.TryGetValue(name, out var index))
                 return index;
             

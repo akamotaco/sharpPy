@@ -1,6 +1,4 @@
 // enhanced_parser_continuation.cs
-using System.Collections.Generic;
-using System.Linq;
 
 namespace SharpPy
 {
@@ -167,6 +165,49 @@ namespace SharpPy
             return new TryNode(tryBody, exceptClauses, elseBody, finallyBody, line, column);
         }
 
+        // NEW METHOD - Parse WITH statement
+        private ASTNode ParseWith()
+        {
+            int line = currentToken.Line;
+            int column = currentToken.Column;
+
+            Expect(TokenType.WITH);
+            
+            // Parse context expression
+            var contextExpr = ParseExpression();
+            
+            // Check for 'as' clause
+            string variable = null;
+            if (currentToken.Type == TokenType.AS)
+            {
+                Advance(); // Skip 'as'
+                variable = currentToken.Value;
+                Expect(TokenType.IDENTIFIER);
+            }
+            
+            Expect(TokenType.COLON);
+            SkipNewlines();
+            
+            // Parse body
+            var body = ParseBlock();
+            
+            return new WithNode(contextExpr, variable, body, line, column);
+        }
+
+        // NEW METHOD - Parse DEL statement
+        private ASTNode ParseDel()
+        {
+            int line = currentToken.Line;
+            int column = currentToken.Column;
+
+            Expect(TokenType.DEL);
+            
+            string variableName = currentToken.Value;
+            Expect(TokenType.IDENTIFIER);
+            
+            return new DelNode(variableName, line, column);
+        }
+
         private ASTNode ParseImport()
         {
             int line = currentToken.Line;
@@ -191,12 +232,19 @@ namespace SharpPy
                 
                 Expect(TokenType.IMPORT);
                 
-                // Check for "import *"
                 if (currentToken.Type == TokenType.OPERATOR && currentToken.Value == "*")
                 {
                     Advance(); // Skip '*'
-                    return new FromImportNode(moduleName, null, true, line, column); // ImportAll = true
+                               // 빈 리스트와 특별한 이름 "*"를 사용하여 구분
+                    var allItems = new List<(string, string)> { ("*", null) };
+                    return new FromImportNode(moduleName, allItems, line, column);
                 }
+                // Check for "import *"
+                // if (currentToken.Type == TokenType.OPERATOR && currentToken.Value == "*")
+                // {
+                //     Advance(); // Skip '*'
+                //     return new FromImportNode(moduleName, null, true, line, column); // ImportAll = true
+                // }
                 
                 // Parse import items
                 var importItems = new List<(string, string)>();
@@ -226,7 +274,7 @@ namespace SharpPy
                     }
                 } while (currentToken.Type == TokenType.IDENTIFIER);
                 
-                return new FromImportNode(moduleName, importItems, false, line, column);
+                return new FromImportNode(moduleName, importItems, line, column);
             }
             else
             {
@@ -297,6 +345,7 @@ namespace SharpPy
             return new RaiseNode(exception, line, column);
         }
 
+        // MODIFIED - Handle compound assignments
         private ASTNode ParseExpressionStatement()
         {
             int line = currentToken.Line;
@@ -338,6 +387,22 @@ namespace SharpPy
                 {
                     // It's just a tuple expression, not an assignment
                     return new TupleNode(elements, line, column);
+                }
+            }
+
+            // Check for compound assignment operators (NEW)
+            if (currentToken.Type == TokenType.COMPOUND_ASSIGN)
+            {
+                if (expr is VariableNode varNode)
+                {
+                    string op = currentToken.Value;
+                    Advance(); // Skip compound assignment operator
+                    var value = ParseExpressionOrTuple();
+                    return new CompoundAssignmentNode(varNode.Name, op, value, line, column);
+                }
+                else
+                {
+                    throw new PythonException("SyntaxError", $"Invalid target for compound assignment", currentToken.Line, currentToken.Column);
                 }
             }
 
@@ -713,6 +778,7 @@ namespace SharpPy
             return node;
         }
 
+        // MODIFIED - Handle f-strings and list comprehensions
         private ASTNode ParsePrimary()
         {
             int line = currentToken.Line;
@@ -745,6 +811,11 @@ namespace SharpPy
                     string strValue = currentToken.Value;
                     Advance();
                     return new StringNode(strValue, line, column);
+
+                case TokenType.FSTRING:  // Handle f-strings (NEW)
+                    string fstrValue = currentToken.Value;
+                    Advance();
+                    return new FStringNode(fstrValue, line, column);
 
                 case TokenType.BOOLEAN:
                     bool boolValue = currentToken.Value == "True";
@@ -866,37 +937,70 @@ namespace SharpPy
             return new LambdaNode(parameters, body, line, column);
         }
 
+        // MODIFIED - Handle list comprehensions
         private ASTNode ParseList()
         {
             int line = currentToken.Line;
             int column = currentToken.Column;
 
             Expect(TokenType.LBRACKET);
-            var elements = new List<ASTNode>();
-
+            
             // Skip any newlines after opening bracket
             SkipNewlinesAndIndents();
 
-            while (currentToken.Type != TokenType.RBRACKET)
+            // Check for empty list
+            if (currentToken.Type == TokenType.RBRACKET)
             {
+                Advance();
+                return new ListNode(new List<ASTNode>(), line, column);
+            }
+
+            // Parse first expression - but NOT as a full conditional expression for list comprehension
+            var firstExpr = ParseOrExpression(); // Use ParseOrExpression instead of ParseExpression to avoid conditional
+            
+            // Skip newlines
+            SkipNewlinesAndIndents();
+
+            // Check if this is a list comprehension (NEW)
+            if (currentToken.Type == TokenType.FOR)
+            {
+                // This is a list comprehension: [expr for var in iterable if condition]
+                Advance(); // Skip 'for'
+                
+                string variable = currentToken.Value;
+                Expect(TokenType.IDENTIFIER);
+                
+                Expect(TokenType.IN);
+                
+                var iterable = ParseOrExpression(); // Parse iterable without conditional
+                
+                // Check for optional 'if' clause
+                ASTNode condition = null;
+                if (currentToken.Type == TokenType.IF)
+                {
+                    Advance(); // Skip 'if'
+                    condition = ParseOrExpression(); // Parse condition
+                }
+                
+                Expect(TokenType.RBRACKET);
+                
+                return new ListComprehensionNode(firstExpr, variable, iterable, condition, line, column);
+            }
+            
+            // Regular list literal
+            var elements = new List<ASTNode> { firstExpr };
+            
+            while (currentToken.Type == TokenType.COMMA)
+            {
+                Advance(); // Skip comma
+                SkipNewlinesAndIndents(); // Skip newlines and indents after comma
+
+                // Allow trailing comma
+                if (currentToken.Type == TokenType.RBRACKET)
+                    break;
+                    
                 elements.Add(ParseExpression());
-
-                // Skip newlines and indents after each element
                 SkipNewlinesAndIndents();
-
-                if (currentToken.Type == TokenType.COMMA)
-                {
-                    Advance(); // Skip comma
-                    SkipNewlinesAndIndents(); // Skip newlines and indents after comma
-
-                    // Allow trailing comma
-                    if (currentToken.Type == TokenType.RBRACKET)
-                        break;
-                }
-                else if (currentToken.Type != TokenType.RBRACKET)
-                {
-                    throw new PythonException("SyntaxError", $"Expected ',' or ']' in list", currentToken.Line, currentToken.Column);
-                }
             }
 
             Expect(TokenType.RBRACKET);

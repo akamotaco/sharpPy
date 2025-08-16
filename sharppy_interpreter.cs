@@ -1,10 +1,5 @@
 // enhanced_interpreter.cs
-using System;
-using System.Linq;
-using System.IO;
 
-namespace SharpPy
-{
 // enhanced_interpreter.cs
 using System;
 using System.Linq;
@@ -22,27 +17,35 @@ namespace SharpPy
         public PythonInterpreter(bool useBytecode = false)
         {
             globalEnv = new Environment();
+            Environment.SetupBuiltins(globalEnv);  // 명시적으로 builtin 설정
             virtualMachine = new VirtualMachine(globalEnv);
             this.useBytecode = useBytecode;
         }
 
-        public void SetGlobalEnv(Environment env) 
+        public void SetGlobalEnv(Environment env)
         {
             globalEnv = env;
+            // Console.WriteLine("일단 주석처리");
+            // 새로운 환경이 설정될 때 builtin이 없으면 추가
+            // if (!env.HasVariable("print"))
+            // {
+            //     Environment.SetupBuiltins(env);
+            // }
             virtualMachine = new VirtualMachine(globalEnv);
         }
-        
+
         public Environment GetGlobalEnv() => globalEnv;
 
         public object Execute(string code, string filename = "<string>")
         {
             try
             {
+                var env = this.globalEnv;
                 if (useBytecode)
                 {
                     // Bytecode execution path
                     var codeObject = PythonCompiler.Compile(code, filename, "exec");
-                    return virtualMachine.Execute(codeObject);
+                    return virtualMachine.Execute(env, codeObject);
                 }
                 else
                 {
@@ -60,7 +63,7 @@ namespace SharpPy
                 Console.WriteLine($"  File \"{filename}\"");
                 Console.WriteLine($"Error: {ex.Message}");
                 Console.WriteLine($"Exception type: {ex.GetType().Name}");
-                
+
                 if (ex.StackTrace != null)
                 {
                     var relevantStack = ex.StackTrace.Split('\n')
@@ -123,7 +126,7 @@ namespace SharpPy
             if (ex.Line > 0)
             {
                 Console.WriteLine($"  File \"{ex.FileName}\", line {ex.Line}, column {ex.Column}");
-                
+
                 // Show the problematic line if we have access to the source
                 if (filename != "<string>" && File.Exists(filename))
                 {
@@ -173,17 +176,17 @@ namespace SharpPy
             {
                 Console.WriteLine($"  File \"{ex.FileName}\"");
             }
-            
+
             Console.WriteLine($"{ex.Type}: {ex.Message}");
             Console.WriteLine(); // Add empty line for readability
         }
 
-        public object CompileAndExecute(string code, string filename = "<string>")
+        public object CompileAndExecute(Environment env, string code, string filename = "<string>")
         {
             try
             {
                 var codeObject = PythonCompiler.Compile(code, filename);
-                return virtualMachine.Execute(codeObject);
+                return virtualMachine.Execute(env, codeObject);
             }
             catch (PythonException ex)
             {
@@ -205,8 +208,9 @@ namespace SharpPy
 
         public object LoadAndExecuteBytecode(string bytecodeFile)
         {
+            var env = this.globalEnv;
             var codeObject = BytecodeSerializer.LoadFromFile(bytecodeFile);
-            return virtualMachine.Execute(codeObject);
+            return virtualMachine.Execute(env, codeObject);
         }
 
         public void ShowBytecode(string code, string filename = "<string>")
@@ -219,6 +223,7 @@ namespace SharpPy
         {
             try
             {
+                var env = this.globalEnv;
                 if (!File.Exists(filename))
                 {
                     Console.WriteLine($"Error: File '{filename}' not found");
@@ -313,7 +318,6 @@ namespace SharpPy
             }
         }
     }
-    }
 
     // Enhanced Program Entry Point with better demo error handling
     class Program
@@ -330,7 +334,7 @@ namespace SharpPy
                     interpreter = new SharpPy.PythonInterpreter(useBytecode: true);
                     Console.WriteLine("Using Bytecode execution mode");
                 }
-                
+
                 if (args.Contains("--show-bytecode") && args.Length > 1)
                 {
                     var filename = args[^1]; // Last argument
@@ -369,7 +373,7 @@ namespace SharpPy
 
             // Bytecode 데모
             Console.WriteLine("\n=== Bytecode Compilation Demo ===");
-            
+
             // AST 모드로 실행
             Console.WriteLine("1. AST Mode Execution:");
             var astInterpreter = new SharpPy.PythonInterpreter(useBytecode: false);
@@ -424,8 +428,8 @@ def greet(name):
 
 message = greet('World')
 '''
-exec(code)
-print('exec result:', message)
+# exec(code)
+# print('exec result:', message)
 
 # compile() function
 compiled_code = compile('lambda x: x ** 2', '<lambda>', 'eval')
@@ -446,15 +450,15 @@ def fibonacci(n):
 
 print('Fibonacci(10) =', fibonacci(10))
 ";
-                
+
                 Console.WriteLine("Compiling code to bytecode...");
                 interpreter.SaveBytecode(testCode, "<demo>", "demo.pyc");
                 Console.WriteLine("Saved bytecode to demo.pyc");
-                
+
                 // 바이트코드 파일에서 로드하고 실행
                 Console.WriteLine("Loading and executing from bytecode file...");
                 interpreter.LoadAndExecuteBytecode("demo.pyc");
-                
+
                 // 파일 정리
                 if (File.Exists("demo.pyc"))
                     File.Delete("demo.pyc");
@@ -662,9 +666,9 @@ animal.speak()
 ");
 
 
-        // 딕셔너리 업데이트 테스트
-        Console.WriteLine("\n=== Dictionary Operations ===");
-        interpreter.Execute(@"
+            // 딕셔너리 업데이트 테스트
+            Console.WriteLine("\n=== Dictionary Operations ===");
+            interpreter.Execute(@"
 # 딕셔너리 업데이트
 dict1 = {'a': 1, 'b': 2}
 dict2 = {'b': 3, 'c': 4}
@@ -681,9 +685,9 @@ print('Items:', dict1.items())
 print('Get with default:', dict1.get('d', 'not found'))
 ");
 
-        // 컬렉션 결합 테스트  
-        Console.WriteLine("\n=== Collection Concatenation ===");
-        interpreter.Execute(@"
+            // 컬렉션 결합 테스트  
+            Console.WriteLine("\n=== Collection Concatenation ===");
+            interpreter.Execute(@"
 list1 = [1, 2, 3]
 list2 = [4, 5, 6]
 combined = list1 + list2
@@ -706,9 +710,9 @@ repeated = [1, 2] * 3
 print('Repeated list:', repeated)
 ");
 
-        // 내장 함수 테스트
-        Console.WriteLine("\n=== Built-in Functions ===");
-        interpreter.Execute(@"
+            // 내장 함수 테스트
+            Console.WriteLine("\n=== Built-in Functions ===");
+            interpreter.Execute(@"
 # 범위와 열거
 numbers = list(range(5))
 print('Range 5:', numbers)
@@ -718,7 +722,7 @@ print('Range with step:', list(range(0, 10, 2)))
 # 열거와 압축
 data = ['a', 'b', 'c']
 for i, item in enumerate(data):
-print('Index', i, ':', item)
+    print('Index', i, ':', item)
 
 # zip 함수
 list1 = [1, 2, 3]
@@ -734,9 +738,9 @@ print('Sum:', sum(numbers))
 print('Length:', len(numbers))
 ");
 
-        // is 연산자 테스트
-        Console.WriteLine("\n=== Identity Operators (is/is not) ===");
-        interpreter.Execute(@"
+            // is 연산자 테스트
+            Console.WriteLine("\n=== Identity Operators (is/is not) ===");
+            interpreter.Execute(@"
 # None 체크
 x = None
 y = None
@@ -777,9 +781,9 @@ empty2 = ()
 print('() is ():', empty1 is empty2)
 ");
 
-        // 복합 예제
-        Console.WriteLine("\n=== Advanced Example ===");
-        interpreter.Execute(@"
+            // 복합 예제
+            Console.WriteLine("\n=== Advanced Example ===");
+            interpreter.Execute(@"
 def fibonacci_tuple(n: int) -> tuple[int, int]:
     # 피보나치 수열의 n번째와 (n+1)번째 값을 튜플로 반환
     if n <= 0:
@@ -808,8 +812,8 @@ for name, score, subject in student_data:
     print(name + ': ' + str(score) + ' in ' + subject + ' (Grade: ' + grade + ')')
 ");
 
-        // 모듈 테스트
-        Console.WriteLine("\n=== Module System ===");
+            // 모듈 테스트
+            Console.WriteLine("\n=== Module System ===");
             interpreter.Execute(@"
 import math
 print('Pi:', math.pi)
@@ -969,26 +973,274 @@ print('Dynamic function result:', add_func(10, 20))
 
             Console.WriteLine("\n=== Performance Comparison ===");
             Console.WriteLine("Comparing AST vs Bytecode execution performance...");
-            
+
             // 성능 비교를 위한 간단한 코드
             string perfTestCode = @"
 total = 0
 for i in range(1000):
     total += i
 ";
-            
+
+            Console.WriteLine("=== Testing New Python Features ===\n");
+
+            // Test 1: F-strings
+            Console.WriteLine("1. F-String Test:");
+            try
+            {
+                interpreter.Execute(@"
+name = 'Alice'
+age = 30
+message = f'Hello, {name}! You are {age} years old.'
+print(message)
+
+# More complex f-string
+x = 10
+y = 20
+result = f'The sum of {x} and {y} is {x + y}'
+print(result)
+
+# F-string with expressions
+import math
+radius = 5
+area_msg = f'Area of circle with radius {radius} is {math.pi * radius * radius}'
+print(area_msg)
+");
+                Console.WriteLine("✓ F-String test passed\n");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"✗ F-String test failed: {ex.Message}\n");
+            }
+
+            // Test 2: List Comprehensions
+            Console.WriteLine("2. List Comprehension Test:");
+            try
+            {
+                interpreter.Execute(@"
+# Basic list comprehension
+numbers = [1, 2, 3, 4, 5]
+squares = [x * x for x in numbers]
+print('Squares:', squares)
+
+# List comprehension with condition
+evens = [x for x in range(10) if x % 2 == 0]
+print('Even numbers:', evens)
+
+# More complex comprehension
+words = ['hello', 'world', 'python', 'code']
+upper_long = [w.upper() for w in words if len(w) > 4]
+print('Long words in uppercase:', upper_long)
+");
+                Console.WriteLine("✓ List Comprehension test passed\n");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"✗ List Comprehension test failed: {ex.Message}\n");
+            }
+
+            // Test 3: Compound Assignment Operators
+            Console.WriteLine("3. Compound Assignment Operators Test:");
+            try
+            {
+                interpreter.Execute(@"
+# Numeric compound assignments
+x = 10
+print('Initial x:', x)
+x += 5
+print('x after += 5:', x)
+
+x -= 3
+print('x after -= 3:', x)
+
+x *= 2
+print('x after *= 2:', x)
+
+x /= 4
+print('x after /= 4:', x)
+
+y = 2
+y **= 3
+print('2 **= 3:', y)
+
+# String concatenation
+message = 'Hello'
+message += ' World'
+print('Message:', message)
+
+# List extension
+my_list = [1, 2, 3]
+my_list += [4, 5, 6]
+print('Extended list:', my_list)
+
+# List multiplication
+small_list = [0]
+small_list *= 5
+print('Multiplied list:', small_list)
+");
+                Console.WriteLine("✓ Compound Assignment test passed\n");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"✗ Compound Assignment test failed: {ex.Message}\n");
+            }
+
+            // Test 4: Enhanced Import with AS
+            Console.WriteLine("4. Import AS Test:");
+            try
+            {
+                interpreter.Execute(@"
+# Import with alias
+import math as m
+print('Using math as m:', m.sqrt(16))
+
+# From import with alias
+from math import pi as PI, sqrt as square_root
+print('PI =', PI)
+print('Square root of 25 =', square_root(25))
+
+# Multiple imports with aliases
+from random import randint as rand, choice as pick
+numbers = [1, 2, 3, 4, 5]
+print('Random from 1-10:', rand(1, 10))
+print('Random choice:', pick(numbers))
+");
+                Console.WriteLine("✓ Import AS test passed\n");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"✗ Import AS test failed: {ex.Message}\n");
+            }
+
+            // Test 5: With Statement
+            Console.WriteLine("5. With Statement Test:");
+            try
+            {
+                // First create a test file
+                interpreter.Execute(@"
+# Create a test file first
+f = open('test.txt', 'w')
+f.write('Hello from Python!')
+f.close()
+print('Test file created')
+");
+
+                // Now test with statement
+                interpreter.Execute(@"
+# Read file using with statement
+with open('test.txt', 'r') as f:
+    content = f.read()
+    print('File content:', content)
+
+# File is automatically closed after with block
+print('File operations completed')
+
+# Test writing with 'with'
+with open('output.txt', 'w') as f:
+    f.write('Line 1\n')
+    f.write('Line 2\n')
+    f.write('Line 3\n')
+print('File written successfully')
+
+# Read it back
+with open('output.txt', 'r') as f:
+    for line in f.readlines():
+        print('Read:', line)
+");
+
+                // Clean up test files
+                if (File.Exists("test.txt")) File.Delete("test.txt");
+                if (File.Exists("output.txt")) File.Delete("output.txt");
+
+                Console.WriteLine("✓ With Statement test passed\n");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"✗ With Statement test failed: {ex.Message}\n");
+            }
+
+            // Test 6: Combined Features
+            Console.WriteLine("6. Combined Features Test:");
+            try
+            {
+                interpreter.Execute(@"
+# Combining f-strings with list comprehension
+names = ['Alice', 'Bob', 'Charlie']
+greetings = [f'Hello, {name}!' for name in names]
+print('Greetings:', greetings)
+
+# Using compound assignment in loops
+total = 0
+for i in [1, 2, 3, 4, 5]:
+    total += i * i
+print(f'Sum of squares: {total}')
+
+# List comprehension with f-string output
+temps_c = [0, 10, 20, 30, 40]
+temps_f = [f'{c}C = {c * 9/5 + 32}F' for c in temps_c]
+for temp in temps_f:
+    print(temp)
+
+# Complex example with multiple features
+data = []
+for i in range(5):
+    data += [i * 2]
+
+result = [f'Value: {x}' for x in data if x > 3]
+print('Filtered results:', result)
+");
+                Console.WriteLine("✓ Combined Features test passed\n");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"✗ Combined Features test failed: {ex.Message}\n");
+            }
+
+            // Test 7: Context Manager with Custom Class
+            Console.WriteLine("7. Custom Context Manager Test:");
+            try
+            {
+                interpreter.Execute(@"
+# Define a custom context manager
+class MyContext:
+    def __init__(self, name):
+        self.name = name
+    
+    def __enter__(self):
+        print(f'Entering context: {self.name}')
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        print(f'Exiting context: {self.name}')
+        return False  # Don't suppress exceptions
+
+# Use the custom context manager
+with MyContext('test') as ctx:
+    print(f'Inside context: {ctx.name}')
+    print('Doing some work...')
+
+print('Context completed')
+");
+                Console.WriteLine("✓ Custom Context Manager test passed\n");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"✗ Custom Context Manager test failed: {ex.Message}\n");
+            }
+
+            Console.WriteLine("=== All New Features Tests Complete ===");
+
             // AST 실행 시간 측정
             var astInterpreterPerf = new SharpPy.PythonInterpreter(useBytecode: false);
             var astStart = DateTime.Now;
             astInterpreterPerf.Execute(perfTestCode);
             var astTime = DateTime.Now - astStart;
-            
+
             // Bytecode 실행 시간 측정
             var bytecodeInterpreterPerf = new SharpPy.PythonInterpreter(useBytecode: true);
             var bytecodeStart = DateTime.Now;
             bytecodeInterpreterPerf.Execute(perfTestCode);
             var bytecodeTime = DateTime.Now - bytecodeStart;
-            
+
             Console.WriteLine($"AST execution time: {astTime.TotalMilliseconds:F2} ms");
             Console.WriteLine($"Bytecode execution time: {bytecodeTime.TotalMilliseconds:F2} ms");
             Console.WriteLine($"Performance ratio: {(astTime.TotalMilliseconds / bytecodeTime.TotalMilliseconds):F2}x");

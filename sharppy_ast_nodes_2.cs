@@ -1,12 +1,10 @@
 // enhanced_ast_nodes_2.cs
-using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace SharpPy
 {
-    // Function and Class Definition Nodes with PythonTypeObject
-    public class FunctionDefNode : ASTNode
+    // Optimized Function and Class Definition Nodes
+    public sealed class FunctionDefNode : ASTNode
     {
         public string Name { get; }
         public List<Parameter> Parameters { get; }
@@ -31,7 +29,7 @@ namespace SharpPy
             }
             catch (PythonException)
             {
-                throw; // Re-throw PythonExceptions as-is
+                throw;
             }
             catch (Exception ex)
             {
@@ -40,7 +38,7 @@ namespace SharpPy
         }
     }
 
-    public class FunctionCallNode : ASTNode
+    public sealed class FunctionCallNode : ASTNode
     {
         public ASTNode Function { get; }
         public List<ASTNode> Arguments { get; }
@@ -56,7 +54,11 @@ namespace SharpPy
             try
             {
                 var function = Function.Evaluate(env);
-                var args = Arguments.Select(arg => arg.Evaluate(env)).ToList();
+                
+                // Pre-evaluate all arguments
+                var args = new List<PythonTypeObject>(Arguments.Count);
+                foreach (var arg in Arguments)
+                    args.Add(arg.Evaluate(env));
 
                 return function switch
                 {
@@ -71,11 +73,11 @@ namespace SharpPy
             }
             catch (PythonException)
             {
-                throw; // Re-throw PythonExceptions as-is
+                throw;
             }
             catch (ReturnException)
             {
-                throw; // Re-throw ReturnExceptions as-is (though this shouldn't normally happen at this level)
+                throw;
             }
             catch (Exception ex)
             {
@@ -84,7 +86,7 @@ namespace SharpPy
         }
     }
 
-    public class ClassDefNode : ASTNode
+    public sealed class ClassDefNode : ASTNode
     {
         public string Name { get; }
         public string BaseClass { get; }
@@ -113,7 +115,7 @@ namespace SharpPy
 
                 var classEnv = new Environment(env);
 
-                // 부모 클래스의 메서드들을 상속
+                // Inherit methods from parent class
                 if (parentClass != null)
                 {
                     foreach (var kvp in parentClass.ClassEnv.GetAllVariables())
@@ -129,7 +131,7 @@ namespace SharpPy
             }
             catch (PythonException)
             {
-                throw; // Re-throw PythonExceptions as-is
+                throw;
             }
             catch (Exception ex) when (!(ex is ReturnException || ex is BreakException || ex is ContinueException))
             {
@@ -138,8 +140,8 @@ namespace SharpPy
         }
     }
 
-    // Control Flow Nodes with PythonTypeObject
-    public class IfNode : ASTNode
+    // Optimized Control Flow Nodes
+    public sealed class IfNode : ASTNode
     {
         public ASTNode Condition { get; }
         public List<ASTNode> ThenBody { get; }
@@ -166,7 +168,7 @@ namespace SharpPy
             }
             catch (PythonException)
             {
-                throw; // Re-throw PythonExceptions as-is
+                throw;
             }
             catch (Exception ex) when (!(ex is ReturnException || ex is BreakException || ex is ContinueException))
             {
@@ -175,7 +177,7 @@ namespace SharpPy
         }
     }
 
-    public class ForNode : ASTNode
+    public sealed class ForNode : ASTNode
     {
         public string Variable { get; }
         public ASTNode Iterable { get; }
@@ -201,15 +203,15 @@ namespace SharpPy
                 {
                     foreach (var item in items)
                     {
-                        env.SetVariable(Variable, item); // 같은 scope에서 변수 설정
+                        env.SetVariable(Variable, item);
                         try
                         {
                             foreach (var stmt in Body)
-                                result = stmt.Evaluate(env); // 같은 env 사용
+                                result = stmt.Evaluate(env);
                         }
                         catch (ContinueException)
                         {
-                            continue; // Skip to next iteration
+                            continue;
                         }
                     }
                 }
@@ -222,11 +224,11 @@ namespace SharpPy
             }
             catch (PythonException)
             {
-                throw; // Re-throw PythonExceptions as-is
+                throw;
             }
             catch (ReturnException)
             {
-                throw; // Re-throw ReturnExceptions as-is
+                throw;
             }
             catch (Exception ex) when (!(ex is BreakException || ex is ContinueException))
             {
@@ -234,18 +236,18 @@ namespace SharpPy
             }
         }
 
-        private List<PythonTypeObject> GetIterableItems(PythonTypeObject obj)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private List<PythonTypeObject> GetIterableItems(PythonTypeObject obj) => obj switch
         {
-            if (obj is PythonList list) return list.Items;
-            if (obj is PythonTuple tuple) return tuple.Items;
-            if (obj is PythonString str) 
-                return str.Value.Select(c => new PythonString(c.ToString()) as PythonTypeObject).ToList();
-            if (obj is PythonDict dict) return dict.Items.Keys.ToList();
-            throw CreateException("TypeError", $"'{obj?.Type}' object is not iterable");
-        }
+            PythonList list => list.Items,
+            PythonTuple tuple => tuple.Items,
+            PythonString str => str.Value.Select(c => new PythonString(c.ToString()) as PythonTypeObject).ToList(),
+            PythonDict dict => dict.Items.Keys.ToList(),
+            _ => throw CreateException("TypeError", $"'{obj?.Type}' object is not iterable")
+        };
     }
 
-    public class MultiForNode : ASTNode
+    public sealed class MultiForNode : ASTNode
     {
         public List<string> Variables { get; }
         public ASTNode Iterable { get; }
@@ -272,30 +274,29 @@ namespace SharpPy
                     foreach (var item in items)
                     {
                         // Unpack the item into multiple variables
-                        List<PythonTypeObject> values;
-                        if (item is PythonTuple tuple)
-                            values = tuple.Items;
-                        else if (item is PythonList list)
-                            values = list.Items;
-                        else
-                            throw CreateException("ValueError", $"Cannot unpack non-sequence {item?.Type}");
+                        List<PythonTypeObject> values = item switch
+                        {
+                            PythonTuple tuple => tuple.Items,
+                            PythonList list => list.Items,
+                            _ => throw CreateException("ValueError", $"Cannot unpack non-sequence {item?.Type}")
+                        };
 
                         if (values.Count != Variables.Count)
                             throw CreateException("ValueError", $"Cannot unpack {values.Count} values into {Variables.Count} variables");
 
                         for (int i = 0; i < Variables.Count; i++)
                         {
-                            env.SetVariable(Variables[i], values[i]); // 같은 scope에서 변수 설정
+                            env.SetVariable(Variables[i], values[i]);
                         }
 
                         try
                         {
                             foreach (var stmt in Body)
-                                result = stmt.Evaluate(env); // 같은 env 사용
+                                result = stmt.Evaluate(env);
                         }
                         catch (ContinueException)
                         {
-                            continue; // Skip to next iteration
+                            continue;
                         }
                     }
                 }
@@ -308,11 +309,11 @@ namespace SharpPy
             }
             catch (PythonException)
             {
-                throw; // Re-throw PythonExceptions as-is
+                throw;
             }
             catch (ReturnException)
             {
-                throw; // Re-throw ReturnExceptions as-is
+                throw;
             }
             catch (Exception ex) when (!(ex is BreakException || ex is ContinueException))
             {
@@ -320,18 +321,18 @@ namespace SharpPy
             }
         }
 
-        private List<PythonTypeObject> GetIterableItems(PythonTypeObject obj)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private List<PythonTypeObject> GetIterableItems(PythonTypeObject obj) => obj switch
         {
-            if (obj is PythonList list) return list.Items;
-            if (obj is PythonTuple tuple) return tuple.Items;
-            if (obj is PythonString str) 
-                return str.Value.Select(c => new PythonString(c.ToString()) as PythonTypeObject).ToList();
-            if (obj is PythonDict dict) return dict.Items.Keys.ToList();
-            throw CreateException("TypeError", $"'{obj?.Type}' object is not iterable");
-        }
+            PythonList list => list.Items,
+            PythonTuple tuple => tuple.Items,
+            PythonString str => str.Value.Select(c => new PythonString(c.ToString()) as PythonTypeObject).ToList(),
+            PythonDict dict => dict.Items.Keys.ToList(),
+            _ => throw CreateException("TypeError", $"'{obj?.Type}' object is not iterable")
+        };
     }
 
-    public class WhileNode : ASTNode
+    public sealed class WhileNode : ASTNode
     {
         public ASTNode Condition { get; }
         public List<ASTNode> Body { get; }
@@ -359,7 +360,7 @@ namespace SharpPy
                         }
                         catch (ContinueException)
                         {
-                            continue; // Continue to next iteration
+                            continue;
                         }
                     }
                 }
@@ -372,11 +373,11 @@ namespace SharpPy
             }
             catch (PythonException)
             {
-                throw; // Re-throw PythonExceptions as-is
+                throw;
             }
             catch (ReturnException)
             {
-                throw; // Re-throw ReturnExceptions as-is
+                throw;
             }
             catch (Exception ex) when (!(ex is BreakException || ex is ContinueException))
             {
@@ -385,19 +386,19 @@ namespace SharpPy
         }
     }
 
-    public class BreakNode : ASTNode
+    public sealed class BreakNode : ASTNode
     {
         public BreakNode(int line = 0, int column = 0) : base(line, column) { }
         public override PythonTypeObject Evaluate(Environment env) => throw new BreakException();
     }
 
-    public class ContinueNode : ASTNode
+    public sealed class ContinueNode : ASTNode
     {
         public ContinueNode(int line = 0, int column = 0) : base(line, column) { }
         public override PythonTypeObject Evaluate(Environment env) => throw new ContinueException();
     }
 
-    public class ReturnNode : ASTNode
+    public sealed class ReturnNode : ASTNode
     {
         public ASTNode Value { get; }
         
@@ -413,11 +414,11 @@ namespace SharpPy
             }
             catch (ReturnException)
             {
-                throw; // Re-throw return exceptions as-is
+                throw;
             }
             catch (PythonException)
             {
-                throw; // Re-throw PythonExceptions as-is
+                throw;
             }
             catch (Exception ex)
             {
@@ -426,8 +427,8 @@ namespace SharpPy
         }
     }
 
-    // Exception Handling Nodes with PythonTypeObject
-    public class TryNode : ASTNode
+    // Optimized Exception Handling Nodes
+    public sealed class TryNode : ASTNode
     {
         public List<ASTNode> TryBody { get; }
         public List<(string ExceptionType, string Variable, List<ASTNode> Body)> ExceptClauses { get; }
@@ -471,12 +472,11 @@ namespace SharpPy
                 {
                     if (string.IsNullOrEmpty(exceptionType) || ex.Type == exceptionType)
                     {
-                        // except 절에서 exception variable만 설정 (새로운 scope 만들지 않음)
                         if (!string.IsNullOrEmpty(variable))
                             env.SetVariable(variable, new PythonString(ex.Message));
 
                         foreach (var stmt in body)
-                            result = stmt.Evaluate(env); // 같은 env 사용
+                            result = stmt.Evaluate(env);
                         handled = true;
                         break;
                     }
@@ -494,12 +494,11 @@ namespace SharpPy
                 {
                     if (string.IsNullOrEmpty(exceptionType) || exceptionType == "Exception")
                     {
-                        // except 절에서 exception variable만 설정 (새로운 scope 만들지 않음)
                         if (!string.IsNullOrEmpty(variable))
                             env.SetVariable(variable, new PythonString(ex.Message));
 
                         foreach (var stmt in body)
-                            result = stmt.Evaluate(env); // 같은 env 사용
+                            result = stmt.Evaluate(env);
                         handled = true;
                         break;
                     }
@@ -517,7 +516,7 @@ namespace SharpPy
         }
     }
 
-    public class RaiseNode : ASTNode
+    public sealed class RaiseNode : ASTNode
     {
         public ASTNode Exception { get; }
         
@@ -535,7 +534,7 @@ namespace SharpPy
             }
             catch (PythonException)
             {
-                throw; // Re-throw PythonExceptions as-is
+                throw;
             }
             catch (Exception ex)
             {
@@ -544,8 +543,8 @@ namespace SharpPy
         }
     }
 
-    // Import and Block Nodes with PythonTypeObject
-    public class ImportNode : ASTNode
+    // Optimized Import and Block Nodes
+    public sealed class ImportNode : ASTNode
     {
         public string ModuleName { get; }
         public string Alias { get; }
@@ -561,13 +560,13 @@ namespace SharpPy
             try
             {
                 var module = ModuleSystem.ImportModule(ModuleName, env.SearchPaths);
-                string name = Alias ?? ModuleName.Split('.').Last(); // 패키지의 경우 마지막 이름 사용
+                string name = Alias ?? ModuleName.Split('.').Last();
                 env.SetVariable(name, module);
                 return module;
             }
             catch (PythonException)
             {
-                throw; // Re-throw PythonExceptions as-is
+                throw;
             }
             catch (Exception ex)
             {
@@ -576,17 +575,15 @@ namespace SharpPy
         }
     }
 
-    public class FromImportNode : ASTNode
+    public sealed class FromImportNode : ASTNode
     {
         public string ModuleName { get; }
         public List<(string Name, string Alias)> ImportItems { get; }
-        public bool ImportAll { get; }
 
-        public FromImportNode(string moduleName, List<(string, string)> importItems, bool importAll = false, int line = 0, int column = 0) : base(line, column)
+        public FromImportNode(string moduleName, List<(string, string)> importItems, int line = 0, int column = 0) : base(line, column)
         {
             ModuleName = moduleName;
             ImportItems = importItems ?? new List<(string, string)>();
-            ImportAll = importAll;
         }
 
         public override PythonTypeObject Evaluate(Environment env)
@@ -595,13 +592,12 @@ namespace SharpPy
             {
                 var module = ModuleSystem.ImportModule(ModuleName, env.SearchPaths);
                 
-                if (ImportAll)
+                // Check for import *
+                if (ImportItems.Count == 1 && ImportItems[0].Name == "*")
                 {
-                    // from module import * - Import all public attributes
-                    var allVariables = module.ModuleEnv.GetAllVariables();
-                    foreach (var kvp in allVariables)
+                    var allVars = module.ModuleEnv.GetAllVariables();
+                    foreach (var kvp in allVars)
                     {
-                        // Skip private attributes (starting with _)
                         if (!kvp.Key.StartsWith("_"))
                         {
                             env.SetVariable(kvp.Key, kvp.Value);
@@ -610,7 +606,6 @@ namespace SharpPy
                 }
                 else
                 {
-                    // from module import specific items
                     foreach (var (name, alias) in ImportItems)
                     {
                         try
@@ -630,7 +625,7 @@ namespace SharpPy
             }
             catch (PythonException)
             {
-                throw; // Re-throw PythonExceptions as-is
+                throw;
             }
             catch (Exception ex)
             {
@@ -639,7 +634,7 @@ namespace SharpPy
         }
     }
 
-    public class BlockNode : ASTNode
+    public sealed class BlockNode : ASTNode
     {
         public List<ASTNode> Statements { get; }
         
@@ -657,11 +652,11 @@ namespace SharpPy
             }
             catch (PythonException)
             {
-                throw; // Re-throw PythonExceptions as-is
+                throw;
             }
             catch (ReturnException)
             {
-                throw; // Re-throw ReturnExceptions as-is
+                throw;
             }
             catch (Exception ex) when (!(ex is ReturnException || ex is BreakException || ex is ContinueException))
             {
@@ -670,7 +665,7 @@ namespace SharpPy
         }
     }
 
-    public class MultipleAssignmentNode : ASTNode
+    public sealed class MultipleAssignmentNode : ASTNode
     {
         public List<string> VariableNames { get; }
         public ASTNode Value { get; }
@@ -688,19 +683,17 @@ namespace SharpPy
                 var value = Value.Evaluate(env);
 
                 // Convert value to iterable
-                List<PythonTypeObject> items;
-                if (value is PythonList list)
-                    items = list.Items;
-                else if (value is PythonTuple tuple)
-                    items = tuple.Items;
-                else if (value is PythonString str)
-                    items = str.Value.Select(c => new PythonString(c.ToString()) as PythonTypeObject).ToList();
-                else
-                    throw CreateException("TypeError", "Cannot unpack non-iterable object");
+                List<PythonTypeObject> items = value switch
+                {
+                    PythonList list => list.Items,
+                    PythonTuple tuple => tuple.Items,
+                    PythonString str => str.Value.Select(c => new PythonString(c.ToString()) as PythonTypeObject).ToList(),
+                    _ => throw CreateException("TypeError", "Cannot unpack non-iterable object")
+                };
 
                 // Handle underscore (_) - variables to ignore
-                var validNames = new List<string>();
-                var validIndices = new List<int>();
+                var validNames = new List<string>(VariableNames.Count);
+                var validIndices = new List<int>(VariableNames.Count);
 
                 for (int i = 0; i < VariableNames.Count; i++)
                 {
@@ -711,11 +704,11 @@ namespace SharpPy
                     }
                 }
 
-                // Length validation (excluding underscores)
+                // Length validation
                 if (items.Count != VariableNames.Count)
                     throw CreateException("ValueError", $"Cannot unpack {items.Count} values into {VariableNames.Count} variables");
 
-                // Assign values to variables (skip underscores)
+                // Assign values to variables
                 for (int i = 0; i < validNames.Count; i++)
                 {
                     int actualIndex = validIndices[i];
@@ -726,7 +719,7 @@ namespace SharpPy
             }
             catch (PythonException)
             {
-                throw; // Re-throw PythonExceptions as-is
+                throw;
             }
             catch (Exception ex)
             {
@@ -735,7 +728,7 @@ namespace SharpPy
         }
     }
 
-    public class AttributeAssignmentNode : ASTNode
+    public sealed class AttributeAssignmentNode : ASTNode
     {
         public ASTNode Object { get; }
         public string Attribute { get; }
@@ -765,7 +758,7 @@ namespace SharpPy
             }
             catch (PythonException)
             {
-                throw; // Re-throw PythonExceptions as-is
+                throw;
             }
             catch (Exception ex)
             {
@@ -774,3 +767,5 @@ namespace SharpPy
         }
     }
 }
+
+// enhanced_ast_nodes_2.cs

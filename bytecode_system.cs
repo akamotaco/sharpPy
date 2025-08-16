@@ -1,8 +1,4 @@
 // bytecode_system.cs
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text;
 
 namespace SharpPy
@@ -202,12 +198,17 @@ namespace SharpPy
         public VirtualMachine(Environment globalEnv)
         {
             this.globalEnv = globalEnv;
+            // globalEnv에 builtin이 없으면 추가
+            if (!globalEnv.HasVariable("print"))
+            {
+                Environment.SetupBuiltins(globalEnv);
+            }
             frameStack = new Stack<Frame>();
         }
 
-        public PythonTypeObject Execute(CodeObject code, Environment locals = null)
+        public PythonTypeObject Execute(Environment locals, CodeObject code)
         {
-            locals = locals ?? new Environment(globalEnv);
+            // locals = locals ?? new Environment(globalEnv);
             currentFrame = new Frame(code, locals, globalEnv);
             frameStack.Push(currentFrame);
 
@@ -244,14 +245,27 @@ namespace SharpPy
 
                         case OpCode.LOAD_NAME:
                             var name = code.Names[arg];
+                            PythonTypeObject value = null;
+                            
+                            // First try locals
                             try
                             {
-                                stack.Push(frame.Locals.GetVariable(name));
+                                value = frame.Locals.GetVariable(name);
                             }
                             catch (PythonException)
                             {
-                                stack.Push(frame.Globals.GetVariable(name));
+                                // Then try globals
+                                try
+                                {
+                                    value = frame.Globals.GetVariable(name);
+                                }
+                                catch (PythonException)
+                                {
+                                    throw new PythonException("NameError", $"name '{name}' is not defined");
+                                }
                             }
+                            
+                            stack.Push(value);
                             break;
 
                         case OpCode.STORE_NAME:
@@ -513,7 +527,11 @@ namespace SharpPy
                 return NumberHelper.ToDouble(left).CompareTo(NumberHelper.ToDouble(right));
             if (left is PythonString ls && right is PythonString rs) 
                 return string.Compare(ls.Value, rs.Value);
-            throw new PythonException("TypeError", $"'<' not supported between instances");
+            
+            // 타입 정보를 제대로 출력하도록 수정
+            string leftType = left?.Type.ToString() ?? "None";
+            string rightType = right?.Type.ToString() ?? "None";
+            throw new PythonException("TypeError", $"'<' not supported between instances of '{leftType}' and '{rightType}'");
         }
 
         private void ExecuteFunctionCall(int argCount)
@@ -780,19 +798,20 @@ namespace SharpPy
 
             var funcEnv = new Environment(closure);
             
-            // Bind arguments to parameter names
-            for (int i = 0; i < Math.Min(code.VarNames.Count, arguments.Count); i++)
+            // 파라미터를 funcEnv에 바인딩
+            // VarNames를 사용하지만, 실제 변수명으로 환경에 설정
+            for (int i = 0; i < arguments.Count && i < code.VarNames.Count; i++)
             {
                 funcEnv.SetVariable(code.VarNames[i], arguments[i]);
             }
 
-            // Find the global environment (root parent)
+            // Find the global environment
             var globalEnv = closure;
             while (globalEnv.parent != null)
                 globalEnv = globalEnv.parent;
 
             var vm = new VirtualMachine(globalEnv);
-            return vm.Execute(code, funcEnv);
+            return vm.Execute(funcEnv, code);
         }
     }
 }

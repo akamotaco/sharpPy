@@ -1,8 +1,4 @@
 // bytecode_serialization_complete.cs
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text;
 
 namespace SharpPy
@@ -300,24 +296,24 @@ namespace SharpPy
             }
         }
 
-        public static PythonTypeObject Eval(string expression, Environment globals = null, Environment locals = null)
+        public static PythonTypeObject Eval(string expression, Environment globals, Environment locals)
         {
-            globals = globals ?? new Environment();
-            locals = locals ?? globals;
+            // globals = globals ?? new Environment();
+            // locals = locals ?? globals;
             
             var code = Compile(expression, "<eval>", "eval");
             var vm = new VirtualMachine(globals);
-            return vm.Execute(code, locals);
+            return vm.Execute(locals, code);
         }
 
-        public static PythonTypeObject Exec(string source, Environment globals = null, Environment locals = null)
+        public static PythonTypeObject Exec(string source, Environment globals, Environment locals)
         {
-            globals = globals ?? new Environment();
-            locals = locals ?? globals;
+            // globals = globals ?? new Environment();
+            // locals = locals ?? globals;
             
             var code = Compile(source, "<exec>", "exec");
             var vm = new VirtualMachine(globals);
-            return vm.Execute(code, locals);
+            return vm.Execute(locals, code);
         }
     }
 
