@@ -693,14 +693,8 @@ namespace SharpPy
 
         private int GetNameIndex(string name)
         {
-            // if (varNameMap.TryGetValue(name, out var index))
-            //     return index;
-            int index;
-            foreach (var kvp in varNameMap)
-            {
-                if (kvp.Key.Equals(name))
-                    return kvp.Value;
-            }
+            if (varNameMap.TryGetValue(name, out var index))
+                return index;
             
             index = names.Count;
             names.Add(name);
@@ -710,14 +704,8 @@ namespace SharpPy
 
         private int AddVarName(string name)
         {
-            // if (varNameMap.TryGetValue(name, out var index))
-            //     return index;
-            int index;
-            foreach (var kvp in varNameMap)
-            {
-                if (kvp.Key.Equals(name))
-                    return kvp.Value;
-            }
+            if (varNameMap.TryGetValue(name, out var index))
+                return index;
             
             index = varNames.Count;
             varNames.Add(name);
