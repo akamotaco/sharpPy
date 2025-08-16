@@ -202,6 +202,11 @@ namespace SharpPy
         public VirtualMachine(Environment globalEnv)
         {
             this.globalEnv = globalEnv;
+            // globalEnv에 builtin이 없으면 추가
+            if (!globalEnv.HasVariable("print"))
+            {
+                Environment.SetupBuiltins(globalEnv);
+            }
             frameStack = new Stack<Frame>();
         }
 
@@ -513,7 +518,11 @@ namespace SharpPy
                 return NumberHelper.ToDouble(left).CompareTo(NumberHelper.ToDouble(right));
             if (left is PythonString ls && right is PythonString rs) 
                 return string.Compare(ls.Value, rs.Value);
-            throw new PythonException("TypeError", $"'<' not supported between instances");
+            
+            // 타입 정보를 제대로 출력하도록 수정
+            string leftType = left?.Type.ToString() ?? "None";
+            string rightType = right?.Type.ToString() ?? "None";
+            throw new PythonException("TypeError", $"'<' not supported between instances of '{leftType}' and '{rightType}'");
         }
 
         private void ExecuteFunctionCall(int argCount)
@@ -780,8 +789,8 @@ namespace SharpPy
 
             var funcEnv = new Environment(closure);
             
-            // Bind arguments to parameter names
-            for (int i = 0; i < Math.Min(code.VarNames.Count, arguments.Count); i++)
+            // 파라미터를 funcEnv에 바인딩
+            for (int i = 0; i < arguments.Count && i < code.VarNames.Count; i++)
             {
                 funcEnv.SetVariable(code.VarNames[i], arguments[i]);
             }

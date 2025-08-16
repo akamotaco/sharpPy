@@ -15,22 +15,10 @@ namespace SharpPy
 
         public override PythonType Type => PythonType.Environment;
 
-        public Environment(Environment parent = null, bool setupBuiltins = true)
+        public Environment(Environment parent = null)
         {
             this.parent = parent;
-            if (parent == null && setupBuiltins)  // setupBuiltins가 true일 때만 builtin 설정
-            {
-                SetupBuiltins(this);
-                SearchPaths = new List<string> { "." };
-            }
-            else if (parent == null)
-            {
-                SearchPaths = new List<string> { "." };  // builtin 없이 SearchPaths만 설정
-            }
-            else
-            {
-                SearchPaths = parent.SearchPaths;
-            }
+            SearchPaths = parent?.SearchPaths ?? new List<string> { "." };
         }
 
         // Create Environment from PythonDict
@@ -59,7 +47,7 @@ namespace SharpPy
             return dict;
         }
 
-        static private void SetupBuiltins(Environment env)
+        public static void SetupBuiltins(Environment env)
         {
             env.SetVariable("print", new BuiltinFunction("print", args =>
             {
@@ -830,11 +818,6 @@ namespace SharpPy
         }
 
         public bool HasVariable(string name) => variables.ContainsKey(name) || (parent?.HasVariable(name) ?? false);
-
-        public Dictionary<string, PythonTypeObject> GetOwnVariables()
-        {
-            return new Dictionary<string, PythonTypeObject>(variables);
-        }
         
         public Dictionary<string, PythonTypeObject> GetAllVariables()
         {

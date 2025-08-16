@@ -22,6 +22,7 @@ namespace SharpPy
         public PythonInterpreter(bool useBytecode = false)
         {
             globalEnv = new Environment();
+            Environment.SetupBuiltins(globalEnv);  // 명시적으로 builtin 설정
             virtualMachine = new VirtualMachine(globalEnv);
             this.useBytecode = useBytecode;
         }
@@ -29,6 +30,12 @@ namespace SharpPy
         public void SetGlobalEnv(Environment env) 
         {
             globalEnv = env;
+            Console.WriteLine("일단 주석처리");
+            // 새로운 환경이 설정될 때 builtin이 없으면 추가
+                // if (!env.HasVariable("print"))
+                // {
+                //     Environment.SetupBuiltins(env);
+                // }
             virtualMachine = new VirtualMachine(globalEnv);
         }
         
@@ -963,7 +970,6 @@ def dynamic_op(x, y):
     return x {op} y
 '''
     exec(code, globals())
-    print(globals())
     return dynamic_op
 
 # Create addition function dynamically

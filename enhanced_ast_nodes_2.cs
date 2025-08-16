@@ -596,11 +596,10 @@ namespace SharpPy
                 // import * 체크 - "*"라는 특별한 이름으로 구분
                 if (ImportItems.Count == 1 && ImportItems[0].Name == "*")
                 {
-                    // 모듈 자체의 변수만 가져옴 (builtin 제외)
-                    var moduleVars = module.ModuleEnv.GetOwnVariables();  // GetAllVariables 대신 GetOwnVariables 사용
-                    foreach (var kvp in moduleVars)
+                    // 모듈의 모든 속성을 가져옴 (이제 builtin이 없으므로 깔끔함)
+                    var allVars = module.ModuleEnv.GetAllVariables();
+                    foreach (var kvp in allVars)
                     {
-                        Console.WriteLine($"Importing {kvp.Key} from {ModuleName}");
                         // 언더스코어로 시작하지 않는 것들만 import
                         if (!kvp.Key.StartsWith("_"))
                         {
@@ -610,7 +609,7 @@ namespace SharpPy
                 }
                 else
                 {
-                    // 기존 코드 그대로 - from module import specific items
+                    // 기존 코드 그대로
                     foreach (var (name, alias) in ImportItems)
                     {
                         try
