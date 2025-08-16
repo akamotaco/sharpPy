@@ -1,4 +1,6 @@
 // bytecode_compiler.cs
+using System.Collections.Generic;
+using System.Linq;
 
 namespace SharpPy
 {
@@ -258,7 +260,7 @@ namespace SharpPy
         {
             foreach (var element in node.Elements)
                 CompileNode(element);
-            
+
             Emit(OpCode.BUILD_LIST, node.Elements.Count, node.Line);
         }
 
@@ -266,7 +268,7 @@ namespace SharpPy
         {
             foreach (var element in node.Elements)
                 CompileNode(element);
-            
+
             Emit(OpCode.BUILD_TUPLE, node.Elements.Count, node.Line);
         }
 
@@ -277,17 +279,17 @@ namespace SharpPy
                 CompileNode(key);
                 CompileNode(value);
             }
-            
+
             Emit(OpCode.BUILD_DICT, node.Pairs.Count, node.Line);
         }
 
         private void CompileFunctionCall(FunctionCallNode node)
         {
             CompileNode(node.Function);
-            
+
             foreach (var arg in node.Arguments)
                 CompileNode(arg);
-            
+
             Emit(OpCode.CALL_FUNCTION, node.Arguments.Count, node.Line);
         }
 
@@ -323,22 +325,22 @@ namespace SharpPy
         private void CompileIf(IfNode node)
         {
             CompileNode(node.Condition);
-            
+
             var elseLabel = instructions.Count + 1;
             Emit(OpCode.JUMP_IF_FALSE, elseLabel); // Will be patched
-            
+
             foreach (var stmt in node.ThenBody)
                 CompileNode(stmt);
-            
+
             var endLabel = instructions.Count + 1;
             Emit(OpCode.JUMP_ABSOLUTE, endLabel); // Will be patched
-            
+
             // Patch else jump
             instructions[elseLabel - 1] = new Instruction(OpCode.JUMP_IF_FALSE, instructions.Count, node.Line);
-            
+
             foreach (var stmt in node.ElseBody)
                 CompileNode(stmt);
-            
+
             // Patch end jump
             instructions[endLabel - 1] = new Instruction(OpCode.JUMP_ABSOLUTE, instructions.Count, node.Line);
         }
@@ -347,18 +349,18 @@ namespace SharpPy
         {
             CompileNode(node.Iterable);
             Emit(OpCode.GET_ITER);
-            
+
             var loopStart = instructions.Count;
             Emit(OpCode.FOR_ITER, 0); // Will be patched with exit address
-            
+
             // Store iterator value in loop variable
             EmitStoreName(node.Variable);
-            
+
             foreach (var stmt in node.Body)
                 CompileNode(stmt);
-            
+
             Emit(OpCode.JUMP_ABSOLUTE, loopStart);
-            
+
             // Patch FOR_ITER to jump here when done
             instructions[loopStart] = new Instruction(OpCode.FOR_ITER, instructions.Count);
         }
@@ -366,16 +368,16 @@ namespace SharpPy
         private void CompileWhile(WhileNode node)
         {
             var loopStart = instructions.Count;
-            
+
             CompileNode(node.Condition);
             Emit(OpCode.JUMP_IF_FALSE, 0); // Will be patched
             var exitJump = instructions.Count - 1;
-            
+
             foreach (var stmt in node.Body)
                 CompileNode(stmt);
-            
+
             Emit(OpCode.JUMP_ABSOLUTE, loopStart);
-            
+
             // Patch exit jump
             instructions[exitJump] = new Instruction(OpCode.JUMP_IF_FALSE, instructions.Count, node.Line);
         }
@@ -386,27 +388,27 @@ namespace SharpPy
                 CompileNode(node.Value);
             else
                 EmitLoadConst(PythonNone.Instance);
-            
+
             Emit(OpCode.RETURN_VALUE, 0, node.Line);
         }
 
         private void CompileConditionalExpression(ConditionalExpressionNode node)
         {
             CompileNode(node.Condition);
-            
+
             var falseLabel = instructions.Count + 1;
             Emit(OpCode.JUMP_IF_FALSE, falseLabel); // Will be patched
-            
+
             CompileNode(node.TrueValue);
-            
+
             var endLabel = instructions.Count + 1;
             Emit(OpCode.JUMP_ABSOLUTE, endLabel); // Will be patched
-            
+
             // Patch false jump
             instructions[falseLabel - 1] = new Instruction(OpCode.JUMP_IF_FALSE, instructions.Count, node.Line);
-            
+
             CompileNode(node.FalseValue);
-            
+
             // Patch end jump
             instructions[endLabel - 1] = new Instruction(OpCode.JUMP_ABSOLUTE, instructions.Count, node.Line);
         }
@@ -430,7 +432,7 @@ namespace SharpPy
                 funcCompiler.CompileNode(stmt);
 
             // Add implicit return None if no explicit return
-            if (funcCompiler.instructions.Count == 0 || 
+            if (funcCompiler.instructions.Count == 0 ||
                 funcCompiler.instructions.Last().OpCode != OpCode.RETURN_VALUE)
             {
                 funcCompiler.EmitLoadConst(PythonNone.Instance);
@@ -456,7 +458,7 @@ namespace SharpPy
         private void CompileMultipleAssignment(MultipleAssignmentNode node)
         {
             CompileNode(node.Value);
-            
+
             // For now, use a simplified approach
             // In a full implementation, we'd use UNPACK_SEQUENCE opcode
             for (int i = 0; i < node.VariableNames.Count; i++)
@@ -472,7 +474,7 @@ namespace SharpPy
                     Emit(OpCode.LOAD_CONST, GetConstantIndex(new PythonInt(i)));
                     Emit(OpCode.LOAD_INDEX);
                 }
-                
+
                 if (node.VariableNames[i] != "_") // Skip underscore variables
                     EmitStoreName(node.VariableNames[i]);
                 else
@@ -484,7 +486,7 @@ namespace SharpPy
         {
             EmitLoadConst(new PythonString(node.ModuleName));
             Emit(OpCode.IMPORT_NAME, 0, node.Line);
-            
+
             var storeName = node.Alias ?? node.ModuleName;
             EmitStoreName(storeName);
         }
@@ -493,12 +495,12 @@ namespace SharpPy
         {
             EmitLoadConst(new PythonString(node.ModuleName));
             Emit(OpCode.IMPORT_NAME, 0, node.Line);
-            
+
             foreach (var (itemName, alias) in node.ImportItems)
             {
                 EmitLoadConst(new PythonString(itemName));
                 Emit(OpCode.IMPORT_FROM, 0, node.Line);
-                
+
                 var storeName = alias ?? itemName;
                 EmitStoreName(storeName);
             }
@@ -531,7 +533,7 @@ namespace SharpPy
         {
             // Build the f-string at runtime
             EmitLoadConst(new PythonString(""));  // Start with empty string
-            
+
             foreach (var (text, expr) in node.Parts)
             {
                 if (expr != null)
@@ -550,7 +552,7 @@ namespace SharpPy
                 {
                     continue;
                 }
-                
+
                 // Concatenate with previous string
                 Emit(OpCode.BINARY_ADD);
             }
@@ -560,29 +562,29 @@ namespace SharpPy
         {
             // Create empty list
             Emit(OpCode.BUILD_LIST, 0);
-            
+
             // Compile iterable
             CompileNode(node.Iterable);
             Emit(OpCode.GET_ITER);
-            
+
             var loopStart = instructions.Count;
             Emit(OpCode.FOR_ITER, 0); // Will be patched with exit address
-            
+
             // Store iterator value in loop variable
             EmitStoreName(node.Variable);
-            
+
             // Check condition if exists
             if (node.Condition != null)
             {
                 CompileNode(node.Condition);
                 var skipLabel = instructions.Count + 1;
                 Emit(OpCode.JUMP_IF_FALSE, skipLabel); // Will be patched
-                
+
                 // Evaluate expression and append to list
                 CompileNode(node.Expression);
                 // Note: In real implementation, we'd need a way to append to the list
                 // For now, this is simplified
-                
+
                 // Patch skip jump
                 instructions[skipLabel - 1] = new Instruction(OpCode.JUMP_IF_FALSE, instructions.Count);
             }
@@ -592,9 +594,9 @@ namespace SharpPy
                 CompileNode(node.Expression);
                 // Simplified - in real implementation would append to list
             }
-            
+
             Emit(OpCode.JUMP_ABSOLUTE, loopStart);
-            
+
             // Patch FOR_ITER to jump here when done
             instructions[loopStart] = new Instruction(OpCode.FOR_ITER, instructions.Count);
         }
@@ -603,10 +605,10 @@ namespace SharpPy
         {
             // Load current value
             EmitLoadName(node.VariableName);
-            
+
             // Load new value
             CompileNode(node.Value);
-            
+
             // Apply operation
             var opCode = node.Operator switch
             {
@@ -618,9 +620,9 @@ namespace SharpPy
                 "**=" => OpCode.BINARY_POWER,
                 _ => throw new PythonException("CompileError", $"Unknown compound operator: {node.Operator}")
             };
-            
+
             Emit(opCode);
-            
+
             // Store result back
             EmitStoreName(node.VariableName);
         }
@@ -629,10 +631,10 @@ namespace SharpPy
         {
             // Simplified with statement compilation
             // In a full implementation, this would be more complex
-            
+
             // Compile context expression
             CompileNode(node.ContextExpression);
-            
+
             // Store in temporary variable if 'as' clause is present
             if (!string.IsNullOrEmpty(node.Variable))
             {
@@ -642,7 +644,7 @@ namespace SharpPy
             {
                 Emit(OpCode.POP_TOP);  // Discard if no variable
             }
-            
+
             // Compile body
             foreach (var stmt in node.Body)
             {
@@ -677,11 +679,11 @@ namespace SharpPy
         private int GetConstantIndex(PythonTypeObject value)
         {
             var key = value ?? PythonNone.Instance;
-            
+
             // constantMap을 올바르게 체크
             if (constantMap.TryGetValue(key, out var index))
                 return index;
-            
+
             index = constants.Count;
             constants.Add(value);
             constantMap[key] = index;
@@ -693,7 +695,7 @@ namespace SharpPy
             // nameMap을 체크해야 함 (varNameMap이 아님!)
             if (nameMap.TryGetValue(name, out var index))
                 return index;
-            
+
             index = names.Count;
             names.Add(name);
             nameMap[name] = index;
@@ -704,7 +706,7 @@ namespace SharpPy
         {
             if (varNameMap.TryGetValue(name, out var index))
                 return index;
-            
+
             index = varNames.Count;
             varNames.Add(name);
             varNameMap[name] = index;

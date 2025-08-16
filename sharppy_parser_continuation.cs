@@ -1,4 +1,6 @@
 // enhanced_parser_continuation.cs
+using System.Collections.Generic;
+using System.Linq;
 
 namespace SharpPy
 {
@@ -172,10 +174,10 @@ namespace SharpPy
             int column = currentToken.Column;
 
             Expect(TokenType.WITH);
-            
+
             // Parse context expression
             var contextExpr = ParseExpression();
-            
+
             // Check for 'as' clause
             string variable = null;
             if (currentToken.Type == TokenType.AS)
@@ -184,13 +186,13 @@ namespace SharpPy
                 variable = currentToken.Value;
                 Expect(TokenType.IDENTIFIER);
             }
-            
+
             Expect(TokenType.COLON);
             SkipNewlines();
-            
+
             // Parse body
             var body = ParseBlock();
-            
+
             return new WithNode(contextExpr, variable, body, line, column);
         }
 
@@ -201,10 +203,10 @@ namespace SharpPy
             int column = currentToken.Column;
 
             Expect(TokenType.DEL);
-            
+
             string variableName = currentToken.Value;
             Expect(TokenType.IDENTIFIER);
-            
+
             return new DelNode(variableName, line, column);
         }
 
@@ -217,11 +219,11 @@ namespace SharpPy
             {
                 // from module import name [as alias], name2 [as alias2], ...
                 Expect(TokenType.FROM);
-                
+
                 // Parse module name (could be package.module)
                 string moduleName = currentToken.Value;
                 Expect(TokenType.IDENTIFIER);
-                
+
                 // Handle package.module notation
                 while (currentToken.Type == TokenType.DOT)
                 {
@@ -229,9 +231,9 @@ namespace SharpPy
                     moduleName += "." + currentToken.Value;
                     Expect(TokenType.IDENTIFIER);
                 }
-                
+
                 Expect(TokenType.IMPORT);
-                
+
                 if (currentToken.Type == TokenType.OPERATOR && currentToken.Value == "*")
                 {
                     Advance(); // Skip '*'
@@ -245,15 +247,15 @@ namespace SharpPy
                 //     Advance(); // Skip '*'
                 //     return new FromImportNode(moduleName, null, true, line, column); // ImportAll = true
                 // }
-                
+
                 // Parse import items
                 var importItems = new List<(string, string)>();
-                
+
                 do
                 {
                     string itemName = currentToken.Value;
                     Expect(TokenType.IDENTIFIER);
-                    
+
                     string alias = null;
                     if (currentToken.Type == TokenType.AS)
                     {
@@ -261,9 +263,9 @@ namespace SharpPy
                         alias = currentToken.Value;
                         Expect(TokenType.IDENTIFIER);
                     }
-                    
+
                     importItems.Add((itemName, alias));
-                    
+
                     if (currentToken.Type == TokenType.COMMA)
                     {
                         Advance(); // Skip ','
@@ -273,18 +275,18 @@ namespace SharpPy
                         break;
                     }
                 } while (currentToken.Type == TokenType.IDENTIFIER);
-                
+
                 return new FromImportNode(moduleName, importItems, line, column);
             }
             else
             {
                 // import module [as alias]
                 Expect(TokenType.IMPORT);
-                
+
                 // Parse module name (could be package.module)
                 string moduleName = currentToken.Value;
                 Expect(TokenType.IDENTIFIER);
-                
+
                 // Handle package.module notation
                 while (currentToken.Type == TokenType.DOT)
                 {
@@ -789,7 +791,7 @@ namespace SharpPy
                 case TokenType.NUMBER:
                     string numberStr = currentToken.Value;
                     object numberValue;
-                    
+
                     // Parse as int or float
                     if (numberStr.Contains('.'))
                     {
@@ -803,7 +805,7 @@ namespace SharpPy
                         else
                             numberValue = double.Parse(numberStr);
                     }
-                    
+
                     Advance();
                     return new NumberNode(numberValue, line, column);
 
@@ -895,7 +897,7 @@ namespace SharpPy
 
             // Parse parameters (same format as function parameters but no parentheses)
             var parameters = new List<Parameter>();
-            
+
             // Check if there are parameters (if not immediately followed by colon)
             if (currentToken.Type != TokenType.COLON)
             {
@@ -944,7 +946,7 @@ namespace SharpPy
             int column = currentToken.Column;
 
             Expect(TokenType.LBRACKET);
-            
+
             // Skip any newlines after opening bracket
             SkipNewlinesAndIndents();
 
@@ -957,7 +959,7 @@ namespace SharpPy
 
             // Parse first expression - but NOT as a full conditional expression for list comprehension
             var firstExpr = ParseOrExpression(); // Use ParseOrExpression instead of ParseExpression to avoid conditional
-            
+
             // Skip newlines
             SkipNewlinesAndIndents();
 
@@ -966,14 +968,14 @@ namespace SharpPy
             {
                 // This is a list comprehension: [expr for var in iterable if condition]
                 Advance(); // Skip 'for'
-                
+
                 string variable = currentToken.Value;
                 Expect(TokenType.IDENTIFIER);
-                
+
                 Expect(TokenType.IN);
-                
+
                 var iterable = ParseOrExpression(); // Parse iterable without conditional
-                
+
                 // Check for optional 'if' clause
                 ASTNode condition = null;
                 if (currentToken.Type == TokenType.IF)
@@ -981,15 +983,15 @@ namespace SharpPy
                     Advance(); // Skip 'if'
                     condition = ParseOrExpression(); // Parse condition
                 }
-                
+
                 Expect(TokenType.RBRACKET);
-                
+
                 return new ListComprehensionNode(firstExpr, variable, iterable, condition, line, column);
             }
-            
+
             // Regular list literal
             var elements = new List<ASTNode> { firstExpr };
-            
+
             while (currentToken.Type == TokenType.COMMA)
             {
                 Advance(); // Skip comma
@@ -998,7 +1000,7 @@ namespace SharpPy
                 // Allow trailing comma
                 if (currentToken.Type == TokenType.RBRACKET)
                     break;
-                    
+
                 elements.Add(ParseExpression());
                 SkipNewlinesAndIndents();
             }

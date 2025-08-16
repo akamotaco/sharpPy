@@ -1,4 +1,6 @@
 // enhanced_lexer_parser.cs
+using System;
+using System.Collections.Generic;
 using System.Text;
 using System.Runtime.CompilerServices;
 
