@@ -1,31 +1,29 @@
-// enhanced_core_types.cs
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.IO;
+using System.Runtime.CompilerServices;
 
 namespace SharpPy
 {
     // Core Enums
-    public enum TokenType
+    public enum TokenType : byte // Changed to byte for memory optimization
     {
         // Literals
-        NUMBER, STRING, BOOLEAN, NONE, IDENTIFIER, FSTRING, // Added FSTRING
+        NUMBER, STRING, BOOLEAN, NONE, IDENTIFIER, FSTRING,
         // Keywords
         DEF, CLASS, IF, ELSE, ELIF, FOR, WHILE, IN, IS, BREAK, CONTINUE,
         TRY, EXCEPT, FINALLY, RAISE, IMPORT, FROM, AS, RETURN, AND, OR, NOT, LAMBDA,
-        WITH, DEL, // Added WITH and DEL for with statement and del keyword
+        WITH, DEL,
         // Operators
-        OPERATOR, ASSIGN,
-        COMPOUND_ASSIGN, // Added for +=, -=, *=, /=, etc.
+        OPERATOR, ASSIGN, COMPOUND_ASSIGN,
         // Delimiters
         LPAREN, RPAREN, LBRACKET, RBRACKET, LBRACE, RBRACE, COLON, COMMA, DOT,
         // Special
         NEWLINE, EOF, INDENT, DEDENT
     }
 
-    public enum PythonType
+    public enum PythonType : byte // Changed to byte for memory optimization
     {
         Int, Float, String, Boolean, None, List, Dict, Tuple, Function, Class, Instance, Module, Environment
     }
@@ -37,45 +35,62 @@ namespace SharpPy
         public abstract bool IsTrue();
         public abstract string ToPythonString();
         public abstract bool Equals(PythonTypeObject other);
-        
-        // Helper method to get C# value for interop
         public abstract object GetRawValue();
         
         public override string ToString() => ToPythonString();
         
-        // Type checking helpers
+        // Virtual methods with default implementations
         public virtual bool IsNumber() => false;
         public virtual bool IsSequence() => false;
         public virtual bool IsCallable() => false;
         
-        // Conversion methods
-        public virtual PythonInt ToInt()
-        {
+        public virtual PythonInt ToInt() => 
             throw new PythonException("TypeError", $"Cannot convert {Type} to int");
-        }
         
-        public virtual PythonFloat ToFloat()
-        {
+        public virtual PythonFloat ToFloat() => 
             throw new PythonException("TypeError", $"Cannot convert {Type} to float");
-        }
         
-        public virtual PythonString ToStr()
-        {
-            return new PythonString(ToPythonString());
-        }
-        
-        public virtual PythonBool ToBool()
-        {
-            return new PythonBool(IsTrue());
-        }
+        public virtual PythonString ToStr() => new PythonString(ToPythonString());
+        public virtual PythonBool ToBool() => new PythonBool(IsTrue());
     }
 
-    // Python Integer type
-    public class PythonInt : PythonTypeObject
+    // Optimized Python Integer type with value caching
+    public sealed class PythonInt : PythonTypeObject
     {
+        // Cache small integers for better performance
+        private static readonly Dictionary<int, PythonInt> SmallIntCache = new Dictionary<int, PythonInt>();
+        private const int CacheMin = -128;
+        private const int CacheMax = 256;
+        
+        static PythonInt()
+        {
+            for (int i = CacheMin; i <= CacheMax; i++)
+                SmallIntCache[i] = new PythonInt(i, false);
+        }
+        
         public int Value { get; }
         
-        public PythonInt(int value) => Value = value;
+        private PythonInt(int value, bool bypassCache) => Value = value;
+        
+        public PythonInt(int value)
+        {
+            if (value >= CacheMin && value <= CacheMax)
+            {
+                var cached = SmallIntCache[value];
+                Value = cached.Value;
+            }
+            else
+            {
+                Value = value;
+            }
+        }
+        
+        public static PythonInt Create(int value)
+        {
+            if (value >= CacheMin && value <= CacheMax)
+                return SmallIntCache[value];
+            return new PythonInt(value, false);
+        }
         
         public override PythonType Type => PythonType.Int;
         public override bool IsTrue() => Value != 0;
@@ -83,66 +98,61 @@ namespace SharpPy
         public override object GetRawValue() => Value;
         public override bool IsNumber() => true;
         
-        public override bool Equals(PythonTypeObject other)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public override bool Equals(PythonTypeObject other) => other switch
         {
-            if (other is PythonInt pi) return Value == pi.Value;
-            if (other is PythonFloat pf) return Value == pf.Value;
-            if (other is PythonBool pb) return Value == (pb.Value ? 1 : 0);
-            return false;
-        }
+            PythonInt pi => Value == pi.Value,
+            PythonFloat pf => Value == pf.Value,
+            PythonBool pb => Value == (pb.Value ? 1 : 0),
+            _ => false
+        };
         
         public override PythonInt ToInt() => this;
-        
         public override PythonFloat ToFloat() => new PythonFloat(Value);
-        
         public override int GetHashCode() => Value.GetHashCode();
         
-        // Arithmetic operations
-        public PythonTypeObject Add(PythonTypeObject other)
+        // Optimized arithmetic operations
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public PythonTypeObject Add(PythonTypeObject other) => other switch
         {
-            if (other is PythonInt pi) return new PythonInt(Value + pi.Value);
-            if (other is PythonFloat pf) return new PythonFloat(Value + pf.Value);
-            if (other is PythonBool pb) return new PythonInt(Value + (pb.Value ? 1 : 0));
-            throw new PythonException("TypeError", $"unsupported operand type(s) for +: 'int' and '{other.Type}'");
-        }
+            PythonInt pi => Create(Value + pi.Value),
+            PythonFloat pf => new PythonFloat(Value + pf.Value),
+            PythonBool pb => Create(Value + (pb.Value ? 1 : 0)),
+            _ => throw new PythonException("TypeError", $"unsupported operand type(s) for +: 'int' and '{other.Type}'")
+        };
         
-        public PythonTypeObject Subtract(PythonTypeObject other)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public PythonTypeObject Subtract(PythonTypeObject other) => other switch
         {
-            if (other is PythonInt pi) return new PythonInt(Value - pi.Value);
-            if (other is PythonFloat pf) return new PythonFloat(Value - pf.Value);
-            if (other is PythonBool pb) return new PythonInt(Value - (pb.Value ? 1 : 0));
-            throw new PythonException("TypeError", $"unsupported operand type(s) for -: 'int' and '{other.Type}'");
-        }
+            PythonInt pi => Create(Value - pi.Value),
+            PythonFloat pf => new PythonFloat(Value - pf.Value),
+            PythonBool pb => Create(Value - (pb.Value ? 1 : 0)),
+            _ => throw new PythonException("TypeError", $"unsupported operand type(s) for -: 'int' and '{other.Type}'")
+        };
         
-        public PythonTypeObject Multiply(PythonTypeObject other)
+        public PythonTypeObject Multiply(PythonTypeObject other) => other switch
         {
-            if (other is PythonInt pi) return new PythonInt(Value * pi.Value);
-            if (other is PythonFloat pf) return new PythonFloat(Value * pf.Value);
-            if (other is PythonBool pb) return new PythonInt(Value * (pb.Value ? 1 : 0));
-            if (other is PythonString ps) return ps.Repeat(Value);
-            if (other is PythonList pl) return pl.Repeat(Value);
-            if (other is PythonTuple pt) return pt.Repeat(Value);
-            throw new PythonException("TypeError", $"unsupported operand type(s) for *: 'int' and '{other.Type}'");
-        }
+            PythonInt pi => Create(Value * pi.Value),
+            PythonFloat pf => new PythonFloat(Value * pf.Value),
+            PythonBool pb => Create(Value * (pb.Value ? 1 : 0)),
+            PythonString ps => ps.Repeat(Value),
+            PythonList pl => pl.Repeat(Value),
+            PythonTuple pt => pt.Repeat(Value),
+            _ => throw new PythonException("TypeError", $"unsupported operand type(s) for *: 'int' and '{other.Type}'")
+        };
         
         public PythonTypeObject Divide(PythonTypeObject other)
         {
-            if (other is PythonInt pi)
+            var divisor = other switch
             {
-                if (pi.Value == 0) throw new PythonException("ZeroDivisionError", "division by zero");
-                return new PythonFloat((double)Value / pi.Value);
-            }
-            if (other is PythonFloat pf)
-            {
-                if (pf.Value == 0) throw new PythonException("ZeroDivisionError", "division by zero");
-                return new PythonFloat(Value / pf.Value);
-            }
-            if (other is PythonBool pb)
-            {
-                if (!pb.Value) throw new PythonException("ZeroDivisionError", "division by zero");
-                return new PythonFloat(Value);
-            }
-            throw new PythonException("TypeError", $"unsupported operand type(s) for /: 'int' and '{other.Type}'");
+                PythonInt pi => pi.Value,
+                PythonFloat pf => pf.Value,
+                PythonBool pb => pb.Value ? 1.0 : 0.0,
+                _ => throw new PythonException("TypeError", $"unsupported operand type(s) for /: 'int' and '{other.Type}'")
+            };
+            
+            if (divisor == 0) throw new PythonException("ZeroDivisionError", "division by zero");
+            return new PythonFloat(Value / divisor);
         }
         
         public PythonTypeObject Modulo(PythonTypeObject other)
@@ -150,7 +160,7 @@ namespace SharpPy
             if (other is PythonInt pi)
             {
                 if (pi.Value == 0) throw new PythonException("ZeroDivisionError", "integer modulo by zero");
-                return new PythonInt(Value % pi.Value);
+                return Create(Value % pi.Value);
             }
             if (other is PythonFloat pf)
             {
@@ -166,18 +176,18 @@ namespace SharpPy
             {
                 var result = Math.Pow(Value, pi.Value);
                 if (result == Math.Truncate(result) && result >= int.MinValue && result <= int.MaxValue)
-                    return new PythonInt((int)result);
+                    return Create((int)result);
                 return new PythonFloat(result);
             }
             if (other is PythonFloat pf) return new PythonFloat(Math.Pow(Value, pf.Value));
             throw new PythonException("TypeError", $"unsupported operand type(s) for **: 'int' and '{other.Type}'");
         }
         
-        public PythonInt Negate() => new PythonInt(-Value);
+        public PythonInt Negate() => Create(-Value);
     }
 
     // Python Float type
-    public class PythonFloat : PythonTypeObject
+    public sealed class PythonFloat : PythonTypeObject
     {
         public double Value { get; }
         
@@ -189,125 +199,125 @@ namespace SharpPy
         public override object GetRawValue() => Value;
         public override bool IsNumber() => true;
         
-        public override bool Equals(PythonTypeObject other)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public override bool Equals(PythonTypeObject other) => other switch
         {
-            if (other is PythonFloat pf) return Value == pf.Value;
-            if (other is PythonInt pi) return Value == pi.Value;
-            if (other is PythonBool pb) return Value == (pb.Value ? 1 : 0);
-            return false;
-        }
+            PythonFloat pf => Value == pf.Value,
+            PythonInt pi => Value == pi.Value,
+            PythonBool pb => Value == (pb.Value ? 1 : 0),
+            _ => false
+        };
         
-        public override PythonInt ToInt() => new PythonInt((int)Math.Truncate(Value));
-        
+        public override PythonInt ToInt() => PythonInt.Create((int)Math.Truncate(Value));
         public override PythonFloat ToFloat() => this;
-        
         public override int GetHashCode() => Value.GetHashCode();
         
         // Arithmetic operations
-        public PythonTypeObject Add(PythonTypeObject other)
+        public PythonTypeObject Add(PythonTypeObject other) => other switch
         {
-            if (other is PythonFloat pf) return new PythonFloat(Value + pf.Value);
-            if (other is PythonInt pi) return new PythonFloat(Value + pi.Value);
-            if (other is PythonBool pb) return new PythonFloat(Value + (pb.Value ? 1 : 0));
-            throw new PythonException("TypeError", $"unsupported operand type(s) for +: 'float' and '{other.Type}'");
-        }
+            PythonFloat pf => new PythonFloat(Value + pf.Value),
+            PythonInt pi => new PythonFloat(Value + pi.Value),
+            PythonBool pb => new PythonFloat(Value + (pb.Value ? 1 : 0)),
+            _ => throw new PythonException("TypeError", $"unsupported operand type(s) for +: 'float' and '{other.Type}'")
+        };
         
-        public PythonTypeObject Subtract(PythonTypeObject other)
+        public PythonTypeObject Subtract(PythonTypeObject other) => other switch
         {
-            if (other is PythonFloat pf) return new PythonFloat(Value - pf.Value);
-            if (other is PythonInt pi) return new PythonFloat(Value - pi.Value);
-            if (other is PythonBool pb) return new PythonFloat(Value - (pb.Value ? 1 : 0));
-            throw new PythonException("TypeError", $"unsupported operand type(s) for -: 'float' and '{other.Type}'");
-        }
+            PythonFloat pf => new PythonFloat(Value - pf.Value),
+            PythonInt pi => new PythonFloat(Value - pi.Value),
+            PythonBool pb => new PythonFloat(Value - (pb.Value ? 1 : 0)),
+            _ => throw new PythonException("TypeError", $"unsupported operand type(s) for -: 'float' and '{other.Type}'")
+        };
         
-        public PythonTypeObject Multiply(PythonTypeObject other)
+        public PythonTypeObject Multiply(PythonTypeObject other) => other switch
         {
-            if (other is PythonFloat pf) return new PythonFloat(Value * pf.Value);
-            if (other is PythonInt pi) return new PythonFloat(Value * pi.Value);
-            if (other is PythonBool pb) return new PythonFloat(Value * (pb.Value ? 1 : 0));
-            throw new PythonException("TypeError", $"unsupported operand type(s) for *: 'float' and '{other.Type}'");
-        }
+            PythonFloat pf => new PythonFloat(Value * pf.Value),
+            PythonInt pi => new PythonFloat(Value * pi.Value),
+            PythonBool pb => new PythonFloat(Value * (pb.Value ? 1 : 0)),
+            _ => throw new PythonException("TypeError", $"unsupported operand type(s) for *: 'float' and '{other.Type}'")
+        };
         
         public PythonTypeObject Divide(PythonTypeObject other)
         {
-            if (other is PythonFloat pf)
+            var divisor = other switch
             {
-                if (pf.Value == 0) throw new PythonException("ZeroDivisionError", "float division by zero");
-                return new PythonFloat(Value / pf.Value);
-            }
-            if (other is PythonInt pi)
-            {
-                if (pi.Value == 0) throw new PythonException("ZeroDivisionError", "float division by zero");
-                return new PythonFloat(Value / pi.Value);
-            }
-            if (other is PythonBool pb)
-            {
-                if (!pb.Value) throw new PythonException("ZeroDivisionError", "float division by zero");
-                return new PythonFloat(Value);
-            }
-            throw new PythonException("TypeError", $"unsupported operand type(s) for /: 'float' and '{other.Type}'");
+                PythonFloat pf => pf.Value,
+                PythonInt pi => (double)pi.Value,
+                PythonBool pb => pb.Value ? 1.0 : 0.0,
+                _ => throw new PythonException("TypeError", $"unsupported operand type(s) for /: 'float' and '{other.Type}'")
+            };
+            
+            if (divisor == 0) throw new PythonException("ZeroDivisionError", "float division by zero");
+            return new PythonFloat(Value / divisor);
         }
         
         public PythonTypeObject Modulo(PythonTypeObject other)
         {
-            if (other is PythonFloat pf)
+            var divisor = other switch
             {
-                if (pf.Value == 0) throw new PythonException("ZeroDivisionError", "float modulo");
-                return new PythonFloat(Value % pf.Value);
-            }
-            if (other is PythonInt pi)
-            {
-                if (pi.Value == 0) throw new PythonException("ZeroDivisionError", "float modulo");
-                return new PythonFloat(Value % pi.Value);
-            }
-            throw new PythonException("TypeError", $"unsupported operand type(s) for %: 'float' and '{other.Type}'");
+                PythonFloat pf => pf.Value,
+                PythonInt pi => (double)pi.Value,
+                _ => throw new PythonException("TypeError", $"unsupported operand type(s) for %: 'float' and '{other.Type}'")
+            };
+            
+            if (divisor == 0) throw new PythonException("ZeroDivisionError", "float modulo");
+            return new PythonFloat(Value % divisor);
         }
         
-        public PythonTypeObject Power(PythonTypeObject other)
+        public PythonTypeObject Power(PythonTypeObject other) => other switch
         {
-            if (other is PythonFloat pf) return new PythonFloat(Math.Pow(Value, pf.Value));
-            if (other is PythonInt pi) return new PythonFloat(Math.Pow(Value, pi.Value));
-            throw new PythonException("TypeError", $"unsupported operand type(s) for **: 'float' and '{other.Type}'");
-        }
+            PythonFloat pf => new PythonFloat(Math.Pow(Value, pf.Value)),
+            PythonInt pi => new PythonFloat(Math.Pow(Value, pi.Value)),
+            _ => throw new PythonException("TypeError", $"unsupported operand type(s) for **: 'float' and '{other.Type}'")
+        };
         
         public PythonFloat Negate() => new PythonFloat(-Value);
     }
 
-    // Python Boolean type
-    public class PythonBool : PythonTypeObject
+    // Optimized Boolean with singleton pattern
+    public sealed class PythonBool : PythonTypeObject
     {
+        public static readonly PythonBool True = new PythonBool(true);
+        public static readonly PythonBool False = new PythonBool(false);
+        
         public bool Value { get; }
         
         public PythonBool(bool value) => Value = value;
+        
+        public static PythonBool Create(bool value) => value ? True : False;
         
         public override PythonType Type => PythonType.Boolean;
         public override bool IsTrue() => Value;
         public override string ToPythonString() => Value ? "True" : "False";
         public override object GetRawValue() => Value;
         
-        public override bool Equals(PythonTypeObject other)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public override bool Equals(PythonTypeObject other) => other switch
         {
-            if (other is PythonBool pb) return Value == pb.Value;
-            if (other is PythonInt pi) return (Value ? 1 : 0) == pi.Value;
-            if (other is PythonFloat pf) return (Value ? 1 : 0) == pf.Value;
-            return false;
-        }
+            PythonBool pb => Value == pb.Value,
+            PythonInt pi => (Value ? 1 : 0) == pi.Value,
+            PythonFloat pf => (Value ? 1 : 0) == pf.Value,
+            _ => false
+        };
         
-        public override PythonInt ToInt() => new PythonInt(Value ? 1 : 0);
-        
+        public override PythonInt ToInt() => PythonInt.Create(Value ? 1 : 0);
         public override PythonFloat ToFloat() => new PythonFloat(Value ? 1.0 : 0.0);
-        
         public override PythonBool ToBool() => this;
-        
         public override int GetHashCode() => Value.GetHashCode();
     }
 
-    // Python String type
-    public class PythonString : PythonTypeObject
+    // Optimized String type
+    public sealed class PythonString : PythonTypeObject
     {
+        private static readonly PythonString EmptyString = new PythonString("");
+        
         public string Value { get; }
+        public int Length => Value.Length;
 
         public PythonString(string value) => Value = value ?? "";
+        
+        public static PythonString Create(string value) => 
+            string.IsNullOrEmpty(value) ? EmptyString : new PythonString(value);
 
         public override PythonType Type => PythonType.String;
         public override bool IsTrue() => !string.IsNullOrEmpty(Value);
@@ -315,16 +325,14 @@ namespace SharpPy
         public override object GetRawValue() => Value;
         public override bool IsSequence() => true;
 
-        public override bool Equals(PythonTypeObject other)
-        {
-            if (other is PythonString ps) return Value == ps.Value;
-            return false;
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public override bool Equals(PythonTypeObject other) => 
+            other is PythonString ps && Value == ps.Value;
 
         public override PythonInt ToInt()
         {
             if (int.TryParse(Value, out var result))
-                return new PythonInt(result);
+                return PythonInt.Create(result);
             throw new PythonException("ValueError", $"invalid literal for int() with base 10: '{Value}'");
         }
 
@@ -336,10 +344,8 @@ namespace SharpPy
         }
 
         public override PythonString ToStr() => this;
-
         public override int GetHashCode() => Value.GetHashCode();
 
-        // String operations
         public PythonString Add(PythonTypeObject other)
         {
             if (other is PythonString ps) return new PythonString(Value + ps.Value);
@@ -348,11 +354,14 @@ namespace SharpPy
 
         public PythonString Repeat(int times)
         {
-            if (times < 0) times = 0;
-            return new PythonString(string.Concat(Enumerable.Repeat(Value, times)));
+            if (times <= 0) return EmptyString;
+            if (times == 1) return this;
+            
+            var sb = new StringBuilder(Value.Length * times);
+            for (int i = 0; i < times; i++)
+                sb.Append(Value);
+            return new PythonString(sb.ToString());
         }
-
-        public int Length => Value.Length;
 
         public PythonString GetItem(int index)
         {
@@ -400,37 +409,30 @@ namespace SharpPy
             return new PythonString(result.ToString());
         }
 
-        public bool Contains(PythonTypeObject other)
-        {
-            if (other is PythonString ps)
-                return Value.Contains(ps.Value);
-            return false;
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Contains(PythonTypeObject other) => 
+            other is PythonString ps && Value.Contains(ps.Value);
 
-        public BuiltinFunction GetMethod(string name)
+        public BuiltinFunction GetMethod(string name) => name switch
         {
-            return name switch
+            "upper" => new BuiltinFunction("upper", args =>
             {
-                "upper" => new BuiltinFunction("upper", args =>
-                {
-                    if (args.Count != 0) throw new PythonException("TypeError", "append() takes exactly no argument");
-                    return new PythonString(this.Value.ToUpper());
-                }),
-                "lower" => new BuiltinFunction("lower", args =>
-                {
-                    if (args.Count != 0) throw new PythonException("TypeError", "append() takes exactly no argument");
-                    return new PythonString(this.Value.ToLower());
-                }),
-                _ => throw new PythonException("AttributeError", $"'list' object has no attribute '{name}'")
-            };
-        }
+                if (args.Count != 0) throw new PythonException("TypeError", "upper() takes no arguments");
+                return new PythonString(Value.ToUpper());
+            }),
+            "lower" => new BuiltinFunction("lower", args =>
+            {
+                if (args.Count != 0) throw new PythonException("TypeError", "lower() takes no arguments");
+                return new PythonString(Value.ToLower());
+            }),
+            _ => throw new PythonException("AttributeError", $"'str' object has no attribute '{name}'")
+        };
     }
 
-    // Python None type
-    public class PythonNone : PythonTypeObject
+    // Optimized None singleton
+    public sealed class PythonNone : PythonTypeObject
     {
-        private static PythonNone _instance;
-        public static PythonNone Instance => _instance ??= new PythonNone();
+        public static readonly PythonNone Instance = new PythonNone();
         
         private PythonNone() { }
         
@@ -438,14 +440,12 @@ namespace SharpPy
         public override bool IsTrue() => false;
         public override string ToPythonString() => "None";
         public override object GetRawValue() => null;
-        
         public override bool Equals(PythonTypeObject other) => other is PythonNone;
-        
         public override int GetHashCode() => 0;
     }
 
-    // Enhanced Exception Classes with Line/Column Information
-    public class PythonException : Exception
+    // Enhanced Exception Classes
+    public sealed class PythonException : Exception
     {
         public string Type { get; }
         public int Line { get; }
@@ -461,64 +461,63 @@ namespace SharpPy
             FileName = fileName;
         }
 
-        public override string ToString()
-        {
-            if (Line > 0)
-                return $"  File \"{FileName}\", line {Line}, column {Column}\n{Type}: {Message}";
-            else
-                return $"  File \"{FileName}\"\n{Type}: {Message}";
-        }
+        public override string ToString() => Line > 0 
+            ? $"  File \"{FileName}\", line {Line}, column {Column}\n{Type}: {Message}"
+            : $"  File \"{FileName}\"\n{Type}: {Message}";
     }
 
-    public class ReturnException : Exception
+    public sealed class ReturnException : Exception
     {
         public PythonTypeObject Value { get; }
         public ReturnException(PythonTypeObject value) => Value = value;
     }
 
-    public class BreakException : Exception { }
-    public class ContinueException : Exception { }
+    public sealed class BreakException : Exception { }
+    public sealed class ContinueException : Exception { }
 
     // Type Hint System
     public abstract class TypeHint
     {
         public abstract bool IsCompatible(PythonTypeObject value);
-        public abstract override string ToString();
     }
 
-    public class SimpleTypeHint : TypeHint
+    public sealed class SimpleTypeHint : TypeHint
     {
+        private static readonly Dictionary<PythonType, SimpleTypeHint> Cache = new Dictionary<PythonType, SimpleTypeHint>();
+        
         public PythonType Type { get; }
         
-        public SimpleTypeHint(PythonType type) => Type = type;
-
-        public override bool IsCompatible(PythonTypeObject value)
+        internal SimpleTypeHint(PythonType type) => Type = type;
+        
+        public static SimpleTypeHint Create(PythonType type)
         {
-            if (value == null) return Type == PythonType.None;
-            return value.Type == Type;
-        }
-
-        public override string ToString()
-        {
-            return Type switch
+            if (!Cache.TryGetValue(type, out var hint))
             {
-                PythonType.Int => "int",
-                PythonType.Float => "float",
-                PythonType.String => "str",
-                PythonType.Boolean => "bool",
-                PythonType.None => "None",
-                PythonType.List => "list",
-                PythonType.Dict => "dict",
-                PythonType.Tuple => "tuple",
-                PythonType.Function => "function",
-                PythonType.Class => "class",
-                PythonType.Instance => "object",
-                _ => "Any"
-            };
+                hint = new SimpleTypeHint(type);
+                Cache[type] = hint;
+            }
+            return hint;
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public override bool IsCompatible(PythonTypeObject value) => 
+            value == null ? Type == PythonType.None : value.Type == Type;
+
+        public override string ToString() => Type switch
+        {
+            PythonType.Int => "int",
+            PythonType.Float => "float",
+            PythonType.String => "str",
+            PythonType.Boolean => "bool",
+            PythonType.None => "None",
+            PythonType.List => "list",
+            PythonType.Dict => "dict",
+            PythonType.Tuple => "tuple",
+            _ => "Any"
+        };
     }
 
-    public class GenericTypeHint : TypeHint
+    public sealed class GenericTypeHint : TypeHint
     {
         public PythonType BaseType { get; }
         public List<TypeHint> GenericArgs { get; }
@@ -533,42 +532,40 @@ namespace SharpPy
         {
             if (value == null) return false;
             
-            if (BaseType == PythonType.List && value is PythonList list)
+            switch (BaseType)
             {
-                if (GenericArgs.Count == 0) return true;
-                var elementType = GenericArgs[0];
-                return list.Items.All(item => elementType.IsCompatible(item));
+                case PythonType.List when value is PythonList list:
+                    return GenericArgs.Count == 0 || list.Items.All(item => GenericArgs[0].IsCompatible(item));
+                    
+                case PythonType.Dict when value is PythonDict dict:
+                    if (GenericArgs.Count < 2) return true;
+                    var keyType = GenericArgs[0];
+                    var valueType = GenericArgs[1];
+                    return dict.Items.All(kvp => keyType.IsCompatible(kvp.Key) && valueType.IsCompatible(kvp.Value));
+                    
+                case PythonType.Tuple when value is PythonTuple tuple:
+                    if (GenericArgs.Count == 0) return true;
+                    if (GenericArgs.Count != tuple.Items.Count) return false;
+                    for (int i = 0; i < GenericArgs.Count; i++)
+                    {
+                        if (!GenericArgs[i].IsCompatible(tuple.Items[i]))
+                            return false;
+                    }
+                    return true;
+                    
+                default:
+                    return SimpleTypeHint.Create(BaseType).IsCompatible(value);
             }
-            if (BaseType == PythonType.Dict && value is PythonDict dict)
-            {
-                if (GenericArgs.Count < 2) return true;
-                var keyType = GenericArgs[0];
-                var valueType = GenericArgs[1];
-                return dict.Items.All(kvp => keyType.IsCompatible(kvp.Key) && valueType.IsCompatible(kvp.Value));
-            }
-            if (BaseType == PythonType.Tuple && value is PythonTuple tuple)
-            {
-                if (GenericArgs.Count == 0) return true;
-                if (GenericArgs.Count != tuple.Items.Count) return false;
-                for (int i = 0; i < GenericArgs.Count; i++)
-                {
-                    if (!GenericArgs[i].IsCompatible(tuple.Items[i]))
-                        return false;
-                }
-                return true;
-            }
-            return new SimpleTypeHint(BaseType).IsCompatible(value);
         }
 
         public override string ToString()
         {
-            var baseStr = new SimpleTypeHint(BaseType).ToString();
-            if (GenericArgs.Count == 0) return baseStr;
-            return $"{baseStr}[{string.Join(", ", GenericArgs.Select(g => g.ToString()))}]";
+            var baseStr = SimpleTypeHint.Create(BaseType).ToString();
+            return GenericArgs.Count == 0 ? baseStr : $"{baseStr}[{string.Join(", ", GenericArgs)}]";
         }
     }
 
-    public class Parameter
+    public sealed class Parameter
     {
         public string Name { get; }
         public TypeHint TypeHint { get; }
@@ -580,8 +577,8 @@ namespace SharpPy
         }
     }
 
-    // Enhanced Token Class with Line/Column Information
-    public class Token
+    // Enhanced Token Class
+    public sealed class Token
     {
         public TokenType Type { get; }
         public string Value { get; }
@@ -599,117 +596,105 @@ namespace SharpPy
         public override string ToString() => $"Token({Type}, {Value}) at {Line}:{Column}";
     }
 
-    // Helper class for number operations - Updated to work with PythonTypeObject
+    // Optimized Helper class for number operations
     public static class NumberHelper
     {
-        public static bool IsNumber(PythonTypeObject obj) 
-            => obj is PythonInt || obj is PythonFloat || obj is PythonBool;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsNumber(PythonTypeObject obj) => 
+            obj is PythonInt || obj is PythonFloat || obj is PythonBool;
         
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsInteger(PythonTypeObject obj) => obj is PythonInt;
         
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsFloat(PythonTypeObject obj) => obj is PythonFloat;
 
-        public static double ToDouble(PythonTypeObject obj)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static double ToDouble(PythonTypeObject obj) => obj switch
         {
-            return obj switch
-            {
-                PythonInt pi => pi.Value,
-                PythonFloat pf => pf.Value,
-                PythonBool pb => pb.Value ? 1.0 : 0.0,
-                _ => throw new ArgumentException("Not a number")
-            };
-        }
+            PythonInt pi => pi.Value,
+            PythonFloat pf => pf.Value,
+            PythonBool pb => pb.Value ? 1.0 : 0.0,
+            _ => throw new ArgumentException("Not a number")
+        };
 
-        public static int ToInt(PythonTypeObject obj)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int ToInt(PythonTypeObject obj) => obj switch
         {
-            return obj switch
-            {
-                PythonInt pi => pi.Value,
-                PythonFloat pf => (int)Math.Truncate(pf.Value),
-                PythonBool pb => pb.Value ? 1 : 0,
-                _ => throw new ArgumentException("Not a number")
-            };
-        }
+            PythonInt pi => pi.Value,
+            PythonFloat pf => (int)Math.Truncate(pf.Value),
+            PythonBool pb => pb.Value ? 1 : 0,
+            _ => throw new ArgumentException("Not a number")
+        };
 
-        // Python-like division: returns float for true division
-        public static PythonTypeObject Divide(PythonTypeObject left, PythonTypeObject right)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static PythonTypeObject Divide(PythonTypeObject left, PythonTypeObject right) => left switch
         {
-            if (left is PythonInt li)
-                return li.Divide(right);
-            if (left is PythonFloat lf)
-                return lf.Divide(right);
-            throw new PythonException("TypeError", "unsupported operand type(s) for /");
-        }
+            PythonInt li => li.Divide(right),
+            PythonFloat lf => lf.Divide(right),
+            _ => throw new PythonException("TypeError", "unsupported operand type(s) for /")
+        };
 
-        // Python-like arithmetic: preserves int when possible
-        public static PythonTypeObject Add(PythonTypeObject left, PythonTypeObject right)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static PythonTypeObject Add(PythonTypeObject left, PythonTypeObject right) => left switch
         {
-            if (left is PythonInt li)
-                return li.Add(right);
-            if (left is PythonFloat lf)
-                return lf.Add(right);
-            throw new PythonException("TypeError", "unsupported operand type(s) for +");
-        }
+            PythonInt li => li.Add(right),
+            PythonFloat lf => lf.Add(right),
+            _ => throw new PythonException("TypeError", "unsupported operand type(s) for +")
+        };
 
-        public static PythonTypeObject Subtract(PythonTypeObject left, PythonTypeObject right)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static PythonTypeObject Subtract(PythonTypeObject left, PythonTypeObject right) => left switch
         {
-            if (left is PythonInt li)
-                return li.Subtract(right);
-            if (left is PythonFloat lf)
-                return lf.Subtract(right);
-            throw new PythonException("TypeError", "unsupported operand type(s) for -");
-        }
+            PythonInt li => li.Subtract(right),
+            PythonFloat lf => lf.Subtract(right),
+            _ => throw new PythonException("TypeError", "unsupported operand type(s) for -")
+        };
 
-        public static PythonTypeObject Multiply(PythonTypeObject left, PythonTypeObject right)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static PythonTypeObject Multiply(PythonTypeObject left, PythonTypeObject right) => left switch
         {
-            if (left is PythonInt li)
-                return li.Multiply(right);
-            if (left is PythonFloat lf)
-                return lf.Multiply(right);
-            throw new PythonException("TypeError", "unsupported operand type(s) for *");
-        }
+            PythonInt li => li.Multiply(right),
+            PythonFloat lf => lf.Multiply(right),
+            _ => throw new PythonException("TypeError", "unsupported operand type(s) for *")
+        };
 
-        public static PythonTypeObject Modulo(PythonTypeObject left, PythonTypeObject right)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static PythonTypeObject Modulo(PythonTypeObject left, PythonTypeObject right) => left switch
         {
-            if (left is PythonInt li)
-                return li.Modulo(right);
-            if (left is PythonFloat lf)
-                return lf.Modulo(right);
-            throw new PythonException("TypeError", "unsupported operand type(s) for %");
-        }
+            PythonInt li => li.Modulo(right),
+            PythonFloat lf => lf.Modulo(right),
+            _ => throw new PythonException("TypeError", "unsupported operand type(s) for %")
+        };
 
-        public static PythonTypeObject Power(PythonTypeObject left, PythonTypeObject right)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static PythonTypeObject Power(PythonTypeObject left, PythonTypeObject right) => left switch
         {
-            if (left is PythonInt li)
-                return li.Power(right);
-            if (left is PythonFloat lf)
-                return lf.Power(right);
-            throw new PythonException("TypeError", "unsupported operand type(s) for **");
-        }
+            PythonInt li => li.Power(right),
+            PythonFloat lf => lf.Power(right),
+            _ => throw new PythonException("TypeError", "unsupported operand type(s) for **")
+        };
 
-        public static PythonTypeObject Negate(PythonTypeObject operand)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static PythonTypeObject Negate(PythonTypeObject operand) => operand switch
         {
-            return operand switch
-            {
-                PythonInt pi => pi.Negate(),
-                PythonFloat pf => pf.Negate(),
-                _ => throw new ArgumentException("Cannot negate non-number")
-            };
-        }
+            PythonInt pi => pi.Negate(),
+            PythonFloat pf => pf.Negate(),
+            _ => throw new ArgumentException("Cannot negate non-number")
+        };
         
-        // Convert C# native types to Python types
-        public static PythonTypeObject ToPythonObject(object obj)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static PythonTypeObject ToPythonObject(object obj) => obj switch
         {
-            return obj switch
-            {
-                null => PythonNone.Instance,
-                PythonTypeObject pto => pto,
-                int i => new PythonInt(i),
-                double d => new PythonFloat(d),
-                bool b => new PythonBool(b),
-                string s => new PythonString(s),
-                _ => throw new ArgumentException($"Cannot convert {obj.GetType()} to Python type")
-            };
-        }
+            null => PythonNone.Instance,
+            PythonTypeObject pto => pto,
+            int i => PythonInt.Create(i),
+            double d => new PythonFloat(d),
+            bool b => PythonBool.Create(b),
+            string s => new PythonString(s),
+            _ => throw new ArgumentException($"Cannot convert {obj.GetType()} to Python type")
+        };
     }
 }
+
+// enhanced_core_types.cs

@@ -1,14 +1,24 @@
-// enhanced_python_types.cs
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace SharpPy
 {
-    // Python Data Types (Updated to inherit from PythonTypeObject)
-    public class PythonList : PythonTypeObject
+    // Optimized Python List
+    public sealed class PythonList : PythonTypeObject
     {
-        public List<PythonTypeObject> Items { get; } = new List<PythonTypeObject>();
+        public List<PythonTypeObject> Items { get; }
+        
+        public PythonList()
+        {
+            Items = new List<PythonTypeObject>();
+        }
+        
+        public PythonList(int capacity)
+        {
+            Items = new List<PythonTypeObject>(capacity);
+        }
         
         public override PythonType Type => PythonType.List;
         public override bool IsTrue() => Items.Count > 0;
@@ -17,153 +27,143 @@ namespace SharpPy
         
         public override string ToPythonString()
         {
+            if (Items.Count == 0) return "[]";
             return "[" + string.Join(", ", Items.Select(FormatItem)) + "]";
         }
         
         public override bool Equals(PythonTypeObject other)
         {
-            if (other is PythonList pl)
+            if (!(other is PythonList pl) || Items.Count != pl.Items.Count)
+                return false;
+            
+            for (int i = 0; i < Items.Count; i++)
             {
-                if (Items.Count != pl.Items.Count) return false;
-                for (int i = 0; i < Items.Count; i++)
-                {
-                    if (!Items[i].Equals(pl.Items[i])) return false;
-                }
-                return true;
+                if (!Items[i].Equals(pl.Items[i]))
+                    return false;
             }
-            return false;
+            return true;
         }
         
-        public override int GetHashCode()
-        {
-            // Lists are mutable and shouldn't be hashed
+        public override int GetHashCode() => 
             throw new PythonException("TypeError", "unhashable type: 'list'");
-        }
 
-        public BuiltinFunction GetMethod(string name)
+        public BuiltinFunction GetMethod(string name) => name switch
         {
-            return name switch
-            {
-                "append" => new BuiltinFunction("append", args =>
+            "append" => new BuiltinFunction("append", args => {
+                if (args.Count != 1) throw new PythonException("TypeError", "append() takes exactly one argument");
+                Items.Add(args[0]);
+                return PythonNone.Instance;
+            }),
+            "extend" => new BuiltinFunction("extend", args => {
+                if (args.Count != 1) throw new PythonException("TypeError", "extend() takes exactly one argument");
+                switch (args[0])
                 {
-                    if (args.Count != 1) throw new PythonException("TypeError", "append() takes exactly one argument");
-                    Items.Add(args[0]);
-                    return PythonNone.Instance;
-                }),
-                "extend" => new BuiltinFunction("extend", args =>
-                {
-                    if (args.Count != 1) throw new PythonException("TypeError", "extend() takes exactly one argument");
-                    if (args[0] is PythonList other)
+                    case PythonList other:
                         Items.AddRange(other.Items);
-                    else if (args[0] is PythonTuple tuple)
+                        break;
+                    case PythonTuple tuple:
                         Items.AddRange(tuple.Items);
-                    else if (args[0] is PythonString str)
-                    {
+                        break;
+                    case PythonString str:
                         foreach (char c in str.Value)
                             Items.Add(new PythonString(c.ToString()));
-                    }
-                    else throw new PythonException("TypeError", "extend() argument must be iterable");
-                    return PythonNone.Instance;
-                }),
-                "insert" => new BuiltinFunction("insert", args =>
+                        break;
+                    default:
+                        throw new PythonException("TypeError", "extend() argument must be iterable");
+                }
+                return PythonNone.Instance;
+            }),
+            "insert" => new BuiltinFunction("insert", args => {
+                if (args.Count != 2) throw new PythonException("TypeError", "insert() takes exactly two arguments");
+                if (!NumberHelper.IsNumber(args[0]))
+                    throw new PythonException("TypeError", "insert() first argument must be an integer");
+                
+                int i = NumberHelper.ToInt(args[0]);
+                if (i < 0) i = Math.Max(0, Items.Count + i);
+                if (i > Items.Count) i = Items.Count;
+                Items.Insert(i, args[1]);
+                return PythonNone.Instance;
+            }),
+            "remove" => new BuiltinFunction("remove", args => {
+                if (args.Count != 1) throw new PythonException("TypeError", "remove() takes exactly one argument");
+                for (int i = 0; i < Items.Count; i++)
                 {
-                    if (args.Count != 2) throw new PythonException("TypeError", "insert() takes exactly two arguments");
-                    if (!NumberHelper.IsNumber(args[0]))
-                        throw new PythonException("TypeError", "insert() first argument must be an integer");
-                    
-                    int i = NumberHelper.ToInt(args[0]);
-                    var value = args[1];
-                    if (i < 0) i = Math.Max(0, Items.Count + i);
-                    if (i > Items.Count) i = Items.Count;
-                    Items.Insert(i, value);
-                    return PythonNone.Instance;
-                }),
-                "remove" => new BuiltinFunction("remove", args =>
-                {
-                    if (args.Count != 1) throw new PythonException("TypeError", "remove() takes exactly one argument");
-                    for (int i = 0; i < Items.Count; i++)
+                    if (Items[i].Equals(args[0]))
                     {
-                        if (Items[i].Equals(args[0]))
-                        {
-                            Items.RemoveAt(i);
-                            return PythonNone.Instance;
-                        }
+                        Items.RemoveAt(i);
+                        return PythonNone.Instance;
                     }
-                    throw new PythonException("ValueError", "list.remove(x): x not in list");
-                }),
-                "pop" => new BuiltinFunction("pop", args =>
-                {
-                    if (args.Count > 1) throw new PythonException("TypeError", "pop() takes at most 1 argument");
-                    if (Items.Count == 0) throw new PythonException("IndexError", "pop from empty list");
+                }
+                throw new PythonException("ValueError", "list.remove(x): x not in list");
+            }),
+            "pop" => new BuiltinFunction("pop", args => {
+                if (args.Count > 1) throw new PythonException("TypeError", "pop() takes at most 1 argument");
+                if (Items.Count == 0) throw new PythonException("IndexError", "pop from empty list");
 
-                    int index = args.Count == 0 ? Items.Count - 1 : NumberHelper.ToInt(args[0]);
-                    if (index < 0) index += Items.Count;
-                    if (index < 0 || index >= Items.Count) throw new PythonException("IndexError", "pop index out of range");
+                int index = args.Count == 0 ? Items.Count - 1 : NumberHelper.ToInt(args[0]);
+                if (index < 0) index += Items.Count;
+                if (index < 0 || index >= Items.Count) 
+                    throw new PythonException("IndexError", "pop index out of range");
 
-                    var item = Items[index];
-                    Items.RemoveAt(index);
-                    return item;
-                }),
-                "clear" => new BuiltinFunction("clear", args =>
+                var item = Items[index];
+                Items.RemoveAt(index);
+                return item;
+            }),
+            "clear" => new BuiltinFunction("clear", args => {
+                if (args.Count != 0) throw new PythonException("TypeError", "clear() takes no arguments");
+                Items.Clear();
+                return PythonNone.Instance;
+            }),
+            "index" => new BuiltinFunction("index", args => {
+                if (args.Count != 1) throw new PythonException("TypeError", "index() takes exactly one argument");
+                for (int i = 0; i < Items.Count; i++)
                 {
-                    if (args.Count != 0) throw new PythonException("TypeError", "clear() takes no arguments");
-                    Items.Clear();
-                    return PythonNone.Instance;
-                }),
-                "index" => new BuiltinFunction("index", args =>
-                {
-                    if (args.Count != 1) throw new PythonException("TypeError", "index() takes exactly one argument");
-                    for (int i = 0; i < Items.Count; i++)
-                    {
-                        if (Items[i].Equals(args[0]))
-                            return new PythonInt(i);
-                    }
-                    throw new PythonException("ValueError", $"{args[0]} is not in list");
-                }),
-                "count" => new BuiltinFunction("count", args =>
-                {
-                    if (args.Count != 1) throw new PythonException("TypeError", "count() takes exactly one argument");
-                    return new PythonInt(Items.Count(item => item.Equals(args[0])));
-                }),
-                "sort" => new BuiltinFunction("sort", args =>
-                {
-                    if (args.Count > 1) throw new PythonException("TypeError", "sort() takes at most 1 argument");
-                    Items.Sort((a, b) =>
-                    {
-                        if (NumberHelper.IsNumber(a) && NumberHelper.IsNumber(b))
-                            return NumberHelper.ToDouble(a).CompareTo(NumberHelper.ToDouble(b));
-                        if (a is PythonString sa && b is PythonString sb) 
-                            return string.Compare(sa.Value, sb.Value);
-                        return 0;
-                    });
-                    return PythonNone.Instance;
-                }),
-                "reverse" => new BuiltinFunction("reverse", args =>
-                {
-                    if (args.Count != 0) throw new PythonException("TypeError", "reverse() takes no arguments");
-                    Items.Reverse();
-                    return PythonNone.Instance;
-                }),
-                _ => throw new PythonException("AttributeError", $"'list' object has no attribute '{name}'")
-            };
-        }
+                    if (Items[i].Equals(args[0]))
+                        return PythonInt.Create(i);
+                }
+                throw new PythonException("ValueError", $"{args[0]} is not in list");
+            }),
+            "count" => new BuiltinFunction("count", args => {
+                if (args.Count != 1) throw new PythonException("TypeError", "count() takes exactly one argument");
+                return PythonInt.Create(Items.Count(item => item.Equals(args[0])));
+            }),
+            "sort" => new BuiltinFunction("sort", args => {
+                if (args.Count > 1) throw new PythonException("TypeError", "sort() takes at most 1 argument");
+                Items.Sort((a, b) => {
+                    if (NumberHelper.IsNumber(a) && NumberHelper.IsNumber(b))
+                        return NumberHelper.ToDouble(a).CompareTo(NumberHelper.ToDouble(b));
+                    if (a is PythonString sa && b is PythonString sb) 
+                        return string.Compare(sa.Value, sb.Value);
+                    return 0;
+                });
+                return PythonNone.Instance;
+            }),
+            "reverse" => new BuiltinFunction("reverse", args => {
+                if (args.Count != 0) throw new PythonException("TypeError", "reverse() takes no arguments");
+                Items.Reverse();
+                return PythonNone.Instance;
+            }),
+            _ => throw new PythonException("AttributeError", $"'list' object has no attribute '{name}'")
+        };
 
-        private string FormatItem(PythonTypeObject item)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static string FormatItem(PythonTypeObject item) => item switch
         {
-            if (item is PythonString s) return $"'{s.Value}'";
-            if (item is PythonNone) return "None";
-            return item.ToPythonString();
-        }
+            PythonString s => $"'{s.Value}'",
+            PythonNone => "None",
+            _ => item.ToPythonString()
+        };
         
         public PythonList Repeat(int times)
         {
-            if (times < 0) times = 0;
-            var result = new PythonList();
+            if (times <= 0) return new PythonList();
+            var result = new PythonList(Items.Count * times);
             for (int i = 0; i < times; i++)
                 result.Items.AddRange(Items);
             return result;
         }
         
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public PythonTypeObject GetItem(int index)
         {
             if (index < 0) index += Items.Count;
@@ -172,6 +172,7 @@ namespace SharpPy
             return Items[index];
         }
         
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetItem(int index, PythonTypeObject value)
         {
             if (index < 0) index += Items.Count;
@@ -181,9 +182,24 @@ namespace SharpPy
         }
     }
 
-    public class PythonTuple : PythonTypeObject
+    // Optimized Python Tuple
+    public sealed class PythonTuple : PythonTypeObject
     {
-        public List<PythonTypeObject> Items { get; } = new List<PythonTypeObject>();
+        private static readonly PythonTuple EmptyTuple = new PythonTuple();
+        
+        public List<PythonTypeObject> Items { get; }
+        
+        public PythonTuple()
+        {
+            Items = new List<PythonTypeObject>();
+        }
+        
+        public PythonTuple(int capacity)
+        {
+            Items = new List<PythonTypeObject>(capacity);
+        }
+        
+        public static PythonTuple Empty => EmptyTuple;
         
         public override PythonType Type => PythonType.Tuple;
         public override bool IsTrue() => Items.Count > 0;
@@ -199,67 +215,61 @@ namespace SharpPy
         
         public override bool Equals(PythonTypeObject other)
         {
-            if (other is PythonTuple pt)
+            if (!(other is PythonTuple pt) || Items.Count != pt.Items.Count)
+                return false;
+            
+            for (int i = 0; i < Items.Count; i++)
             {
-                if (Items.Count != pt.Items.Count) return false;
-                for (int i = 0; i < Items.Count; i++)
-                {
-                    if (!Items[i].Equals(pt.Items[i])) return false;
-                }
-                return true;
+                if (!Items[i].Equals(pt.Items[i]))
+                    return false;
             }
-            return false;
+            return true;
         }
         
         public override int GetHashCode()
         {
             int hash = 17;
             foreach (var item in Items)
-            {
                 hash = hash * 31 + item.GetHashCode();
-            }
             return hash;
         }
 
-        public BuiltinFunction GetMethod(string name)
+        public BuiltinFunction GetMethod(string name) => name switch
         {
-            return name switch
-            {
-                "count" => new BuiltinFunction("count", args =>
+            "count" => new BuiltinFunction("count", args => {
+                if (args.Count != 1) throw new PythonException("TypeError", "count() takes exactly one argument");
+                return PythonInt.Create(Items.Count(item => item.Equals(args[0])));
+            }),
+            "index" => new BuiltinFunction("index", args => {
+                if (args.Count != 1) throw new PythonException("TypeError", "index() takes exactly one argument");
+                for (int i = 0; i < Items.Count; i++)
                 {
-                    if (args.Count != 1) throw new PythonException("TypeError", "count() takes exactly one argument");
-                    return new PythonInt(Items.Count(item => item.Equals(args[0])));
-                }),
-                "index" => new BuiltinFunction("index", args =>
-                {
-                    if (args.Count != 1) throw new PythonException("TypeError", "index() takes exactly one argument");
-                    for (int i = 0; i < Items.Count; i++)
-                    {
-                        if (Items[i].Equals(args[0]))
-                            return new PythonInt(i);
-                    }
-                    throw new PythonException("ValueError", $"{args[0]} is not in tuple");
-                }),
-                _ => throw new PythonException("AttributeError", $"'tuple' object has no attribute '{name}'")
-            };
-        }
+                    if (Items[i].Equals(args[0]))
+                        return PythonInt.Create(i);
+                }
+                throw new PythonException("ValueError", $"{args[0]} is not in tuple");
+            }),
+            _ => throw new PythonException("AttributeError", $"'tuple' object has no attribute '{name}'")
+        };
 
-        private string FormatItem(PythonTypeObject item)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static string FormatItem(PythonTypeObject item) => item switch
         {
-            if (item is PythonString s) return $"'{s.Value}'";
-            if (item is PythonNone) return "None";
-            return item.ToPythonString();
-        }
+            PythonString s => $"'{s.Value}'",
+            PythonNone => "None",
+            _ => item.ToPythonString()
+        };
         
         public PythonTuple Repeat(int times)
         {
-            if (times < 0) times = 0;
-            var result = new PythonTuple();
+            if (times <= 0) return EmptyTuple;
+            var result = new PythonTuple(Items.Count * times);
             for (int i = 0; i < times; i++)
                 result.Items.AddRange(Items);
             return result;
         }
         
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public PythonTypeObject GetItem(int index)
         {
             if (index < 0) index += Items.Count;
@@ -269,9 +279,20 @@ namespace SharpPy
         }
     }
 
-    public class PythonDict : PythonTypeObject
+    // Optimized Python Dictionary
+    public sealed class PythonDict : PythonTypeObject
     {
-        public Dictionary<PythonTypeObject, PythonTypeObject> Items { get; } = new Dictionary<PythonTypeObject, PythonTypeObject>();
+        public Dictionary<PythonTypeObject, PythonTypeObject> Items { get; }
+        
+        public PythonDict()
+        {
+            Items = new Dictionary<PythonTypeObject, PythonTypeObject>();
+        }
+        
+        public PythonDict(int capacity)
+        {
+            Items = new Dictionary<PythonTypeObject, PythonTypeObject>(capacity);
+        }
         
         public override PythonType Type => PythonType.Dict;
         public override bool IsTrue() => Items.Count > 0;
@@ -286,161 +307,130 @@ namespace SharpPy
         
         public override bool Equals(PythonTypeObject other)
         {
-            if (other is PythonDict pd)
+            if (!(other is PythonDict pd) || Items.Count != pd.Items.Count)
+                return false;
+            
+            foreach (var kvp in Items)
             {
-                if (Items.Count != pd.Items.Count) return false;
+                bool found = false;
+                foreach (var pdKvp in pd.Items)
+                {
+                    if (pdKvp.Key.Equals(kvp.Key))
+                    {
+                        if (!pdKvp.Value.Equals(kvp.Value))
+                            return false;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) return false;
+            }
+            return true;
+        }
+        
+        public override int GetHashCode() => 
+            throw new PythonException("TypeError", "unhashable type: 'dict'");
+
+        public BuiltinFunction GetMethod(string name) => name switch
+        {
+            "get" => new BuiltinFunction("get", args => {
+                if (args.Count < 1 || args.Count > 2) 
+                    throw new PythonException("TypeError", "get() takes 1 or 2 arguments");
+                var key = args[0];
+                var defaultValue = args.Count == 2 ? args[1] : PythonNone.Instance;
+                
                 foreach (var kvp in Items)
                 {
-                    // if (!pd.Items.TryGetValue(kvp.Key, out var value) || !value.Equals(kvp.Value))
-                    //     return false;
-                    bool found = false;
-                    foreach (var pdKvp in pd.Items)
-                    {
-                        if (pdKvp.Key.Equals(kvp.Key))
-                        {
-                            if (!pdKvp.Value.Equals(kvp.Value))
-                                return false; // 값이 다르면 바로 false
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found) // 키를 못 찾았으면
-                        return false;
+                    if (kvp.Key.Equals(key))
+                        return kvp.Value;
                 }
-                return true;
-            }
-            return false;
-        }
-        
-        public override int GetHashCode()
-        {
-            // Dicts are mutable and shouldn't be hashed
-            throw new PythonException("TypeError", "unhashable type: 'dict'");
-        }
+                return defaultValue;
+            }),
+            "keys" => new BuiltinFunction("keys", args => {
+                if (args.Count != 0) throw new PythonException("TypeError", "keys() takes no arguments");
+                var list = new PythonList(Items.Count);
+                list.Items.AddRange(Items.Keys);
+                return list;
+            }),
+            "values" => new BuiltinFunction("values", args => {
+                if (args.Count != 0) throw new PythonException("TypeError", "values() takes no arguments");
+                var list = new PythonList(Items.Count);
+                list.Items.AddRange(Items.Values);
+                return list;
+            }),
+            "items" => new BuiltinFunction("items", args => {
+                if (args.Count != 0) throw new PythonException("TypeError", "items() takes no arguments");
+                var list = new PythonList(Items.Count);
+                foreach (var kvp in Items)
+                {
+                    var tuple = new PythonTuple(2);
+                    tuple.Items.Add(kvp.Key);
+                    tuple.Items.Add(kvp.Value);
+                    list.Items.Add(tuple);
+                }
+                return list;
+            }),
+            "pop" => new BuiltinFunction("pop", args => {
+                if (args.Count < 1 || args.Count > 2) 
+                    throw new PythonException("TypeError", "pop() takes 1 or 2 arguments");
+                var key = args[0];
+                foreach (var kvp in Items)
+                {
+                    if (kvp.Key.Equals(key))
+                    {
+                        Items.Remove(kvp.Key);
+                        return kvp.Value;
+                    }
+                }
+                if (args.Count == 2) return args[1];
+                throw new PythonException("KeyError", $"KeyError: {key}");
+            }),
+            "clear" => new BuiltinFunction("clear", args => {
+                if (args.Count != 0) throw new PythonException("TypeError", "clear() takes no arguments");
+                Items.Clear();
+                return PythonNone.Instance;
+            }),
+            "update" => new BuiltinFunction("update", args => {
+                if (args.Count != 1) throw new PythonException("TypeError", "update() takes exactly one argument");
+                if (!(args[0] is PythonDict other))
+                    throw new PythonException("TypeError", "update() argument must be a dict");
+                foreach (var kvp in other.Items)
+                    Items[kvp.Key] = kvp.Value;
+                return PythonNone.Instance;
+            }),
+            _ => throw new PythonException("AttributeError", $"'dict' object has no attribute '{name}'")
+        };
 
-        public BuiltinFunction GetMethod(string name)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static string FormatItem(PythonTypeObject item) => item switch
         {
-            return name switch
-            {
-                "get" => new BuiltinFunction("get", args =>
-                {
-                    if (args.Count < 1 || args.Count > 2) throw new PythonException("TypeError", "get() takes 1 or 2 arguments");
-                    var key = args[0];
-                    var defaultValue = args.Count == 2 ? args[1] : PythonNone.Instance;
-                    // return Items.TryGetValue(key, out var value) ? value : defaultValue;
-                    var res = defaultValue;
-                    foreach (var kvp in Items)
-                    {
-                        if (kvp.Key.Equals(key))
-                        {
-                            res = kvp.Value;
-                            break;
-                        }
-                    }
-                    return res;
-                }),
-                "keys" => new BuiltinFunction("keys", args =>
-                {
-                    if (args.Count != 0) throw new PythonException("TypeError", "keys() takes no arguments");
-                    var list = new PythonList();
-                    list.Items.AddRange(Items.Keys);
-                    return list;
-                }),
-                "values" => new BuiltinFunction("values", args =>
-                {
-                    if (args.Count != 0) throw new PythonException("TypeError", "values() takes no arguments");
-                    var list = new PythonList();
-                    list.Items.AddRange(Items.Values);
-                    return list;
-                }),
-                "items" => new BuiltinFunction("items", args =>
-                {
-                    if (args.Count != 0) throw new PythonException("TypeError", "items() takes no arguments");
-                    var list = new PythonList();
-                    foreach (var kvp in Items)
-                    {
-                        var tuple = new PythonTuple();
-                        tuple.Items.Add(kvp.Key);
-                        tuple.Items.Add(kvp.Value);
-                        list.Items.Add(tuple);
-                    }
-                    return list;
-                }),
-                "pop" => new BuiltinFunction("pop", args =>
-                {
-                    if (args.Count < 1 || args.Count > 2) throw new PythonException("TypeError", "pop() takes 1 or 2 arguments");
-                    var key = args[0];
-                    foreach (var kvp in Items)
-                    {
-                        if (kvp.Key.Equals(key))
-                        {
-                            Items.Remove(kvp.Key);
-                            return kvp.Value;
-                        }
-                    }
-                    // if (Items.TryGetValue(key, out var value))
-                    // {
-                    //     Items.Remove(key);
-                    //     return value;
-                    // }
-                    if (args.Count == 2) return args[1];
-                    throw new PythonException("KeyError", $"KeyError: {key}");
-                }),
-                "clear" => new BuiltinFunction("clear", args =>
-                {
-                    if (args.Count != 0) throw new PythonException("TypeError", "clear() takes no arguments");
-                    Items.Clear();
-                    return PythonNone.Instance;
-                }),
-                "update" => new BuiltinFunction("update", args =>
-                {
-                    if (args.Count != 1) throw new PythonException("TypeError", "update() takes exactly one argument");
-                    if (args[0] is PythonDict other)
-                    {
-                        foreach (var kvp in other.Items)
-                            Items[kvp.Key] = kvp.Value;
-                    }
-                    else
-                    {
-                        throw new PythonException("TypeError", "update() argument must be a dict");
-                    }
-                    return PythonNone.Instance;
-                }),
-                _ => throw new PythonException("AttributeError", $"'dict' object has no attribute '{name}'")
-            };
-        }
-
-        private string FormatItem(PythonTypeObject item)
-        {
-            if (item is PythonString s) return $"'{s.Value}'";
-            if (item is PythonNone) return "None";
-            return item.ToPythonString();
-        }
+            PythonString s => $"'{s.Value}'",
+            PythonNone => "None",
+            _ => item.ToPythonString()
+        };
         
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public PythonTypeObject GetItem(PythonTypeObject key)
         {
-            // if (Items.TryGetValue(key, out var value))
             foreach (var kvp in Items)
             {
                 if (kvp.Key.Equals(key))
                     return kvp.Value;
             }
-
             throw new PythonException("KeyError", $"KeyError: {key}");
         }
         
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetItem(PythonTypeObject key, PythonTypeObject value)
         {
             Items[key] = value;
         }
         
-        public bool ContainsKey(PythonTypeObject key)
-        {
-            return Items.ContainsKey(key);
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool ContainsKey(PythonTypeObject key) => Items.ContainsKey(key);
     }
 
-    // Function Classes (Enhanced with PythonTypeObject)
+    // Optimized Function Classes
     public abstract class Function : PythonTypeObject
     {
         public string Name { get; }
@@ -453,19 +443,19 @@ namespace SharpPy
         public override bool IsCallable() => true;
         public override string ToPythonString() => $"<function {Name}>";
         public override object GetRawValue() => this;
-        
         public override bool Equals(PythonTypeObject other) => ReferenceEquals(this, other);
         public override int GetHashCode() => base.GetHashCode();
     }
 
-    public class UserFunction : Function
+    public sealed class UserFunction : Function
     {
         public List<Parameter> Parameters { get; }
         public List<ASTNode> Body { get; }
         public Environment ClosureEnv { get; }
         public TypeHint ReturnTypeHint { get; }
 
-        public UserFunction(string name, List<Parameter> parameters, List<ASTNode> body, Environment closureEnv, TypeHint returnTypeHint = null)
+        public UserFunction(string name, List<Parameter> parameters, List<ASTNode> body, 
+                           Environment closureEnv, TypeHint returnTypeHint = null)
             : base(name)
         {
             Parameters = parameters;
@@ -477,18 +467,20 @@ namespace SharpPy
         public override PythonTypeObject Call(List<PythonTypeObject> arguments)
         {
             if (arguments.Count != Parameters.Count)
-                throw new PythonException("TypeError", $"Function {Name} expects {Parameters.Count} arguments, got {arguments.Count}");
+                throw new PythonException("TypeError", 
+                    $"Function {Name} expects {Parameters.Count} arguments, got {arguments.Count}");
 
             var funcEnv = new Environment(ClosureEnv);
 
-            // Type checking for parameters
+            // Type checking and parameter binding
             for (int i = 0; i < Parameters.Count; i++)
             {
                 var param = Parameters[i];
                 var arg = arguments[i];
 
                 if (param.TypeHint != null && !param.TypeHint.IsCompatible(arg))
-                    throw new PythonException("TypeError", $"Argument {i + 1} for parameter '{param.Name}' expected {param.TypeHint}, got {GetValueType(arg)}");
+                    throw new PythonException("TypeError", 
+                        $"Argument {i + 1} for parameter '{param.Name}' expected {param.TypeHint}, got {GetValueType(arg)}");
 
                 funcEnv.SetVariable(param.Name, arg);
             }
@@ -499,29 +491,27 @@ namespace SharpPy
                 foreach (var stmt in Body)
                     result = stmt.Evaluate(funcEnv);
 
-                // Type checking for return value
                 if (ReturnTypeHint != null && !ReturnTypeHint.IsCompatible(result))
-                    throw new PythonException("TypeError", $"Return value expected {ReturnTypeHint}, got {GetValueType(result)}");
+                    throw new PythonException("TypeError", 
+                        $"Return value expected {ReturnTypeHint}, got {GetValueType(result)}");
 
                 return result;
             }
             catch (ReturnException ex)
             {
-                // Type checking for return value
                 if (ReturnTypeHint != null && !ReturnTypeHint.IsCompatible(ex.Value))
-                    throw new PythonException("TypeError", $"Return value expected {ReturnTypeHint}, got {GetValueType(ex.Value)}");
+                    throw new PythonException("TypeError", 
+                        $"Return value expected {ReturnTypeHint}, got {GetValueType(ex.Value)}");
                 return ex.Value;
             }
         }
 
-        private string GetValueType(PythonTypeObject value)
-        {
-            if (value == null || value is PythonNone) return "None";
-            return value.Type.ToString().ToLower();
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static string GetValueType(PythonTypeObject value) => 
+            value == null || value is PythonNone ? "None" : value.Type.ToString().ToLower();
     }
 
-    public class LambdaFunction : Function
+    public sealed class LambdaFunction : Function
     {
         public List<Parameter> Parameters { get; }
         public ASTNode Body { get; }
@@ -538,39 +528,36 @@ namespace SharpPy
         public override PythonTypeObject Call(List<PythonTypeObject> arguments)
         {
             if (arguments.Count != Parameters.Count)
-                throw new PythonException("TypeError", $"Lambda function expects {Parameters.Count} arguments, got {arguments.Count}");
+                throw new PythonException("TypeError", 
+                    $"Lambda function expects {Parameters.Count} arguments, got {arguments.Count}");
 
             var funcEnv = new Environment(ClosureEnv);
 
-            // Bind parameters to arguments
             for (int i = 0; i < Parameters.Count; i++)
             {
                 var param = Parameters[i];
                 var arg = arguments[i];
 
-                // Type checking for parameters (if type hints are provided)
                 if (param.TypeHint != null && !param.TypeHint.IsCompatible(arg))
-                    throw new PythonException("TypeError", $"Argument {i + 1} for parameter '{param.Name}' expected {param.TypeHint}, got {GetValueType(arg)}");
+                    throw new PythonException("TypeError", 
+                        $"Argument {i + 1} for parameter '{param.Name}' expected {param.TypeHint}, got {GetValueType(arg)}");
 
                 funcEnv.SetVariable(param.Name, arg);
             }
 
-            // Evaluate the lambda body (single expression)
             return Body.Evaluate(funcEnv);
         }
 
-        private string GetValueType(PythonTypeObject value)
-        {
-            if (value == null || value is PythonNone) return "None";
-            return value.Type.ToString().ToLower();
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static string GetValueType(PythonTypeObject value) => 
+            value == null || value is PythonNone ? "None" : value.Type.ToString().ToLower();
 
         public override string ToPythonString() => "<lambda>";
     }
     
-    public class BuiltinFunction : Function
+    public sealed class BuiltinFunction : Function
     {
-        private Func<List<PythonTypeObject>, PythonTypeObject> implementation;
+        private readonly Func<List<PythonTypeObject>, PythonTypeObject> implementation;
 
         public BuiltinFunction(string name, Func<List<PythonTypeObject>, PythonTypeObject> impl) : base(name)
         {
@@ -580,11 +567,11 @@ namespace SharpPy
         public override PythonTypeObject Call(List<PythonTypeObject> arguments) => implementation(arguments);
     }
 
-    // Bound Method Class (for instance methods)
-    public class BoundMethod : Function
+    // Optimized Bound Method
+    public sealed class BoundMethod : Function
     {
-        private UserFunction method;
-        private PythonTypeObject instance;
+        private readonly UserFunction method;
+        private readonly PythonTypeObject instance;
 
         public BoundMethod(string name, UserFunction method, PythonTypeObject instance) : base(name)
         {
@@ -594,8 +581,7 @@ namespace SharpPy
 
         public override PythonTypeObject Call(List<PythonTypeObject> arguments)
         {
-            // Prepend 'self' to the arguments
-            var newArgs = new List<PythonTypeObject> { instance };
+            var newArgs = new List<PythonTypeObject>(arguments.Count + 1) { instance };
             newArgs.AddRange(arguments);
             return method.Call(newArgs);
         }
@@ -603,8 +589,8 @@ namespace SharpPy
         public override string ToPythonString() => $"<bound method {Name}>";
     }
 
-    // Class System
-    public class PythonClass : PythonTypeObject
+    // Optimized Class System
+    public sealed class PythonClass : PythonTypeObject
     {
         public string Name { get; }
         public Environment ClassEnv { get; }
@@ -622,7 +608,6 @@ namespace SharpPy
         public override bool IsCallable() => true;
         public override string ToPythonString() => $"<class '{Name}'>";
         public override object GetRawValue() => this;
-        
         public override bool Equals(PythonTypeObject other) => ReferenceEquals(this, other);
         public override int GetHashCode() => base.GetHashCode();
 
@@ -630,13 +615,12 @@ namespace SharpPy
         {
             var instance = new PythonInstance(this);
 
-            // __init__ 메서드가 있다면 호출
             if (ClassEnv.HasVariable("__init__"))
             {
                 var initMethod = ClassEnv.GetVariable("__init__") as Function;
                 if (initMethod != null)
                 {
-                    var initArgs = new List<PythonTypeObject> { instance };
+                    var initArgs = new List<PythonTypeObject>(1 + (args?.Count ?? 0)) { instance };
                     if (args != null) initArgs.AddRange(args);
                     initMethod.Call(initArgs);
                 }
@@ -646,7 +630,7 @@ namespace SharpPy
         }
     }
 
-    public class PythonInstance : PythonTypeObject
+    public sealed class PythonInstance : PythonTypeObject
     {
         public PythonClass Class { get; }
         public Environment InstanceEnv { get; }
@@ -661,7 +645,6 @@ namespace SharpPy
         public override bool IsTrue() => true;
         public override string ToPythonString() => $"<{Class.Name} object>";
         public override object GetRawValue() => this;
-        
         public override bool Equals(PythonTypeObject other) => ReferenceEquals(this, other);
         public override int GetHashCode() => base.GetHashCode();
 
@@ -670,14 +653,9 @@ namespace SharpPy
             try
             {
                 var value = InstanceEnv.GetVariable(name);
-
-                // If it's a user function, bind it to this instance
-                if (value is UserFunction userFunction)
-                {
-                    return new BoundMethod(name, userFunction, this);
-                }
-
-                return value;
+                return value is UserFunction userFunction 
+                    ? new BoundMethod(name, userFunction, this) 
+                    : value;
             }
             catch (PythonException)
             {
@@ -685,10 +663,11 @@ namespace SharpPy
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetAttribute(string name, PythonTypeObject value) => InstanceEnv.SetVariable(name, value);
     }
     
-    public class PythonModule : PythonTypeObject
+    public sealed class PythonModule : PythonTypeObject
     {
         public string Name { get; }
         public Environment ModuleEnv { get; }
@@ -703,7 +682,6 @@ namespace SharpPy
         public override bool IsTrue() => true;
         public override string ToPythonString() => $"<module '{Name}'>";
         public override object GetRawValue() => this;
-        
         public override bool Equals(PythonTypeObject other) => ReferenceEquals(this, other);
         public override int GetHashCode() => base.GetHashCode();
 
@@ -719,6 +697,9 @@ namespace SharpPy
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetAttribute(string name, PythonTypeObject value) => ModuleEnv.SetVariable(name, value);
     }
 }
+
+// enhanced_python_types.cs

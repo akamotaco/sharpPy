@@ -1,16 +1,15 @@
-// enhanced_ast_nodes_3.cs (일부) - PythonTypeObject 기반 추가 기능
 using System;
 using System.Text;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.IO;
+using System.Runtime.CompilerServices;
 
 namespace SharpPy
 {
-    // F-String Node
-    // enhanced_ast_nodes_3.cs의 FStringNode 클래스 수정
-    public class FStringNode : ASTNode
+    // Optimized F-String Node
+    public sealed class FStringNode : ASTNode
     {
         public string Template { get; }
         public List<(string Text, ASTNode Expression)> Parts { get; }
@@ -25,15 +24,16 @@ namespace SharpPy
         {
             var parts = new List<(string Text, ASTNode Expression)>();
             int position = 0;
+            int templateLength = template.Length;
             
-            while (position < template.Length)
+            while (position < templateLength)
             {
                 int braceStart = template.IndexOf('{', position);
                 
                 if (braceStart == -1)
                 {
-                    // No more expressions, add remaining text
-                    if (position < template.Length)
+                    // No more expressions
+                    if (position < templateLength)
                     {
                         parts.Add((template.Substring(position), null));
                     }
@@ -41,9 +41,8 @@ namespace SharpPy
                 }
                 
                 // Check for escaped braces {{
-                if (braceStart + 1 < template.Length && template[braceStart + 1] == '{')
+                if (braceStart + 1 < templateLength && template[braceStart + 1] == '{')
                 {
-                    // Add text including single {
                     parts.Add((template.Substring(position, braceStart - position) + "{", null));
                     position = braceStart + 2;
                     continue;
@@ -55,42 +54,21 @@ namespace SharpPy
                     parts.Add((template.Substring(position, braceStart - position), null));
                 }
                 
-                // Find matching closing brace (handle nested braces in expressions)
-                int braceEnd = braceStart + 1;
-                int braceDepth = 1;
+                // Find matching closing brace
+                int braceEnd = FindMatchingBrace(template, braceStart);
                 
-                while (braceEnd < template.Length && braceDepth > 0)
+                if (braceEnd == -1)
                 {
-                    if (template[braceEnd] == '{')
-                        braceDepth++;
-                    else if (template[braceEnd] == '}')
-                    {
-                        // Check for escaped closing brace }}
-                        if (braceEnd + 1 < template.Length && template[braceEnd + 1] == '}')
-                        {
-                            braceEnd++; // Skip escaped brace
-                        }
-                        else
-                        {
-                            braceDepth--;
-                        }
-                    }
-                    braceEnd++;
-                }
-                
-                if (braceDepth != 0)
-                {
-                    // No matching brace found, treat as literal text
+                    // No matching brace found
                     parts.Add((template.Substring(braceStart), null));
                     break;
                 }
                 
                 // Extract and parse the expression
-                string exprStr = template.Substring(braceStart + 1, braceEnd - braceStart - 2);
+                string exprStr = template.Substring(braceStart + 1, braceEnd - braceStart - 1);
                 
                 try
                 {
-                    // Create a mini parser for the expression
                     var lexer = new Lexer(exprStr);
                     var tokens = lexer.Tokenize();
                     var parser = new Parser(tokens);
@@ -104,29 +82,40 @@ namespace SharpPy
                     parts.Add(("{" + exprStr + "}", null));
                 }
                 
-                position = braceEnd;
+                position = braceEnd + 1;
             }
             
             return parts;
         }
         
-        private int FindMatchingBrace(string template, int start)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static int FindMatchingBrace(string template, int start)
         {
-            // Simple search for closing brace - handles basic cases
-            // For nested braces in format specifiers, would need more complex parsing
-            for (int i = start + 1; i < template.Length; i++)
+            int braceDepth = 1;
+            int position = start + 1;
+            int templateLength = template.Length;
+            
+            while (position < templateLength && braceDepth > 0)
             {
-                if (template[i] == '}')
+                if (template[position] == '{')
+                    braceDepth++;
+                else if (template[position] == '}')
                 {
                     // Check for escaped closing brace }}
-                    if (i + 1 < template.Length && template[i + 1] == '}')
+                    if (position + 1 < templateLength && template[position + 1] == '}')
                     {
-                        i++; // Skip escaped brace
-                        continue;
+                        position++; // Skip escaped brace
                     }
-                    return i;
+                    else
+                    {
+                        braceDepth--;
+                        if (braceDepth == 0)
+                            return position;
+                    }
                 }
+                position++;
             }
+            
             return -1;
         }
 
@@ -162,13 +151,13 @@ namespace SharpPy
         }
     }
 
-    // List Comprehension Node
-    public class ListComprehensionNode : ASTNode
+    // Optimized List Comprehension Node
+    public sealed class ListComprehensionNode : ASTNode
     {
         public ASTNode Expression { get; }
         public string Variable { get; }
         public ASTNode Iterable { get; }
-        public ASTNode Condition { get; } // Optional if clause
+        public ASTNode Condition { get; }
 
         public ListComprehensionNode(ASTNode expression, string variable, ASTNode iterable, 
                                      ASTNode condition = null, int line = 0, int column = 0) 
@@ -190,6 +179,10 @@ namespace SharpPy
 
                 // Create a new scope for the comprehension
                 var comprehensionEnv = new Environment(env);
+
+                // Pre-allocate capacity if possible
+                if (Condition == null)
+                    result.Items.Capacity = items.Count;
 
                 foreach (var item in items)
                 {
@@ -220,19 +213,19 @@ namespace SharpPy
             }
         }
 
-        private List<PythonTypeObject> GetIterableItems(PythonTypeObject obj)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private List<PythonTypeObject> GetIterableItems(PythonTypeObject obj) => obj switch
         {
-            if (obj is PythonList list) return list.Items;
-            if (obj is PythonTuple tuple) return tuple.Items;
-            if (obj is PythonString str) 
-                return str.Value.Select(c => new PythonString(c.ToString()) as PythonTypeObject).ToList();
-            if (obj is PythonDict dict) return dict.Items.Keys.ToList();
-            throw CreateException("TypeError", $"'{obj?.Type}' object is not iterable");
-        }
+            PythonList list => list.Items,
+            PythonTuple tuple => tuple.Items,
+            PythonString str => str.Value.Select(c => new PythonString(c.ToString()) as PythonTypeObject).ToList(),
+            PythonDict dict => dict.Items.Keys.ToList(),
+            _ => throw CreateException("TypeError", $"'{obj?.Type}' object is not iterable")
+        };
     }
 
-    // Compound Assignment Node (+=, -=, *=, /=, etc.)
-    public class CompoundAssignmentNode : ASTNode
+    // Optimized Compound Assignment Node
+    public sealed class CompoundAssignmentNode : ASTNode
     {
         public string VariableName { get; }
         public string Operator { get; }
@@ -281,70 +274,82 @@ namespace SharpPy
             }
         }
 
-        private PythonTypeObject ApplyAdd(PythonTypeObject left, PythonTypeObject right)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyAdd(PythonTypeObject left, PythonTypeObject right) => left switch
         {
-            if (left is PythonInt li) return li.Add(right);
-            if (left is PythonFloat lf) return lf.Add(right);
-            if (left is PythonString ls) return ls.Add(right);
-            if (left is PythonList ll && right is PythonList rl)
-            {
-                ll.Items.AddRange(rl.Items);
-                return ll;
-            }
-            throw CreateException("TypeError", $"unsupported operand type(s) for +=");
+            PythonInt li => li.Add(right),
+            PythonFloat lf => lf.Add(right),
+            PythonString ls => ls.Add(right),
+            PythonList ll when right is PythonList rl => AddLists(ll, rl),
+            _ => throw CreateException("TypeError", "unsupported operand type(s) for +=")
+        };
+
+        private static PythonList AddLists(PythonList left, PythonList right)
+        {
+            left.Items.AddRange(right.Items);
+            return left;
         }
 
-        private PythonTypeObject ApplySubtract(PythonTypeObject left, PythonTypeObject right)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplySubtract(PythonTypeObject left, PythonTypeObject right) => left switch
         {
-            if (left is PythonInt li) return li.Subtract(right);
-            if (left is PythonFloat lf) return lf.Subtract(right);
-            throw CreateException("TypeError", $"unsupported operand type(s) for -=");
-        }
+            PythonInt li => li.Subtract(right),
+            PythonFloat lf => lf.Subtract(right),
+            _ => throw CreateException("TypeError", "unsupported operand type(s) for -=")
+        };
 
         private PythonTypeObject ApplyMultiply(PythonTypeObject left, PythonTypeObject right)
         {
-            if (left is PythonInt li) return li.Multiply(right);
-            if (left is PythonFloat lf) return lf.Multiply(right);
-            if (left is PythonString ls && NumberHelper.IsNumber(right))
-                return ls.Repeat(NumberHelper.ToInt(right));
-            if (left is PythonList list && NumberHelper.IsNumber(right))
+            switch (left)
             {
-                var originalItems = new List<PythonTypeObject>(list.Items);
-                list.Items.Clear();
-                for (int i = 0; i < NumberHelper.ToInt(right); i++)
-                    list.Items.AddRange(originalItems);
-                return list;
+                case PythonInt li:
+                    return li.Multiply(right);
+                case PythonFloat lf:
+                    return lf.Multiply(right);
+                case PythonString ls when NumberHelper.IsNumber(right):
+                    return ls.Repeat(NumberHelper.ToInt(right));
+                case PythonList list when NumberHelper.IsNumber(right):
+                    var originalItems = new List<PythonTypeObject>(list.Items);
+                    list.Items.Clear();
+                    int times = NumberHelper.ToInt(right);
+                    for (int i = 0; i < times; i++)
+                        list.Items.AddRange(originalItems);
+                    return list;
+                default:
+                    throw CreateException("TypeError", "unsupported operand type(s) for *=");
             }
-            throw CreateException("TypeError", $"unsupported operand type(s) for *=");
         }
 
-        private PythonTypeObject ApplyDivide(PythonTypeObject left, PythonTypeObject right)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyDivide(PythonTypeObject left, PythonTypeObject right) => left switch
         {
-            if (left is PythonInt li) return li.Divide(right);
-            if (left is PythonFloat lf) return lf.Divide(right);
-            throw CreateException("TypeError", $"unsupported operand type(s) for /=");
-        }
+            PythonInt li => li.Divide(right),
+            PythonFloat lf => lf.Divide(right),
+            _ => throw CreateException("TypeError", "unsupported operand type(s) for /=")
+        };
 
-        private PythonTypeObject ApplyModulo(PythonTypeObject left, PythonTypeObject right)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyModulo(PythonTypeObject left, PythonTypeObject right) => left switch
         {
-            if (left is PythonInt li) return li.Modulo(right);
-            if (left is PythonFloat lf) return lf.Modulo(right);
-            throw CreateException("TypeError", $"unsupported operand type(s) for %=");
-        }
+            PythonInt li => li.Modulo(right),
+            PythonFloat lf => lf.Modulo(right),
+            _ => throw CreateException("TypeError", "unsupported operand type(s) for %=")
+        };
 
-        private PythonTypeObject ApplyPower(PythonTypeObject left, PythonTypeObject right)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyPower(PythonTypeObject left, PythonTypeObject right) => left switch
         {
-            if (left is PythonInt li) return li.Power(right);
-            if (left is PythonFloat lf) return lf.Power(right);
-            throw CreateException("TypeError", $"unsupported operand type(s) for **=");
-        }
+            PythonInt li => li.Power(right),
+            PythonFloat lf => lf.Power(right),
+            _ => throw CreateException("TypeError", "unsupported operand type(s) for **=")
+        };
     }
 
-    // With Statement Node
-    public class WithNode : ASTNode
+    // Optimized With Statement Node
+    public sealed class WithNode : ASTNode
     {
         public ASTNode ContextExpression { get; }
-        public string Variable { get; } // Optional variable name for 'as' clause
+        public string Variable { get; }
         public List<ASTNode> Body { get; }
 
         public WithNode(ASTNode contextExpr, string variable, List<ASTNode> body, int line = 0, int column = 0) 
@@ -363,33 +368,34 @@ namespace SharpPy
                 
                 // Call __enter__ method
                 PythonTypeObject enterResult = PythonNone.Instance;
-                if (contextManager is PythonInstance instance)
+                
+                switch (contextManager)
                 {
-                    try
-                    {
-                        var enterMethod = instance.GetAttribute("__enter__");
-                        if (enterMethod is Function enterFunc)
+                    case PythonInstance instance:
+                        try
                         {
-                            enterResult = enterFunc.Call(new List<PythonTypeObject>());
+                            var enterMethod = instance.GetAttribute("__enter__");
+                            if (enterMethod is Function enterFunc)
+                            {
+                                enterResult = enterFunc.Call(new List<PythonTypeObject>());
+                            }
+                            else
+                            {
+                                throw CreateException("AttributeError", "Context manager missing __enter__ method");
+                            }
                         }
-                        else
+                        catch (PythonException ex) when (ex.Type == "AttributeError")
                         {
                             throw CreateException("AttributeError", "Context manager missing __enter__ method");
                         }
-                    }
-                    catch (PythonException ex) when (ex.Type == "AttributeError")
-                    {
-                        throw CreateException("AttributeError", "Context manager missing __enter__ method");
-                    }
-                }
-                else if (contextManager is FileObject fileObj)
-                {
-                    // Built-in file object support
-                    enterResult = fileObj;
-                }
-                else
-                {
-                    throw CreateException("TypeError", "Object does not support context management protocol");
+                        break;
+                        
+                    case FileObject fileObj:
+                        enterResult = fileObj;
+                        break;
+                        
+                    default:
+                        throw CreateException("TypeError", "Object does not support context management protocol");
                 }
                 
                 // Assign to variable if 'as' clause is present
@@ -415,47 +421,47 @@ namespace SharpPy
                 }
                 
                 // Call __exit__ method
-                if (contextManager is PythonInstance inst)
+                switch (contextManager)
                 {
-                    try
-                    {
-                        var exitMethod = inst.GetAttribute("__exit__");
-                        if (exitMethod is Function exitFunc)
+                    case PythonInstance inst:
+                        try
                         {
-                            var args = new List<PythonTypeObject>();
-                            if (caughtException != null)
+                            var exitMethod = inst.GetAttribute("__exit__");
+                            if (exitMethod is Function exitFunc)
                             {
-                                args.Add(new PythonString(caughtException.GetType().Name));
-                                args.Add(new PythonString(caughtException.Message));
-                                args.Add(PythonNone.Instance); // traceback
-                            }
-                            else
-                            {
-                                args.Add(PythonNone.Instance);
-                                args.Add(PythonNone.Instance);
-                                args.Add(PythonNone.Instance);
-                            }
-                            
-                            var suppressException = exitFunc.Call(args);
-                            
-                            // If __exit__ returns True, suppress the exception
-                            if (caughtException != null && !suppressException.IsTrue())
-                            {
-                                throw caughtException;
+                                var args = new List<PythonTypeObject>(3);
+                                if (caughtException != null)
+                                {
+                                    args.Add(new PythonString(caughtException.GetType().Name));
+                                    args.Add(new PythonString(caughtException.Message));
+                                    args.Add(PythonNone.Instance);
+                                }
+                                else
+                                {
+                                    args.Add(PythonNone.Instance);
+                                    args.Add(PythonNone.Instance);
+                                    args.Add(PythonNone.Instance);
+                                }
+                                
+                                var suppressException = exitFunc.Call(args);
+                                
+                                // If __exit__ returns True, suppress the exception
+                                if (caughtException != null && !suppressException.IsTrue())
+                                {
+                                    throw caughtException;
+                                }
                             }
                         }
-                    }
-                    catch (PythonException ex) when (ex.Type == "AttributeError")
-                    {
-                        // __exit__ not found
+                        catch (PythonException ex) when (ex.Type == "AttributeError")
+                        {
+                            if (caughtException != null) throw caughtException;
+                        }
+                        break;
+                        
+                    case FileObject fileObject:
+                        fileObject.Close();
                         if (caughtException != null) throw caughtException;
-                    }
-                }
-                else if (contextManager is FileObject fileObject)
-                {
-                    // Close file
-                    fileObject.Close();
-                    if (caughtException != null) throw caughtException;
+                        break;
                 }
                 
                 return result;
@@ -471,8 +477,8 @@ namespace SharpPy
         }
     }
 
-    // Del Node
-    public class DelNode : ASTNode
+    // Optimized Del Node
+    public sealed class DelNode : ASTNode
     {
         public string VariableName { get; }
 
@@ -499,13 +505,13 @@ namespace SharpPy
         }
     }
 
-    // File Object for with statement support - Updated with PythonTypeObject
-    public class FileObject : PythonTypeObject
+    // Optimized File Object for with statement support
+    public sealed class FileObject : PythonTypeObject
     {
         private StreamReader reader;
         private StreamWriter writer;
-        private string mode;
-        private string path;
+        private readonly string mode;
+        private readonly string path;
         private bool closed;
 
         public FileObject(string path, string mode = "r")
@@ -546,7 +552,7 @@ namespace SharpPy
             if (closed) throw new PythonException("ValueError", "I/O operation on closed file");
             if (reader == null) throw new PythonException("IOError", "File not open for reading");
             var line = reader.ReadLine();
-            return line != null ? new PythonString(line) : new PythonString("");
+            return line != null ? new PythonString(line) : PythonString.Create("");
         }
 
         public PythonList ReadLines()
@@ -568,7 +574,7 @@ namespace SharpPy
             if (closed) throw new PythonException("ValueError", "I/O operation on closed file");
             if (writer == null) throw new PythonException("IOError", "File not open for writing");
             writer.Write(text);
-            writer.Flush(); // Ensure data is written immediately
+            writer.Flush();
         }
 
         public void WriteLine(string text)
@@ -576,7 +582,7 @@ namespace SharpPy
             if (closed) throw new PythonException("ValueError", "I/O operation on closed file");
             if (writer == null) throw new PythonException("IOError", "File not open for writing");
             writer.WriteLine(text);
-            writer.Flush(); // Ensure data is written immediately
+            writer.Flush();
         }
 
         public void Close()
@@ -589,31 +595,29 @@ namespace SharpPy
             }
         }
 
-        // Get method for attribute access
-        public PythonTypeObject GetMethod(string name)
+        public PythonTypeObject GetMethod(string name) => name switch
         {
-            return name switch
-            {
-                "read" => new BuiltinFunction("read", args => Read()),
-                "readline" => new BuiltinFunction("readline", args => ReadLine()),
-                "readlines" => new BuiltinFunction("readlines", args => ReadLines()),
-                "write" => new BuiltinFunction("write", args => {
-                    if (args.Count != 1) throw new PythonException("TypeError", "write() takes exactly 1 argument");
-                    string text = (args[0] as PythonString)?.Value ?? args[0].ToPythonString();
-                    Write(text);
-                    return new PythonInt(text.Length);
-                }),
-                "close" => new BuiltinFunction("close", args => {
-                    Close();
-                    return PythonNone.Instance;
-                }),
-                "__enter__" => new BuiltinFunction("__enter__", args => this),
-                "__exit__" => new BuiltinFunction("__exit__", args => {
-                    Close();
-                    return new PythonBool(false);
-                }),
-                _ => throw new PythonException("AttributeError", $"'FileObject' has no attribute '{name}'")
-            };
-        }
+            "read" => new BuiltinFunction("read", args => Read()),
+            "readline" => new BuiltinFunction("readline", args => ReadLine()),
+            "readlines" => new BuiltinFunction("readlines", args => ReadLines()),
+            "write" => new BuiltinFunction("write", args => {
+                if (args.Count != 1) throw new PythonException("TypeError", "write() takes exactly 1 argument");
+                string text = (args[0] as PythonString)?.Value ?? args[0].ToPythonString();
+                Write(text);
+                return PythonInt.Create(text.Length);
+            }),
+            "close" => new BuiltinFunction("close", args => {
+                Close();
+                return PythonNone.Instance;
+            }),
+            "__enter__" => new BuiltinFunction("__enter__", args => this),
+            "__exit__" => new BuiltinFunction("__exit__", args => {
+                Close();
+                return PythonBool.False;
+            }),
+            _ => throw new PythonException("AttributeError", $"'FileObject' has no attribute '{name}'")
+        };
     }
 }
+
+// enhanced_ast_nodes_3.cs
