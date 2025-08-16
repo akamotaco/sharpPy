@@ -1,12 +1,12 @@
-// enhanced_operators.cs (주요 부분)
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace SharpPy
 {
-    // Enhanced Binary Operator Node with PythonTypeObject
-    public class BinaryOpNode : ASTNode
+    // Optimized Binary Operator Node
+    public sealed class BinaryOpNode : ASTNode
     {
         public ASTNode Left { get; }
         public string Operator { get; }
@@ -34,23 +34,23 @@ namespace SharpPy
                     "/" => Divide(leftVal, rightVal),
                     "%" => Modulo(leftVal, rightVal),
                     "**" => Power(leftVal, rightVal),
-                    "==" => new PythonBool(IsEqual(leftVal, rightVal)),
-                    "!=" => new PythonBool(!IsEqual(leftVal, rightVal)),
-                    "<" => new PythonBool(IsLess(leftVal, rightVal)),
-                    ">" => new PythonBool(IsGreater(leftVal, rightVal)),
-                    "<=" => new PythonBool(IsLessOrEqual(leftVal, rightVal)),
-                    ">=" => new PythonBool(IsGreaterOrEqual(leftVal, rightVal)),
-                    "and" => new PythonBool(leftVal.IsTrue() && rightVal.IsTrue()),
-                    "or" => new PythonBool(leftVal.IsTrue() || rightVal.IsTrue()),
-                    "in" => new PythonBool(IsIn(leftVal, rightVal)),
-                    "is" => new PythonBool(IsIdentical(leftVal, rightVal)),
-                    "is not" => new PythonBool(!IsIdentical(leftVal, rightVal)),
+                    "==" => PythonBool.Create(IsEqual(leftVal, rightVal)),
+                    "!=" => PythonBool.Create(!IsEqual(leftVal, rightVal)),
+                    "<" => PythonBool.Create(IsLess(leftVal, rightVal)),
+                    ">" => PythonBool.Create(IsGreater(leftVal, rightVal)),
+                    "<=" => PythonBool.Create(IsLessOrEqual(leftVal, rightVal)),
+                    ">=" => PythonBool.Create(IsGreaterOrEqual(leftVal, rightVal)),
+                    "and" => PythonBool.Create(leftVal.IsTrue() && rightVal.IsTrue()),
+                    "or" => PythonBool.Create(leftVal.IsTrue() || rightVal.IsTrue()),
+                    "in" => PythonBool.Create(IsIn(leftVal, rightVal)),
+                    "is" => PythonBool.Create(IsIdentical(leftVal, rightVal)),
+                    "is not" => PythonBool.Create(!IsIdentical(leftVal, rightVal)),
                     _ => throw CreateException("TypeError", $"Unknown operator: {Operator}")
                 };
             }
             catch (PythonException)
             {
-                throw; // Re-throw PythonExceptions as-is
+                throw;
             }
             catch (Exception ex)
             {
@@ -58,93 +58,92 @@ namespace SharpPy
             }
         }
 
-        private PythonTypeObject Add(PythonTypeObject left, PythonTypeObject right)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject Add(PythonTypeObject left, PythonTypeObject right) => left switch
         {
-            // Numeric addition
-            if (left is PythonInt li) return li.Add(right);
-            if (left is PythonFloat lf) return lf.Add(right);
-            
-            // String concatenation
-            if (left is PythonString ls) return ls.Add(right);
-            
-            // List concatenation
-            if (left is PythonList ll && right is PythonList rl)
-            {
-                var newList = new PythonList();
-                newList.Items.AddRange(ll.Items);
-                newList.Items.AddRange(rl.Items);
-                return newList;
-            }
-            
-            // Tuple concatenation
-            if (left is PythonTuple lt && right is PythonTuple rt)
-            {
-                var newTuple = new PythonTuple();
-                newTuple.Items.AddRange(lt.Items);
-                newTuple.Items.AddRange(rt.Items);
-                return newTuple;
-            }
-            
-            // Dict concatenation
-            if (left is PythonDict ld && right is PythonDict rd)
-            {
-                var newDict = new PythonDict();
-                foreach (var kvp in ld.Items) newDict.Items[kvp.Key] = kvp.Value;
-                foreach (var kvp in rd.Items) newDict.Items[kvp.Key] = kvp.Value;
-                return newDict;
-            }
-            
-            throw CreateException("TypeError", $"Cannot add {left.Type} and {right.Type}");
+            PythonInt li => li.Add(right),
+            PythonFloat lf => lf.Add(right),
+            PythonString ls => ls.Add(right),
+            PythonList ll when right is PythonList rl => ConcatLists(ll, rl),
+            PythonTuple lt when right is PythonTuple rt => ConcatTuples(lt, rt),
+            PythonDict ld when right is PythonDict rd => ConcatDicts(ld, rd),
+            _ => throw CreateException("TypeError", $"Cannot add {left.Type} and {right.Type}")
+        };
+
+        private static PythonList ConcatLists(PythonList left, PythonList right)
+        {
+            var newList = new PythonList();
+            newList.Items.Capacity = left.Items.Count + right.Items.Count;
+            newList.Items.AddRange(left.Items);
+            newList.Items.AddRange(right.Items);
+            return newList;
         }
 
-        private PythonTypeObject Subtract(PythonTypeObject left, PythonTypeObject right)
+        private static PythonTuple ConcatTuples(PythonTuple left, PythonTuple right)
         {
-            if (left is PythonInt li) return li.Subtract(right);
-            if (left is PythonFloat lf) return lf.Subtract(right);
-            
-            throw CreateException("TypeError", $"Cannot subtract {right.Type} from {left.Type}");
+            var newTuple = new PythonTuple();
+            newTuple.Items.Capacity = left.Items.Count + right.Items.Count;
+            newTuple.Items.AddRange(left.Items);
+            newTuple.Items.AddRange(right.Items);
+            return newTuple;
         }
 
-        private PythonTypeObject Multiply(PythonTypeObject left, PythonTypeObject right)
+        private static PythonDict ConcatDicts(PythonDict left, PythonDict right)
         {
-            if (left is PythonInt li) return li.Multiply(right);
-            if (left is PythonFloat lf) return lf.Multiply(right);
-            if (left is PythonString ls && NumberHelper.IsNumber(right))
-                return ls.Repeat(NumberHelper.ToInt(right));
-            if (left is PythonList ll && NumberHelper.IsNumber(right))
-                return ll.Repeat(NumberHelper.ToInt(right));
-            if (left is PythonTuple lt && NumberHelper.IsNumber(right))
-                return lt.Repeat(NumberHelper.ToInt(right));
-            
-            throw CreateException("TypeError", $"Cannot multiply {left.Type} and {right.Type}");
+            var newDict = new PythonDict();
+            newDict.Items.EnsureCapacity(left.Items.Count + right.Items.Count);
+            foreach (var kvp in left.Items) newDict.Items[kvp.Key] = kvp.Value;
+            foreach (var kvp in right.Items) newDict.Items[kvp.Key] = kvp.Value;
+            return newDict;
         }
 
-        private PythonTypeObject Divide(PythonTypeObject left, PythonTypeObject right)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject Subtract(PythonTypeObject left, PythonTypeObject right) => left switch
         {
-            if (left is PythonInt li) return li.Divide(right);
-            if (left is PythonFloat lf) return lf.Divide(right);
-            
-            throw CreateException("TypeError", $"Cannot divide {left.Type} by {right.Type}");
-        }
+            PythonInt li => li.Subtract(right),
+            PythonFloat lf => lf.Subtract(right),
+            _ => throw CreateException("TypeError", $"Cannot subtract {right.Type} from {left.Type}")
+        };
 
-        private PythonTypeObject Modulo(PythonTypeObject left, PythonTypeObject right)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject Multiply(PythonTypeObject left, PythonTypeObject right) => left switch
         {
-            if (left is PythonInt li) return li.Modulo(right);
-            if (left is PythonFloat lf) return lf.Modulo(right);
-            
-            throw CreateException("TypeError", $"Cannot modulo {left.Type} by {right.Type}");
-        }
+            PythonInt li => li.Multiply(right),
+            PythonFloat lf => lf.Multiply(right),
+            PythonString ls when NumberHelper.IsNumber(right) => ls.Repeat(NumberHelper.ToInt(right)),
+            PythonList ll when NumberHelper.IsNumber(right) => ll.Repeat(NumberHelper.ToInt(right)),
+            PythonTuple lt when NumberHelper.IsNumber(right) => lt.Repeat(NumberHelper.ToInt(right)),
+            _ => throw CreateException("TypeError", $"Cannot multiply {left.Type} and {right.Type}")
+        };
 
-        private PythonTypeObject Power(PythonTypeObject left, PythonTypeObject right)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject Divide(PythonTypeObject left, PythonTypeObject right) => left switch
         {
-            if (left is PythonInt li) return li.Power(right);
-            if (left is PythonFloat lf) return lf.Power(right);
-            
-            throw CreateException("TypeError", $"Cannot raise {left.Type} to power of {right.Type}");
-        }
+            PythonInt li => li.Divide(right),
+            PythonFloat lf => lf.Divide(right),
+            _ => throw CreateException("TypeError", $"Cannot divide {left.Type} by {right.Type}")
+        };
 
-        private bool IsEqual(PythonTypeObject left, PythonTypeObject right) => left.Equals(right);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject Modulo(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Modulo(right),
+            PythonFloat lf => lf.Modulo(right),
+            _ => throw CreateException("TypeError", $"Cannot modulo {left.Type} by {right.Type}")
+        };
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject Power(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Power(right),
+            PythonFloat lf => lf.Power(right),
+            _ => throw CreateException("TypeError", $"Cannot raise {left.Type} to power of {right.Type}")
+        };
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool IsEqual(PythonTypeObject left, PythonTypeObject right) => left.Equals(right);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool IsLess(PythonTypeObject left, PythonTypeObject right)
         {
             if (NumberHelper.IsNumber(left) && NumberHelper.IsNumber(right))
@@ -155,6 +154,7 @@ namespace SharpPy
             throw CreateException("TypeError", $"'<' not supported between instances of '{left.Type}' and '{right.Type}'");
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool IsGreater(PythonTypeObject left, PythonTypeObject right)
         {
             if (NumberHelper.IsNumber(left) && NumberHelper.IsNumber(right))
@@ -165,12 +165,14 @@ namespace SharpPy
             throw CreateException("TypeError", $"'>' not supported between instances of '{left.Type}' and '{right.Type}'");
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool IsLessOrEqual(PythonTypeObject left, PythonTypeObject right)
         {
             try { return IsEqual(left, right) || IsLess(left, right); }
             catch { throw CreateException("TypeError", $"'<=' not supported between instances of '{left.Type}' and '{right.Type}'"); }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool IsGreaterOrEqual(PythonTypeObject left, PythonTypeObject right)
         {
             try { return IsEqual(left, right) || IsGreater(left, right); }
@@ -179,27 +181,28 @@ namespace SharpPy
 
         private bool IsIn(PythonTypeObject item, PythonTypeObject container)
         {
-            if (container is PythonList list) 
-                return list.Items.Any(i => i.Equals(item));
-            if (container is PythonTuple tuple) 
-                return tuple.Items.Any(i => i.Equals(item));
-            if (container is PythonString str && item is PythonString s) 
-                return str.Contains(s);
-            if (container is PythonDict dict)
+            switch (container)
             {
-                // For dict, 'in' checks keys (Python standard behavior)
-                // return dict.ContainsKey(item);
-                foreach (var key in dict.Items.Keys)
-                {
-                    if (key.Equals(item))
-                        return true;
-                }
-                return false;
+                case PythonList list:
+                    return list.Items.Any(i => i.Equals(item));
+                case PythonTuple tuple:
+                    return tuple.Items.Any(i => i.Equals(item));
+                case PythonString str when item is PythonString s:
+                    return str.Contains(s);
+                case PythonDict dict:
+                    foreach (var key in dict.Items.Keys)
+                    {
+                        if (key.Equals(item))
+                            return true;
+                    }
+                    return false;
+                default:
+                    throw CreateException("TypeError", $"argument of type '{container.Type}' is not iterable");
             }
-            throw CreateException("TypeError", $"argument of type '{container.Type}' is not iterable");
         }
 
-        private bool IsIdentical(PythonTypeObject left, PythonTypeObject right)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool IsIdentical(PythonTypeObject left, PythonTypeObject right)
         {
             // None comparison
             if (left is PythonNone && right is PythonNone) return true;
@@ -230,8 +233,8 @@ namespace SharpPy
         }
     }
 
-    // Enhanced Unary Operator Node with PythonTypeObject
-    public class UnaryOpNode : ASTNode
+    // Optimized Unary Operator Node
+    public sealed class UnaryOpNode : ASTNode
     {
         public string Operator { get; }
         public ASTNode Operand { get; }
@@ -251,13 +254,13 @@ namespace SharpPy
                 {
                     "-" => NumberHelper.IsNumber(value) ? NumberHelper.Negate(value) : 
                            throw CreateException("TypeError", "Cannot negate non-number"),
-                    "not" => new PythonBool(!value.IsTrue()),
+                    "not" => PythonBool.Create(!value.IsTrue()),
                     _ => throw CreateException("TypeError", $"Unknown unary operator: {Operator}")
                 };
             }
             catch (PythonException)
             {
-                throw; // Re-throw PythonExceptions as-is
+                throw;
             }
             catch (Exception ex)
             {
@@ -266,8 +269,8 @@ namespace SharpPy
         }
     }
 
-    // Enhanced Assignment Nodes with PythonTypeObject
-    public class AssignmentNode : ASTNode
+    // Optimized Assignment Nodes
+    public sealed class AssignmentNode : ASTNode
     {
         public string VariableName { get; }
         public ASTNode Value { get; }
@@ -288,7 +291,7 @@ namespace SharpPy
             }
             catch (PythonException)
             {
-                throw; // Re-throw PythonExceptions as-is
+                throw;
             }
             catch (Exception ex)
             {
@@ -297,7 +300,7 @@ namespace SharpPy
         }
     }
 
-    public class IndexAssignmentNode : ASTNode
+    public sealed class IndexAssignmentNode : ASTNode
     {
         public ASTNode Object { get; }
         public ASTNode Index { get; }
@@ -318,23 +321,21 @@ namespace SharpPy
                 var index = Index.Evaluate(env);
                 var value = Value.Evaluate(env);
 
-                if (obj is PythonList list && NumberHelper.IsNumber(index))
+                switch (obj)
                 {
-                    int i = NumberHelper.ToInt(index);
-                    list.SetItem(i, value);
-                    return value;
+                    case PythonList list when NumberHelper.IsNumber(index):
+                        list.SetItem(NumberHelper.ToInt(index), value);
+                        return value;
+                    case PythonDict dict:
+                        dict.SetItem(index, value);
+                        return value;
+                    default:
+                        throw CreateException("TypeError", $"'{obj?.Type}' object does not support item assignment");
                 }
-                else if (obj is PythonDict dict)
-                {
-                    dict.SetItem(index, value);
-                    return value;
-                }
-
-                throw CreateException("TypeError", $"'{obj?.Type}' object does not support item assignment");
             }
             catch (PythonException)
             {
-                throw; // Re-throw PythonExceptions as-is
+                throw;
             }
             catch (Exception ex)
             {
@@ -343,3 +344,5 @@ namespace SharpPy
         }
     }
 }
+
+// enhanced_operators.cs

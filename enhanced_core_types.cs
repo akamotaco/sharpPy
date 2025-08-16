@@ -487,7 +487,7 @@ namespace SharpPy
         
         public PythonType Type { get; }
         
-        internal SimpleTypeHint(PythonType type) => Type = type;
+        private SimpleTypeHint(PythonType type) => Type = type;
         
         public static SimpleTypeHint Create(PythonType type)
         {

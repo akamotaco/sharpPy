@@ -1,34 +1,50 @@
-// enhanced_lexer_parser.cs
 using System;
 using System.Text;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace SharpPy
 {
-    // Lexer (Tokenizer) - Enhanced with F-String and Compound Assignment Support
-    public class Lexer
+    // Optimized Lexer with improved performance
+    public sealed class Lexer
     {
-        private string input;
+        private readonly string input;
+        private readonly int inputLength;
         private int position;
         private char currentChar;
         private int line;
         private int column;
-        private Stack<int> indentStack;
+        private readonly Stack<int> indentStack;
         private bool atLineStart;
+        
+        // Pre-computed lookup tables for better performance
+        private static readonly HashSet<string> Keywords = new HashSet<string>
+        {
+            "def", "class", "if", "else", "elif", "for", "while", "in", "is",
+            "break", "continue", "try", "except", "finally", "raise", "import",
+            "from", "as", "return", "and", "or", "not", "lambda", "with", "del"
+        };
+        
+        private static readonly HashSet<string> TwoCharOperators = new HashSet<string>
+        {
+            "+=", "-=", "*=", "/=", "%=", "==", "!=", "<=", ">=", "**", "->"
+        };
 
         public Lexer(string input)
         {
-            this.input = input;
+            this.input = input ?? "";
+            this.inputLength = this.input.Length;
             position = 0;
             line = 1;
             column = 1;
             indentStack = new Stack<int>();
-            indentStack.Push(0); // Base indentation level
+            indentStack.Push(0);
             atLineStart = true;
-            currentChar = position < input.Length ? input[position] : '\0';
+            currentChar = position < inputLength ? this.input[position] : '\0';
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void Advance()
         {
             if (currentChar == '\n')
@@ -45,9 +61,10 @@ namespace SharpPy
             }
 
             position++;
-            currentChar = position < input.Length ? input[position] : '\0';
+            currentChar = position < inputLength ? input[position] : '\0';
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SkipWhitespace()
         {
             while (currentChar != '\0' && char.IsWhiteSpace(currentChar) && currentChar != '\n')
@@ -56,7 +73,7 @@ namespace SharpPy
 
         private string ReadNumber()
         {
-            var sb = new StringBuilder();
+            var sb = new StringBuilder(16); // Pre-allocate reasonable size
             bool hasDot = false;
 
             while (currentChar != '\0' && (char.IsDigit(currentChar) || (currentChar == '.' && !hasDot)))
@@ -80,17 +97,17 @@ namespace SharpPy
                 if (currentChar == '\\')
                 {
                     Advance();
-                    switch (currentChar)
+                    sb.Append(currentChar switch
                     {
-                        case 'n': sb.Append('\n'); break;
-                        case 't': sb.Append('\t'); break;
-                        case 'r': sb.Append('\r'); break;
-                        case '\\': sb.Append('\\'); break;
-                        case '\'': sb.Append('\''); break;
-                        case '"': sb.Append('"'); break;
-                        case '0': sb.Append('\0'); break;
-                        default: sb.Append(currentChar); break;
-                    }
+                        'n' => '\n',
+                        't' => '\t',
+                        'r' => '\r',
+                        '\\' => '\\',
+                        '\'' => '\'',
+                        '"' => '"',
+                        '0' => '\0',
+                        _ => currentChar
+                    });
                 }
                 else
                 {
@@ -100,9 +117,9 @@ namespace SharpPy
             }
 
             if (currentChar == quote)
-                Advance(); // Skip closing quote
+                Advance();
             else
-                throw new PythonException("SyntaxError", $"Unterminated string literal", startLine, startColumn);
+                throw new PythonException("SyntaxError", "Unterminated string literal", startLine, startColumn);
 
             return sb.ToString();
         }
@@ -118,13 +135,12 @@ namespace SharpPy
                 Advance();
 
             // Read until we find the closing triple quotes
-            while (position + 2 < input.Length)
+            while (position + 2 < inputLength)
             {
                 if (currentChar == quoteType[0] && 
-                    position + 1 < input.Length && input[position + 1] == quoteType[0] &&
-                    position + 2 < input.Length && input[position + 2] == quoteType[0])
+                    position + 1 < inputLength && input[position + 1] == quoteType[0] &&
+                    position + 2 < inputLength && input[position + 2] == quoteType[0])
                 {
-                    // Found closing triple quotes
                     for (int i = 0; i < 3; i++)
                         Advance();
                     return sb.ToString();
@@ -134,14 +150,12 @@ namespace SharpPy
                 Advance();
             }
 
-            // Handle end of string
             while (currentChar != '\0')
             {
                 if (currentChar == quoteType[0] && 
-                    position + 1 < input.Length && input[position + 1] == quoteType[0] &&
-                    position + 2 < input.Length && input[position + 2] == quoteType[0])
+                    position + 1 < inputLength && input[position + 1] == quoteType[0] &&
+                    position + 2 < inputLength && input[position + 2] == quoteType[0])
                 {
-                    // Found closing triple quotes
                     for (int i = 0; i < 3; i++)
                         Advance();
                     return sb.ToString();
@@ -150,53 +164,7 @@ namespace SharpPy
                 Advance();
             }
 
-            throw new PythonException("SyntaxError", $"Unterminated triple-quoted string literal", startLine, startColumn);
-        }
-
-        private string ReadTripleQuotedFString(string quoteType)
-        {
-            var sb = new StringBuilder();
-            int startLine = line;
-            int startColumn = column;
-            
-            // Skip the opening triple quotes
-            for (int i = 0; i < 3; i++)
-                Advance();
-
-            // Read until we find the closing triple quotes
-            while (position + 2 < input.Length)
-            {
-                if (currentChar == quoteType[0] && 
-                    position + 1 < input.Length && input[position + 1] == quoteType[0] &&
-                    position + 2 < input.Length && input[position + 2] == quoteType[0])
-                {
-                    // Found closing triple quotes
-                    for (int i = 0; i < 3; i++)
-                        Advance();
-                    return sb.ToString();
-                }
-                
-                sb.Append(currentChar);
-                Advance();
-            }
-
-            // Handle end of string
-            while (currentChar != '\0')
-            {
-                if (currentChar == quoteType[0] && 
-                    position + 1 < input.Length && input[position + 1] == quoteType[0] &&
-                    position + 2 < input.Length && input[position + 2] == quoteType[0])
-                {
-                    // Found closing triple quotes
-                    for (int i = 0; i < 3; i++)
-                        Advance();
-                    return sb.ToString();
-                }
-                sb.Append(currentChar);
-                Advance();
-            }
-
-            throw new PythonException("SyntaxError", $"Unterminated triple-quoted f-string literal", startLine, startColumn);
+            throw new PythonException("SyntaxError", "Unterminated triple-quoted string literal", startLine, startColumn);
         }
 
         private string ReadFString(char quote)
@@ -211,17 +179,17 @@ namespace SharpPy
                 if (currentChar == '\\')
                 {
                     Advance();
-                    switch (currentChar)
+                    sb.Append(currentChar switch
                     {
-                        case 'n': sb.Append('\n'); break;
-                        case 't': sb.Append('\t'); break;
-                        case 'r': sb.Append('\r'); break;
-                        case '\\': sb.Append('\\'); break;
-                        case '\'': sb.Append('\''); break;
-                        case '"': sb.Append('"'); break;
-                        case '0': sb.Append('\0'); break;
-                        default: sb.Append(currentChar); break;
-                    }
+                        'n' => '\n',
+                        't' => '\t',
+                        'r' => '\r',
+                        '\\' => '\\',
+                        '\'' => '\'',
+                        '"' => '"',
+                        '0' => '\0',
+                        _ => currentChar
+                    });
                 }
                 else
                 {
@@ -231,13 +199,14 @@ namespace SharpPy
             }
 
             if (currentChar == quote)
-                Advance(); // Skip closing quote
+                Advance();
             else
-                throw new PythonException("SyntaxError", $"Unterminated f-string literal", startLine, startColumn);
+                throw new PythonException("SyntaxError", "Unterminated f-string literal", startLine, startColumn);
 
             return sb.ToString();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private string ReadIdentifier()
         {
             var sb = new StringBuilder();
@@ -251,7 +220,7 @@ namespace SharpPy
 
         public List<Token> Tokenize()
         {
-            var tokens = new List<Token>();
+            var tokens = new List<Token>(256); // Pre-allocate reasonable capacity
 
             while (currentChar != '\0')
             {
@@ -264,10 +233,7 @@ namespace SharpPy
                     int indentLevel = 0;
                     while (currentChar == ' ' || currentChar == '\t')
                     {
-                        if (currentChar == ' ')
-                            indentLevel += 1;
-                        else if (currentChar == '\t')
-                            indentLevel += 8; // Tab = 8 spaces
+                        indentLevel += currentChar == ' ' ? 1 : 8;
                         Advance();
                     }
 
@@ -299,7 +265,7 @@ namespace SharpPy
 
                         if (indentStack.Peek() != indentLevel)
                         {
-                            throw new PythonException("IndentationError", $"Unindent does not match any outer indentation level", tokenLine, tokenColumn);
+                            throw new PythonException("IndentationError", "Unindent does not match any outer indentation level", tokenLine, tokenColumn);
                         }
                     }
 
@@ -312,7 +278,7 @@ namespace SharpPy
                     continue;
                 }
 
-                if (currentChar == '#') // Comments
+                if (currentChar == '#')
                 {
                     while (currentChar != '\0' && currentChar != '\n')
                         Advance();
@@ -332,8 +298,8 @@ namespace SharpPy
                     continue;
                 }
 
-                // Check for triple-quoted strings first (before f-strings and regular strings)
-                if (position + 2 < input.Length)
+                // Check for triple-quoted strings first
+                if (position + 2 < inputLength)
                 {
                     string threeChars = input.Substring(position, 3);
                     if (threeChars == "'''" || threeChars == "\"\"\"")
@@ -344,25 +310,23 @@ namespace SharpPy
                     }
                 }
 
-                // Check for f-strings (but not inside triple quotes)
-                if (currentChar == 'f' && position + 1 < input.Length && 
+                // Check for f-strings
+                if (currentChar == 'f' && position + 1 < inputLength && 
                     (input[position + 1] == '"' || input[position + 1] == '\''))
                 {
                     // Check if it's a triple-quoted f-string
-                    if (position + 3 < input.Length)
+                    if (position + 3 < inputLength)
                     {
                         char quoteChar = input[position + 1];
                         if (input[position + 2] == quoteChar && input[position + 3] == quoteChar)
                         {
-                            // This is an f-triple-quoted string
                             Advance(); // Skip 'f'
-                            string content = ReadTripleQuotedFString(quoteChar.ToString());
+                            string content = ReadTripleQuotedString(quoteChar.ToString());
                             tokens.Add(new Token(TokenType.FSTRING, content, tokenLine, tokenColumn));
                             continue;
                         }
                     }
                     
-                    // Regular f-string
                     Advance(); // Skip 'f'
                     char quote = currentChar;
                     tokens.Add(new Token(TokenType.FSTRING, ReadFString(quote), tokenLine, tokenColumn));
@@ -379,58 +343,25 @@ namespace SharpPy
                 if (char.IsLetter(currentChar) || currentChar == '_')
                 {
                     string identifier = ReadIdentifier();
+                    
+                    // Optimized keyword lookup
                     TokenType tokenType = identifier switch
                     {
-                        "def" => TokenType.DEF,
-                        "class" => TokenType.CLASS,
-                        "if" => TokenType.IF,
-                        "else" => TokenType.ELSE,
-                        "elif" => TokenType.ELIF,
-                        "for" => TokenType.FOR,
-                        "while" => TokenType.WHILE,
-                        "in" => TokenType.IN,
-                        "is" => TokenType.IS,
-                        "break" => TokenType.BREAK,
-                        "continue" => TokenType.CONTINUE,
-                        "try" => TokenType.TRY,
-                        "except" => TokenType.EXCEPT,
-                        "finally" => TokenType.FINALLY,
-                        "raise" => TokenType.RAISE,
-                        "import" => TokenType.IMPORT,
-                        "from" => TokenType.FROM,
-                        "as" => TokenType.AS,
-                        "return" => TokenType.RETURN,
-                        "and" => TokenType.AND,
-                        "or" => TokenType.OR,
-                        "not" => TokenType.NOT,
-                        "lambda" => TokenType.LAMBDA,
-                        "with" => TokenType.WITH,  // Added WITH
-                        "del" => TokenType.DEL,    // Added DEL
-                        "True" => TokenType.BOOLEAN,
-                        "False" => TokenType.BOOLEAN,
+                        "True" or "False" => TokenType.BOOLEAN,
                         "None" => TokenType.NONE,
+                        _ when Keywords.Contains(identifier) => GetKeywordToken(identifier),
                         _ => TokenType.IDENTIFIER
                     };
+                    
                     tokens.Add(new Token(tokenType, identifier, tokenLine, tokenColumn));
                     continue;
                 }
 
                 // Check for compound assignment operators first
-                if (position + 1 < input.Length)
+                if (position + 1 < inputLength)
                 {
-                    string twoChar = input.Substring(position, 2);
-                    
-                    // Compound assignment operators
-                    if (new[] { "+=", "-=", "*=", "/=", "%=" }.Contains(twoChar))
-                    {
-                        tokens.Add(new Token(TokenType.COMPOUND_ASSIGN, twoChar, tokenLine, tokenColumn));
-                        Advance();
-                        Advance();
-                        continue;
-                    }
-                    
                     // Check for **=
-                    if (position + 2 < input.Length && input.Substring(position, 3) == "**=")
+                    if (position + 2 < inputLength && input.Substring(position, 3) == "**=")
                     {
                         tokens.Add(new Token(TokenType.COMPOUND_ASSIGN, "**=", tokenLine, tokenColumn));
                         Advance();
@@ -438,11 +369,16 @@ namespace SharpPy
                         Advance();
                         continue;
                     }
+
+                    string twoChar = input.Substring(position, 2);
                     
-                    // Other two-character operators
-                    if (new[] { "==", "!=", "<=", ">=", "**", "->" }.Contains(twoChar))
+                    if (TwoCharOperators.Contains(twoChar))
                     {
-                        tokens.Add(new Token(TokenType.OPERATOR, twoChar, tokenLine, tokenColumn));
+                        tokens.Add(new Token(
+                            twoChar.Contains('=') && twoChar != "==" && twoChar != "!=" && twoChar != "<=" && twoChar != ">=" 
+                                ? TokenType.COMPOUND_ASSIGN 
+                                : TokenType.OPERATOR, 
+                            twoChar, tokenLine, tokenColumn));
                         Advance();
                         Advance();
                         continue;
@@ -450,50 +386,23 @@ namespace SharpPy
                 }
 
                 // Single-character tokens
-                switch (currentChar)
+                var tokenInfo = currentChar switch
                 {
-                    case '+':
-                    case '-':
-                    case '*':
-                    case '/':
-                    case '%':
-                    case '<':
-                    case '>':
-                        tokens.Add(new Token(TokenType.OPERATOR, currentChar.ToString(), tokenLine, tokenColumn));
-                        break;
-                    case '=':
-                        tokens.Add(new Token(TokenType.ASSIGN, "=", tokenLine, tokenColumn));
-                        break;
-                    case '(':
-                        tokens.Add(new Token(TokenType.LPAREN, "(", tokenLine, tokenColumn));
-                        break;
-                    case ')':
-                        tokens.Add(new Token(TokenType.RPAREN, ")", tokenLine, tokenColumn));
-                        break;
-                    case '[':
-                        tokens.Add(new Token(TokenType.LBRACKET, "[", tokenLine, tokenColumn));
-                        break;
-                    case ']':
-                        tokens.Add(new Token(TokenType.RBRACKET, "]", tokenLine, tokenColumn));
-                        break;
-                    case '{':
-                        tokens.Add(new Token(TokenType.LBRACE, "{", tokenLine, tokenColumn));
-                        break;
-                    case '}':
-                        tokens.Add(new Token(TokenType.RBRACE, "}", tokenLine, tokenColumn));
-                        break;
-                    case ':':
-                        tokens.Add(new Token(TokenType.COLON, ":", tokenLine, tokenColumn));
-                        break;
-                    case ',':
-                        tokens.Add(new Token(TokenType.COMMA, ",", tokenLine, tokenColumn));
-                        break;
-                    case '.':
-                        tokens.Add(new Token(TokenType.DOT, ".", tokenLine, tokenColumn));
-                        break;
-                    default:
-                        throw new PythonException("SyntaxError", $"Unexpected character: {currentChar}", tokenLine, tokenColumn);
-                }
+                    '+' or '-' or '*' or '/' or '%' or '<' or '>' => (TokenType.OPERATOR, currentChar.ToString()),
+                    '=' => (TokenType.ASSIGN, "="),
+                    '(' => (TokenType.LPAREN, "("),
+                    ')' => (TokenType.RPAREN, ")"),
+                    '[' => (TokenType.LBRACKET, "["),
+                    ']' => (TokenType.RBRACKET, "]"),
+                    '{' => (TokenType.LBRACE, "{"),
+                    '}' => (TokenType.RBRACE, "}"),
+                    ':' => (TokenType.COLON, ":"),
+                    ',' => (TokenType.COMMA, ","),
+                    '.' => (TokenType.DOT, "."),
+                    _ => throw new PythonException("SyntaxError", $"Unexpected character: {currentChar}", tokenLine, tokenColumn)
+                };
+                
+                tokens.Add(new Token(tokenInfo.Item1, tokenInfo.Item2, tokenLine, tokenColumn));
                 Advance();
             }
 
@@ -507,34 +416,103 @@ namespace SharpPy
             tokens.Add(new Token(TokenType.EOF, "", line, column));
             return tokens;
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static TokenType GetKeywordToken(string keyword) => keyword switch
+        {
+            "def" => TokenType.DEF,
+            "class" => TokenType.CLASS,
+            "if" => TokenType.IF,
+            "else" => TokenType.ELSE,
+            "elif" => TokenType.ELIF,
+            "for" => TokenType.FOR,
+            "while" => TokenType.WHILE,
+            "in" => TokenType.IN,
+            "is" => TokenType.IS,
+            "break" => TokenType.BREAK,
+            "continue" => TokenType.CONTINUE,
+            "try" => TokenType.TRY,
+            "except" => TokenType.EXCEPT,
+            "finally" => TokenType.FINALLY,
+            "raise" => TokenType.RAISE,
+            "import" => TokenType.IMPORT,
+            "from" => TokenType.FROM,
+            "as" => TokenType.AS,
+            "return" => TokenType.RETURN,
+            "and" => TokenType.AND,
+            "or" => TokenType.OR,
+            "not" => TokenType.NOT,
+            "lambda" => TokenType.LAMBDA,
+            "with" => TokenType.WITH,
+            "del" => TokenType.DEL,
+            _ => TokenType.IDENTIFIER
+        };
     }
 
-    // Enhanced Parser with Line/Column Tracking for AST Nodes
+    // Optimized Parser with improved performance
     public partial class Parser
     {
-        private List<Token> tokens;
+        private readonly List<Token> tokens;
+        private readonly int tokenCount;
         private int position;
         private Token currentToken;
+        
+        // Pre-computed sets for faster lookups
+        private static readonly HashSet<TokenType> BlockStatementTokens = new HashSet<TokenType>
+        {
+            TokenType.DEF, TokenType.CLASS, TokenType.IDENTIFIER, TokenType.NUMBER,
+            TokenType.STRING, TokenType.FSTRING, TokenType.BOOLEAN, TokenType.NONE,
+            TokenType.LBRACKET, TokenType.LBRACE, TokenType.LPAREN, TokenType.IF,
+            TokenType.FOR, TokenType.WHILE, TokenType.TRY, TokenType.WITH,
+            TokenType.RETURN, TokenType.BREAK, TokenType.CONTINUE, TokenType.RAISE,
+            TokenType.IMPORT, TokenType.FROM, TokenType.NOT
+        };
+        
+        private static readonly HashSet<TokenType> EndOfStatementTokens = new HashSet<TokenType>
+        {
+            TokenType.NEWLINE, TokenType.EOF, TokenType.RBRACE, TokenType.RBRACKET,
+            TokenType.RPAREN, TokenType.COLON, TokenType.ELSE, TokenType.ELIF,
+            TokenType.EXCEPT, TokenType.FINALLY
+        };
+        
+        private static readonly HashSet<string> ComparisonOperators = new HashSet<string>
+        {
+            "==", "!=", "<", ">", "<=", ">="
+        };
+        
+        private static readonly HashSet<string> ArithmeticOperators = new HashSet<string>
+        {
+            "+", "-"
+        };
+        
+        private static readonly HashSet<string> TermOperators = new HashSet<string>
+        {
+            "*", "/", "%"
+        };
 
         public Parser(List<Token> tokens)
         {
-            this.tokens = tokens;
+            this.tokens = tokens ?? throw new ArgumentNullException(nameof(tokens));
+            this.tokenCount = this.tokens.Count;
             position = 0;
-            currentToken = tokens[position];
+            currentToken = tokenCount > 0 ? tokens[0] : new Token(TokenType.EOF, "", 1, 1);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void Advance()
         {
             position++;
-            currentToken = position < tokens.Count ? tokens[position] : new Token(TokenType.EOF, "", currentToken?.Line ?? 1, currentToken?.Column ?? 1);
+            currentToken = position < tokenCount ? tokens[position] : new Token(TokenType.EOF, "", currentToken?.Line ?? 1, currentToken?.Column ?? 1);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SkipNewlines()
         {
             while (currentToken.Type == TokenType.NEWLINE)
                 Advance();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SkipNewlinesAndIndents()
         {
             while (currentToken.Type == TokenType.NEWLINE ||
@@ -543,6 +521,7 @@ namespace SharpPy
                 Advance();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void Expect(TokenType tokenType)
         {
             if (currentToken.Type != tokenType)
@@ -552,7 +531,7 @@ namespace SharpPy
 
         public List<ASTNode> Parse()
         {
-            var statements = new List<ASTNode>();
+            var statements = new List<ASTNode>(32); // Pre-allocate reasonable capacity
             SkipNewlines();
 
             while (currentToken.Type != TokenType.EOF)
@@ -571,7 +550,7 @@ namespace SharpPy
                 }
                 catch (PythonException)
                 {
-                    throw; // Re-throw PythonExceptions as-is (they already have location info)
+                    throw;
                 }
                 catch (Exception ex)
                 {
@@ -582,27 +561,24 @@ namespace SharpPy
             return statements;
         }
 
-        private ASTNode ParseStatement()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private ASTNode ParseStatement() => currentToken.Type switch
         {
-            return currentToken.Type switch
-            {
-                TokenType.DEF => ParseFunctionDef(),
-                TokenType.CLASS => ParseClassDef(),
-                TokenType.IF => ParseIf(),
-                TokenType.FOR => ParseFor(),
-                TokenType.WHILE => ParseWhile(),
-                TokenType.TRY => ParseTry(),
-                TokenType.WITH => ParseWith(),  // Added WITH statement parsing
-                TokenType.DEL => ParseDel(),    // Added DEL statement parsing
-                TokenType.IMPORT => ParseImport(),
-                TokenType.FROM => ParseImport(), // FROM...IMPORT도 ParseImport에서 처리
-                TokenType.RETURN => ParseReturn(),
-                TokenType.BREAK => ParseBreak(),
-                TokenType.CONTINUE => ParseContinue(),
-                TokenType.RAISE => ParseRaise(),
-                _ => ParseExpressionStatement()
-            };
-        }
+            TokenType.DEF => ParseFunctionDef(),
+            TokenType.CLASS => ParseClassDef(),
+            TokenType.IF => ParseIf(),
+            TokenType.FOR => ParseFor(),
+            TokenType.WHILE => ParseWhile(),
+            TokenType.TRY => ParseTry(),
+            TokenType.WITH => ParseWith(),
+            TokenType.DEL => ParseDel(),
+            TokenType.IMPORT or TokenType.FROM => ParseImport(),
+            TokenType.RETURN => ParseReturn(),
+            TokenType.BREAK => ParseBreak(),
+            TokenType.CONTINUE => ParseContinue(),
+            TokenType.RAISE => ParseRaise(),
+            _ => ParseExpressionStatement()
+        };
 
         private ASTNode ParseFunctionDef()
         {
@@ -614,7 +590,7 @@ namespace SharpPy
             Expect(TokenType.IDENTIFIER);
             Expect(TokenType.LPAREN);
 
-            SkipNewlinesAndIndents(); // Skip newlines after opening paren
+            SkipNewlinesAndIndents();
 
             var parameters = new List<Parameter>();
             while (currentToken.Type != TokenType.RPAREN)
@@ -625,26 +601,25 @@ namespace SharpPy
                 TypeHint typeHint = null;
                 if (currentToken.Type == TokenType.COLON)
                 {
-                    Advance(); // Skip ':'
+                    Advance();
                     typeHint = ParseTypeHint();
                 }
 
                 parameters.Add(new Parameter(paramName, typeHint));
 
-                SkipNewlinesAndIndents(); // Skip newlines after parameter
+                SkipNewlinesAndIndents();
 
                 if (currentToken.Type == TokenType.COMMA)
                 {
-                    Advance(); // Skip comma
-                    SkipNewlinesAndIndents(); // Skip newlines after comma
+                    Advance();
+                    SkipNewlinesAndIndents();
 
-                    // Allow trailing comma
                     if (currentToken.Type == TokenType.RPAREN)
                         break;
                 }
                 else if (currentToken.Type != TokenType.RPAREN)
                 {
-                    throw new PythonException("SyntaxError", $"Expected ',' or ')' in parameter list", currentToken.Line, currentToken.Column);
+                    throw new PythonException("SyntaxError", "Expected ',' or ')' in parameter list", currentToken.Line, currentToken.Column);
                 }
             }
             Expect(TokenType.RPAREN);
@@ -652,7 +627,7 @@ namespace SharpPy
             TypeHint returnTypeHint = null;
             if (currentToken.Type == TokenType.OPERATOR && currentToken.Value == "->")
             {
-                Advance(); // Skip '->'
+                Advance();
                 returnTypeHint = ParseTypeHint();
             }
 
@@ -667,7 +642,7 @@ namespace SharpPy
         private TypeHint ParseTypeHint()
         {
             if (currentToken.Type != TokenType.IDENTIFIER)
-                throw new PythonException("SyntaxError", $"Expected type hint", currentToken.Line, currentToken.Column);
+                throw new PythonException("SyntaxError", "Expected type hint", currentToken.Line, currentToken.Column);
 
             string typeName = currentToken.Value;
             Advance();
@@ -682,34 +657,33 @@ namespace SharpPy
                 "dict" => PythonType.Dict,
                 "tuple" => PythonType.Tuple,
                 "None" => PythonType.None,
-                _ => PythonType.Instance // For custom classes
+                _ => PythonType.Instance
             };
 
-            // Check for generic types like list[int] or dict[str, int]
+            // Check for generic types
             if (currentToken.Type == TokenType.LBRACKET)
             {
-                Advance(); // Skip '['
-                SkipNewlinesAndIndents(); // Skip newlines after bracket
+                Advance();
+                SkipNewlinesAndIndents();
 
                 var genericArgs = new List<TypeHint>();
 
                 while (currentToken.Type != TokenType.RBRACKET)
                 {
                     genericArgs.Add(ParseTypeHint());
-                    SkipNewlinesAndIndents(); // Skip newlines after type
+                    SkipNewlinesAndIndents();
 
                     if (currentToken.Type == TokenType.COMMA)
                     {
-                        Advance(); // Skip comma
-                        SkipNewlinesAndIndents(); // Skip newlines after comma
+                        Advance();
+                        SkipNewlinesAndIndents();
 
-                        // Allow trailing comma
                         if (currentToken.Type == TokenType.RBRACKET)
                             break;
                     }
                     else if (currentToken.Type != TokenType.RBRACKET)
                     {
-                        throw new PythonException("SyntaxError", $"Expected ',' or ']' in generic type", currentToken.Line, currentToken.Column);
+                        throw new PythonException("SyntaxError", "Expected ',' or ']' in generic type", currentToken.Line, currentToken.Column);
                     }
                 }
 
@@ -717,22 +691,19 @@ namespace SharpPy
                 return new GenericTypeHint(pythonType, genericArgs);
             }
 
-            return new SimpleTypeHint(pythonType);
+            return SimpleTypeHint.Create(pythonType);
         }
 
         private List<ASTNode> ParseBlock()
         {
             var statements = new List<ASTNode>();
 
-            // INDENT 토큰을 기대함
             if (currentToken.Type == TokenType.INDENT)
             {
-                Advance(); // Skip INDENT
+                Advance();
                 SkipNewlines();
 
-                // DEDENT 토큰이 나올 때까지 문장들을 파싱
-                while (currentToken.Type != TokenType.DEDENT &&
-                       currentToken.Type != TokenType.EOF)
+                while (currentToken.Type != TokenType.DEDENT && currentToken.Type != TokenType.EOF)
                 {
                     if (currentToken.Type == TokenType.NEWLINE)
                     {
@@ -751,47 +722,22 @@ namespace SharpPy
                     }
                 }
 
-                // DEDENT 토큰 처리
                 if (currentToken.Type == TokenType.DEDENT)
                 {
-                    Advance(); // Skip DEDENT
+                    Advance();
                 }
             }
             else
             {
-                // 들여쓰기가 없는 경우 - IndentationError를 발생시켜야 함
-                // for, while, if, def, class 등의 다음 라인은 반드시 들여쓰기가 있어야 함
                 throw new PythonException("IndentationError", "expected an indented block", currentToken.Line, currentToken.Column);
             }
 
             return statements;
         }
 
-        private bool IsBlockStatement()
-        {
-            return currentToken.Type == TokenType.DEF ||
-                   currentToken.Type == TokenType.CLASS ||
-                   currentToken.Type == TokenType.IDENTIFIER ||
-                   currentToken.Type == TokenType.NUMBER ||
-                   currentToken.Type == TokenType.STRING ||
-                   currentToken.Type == TokenType.FSTRING ||  // Added FSTRING
-                   currentToken.Type == TokenType.BOOLEAN ||
-                   currentToken.Type == TokenType.NONE ||
-                   currentToken.Type == TokenType.LBRACKET ||
-                   currentToken.Type == TokenType.LBRACE ||
-                   currentToken.Type == TokenType.LPAREN ||
-                   currentToken.Type == TokenType.IF ||
-                   currentToken.Type == TokenType.FOR ||
-                   currentToken.Type == TokenType.WHILE ||
-                   currentToken.Type == TokenType.TRY ||
-                   currentToken.Type == TokenType.WITH ||  // Added WITH
-                   currentToken.Type == TokenType.RETURN ||
-                   currentToken.Type == TokenType.BREAK ||
-                   currentToken.Type == TokenType.CONTINUE ||
-                   currentToken.Type == TokenType.RAISE ||
-                   currentToken.Type == TokenType.IMPORT ||
-                   currentToken.Type == TokenType.FROM ||
-                   currentToken.Type == TokenType.NOT;
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private bool IsBlockStatement() => BlockStatementTokens.Contains(currentToken.Type);
     }
 }
+
+// enhanced_lexer_parser.cs
