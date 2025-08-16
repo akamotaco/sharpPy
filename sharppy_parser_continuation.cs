@@ -908,33 +908,47 @@ namespace SharpPy
 
             Expect(TokenType.LAMBDA);
 
-            // Parse parameters (same format as function parameters but no parentheses)
             var parameters = new List<Parameter>();
-
-            // Check if there are parameters (if not immediately followed by colon)
+            bool hasSeenDefault = false;
+            
             if (currentToken.Type != TokenType.COLON)
             {
                 do
                 {
                     if (currentToken.Type != TokenType.IDENTIFIER)
                     {
-                        throw new PythonException("SyntaxError", $"Expected parameter name in lambda", currentToken.Line, currentToken.Column);
+                        throw new PythonException("SyntaxError", 
+                            $"Expected parameter name in lambda", 
+                            currentToken.Line, currentToken.Column);
                     }
 
                     string paramName = currentToken.Value;
                     Advance();
 
-                    // For simplicity, we'll skip type hints in lambda for now
-                    // Lambda type hints are rarely used in practice
-                    parameters.Add(new Parameter(paramName, null));
+                    ASTNode defaultValue = null;
+                    if (currentToken.Type == TokenType.ASSIGN)
+                    {
+                        Advance(); // Skip '='
+                        defaultValue = ParseOrExpression(); // 람다에서는 조건식 제외
+                        hasSeenDefault = true;
+                    }
+                    else if (hasSeenDefault)
+                    {
+                        throw new PythonException("SyntaxError", 
+                            "non-default argument follows default argument", 
+                            currentToken.Line, currentToken.Column);
+                    }
+
+                    parameters.Add(new Parameter(paramName, null, defaultValue));
 
                     if (currentToken.Type == TokenType.COMMA)
                     {
-                        Advance(); // Skip comma
-                        // Must have another parameter after comma
+                        Advance();
                         if (currentToken.Type == TokenType.COLON)
                         {
-                            throw new PythonException("SyntaxError", $"Expected parameter after ',' in lambda", currentToken.Line, currentToken.Column);
+                            throw new PythonException("SyntaxError", 
+                                $"Expected parameter after ',' in lambda", 
+                                currentToken.Line, currentToken.Column);
                         }
                     }
                     else
@@ -946,7 +960,6 @@ namespace SharpPy
 
             Expect(TokenType.COLON);
 
-            // Parse lambda body (single expression)
             var body = ParseExpression();
 
             return new LambdaNode(parameters, body, line, column);

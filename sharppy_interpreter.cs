@@ -1316,11 +1316,63 @@ elif temperature > 10:
 
 print('Done')
 ");
-                Console.WriteLine("✓ Custom Context Manager test passed\n");
+                Console.WriteLine("✓ elif test passed\n");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"✗ Custom Context Manager test failed: {ex.Message}\n");
+                Console.WriteLine($"✗ elif test failed: {ex.Message}\n");
+            }
+
+            Console.WriteLine("9. default parameter Test:");
+            try
+            {
+                interpreter.Execute(@"
+def greet(name: str, greeting: str = 'Hello', punctuation: str = '!'):
+    return f'{greeting}, {name}{punctuation}'
+
+print(greet('Alice'))                    # Hello, Alice!
+print(greet('Bob', 'Hi'))               # Hi, Bob!
+print(greet('Charlie', 'Hey', '?'))     # Hey, Charlie?
+
+# 복잡한 기본값
+def create_list(size: int = 5, default_value = None):
+    if default_value is None:
+        default_value = 0
+    return [default_value] * size
+
+print(create_list())           # [0, 0, 0, 0, 0]
+print(create_list(3))          # [0, 0, 0]
+print(create_list(3, 'x'))     # ['x', 'x', 'x']
+
+# 람다 함수의 기본 매개변수
+add = lambda x, y=10: x + y
+print(add(5))      # 15
+print(add(5, 3))   # 8
+
+multiply = lambda x=2, y=3: x * y
+print(multiply())       # 6
+print(multiply(4))      # 12
+print(multiply(4, 5))   # 20
+
+# 타입 힌트와 기본값 함께 사용
+def T(text: str, end: str = '\n', append: bool = False, at_once: bool = False):
+    result = text + end
+    if append:
+        result = 'APPEND: ' + result
+    if at_once:
+        result = 'AT_ONCE: ' + result
+    return result
+
+print(T('Hello'))                                    # Hello\n
+print(T('Hello', ' '))                              # Hello 
+print(T('Hello', ' ', True))                        # APPEND: Hello 
+print(T('Hello', ' ', True, True))                  # AT_ONCE: APPEND: Hello
+");
+                Console.WriteLine("✓ default parameter test passed\n");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"✗ default parameter Manager test failed: {ex.Message}\n");
             }
 
             Console.WriteLine("=== All New Features Tests Complete ===");

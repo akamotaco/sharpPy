@@ -454,34 +454,82 @@ namespace SharpPy
         public List<ASTNode> Body { get; }
         public Environment ClosureEnv { get; }
         public TypeHint ReturnTypeHint { get; }
+        
+        // 기본값을 미리 평가하여 저장
+        private List<PythonTypeObject> evaluatedDefaults;
 
         public UserFunction(string name, List<Parameter> parameters, List<ASTNode> body, 
-                           Environment closureEnv, TypeHint returnTypeHint = null)
+                        Environment closureEnv, TypeHint returnTypeHint = null)
             : base(name)
         {
             Parameters = parameters;
             Body = body;
             ClosureEnv = closureEnv;
             ReturnTypeHint = returnTypeHint;
+            
+            // 기본값들을 함수 정의 시점에 평가
+            evaluatedDefaults = new List<PythonTypeObject>();
+            foreach (var param in parameters)
+            {
+                if (param.DefaultValue != null)
+                {
+                    evaluatedDefaults.Add(param.DefaultValue.Evaluate(closureEnv));
+                }
+                else
+                {
+                    evaluatedDefaults.Add(null);
+                }
+            }
         }
 
         public override PythonTypeObject Call(List<PythonTypeObject> arguments)
         {
-            if (arguments.Count != Parameters.Count)
+            // 필수 매개변수 개수 계산
+            int requiredParams = Parameters.Count(p => !p.HasDefault);
+            
+            // 인자 개수 검증
+            if (arguments.Count < requiredParams)
+            {
                 throw new PythonException("TypeError", 
-                    $"Function {Name} expects {Parameters.Count} arguments, got {arguments.Count}");
+                    $"Function {Name} missing {requiredParams - arguments.Count} required positional argument(s)");
+            }
+            
+            if (arguments.Count > Parameters.Count)
+            {
+                throw new PythonException("TypeError", 
+                    $"Function {Name} takes at most {Parameters.Count} arguments ({arguments.Count} given)");
+            }
 
             var funcEnv = new Environment(ClosureEnv);
 
-            // Type checking and parameter binding
+            // 매개변수 바인딩
             for (int i = 0; i < Parameters.Count; i++)
             {
                 var param = Parameters[i];
-                var arg = arguments[i];
-
-                if (param.TypeHint != null && !param.TypeHint.IsCompatible(arg))
+                PythonTypeObject arg;
+                
+                // 인자가 제공되었으면 사용, 아니면 기본값 사용
+                if (i < arguments.Count)
+                {
+                    arg = arguments[i];
+                }
+                else if (evaluatedDefaults[i] != null)
+                {
+                    arg = evaluatedDefaults[i];
+                }
+                else
+                {
+                    // 이 경우는 위의 검증에서 걸러져야 함
                     throw new PythonException("TypeError", 
-                        $"Argument {i + 1} for parameter '{param.Name}' expected {param.TypeHint}, got {GetValueType(arg)}");
+                        $"Function {Name} missing required argument: '{param.Name}'");
+                }
+
+                // 타입 검증
+                if (param.TypeHint != null && !param.TypeHint.IsCompatible(arg))
+                {
+                    throw new PythonException("TypeError", 
+                        $"Argument for parameter '{param.Name}' expected {param.TypeHint}, got {GetValueType(arg)}");
+                }
 
                 funcEnv.SetVariable(param.Name, arg);
             }
@@ -506,7 +554,7 @@ namespace SharpPy
                 return ex.Value;
             }
         }
-
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static string GetValueType(PythonTypeObject value) => 
             value == null || value is PythonNone ? "None" : value.Type.ToString().ToLower();
@@ -517,6 +565,7 @@ namespace SharpPy
         public List<Parameter> Parameters { get; }
         public ASTNode Body { get; }
         public Environment ClosureEnv { get; }
+        private List<PythonTypeObject> evaluatedDefaults;
 
         public LambdaFunction(List<Parameter> parameters, ASTNode body, Environment closureEnv)
             : base("<lambda>")
@@ -524,36 +573,74 @@ namespace SharpPy
             Parameters = parameters;
             Body = body;
             ClosureEnv = closureEnv;
+            
+            // 기본값 평가
+            evaluatedDefaults = new List<PythonTypeObject>();
+            foreach (var param in parameters)
+            {
+                if (param.DefaultValue != null)
+                {
+                    evaluatedDefaults.Add(param.DefaultValue.Evaluate(closureEnv));
+                }
+                else
+                {
+                    evaluatedDefaults.Add(null);
+                }
+            }
         }
 
         public override PythonTypeObject Call(List<PythonTypeObject> arguments)
         {
-            if (arguments.Count != Parameters.Count)
+            int requiredParams = Parameters.Count(p => !p.HasDefault);
+            
+            if (arguments.Count < requiredParams)
+            {
                 throw new PythonException("TypeError", 
-                    $"Lambda function expects {Parameters.Count} arguments, got {arguments.Count}");
+                    $"Lambda function missing {requiredParams - arguments.Count} required positional argument(s)");
+            }
+            
+            if (arguments.Count > Parameters.Count)
+            {
+                throw new PythonException("TypeError", 
+                    $"Lambda function takes at most {Parameters.Count} arguments ({arguments.Count} given)");
+            }
 
             var funcEnv = new Environment(ClosureEnv);
 
             for (int i = 0; i < Parameters.Count; i++)
             {
                 var param = Parameters[i];
-                var arg = arguments[i];
+                PythonTypeObject arg;
+                
+                if (i < arguments.Count)
+                {
+                    arg = arguments[i];
+                }
+                else if (evaluatedDefaults[i] != null)
+                {
+                    arg = evaluatedDefaults[i];
+                }
+                else
+                {
+                    throw new PythonException("TypeError", 
+                        $"Lambda function missing required argument: '{param.Name}'");
+                }
 
                 if (param.TypeHint != null && !param.TypeHint.IsCompatible(arg))
+                {
                     throw new PythonException("TypeError", 
-                        $"Argument {i + 1} for parameter '{param.Name}' expected {param.TypeHint}, got {GetValueType(arg)}");
+                        $"Argument for parameter '{param.Name}' expected {param.TypeHint}, got {GetValueType(arg)}");
+                }
 
                 funcEnv.SetVariable(param.Name, arg);
             }
 
             return Body.Evaluate(funcEnv);
         }
-
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static string GetValueType(PythonTypeObject value) => 
             value == null || value is PythonNone ? "None" : value.Type.ToString().ToLower();
-
-        public override string ToPythonString() => "<lambda>";
     }
     
     public sealed class BuiltinFunction : Function

@@ -570,12 +570,16 @@ namespace SharpPy
     {
         public string Name { get; }
         public TypeHint TypeHint { get; }
-
-        public Parameter(string name, TypeHint typeHint = null)
+        public ASTNode DefaultValue { get; }  // 기본값 추가
+        
+        public Parameter(string name, TypeHint typeHint = null, ASTNode defaultValue = null)
         {
             Name = name;
             TypeHint = typeHint;
+            DefaultValue = defaultValue;
         }
+        
+        public bool HasDefault => DefaultValue != null;
     }
 
     // Enhanced Token Class
