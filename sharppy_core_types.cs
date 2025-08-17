@@ -53,15 +53,20 @@ namespace SharpPy
 
         public virtual PythonString ToStr() => new PythonString(ToPythonString());
         public virtual PythonBool ToBool() => new PythonBool(IsTrue());
-        
-                // Virtual method to get all available method names
+
+        // Virtual method to get all available method names
         public virtual List<string> GetMethodNames()
         {
             return new List<string>();
         }
-        
+
         // Virtual method to get a method by name
         public virtual BuiltinFunction GetMethod(string name)
+        {
+            return null;
+        }
+
+        public virtual PythonTypeObject GetAttribute(string name)
         {
             return null;
         }

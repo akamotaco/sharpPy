@@ -889,7 +889,7 @@ namespace SharpPy
         public override bool Equals(PythonTypeObject other) => ReferenceEquals(this, other);
         public override int GetHashCode() => base.GetHashCode();
 
-        public PythonTypeObject GetAttribute(string name)
+        public override PythonTypeObject GetAttribute(string name)
         {
             try
             {

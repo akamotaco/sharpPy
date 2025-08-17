@@ -33,7 +33,7 @@ namespace SharpPy
             {
                 ["json"] = JsonModule.CreateJsonModule,
                 ["random"] = RandomModule.CreateRandomModule,
-                // ["math"] = MathModule.CreateMathModule,
+                ["math"] = MathModule.CreateMathModule,
                 ["datetime"] = DateTimeModule.Create,
                 ["collections"] = CollectionsModule.Create,
                 ["re"] = RegexModule.Create,
