@@ -679,13 +679,21 @@ namespace SharpPy
         {
             if (currentToken.Type == TokenType.NOT)
             {
+                // 'not in' 체크 추가!
+                if (position + 1 < tokens.Count && tokens[position + 1].Type == TokenType.IN)
+                {
+                    // 'not in'은 ParseInExpression에서 처리
+                    return ParseInExpression();
+                }
+                
+                // 일반 not 처리
                 int line = currentToken.Line;
                 int column = currentToken.Column;
                 Advance();
                 return new UnaryOpNode("not", ParseNotExpression(), line, column);
             }
 
-            return ParseInExpression();
+            return ParseInExpression();  // 다음 단계
         }
 
         private ASTNode ParseInExpression()
@@ -693,12 +701,25 @@ namespace SharpPy
             int line = currentToken.Line;
             int column = currentToken.Column;
 
-            var node = ParseIsExpression();
+            var node = ParseIsExpression();  // 다음 단계
 
-            while (currentToken.Type == TokenType.IN)
+            // 'in' 및 'not in' 처리
+            while (currentToken.Type == TokenType.IN ||
+                (currentToken.Type == TokenType.NOT && 
+                    position + 1 < tokens.Count && 
+                    tokens[position + 1].Type == TokenType.IN))
             {
-                Advance();
-                node = new BinaryOpNode(node, "in", ParseIsExpression(), line, column);
+                if (currentToken.Type == TokenType.NOT)
+                {
+                    Advance(); // Skip 'not'
+                    Advance(); // Skip 'in'
+                    node = new BinaryOpNode(node, "not in", ParseIsExpression(), line, column);
+                }
+                else
+                {
+                    Advance(); // Skip 'in'
+                    node = new BinaryOpNode(node, "in", ParseIsExpression(), line, column);
+                }
             }
 
             return node;

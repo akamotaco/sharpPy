@@ -43,6 +43,7 @@ namespace SharpPy
                     "and" => PythonBool.Create(leftVal.IsTrue() && rightVal.IsTrue()),
                     "or" => PythonBool.Create(leftVal.IsTrue() || rightVal.IsTrue()),
                     "in" => PythonBool.Create(IsIn(leftVal, rightVal)),
+                    "not in" => PythonBool.Create(!IsIn(leftVal, rightVal)),
                     "is" => PythonBool.Create(IsIdentical(leftVal, rightVal)),
                     "is not" => PythonBool.Create(!IsIdentical(leftVal, rightVal)),
                     _ => throw CreateException("TypeError", $"Unknown operator: {Operator}")
