@@ -16,7 +16,7 @@ namespace SharpPy
         {
             InitializeMethodRegistry();
         }
-        
+
         public PythonList()
         {
             Items = new List<PythonTypeObject>();
@@ -862,7 +862,7 @@ namespace SharpPy
         }
     }
 
-    public sealed class PythonModule : PythonTypeObject
+    public class PythonModule : PythonTypeObject
     {
         public string Name { get; }
         public Environment ModuleEnv { get; }
