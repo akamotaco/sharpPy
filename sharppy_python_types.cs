@@ -7,7 +7,7 @@ using System.Runtime.CompilerServices;
 namespace SharpPy
 {
     // Optimized Python List
-    public sealed class PythonList : PythonTypeObject
+    public class PythonList : PythonTypeObject
     {
         public List<PythonTypeObject> Items { get; }
         

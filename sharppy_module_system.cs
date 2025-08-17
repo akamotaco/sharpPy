@@ -24,6 +24,14 @@ namespace SharpPy
                 return module;
             }
 
+            // 표준 라이브러리 모듈 확인 (이 줄만 추가!)
+            module = StandardLibrary.CreateStdlibModule(name, searchPaths);
+            if (module != null)
+            {
+                loadedModules[name] = module;
+                return module;
+            }
+            
             if (searchPaths == null)
                 searchPaths = new List<string> { "." };
 

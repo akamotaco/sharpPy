@@ -19,16 +19,13 @@ namespace SharpPy
         {
             this.parent = parent;
             
-            // SearchPaths 초기화 및 상속
             if (parent != null && parent.SearchPaths != null)
             {
-                // 부모의 검색 경로를 복사 (참조가 아닌 복사)
-                SearchPaths = new List<string>(parent.SearchPaths);
+                SearchPaths = parent.SearchPaths; // 복사 대신 참조 공유
             }
             else
             {
-                // 기본 검색 경로
-                SearchPaths = new List<string> { "." };
+                SearchPaths = StandardLibrary.GetGlobalSearchPaths(); // 전역 참조 사용
             }
         }
 
