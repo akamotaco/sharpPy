@@ -9,7 +9,7 @@ namespace SharpPy
     // Enhanced Environment Class with PythonTypeObject
     public class Environment : PythonTypeObject
     {
-        private Dictionary<string, PythonTypeObject> variables = new Dictionary<string, PythonTypeObject>();
+        public Dictionary<string, PythonTypeObject> variables { get; private set; } = new Dictionary<string, PythonTypeObject>();
         public Environment parent;
         public List<string> SearchPaths { get; set; }
 
@@ -27,6 +27,25 @@ namespace SharpPy
             {
                 SearchPaths = StandardLibrary.GetGlobalSearchPaths(); // 전역 참조 사용
             }
+        }
+
+        public bool HasLocalVariable(string name) => variables.ContainsKey(name);
+
+        public PythonTypeObject GetLocalVariable(string name)
+        {
+            if (variables.ContainsKey(name))
+                return variables[name];
+            throw new PythonException("NameError", $"Name '{name}' is not defined");
+        }
+
+        // 클래스 환경에서만 변수를 찾는 메서드 (부모 클래스 포함)
+        public PythonTypeObject GetClassVariable(string name)
+        {
+            if (variables.ContainsKey(name))
+                return variables[name];
+            // 부모 클래스 환경만 검색, 전역은 제외
+            // 이 메서드는 클래스 계층만 탐색함
+            throw new PythonException("NameError", $"Name '{name}' is not defined");
         }
 
         // Create Environment from PythonDict
@@ -813,11 +832,21 @@ namespace SharpPy
                             break;
                             
                         case PythonInstance instance:
-                            // For instances, add all instance variables
-                            var instanceVars = instance.InstanceEnv.GetAllVariables();
-                            foreach (var kvp in instanceVars)
+                            // 인스턴스 변수만 추가 (전역 제외)
+                            foreach (var key in instance.InstanceEnv.variables.Keys)
                             {
-                                attributes.Add(kvp.Key);
+                                attributes.Add(key);
+                            }
+                            
+                            // 클래스 메서드 추가
+                            PythonClass currentClass = instance.Class;
+                            while (currentClass != null)
+                            {
+                                foreach (var key in currentClass.ClassEnv.variables.Keys)
+                                {
+                                    attributes.Add(key);
+                                }
+                                currentClass = currentClass.ParentClass;
                             }
                             break;
                             

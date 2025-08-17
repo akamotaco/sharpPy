@@ -202,10 +202,10 @@ namespace SharpPy
         {
             this.globalEnv = globalEnv;
             // globalEnv에 builtin이 없으면 추가
-            if (!globalEnv.HasVariable("print"))
-            {
-                Environment.SetupBuiltins(globalEnv);
-            }
+            // if (!globalEnv.HasVariable("print"))
+            // {
+            //     Environment.SetupBuiltins(globalEnv);
+            // }
             frameStack = new Stack<Frame>();
         }
 

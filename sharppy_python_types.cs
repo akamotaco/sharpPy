@@ -793,6 +793,22 @@ namespace SharpPy
         public override bool Equals(PythonTypeObject other) => ReferenceEquals(this, other);
         public override int GetHashCode() => base.GetHashCode();
 
+        public PythonTypeObject GetClassAttribute(string name)
+        {
+            // 클래스 자체의 속성만 확인 (전역 환경 제외)
+            PythonClass currentClass = this;
+            while (currentClass != null)
+            {
+                if (currentClass.ClassEnv.HasLocalVariable(name))
+                {
+                    return currentClass.ClassEnv.GetLocalVariable(name);
+                }
+                currentClass = currentClass.ParentClass;
+            }
+            
+            throw new PythonException("AttributeError", $"type object '{Name}' has no attribute '{name}'");
+        }
+
         public PythonInstance CreateInstance(List<PythonTypeObject> args = null)
         {
             var instance = new PythonInstance(this);
@@ -831,35 +847,76 @@ namespace SharpPy
         public override bool Equals(PythonTypeObject other) => ReferenceEquals(this, other);
         public override int GetHashCode() => base.GetHashCode();
 
-        public PythonTypeObject GetAttribute(string name)
+        public override List<string> GetMethodNames()
         {
-            try
+            var methods = new HashSet<string>();
+            
+            // 인스턴스 변수들
+            foreach (var key in InstanceEnv.variables.Keys)
             {
-                var value = InstanceEnv.GetVariable(name);
+                methods.Add(key);
+            }
+            
+            // 클래스와 부모 클래스들의 메서드
+            PythonClass currentClass = Class;
+            while (currentClass != null)
+            {
+                foreach (var kvp in currentClass.ClassEnv.variables)
+                {
+                    if (!methods.Contains(kvp.Key))
+                        methods.Add(kvp.Key);
+                }
+                currentClass = currentClass.ParentClass;
+            }
+            
+            return methods.OrderBy(m => m).ToList();
+        }
+
+        public override PythonTypeObject GetAttribute(string name)
+        {
+            // 1. 먼저 인스턴스 변수 확인 (부모 환경 탐색 없이)
+            if (InstanceEnv.HasLocalVariable(name))
+            {
+                var value = InstanceEnv.GetLocalVariable(name);
                 return value is UserFunction userFunction
                     ? new BoundMethod(name, userFunction, this)
                     : value;
             }
-            catch (PythonException)
+
+            // 2. 클래스와 부모 클래스들의 메서드/속성 확인
+            PythonClass currentClass = Class;
+            while (currentClass != null)
             {
-                throw new PythonException("AttributeError", $"'{Class.Name}' object has no attribute '{name}'");
+                if (currentClass.ClassEnv.HasLocalVariable(name))
+                {
+                    var value = currentClass.ClassEnv.GetLocalVariable(name);
+                    return value is UserFunction userFunction
+                        ? new BoundMethod(name, userFunction, this)
+                        : value;
+                }
+                currentClass = currentClass.ParentClass;
             }
+
+            // 3. 특수 메서드들 확인 (__str__, __repr__ 등)
+            if (name == "__class__")
+                return Class;
+            if (name == "__dict__")
+            {
+                var dict = new PythonDict();
+                var vars = InstanceEnv.GetAllVariables();
+                foreach (var kvp in vars)
+                {
+                    if (InstanceEnv.HasLocalVariable(kvp.Key))  // 인스턴스 변수만
+                        dict.Items[new PythonString(kvp.Key)] = kvp.Value;
+                }
+                return dict;
+            }
+
+            throw new PythonException("AttributeError", $"'{Class.Name}' object has no attribute '{name}'");
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetAttribute(string name, PythonTypeObject value) => InstanceEnv.SetVariable(name, value);
-
-        public override List<string> GetMethodNames()
-        {
-            var methods = new List<string>();
-            var vars = InstanceEnv.GetAllVariables();
-            foreach (var kvp in vars)
-            {
-                if (kvp.Value is Function)
-                    methods.Add(kvp.Key);
-            }
-            return methods.OrderBy(m => m).ToList();
-        }
     }
 
     public class PythonModule : PythonTypeObject
