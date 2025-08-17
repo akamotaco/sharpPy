@@ -17,6 +17,10 @@ namespace SharpPy
         private int column;
         private readonly Stack<int> indentStack;
         private bool atLineStart;
+        private int pendingIndent = -1;  // 대기 중인 들여쓰기 레벨
+        
+        // 탭 크기 설정 (Python 표준은 8)
+        private const int TAB_SIZE = 8;
         
         // Pre-computed lookup tables for better performance
         private static readonly HashSet<string> Keywords = new HashSet<string>
@@ -56,19 +60,10 @@ namespace SharpPy
             else
             {
                 column++;
-                if (currentChar != ' ' && currentChar != '\t')
-                    atLineStart = false;
             }
 
             position++;
             currentChar = position < inputLength ? input[position] : '\0';
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void SkipWhitespace()
-        {
-            while (currentChar != '\0' && char.IsWhiteSpace(currentChar) && currentChar != '\n')
-                Advance();
         }
 
         private string ReadNumber()
@@ -218,37 +213,101 @@ namespace SharpPy
             return sb.ToString();
         }
 
+        // 줄이 비어있는지 확인 (공백, 탭, 주석만 있는 경우)
+        private bool IsBlankLine()
+        {
+            int tempPos = position;
+            char tempChar = currentChar;
+
+            // 현재 위치부터 줄 끝까지 확인
+            while (tempChar != '\0' && tempChar != '\n')
+            {
+                if (tempChar == '#')
+                    return true;  // 주석이면 빈 줄로 취급
+                if (tempChar != ' ' && tempChar != '\t')
+                    return false;  // 공백이 아닌 문자가 있으면 빈 줄이 아님
+
+                tempPos++;
+                tempChar = tempPos < inputLength ? input[tempPos] : '\0';
+            }
+
+            return true;  // 줄 끝까지 공백만 있음
+        }
+
+        // 들여쓰기 레벨 계산 (탭과 공백 혼용 처리)
+        private int CalculateIndentLevel()
+        {
+            int level = 0;
+            int tempPos = position;
+            char tempChar = currentChar;
+            
+            while (tempChar == ' ' || tempChar == '\t')
+            {
+                if (tempChar == ' ')
+                    level += 1;
+                else if (tempChar == '\t')
+                    level = ((level / TAB_SIZE) + 1) * TAB_SIZE;  // 다음 탭 위치로 이동
+                
+                tempPos++;
+                tempChar = tempPos < inputLength ? input[tempPos] : '\0';
+            }
+            
+            return level;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SkipWhitespace()
+        {
+            while (currentChar != '\0' && char.IsWhiteSpace(currentChar) && currentChar != '\n')
+                Advance();
+        }
+
         public List<Token> Tokenize()
         {
             var tokens = new List<Token>(256); // Pre-allocate reasonable capacity
+            bool previousWasNewline = true;  // 파일 시작은 새 줄로 취급
 
             while (currentChar != '\0')
             {
                 int tokenLine = line;
                 int tokenColumn = column;
 
-                // Handle indentation at the start of a line
-                if (atLineStart && currentChar != '\n' && currentChar != '#')
+                // 줄의 시작에서 들여쓰기 처리
+                if (atLineStart && currentChar != '\n')
                 {
-                    int indentLevel = 0;
-                    while (currentChar == ' ' || currentChar == '\t')
+                    // 빈 줄인지 확인
+                    if (IsBlankLine())
                     {
-                        indentLevel += currentChar == ' ' ? 1 : 8;
-                        Advance();
-                    }
-
-                    // Skip empty lines and comments
-                    if (currentChar == '\n' || currentChar == '#')
-                    {
-                        if (currentChar == '#')
+                        // 빈 줄은 건너뛰기 (들여쓰기 변경 없음)
+                        while (currentChar != '\0' && currentChar != '\n')
                         {
-                            while (currentChar != '\0' && currentChar != '\n')
+                            if (currentChar == '#')
+                            {
+                                // 주석 끝까지 건너뛰기
+                                while (currentChar != '\0' && currentChar != '\n')
+                                    Advance();
+                            }
+                            else
+                            {
                                 Advance();
+                            }
+                        }
+                        
+                        if (currentChar == '\n')
+                        {
+                            Advance();
                         }
                         continue;
                     }
 
-                    // Process indentation changes
+                    // 실제 코드가 있는 줄의 들여쓰기 처리
+                    int indentLevel = CalculateIndentLevel();
+                    
+                    // 들여쓰기 공백 건너뛰기
+                    while (currentChar == ' ' || currentChar == '\t')
+                        Advance();
+
+                    // 들여쓰기 토큰 생성
                     int currentIndent = indentStack.Peek();
                     if (indentLevel > currentIndent)
                     {
@@ -265,19 +324,24 @@ namespace SharpPy
 
                         if (indentStack.Peek() != indentLevel)
                         {
-                            throw new PythonException("IndentationError", "Unindent does not match any outer indentation level", tokenLine, tokenColumn);
+                            throw new PythonException("IndentationError", 
+                                $"Unindent does not match any outer indentation level", 
+                                tokenLine, tokenColumn);
                         }
                     }
 
                     atLineStart = false;
+                    previousWasNewline = false;
                 }
 
-                if (char.IsWhiteSpace(currentChar) && currentChar != '\n')
+                // 줄 중간의 공백 처리
+                if (!atLineStart && char.IsWhiteSpace(currentChar) && currentChar != '\n')
                 {
                     SkipWhitespace();
                     continue;
                 }
 
+                // 주석 처리
                 if (currentChar == '#')
                 {
                     while (currentChar != '\0' && currentChar != '\n')
@@ -285,13 +349,22 @@ namespace SharpPy
                     continue;
                 }
 
+                // 개행 문자 처리
                 if (currentChar == '\n')
                 {
-                    tokens.Add(new Token(TokenType.NEWLINE, "\n", tokenLine, tokenColumn));
+                    // 연속된 개행은 하나만 토큰으로 만들기
+                    if (!previousWasNewline)
+                    {
+                        tokens.Add(new Token(TokenType.NEWLINE, "\n", tokenLine, tokenColumn));
+                        previousWasNewline = true;
+                    }
                     Advance();
                     continue;
                 }
 
+                previousWasNewline = false;
+
+                // 숫자 처리
                 if (char.IsDigit(currentChar))
                 {
                     tokens.Add(new Token(TokenType.NUMBER, ReadNumber(), tokenLine, tokenColumn));
@@ -333,6 +406,7 @@ namespace SharpPy
                     continue;
                 }
 
+                // 문자열 처리
                 if (currentChar == '"' || currentChar == '\'')
                 {
                     char quote = currentChar;
@@ -340,6 +414,7 @@ namespace SharpPy
                     continue;
                 }
 
+                // 식별자 및 키워드 처리
                 if (char.IsLetter(currentChar) || currentChar == '_')
                 {
                     string identifier = ReadIdentifier();
