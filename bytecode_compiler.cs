@@ -524,13 +524,30 @@ namespace SharpPy
             EmitLoadConst(new PythonString(node.ModuleName));
             Emit(OpCode.IMPORT_NAME, 0, node.Line);
 
-            foreach (var (itemName, alias) in node.ImportItems)
+            // import * 처리
+            if (node.ImportItems.Count == 1 && node.ImportItems[0].Name == "*")
             {
-                EmitLoadConst(new PythonString(itemName));
-                Emit(OpCode.IMPORT_FROM, 0, node.Line);
+                // 모듈을 스택에 남겨두고
+                Emit(OpCode.DUP_TOP); // 스택 복사 (새로운 opcode 추가 필요)
+                
+                // 모든 public 속성을 가져와서 현재 네임스페이스에 추가
+                // 이는 특별한 처리가 필요함
+            }
+            else
+            {
+                foreach (var (itemName, alias) in node.ImportItems)
+                {
+                    // 스택 최상단의 모듈을 복사
+                    Emit(OpCode.DUP_TOP);
+                    EmitLoadConst(new PythonString(itemName));
+                    Emit(OpCode.IMPORT_FROM, 0, node.Line);
 
-                var storeName = alias ?? itemName;
-                EmitStoreName(storeName);
+                    var storeName = alias ?? itemName;
+                    EmitStoreName(storeName);
+                }
+                
+                // 마지막에 모듈 제거
+                Emit(OpCode.POP_TOP);
             }
         }
 

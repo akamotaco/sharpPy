@@ -14,6 +14,7 @@ namespace SharpPy
         LOAD_NAME = 2,      // Load variable onto stack
         STORE_NAME = 3,     // Store top of stack in variable
         POP_TOP = 4,        // Remove top of stack
+        DUP_TOP = 5,    // Duplicate top of stack
 
         // Arithmetic operations
         BINARY_ADD = 10,
@@ -298,6 +299,14 @@ namespace SharpPy
                             stack.Pop();
                             break;
 
+                        case OpCode.DUP_TOP:
+                            if (stack.Count > 0)
+                            {
+                                var top = stack.Peek();
+                                stack.Push(top);
+                            }
+                            break;
+                            
                         case OpCode.BINARY_ADD:
                             ExecuteBinaryOp("+");
                             break;
@@ -671,7 +680,9 @@ namespace SharpPy
 
             try
             {
-                var module = ModuleSystem.ImportModule(moduleName.Value);
+                // 현재 프레임의 Globals 환경과 SearchPaths를 전달
+                var searchPaths = currentFrame.Globals.SearchPaths ?? new List<string> { "." };
+                var module = ModuleSystem.ImportModule(currentFrame.Globals, moduleName.Value, searchPaths);
                 currentFrame.Stack.Push(module);
             }
             catch (Exception ex)
