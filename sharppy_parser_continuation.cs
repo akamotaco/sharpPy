@@ -40,14 +40,29 @@ namespace SharpPy
             int line = currentToken.Line;
             int column = currentToken.Column;
 
-            // Parse if
             Expect(TokenType.IF);
             var condition = ParseExpression();
             Expect(TokenType.COLON);
             SkipNewlines();
             var thenBody = ParseBlock();
 
-            // Parse elif clauses
+            // Handle DEDENT before elif/else
+            if (currentToken.Type == TokenType.DEDENT)
+            {
+                // Check if next token is elif/else
+                if (position + 1 < tokenCount)
+                {
+                    var nextToken = tokens[position + 1];
+                    if (nextToken.Type == TokenType.ELIF || nextToken.Type == TokenType.ELSE)
+                    {
+                        Advance(); // Consume DEDENT
+                    }
+                }
+            }
+
+            // Skip any newlines between blocks
+            SkipNewlines();
+
             var elifClauses = new List<(ASTNode, List<ASTNode>)>();
             while (currentToken.Type == TokenType.ELIF)
             {
@@ -56,10 +71,24 @@ namespace SharpPy
                 Expect(TokenType.COLON);
                 SkipNewlines();
                 var elifBody = ParseBlock();
+                
+                // Handle DEDENT after elif block
+                if (currentToken.Type == TokenType.DEDENT)
+                {
+                    if (position + 1 < tokenCount)
+                    {
+                        var nextToken = tokens[position + 1];
+                        if (nextToken.Type == TokenType.ELIF || nextToken.Type == TokenType.ELSE)
+                        {
+                            Advance(); // Consume DEDENT
+                        }
+                    }
+                }
+                
+                SkipNewlines();
                 elifClauses.Add((elifCondition, elifBody));
             }
 
-            // Parse else clause
             List<ASTNode> elseBody = null;
             if (currentToken.Type == TokenType.ELSE)
             {
@@ -128,18 +157,40 @@ namespace SharpPy
             int line = currentToken.Line;
             int column = currentToken.Column;
 
+            //Console.WriteLine($"[ParseTry] Starting at line {line}");
+            
             Expect(TokenType.TRY);
             Expect(TokenType.COLON);
             SkipNewlines();
 
+            //Console.WriteLine($"[ParseTry] Before parsing try body, current token: {currentToken.Type} '{currentToken.Value}'");
             var tryBody = ParseBlock();
+            //Console.WriteLine($"[ParseTry] After parsing try body, current token: {currentToken.Type} '{currentToken.Value}'");
+
             var exceptClauses = new List<(string, string, List<ASTNode>)>();
             List<ASTNode> elseBody = null;
             List<ASTNode> finallyBody = null;
 
+            // 중요: ParseBlock 후 토큰 상태 확인 및 정리
+            //Console.WriteLine($"[ParseTry] Before cleanup, current token: {currentToken.Type} at line {currentToken.Line}");
+            
+            // DEDENT, NEWLINE 등을 건너뛰기
+            while (currentToken.Type == TokenType.NEWLINE || 
+                currentToken.Type == TokenType.DEDENT ||
+                currentToken.Type == TokenType.INDENT)
+            {
+                //Console.WriteLine($"[ParseTry] Skipping {currentToken.Type}");
+                Advance();
+            }
+            
+            //Console.WriteLine($"[ParseTry] After cleanup, current token: {currentToken.Type} '{currentToken.Value}' at line {currentToken.Line}");
+
+            // except 절 처리
             while (currentToken.Type == TokenType.EXCEPT)
             {
-                Advance();
+                //Console.WriteLine($"[ParseTry] Found EXCEPT at line {currentToken.Line}");
+                Advance(); // Skip 'except'
+                
                 string exceptionType = null;
                 string variable = null;
 
@@ -147,9 +198,10 @@ namespace SharpPy
                 {
                     exceptionType = currentToken.Value;
                     Advance();
+                    
                     if (currentToken.Type == TokenType.AS)
                     {
-                        Advance();
+                        Advance(); // Skip 'as'
                         variable = currentToken.Value;
                         Expect(TokenType.IDENTIFIER);
                     }
@@ -157,26 +209,51 @@ namespace SharpPy
 
                 Expect(TokenType.COLON);
                 SkipNewlines();
+                
+                //Console.WriteLine($"[ParseTry] Before parsing except body");
                 var exceptBody = ParseBlock();
+                //Console.WriteLine($"[ParseTry] After parsing except body");
+                
                 exceptClauses.Add((exceptionType, variable, exceptBody));
+
+                // 다음 except/else/finally를 위한 정리
+                while (currentToken.Type == TokenType.NEWLINE || 
+                    currentToken.Type == TokenType.DEDENT ||
+                    currentToken.Type == TokenType.INDENT)
+                {
+                    Advance();
+                }
             }
 
+            // else 절 처리
             if (currentToken.Type == TokenType.ELSE)
             {
-                Advance();
+                //Console.WriteLine($"[ParseTry] Found ELSE at line {currentToken.Line}");
+                Advance(); // Skip 'else'
                 Expect(TokenType.COLON);
                 SkipNewlines();
                 elseBody = ParseBlock();
+                
+                // 정리
+                while (currentToken.Type == TokenType.NEWLINE || 
+                    currentToken.Type == TokenType.DEDENT ||
+                    currentToken.Type == TokenType.INDENT)
+                {
+                    Advance();
+                }
             }
 
+            // finally 절 처리
             if (currentToken.Type == TokenType.FINALLY)
             {
-                Advance();
+                //Console.WriteLine($"[ParseTry] Found FINALLY at line {currentToken.Line}");
+                Advance(); // Skip 'finally'
                 Expect(TokenType.COLON);
                 SkipNewlines();
                 finallyBody = ParseBlock();
             }
 
+            //Console.WriteLine($"[ParseTry] Completed, returning TryNode");
             return new TryNode(tryBody, exceptClauses, elseBody, finallyBody, line, column);
         }
 
@@ -368,6 +445,19 @@ namespace SharpPy
 
             // Parse the first expression
             var expr = ParseExpression();
+            
+            // 디버그: 파싱된 expression 타입 확인
+            //Console.WriteLine($"[ParseExpressionStatement] Parsed expression type: {expr.GetType().Name}");
+            if (expr is AttributeNode attr)
+            {
+                //Console.WriteLine($"  - AttributeNode: {attr.Object}.{attr.Attribute}");
+            }
+            else if (expr is VariableNode var)
+            {
+                //Console.WriteLine($"  - VariableNode: {var.Name}");
+            }
+            
+            //Console.WriteLine($"[ParseExpressionStatement] Next token: {currentToken.Type} '{currentToken.Value}'");
 
             // Check if we have a comma-separated list on the left side
             if (currentToken.Type == TokenType.COMMA)
@@ -402,6 +492,39 @@ namespace SharpPy
                 {
                     // It's just a tuple expression, not an assignment
                     return new TupleNode(elements, line, column);
+                }
+            }
+
+            if (currentToken.Type == TokenType.COMPOUND_ASSIGN)
+            {
+                string op = currentToken.Value;
+                //Console.WriteLine($"[ParseExpressionStatement] Found compound assignment: {op}");
+                
+                Advance(); // Skip compound assignment operator
+                var value = ParseExpressionOrTuple();
+                
+                // Handle different types of left-hand expressions
+                if (expr is VariableNode varNode)
+                {
+                    //Console.WriteLine($"[ParseExpressionStatement] Creating CompoundAssignmentNode for variable: {varNode.Name}");
+                    return new CompoundAssignmentNode(varNode.Name, op, value, line, column);
+                }
+                else if (expr is AttributeNode attrNode)
+                {
+                    //Console.WriteLine($"[ParseExpressionStatement] Creating AttributeCompoundAssignmentNode for: {attrNode.Attribute}");
+                    return new AttributeCompoundAssignmentNode(attrNode.Object, attrNode.Attribute, op, value, line, column);
+                }
+                else if (expr is IndexNode indexNode)
+                {
+                    //Console.WriteLine($"[ParseExpressionStatement] Creating IndexCompoundAssignmentNode");
+                    return new IndexCompoundAssignmentNode(indexNode.Object, indexNode.Index, op, value, line, column);
+                }
+                else
+                {
+                    //Console.WriteLine($"[ParseExpressionStatement] ERROR: Unsupported expression type for compound assignment: {expr.GetType().Name}");
+                    throw new PythonException("SyntaxError", 
+                        $"Invalid target for compound assignment (got {expr.GetType().Name})", 
+                        currentToken.Line, currentToken.Column);
                 }
             }
 

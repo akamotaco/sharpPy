@@ -10,6 +10,8 @@ namespace SharpPy
     // Optimized Lexer with improved performance
     public sealed class Lexer
     {
+        private static readonly bool DEBUG_MODE = false;
+
         private readonly string input;
         private readonly int inputLength;
         private int position;
@@ -34,7 +36,7 @@ namespace SharpPy
         {
             "def", "class", "if", "else", "elif", "for", "while", "in", "is",
             "break", "continue", "try", "except", "finally", "raise", "import",
-            "from", "as", "return", "and", "or", "not", "lambda", "with", "del"
+            "from", "as", "return", "and", "or", "not", "lambda", "with", "del", "pass"
         };
         
         private static readonly HashSet<string> TwoCharOperators = new HashSet<string>
@@ -166,50 +168,52 @@ namespace SharpPy
                 Advance();
         }
 
+        // Final corrected Tokenize method with proper blank line handling
         public List<Token> Tokenize()
         {
             var tokens = new List<Token>(256);
             bool lastTokenWasNewline = true;
-            int previousIndentLevel = 0;  // 이전 줄의 들여쓰기 레벨 추적
 
             while (currentChar != '\0')
             {
                 int tokenLine = line;
                 int tokenColumn = column;
 
-                // 줄의 시작에서 들여쓰기 처리
+                // 줄의 시작에서 처리
                 if (atLineStart && currentChar != '\n')
                 {
-                    // 의미있는 코드가 있는지 확인
-                    if (!IsSignificantLine())
+                    // 빈 줄 체크 (가장 먼저!)
+                    int tempPos = position;
+                    while (tempPos < inputLength && (input[tempPos] == ' ' || input[tempPos] == '\t'))
                     {
+                        tempPos++;
+                    }
+                    
+                    // 빈 줄 또는 주석만 있는 줄인지 확인
+                    if (tempPos >= inputLength || input[tempPos] == '\n' || input[tempPos] == '\r' || input[tempPos] == '#')
+                    {
+                        // 빈 줄이므로 건너뛰기
                         while (currentChar != '\0' && currentChar != '\n')
                         {
                             Advance();
                         }
-                        
                         if (currentChar == '\n')
                         {
                             Advance();
                         }
                         continue;
                     }
-
-                    // 들여쓰기 계산
-                    var (indentLevel, hasTab, hasSpace) = CalculateIndentLevel();
                     
-                    // 다음 키워드 확인
+                    // 의미있는 코드가 있는 줄 처리
+                    var (indentLevel, hasTab, hasSpace) = CalculateIndentLevel();
                     string nextKeyword = PeekNextKeyword();
                     bool isContinuation = ContinuationKeywords.Contains(nextKeyword);
                     
                     // 탭과 공백 혼용 체크
-                    if (hasTab && hasSpace)
+                    if (hasTab && hasSpace && !mixedIndentWarning)
                     {
-                        if (!mixedIndentWarning)
-                        {
-                            Console.WriteLine($"Warning: inconsistent use of tabs and spaces in indentation at line {tokenLine}");
-                            mixedIndentWarning = true;
-                        }
+                        //Console.WriteLine($"Warning: inconsistent use of tabs and spaces in indentation at line {tokenLine}");
+                        mixedIndentWarning = true;
                     }
                     
                     // 들여쓰기 문자 건너뛰기
@@ -218,42 +222,45 @@ namespace SharpPy
                     // 들여쓰기 토큰 생성
                     int currentIndent = indentStack.Peek();
                     
+                    if (DEBUG_MODE)
+                    {
+                        //Console.WriteLine($"indentLevel:{indentLevel} / currentIndent:{currentIndent}: next keyword:{nextKeyword}");
+                    }
+                    
                     if (isContinuation)
                     {
                         // elif, else, except, finally는 특별 처리
-                        // 이전 블록의 들여쓰기와 일치해야 함
+                        bool foundLevel = false;
                         
-                        if (indentLevel == currentIndent)
+                        foreach (var level in indentStack)
                         {
-                            // 정상 - 같은 레벨
-                            // DEDENT/INDENT 토큰 생성하지 않음
-                        }
-                        else if (indentLevel < currentIndent)
-                        {
-                            // 들여쓰기 감소 - DEDENT 필요
-                            while (indentStack.Count > 1 && indentStack.Peek() > indentLevel)
+                            if (level == indentLevel)
                             {
-                                indentStack.Pop();
-                                tokens.Add(new Token(TokenType.DEDENT, "", tokenLine, tokenColumn));
+                                foundLevel = true;
+                                break;
                             }
+                        }
+                        
+                        if (!foundLevel)
+                        {
+                            var stackArray = indentStack.ToArray();
+                            var bottomToTop = new List<int>();
+                            for (int i = stackArray.Length - 1; i >= 0; i--)
+                            {
+                                bottomToTop.Add(stackArray[i]);
+                            }
+                            var expected = string.Join(", ", bottomToTop);
                             
-                            if (indentStack.Peek() != indentLevel)
-                            {
-                                var stackArray = indentStack.ToArray();
-                                Array.Reverse(stackArray);
-                                var expected = string.Join(", ", stackArray);
-                                
-                                throw new PythonException("IndentationError", 
-                                    $"Unindent does not match any outer indentation level (expected one of: {expected}, got: {indentLevel})", 
-                                    tokenLine, tokenColumn);
-                            }
-                        }
-                        else
-                        {
-                            // elif/else가 더 들여쓰기 되어있으면 에러
-                            throw new PythonException("IndentationError", 
-                                $"'{nextKeyword}' statement must be at the same indentation level as 'if'", 
+                            throw new PythonException("IndentationError",
+                                $"Unindent does not match any outer indentation level (expected one of: {expected}, got: {indentLevel})",
                                 tokenLine, tokenColumn);
+                        }
+                        
+                        // 현재 레벨까지 DEDENT 생성
+                        while (indentStack.Count > 0 && indentStack.Peek() > indentLevel)
+                        {
+                            indentStack.Pop();
+                            tokens.Add(new Token(TokenType.DEDENT, "", tokenLine, tokenColumn));
                         }
                     }
                     else
@@ -268,26 +275,41 @@ namespace SharpPy
                         else if (indentLevel < currentIndent)
                         {
                             // 들여쓰기 감소
+                            bool foundLevel = false;
+                            
+                            foreach (var level in indentStack)
+                            {
+                                if (level == indentLevel)
+                                {
+                                    foundLevel = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (!foundLevel)
+                            {
+                                var stackArray = indentStack.ToArray();
+                                var bottomToTop = new List<int>();
+                                for (int i = stackArray.Length - 1; i >= 0; i--)
+                                {
+                                    bottomToTop.Add(stackArray[i]);
+                                }
+                                var expected = string.Join(", ", bottomToTop);
+
+                                throw new PythonException("IndentationError",
+                                    $"Unindent does not match any outer indentation level (expected one of: {expected}, got: {indentLevel})",
+                                    tokenLine, tokenColumn);
+                            }
+                            
+                            // DEDENT 토큰 생성
                             while (indentStack.Count > 1 && indentStack.Peek() > indentLevel)
                             {
                                 indentStack.Pop();
                                 tokens.Add(new Token(TokenType.DEDENT, "", tokenLine, tokenColumn));
                             }
-                            
-                            if (indentStack.Peek() != indentLevel)
-                            {
-                                var stackArray = indentStack.ToArray();
-                                Array.Reverse(stackArray);
-                                var expected = string.Join(", ", stackArray);
-                                
-                                throw new PythonException("IndentationError", 
-                                    $"Unindent does not match any outer indentation level (expected one of: {expected}, got: {indentLevel})", 
-                                    tokenLine, tokenColumn);
-                            }
                         }
                     }
 
-                    previousIndentLevel = indentLevel;
                     atLineStart = false;
                     lastTokenWasNewline = false;
                 }
@@ -443,6 +465,12 @@ namespace SharpPy
             }
 
             tokens.Add(new Token(TokenType.EOF, "", line, column));
+            
+            if (DEBUG_MODE)
+            {
+                //Console.WriteLine($"Total tokens generated: {tokens.Count}");
+            }
+            
             return tokens;
         }
         
@@ -642,6 +670,7 @@ namespace SharpPy
             "lambda" => TokenType.LAMBDA,
             "with" => TokenType.WITH,
             "del" => TokenType.DEL,
+            "pass" => TokenType.PASS,
             _ => TokenType.IDENTIFIER
         };
     }
@@ -662,7 +691,9 @@ namespace SharpPy
             TokenType.LBRACKET, TokenType.LBRACE, TokenType.LPAREN, TokenType.IF,
             TokenType.FOR, TokenType.WHILE, TokenType.TRY, TokenType.WITH,
             TokenType.RETURN, TokenType.BREAK, TokenType.CONTINUE, TokenType.RAISE,
-            TokenType.IMPORT, TokenType.FROM, TokenType.NOT
+            TokenType.IMPORT, TokenType.FROM, TokenType.NOT, TokenType.DEL,
+            TokenType.PASS,  // PASS 추가!
+            TokenType.LAMBDA  // LAMBDA도 추가 (빠져있었다면)
         };
         
         private static readonly HashSet<TokenType> EndOfStatementTokens = new HashSet<TokenType>
@@ -729,11 +760,11 @@ namespace SharpPy
         public List<ASTNode> Parse()
         {
             var statements = new List<ASTNode>(32);
-            SkipNewlinesAndIndents();  // ← NEWLINE/INDENT/DEDENT 모두 건너뜀
+            SkipNewlinesAndIndents();
 
             while (currentToken.Type != TokenType.EOF)
             {
-                // 방어적: 빈 줄/들여쓰기 토큰 연속 구간 건너뛰기
+                // 빈 줄/들여쓰기 토큰 건너뛰기
                 if (currentToken.Type == TokenType.NEWLINE ||
                     currentToken.Type == TokenType.INDENT ||
                     currentToken.Type == TokenType.DEDENT)
@@ -742,35 +773,80 @@ namespace SharpPy
                     if (currentToken.Type == TokenType.EOF) break;
                 }
 
+                //Console.WriteLine($"[Parse] About to parse statement, current token: {currentToken.Type} '{currentToken.Value}' at line {currentToken.Line}");
+
+                // 이 시점에서 EXCEPT를 만나면 문제
+                if (currentToken.Type == TokenType.EXCEPT)
+                {
+                    //Console.WriteLine($"[Parse] ERROR: Found EXCEPT at top level!");
+                    //Console.WriteLine($"[Parse] Previous statements count: {statements.Count}");
+                    if (statements.Count > 0)
+                    {
+                        var lastStatement = statements[statements.Count - 1];
+                        //Console.WriteLine($"[Parse] Last statement type: {lastStatement.GetType().Name}");
+                    }
+                }
+
                 var statement = ParseStatement();
                 statements.Add(statement);
 
-                // 다음 문장을 위해 다시 정리
+                // 다음 문장을 위한 정리
                 SkipNewlinesAndIndents();
             }
 
             return statements;
         }
 
+        // Parser 클래스에 추가할 ParsePass 메서드
+        private ASTNode ParsePass()
+        {
+            int line = currentToken.Line;
+            int column = currentToken.Column;
+            
+            Expect(TokenType.PASS);
+            
+            return new PassNode(line, column);
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private ASTNode ParseStatement() => currentToken.Type switch
+        private ASTNode ParseStatement() 
         {
-            TokenType.DEF => ParseFunctionDef(),
-            TokenType.CLASS => ParseClassDef(),
-            TokenType.IF => ParseIf(),
-            TokenType.FOR => ParseFor(),
-            TokenType.WHILE => ParseWhile(),
-            TokenType.TRY => ParseTry(),
-            TokenType.WITH => ParseWith(),
-            TokenType.DEL => ParseDel(),
-            TokenType.IMPORT or TokenType.FROM => ParseImport(),
-            TokenType.RETURN => ParseReturn(),
-            TokenType.BREAK => ParseBreak(),
-            TokenType.CONTINUE => ParseContinue(),
-            TokenType.RAISE => ParseRaise(),
-            _ => ParseExpressionStatement()
-        };
+            // Continuation keywords 체크
+            switch (currentToken.Type)
+            {
+                case TokenType.EXCEPT:
+                    throw new PythonException("SyntaxError", 
+                        "'except' outside try statement", currentToken.Line, currentToken.Column);
+                case TokenType.FINALLY:
+                    throw new PythonException("SyntaxError", 
+                        "'finally' outside try statement", currentToken.Line, currentToken.Column);
+                case TokenType.ELIF:
+                    throw new PythonException("SyntaxError", 
+                        "'elif' outside if statement", currentToken.Line, currentToken.Column);
+                case TokenType.ELSE:
+                    throw new PythonException("SyntaxError", 
+                        "'else' outside if/try/for/while statement", currentToken.Line, currentToken.Column);
+            }
+
+            return currentToken.Type switch
+            {
+                TokenType.DEF => ParseFunctionDef(),
+                TokenType.CLASS => ParseClassDef(),
+                TokenType.IF => ParseIf(),
+                TokenType.FOR => ParseFor(),
+                TokenType.WHILE => ParseWhile(),
+                TokenType.TRY => ParseTry(),
+                TokenType.WITH => ParseWith(),
+                TokenType.DEL => ParseDel(),
+                TokenType.IMPORT or TokenType.FROM => ParseImport(),
+                TokenType.RETURN => ParseReturn(),
+                TokenType.BREAK => ParseBreak(),
+                TokenType.CONTINUE => ParseContinue(),
+                TokenType.RAISE => ParseRaise(),
+                TokenType.PASS => ParsePass(),  // pass 추가
+                _ => ParseExpressionStatement()
+            };
+        }
 
         private ASTNode ParseFunctionDef()
         {
@@ -987,36 +1063,72 @@ namespace SharpPy
 
                 while (currentToken.Type != TokenType.DEDENT && currentToken.Type != TokenType.EOF)
                 {
+                    // Skip consecutive newlines
                     if (currentToken.Type == TokenType.NEWLINE)
                     {
                         Advance();
                         continue;
                     }
 
+                    // Check if we have a valid statement start
                     if (IsBlockStatement())
                     {
                         statements.Add(ParseStatement());
                         SkipNewlines();
                     }
+                    else if (currentToken.Type == TokenType.DEDENT)
+                    {
+                        // We've reached the end of the block
+                        break;
+                    }
+                    else if (currentToken.Type == TokenType.ELIF || 
+                            currentToken.Type == TokenType.ELSE ||
+                            currentToken.Type == TokenType.EXCEPT ||
+                            currentToken.Type == TokenType.FINALLY)
+                    {
+                        // Continuation keywords - don't consume, let parent handle
+                        break;
+                    }
                     else
                     {
-                        break;
+                        // Unexpected token in block
+                        throw new PythonException("SyntaxError", 
+                            $"Unexpected token in block: {currentToken.Type}", 
+                            currentToken.Line, currentToken.Column);
                     }
                 }
 
+                // Only consume DEDENT if it's not followed by a continuation keyword
                 if (currentToken.Type == TokenType.DEDENT)
                 {
-                    Advance();
+                    // Peek ahead to see if there's a continuation keyword
+                    if (position + 1 < tokenCount)
+                    {
+                        var nextToken = tokens[position + 1];
+                        if (nextToken.Type != TokenType.ELIF && 
+                            nextToken.Type != TokenType.ELSE &&
+                            nextToken.Type != TokenType.EXCEPT &&
+                            nextToken.Type != TokenType.FINALLY)
+                        {
+                            Advance(); // Consume DEDENT
+                        }
+                        // Otherwise, leave DEDENT for parent to handle
+                    }
+                    else
+                    {
+                        Advance(); // End of file, consume DEDENT
+                    }
                 }
             }
             else
             {
-                throw new PythonException("IndentationError", "expected an indented block", currentToken.Line, currentToken.Column);
+                throw new PythonException("IndentationError", 
+                    "expected an indented block", 
+                    currentToken.Line, currentToken.Column);
             }
 
             return statements;
         }
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool IsBlockStatement() => BlockStatementTokens.Contains(currentToken.Type);
     }
