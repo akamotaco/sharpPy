@@ -650,8 +650,16 @@ namespace SharpPy
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static string GetValueType(PythonTypeObject value) => 
-            value == null || value is PythonNone ? "None" : value.Type.ToString().ToLower();
+        private static string GetValueType(PythonTypeObject value)
+        {
+            return value switch
+            {
+                PythonNone => "None",
+                PythonInstance instance => instance.Class.Name,
+                PythonClass cls => $"Type[{cls.Name}]",
+                _ => value.Type.ToString().ToLower()
+            };
+        }
     }
 
     public sealed class LambdaFunction : Function
@@ -820,7 +828,16 @@ namespace SharpPy
                 {
                     var initArgs = new List<PythonTypeObject>(1 + (args?.Count ?? 0)) { instance };
                     if (args != null) initArgs.AddRange(args);
-                    initMethod.Call(initArgs);
+                    
+                    // __init__의 반환값 확인
+                    var result = initMethod.Call(initArgs);
+                    
+                    // __init__이 self를 반환한 경우 그것을 사용, 
+                    // None을 반환한 경우 원래 instance 사용
+                    if (result is PythonInstance returnedInstance)
+                    {
+                        return returnedInstance;
+                    }
                 }
             }
 
