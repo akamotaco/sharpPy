@@ -805,14 +805,14 @@ namespace SharpPy
             }
         }
     }
-    
+
     // AssignmentNode - 일반 변수 할당
     public sealed class AssignmentNode : ASTNode
     {
         public string VariableName { get; }
         public ASTNode Value { get; }
 
-        public AssignmentNode(string name, ASTNode value, int line = 0, int column = 0) 
+        public AssignmentNode(string name, ASTNode value, int line = 0, int column = 0)
             : base(line, column)
         {
             VariableName = name;
@@ -845,7 +845,7 @@ namespace SharpPy
         public ASTNode Index { get; }
         public ASTNode Value { get; }
 
-        public IndexAssignmentNode(ASTNode obj, ASTNode index, ASTNode value, int line = 0, int column = 0) 
+        public IndexAssignmentNode(ASTNode obj, ASTNode index, ASTNode value, int line = 0, int column = 0)
             : base(line, column)
         {
             Object = obj;
@@ -866,15 +866,15 @@ namespace SharpPy
                     case PythonList list when NumberHelper.IsNumber(index):
                         list.SetItem(NumberHelper.ToInt(index), value);
                         break;
-                        
+
                     case PythonDict dict:
                         dict.SetItem(index, value);
                         break;
-                        
+
                     default:
                         throw CreateException("TypeError", $"'{obj?.Type}' object does not support item assignment");
                 }
-                
+
                 return value;
             }
             catch (PythonException)
@@ -892,10 +892,103 @@ namespace SharpPy
     public sealed class PassNode : ASTNode
     {
         public PassNode(int line = 0, int column = 0) : base(line, column) { }
-        
+
         public override PythonTypeObject Evaluate(Environment env) => PythonNone.Instance;
-        
+
         public override string ToString() => "pass";
+    }
+    
+    // AnnotatedAssignmentNode - 변수 타입 어노테이션: x: int = 10
+    public sealed class AnnotatedAssignmentNode : ASTNode
+    {
+        public string VariableName { get; }
+        public TypeHint TypeHint { get; }
+        public ASTNode Value { get; }  // null일 수 있음 (x: int 처럼 타입만 선언)
+
+        public AnnotatedAssignmentNode(string name, TypeHint typeHint, ASTNode value, int line = 0, int column = 0) 
+            : base(line, column)
+        {
+            VariableName = name;
+            TypeHint = typeHint;
+            Value = value;
+        }
+
+        public override PythonTypeObject Evaluate(Environment env)
+        {
+            try
+            {
+                // Python에서 타입 힌트는 런타임에 영향을 주지 않음
+                // 값이 있으면 할당, 없으면 아무것도 하지 않음
+                if (Value != null)
+                {
+                    var value = Value.Evaluate(env);
+                    env.SetVariable(VariableName, value);
+                    return value;
+                }
+                
+                // 타입만 선언한 경우 (x: int) - 아무것도 하지 않음
+                return PythonNone.Instance;
+            }
+            catch (PythonException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Error in annotated assignment: {ex.Message}");
+            }
+        }
+    }
+
+    // AnnotatedAttributeAssignmentNode - 속성 타입 어노테이션: self._visitors: list = []
+    public sealed class AnnotatedAttributeAssignmentNode : ASTNode
+    {
+        public ASTNode Object { get; }
+        public string Attribute { get; }
+        public TypeHint TypeHint { get; }
+        public ASTNode Value { get; }  // null일 수 있음
+
+        public AnnotatedAttributeAssignmentNode(ASTNode obj, string attribute, TypeHint typeHint, ASTNode value, int line = 0, int column = 0) 
+            : base(line, column)
+        {
+            Object = obj;
+            Attribute = attribute;
+            TypeHint = typeHint;
+            Value = value;
+        }
+
+        public override PythonTypeObject Evaluate(Environment env)
+        {
+            try
+            {
+                var obj = Object.Evaluate(env);
+                
+                // 값이 있으면 할당
+                if (Value != null)
+                {
+                    var value = Value.Evaluate(env);
+                    
+                    if (obj is PythonInstance instance)
+                    {
+                        instance.SetAttribute(Attribute, value);
+                        return value;
+                    }
+                    
+                    throw CreateException("AttributeError", $"'{obj?.Type}' object has no attribute '{Attribute}'");
+                }
+                
+                // 타입만 선언한 경우 - 아무것도 하지 않음
+                return PythonNone.Instance;
+            }
+            catch (PythonException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Error in annotated attribute assignment: {ex.Message}");
+            }
+        }
     }
 }
 

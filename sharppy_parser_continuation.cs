@@ -445,19 +445,6 @@ namespace SharpPy
 
             // Parse the first expression
             var expr = ParseExpression();
-            
-            // 디버그: 파싱된 expression 타입 확인
-            //Console.WriteLine($"[ParseExpressionStatement] Parsed expression type: {expr.GetType().Name}");
-            if (expr is AttributeNode attr)
-            {
-                //Console.WriteLine($"  - AttributeNode: {attr.Object}.{attr.Attribute}");
-            }
-            else if (expr is VariableNode var)
-            {
-                //Console.WriteLine($"  - VariableNode: {var.Name}");
-            }
-            
-            //Console.WriteLine($"[ParseExpressionStatement] Next token: {currentToken.Type} '{currentToken.Value}'");
 
             // Check if we have a comma-separated list on the left side
             if (currentToken.Type == TokenType.COMMA)
@@ -467,8 +454,8 @@ namespace SharpPy
                 while (currentToken.Type == TokenType.COMMA)
                 {
                     Advance(); // Skip comma
-                    if (currentToken.Type == TokenType.ASSIGN)
-                        break; // Trailing comma before assignment
+                    if (currentToken.Type == TokenType.ASSIGN || currentToken.Type == TokenType.COLON)
+                        break; // Trailing comma before assignment or type annotation
                     elements.Add(ParseExpression());
                 }
 
@@ -495,52 +482,68 @@ namespace SharpPy
                 }
             }
 
+            // Check for type annotation (NEW)
+            if (currentToken.Type == TokenType.COLON)
+            {
+                // Variable type annotation: x: int = 10 or x: int
+                Advance(); // Skip ':'
+                
+                // Parse type hint
+                var typeHint = ParseTypeHint();
+                
+                // Check for assignment after type annotation
+                ASTNode value = null;
+                if (currentToken.Type == TokenType.ASSIGN)
+                {
+                    Advance(); // Skip '='
+                    value = ParseExpressionOrTuple();
+                }
+                
+                // Create annotated assignment node
+                if (expr is VariableNode varNode)
+                {
+                    return new AnnotatedAssignmentNode(varNode.Name, typeHint, value, line, column);
+                }
+                else if (expr is AttributeNode attrNode)
+                {
+                    return new AnnotatedAttributeAssignmentNode(attrNode.Object, attrNode.Attribute, typeHint, value, line, column);
+                }
+                else
+                {
+                    throw new PythonException("SyntaxError", 
+                        "Invalid target for annotated assignment", 
+                        currentToken.Line, currentToken.Column);
+                }
+            }
+
+            // Check for compound assignment operators
             if (currentToken.Type == TokenType.COMPOUND_ASSIGN)
             {
                 string op = currentToken.Value;
-                //Console.WriteLine($"[ParseExpressionStatement] Found compound assignment: {op}");
-                
                 Advance(); // Skip compound assignment operator
                 var value = ParseExpressionOrTuple();
                 
                 // Handle different types of left-hand expressions
                 if (expr is VariableNode varNode)
                 {
-                    //Console.WriteLine($"[ParseExpressionStatement] Creating CompoundAssignmentNode for variable: {varNode.Name}");
+                    // Simple variable: x += 1
                     return new CompoundAssignmentNode(varNode.Name, op, value, line, column);
                 }
                 else if (expr is AttributeNode attrNode)
                 {
-                    //Console.WriteLine($"[ParseExpressionStatement] Creating AttributeCompoundAssignmentNode for: {attrNode.Attribute}");
+                    // Attribute access: self.value += 1
                     return new AttributeCompoundAssignmentNode(attrNode.Object, attrNode.Attribute, op, value, line, column);
                 }
                 else if (expr is IndexNode indexNode)
                 {
-                    //Console.WriteLine($"[ParseExpressionStatement] Creating IndexCompoundAssignmentNode");
+                    // Index access: list[0] += 1
                     return new IndexCompoundAssignmentNode(indexNode.Object, indexNode.Index, op, value, line, column);
                 }
                 else
                 {
-                    //Console.WriteLine($"[ParseExpressionStatement] ERROR: Unsupported expression type for compound assignment: {expr.GetType().Name}");
                     throw new PythonException("SyntaxError", 
-                        $"Invalid target for compound assignment (got {expr.GetType().Name})", 
+                        $"Invalid target for compound assignment", 
                         currentToken.Line, currentToken.Column);
-                }
-            }
-
-            // Check for compound assignment operators (NEW)
-            if (currentToken.Type == TokenType.COMPOUND_ASSIGN)
-            {
-                if (expr is VariableNode varNode)
-                {
-                    string op = currentToken.Value;
-                    Advance(); // Skip compound assignment operator
-                    var value = ParseExpressionOrTuple();
-                    return new CompoundAssignmentNode(varNode.Name, op, value, line, column);
-                }
-                else
-                {
-                    throw new PythonException("SyntaxError", $"Invalid target for compound assignment", currentToken.Line, currentToken.Column);
                 }
             }
 
