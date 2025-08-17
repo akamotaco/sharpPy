@@ -19,13 +19,17 @@ namespace SharpPy
         private readonly Stack<int> indentStack;
         private bool atLineStart;
         
-        // 탭 크기 설정 (Python 표준은 8)
         private const int TAB_SIZE = 8;
-        private bool useTabs = false;  // 탭 사용 여부 추적
-        private bool useSpaces = false; // 공백 사용 여부 추적
-        private bool mixedIndentWarning = false; // 혼용 경고 출력 여부
+        private bool useTabs = false;
+        private bool useSpaces = false;
+        private bool mixedIndentWarning = false;
         
-        // Pre-computed lookup tables for better performance
+        // 특별한 키워드들 (같은 들여쓰기 레벨에서 계속되는 키워드)
+        private static readonly HashSet<string> ContinuationKeywords = new HashSet<string>
+        {
+            "elif", "else", "except", "finally"
+        };
+        
         private static readonly HashSet<string> Keywords = new HashSet<string>
         {
             "def", "class", "if", "else", "elif", "for", "while", "in", "is",
@@ -68,83 +72,53 @@ namespace SharpPy
             position++;
             currentChar = position < inputLength ? input[position] : '\0';
         }
-        
-        private string ReadNumber()
-        {
-            var sb = new StringBuilder(16); // Pre-allocate reasonable size
-            bool hasDot = false;
-
-            while (currentChar != '\0' && (char.IsDigit(currentChar) || (currentChar == '.' && !hasDot)))
-            {
-                if (currentChar == '.') hasDot = true;
-                sb.Append(currentChar);
-                Advance();
-            }
-            return sb.ToString();
-        }
-
-        private string ReadString(char quote)
-        {
-            var sb = new StringBuilder();
-            int startLine = line;
-            int startColumn = column;
-            Advance(); // Skip opening quote
-
-            while (currentChar != '\0' && currentChar != quote)
-            {
-                if (currentChar == '\\')
-                {
-                    Advance();
-                    sb.Append(currentChar switch
-                    {
-                        'n' => '\n',
-                        't' => '\t',
-                        'r' => '\r',
-                        '\\' => '\\',
-                        '\'' => '\'',
-                        '"' => '"',
-                        '0' => '\0',
-                        _ => currentChar
-                    });
-                }
-                else
-                {
-                    sb.Append(currentChar);
-                }
-                Advance();
-            }
-
-            if (currentChar == quote)
-                Advance();
-            else
-                throw new PythonException("SyntaxError", "Unterminated string literal", startLine, startColumn);
-
-            return sb.ToString();
-        }
 
         // 줄이 의미있는 코드를 포함하는지 확인
         private bool IsSignificantLine()
         {
             int tempPos = position;
-
-            // 공백과 탭 건너뛰기
+            
             while (tempPos < inputLength && (input[tempPos] == ' ' || input[tempPos] == '\t'))
             {
                 tempPos++;
             }
-
-            // 줄 끝이거나 개행이면 빈 줄
+            
             if (tempPos >= inputLength || input[tempPos] == '\n')
                 return false;
-
-            // 주석이면 빈 줄로 취급
+                
             if (input[tempPos] == '#')
                 return false;
-
+                
             return true;
         }
 
-        // 들여쓰기 레벨 계산 (개선된 버전)
+        // 다음 키워드를 미리 확인
+        private string PeekNextKeyword()
+        {
+            int tempPos = position;
+            
+            // 공백 건너뛰기
+            while (tempPos < inputLength && (input[tempPos] == ' ' || input[tempPos] == '\t'))
+            {
+                tempPos++;
+            }
+            
+            // 식별자 읽기
+            if (tempPos < inputLength && (char.IsLetter(input[tempPos]) || input[tempPos] == '_'))
+            {
+                var sb = new StringBuilder();
+                while (tempPos < inputLength && (char.IsLetterOrDigit(input[tempPos]) || input[tempPos] == '_'))
+                {
+                    sb.Append(input[tempPos]);
+                    tempPos++;
+                }
+                return sb.ToString();
+            }
+            
+            return "";
+        }
+
+        // 들여쓰기 레벨 계산
         private (int level, bool hasTab, bool hasSpace) CalculateIndentLevel()
         {
             int level = 0;
@@ -163,7 +137,6 @@ namespace SharpPy
                 }
                 else if (ch == '\t')
                 {
-                    // 탭을 다음 8의 배수 위치로 이동
                     level = ((level / TAB_SIZE) + 1) * TAB_SIZE;
                     hasTab = true;
                 }
@@ -178,7 +151,6 @@ namespace SharpPy
             return (level, hasTab, hasSpace);
         }
 
-        // 들여쓰기 문자들을 건너뛰기
         private void SkipIndentChars()
         {
             while (currentChar == ' ' || currentChar == '\t')
@@ -198,6 +170,7 @@ namespace SharpPy
         {
             var tokens = new List<Token>(256);
             bool lastTokenWasNewline = true;
+            int previousIndentLevel = 0;  // 이전 줄의 들여쓰기 레벨 추적
 
             while (currentChar != '\0')
             {
@@ -210,7 +183,6 @@ namespace SharpPy
                     // 의미있는 코드가 있는지 확인
                     if (!IsSignificantLine())
                     {
-                        // 빈 줄이거나 주석만 있는 줄은 건너뛰기
                         while (currentChar != '\0' && currentChar != '\n')
                         {
                             Advance();
@@ -226,7 +198,11 @@ namespace SharpPy
                     // 들여쓰기 계산
                     var (indentLevel, hasTab, hasSpace) = CalculateIndentLevel();
                     
-                    // 탭과 공백 혼용 체크 (Python 3 스타일 - 경고만)
+                    // 다음 키워드 확인
+                    string nextKeyword = PeekNextKeyword();
+                    bool isContinuation = ContinuationKeywords.Contains(nextKeyword);
+                    
+                    // 탭과 공백 혼용 체크
                     if (hasTab && hasSpace)
                     {
                         if (!mixedIndentWarning)
@@ -236,48 +212,82 @@ namespace SharpPy
                         }
                     }
                     
-                    // 첫 번째 들여쓰기에서 탭/공백 스타일 결정
-                    if (indentLevel > 0 && !useTabs && !useSpaces)
-                    {
-                        if (hasTab)
-                            useTabs = true;
-                        else
-                            useSpaces = true;
-                    }
-                    
                     // 들여쓰기 문자 건너뛰기
                     SkipIndentChars();
 
                     // 들여쓰기 토큰 생성
                     int currentIndent = indentStack.Peek();
                     
-                    if (indentLevel > currentIndent)
+                    if (isContinuation)
                     {
-                        // 들여쓰기 증가
-                        indentStack.Push(indentLevel);
-                        tokens.Add(new Token(TokenType.INDENT, "", tokenLine, tokenColumn));
-                    }
-                    else if (indentLevel < currentIndent)
-                    {
-                        // 들여쓰기 감소
-                        bool matched = false;
-                        while (indentStack.Count > 1 && indentStack.Peek() > indentLevel)
-                        {
-                            indentStack.Pop();
-                            tokens.Add(new Token(TokenType.DEDENT, "", tokenLine, tokenColumn));
-                        }
+                        // elif, else, except, finally는 특별 처리
+                        // 이전 블록의 들여쓰기와 일치해야 함
                         
-                        // 현재 들여쓰기 레벨이 스택의 어떤 레벨과도 일치하지 않으면 에러
-                        if (indentStack.Peek() != indentLevel)
+                        if (indentLevel == currentIndent)
                         {
-                            // 더 자세한 에러 메시지
-                            var expected = string.Join(", ", indentStack.ToArray().Reverse());
+                            // 정상 - 같은 레벨
+                            // DEDENT/INDENT 토큰 생성하지 않음
+                        }
+                        else if (indentLevel < currentIndent)
+                        {
+                            // 들여쓰기 감소 - DEDENT 필요
+                            while (indentStack.Count > 1 && indentStack.Peek() > indentLevel)
+                            {
+                                indentStack.Pop();
+                                tokens.Add(new Token(TokenType.DEDENT, "", tokenLine, tokenColumn));
+                            }
+                            
+                            if (indentStack.Peek() != indentLevel)
+                            {
+                                var stackArray = indentStack.ToArray();
+                                Array.Reverse(stackArray);
+                                var expected = string.Join(", ", stackArray);
+                                
+                                throw new PythonException("IndentationError", 
+                                    $"Unindent does not match any outer indentation level (expected one of: {expected}, got: {indentLevel})", 
+                                    tokenLine, tokenColumn);
+                            }
+                        }
+                        else
+                        {
+                            // elif/else가 더 들여쓰기 되어있으면 에러
                             throw new PythonException("IndentationError", 
-                                $"Unindent does not match any outer indentation level (expected one of: {expected}, got: {indentLevel})", 
+                                $"'{nextKeyword}' statement must be at the same indentation level as 'if'", 
                                 tokenLine, tokenColumn);
                         }
                     }
+                    else
+                    {
+                        // 일반적인 들여쓰기 처리
+                        if (indentLevel > currentIndent)
+                        {
+                            // 들여쓰기 증가
+                            indentStack.Push(indentLevel);
+                            tokens.Add(new Token(TokenType.INDENT, "", tokenLine, tokenColumn));
+                        }
+                        else if (indentLevel < currentIndent)
+                        {
+                            // 들여쓰기 감소
+                            while (indentStack.Count > 1 && indentStack.Peek() > indentLevel)
+                            {
+                                indentStack.Pop();
+                                tokens.Add(new Token(TokenType.DEDENT, "", tokenLine, tokenColumn));
+                            }
+                            
+                            if (indentStack.Peek() != indentLevel)
+                            {
+                                var stackArray = indentStack.ToArray();
+                                Array.Reverse(stackArray);
+                                var expected = string.Join(", ", stackArray);
+                                
+                                throw new PythonException("IndentationError", 
+                                    $"Unindent does not match any outer indentation level (expected one of: {expected}, got: {indentLevel})", 
+                                    tokenLine, tokenColumn);
+                            }
+                        }
+                    }
 
+                    previousIndentLevel = indentLevel;
                     atLineStart = false;
                     lastTokenWasNewline = false;
                 }
@@ -300,7 +310,6 @@ namespace SharpPy
                 // 개행 문자 처리
                 if (currentChar == '\n')
                 {
-                    // 의미있는 토큰 뒤에만 NEWLINE 토큰 생성
                     if (!lastTokenWasNewline && tokens.Count > 0 && 
                         tokens[tokens.Count - 1].Type != TokenType.INDENT &&
                         tokens[tokens.Count - 1].Type != TokenType.DEDENT)
@@ -314,7 +323,6 @@ namespace SharpPy
 
                 lastTokenWasNewline = false;
 
-                // 나머지 토큰 처리 (기존 코드와 동일)...
                 // 숫자 처리
                 if (char.IsDigit(currentChar))
                 {
@@ -322,7 +330,7 @@ namespace SharpPy
                     continue;
                 }
 
-                // Check for triple-quoted strings first
+                // 문자열 처리 (triple quotes, f-strings 등)
                 if (position + 2 < inputLength)
                 {
                     string threeChars = input.Substring(position, 3);
@@ -334,7 +342,6 @@ namespace SharpPy
                     }
                 }
 
-                // Check for f-strings
                 if (currentChar == 'f' && position + 1 < inputLength && 
                     (input[position + 1] == '"' || input[position + 1] == '\''))
                 {
@@ -343,20 +350,19 @@ namespace SharpPy
                         char quoteChar = input[position + 1];
                         if (input[position + 2] == quoteChar && input[position + 3] == quoteChar)
                         {
-                            Advance(); // Skip 'f'
+                            Advance();
                             string content = ReadTripleQuotedString(quoteChar.ToString());
                             tokens.Add(new Token(TokenType.FSTRING, content, tokenLine, tokenColumn));
                             continue;
                         }
                     }
                     
-                    Advance(); // Skip 'f'
+                    Advance();
                     char quote = currentChar;
                     tokens.Add(new Token(TokenType.FSTRING, ReadFString(quote), tokenLine, tokenColumn));
                     continue;
                 }
 
-                // 문자열 처리
                 if (currentChar == '"' || currentChar == '\'')
                 {
                     char quote = currentChar;
@@ -381,7 +387,7 @@ namespace SharpPy
                     continue;
                 }
 
-                // 연산자 처리
+                // 연산자 및 구분자 처리
                 if (position + 1 < inputLength)
                 {
                     if (position + 2 < inputLength && input.Substring(position, 3) == "**=")
@@ -439,7 +445,60 @@ namespace SharpPy
             tokens.Add(new Token(TokenType.EOF, "", line, column));
             return tokens;
         }
+        
+        private string ReadNumber()
+        {
+            var sb = new StringBuilder(16); // Pre-allocate reasonable size
+            bool hasDot = false;
 
+            while (currentChar != '\0' && (char.IsDigit(currentChar) || (currentChar == '.' && !hasDot)))
+            {
+                if (currentChar == '.') hasDot = true;
+                sb.Append(currentChar);
+                Advance();
+            }
+            return sb.ToString();
+        }
+
+        private string ReadString(char quote)
+        {
+            var sb = new StringBuilder();
+            int startLine = line;
+            int startColumn = column;
+            Advance(); // Skip opening quote
+
+            while (currentChar != '\0' && currentChar != quote)
+            {
+                if (currentChar == '\\')
+                {
+                    Advance();
+                    sb.Append(currentChar switch
+                    {
+                        'n' => '\n',
+                        't' => '\t',
+                        'r' => '\r',
+                        '\\' => '\\',
+                        '\'' => '\'',
+                        '"' => '"',
+                        '0' => '\0',
+                        _ => currentChar
+                    });
+                }
+                else
+                {
+                    sb.Append(currentChar);
+                }
+                Advance();
+            }
+
+            if (currentChar == quote)
+                Advance();
+            else
+                throw new PythonException("SyntaxError", "Unterminated string literal", startLine, startColumn);
+
+            return sb.ToString();
+        }
+        
         private string ReadTripleQuotedString(string quoteType)
         {
             var sb = new StringBuilder();
