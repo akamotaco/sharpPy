@@ -728,35 +728,30 @@ namespace SharpPy
 
         public List<ASTNode> Parse()
         {
-            var statements = new List<ASTNode>(32); // Pre-allocate reasonable capacity
-            SkipNewlines();
+            var statements = new List<ASTNode>(32);
+            SkipNewlinesAndIndents();  // ← NEWLINE/INDENT/DEDENT 모두 건너뜀
 
             while (currentToken.Type != TokenType.EOF)
             {
-                if (currentToken.Type == TokenType.NEWLINE)
+                // 방어적: 빈 줄/들여쓰기 토큰 연속 구간 건너뛰기
+                if (currentToken.Type == TokenType.NEWLINE ||
+                    currentToken.Type == TokenType.INDENT ||
+                    currentToken.Type == TokenType.DEDENT)
                 {
-                    Advance();
-                    continue;
+                    SkipNewlinesAndIndents();
+                    if (currentToken.Type == TokenType.EOF) break;
                 }
 
-                try
-                {
-                    var statement = ParseStatement();
-                    statements.Add(statement);
-                    SkipNewlines();
-                }
-                catch (PythonException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    throw new PythonException("SyntaxError", $"Parse error: {ex.Message}", currentToken.Line, currentToken.Column);
-                }
+                var statement = ParseStatement();
+                statements.Add(statement);
+
+                // 다음 문장을 위해 다시 정리
+                SkipNewlinesAndIndents();
             }
 
             return statements;
         }
+
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private ASTNode ParseStatement() => currentToken.Type switch
