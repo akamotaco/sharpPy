@@ -9,7 +9,7 @@ namespace SharpPy
     // Enhanced Environment Class with PythonTypeObject
     public class Environment : PythonTypeObject
     {
-        private Dictionary<string, PythonTypeObject> variables = new Dictionary<string, PythonTypeObject>();
+        public Dictionary<string, PythonTypeObject> variables { get; private set; } = new Dictionary<string, PythonTypeObject>();
         public Environment parent;
         public List<string> SearchPaths { get; set; }
 
@@ -18,7 +18,34 @@ namespace SharpPy
         public Environment(Environment parent = null)
         {
             this.parent = parent;
-            SearchPaths = parent?.SearchPaths ?? new List<string> { "." };
+            
+            if (parent != null && parent.SearchPaths != null)
+            {
+                SearchPaths = parent.SearchPaths; // 복사 대신 참조 공유
+            }
+            else
+            {
+                SearchPaths = StandardLibrary.GetGlobalSearchPaths(); // 전역 참조 사용
+            }
+        }
+
+        public bool HasLocalVariable(string name) => variables.ContainsKey(name);
+
+        public PythonTypeObject GetLocalVariable(string name)
+        {
+            if (variables.ContainsKey(name))
+                return variables[name];
+            throw new PythonException("NameError", $"Name '{name}' is not defined");
+        }
+
+        // 클래스 환경에서만 변수를 찾는 메서드 (부모 클래스 포함)
+        public PythonTypeObject GetClassVariable(string name)
+        {
+            if (variables.ContainsKey(name))
+                return variables[name];
+            // 부모 클래스 환경만 검색, 전역은 제외
+            // 이 메서드는 클래스 계층만 탐색함
+            throw new PythonException("NameError", $"Name '{name}' is not defined");
         }
 
         // Create Environment from PythonDict
@@ -176,7 +203,7 @@ namespace SharpPy
             env.SetVariable("input", new BuiltinFunction("input", args =>
             {
                 if (args.Count > 1) throw new PythonException("TypeError", "input() takes at most 1 argument");
-                if (args.Count == 1 && args[0] is PythonString prompt) 
+                if (args.Count == 1 && args[0] is PythonString prompt)
                     Console.Write(prompt.Value);
                 return new PythonString(Console.ReadLine() ?? "");
             }));
@@ -186,7 +213,7 @@ namespace SharpPy
                 if (args.Count != 1) throw new PythonException("TypeError", "abs() takes exactly one argument");
                 if (!NumberHelper.IsNumber(args[0]))
                     throw new PythonException("TypeError", "abs() argument must be a number");
-                
+
                 if (args[0] is PythonInt pi) return new PythonInt(Math.Abs(pi.Value));
                 if (args[0] is PythonFloat pf) return new PythonFloat(Math.Abs(pf.Value));
                 throw new PythonException("TypeError", "abs() argument must be a number");
@@ -198,7 +225,7 @@ namespace SharpPy
                 if (args.Count == 1 && args[0] is PythonList list)
                 {
                     if (list.Items.Count == 0) throw new PythonException("ValueError", "max() arg is an empty sequence");
-                    
+
                     PythonTypeObject maxVal = list.Items[0];
                     for (int i = 1; i < list.Items.Count; i++)
                     {
@@ -207,7 +234,7 @@ namespace SharpPy
                     }
                     return maxVal;
                 }
-                
+
                 PythonTypeObject max = args[0];
                 for (int i = 1; i < args.Count; i++)
                 {
@@ -223,7 +250,7 @@ namespace SharpPy
                 if (args.Count == 1 && args[0] is PythonList list)
                 {
                     if (list.Items.Count == 0) throw new PythonException("ValueError", "min() arg is an empty sequence");
-                    
+
                     PythonTypeObject minVal = list.Items[0];
                     for (int i = 1; i < list.Items.Count; i++)
                     {
@@ -232,7 +259,7 @@ namespace SharpPy
                     }
                     return minVal;
                 }
-                
+
                 PythonTypeObject min = args[0];
                 for (int i = 1; i < args.Count; i++)
                 {
@@ -396,7 +423,7 @@ namespace SharpPy
                     throw new PythonException("TypeError", "filter() second argument must be iterable");
 
                 var result = new PythonList();
-                
+
                 if (func is PythonNone)
                 {
                     // filter(None, iterable) filters truthy values
@@ -419,7 +446,7 @@ namespace SharpPy
                 {
                     throw new PythonException("TypeError", "filter() first argument must be None or callable");
                 }
-                
+
                 return result;
             }));
 
@@ -535,7 +562,7 @@ namespace SharpPy
             env.SetVariable("globals", new BuiltinFunction("globals", args =>
             {
                 if (args.Count != 0) throw new PythonException("TypeError", "globals() takes no arguments");
-                
+
                 // Return the current environment's dictionary representation
                 return env.ToDict();
             }));
@@ -543,15 +570,15 @@ namespace SharpPy
             // ADD open() function for with statement support
             env.SetVariable("open", new BuiltinFunction("open", args =>
             {
-                if (args.Count < 1 || args.Count > 2) 
+                if (args.Count < 1 || args.Count > 2)
                     throw new PythonException("TypeError", "open() takes 1 or 2 arguments");
-                
+
                 string path;
                 if (args[0] is PythonString ps)
                     path = ps.Value;
                 else
                     throw new PythonException("TypeError", "open() argument 1 must be a string");
-                
+
                 string mode = "r";
                 if (args.Count > 1)
                 {
@@ -560,7 +587,7 @@ namespace SharpPy
                     else
                         throw new PythonException("TypeError", "open() argument 2 must be a string");
                 }
-                
+
                 try
                 {
                     return new FileObject(path, mode);
@@ -585,11 +612,11 @@ namespace SharpPy
 
             env.SetVariable("eval", new BuiltinFunction("eval", args =>
             {
-                if (args.Count < 1 || args.Count > 3) 
+                if (args.Count < 1 || args.Count > 3)
                     throw new PythonException("TypeError", "eval() takes 1 to 3 arguments");
-                
+
                 var expression = args[0];
-                
+
                 // Handle both string and code object as first argument
                 CodeObject codeObject = null;
                 if (expression is PythonString exprStr)
@@ -606,7 +633,7 @@ namespace SharpPy
                 {
                     throw new PythonException("TypeError", "eval() first argument must be a string or code object");
                 }
-                
+
                 // Handle globals argument - can be Environment or Dict
                 Environment globals = env;
                 if (args.Count > 1 && args[1] != null && !(args[1] is PythonNone))
@@ -618,7 +645,7 @@ namespace SharpPy
                     else
                         throw new PythonException("TypeError", "eval() globals must be a dict or environment");
                 }
-                
+
                 // Handle locals argument - can be Environment or Dict
                 Environment locals = globals;
                 if (args.Count > 2 && args[2] != null && !(args[2] is PythonNone))
@@ -630,7 +657,7 @@ namespace SharpPy
                     else
                         throw new PythonException("TypeError", "eval() locals must be a dict or environment");
                 }
-                
+
                 try
                 {
                     // Execute the code object directly
@@ -645,13 +672,13 @@ namespace SharpPy
 
             env.SetVariable("exec", new BuiltinFunction("exec", args =>
             {
-                if (args.Count < 1 || args.Count > 3) 
+                if (args.Count < 1 || args.Count > 3)
                     throw new PythonException("TypeError", "exec() takes 1 to 3 arguments");
-                
+
                 var source = args[0];
                 if (!(source is PythonString sourceStr))
                     throw new PythonException("TypeError", "exec() first argument must be a string");
-                
+
                 // Special handling for globals() dict passed as second argument
                 if (args.Count > 1 && args[1] is PythonDict gDict)
                 {
@@ -662,20 +689,20 @@ namespace SharpPy
                         var tokens = lexer.Tokenize();
                         var parser = new Parser(tokens);
                         var ast = parser.Parse();
-                        
+
                         // Execute statements
                         foreach (var statement in ast)
                         {
                             statement.Evaluate(env);
                         }
-                        
+
                         // Update the passed dict with any new variables
                         var currentVars = env.GetAllVariables();
                         foreach (var kvp in currentVars)
                         {
                             gDict.Items[new PythonString(kvp.Key)] = kvp.Value;
                         }
-                        
+
                         return PythonNone.Instance;
                     }
                     catch (Exception ex)
@@ -683,7 +710,7 @@ namespace SharpPy
                         throw new PythonException("SyntaxError", $"Error in exec(): {ex.Message}");
                     }
                 }
-                
+
                 // Handle globals argument - can be Environment or Dict
                 Environment globals = env;
                 if (args.Count > 1 && args[1] != null && !(args[1] is PythonNone))
@@ -693,7 +720,7 @@ namespace SharpPy
                     else
                         throw new PythonException("TypeError", "exec() globals must be a dict or environment");
                 }
-                
+
                 // Handle locals argument - can be Environment or Dict
                 Environment locals = globals;
                 if (args.Count > 2 && args[2] != null && !(args[2] is PythonNone))
@@ -707,7 +734,7 @@ namespace SharpPy
                     else
                         throw new PythonException("TypeError", "exec() locals must be a dict or environment");
                 }
-                
+
                 try
                 {
                     PythonCompiler.Exec(sourceStr.Value, globals, locals);
@@ -721,23 +748,23 @@ namespace SharpPy
 
             env.SetVariable("compile", new BuiltinFunction("compile", args =>
             {
-                if (args.Count != 3) 
+                if (args.Count != 3)
                     throw new PythonException("TypeError", "compile() takes exactly 3 arguments");
-                
+
                 var source = args[0];
                 var filename = args[1];
                 var mode = args[2];
-                
+
                 if (!(source is PythonString sourceStr))
                     throw new PythonException("TypeError", "compile() first argument must be a string");
                 if (!(filename is PythonString filenameStr))
                     throw new PythonException("TypeError", "compile() second argument must be a string");
                 if (!(mode is PythonString modeStr))
                     throw new PythonException("TypeError", "compile() third argument must be a string");
-                
+
                 if (modeStr.Value != "exec" && modeStr.Value != "eval")
                     throw new PythonException("ValueError", "compile() mode must be 'exec' or 'eval'");
-                
+
                 try
                 {
                     var codeObject = PythonCompiler.Compile(sourceStr.Value, filenameStr.Value, modeStr.Value);
@@ -753,6 +780,338 @@ namespace SharpPy
             env.SetVariable("None", PythonNone.Instance);
             env.SetVariable("True", new PythonBool(true));
             env.SetVariable("False", new PythonBool(false));
+
+            // dir attr
+            env.SetVariable("dir", new BuiltinFunction("dir", args =>
+            {
+                if (args.Count > 1) 
+                    throw new PythonException("TypeError", "dir() takes at most 1 argument");
+                
+                var result = new PythonList();
+                
+                if (args.Count == 0)
+                {
+                    // No arguments - return names in current scope
+                    var allVars = env.GetAllVariables();
+                    var names = allVars.Keys.OrderBy(k => k).ToList();
+                    foreach (var name in names)
+                    {
+                        result.Items.Add(new PythonString(name));
+                    }
+                }
+                else
+                {
+                    // With argument - return attributes/methods of the object
+                    var obj = args[0];
+                    var attributes = new HashSet<string>();
+                    
+                    // Get built-in methods for the object type
+                    var methodNames = obj.GetMethodNames();
+                    foreach (var method in methodNames)
+                    {
+                        attributes.Add(method);
+                    }
+                    
+                    // Add type-specific attributes
+                    switch (obj)
+                    {
+                        case PythonList list:
+                            // List doesn't have additional attributes beyond methods
+                            break;
+                            
+                        case PythonDict dict:
+                            // Dict doesn't have additional attributes beyond methods
+                            break;
+                            
+                        case PythonTuple tuple:
+                            // Tuple doesn't have additional attributes beyond methods
+                            break;
+                            
+                        case PythonString str:
+                            // String doesn't have additional attributes beyond methods
+                            break;
+                            
+                        case PythonInstance instance:
+                            // 인스턴스 변수만 추가 (전역 제외)
+                            foreach (var key in instance.InstanceEnv.variables.Keys)
+                            {
+                                attributes.Add(key);
+                            }
+                            
+                            // 클래스 메서드 추가
+                            PythonClass currentClass = instance.Class;
+                            while (currentClass != null)
+                            {
+                                foreach (var key in currentClass.ClassEnv.variables.Keys)
+                                {
+                                    attributes.Add(key);
+                                }
+                                currentClass = currentClass.ParentClass;
+                            }
+                            break;
+                            
+                        case PythonClass cls:
+                            // For classes, add all class variables and methods
+                            var classVars = cls.ClassEnv.GetAllVariables();
+                            foreach (var kvp in classVars)
+                            {
+                                attributes.Add(kvp.Key);
+                            }
+                            break;
+                            
+                        case PythonModule module:
+                            // For modules, add all module attributes
+                            var moduleVars = module.ModuleEnv.GetAllVariables();
+                            foreach (var kvp in moduleVars)
+                            {
+                                attributes.Add(kvp.Key);
+                            }
+                            break;
+                            
+                        case Function func:
+                            // Functions have standard attributes
+                            attributes.Add("__name__");
+                            attributes.Add("__doc__");
+                            if (func is UserFunction userFunc)
+                            {
+                                attributes.Add("__code__");
+                                attributes.Add("__defaults__");
+                            }
+                            break;
+                            
+                        case PythonInt:
+                        case PythonFloat:
+                            // Numeric types - add common numeric methods
+                            attributes.Add("__add__");
+                            attributes.Add("__sub__");
+                            attributes.Add("__mul__");
+                            attributes.Add("__div__");
+                            attributes.Add("__mod__");
+                            attributes.Add("__pow__");
+                            attributes.Add("__neg__");
+                            attributes.Add("__abs__");
+                            attributes.Add("__eq__");
+                            attributes.Add("__ne__");
+                            attributes.Add("__lt__");
+                            attributes.Add("__le__");
+                            attributes.Add("__gt__");
+                            attributes.Add("__ge__");
+                            break;
+                            
+                        case PythonBool:
+                            // Bool inherits from int
+                            attributes.Add("__and__");
+                            attributes.Add("__or__");
+                            attributes.Add("__xor__");
+                            attributes.Add("__not__");
+                            break;
+                            
+                        case PythonNone:
+                            // None has minimal attributes
+                            attributes.Add("__eq__");
+                            attributes.Add("__ne__");
+                            attributes.Add("__repr__");
+                            attributes.Add("__str__");
+                            break;
+                    }
+                    
+                    // Add common attributes all objects have
+                    attributes.Add("__class__");
+                    attributes.Add("__repr__");
+                    attributes.Add("__str__");
+                    attributes.Add("__hash__");
+                    attributes.Add("__eq__");
+                    
+                    // Sort and add to result
+                    var sortedAttrs = attributes.OrderBy(a => a).ToList();
+                    foreach (var attr in sortedAttrs)
+                    {
+                        result.Items.Add(new PythonString(attr));
+                    }
+                }
+                
+                return result;
+            }));
+
+            // Also add hasattr() function for completeness
+            env.SetVariable("hasattr", new BuiltinFunction("hasattr", args =>
+            {
+                if (args.Count != 2) 
+                    throw new PythonException("TypeError", "hasattr() takes exactly 2 arguments");
+                
+                var obj = args[0];
+                if (!(args[1] is PythonString attrName))
+                    throw new PythonException("TypeError", "hasattr() attribute name must be a string");
+                
+                var name = attrName.Value;
+                
+                try
+                {
+                    // Try to get the attribute
+                    switch (obj)
+                    {
+                        case PythonInstance instance:
+                            instance.GetAttribute(name);
+                            return new PythonBool(true);
+                            
+                        case PythonClass cls:
+                            cls.ClassEnv.GetVariable(name);
+                            return new PythonBool(true);
+                            
+                        case PythonModule module:
+                            module.GetAttribute(name);
+                            return new PythonBool(true);
+                            
+                        case PythonList:
+                        case PythonDict:
+                        case PythonTuple:
+                        case PythonString:
+                            // Check if method exists
+                            try
+                            {
+                                obj.GetMethod(name);
+                                return new PythonBool(true);
+                            }
+                            catch
+                            {
+                                return new PythonBool(false);
+                            }
+                            
+                        default:
+                            // Check for built-in attributes
+                            var builtinAttrs = new HashSet<string> { "__class__", "__repr__", "__str__", "__hash__", "__eq__" };
+                            return new PythonBool(builtinAttrs.Contains(name));
+                    }
+                }
+                catch
+                {
+                    return new PythonBool(false);
+                }
+            }));
+
+            // Add getattr() function
+            env.SetVariable("getattr", new BuiltinFunction("getattr", args =>
+            {
+                if (args.Count < 2 || args.Count > 3) 
+                    throw new PythonException("TypeError", "getattr() takes 2 or 3 arguments");
+                
+                var obj = args[0];
+                if (!(args[1] is PythonString attrName))
+                    throw new PythonException("TypeError", "getattr() attribute name must be a string");
+                
+                var name = attrName.Value;
+                var defaultValue = args.Count == 3 ? args[2] : null;
+                
+                try
+                {
+                    switch (obj)
+                    {
+                        case PythonInstance instance:
+                            return instance.GetAttribute(name);
+                            
+                        case PythonClass cls:
+                            return cls.ClassEnv.GetVariable(name);
+                            
+                        case PythonModule module:
+                            return module.GetAttribute(name);
+                            
+                        case PythonList list:
+                            return list.GetMethod(name);
+                            
+                        case PythonDict dict:
+                            return dict.GetMethod(name);
+                            
+                        case PythonTuple tuple:
+                            return tuple.GetMethod(name);
+                            
+                        case PythonString str:
+                            return str.GetMethod(name);
+                            
+                        case Function func when name == "__name__":
+                            return new PythonString(func.Name);
+                            
+                        default:
+                            // Try to get built-in attributes
+                            if (name == "__class__")
+                                return new PythonString(GetTypeName(obj));
+                            if (name == "__repr__" || name == "__str__")
+                                return new BuiltinFunction(name, _ => new PythonString(obj.ToPythonString()));
+                                
+                            if (defaultValue != null)
+                                return defaultValue;
+                            throw new PythonException("AttributeError", $"'{GetTypeName(obj)}' object has no attribute '{name}'");
+                    }
+                }
+                catch (PythonException ex) when (ex.Type == "AttributeError" && defaultValue != null)
+                {
+                    return defaultValue;
+                }
+            }));
+
+            // Add setattr() function
+            env.SetVariable("setattr", new BuiltinFunction("setattr", args =>
+            {
+                if (args.Count != 3) 
+                    throw new PythonException("TypeError", "setattr() takes exactly 3 arguments");
+                
+                var obj = args[0];
+                if (!(args[1] is PythonString attrName))
+                    throw new PythonException("TypeError", "setattr() attribute name must be a string");
+                
+                var name = attrName.Value;
+                var value = args[2];
+                
+                switch (obj)
+                {
+                    case PythonInstance instance:
+                        instance.SetAttribute(name, value);
+                        return PythonNone.Instance;
+                        
+                    case PythonClass cls:
+                        cls.ClassEnv.SetVariable(name, value);
+                        return PythonNone.Instance;
+                        
+                    case PythonModule module:
+                        module.SetAttribute(name, value);
+                        return PythonNone.Instance;
+                        
+                    default:
+                        throw new PythonException("AttributeError", 
+                            $"'{GetTypeName(obj)}' object attribute '{name}' is read-only");
+                }
+            }));
+
+            // Add delattr() function
+            env.SetVariable("delattr", new BuiltinFunction("delattr", args =>
+            {
+                if (args.Count != 2) 
+                    throw new PythonException("TypeError", "delattr() takes exactly 2 arguments");
+                
+                var obj = args[0];
+                if (!(args[1] is PythonString attrName))
+                    throw new PythonException("TypeError", "delattr() attribute name must be a string");
+                
+                var name = attrName.Value;
+                
+                switch (obj)
+                {
+                    case PythonInstance instance:
+                        instance.InstanceEnv.DeleteVariable(name);
+                        return PythonNone.Instance;
+                        
+                    case PythonClass cls:
+                        cls.ClassEnv.DeleteVariable(name);
+                        return PythonNone.Instance;
+                        
+                    case PythonModule module:
+                        module.ModuleEnv.DeleteVariable(name);
+                        return PythonNone.Instance;
+                        
+                    default:
+                        throw new PythonException("AttributeError", 
+                            $"'{GetTypeName(obj)}' object attribute '{name}' cannot be deleted");
+                }
+            }));
         }
 
         static private bool IsTrue(PythonTypeObject obj)

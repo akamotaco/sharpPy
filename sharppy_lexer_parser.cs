@@ -593,6 +593,8 @@ namespace SharpPy
             SkipNewlinesAndIndents();
 
             var parameters = new List<Parameter>();
+            bool hasSeenDefault = false;  // 기본값이 있는 매개변수를 봤는지 추적
+            
             while (currentToken.Type != TokenType.RPAREN)
             {
                 string paramName = currentToken.Value;
@@ -605,7 +607,22 @@ namespace SharpPy
                     typeHint = ParseTypeHint();
                 }
 
-                parameters.Add(new Parameter(paramName, typeHint));
+                ASTNode defaultValue = null;
+                if (currentToken.Type == TokenType.ASSIGN)
+                {
+                    Advance(); // Skip '='
+                    defaultValue = ParseExpression();  // 기본값 표현식 파싱
+                    hasSeenDefault = true;
+                }
+                else if (hasSeenDefault)
+                {
+                    // 기본값이 있는 매개변수 다음에 기본값이 없는 매개변수가 오면 에러
+                    throw new PythonException("SyntaxError", 
+                        "non-default argument follows default argument", 
+                        currentToken.Line, currentToken.Column);
+                }
+
+                parameters.Add(new Parameter(paramName, typeHint, defaultValue));
 
                 SkipNewlinesAndIndents();
 
@@ -619,9 +636,12 @@ namespace SharpPy
                 }
                 else if (currentToken.Type != TokenType.RPAREN)
                 {
-                    throw new PythonException("SyntaxError", "Expected ',' or ')' in parameter list", currentToken.Line, currentToken.Column);
+                    throw new PythonException("SyntaxError", 
+                        "Expected ',' or ')' in parameter list", 
+                        currentToken.Line, currentToken.Column);
                 }
             }
+            
             Expect(TokenType.RPAREN);
 
             TypeHint returnTypeHint = null;

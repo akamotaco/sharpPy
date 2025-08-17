@@ -1,18 +1,16 @@
 // enhanced_interpreter.cs
-
-// enhanced_interpreter.cs
 using System;
 using System.Linq;
 using System.IO;
 
 namespace SharpPy
 {
-    // Enhanced Python Interpreter Main Class with Bytecode Support
     public class PythonInterpreter
     {
         private Environment globalEnv;
         private VirtualMachine virtualMachine;
         private bool useBytecode;
+        private string currentFileName = "<string>"; // 현재 실행 중인 파일명 추적
 
         public PythonInterpreter(bool useBytecode = false)
         {
@@ -40,30 +38,43 @@ namespace SharpPy
         {
             try
             {
-                var env = this.globalEnv;
-                if (useBytecode)
+                var previousFileName = currentFileName;
+                currentFileName = filename;
+                
+                try
                 {
-                    // Bytecode execution path
-                    var codeObject = PythonCompiler.Compile(code, filename, "exec");
-                    return virtualMachine.Execute(env, codeObject);
+                    var env = this.globalEnv;
+                    if (useBytecode)
+                    {
+                        var codeObject = PythonCompiler.Compile(code, filename, "exec");
+                        return virtualMachine.Execute(env, codeObject);
+                    }
+                    else
+                    {
+                        return ExecuteAST(code, filename);
+                    }
                 }
-                else
+                finally
                 {
-                    // Traditional AST execution path
-                    return ExecuteAST(code, filename);
+                    currentFileName = previousFileName;
                 }
             }
             catch (PythonException ex)
             {
+                // 파일명 업데이트 (throw하지 않고 새 예외 객체 생성)
+                if (string.IsNullOrEmpty(ex.FileName) || ex.FileName == "<string>")
+                {
+                    ex = new PythonException(ex.Type, ex.Message, ex.Line, ex.Column, filename);
+                }
                 DisplayError(ex, code, filename);
-                return null;
+                return null;  // null 반환하여 실행 계속
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"  File \"{filename}\"");
                 Console.WriteLine($"Error: {ex.Message}");
                 Console.WriteLine($"Exception type: {ex.GetType().Name}");
-
+                
                 if (ex.StackTrace != null)
                 {
                     var relevantStack = ex.StackTrace.Split('\n')
@@ -75,7 +86,7 @@ namespace SharpPy
                     }
                 }
                 Console.WriteLine();
-                return null;
+                return null;  // null 반환하여 실행 계속
             }
         }
 
@@ -96,24 +107,39 @@ namespace SharpPy
                 }
                 catch (PythonException ex)
                 {
-                    // If the exception doesn't have line info, try to use the statement's line info
+                    // 파일명 정보만 업데이트하고 다시 throw
+                    if (ex.FileName == "<string>" && filename != "<string>")
+                    {
+                        throw new PythonException(ex.Type, ex.Message, 
+                            ex.Line > 0 ? ex.Line : statement.Line, 
+                            ex.Column > 0 ? ex.Column : statement.Column, 
+                            filename);
+                    }
                     if (ex.Line == 0 && statement.Line > 0)
                     {
-                        throw new PythonException(ex.Type, ex.Message, statement.Line, statement.Column, filename);
+                        throw new PythonException(ex.Type, ex.Message, 
+                            statement.Line, statement.Column, filename);
                     }
-                    else if (ex.FileName == "<string>" && filename != "<string>")
-                    {
-                        // Update filename if it's more specific
-                        throw new PythonException(ex.Type, ex.Message, ex.Line, ex.Column, filename);
-                    }
-                    throw; // Re-throw with existing location info
+                    throw;  // 여기서 throw는 OK (상위 Execute에서 catch)
                 }
-                catch (Exception ex) when (!(ex is PythonException))
+                catch (ReturnException)
                 {
-                    // Convert other exceptions to PythonException with location info
+                    throw;
+                }
+                catch (BreakException)
+                {
+                    throw;
+                }
+                catch (ContinueException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
                     int line = statement.Line > 0 ? statement.Line : 0;
                     int column = statement.Column > 0 ? statement.Column : 0;
-                    throw new PythonException("RuntimeError", $"Internal error: {ex.Message}", line, column, filename);
+                    throw new PythonException("RuntimeError", 
+                        $"Internal error: {ex.Message}", line, column, filename);
                 }
             }
 
@@ -122,21 +148,22 @@ namespace SharpPy
 
         private void DisplayError(PythonException ex, string code, string filename)
         {
-            // Enhanced error output with actual line numbers
+            // 실제 파일명 사용
+            string displayFileName = ex.FileName != "<string>" ? ex.FileName : filename;
+
             if (ex.Line > 0)
             {
-                Console.WriteLine($"  File \"{ex.FileName}\", line {ex.Line}, column {ex.Column}");
+                Console.WriteLine($"  File \"{displayFileName}\", line {ex.Line}, column {ex.Column}");
 
-                // Show the problematic line if we have access to the source
-                if (filename != "<string>" && File.Exists(filename))
+                // 파일이 존재하면 해당 줄 표시
+                if (displayFileName != "<string>" && File.Exists(displayFileName))
                 {
                     try
                     {
-                        var lines = File.ReadAllLines(filename);
+                        var lines = File.ReadAllLines(displayFileName);
                         if (ex.Line <= lines.Length)
                         {
                             Console.WriteLine($"    {lines[ex.Line - 1]}");
-                            // Add pointer to the column
                             if (ex.Column > 0)
                             {
                                 var pointer = new string(' ', ex.Column - 1) + "^";
@@ -146,39 +173,23 @@ namespace SharpPy
                     }
                     catch
                     {
-                        // Ignore file read errors
+                        // 파일 읽기 실패시 코드에서 표시
+                        ShowErrorFromCode(code, ex.Line, ex.Column);
                     }
                 }
-                else if (filename == "<string>")
+                else
                 {
-                    // For interactive/string execution, show the line from the code
-                    try
-                    {
-                        var lines = code.Split('\n');
-                        if (ex.Line <= lines.Length)
-                        {
-                            Console.WriteLine($"    {lines[ex.Line - 1]}");
-                            // Add pointer to the column
-                            if (ex.Column > 0)
-                            {
-                                var pointer = new string(' ', ex.Column - 1) + "^";
-                                Console.WriteLine($"    {pointer}");
-                            }
-                        }
-                    }
-                    catch
-                    {
-                        // Ignore errors in showing source line
-                    }
+                    // 인터랙티브 모드나 string 실행시
+                    ShowErrorFromCode(code, ex.Line, ex.Column);
                 }
             }
             else
             {
-                Console.WriteLine($"  File \"{ex.FileName}\"");
+                Console.WriteLine($"  File \"{displayFileName}\"");
             }
 
             Console.WriteLine($"{ex.Type}: {ex.Message}");
-            Console.WriteLine(); // Add empty line for readability
+            Console.WriteLine();
         }
 
         public object CompileAndExecute(Environment env, string code, string filename = "<string>")
@@ -190,8 +201,13 @@ namespace SharpPy
             }
             catch (PythonException ex)
             {
+                // 파일명 업데이트 (throw하지 않음)
+                if (ex.FileName == "<string>" && filename != "<string>")
+                {
+                    ex = new PythonException(ex.Type, ex.Message, ex.Line, ex.Column, filename);
+                }
                 DisplayError(ex, code, filename);
-                return null;
+                return null;  // null 반환
             }
         }
 
@@ -223,7 +239,6 @@ namespace SharpPy
         {
             try
             {
-                var env = this.globalEnv;
                 if (!File.Exists(filename))
                 {
                     Console.WriteLine($"Error: File '{filename}' not found");
@@ -238,12 +253,36 @@ namespace SharpPy
                 else
                 {
                     string code = File.ReadAllText(filename);
+                    // 파일명을 제대로 전달
                     Execute(code, filename);
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error reading file '{filename}': {ex.Message}");
+            }
+        }
+
+        private void ShowErrorFromCode(string code, int line, int column)
+        {
+            if (string.IsNullOrEmpty(code)) return;
+
+            try
+            {
+                var lines = code.Split('\n');
+                if (line > 0 && line <= lines.Length)
+                {
+                    Console.WriteLine($"    {lines[line - 1]}");
+                    if (column > 0)
+                    {
+                        var pointer = new string(' ', column - 1) + "^";
+                        Console.WriteLine($"    {pointer}");
+                    }
+                }
+            }
+            catch
+            {
+                // 무시
             }
         }
 
@@ -1225,6 +1264,115 @@ print('Context completed')
             catch (Exception ex)
             {
                 Console.WriteLine($"✗ Custom Context Manager test failed: {ex.Message}\n");
+            }
+
+            Console.WriteLine("8. elif Test:");
+            try
+            {
+                interpreter.Execute(@"
+score = 85
+
+if score >= 90:
+    grade = 'A'
+elif score >= 80:
+    grade = 'B'
+elif score >= 70:
+    grade = 'C'
+elif score >= 60:
+    grade = 'D'
+else:
+    grade = 'F'
+
+print(f'Score: {score}, Grade: {grade}')
+
+# 중첩된 elif
+x = 10
+y = 5
+
+if x > 10:
+    print('x is greater than 10')
+elif x == 10:
+    if y > 5:
+        print('x is 10 and y is greater than 5')
+    elif y == 5:
+        print('x is 10 and y is 5')
+    else:
+        print('x is 10 and y is less than 5')
+elif x > 5:
+    print('x is between 6 and 9')
+else:
+    print('x is 5 or less')
+
+# elif without else
+temperature = 25
+
+if temperature > 30:
+    print('Hot')
+elif temperature > 20:
+    print('Warm')
+elif temperature > 10:
+    print('Cool')
+# No else clause
+
+print('Done')
+");
+                Console.WriteLine("✓ elif test passed\n");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"✗ elif test failed: {ex.Message}\n");
+            }
+
+            Console.WriteLine("9. default parameter Test:");
+            try
+            {
+                interpreter.Execute(@"
+def greet(name: str, greeting: str = 'Hello', punctuation: str = '!'):
+    return f'{greeting}, {name}{punctuation}'
+
+print(greet('Alice'))                    # Hello, Alice!
+print(greet('Bob', 'Hi'))               # Hi, Bob!
+print(greet('Charlie', 'Hey', '?'))     # Hey, Charlie?
+
+# 복잡한 기본값
+def create_list(size: int = 5, default_value = None):
+    if default_value is None:
+        default_value = 0
+    return [default_value] * size
+
+print(create_list())           # [0, 0, 0, 0, 0]
+print(create_list(3))          # [0, 0, 0]
+print(create_list(3, 'x'))     # ['x', 'x', 'x']
+
+# 람다 함수의 기본 매개변수
+add = lambda x, y=10: x + y
+print(add(5))      # 15
+print(add(5, 3))   # 8
+
+multiply = lambda x=2, y=3: x * y
+print(multiply())       # 6
+print(multiply(4))      # 12
+print(multiply(4, 5))   # 20
+
+# 타입 힌트와 기본값 함께 사용
+def T(text: str, end: str = '\n', append: bool = False, at_once: bool = False):
+    result = text + end
+    if append:
+        result = 'APPEND: ' + result
+    if at_once:
+        result = 'AT_ONCE: ' + result
+    return result
+
+print(T('Hello'))                                    # Hello\n
+print(T('Hello', ' '))                              # Hello 
+print(T('Hello', ' ', True))                        # APPEND: Hello 
+print(T('Hello', ' ', True, True))                  # AT_ONCE: APPEND: Hello
+");
+                Console.WriteLine("✓ default parameter test passed\n");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"✗ default parameter Manager test failed: {ex.Message}\n");
             }
 
             Console.WriteLine("=== All New Features Tests Complete ===");

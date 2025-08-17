@@ -202,16 +202,34 @@ namespace SharpPy
         {
             this.globalEnv = globalEnv;
             // globalEnv에 builtin이 없으면 추가
-            if (!globalEnv.HasVariable("print"))
-            {
-                Environment.SetupBuiltins(globalEnv);
-            }
+            // if (!globalEnv.HasVariable("print"))
+            // {
+            //     Environment.SetupBuiltins(globalEnv);
+            // }
             frameStack = new Stack<Frame>();
         }
 
-        public PythonTypeObject Execute(Environment locals, CodeObject code)
+        public PythonTypeObject Execute(Environment locals, CodeObject code, string filename = null)
         {
-            // locals = locals ?? new Environment(globalEnv);
+            // 파일명이 제공되면 code object의 filename 오버라이드
+            if (!string.IsNullOrEmpty(filename) && filename != "<string>")
+            {
+                // CodeObject의 Filename을 임시로 변경하거나
+                // 에러 발생시 사용할 수 있도록 저장
+                var originalFilename = code.Filename;
+                
+                // 새로운 CodeObject 생성 (filename만 변경)
+                code = new CodeObject(
+                    code.Name,
+                    filename,  // 새 파일명 사용
+                    code.Instructions,
+                    code.Constants,
+                    code.Names,
+                    code.VarNames,
+                    code.ArgumentCount
+                );
+            }
+            
             currentFrame = new Frame(code, locals, globalEnv);
             frameStack.Push(currentFrame);
 

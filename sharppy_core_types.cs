@@ -37,22 +37,39 @@ namespace SharpPy
         public abstract string ToPythonString();
         public abstract bool Equals(PythonTypeObject other);
         public abstract object GetRawValue();
-        
+
         public override string ToString() => ToPythonString();
-        
+
         // Virtual methods with default implementations
         public virtual bool IsNumber() => false;
         public virtual bool IsSequence() => false;
         public virtual bool IsCallable() => false;
-        
-        public virtual PythonInt ToInt() => 
+
+        public virtual PythonInt ToInt() =>
             throw new PythonException("TypeError", $"Cannot convert {Type} to int");
-        
-        public virtual PythonFloat ToFloat() => 
+
+        public virtual PythonFloat ToFloat() =>
             throw new PythonException("TypeError", $"Cannot convert {Type} to float");
-        
+
         public virtual PythonString ToStr() => new PythonString(ToPythonString());
         public virtual PythonBool ToBool() => new PythonBool(IsTrue());
+
+        // Virtual method to get all available method names
+        public virtual List<string> GetMethodNames()
+        {
+            return new List<string>();
+        }
+
+        // Virtual method to get a method by name
+        public virtual BuiltinFunction GetMethod(string name)
+        {
+            return null;
+        }
+
+        public virtual PythonTypeObject GetAttribute(string name)
+        {
+            return null;
+        }
     }
 
     // Optimized Python Integer type with value caching
@@ -314,22 +331,169 @@ namespace SharpPy
         
         public string Value { get; }
         public int Length => Value.Length;
+        private static Dictionary<string, Func<PythonString, List<PythonTypeObject>, PythonTypeObject>> methodRegistry;
+        
+        static PythonString()
+        {
+            InitializeMethodRegistry();
+        }
 
         public PythonString(string value) => Value = value ?? "";
         
-        public static PythonString Create(string value) => 
+        public static PythonString Create(string value) =>
             string.IsNullOrEmpty(value) ? EmptyString : new PythonString(value);
 
+        private static void InitializeMethodRegistry()
+        {
+            methodRegistry = new Dictionary<string, Func<PythonString, List<PythonTypeObject>, PythonTypeObject>>
+            {
+                ["upper"] = (self, args) =>
+                {
+                    if (args.Count != 0) throw new PythonException("TypeError", "upper() takes no arguments");
+                    return new PythonString(self.Value.ToUpper());
+                },
+                ["lower"] = (self, args) =>
+                {
+                    if (args.Count != 0) throw new PythonException("TypeError", "lower() takes no arguments");
+                    return new PythonString(self.Value.ToLower());
+                },
+                ["strip"] = (self, args) =>
+                {
+                    if (args.Count > 1) throw new PythonException("TypeError", "strip() takes at most 1 argument");
+                    if (args.Count == 0) return new PythonString(self.Value.Trim());
+                    if (args[0] is PythonString chars)
+                        return new PythonString(self.Value.Trim(chars.Value.ToCharArray()));
+                    throw new PythonException("TypeError", "strip() argument must be a string");
+                },
+                ["split"] = (self, args) =>
+                {
+                    if (args.Count > 2) throw new PythonException("TypeError", "split() takes at most 2 arguments");
+                    string separator = args.Count > 0 && args[0] is PythonString sep ? sep.Value : " ";
+                    int maxSplit = args.Count > 1 && NumberHelper.IsNumber(args[1]) ? NumberHelper.ToInt(args[1]) : -1;
+
+                    var parts = maxSplit < 0
+                        ? self.Value.Split(new[] { separator }, StringSplitOptions.None)
+                        : self.Value.Split(new[] { separator }, maxSplit + 1, StringSplitOptions.None);
+
+                    var result = new PythonList(parts.Length);
+                    foreach (var part in parts)
+                        result.Items.Add(new PythonString(part));
+                    return result;
+                },
+                ["join"] = (self, args) =>
+                {
+                    if (args.Count != 1) throw new PythonException("TypeError", "join() takes exactly one argument");
+                    if (!(args[0] is PythonList list || args[0] is PythonTuple tuple))
+                        throw new PythonException("TypeError", "join() argument must be iterable");
+
+                    var items = args[0] is PythonList l ? l.Items : ((PythonTuple)args[0]).Items;
+                    var strings = new List<string>();
+                    foreach (var item in items)
+                    {
+                        if (!(item is PythonString str))
+                            throw new PythonException("TypeError", "join() requires string items");
+                        strings.Add(str.Value);
+                    }
+                    return new PythonString(string.Join(self.Value, strings));
+                },
+                ["replace"] = (self, args) =>
+                {
+                    if (args.Count < 2 || args.Count > 3)
+                        throw new PythonException("TypeError", "replace() takes 2 or 3 arguments");
+                    if (!(args[0] is PythonString oldStr) || !(args[1] is PythonString newStr))
+                        throw new PythonException("TypeError", "replace() requires string arguments");
+
+                    if (args.Count == 3)
+                    {
+                        if (!NumberHelper.IsNumber(args[2]))
+                            throw new PythonException("TypeError", "replace() count must be a number");
+                        int count = NumberHelper.ToInt(args[2]);
+                        var result = self.Value;
+                        for (int i = 0; i < count && result.Contains(oldStr.Value); i++)
+                        {
+                            int index = result.IndexOf(oldStr.Value);
+                            result = result.Remove(index, oldStr.Value.Length).Insert(index, newStr.Value);
+                        }
+                        return new PythonString(result);
+                    }
+                    return new PythonString(self.Value.Replace(oldStr.Value, newStr.Value));
+                },
+                ["startswith"] = (self, args) =>
+                {
+                    if (args.Count != 1) throw new PythonException("TypeError", "startswith() takes exactly one argument");
+                    if (!(args[0] is PythonString prefix))
+                        throw new PythonException("TypeError", "startswith() requires a string argument");
+                    return new PythonBool(self.Value.StartsWith(prefix.Value));
+                },
+                ["endswith"] = (self, args) =>
+                {
+                    if (args.Count != 1) throw new PythonException("TypeError", "endswith() takes exactly one argument");
+                    if (!(args[0] is PythonString suffix))
+                        throw new PythonException("TypeError", "endswith() requires a string argument");
+                    return new PythonBool(self.Value.EndsWith(suffix.Value));
+                },
+                ["find"] = (self, args) =>
+                {
+                    if (args.Count < 1 || args.Count > 3)
+                        throw new PythonException("TypeError", "find() takes 1 to 3 arguments");
+                    if (!(args[0] is PythonString substr))
+                        throw new PythonException("TypeError", "find() requires a string as first argument");
+
+                    int start = args.Count > 1 && NumberHelper.IsNumber(args[1]) ? NumberHelper.ToInt(args[1]) : 0;
+                    int end = args.Count > 2 && NumberHelper.IsNumber(args[2]) ? NumberHelper.ToInt(args[2]) : self.Value.Length;
+
+                    if (start < 0) start = Math.Max(0, self.Value.Length + start);
+                    if (end < 0) end = Math.Max(0, self.Value.Length + end);
+                    end = Math.Min(end, self.Value.Length);
+
+                    if (start >= end) return PythonInt.Create(-1);
+
+                    int index = self.Value.IndexOf(substr.Value, start, end - start);
+                    return PythonInt.Create(index);
+                },
+                ["count"] = (self, args) =>
+                {
+                    if (args.Count != 1) throw new PythonException("TypeError", "count() takes exactly one argument");
+                    if (!(args[0] is PythonString substr))
+                        throw new PythonException("TypeError", "count() requires a string argument");
+
+                    int count = 0;
+                    int index = 0;
+                    while ((index = self.Value.IndexOf(substr.Value, index)) != -1)
+                    {
+                        count++;
+                        index += substr.Value.Length;
+                    }
+                    return PythonInt.Create(count);
+                },
+                ["isdigit"] = (self, args) =>
+                {
+                    if (args.Count != 0) throw new PythonException("TypeError", "isdigit() takes no arguments");
+                    return new PythonBool(self.Value.Length > 0 && self.Value.All(char.IsDigit));
+                },
+                ["isalpha"] = (self, args) =>
+                {
+                    if (args.Count != 0) throw new PythonException("TypeError", "isalpha() takes no arguments");
+                    return new PythonBool(self.Value.Length > 0 && self.Value.All(char.IsLetter));
+                },
+                ["isspace"] = (self, args) =>
+                {
+                    if (args.Count != 0) throw new PythonException("TypeError", "isspace() takes no arguments");
+                    return new PythonBool(self.Value.Length > 0 && self.Value.All(char.IsWhiteSpace));
+                }
+            };
+        }
+        
         public override PythonType Type => PythonType.String;
         public override bool IsTrue() => !string.IsNullOrEmpty(Value);
         public override string ToPythonString() => Value;
         public override object GetRawValue() => Value;
         public override bool IsSequence() => true;
-
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public override bool Equals(PythonTypeObject other) => 
+        public override bool Equals(PythonTypeObject other) =>
             other is PythonString ps && Value == ps.Value;
-
+        
         public override PythonInt ToInt()
         {
             if (int.TryParse(Value, out var result))
@@ -346,7 +510,7 @@ namespace SharpPy
 
         public override PythonString ToStr() => this;
         public override int GetHashCode() => Value.GetHashCode();
-
+        
         public PythonString Add(PythonTypeObject other)
         {
             if (other is PythonString ps) return new PythonString(Value + ps.Value);
@@ -414,20 +578,20 @@ namespace SharpPy
         public bool Contains(PythonTypeObject other) => 
             other is PythonString ps && Value.Contains(ps.Value);
 
-        public BuiltinFunction GetMethod(string name) => name switch
+
+        public override BuiltinFunction GetMethod(string name)
         {
-            "upper" => new BuiltinFunction("upper", args =>
+            if (methodRegistry.TryGetValue(name, out var method))
             {
-                if (args.Count != 0) throw new PythonException("TypeError", "upper() takes no arguments");
-                return new PythonString(Value.ToUpper());
-            }),
-            "lower" => new BuiltinFunction("lower", args =>
-            {
-                if (args.Count != 0) throw new PythonException("TypeError", "lower() takes no arguments");
-                return new PythonString(Value.ToLower());
-            }),
-            _ => throw new PythonException("AttributeError", $"'str' object has no attribute '{name}'")
-        };
+                return new BuiltinFunction(name, args => method(this, args));
+            }
+            throw new PythonException("AttributeError", $"'str' object has no attribute '{name}'");
+        }
+        
+        public override List<string> GetMethodNames()
+        {
+            return methodRegistry.Keys.OrderBy(k => k).ToList();
+        }
     }
 
     // Optimized None singleton
@@ -570,12 +734,16 @@ namespace SharpPy
     {
         public string Name { get; }
         public TypeHint TypeHint { get; }
-
-        public Parameter(string name, TypeHint typeHint = null)
+        public ASTNode DefaultValue { get; }  // 기본값 추가
+        
+        public Parameter(string name, TypeHint typeHint = null, ASTNode defaultValue = null)
         {
             Name = name;
             TypeHint = typeHint;
+            DefaultValue = defaultValue;
         }
+        
+        public bool HasDefault => DefaultValue != null;
     }
 
     // Enhanced Token Class
