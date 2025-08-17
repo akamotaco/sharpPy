@@ -661,12 +661,66 @@ namespace SharpPy
 
         private TypeHint ParseTypeHint()
         {
+            // 문자열 타입 힌트 처리 (클래스 forward reference)
+            if (currentToken.Type == TokenType.STRING)
+            {
+                string className = currentToken.Value;
+                Advance();
+                return new ClassTypeHint(className);
+            }
+            
             if (currentToken.Type != TokenType.IDENTIFIER)
                 throw new PythonException("SyntaxError", "Expected type hint", currentToken.Line, currentToken.Column);
 
             string typeName = currentToken.Value;
             Advance();
 
+            // Optional 처리
+            if (typeName == "Optional")
+            {
+                if (currentToken.Type == TokenType.LBRACKET)
+                {
+                    Advance();
+                    var innerType = ParseTypeHint();
+                    Expect(TokenType.RBRACKET);
+                    
+                    // Optional[T] = Union[T, None]
+                    return new UnionTypeHint(new List<TypeHint> 
+                    { 
+                        innerType, 
+                        SimpleTypeHint.Create(PythonType.None) 
+                    });
+                }
+            }
+            
+            // Union 처리
+            if (typeName == "Union")
+            {
+                if (currentToken.Type == TokenType.LBRACKET)
+                {
+                    Advance();
+                    var types = new List<TypeHint>();
+                    
+                    do
+                    {
+                        types.Add(ParseTypeHint());
+                        if (currentToken.Type == TokenType.COMMA)
+                        {
+                            Advance();
+                            SkipNewlinesAndIndents();
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    } while (currentToken.Type != TokenType.RBRACKET);
+                    
+                    Expect(TokenType.RBRACKET);
+                    return new UnionTypeHint(types);
+                }
+            }
+
+            // 기본 타입들
             var pythonType = typeName switch
             {
                 "int" => PythonType.Int,
@@ -677,10 +731,20 @@ namespace SharpPy
                 "dict" => PythonType.Dict,
                 "tuple" => PythonType.Tuple,
                 "None" => PythonType.None,
-                _ => PythonType.Instance
+                _ => PythonType.Instance  // 클래스 이름일 가능성
             };
 
-            // Check for generic types
+            // 클래스 이름인 경우
+            if (pythonType == PythonType.Instance && typeName != "Any")
+            {
+                // Generic 처리 전에 클래스 타입 힌트로 처리
+                if (currentToken.Type != TokenType.LBRACKET)
+                {
+                    return new ClassTypeHint(typeName);
+                }
+            }
+
+            // Generic 타입 처리 (List[int] 등)
             if (currentToken.Type == TokenType.LBRACKET)
             {
                 Advance();
@@ -709,6 +773,12 @@ namespace SharpPy
 
                 Expect(TokenType.RBRACKET);
                 return new GenericTypeHint(pythonType, genericArgs);
+            }
+
+            // Any 타입 처리
+            if (typeName == "Any")
+            {
+                return new AnyTypeHint();
             }
 
             return SimpleTypeHint.Create(pythonType);

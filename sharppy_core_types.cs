@@ -681,6 +681,12 @@ namespace SharpPy
             _ => "Any"
         };
     }
+    
+    public sealed class AnyTypeHint : TypeHint
+    {
+        public override bool IsCompatible(PythonTypeObject value) => true;
+        public override string ToString() => "Any";
+    }
 
     public sealed class GenericTypeHint : TypeHint
     {
@@ -696,18 +702,18 @@ namespace SharpPy
         public override bool IsCompatible(PythonTypeObject value)
         {
             if (value == null) return false;
-            
+
             switch (BaseType)
             {
                 case PythonType.List when value is PythonList list:
                     return GenericArgs.Count == 0 || list.Items.All(item => GenericArgs[0].IsCompatible(item));
-                    
+
                 case PythonType.Dict when value is PythonDict dict:
                     if (GenericArgs.Count < 2) return true;
                     var keyType = GenericArgs[0];
                     var valueType = GenericArgs[1];
                     return dict.Items.All(kvp => keyType.IsCompatible(kvp.Key) && valueType.IsCompatible(kvp.Value));
-                    
+
                 case PythonType.Tuple when value is PythonTuple tuple:
                     if (GenericArgs.Count == 0) return true;
                     if (GenericArgs.Count != tuple.Items.Count) return false;
@@ -717,7 +723,7 @@ namespace SharpPy
                             return false;
                     }
                     return true;
-                    
+
                 default:
                     return SimpleTypeHint.Create(BaseType).IsCompatible(value);
             }
@@ -729,20 +735,71 @@ namespace SharpPy
             return GenericArgs.Count == 0 ? baseStr : $"{baseStr}[{string.Join(", ", GenericArgs)}]";
         }
     }
+    
+    // 문자열로 된 클래스 타입 힌트를 위한 클래스 추가
+    public sealed class ClassTypeHint : TypeHint
+    {
+        public string ClassName { get; }
+        
+        public ClassTypeHint(string className)
+        {
+            ClassName = className;
+        }
+
+        public override bool IsCompatible(PythonTypeObject value)
+        {
+            // None은 항상 허용
+            if (value is PythonNone) return true;
+            
+            // 인스턴스인 경우 클래스 이름 확인
+            if (value is PythonInstance instance)
+            {
+                return instance.Class.Name == ClassName;
+            }
+            
+            // 클래스 자체인 경우
+            if (value is PythonClass cls)
+            {
+                return cls.Name == ClassName;
+            }
+            
+            return false;
+        }
+
+        public override string ToString() => ClassName;
+    }
+
+    // Union 타입을 위한 클래스도 추가 (Optional 등을 위해)
+    public sealed class UnionTypeHint : TypeHint
+    {
+        public List<TypeHint> Types { get; }
+        
+        public UnionTypeHint(List<TypeHint> types)
+        {
+            Types = types ?? new List<TypeHint>();
+        }
+
+        public override bool IsCompatible(PythonTypeObject value)
+        {
+            return Types.Any(t => t.IsCompatible(value));
+        }
+
+        public override string ToString() => $"Union[{string.Join(", ", Types)}]";
+    }
 
     public sealed class Parameter
     {
         public string Name { get; }
         public TypeHint TypeHint { get; }
         public ASTNode DefaultValue { get; }  // 기본값 추가
-        
+
         public Parameter(string name, TypeHint typeHint = null, ASTNode defaultValue = null)
         {
             Name = name;
             TypeHint = typeHint;
             DefaultValue = defaultValue;
         }
-        
+
         public bool HasDefault => DefaultValue != null;
     }
 
