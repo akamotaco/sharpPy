@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace SharpPy
 {
@@ -590,7 +591,7 @@ namespace SharpPy
             try
             {
                 // env.SearchPaths를 전달
-                var module = ModuleSystem.ImportModule(ModuleName, env.SearchPaths);
+                var module = ModuleSystem.ImportModule(env, ModuleName, env.SearchPaths);
                 string name = Alias ?? ModuleName.Split('.').Last();
                 env.SetVariable(name, module);
                 return module;
@@ -623,13 +624,16 @@ namespace SharpPy
         {
             try
             {
-                // env.SearchPaths를 전달
+                Console.WriteLine($"Importing from module: {ModuleName}");
+                
+                // import * 처리
                 if (ImportItems.Count == 1 && ImportItems[0].Name == "*")
                 {
-                    var module = ModuleSystem.ImportModule(ModuleName, env.SearchPaths);
+                    var module = ModuleSystem.ImportModule(env, ModuleName, env.SearchPaths);
                     var allVars = module.ModuleEnv.GetAllVariables();
                     foreach (var kvp in allVars)
                     {
+                        // __로 시작하는 private 변수는 제외
                         if (!kvp.Key.StartsWith("_"))
                         {
                             env.SetVariable(kvp.Key, kvp.Value);
@@ -638,17 +642,18 @@ namespace SharpPy
                 }
                 else
                 {
+                    // 일반 import 처리
                     foreach (var (name, alias) in ImportItems)
                     {
                         try
                         {
-                            var value = ModuleSystem.ImportFrom(ModuleName, name, env.SearchPaths);
+                            var value = ModuleSystem.ImportFrom(env, ModuleName, name, env.SearchPaths);
                             string varName = alias ?? name;
                             env.SetVariable(varName, value);
                         }
                         catch (PythonException ex)
                         {
-                            throw CreateException("ImportError", 
+                            throw CreateException("ImportError",
                                 $"Cannot import name '{name}' from '{ModuleName}': {ex.Message}");
                         }
                     }

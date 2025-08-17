@@ -11,23 +11,43 @@ namespace SharpPy
         private static Dictionary<string, PythonModule> loadedModules = new Dictionary<string, PythonModule>();
 
         // module_system.cs의 ImportModule 함수만 수정
-        public static PythonModule ImportModule(string name, List<string> searchPaths = null)
+        public static PythonModule ImportModule(Environment parentEnv, string name, List<string> searchPaths = null)
         {
             if (loadedModules.ContainsKey(name))
-                return loadedModules[name];
+            {
+                var cachedModule = loadedModules[name];
+                
+                // 캐시된 모듈에도 __builtins__가 없으면 추가
+                if (parentEnv != null && !cachedModule.ModuleEnv.HasVariable("__builtins__"))
+                {
+                    var builtins = parentEnv.GetVariable("__builtins__");
+                    if (builtins != null)
+                    {
+                        cachedModule.ModuleEnv.SetVariable("__builtins__", builtins);
+                    }
+                }
+                
+                return cachedModule;
+            }
 
-            // 내장 모듈은 searchPaths 전달
-            // var module = CreateBuiltinModule(name, searchPaths);
-            // if (module != null)
-            // {
-            //     loadedModules[name] = module;
-            //     return module;
-            // }
-
-            // 표준 라이브러리 모듈 확인 (이 줄만 추가!)
+            // 표준 라이브러리 모듈 확인
             var module = StandardLibrary.CreateStdlibModule(name, searchPaths);
             if (module != null)
             {
+                // 표준 라이브러리 모듈에도 __builtins__ 추가
+                if (parentEnv != null)
+                {
+                    try
+                    {
+                        var builtins = parentEnv.GetVariable("__builtins__");
+                        if (builtins != null)
+                        {
+                            module.ModuleEnv.SetVariable("__builtins__", builtins);
+                        }
+                    }
+                    catch { }
+                }
+                
                 loadedModules[name] = module;
                 return module;
             }
@@ -49,11 +69,32 @@ namespace SharpPy
                     {
                         // searchPaths를 전달하여 모듈 생성
                         module = new PythonModule(name, searchPaths);
+            
+                        // __builtins__를 먼저 설정
+                        if (parentEnv != null)
+                        {
+                            try
+                            {
+                                var builtins = parentEnv.GetVariable("__builtins__");
+                                if (builtins != null)
+                                {
+                                    module.ModuleEnv.SetVariable("__builtins__", builtins);
+                                }
+                            }
+                            catch { }
+                        }
                         string code = File.ReadAllText(directFilePath);
-                        var interpreter = new SharpPy.PythonInterpreter();
+                        var interpreter = new PythonInterpreter();
                         interpreter.SetGlobalEnv(module.ModuleEnv);
                         interpreter.Execute(code, directFilePath);
                         loadedModules[name] = module;
+
+                        if (parentEnv != null && parentEnv.GetVariable("__builtins__") != null)
+                        {
+                            // 부모 환경에서 __builtins__ 가져오기
+                            module.ModuleEnv.SetVariable("__builtins__", 
+                                parentEnv.GetVariable("__builtins__"));                            
+                        }
                         return module;
                     }
 
@@ -142,6 +183,20 @@ namespace SharpPy
                         if (File.Exists(filePath))
                         {
                             module = new PythonModule(name, searchPaths);
+            
+                            // __builtins__를 먼저 설정
+                            if (parentEnv != null)
+                            {
+                                try
+                                {
+                                    var builtins = parentEnv.GetVariable("__builtins__");
+                                    if (builtins != null)
+                                    {
+                                        module.ModuleEnv.SetVariable("__builtins__", builtins);
+                                    }
+                                }
+                                catch { }
+                            }
                             string code = File.ReadAllText(filePath);
                             var interpreter = new SharpPy.PythonInterpreter();
                             interpreter.SetGlobalEnv(module.ModuleEnv);
@@ -212,12 +267,12 @@ namespace SharpPy
             }
         }
 
-        public static PythonTypeObject ImportFrom(string moduleName, string itemName, List<string> searchPaths = null)
+        public static PythonTypeObject ImportFrom(Environment parentEnv, string moduleName, string itemName, List<string> searchPaths = null)
         {
             var fullName = $"{moduleName}.{itemName}";
             try
             {
-                var fullModule = ImportModule(fullName, searchPaths);
+                var fullModule = ImportModule(parentEnv, fullName, searchPaths);
                 return fullModule;
             }
             catch (PythonException)
@@ -225,7 +280,7 @@ namespace SharpPy
                 // 전체 경로가 실패하면 패키지에서 아이템 찾기
             }
 
-            var module = ImportModule(moduleName, searchPaths);
+            var module = ImportModule(parentEnv, moduleName, searchPaths);
             
             try
             {
@@ -235,7 +290,7 @@ namespace SharpPy
             {
                 try
                 {
-                    var subModule = ImportModule($"{moduleName}.{itemName}", searchPaths);
+                    var subModule = ImportModule(parentEnv, $"{moduleName}.{itemName}", searchPaths);
                     module.SetAttribute(itemName, subModule);
                     return subModule;
                 }
