@@ -17,10 +17,12 @@ namespace SharpPy
         private int column;
         private readonly Stack<int> indentStack;
         private bool atLineStart;
-        private int pendingIndent = -1;  // 대기 중인 들여쓰기 레벨
         
         // 탭 크기 설정 (Python 표준은 8)
         private const int TAB_SIZE = 8;
+        private bool useTabs = false;  // 탭 사용 여부 추적
+        private bool useSpaces = false; // 공백 사용 여부 추적
+        private bool mixedIndentWarning = false; // 혼용 경고 출력 여부
         
         // Pre-computed lookup tables for better performance
         private static readonly HashSet<string> Keywords = new HashSet<string>
@@ -65,7 +67,7 @@ namespace SharpPy
             position++;
             currentChar = position < inputLength ? input[position] : '\0';
         }
-
+        
         private string ReadNumber()
         {
             var sb = new StringBuilder(16); // Pre-allocate reasonable size
@@ -117,6 +119,324 @@ namespace SharpPy
                 throw new PythonException("SyntaxError", "Unterminated string literal", startLine, startColumn);
 
             return sb.ToString();
+        }
+
+        // 줄이 의미있는 코드를 포함하는지 확인
+        private bool IsSignificantLine()
+        {
+            int tempPos = position;
+
+            // 공백과 탭 건너뛰기
+            while (tempPos < inputLength && (input[tempPos] == ' ' || input[tempPos] == '\t'))
+            {
+                tempPos++;
+            }
+
+            // 줄 끝이거나 개행이면 빈 줄
+            if (tempPos >= inputLength || input[tempPos] == '\n')
+                return false;
+
+            // 주석이면 빈 줄로 취급
+            if (input[tempPos] == '#')
+                return false;
+
+            return true;
+        }
+
+        // 들여쓰기 레벨 계산 (개선된 버전)
+        private (int level, bool hasTab, bool hasSpace) CalculateIndentLevel()
+        {
+            int level = 0;
+            int tempPos = position;
+            bool hasTab = false;
+            bool hasSpace = false;
+            
+            while (tempPos < inputLength)
+            {
+                char ch = input[tempPos];
+                
+                if (ch == ' ')
+                {
+                    level += 1;
+                    hasSpace = true;
+                }
+                else if (ch == '\t')
+                {
+                    // 탭을 다음 8의 배수 위치로 이동
+                    level = ((level / TAB_SIZE) + 1) * TAB_SIZE;
+                    hasTab = true;
+                }
+                else
+                {
+                    break;
+                }
+                
+                tempPos++;
+            }
+            
+            return (level, hasTab, hasSpace);
+        }
+
+        // 들여쓰기 문자들을 건너뛰기
+        private void SkipIndentChars()
+        {
+            while (currentChar == ' ' || currentChar == '\t')
+            {
+                Advance();
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SkipWhitespace()
+        {
+            while (currentChar != '\0' && char.IsWhiteSpace(currentChar) && currentChar != '\n')
+                Advance();
+        }
+
+        public List<Token> Tokenize()
+        {
+            var tokens = new List<Token>(256);
+            bool lastTokenWasNewline = true;
+
+            while (currentChar != '\0')
+            {
+                int tokenLine = line;
+                int tokenColumn = column;
+
+                // 줄의 시작에서 들여쓰기 처리
+                if (atLineStart && currentChar != '\n')
+                {
+                    // 의미있는 코드가 있는지 확인
+                    if (!IsSignificantLine())
+                    {
+                        // 빈 줄이거나 주석만 있는 줄은 건너뛰기
+                        while (currentChar != '\0' && currentChar != '\n')
+                        {
+                            Advance();
+                        }
+                        
+                        if (currentChar == '\n')
+                        {
+                            Advance();
+                        }
+                        continue;
+                    }
+
+                    // 들여쓰기 계산
+                    var (indentLevel, hasTab, hasSpace) = CalculateIndentLevel();
+                    
+                    // 탭과 공백 혼용 체크 (Python 3 스타일 - 경고만)
+                    if (hasTab && hasSpace)
+                    {
+                        if (!mixedIndentWarning)
+                        {
+                            Console.WriteLine($"Warning: inconsistent use of tabs and spaces in indentation at line {tokenLine}");
+                            mixedIndentWarning = true;
+                        }
+                    }
+                    
+                    // 첫 번째 들여쓰기에서 탭/공백 스타일 결정
+                    if (indentLevel > 0 && !useTabs && !useSpaces)
+                    {
+                        if (hasTab)
+                            useTabs = true;
+                        else
+                            useSpaces = true;
+                    }
+                    
+                    // 들여쓰기 문자 건너뛰기
+                    SkipIndentChars();
+
+                    // 들여쓰기 토큰 생성
+                    int currentIndent = indentStack.Peek();
+                    
+                    if (indentLevel > currentIndent)
+                    {
+                        // 들여쓰기 증가
+                        indentStack.Push(indentLevel);
+                        tokens.Add(new Token(TokenType.INDENT, "", tokenLine, tokenColumn));
+                    }
+                    else if (indentLevel < currentIndent)
+                    {
+                        // 들여쓰기 감소
+                        bool matched = false;
+                        while (indentStack.Count > 1 && indentStack.Peek() > indentLevel)
+                        {
+                            indentStack.Pop();
+                            tokens.Add(new Token(TokenType.DEDENT, "", tokenLine, tokenColumn));
+                        }
+                        
+                        // 현재 들여쓰기 레벨이 스택의 어떤 레벨과도 일치하지 않으면 에러
+                        if (indentStack.Peek() != indentLevel)
+                        {
+                            // 더 자세한 에러 메시지
+                            var expected = string.Join(", ", indentStack.ToArray().Reverse());
+                            throw new PythonException("IndentationError", 
+                                $"Unindent does not match any outer indentation level (expected one of: {expected}, got: {indentLevel})", 
+                                tokenLine, tokenColumn);
+                        }
+                    }
+
+                    atLineStart = false;
+                    lastTokenWasNewline = false;
+                }
+
+                // 줄 중간의 공백 처리
+                if (!atLineStart && char.IsWhiteSpace(currentChar) && currentChar != '\n')
+                {
+                    SkipWhitespace();
+                    continue;
+                }
+
+                // 주석 처리
+                if (currentChar == '#')
+                {
+                    while (currentChar != '\0' && currentChar != '\n')
+                        Advance();
+                    continue;
+                }
+
+                // 개행 문자 처리
+                if (currentChar == '\n')
+                {
+                    // 의미있는 토큰 뒤에만 NEWLINE 토큰 생성
+                    if (!lastTokenWasNewline && tokens.Count > 0 && 
+                        tokens[tokens.Count - 1].Type != TokenType.INDENT &&
+                        tokens[tokens.Count - 1].Type != TokenType.DEDENT)
+                    {
+                        tokens.Add(new Token(TokenType.NEWLINE, "\n", tokenLine, tokenColumn));
+                        lastTokenWasNewline = true;
+                    }
+                    Advance();
+                    continue;
+                }
+
+                lastTokenWasNewline = false;
+
+                // 나머지 토큰 처리 (기존 코드와 동일)...
+                // 숫자 처리
+                if (char.IsDigit(currentChar))
+                {
+                    tokens.Add(new Token(TokenType.NUMBER, ReadNumber(), tokenLine, tokenColumn));
+                    continue;
+                }
+
+                // Check for triple-quoted strings first
+                if (position + 2 < inputLength)
+                {
+                    string threeChars = input.Substring(position, 3);
+                    if (threeChars == "'''" || threeChars == "\"\"\"")
+                    {
+                        string content = ReadTripleQuotedString(threeChars.Substring(0, 1));
+                        tokens.Add(new Token(TokenType.STRING, content, tokenLine, tokenColumn));
+                        continue;
+                    }
+                }
+
+                // Check for f-strings
+                if (currentChar == 'f' && position + 1 < inputLength && 
+                    (input[position + 1] == '"' || input[position + 1] == '\''))
+                {
+                    if (position + 3 < inputLength)
+                    {
+                        char quoteChar = input[position + 1];
+                        if (input[position + 2] == quoteChar && input[position + 3] == quoteChar)
+                        {
+                            Advance(); // Skip 'f'
+                            string content = ReadTripleQuotedString(quoteChar.ToString());
+                            tokens.Add(new Token(TokenType.FSTRING, content, tokenLine, tokenColumn));
+                            continue;
+                        }
+                    }
+                    
+                    Advance(); // Skip 'f'
+                    char quote = currentChar;
+                    tokens.Add(new Token(TokenType.FSTRING, ReadFString(quote), tokenLine, tokenColumn));
+                    continue;
+                }
+
+                // 문자열 처리
+                if (currentChar == '"' || currentChar == '\'')
+                {
+                    char quote = currentChar;
+                    tokens.Add(new Token(TokenType.STRING, ReadString(quote), tokenLine, tokenColumn));
+                    continue;
+                }
+
+                // 식별자 및 키워드 처리
+                if (char.IsLetter(currentChar) || currentChar == '_')
+                {
+                    string identifier = ReadIdentifier();
+                    
+                    TokenType tokenType = identifier switch
+                    {
+                        "True" or "False" => TokenType.BOOLEAN,
+                        "None" => TokenType.NONE,
+                        _ when Keywords.Contains(identifier) => GetKeywordToken(identifier),
+                        _ => TokenType.IDENTIFIER
+                    };
+                    
+                    tokens.Add(new Token(tokenType, identifier, tokenLine, tokenColumn));
+                    continue;
+                }
+
+                // 연산자 처리
+                if (position + 1 < inputLength)
+                {
+                    if (position + 2 < inputLength && input.Substring(position, 3) == "**=")
+                    {
+                        tokens.Add(new Token(TokenType.COMPOUND_ASSIGN, "**=", tokenLine, tokenColumn));
+                        Advance();
+                        Advance();
+                        Advance();
+                        continue;
+                    }
+
+                    string twoChar = input.Substring(position, 2);
+                    
+                    if (TwoCharOperators.Contains(twoChar))
+                    {
+                        tokens.Add(new Token(
+                            twoChar.Contains('=') && twoChar != "==" && twoChar != "!=" && twoChar != "<=" && twoChar != ">=" 
+                                ? TokenType.COMPOUND_ASSIGN 
+                                : TokenType.OPERATOR, 
+                            twoChar, tokenLine, tokenColumn));
+                        Advance();
+                        Advance();
+                        continue;
+                    }
+                }
+
+                // 단일 문자 토큰
+                var tokenInfo = currentChar switch
+                {
+                    '+' or '-' or '*' or '/' or '%' or '<' or '>' => (TokenType.OPERATOR, currentChar.ToString()),
+                    '=' => (TokenType.ASSIGN, "="),
+                    '(' => (TokenType.LPAREN, "("),
+                    ')' => (TokenType.RPAREN, ")"),
+                    '[' => (TokenType.LBRACKET, "["),
+                    ']' => (TokenType.RBRACKET, "]"),
+                    '{' => (TokenType.LBRACE, "{"),
+                    '}' => (TokenType.RBRACE, "}"),
+                    ':' => (TokenType.COLON, ":"),
+                    ',' => (TokenType.COMMA, ","),
+                    '.' => (TokenType.DOT, "."),
+                    _ => throw new PythonException("SyntaxError", $"Unexpected character: {currentChar}", tokenLine, tokenColumn)
+                };
+                
+                tokens.Add(new Token(tokenInfo.Item1, tokenInfo.Item2, tokenLine, tokenColumn));
+                Advance();
+            }
+
+            // 남은 DEDENT 토큰 추가
+            while (indentStack.Count > 1)
+            {
+                indentStack.Pop();
+                tokens.Add(new Token(TokenType.DEDENT, "", line, column));
+            }
+
+            tokens.Add(new Token(TokenType.EOF, "", line, column));
+            return tokens;
         }
 
         private string ReadTripleQuotedString(string quoteType)
@@ -232,264 +552,6 @@ namespace SharpPy
             }
 
             return true;  // 줄 끝까지 공백만 있음
-        }
-
-        // 들여쓰기 레벨 계산 (탭과 공백 혼용 처리)
-        private int CalculateIndentLevel()
-        {
-            int level = 0;
-            int tempPos = position;
-            char tempChar = currentChar;
-            
-            while (tempChar == ' ' || tempChar == '\t')
-            {
-                if (tempChar == ' ')
-                    level += 1;
-                else if (tempChar == '\t')
-                    level = ((level / TAB_SIZE) + 1) * TAB_SIZE;  // 다음 탭 위치로 이동
-                
-                tempPos++;
-                tempChar = tempPos < inputLength ? input[tempPos] : '\0';
-            }
-            
-            return level;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void SkipWhitespace()
-        {
-            while (currentChar != '\0' && char.IsWhiteSpace(currentChar) && currentChar != '\n')
-                Advance();
-        }
-
-        public List<Token> Tokenize()
-        {
-            var tokens = new List<Token>(256); // Pre-allocate reasonable capacity
-            bool previousWasNewline = true;  // 파일 시작은 새 줄로 취급
-
-            while (currentChar != '\0')
-            {
-                int tokenLine = line;
-                int tokenColumn = column;
-
-                // 줄의 시작에서 들여쓰기 처리
-                if (atLineStart && currentChar != '\n')
-                {
-                    // 빈 줄인지 확인
-                    if (IsBlankLine())
-                    {
-                        // 빈 줄은 건너뛰기 (들여쓰기 변경 없음)
-                        while (currentChar != '\0' && currentChar != '\n')
-                        {
-                            if (currentChar == '#')
-                            {
-                                // 주석 끝까지 건너뛰기
-                                while (currentChar != '\0' && currentChar != '\n')
-                                    Advance();
-                            }
-                            else
-                            {
-                                Advance();
-                            }
-                        }
-                        
-                        if (currentChar == '\n')
-                        {
-                            Advance();
-                        }
-                        continue;
-                    }
-
-                    // 실제 코드가 있는 줄의 들여쓰기 처리
-                    int indentLevel = CalculateIndentLevel();
-                    
-                    // 들여쓰기 공백 건너뛰기
-                    while (currentChar == ' ' || currentChar == '\t')
-                        Advance();
-
-                    // 들여쓰기 토큰 생성
-                    int currentIndent = indentStack.Peek();
-                    if (indentLevel > currentIndent)
-                    {
-                        indentStack.Push(indentLevel);
-                        tokens.Add(new Token(TokenType.INDENT, "", tokenLine, tokenColumn));
-                    }
-                    else if (indentLevel < currentIndent)
-                    {
-                        while (indentStack.Count > 1 && indentStack.Peek() > indentLevel)
-                        {
-                            indentStack.Pop();
-                            tokens.Add(new Token(TokenType.DEDENT, "", tokenLine, tokenColumn));
-                        }
-
-                        if (indentStack.Peek() != indentLevel)
-                        {
-                            throw new PythonException("IndentationError", 
-                                $"Unindent does not match any outer indentation level", 
-                                tokenLine, tokenColumn);
-                        }
-                    }
-
-                    atLineStart = false;
-                    previousWasNewline = false;
-                }
-
-                // 줄 중간의 공백 처리
-                if (!atLineStart && char.IsWhiteSpace(currentChar) && currentChar != '\n')
-                {
-                    SkipWhitespace();
-                    continue;
-                }
-
-                // 주석 처리
-                if (currentChar == '#')
-                {
-                    while (currentChar != '\0' && currentChar != '\n')
-                        Advance();
-                    continue;
-                }
-
-                // 개행 문자 처리
-                if (currentChar == '\n')
-                {
-                    // 연속된 개행은 하나만 토큰으로 만들기
-                    if (!previousWasNewline)
-                    {
-                        tokens.Add(new Token(TokenType.NEWLINE, "\n", tokenLine, tokenColumn));
-                        previousWasNewline = true;
-                    }
-                    Advance();
-                    continue;
-                }
-
-                previousWasNewline = false;
-
-                // 숫자 처리
-                if (char.IsDigit(currentChar))
-                {
-                    tokens.Add(new Token(TokenType.NUMBER, ReadNumber(), tokenLine, tokenColumn));
-                    continue;
-                }
-
-                // Check for triple-quoted strings first
-                if (position + 2 < inputLength)
-                {
-                    string threeChars = input.Substring(position, 3);
-                    if (threeChars == "'''" || threeChars == "\"\"\"")
-                    {
-                        string content = ReadTripleQuotedString(threeChars.Substring(0, 1));
-                        tokens.Add(new Token(TokenType.STRING, content, tokenLine, tokenColumn));
-                        continue;
-                    }
-                }
-
-                // Check for f-strings
-                if (currentChar == 'f' && position + 1 < inputLength && 
-                    (input[position + 1] == '"' || input[position + 1] == '\''))
-                {
-                    // Check if it's a triple-quoted f-string
-                    if (position + 3 < inputLength)
-                    {
-                        char quoteChar = input[position + 1];
-                        if (input[position + 2] == quoteChar && input[position + 3] == quoteChar)
-                        {
-                            Advance(); // Skip 'f'
-                            string content = ReadTripleQuotedString(quoteChar.ToString());
-                            tokens.Add(new Token(TokenType.FSTRING, content, tokenLine, tokenColumn));
-                            continue;
-                        }
-                    }
-                    
-                    Advance(); // Skip 'f'
-                    char quote = currentChar;
-                    tokens.Add(new Token(TokenType.FSTRING, ReadFString(quote), tokenLine, tokenColumn));
-                    continue;
-                }
-
-                // 문자열 처리
-                if (currentChar == '"' || currentChar == '\'')
-                {
-                    char quote = currentChar;
-                    tokens.Add(new Token(TokenType.STRING, ReadString(quote), tokenLine, tokenColumn));
-                    continue;
-                }
-
-                // 식별자 및 키워드 처리
-                if (char.IsLetter(currentChar) || currentChar == '_')
-                {
-                    string identifier = ReadIdentifier();
-                    
-                    // Optimized keyword lookup
-                    TokenType tokenType = identifier switch
-                    {
-                        "True" or "False" => TokenType.BOOLEAN,
-                        "None" => TokenType.NONE,
-                        _ when Keywords.Contains(identifier) => GetKeywordToken(identifier),
-                        _ => TokenType.IDENTIFIER
-                    };
-                    
-                    tokens.Add(new Token(tokenType, identifier, tokenLine, tokenColumn));
-                    continue;
-                }
-
-                // Check for compound assignment operators first
-                if (position + 1 < inputLength)
-                {
-                    // Check for **=
-                    if (position + 2 < inputLength && input.Substring(position, 3) == "**=")
-                    {
-                        tokens.Add(new Token(TokenType.COMPOUND_ASSIGN, "**=", tokenLine, tokenColumn));
-                        Advance();
-                        Advance();
-                        Advance();
-                        continue;
-                    }
-
-                    string twoChar = input.Substring(position, 2);
-                    
-                    if (TwoCharOperators.Contains(twoChar))
-                    {
-                        tokens.Add(new Token(
-                            twoChar.Contains('=') && twoChar != "==" && twoChar != "!=" && twoChar != "<=" && twoChar != ">=" 
-                                ? TokenType.COMPOUND_ASSIGN 
-                                : TokenType.OPERATOR, 
-                            twoChar, tokenLine, tokenColumn));
-                        Advance();
-                        Advance();
-                        continue;
-                    }
-                }
-
-                // Single-character tokens
-                var tokenInfo = currentChar switch
-                {
-                    '+' or '-' or '*' or '/' or '%' or '<' or '>' => (TokenType.OPERATOR, currentChar.ToString()),
-                    '=' => (TokenType.ASSIGN, "="),
-                    '(' => (TokenType.LPAREN, "("),
-                    ')' => (TokenType.RPAREN, ")"),
-                    '[' => (TokenType.LBRACKET, "["),
-                    ']' => (TokenType.RBRACKET, "]"),
-                    '{' => (TokenType.LBRACE, "{"),
-                    '}' => (TokenType.RBRACE, "}"),
-                    ':' => (TokenType.COLON, ":"),
-                    ',' => (TokenType.COMMA, ","),
-                    '.' => (TokenType.DOT, "."),
-                    _ => throw new PythonException("SyntaxError", $"Unexpected character: {currentChar}", tokenLine, tokenColumn)
-                };
-                
-                tokens.Add(new Token(tokenInfo.Item1, tokenInfo.Item2, tokenLine, tokenColumn));
-                Advance();
-            }
-
-            // Add DEDENT tokens for remaining indentation levels
-            while (indentStack.Count > 1)
-            {
-                indentStack.Pop();
-                tokens.Add(new Token(TokenType.DEDENT, "", line, column));
-            }
-
-            tokens.Add(new Token(TokenType.EOF, "", line, column));
-            return tokens;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
