@@ -363,14 +363,14 @@ namespace SharpPy
     {
         static void Main(string[] args)
         {
-            var interpreter = new SharpPy.PythonInterpreter();
+            var interpreter = new PythonInterpreter();
 
             if (args.Length > 0)
             {
                 // Check for special flags
                 if (args.Contains("--bytecode"))
                 {
-                    interpreter = new SharpPy.PythonInterpreter(useBytecode: true);
+                    interpreter = new PythonInterpreter(useBytecode: true);
                     Console.WriteLine("Using Bytecode execution mode");
                 }
 
@@ -415,7 +415,7 @@ namespace SharpPy
 
             // AST 모드로 실행
             Console.WriteLine("1. AST Mode Execution:");
-            var astInterpreter = new SharpPy.PythonInterpreter(useBytecode: false);
+            var astInterpreter = new PythonInterpreter(useBytecode: false);
             astInterpreter.Execute(@"
 def factorial(n):
     if n <= 1:
@@ -427,7 +427,7 @@ print('AST Mode: factorial(5) =', factorial(5))
 
             // Bytecode 모드로 실행
             Console.WriteLine("\n2. Bytecode Mode Execution:");
-            var bytecodeInterpreter = new SharpPy.PythonInterpreter(useBytecode: true);
+            var bytecodeInterpreter = new PythonInterpreter(useBytecode: true);
             bytecodeInterpreter.Execute(@"
 def factorial(n):
     if n <= 1:
@@ -1378,13 +1378,13 @@ print(T('Hello', ' ', True, True))                  # AT_ONCE: APPEND: Hello
             Console.WriteLine("=== All New Features Tests Complete ===");
 
             // AST 실행 시간 측정
-            var astInterpreterPerf = new SharpPy.PythonInterpreter(useBytecode: false);
+            var astInterpreterPerf = new PythonInterpreter(useBytecode: false);
             var astStart = DateTime.Now;
             astInterpreterPerf.Execute(perfTestCode);
             var astTime = DateTime.Now - astStart;
 
             // Bytecode 실행 시간 측정
-            var bytecodeInterpreterPerf = new SharpPy.PythonInterpreter(useBytecode: true);
+            var bytecodeInterpreterPerf = new PythonInterpreter(useBytecode: true);
             var bytecodeStart = DateTime.Now;
             bytecodeInterpreterPerf.Execute(perfTestCode);
             var bytecodeTime = DateTime.Now - bytecodeStart;
