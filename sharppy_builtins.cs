@@ -813,6 +813,56 @@ namespace SharpPy
                 return new PythonDict();
             }));
 
+            // vars() function
+            module.SetAttribute("vars", new BuiltinFunction("vars", (env, args) =>
+            {
+                if (args.Count > 1)
+                    throw new PythonException("TypeError", "vars() takes at most 1 argument");
+
+                // 인자 없이 호출하면 locals()와 동일
+                if (args.Count == 0)
+                {
+                    return env.GetLocals();
+                }
+
+                // 객체의 __dict__ 반환
+                var obj = args[0];
+
+                switch (obj)
+                {
+                    case PythonInstance instance:
+                        // 인스턴스의 __dict__ 반환
+                        var instanceDict = new PythonDict();
+                        foreach (var kvp in instance.InstanceEnv.variables)
+                        {
+                            instanceDict.Items[new PythonString(kvp.Key)] = kvp.Value;
+                        }
+                        return instanceDict;
+
+                    case PythonClass cls:
+                        // 클래스의 __dict__ 반환
+                        var classDict = new PythonDict();
+                        foreach (var kvp in cls.ClassEnv.variables)
+                        {
+                            classDict.Items[new PythonString(kvp.Key)] = kvp.Value;
+                        }
+                        return classDict;
+
+                    case PythonModule module:
+                        // 모듈의 __dict__ 반환
+                        var moduleDict = new PythonDict();
+                        foreach (var kvp in module.ModuleEnv.variables)
+                        {
+                            moduleDict.Items[new PythonString(kvp.Key)] = kvp.Value;
+                        }
+                        return moduleDict;
+
+                    default:
+                        throw new PythonException("TypeError",
+                            $"vars() argument must have __dict__ attribute");
+                }
+            }));
+
             // dir() function
             module.SetAttribute("dir", new BuiltinFunction("dir", args =>
             {

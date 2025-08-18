@@ -67,10 +67,13 @@ namespace SharpPy
                     
                     if (File.Exists(directFilePath))
                     {
-                        // searchPaths를 전달하여 모듈 생성
                         module = new PythonModule(name, searchPaths);
-            
-                        // __builtins__를 먼저 설정
+                        
+                        // 모듈의 __name__과 __file__ 설정
+                        module.ModuleEnv.SetVariable("__name__", new PythonString(name));
+                        module.ModuleEnv.SetVariable("__file__", new PythonString(directFilePath));
+                        
+                        // __builtins__ 설정
                         if (parentEnv != null)
                         {
                             try
@@ -83,18 +86,13 @@ namespace SharpPy
                             }
                             catch { }
                         }
+                        
                         string code = File.ReadAllText(directFilePath);
                         var interpreter = new PythonInterpreter();
                         interpreter.SetGlobalEnv(module.ModuleEnv);
                         interpreter.Execute(code, directFilePath);
                         loadedModules[name] = module;
-
-                        if (parentEnv != null && parentEnv.GetVariable("__builtins__") != null)
-                        {
-                            // 부모 환경에서 __builtins__ 가져오기
-                            module.ModuleEnv.SetVariable("__builtins__", 
-                                parentEnv.GetVariable("__builtins__"));                            
-                        }
+                        
                         return module;
                     }
 

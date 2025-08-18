@@ -540,6 +540,23 @@ namespace SharpPy
         public override object GetRawValue() => this;
         public override bool Equals(PythonTypeObject other) => ReferenceEquals(this, other);
         public override int GetHashCode() => base.GetHashCode();
+        
+        // GetAttribute 추가
+        public override PythonTypeObject GetAttribute(string name)
+        {
+            switch (name)
+            {
+                case "__name__":
+                    return new PythonString(Name);
+                case "__doc__":
+                    return PythonNone.Instance;  // 향후 docstring 지원
+                case "__module__":
+                    return new PythonString("__main__");  // 기본값
+                default:
+                    throw new PythonException("AttributeError", 
+                        $"'function' object has no attribute '{name}'");
+            }
+        }
     }
 
     public sealed class UserFunction : Function
@@ -549,11 +566,10 @@ namespace SharpPy
         public Environment ClosureEnv { get; }
         public TypeHint ReturnTypeHint { get; }
         
-        // 기본값을 미리 평가하여 저장
         private List<PythonTypeObject> evaluatedDefaults;
 
         public UserFunction(string name, List<Parameter> parameters, List<ASTNode> body, 
-                        Environment closureEnv, TypeHint returnTypeHint = null)
+                            Environment closureEnv, TypeHint returnTypeHint = null)
             : base(name)
         {
             Parameters = parameters;
@@ -561,7 +577,6 @@ namespace SharpPy
             ClosureEnv = closureEnv;
             ReturnTypeHint = returnTypeHint;
             
-            // 기본값들을 함수 정의 시점에 평가
             evaluatedDefaults = new List<PythonTypeObject>();
             foreach (var param in parameters)
             {
@@ -580,17 +595,17 @@ namespace SharpPy
         {
             // 필수 매개변수 개수 계산
             int requiredParams = Parameters.Count(p => !p.HasDefault);
-            
+
             // 인자 개수 검증
             if (arguments.Count < requiredParams)
             {
-                throw new PythonException("TypeError", 
+                throw new PythonException("TypeError",
                     $"Function {Name} missing {requiredParams - arguments.Count} required positional argument(s)");
             }
-            
+
             if (arguments.Count > Parameters.Count)
             {
-                throw new PythonException("TypeError", 
+                throw new PythonException("TypeError",
                     $"Function {Name} takes at most {Parameters.Count} arguments ({arguments.Count} given)");
             }
 
@@ -605,7 +620,7 @@ namespace SharpPy
             {
                 var param = Parameters[i];
                 PythonTypeObject arg;
-                
+
                 // 인자가 제공되었으면 사용, 아니면 기본값 사용
                 if (i < arguments.Count)
                 {
@@ -618,14 +633,14 @@ namespace SharpPy
                 else
                 {
                     // 이 경우는 위의 검증에서 걸러져야 함
-                    throw new PythonException("TypeError", 
+                    throw new PythonException("TypeError",
                         $"Function {Name} missing required argument: '{param.Name}'");
                 }
 
                 // 타입 검증
                 if (param.TypeHint != null && !param.TypeHint.IsCompatible(arg))
                 {
-                    throw new PythonException("TypeError", 
+                    throw new PythonException("TypeError",
                         $"Argument for parameter '{param.Name}' expected {param.TypeHint}, got {GetValueType(arg)}");
                 }
 
@@ -639,7 +654,7 @@ namespace SharpPy
                     result = stmt.Evaluate(funcEnv);
 
                 if (ReturnTypeHint != null && !ReturnTypeHint.IsCompatible(result))
-                    throw new PythonException("TypeError", 
+                    throw new PythonException("TypeError",
                         $"Return value expected {ReturnTypeHint}, got {GetValueType(result)}");
 
                 return result;
@@ -647,12 +662,12 @@ namespace SharpPy
             catch (ReturnException ex)
             {
                 if (ReturnTypeHint != null && !ReturnTypeHint.IsCompatible(ex.Value))
-                    throw new PythonException("TypeError", 
+                    throw new PythonException("TypeError",
                         $"Return value expected {ReturnTypeHint}, got {GetValueType(ex.Value)}");
                 return ex.Value;
             }
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static string GetValueType(PythonTypeObject value)
         {
@@ -663,6 +678,21 @@ namespace SharpPy
                 PythonClass cls => $"Type[{cls.Name}]",
                 _ => value.Type.ToString().ToLower()
             };
+        }
+        
+        public override PythonTypeObject GetAttribute(string name)
+        {
+            switch (name)
+            {
+                case "__name__":
+                    return new PythonString(Name);
+                case "__doc__":
+                    // 향후 docstring 지원 시 구현
+                    return PythonNone.Instance;
+                default:
+                    throw new PythonException("AttributeError",
+                        $"'function' object has no attribute '{name}'");
+            }
         }
     }
 
@@ -824,7 +854,7 @@ namespace SharpPy
             ClassEnv = classEnv;
             ParentClass = parentClass;
         }
-        
+
         public override PythonType Type => PythonType.Class;
         public override bool IsTrue() => true;
         public override bool IsCallable() => true;
@@ -845,7 +875,7 @@ namespace SharpPy
                 }
                 currentClass = currentClass.ParentClass;
             }
-            
+
             throw new PythonException("AttributeError", $"type object '{Name}' has no attribute '{name}'");
         }
 
@@ -860,10 +890,10 @@ namespace SharpPy
                 {
                     var initArgs = new List<PythonTypeObject>(1 + (args?.Count ?? 0)) { instance };
                     if (args != null) initArgs.AddRange(args);
-                    
+
                     // __init__의 반환값 확인
                     var result = initMethod.Call(initArgs);
-                    
+
                     // __init__이 self를 반환한 경우 그것을 사용, 
                     // None을 반환한 경우 원래 instance 사용
                     if (result is PythonInstance returnedInstance)
@@ -874,6 +904,30 @@ namespace SharpPy
             }
 
             return instance;
+        }
+        
+        public override PythonTypeObject GetAttribute(string name)
+        {
+            switch (name)
+            {
+                case "__name__":
+                    return new PythonString(Name);
+                case "__bases__":
+                    // 부모 클래스 튜플 반환
+                    var bases = new PythonTuple();
+                    if (ParentClass != null)
+                        bases.Items.Add(ParentClass);
+                    return bases;
+                case "__dict__":
+                    var dict = new PythonDict();
+                    foreach (var kvp in ClassEnv.variables)
+                    {
+                        dict.Items[new PythonString(kvp.Key)] = kvp.Value;
+                    }
+                    return dict;
+                default:
+                    return GetClassAttribute(name);
+            }
         }
     }
     
@@ -978,6 +1032,10 @@ namespace SharpPy
             Name = name;
             ModuleEnv = new Environment(null);
 
+            // __name__ 속성 설정
+            ModuleEnv.SetVariable("__name__", new PythonString(name));
+            ModuleEnv.SetVariable("__file__", new PythonString("<module>"));
+            
             if (searchPaths != null)
             {
                 ModuleEnv.SearchPaths = new List<string>(searchPaths);
