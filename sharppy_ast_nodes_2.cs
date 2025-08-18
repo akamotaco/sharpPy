@@ -42,15 +42,20 @@ namespace SharpPy
         }
     }
 
+    // sharppy_ast_nodes_2.cs 수정
     public sealed class FunctionCallNode : ASTNode
     {
         public ASTNode Function { get; }
         public List<ASTNode> Arguments { get; }
+        public Dictionary<string, ASTNode> KeywordArguments { get; }  // 추가
 
-        public FunctionCallNode(ASTNode function, List<ASTNode> arguments, int line = 0, int column = 0) : base(line, column)
+        public FunctionCallNode(ASTNode function, List<ASTNode> arguments,
+                              Dictionary<string, ASTNode> kwArgs = null,  // 추가
+                              int line = 0, int column = 0) : base(line, column)
         {
             Function = function;
             Arguments = arguments;
+            KeywordArguments = kwArgs ?? new Dictionary<string, ASTNode>();
         }
 
         public override PythonTypeObject Evaluate(Environment env)
@@ -59,33 +64,30 @@ namespace SharpPy
             {
                 var function = Function.Evaluate(env);
 
-                // Pre-evaluate all arguments
+                // 위치 인자 평가
                 var args = new List<PythonTypeObject>(Arguments.Count);
                 foreach (var arg in Arguments)
                     args.Add(arg.Evaluate(env));
 
+                // 키워드 인자 평가
+                var kwargs = new Dictionary<string, PythonTypeObject>();
+                foreach (var kvp in KeywordArguments)
+                    kwargs[kvp.Key] = kvp.Value.Evaluate(env);
+
                 return function switch
                 {
-                    // BuiltinFunction에 환경이 필요한 경우 처리 추가
+                    UserFunction userFunc => userFunc.CallWithKeywords(args, kwargs),
+                    LambdaFunction lambdaFunc => lambdaFunc.CallWithKeywords(args, kwargs),
                     BuiltinFunction builtinFunc when builtinFunc.NeedsEnvironment =>
                         builtinFunc.CallWithEnv(env, args),
-                    UserFunction userFunc => userFunc.Call(args),
-                    LambdaFunction lambdaFunc => lambdaFunc.Call(args),
                     BuiltinFunction builtinFunc => builtinFunc.Call(args),
-                    BoundMethod boundMethod => boundMethod.Call(args),
+                    BoundMethod boundMethod => boundMethod.CallWithKeywords(args, kwargs),
                     PythonClass pythonClass => pythonClass.CreateInstance(args),
-                    BytecodeFunction bytecodeFunc => bytecodeFunc.Call(args),
                     _ => throw CreateException("TypeError", $"'{function?.Type}' object is not callable")
                 };
             }
-            catch (PythonException)
-            {
-                throw;
-            }
-            catch (ReturnException)
-            {
-                throw;
-            }
+            catch (PythonException) { throw; }
+            catch (ReturnException) { throw; }
             catch (Exception ex)
             {
                 throw CreateException("RuntimeError", $"Internal error calling function: {ex.Message}");

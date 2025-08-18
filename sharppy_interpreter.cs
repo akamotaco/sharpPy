@@ -1385,6 +1385,11 @@ print(T('Hello', ' ', True, True))                  # AT_ONCE: APPEND: Hello
             {
                 var intp = new PythonInterpreter(useBytecode: true);
                 string testCode = @"
+def a(num:int):
+    return num+1
+
+print(a(1))
+
 # Fibonacci - JIT가 효과적인 예제
 def fib(n):
     if n <= 1:
@@ -1413,6 +1418,41 @@ for _ in range(15):
     result = sum_range(1000)
     
 print(f'Sum of 1000 = {result}')
+";
+
+                intp.Execute(testCode);
+            }
+{
+                var intp = new PythonInterpreter(useBytecode: true);
+                string testCode = @"
+# 키워드 인자
+def sum(v1: int, v2, v3):
+    return v1 + v2 + v3
+
+print(sum(1, v3=1, v2=2))  # 4
+print(sum(v1=1, v2=2, v3=3))  # 6
+
+# *args
+def print_all(*args):
+    for arg in args:
+        print(arg)
+
+print_all(1, 2, 3, 'hello')
+
+# **kwargs
+def print_kwargs(**kwargs):
+    for key, value in kwargs.items():
+        print(f'{key} = {value}')
+
+print_kwargs(name='Alice', age=30, city='Seoul')
+
+# 모두 함께
+def complex_func(a, b=10, *args, **kwargs):
+    print(f'a={a}, b={b}')
+    print(f'args={args}')
+    print(f'kwargs={kwargs}')
+
+complex_func(1, 2, 3, 4, x=5, y=6)
 ";
 
                 intp.Execute(testCode);

@@ -867,36 +867,74 @@ namespace SharpPy
             SkipNewlinesAndIndents();
 
             var parameters = new List<Parameter>();
-            bool hasSeenDefault = false;  // 기본값이 있는 매개변수를 봤는지 추적
+            bool hasSeenDefault = false;
+            bool hasSeenVarArgs = false;
+            bool hasSeenKwArgs = false;
 
             while (currentToken.Type != TokenType.RPAREN)
             {
-                string paramName = currentToken.Value;
-                Expect(TokenType.IDENTIFIER);
-
-                TypeHint typeHint = null;
-                if (currentToken.Type == TokenType.COLON)
+                // *args 처리
+                if (currentToken.Type == TokenType.OPERATOR && currentToken.Value == "*")
                 {
-                    Advance();
-                    typeHint = ParseTypeHint();
+                    if (hasSeenKwArgs)
+                        throw new PythonException("SyntaxError", "**kwargs must come after *args", currentToken.Line, currentToken.Column);
+                    
+                    Advance(); // Skip '*'
+                    
+                    // 단독 * (keyword-only 인자 구분자)
+                    if (currentToken.Type == TokenType.COMMA || currentToken.Type == TokenType.RPAREN)
+                    {
+                        // Python 3의 keyword-only 구분자 - 구현 생략
+                    }
+                    else
+                    {
+                        string varArgsName = currentToken.Value;
+                        Expect(TokenType.IDENTIFIER);
+                        parameters.Add(new Parameter(varArgsName, null, null, ParameterKind.VarArgs));
+                        hasSeenVarArgs = true;
+                    }
                 }
-
-                ASTNode defaultValue = null;
-                if (currentToken.Type == TokenType.ASSIGN)
+                // **kwargs 처리
+                else if (currentToken.Type == TokenType.OPERATOR && currentToken.Value == "**")
                 {
-                    Advance(); // Skip '='
-                    defaultValue = ParseExpression();  // 기본값 표현식 파싱
-                    hasSeenDefault = true;
+                    Advance(); // Skip '**'
+                    string kwargsName = currentToken.Value;
+                    Expect(TokenType.IDENTIFIER);
+                    parameters.Add(new Parameter(kwargsName, null, null, ParameterKind.KwArgs));
+                    hasSeenKwArgs = true;
                 }
-                else if (hasSeenDefault)
+                // 일반 매개변수
+                else
                 {
-                    // 기본값이 있는 매개변수 다음에 기본값이 없는 매개변수가 오면 에러
-                    throw new PythonException("SyntaxError",
-                        "non-default argument follows default argument",
-                        currentToken.Line, currentToken.Column);
-                }
+                    if (hasSeenVarArgs)
+                        throw new PythonException("SyntaxError", "non-default argument follows *args", currentToken.Line, currentToken.Column);
+                    
+                    string paramName = currentToken.Value;
+                    Expect(TokenType.IDENTIFIER);
 
-                parameters.Add(new Parameter(paramName, typeHint, defaultValue));
+                    TypeHint typeHint = null;
+                    if (currentToken.Type == TokenType.COLON)
+                    {
+                        Advance();
+                        typeHint = ParseTypeHint();
+                    }
+
+                    ASTNode defaultValue = null;
+                    if (currentToken.Type == TokenType.ASSIGN)
+                    {
+                        Advance();
+                        defaultValue = ParseExpression();
+                        hasSeenDefault = true;
+                    }
+                    else if (hasSeenDefault && !hasSeenVarArgs)
+                    {
+                        throw new PythonException("SyntaxError", 
+                            "non-default argument follows default argument",
+                            currentToken.Line, currentToken.Column);
+                    }
+
+                    parameters.Add(new Parameter(paramName, typeHint, defaultValue, ParameterKind.Normal));
+                }
 
                 SkipNewlinesAndIndents();
 
@@ -904,7 +942,6 @@ namespace SharpPy
                 {
                     Advance();
                     SkipNewlinesAndIndents();
-
                     if (currentToken.Type == TokenType.RPAREN)
                         break;
                 }

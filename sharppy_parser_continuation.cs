@@ -847,72 +847,111 @@ namespace SharpPy
                 {
                     // Function call
                     Advance(); // Skip '('
-                    SkipNewlinesAndIndents(); // Skip newlines after opening paren
+                    SkipNewlinesAndIndents();
 
                     var arguments = new List<ASTNode>();
+                    var keywordArguments = new Dictionary<string, ASTNode>();
+                    bool seenKeyword = false;
 
                     while (currentToken.Type != TokenType.RPAREN)
                     {
-                        arguments.Add(ParseExpression());
-                        SkipNewlinesAndIndents(); // Skip newlines after argument
+                        // 키워드 인자 체크 (name=value)
+                        if (currentToken.Type == TokenType.IDENTIFIER)
+                        {
+                            // Look ahead for '='
+                            int savePos = position;
+                            string possibleKeyword = currentToken.Value;
+                            Advance();
+                            
+                            if (currentToken.Type == TokenType.ASSIGN)
+                            {
+                                // 키워드 인자
+                                Advance(); // Skip '='
+                                var value = ParseExpression();
+                                keywordArguments[possibleKeyword] = value;
+                                seenKeyword = true;
+                            }
+                            else
+                            {
+                                // 일반 위치 인자 - 롤백
+                                position = savePos;
+                                currentToken = tokens[position];
+                                
+                                if (seenKeyword)
+                                {
+                                    throw new PythonException("SyntaxError", 
+                                        "positional argument follows keyword argument",
+                                        currentToken.Line, currentToken.Column);
+                                }
+                                
+                                arguments.Add(ParseExpression());
+                            }
+                        }
+                        else
+                        {
+                            // 일반 표현식
+                            if (seenKeyword)
+                            {
+                                throw new PythonException("SyntaxError", 
+                                    "positional argument follows keyword argument",
+                                    currentToken.Line, currentToken.Column);
+                            }
+                            arguments.Add(ParseExpression());
+                        }
+
+                        SkipNewlinesAndIndents();
 
                         if (currentToken.Type == TokenType.COMMA)
                         {
-                            Advance(); // Skip comma
-                            SkipNewlinesAndIndents(); // Skip newlines after comma
-
-                            // Allow trailing comma
+                            Advance();
+                            SkipNewlinesAndIndents();
                             if (currentToken.Type == TokenType.RPAREN)
                                 break;
                         }
                         else if (currentToken.Type != TokenType.RPAREN)
                         {
-                            throw new PythonException("SyntaxError", $"Expected ',' or ')' in function call", currentToken.Line, currentToken.Column);
+                            throw new PythonException("SyntaxError", 
+                                $"Expected ',' or ')' in function call", 
+                                currentToken.Line, currentToken.Column);
                         }
                     }
 
                     Expect(TokenType.RPAREN);
-                    node = new FunctionCallNode(node, arguments, line, column);
+                    node = new FunctionCallNode(node, arguments, keywordArguments, line, column);
                 }
                 else if (currentToken.Type == TokenType.LBRACKET)
                 {
-                    // Index access or slice
-                    Advance(); // Skip '['
-
-                    // Check for slice notation
+                    // 기존 인덱스/슬라이스 처리 코드...
+                    // (변경 없음)
+                    Advance();
                     var indices = new List<ASTNode>();
                     var hasColon = false;
 
-                    // Parse first part (could be start index or just index)
                     if (currentToken.Type != TokenType.COLON && currentToken.Type != TokenType.RBRACKET)
                         indices.Add(ParseExpression());
                     else
-                        indices.Add(null); // Empty start
+                        indices.Add(null);
 
-                    // Check for colon (slice notation)
                     if (currentToken.Type == TokenType.COLON)
                     {
                         hasColon = true;
-                        Advance(); // Skip ':'
-
-                        // Parse stop index
+                        Advance();
                         if (currentToken.Type != TokenType.COLON && currentToken.Type != TokenType.RBRACKET)
                             indices.Add(ParseExpression());
                         else
-                            indices.Add(null); // Empty stop
+                            indices.Add(null);
 
-                        // Check for second colon (step)
                         if (currentToken.Type == TokenType.COLON)
                         {
-                            Advance(); // Skip second ':'
+                            Advance();
                             if (currentToken.Type != TokenType.RBRACKET)
                                 indices.Add(ParseExpression());
                             else
-                                indices.Add(null); // Empty step
+                                indices.Add(null);
                         }
                         else
                         {
-                            indices.Add(null); // No step specified
+                            indices.Add(null);
                         }
                     }
 
@@ -925,8 +964,7 @@ namespace SharpPy
                 }
                 else if (currentToken.Type == TokenType.DOT)
                 {
-                    // Attribute access
-                    Advance(); // Skip '.'
+                    Advance();
                     string attribute = currentToken.Value;
                     Expect(TokenType.IDENTIFIER);
                     node = new AttributeNode(node, attribute, line, column);

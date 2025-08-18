@@ -788,17 +788,26 @@ namespace SharpPy
         public override string ToString() => $"Union[{string.Join(", ", Types)}]";
     }
 
+    public enum ParameterKind
+    {
+        Normal,      // 일반 매개변수
+        VarArgs,     // *args
+        KwArgs       // **kwargs
+    }
+
     public sealed class Parameter
     {
         public string Name { get; }
         public TypeHint TypeHint { get; }
-        public ASTNode DefaultValue { get; }  // 기본값 추가
+        public ASTNode DefaultValue { get; }
+        public ParameterKind Kind { get; }  // 추가
 
-        public Parameter(string name, TypeHint typeHint = null, ASTNode defaultValue = null)
+        public Parameter(string name, TypeHint typeHint = null, ASTNode defaultValue = null, ParameterKind kind = ParameterKind.Normal)
         {
             Name = name;
             TypeHint = typeHint;
             DefaultValue = defaultValue;
+            Kind = kind;
         }
 
         public bool HasDefault => DefaultValue != null;

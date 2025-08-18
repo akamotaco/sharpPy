@@ -559,17 +559,18 @@ namespace SharpPy
         }
     }
 
+    // sharppy_python_types.cs의 UserFunction 클래스 수정
     public sealed class UserFunction : Function
     {
         public List<Parameter> Parameters { get; }
         public List<ASTNode> Body { get; }
         public Environment ClosureEnv { get; }
         public TypeHint ReturnTypeHint { get; }
-        
+
         private List<PythonTypeObject> evaluatedDefaults;
 
         public UserFunction(string name, List<Parameter> parameters, List<ASTNode> body, 
-                            Environment closureEnv, TypeHint returnTypeHint = null)
+                        Environment closureEnv, TypeHint returnTypeHint = null)
             : base(name)
         {
             Parameters = parameters;
@@ -591,62 +592,107 @@ namespace SharpPy
             }
         }
 
-        public override PythonTypeObject Call(List<PythonTypeObject> arguments)
+        public PythonTypeObject CallWithKeywords(List<PythonTypeObject> positionalArgs, 
+                                            Dictionary<string, PythonTypeObject> keywordArgs)
         {
-            // 필수 매개변수 개수 계산
-            int requiredParams = Parameters.Count(p => !p.HasDefault);
+            var funcEnv = new Environment(ClosureEnv, ClosureEnv.globalEnv, EnvironmentType.Enclosing);
 
-            // 인자 개수 검증
-            if (arguments.Count < requiredParams)
+            // 파라미터 분류
+            var normalParams = Parameters.Where(p => p.Kind == ParameterKind.Normal).ToList();
+            var varArgsParam = Parameters.FirstOrDefault(p => p.Kind == ParameterKind.VarArgs);
+            var kwArgsParam = Parameters.FirstOrDefault(p => p.Kind == ParameterKind.KwArgs);
+
+            // 사용된 키워드 인자 추적
+            var usedKeywords = new HashSet<string>();
+
+            // 1. 위치 인자를 일반 매개변수에 할당
+            int posArgIndex = 0;
+            for (int i = 0; i < normalParams.Count && posArgIndex < positionalArgs.Count; i++)
             {
-                throw new PythonException("TypeError",
-                    $"Function {Name} missing {requiredParams - arguments.Count} required positional argument(s)");
+                var param = normalParams[i];
+                
+                // 키워드로 이미 제공된 경우 건너뛰기
+                if (keywordArgs.ContainsKey(param.Name))
+                    continue;
+                    
+                funcEnv.SetVariable(param.Name, positionalArgs[posArgIndex]);
+                posArgIndex++;
             }
 
-            if (arguments.Count > Parameters.Count)
+            // 2. 키워드 인자 처리
+            foreach (var kvp in keywordArgs)
             {
-                throw new PythonException("TypeError",
-                    $"Function {Name} takes at most {Parameters.Count} arguments ({arguments.Count} given)");
+                var param = normalParams.FirstOrDefault(p => p.Name == kvp.Key);
+                
+                if (param != null)
+                {
+                    // 이미 위치 인자로 할당된 경우 에러
+                    if (funcEnv.HasLocalVariable(param.Name))
+                    {
+                        throw new PythonException("TypeError", 
+                            $"{Name}() got multiple values for argument '{param.Name}'");
+                    }
+                    
+                    funcEnv.SetVariable(param.Name, kvp.Value);
+                    usedKeywords.Add(kvp.Key);
+                }
+                else if (kwArgsParam == null)
+                {
+                    throw new PythonException("TypeError", 
+                        $"{Name}() got an unexpected keyword argument '{kvp.Key}'");
+                }
             }
 
-            var funcEnv = new Environment(
-                ClosureEnv,                      // parent (enclosing)
-                ClosureEnv.globalEnv,            // global 환경 전달
-                EnvironmentType.Enclosing        // 함수는 Enclosing 환경
-            );
-
-            // 매개변수 바인딩
-            for (int i = 0; i < Parameters.Count; i++)
+            // 3. 기본값 처리
+            for (int i = 0; i < normalParams.Count; i++)
             {
-                var param = Parameters[i];
-                PythonTypeObject arg;
-
-                // 인자가 제공되었으면 사용, 아니면 기본값 사용
-                if (i < arguments.Count)
+                var param = normalParams[i];
+                
+                if (!funcEnv.HasLocalVariable(param.Name))
                 {
-                    arg = arguments[i];
+                    if (param.HasDefault && i < evaluatedDefaults.Count && evaluatedDefaults[i] != null)
+                    {
+                        funcEnv.SetVariable(param.Name, evaluatedDefaults[i]);
+                    }
+                    else
+                    {
+                        throw new PythonException("TypeError", 
+                            $"{Name}() missing required positional argument: '{param.Name}'");
+                    }
                 }
-                else if (evaluatedDefaults[i] != null)
-                {
-                    arg = evaluatedDefaults[i];
-                }
-                else
-                {
-                    // 이 경우는 위의 검증에서 걸러져야 함
-                    throw new PythonException("TypeError",
-                        $"Function {Name} missing required argument: '{param.Name}'");
-                }
-
-                // 타입 검증
-                if (param.TypeHint != null && !param.TypeHint.IsCompatible(arg))
-                {
-                    throw new PythonException("TypeError",
-                        $"Argument for parameter '{param.Name}' expected {param.TypeHint}, got {GetValueType(arg)}");
-                }
-
-                funcEnv.SetVariable(param.Name, arg);
             }
 
+            // 4. *args 처리
+            if (varArgsParam != null)
+            {
+                var extraArgs = new PythonTuple();
+                for (int i = posArgIndex; i < positionalArgs.Count; i++)
+                {
+                    extraArgs.Items.Add(positionalArgs[i]);
+                }
+                funcEnv.SetVariable(varArgsParam.Name, extraArgs);
+            }
+            else if (posArgIndex < positionalArgs.Count)
+            {
+                throw new PythonException("TypeError", 
+                    $"{Name}() takes {normalParams.Count} positional arguments but {positionalArgs.Count} were given");
+            }
+
+            // 5. **kwargs 처리
+            if (kwArgsParam != null)
+            {
+                var extraKwargs = new PythonDict();
+                foreach (var kvp in keywordArgs)
+                {
+                    if (!usedKeywords.Contains(kvp.Key))
+                    {
+                        extraKwargs.Items[new PythonString(kvp.Key)] = kvp.Value;
+                    }
+                }
+                funcEnv.SetVariable(kwArgsParam.Name, extraKwargs);
+            }
+
+            // 함수 본문 실행
             try
             {
                 PythonTypeObject result = PythonNone.Instance;
@@ -668,6 +714,13 @@ namespace SharpPy
             }
         }
 
+        // 기존 Call 메서드는 키워드 인자 없이 호출용
+        public override PythonTypeObject Call(List<PythonTypeObject> arguments)
+        {
+            return CallWithKeywords(arguments, new Dictionary<string, PythonTypeObject>());
+        }
+
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static string GetValueType(PythonTypeObject value)
         {
@@ -679,6 +732,7 @@ namespace SharpPy
                 _ => value.Type.ToString().ToLower()
             };
         }
+        
         
         public override PythonTypeObject GetAttribute(string name)
         {
@@ -724,58 +778,65 @@ namespace SharpPy
                 }
             }
         }
-
-        public override PythonTypeObject Call(List<PythonTypeObject> arguments)
+        
+        public PythonTypeObject CallWithKeywords(List<PythonTypeObject> positionalArgs, 
+                                            Dictionary<string, PythonTypeObject> keywordArgs)
         {
-            int requiredParams = Parameters.Count(p => !p.HasDefault);
+            // UserFunction과 유사한 로직으로 구현
+            // 단, 람다는 보통 *args, **kwargs를 지원하지 않으므로 간단하게 구현
+            var funcEnv = new Environment(ClosureEnv, ClosureEnv.globalEnv, EnvironmentType.Enclosing);
             
-            if (arguments.Count < requiredParams)
-            {
-                throw new PythonException("TypeError", 
-                    $"Lambda function missing {requiredParams - arguments.Count} required positional argument(s)");
-            }
-            
-            if (arguments.Count > Parameters.Count)
-            {
-                throw new PythonException("TypeError", 
-                    $"Lambda function takes at most {Parameters.Count} arguments ({arguments.Count} given)");
-            }
-
-            var funcEnv = new Environment(
-                ClosureEnv,
-                ClosureEnv.globalEnv,
-                EnvironmentType.Enclosing
-            );
-
-            for (int i = 0; i < Parameters.Count; i++)
+            int posArgIndex = 0;
+            for (int i = 0; i < Parameters.Count && posArgIndex < positionalArgs.Count; i++)
             {
                 var param = Parameters[i];
-                PythonTypeObject arg;
-                
-                if (i < arguments.Count)
+                if (keywordArgs.ContainsKey(param.Name))
+                    continue;
+                funcEnv.SetVariable(param.Name, positionalArgs[posArgIndex]);
+                posArgIndex++;
+            }
+
+            foreach (var kvp in keywordArgs)
+            {
+                var param = Parameters.FirstOrDefault(p => p.Name == kvp.Key);
+                if (param != null)
                 {
-                    arg = arguments[i];
-                }
-                else if (evaluatedDefaults[i] != null)
-                {
-                    arg = evaluatedDefaults[i];
+                    if (funcEnv.HasLocalVariable(param.Name))
+                        throw new PythonException("TypeError", 
+                            $"Lambda got multiple values for argument '{param.Name}'");
+                    funcEnv.SetVariable(param.Name, kvp.Value);
                 }
                 else
                 {
                     throw new PythonException("TypeError", 
-                        $"Lambda function missing required argument: '{param.Name}'");
+                        $"Lambda got an unexpected keyword argument '{kvp.Key}'");
                 }
+            }
 
-                if (param.TypeHint != null && !param.TypeHint.IsCompatible(arg))
+            // 기본값 처리
+            for (int i = 0; i < Parameters.Count; i++)
+            {
+                var param = Parameters[i];
+                if (!funcEnv.HasLocalVariable(param.Name))
                 {
-                    throw new PythonException("TypeError", 
-                        $"Argument for parameter '{param.Name}' expected {param.TypeHint}, got {GetValueType(arg)}");
+                    if (param.HasDefault && i < evaluatedDefaults.Count && evaluatedDefaults[i] != null)
+                    {
+                        funcEnv.SetVariable(param.Name, evaluatedDefaults[i]);
+                    }
+                    else
+                    {
+                        throw new PythonException("TypeError", 
+                            $"Lambda missing required argument: '{param.Name}'");
+                    }
                 }
-
-                funcEnv.SetVariable(param.Name, arg);
             }
 
             return Body.Evaluate(funcEnv);
+        }
+
+        public override PythonTypeObject Call(List<PythonTypeObject> arguments)
+        {
+            return CallWithKeywords(arguments, new Dictionary<string, PythonTypeObject>());
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -821,25 +882,29 @@ namespace SharpPy
 
     // Optimized Bound Method
     public sealed class BoundMethod : Function
+{
+    private readonly UserFunction method;
+    private readonly PythonTypeObject instance;
+
+    public BoundMethod(string name, UserFunction method, PythonTypeObject instance) : base(name)
     {
-        private readonly UserFunction method;
-        private readonly PythonTypeObject instance;
-
-        public BoundMethod(string name, UserFunction method, PythonTypeObject instance) : base(name)
-        {
-            this.method = method;
-            this.instance = instance;
-        }
-
-        public override PythonTypeObject Call(List<PythonTypeObject> arguments)
-        {
-            var newArgs = new List<PythonTypeObject>(arguments.Count + 1) { instance };
-            newArgs.AddRange(arguments);
-            return method.Call(newArgs);
-        }
-
-        public override string ToPythonString() => $"<bound method {Name}>";
+        this.method = method;
+        this.instance = instance;
     }
+
+    public PythonTypeObject CallWithKeywords(List<PythonTypeObject> positionalArgs, 
+                                            Dictionary<string, PythonTypeObject> keywordArgs)
+    {
+        var newArgs = new List<PythonTypeObject>(positionalArgs.Count + 1) { instance };
+        newArgs.AddRange(positionalArgs);
+        return method.CallWithKeywords(newArgs, keywordArgs);
+    }
+
+    public override PythonTypeObject Call(List<PythonTypeObject> arguments)
+    {
+        return CallWithKeywords(arguments, new Dictionary<string, PythonTypeObject>());
+    }
+}
 
     // Optimized Class System
     public sealed class PythonClass : PythonTypeObject
