@@ -696,7 +696,8 @@ namespace SharpPy
             TokenType.RETURN, TokenType.BREAK, TokenType.CONTINUE, TokenType.RAISE,
             TokenType.IMPORT, TokenType.FROM, TokenType.NOT, TokenType.DEL,
             TokenType.PASS,  // PASS 추가!
-            TokenType.LAMBDA  // LAMBDA도 추가 (빠져있었다면)
+            TokenType.LAMBDA,  // LAMBDA도 추가 (빠져있었다면)
+            TokenType.GLOBAL, TokenType.NONLOCAL
         };
 
         private static readonly HashSet<TokenType> EndOfStatementTokens = new HashSet<TokenType>
