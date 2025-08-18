@@ -504,6 +504,278 @@ namespace SharpPy
             }
         }
     }
+    
+    // sharppy_ast_nodes_3.cs에 추가할 새로운 노드 클래스들
+
+    // AttributeCompoundAssignmentNode - self.value += 1 같은 경우
+    public sealed class AttributeCompoundAssignmentNode : ASTNode
+    {
+        public ASTNode Object { get; }
+        public string Attribute { get; }
+        public string Operator { get; }
+        public ASTNode Value { get; }
+
+        public AttributeCompoundAssignmentNode(ASTNode obj, string attribute, string op, ASTNode value, int line = 0, int column = 0) 
+            : base(line, column)
+        {
+            Object = obj;
+            Attribute = attribute;
+            Operator = op;
+            Value = value;
+        }
+
+        public override PythonTypeObject Evaluate(Environment env)
+        {
+            try
+            {
+                var obj = Object.Evaluate(env);
+                var newValue = Value.Evaluate(env);
+                
+                // Get current value
+                PythonTypeObject currentValue = obj switch
+                {
+                    PythonInstance instance => instance.GetAttribute(Attribute),
+                    _ => throw CreateException("AttributeError", $"'{obj?.Type}' object has no attribute '{Attribute}'")
+                };
+                
+                // Apply operator
+                PythonTypeObject result = Operator switch
+                {
+                    "+=" => ApplyAdd(currentValue, newValue),
+                    "-=" => ApplySubtract(currentValue, newValue),
+                    "*=" => ApplyMultiply(currentValue, newValue),
+                    "/=" => ApplyDivide(currentValue, newValue),
+                    "%=" => ApplyModulo(currentValue, newValue),
+                    "**=" => ApplyPower(currentValue, newValue),
+                    _ => throw CreateException("SyntaxError", $"Invalid compound assignment operator: {Operator}")
+                };
+                
+                // Set the new value
+                if (obj is PythonInstance instance2)
+                {
+                    instance2.SetAttribute(Attribute, result);
+                    return result;
+                }
+                
+                throw CreateException("AttributeError", $"'{obj?.Type}' object attribute '{Attribute}' is read-only");
+            }
+            catch (PythonException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Error in attribute compound assignment: {ex.Message}");
+            }
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyAdd(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Add(right),
+            PythonFloat lf => lf.Add(right),
+            PythonString ls => ls.Add(right),
+            PythonList ll when right is PythonList rl => AddLists(ll, rl),
+            _ => throw CreateException("TypeError", $"unsupported operand type(s) for += with attribute")
+        };
+
+        private static PythonList AddLists(PythonList left, PythonList right)
+        {
+            var result = new PythonList();
+            result.Items.AddRange(left.Items);
+            result.Items.AddRange(right.Items);
+            return result;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplySubtract(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Subtract(right),
+            PythonFloat lf => lf.Subtract(right),
+            _ => throw CreateException("TypeError", $"unsupported operand type(s) for -= with attribute")
+        };
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyMultiply(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Multiply(right),
+            PythonFloat lf => lf.Multiply(right),
+            PythonString ls when NumberHelper.IsNumber(right) => ls.Repeat(NumberHelper.ToInt(right)),
+            PythonList list when NumberHelper.IsNumber(right) => MultiplyList(list, NumberHelper.ToInt(right)),
+            _ => throw CreateException("TypeError", $"unsupported operand type(s) for *= with attribute")
+        };
+
+        private static PythonList MultiplyList(PythonList list, int times)
+        {
+            var result = new PythonList();
+            for (int i = 0; i < times; i++)
+                result.Items.AddRange(list.Items);
+            return result;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyDivide(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Divide(right),
+            PythonFloat lf => lf.Divide(right),
+            _ => throw CreateException("TypeError", $"unsupported operand type(s) for /= with attribute")
+        };
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyModulo(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Modulo(right),
+            PythonFloat lf => lf.Modulo(right),
+            _ => throw CreateException("TypeError", $"unsupported operand type(s) for %= with attribute")
+        };
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyPower(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Power(right),
+            PythonFloat lf => lf.Power(right),
+            _ => throw CreateException("TypeError", $"unsupported operand type(s) for **= with attribute")
+        };
+    }
+
+    // IndexCompoundAssignmentNode - list[0] += 1 같은 경우
+    public sealed class IndexCompoundAssignmentNode : ASTNode
+    {
+        public ASTNode Object { get; }
+        public ASTNode Index { get; }
+        public string Operator { get; }
+        public ASTNode Value { get; }
+
+        public IndexCompoundAssignmentNode(ASTNode obj, ASTNode index, string op, ASTNode value, int line = 0, int column = 0)
+            : base(line, column)
+        {
+            Object = obj;
+            Index = index;
+            Operator = op;
+            Value = value;
+        }
+
+        public override PythonTypeObject Evaluate(Environment env)
+        {
+            try
+            {
+                var obj = Object.Evaluate(env);
+                var index = Index.Evaluate(env);
+                var newValue = Value.Evaluate(env);
+                
+                // Get current value
+                PythonTypeObject currentValue = obj switch
+                {
+                    PythonList list when NumberHelper.IsNumber(index) => list.GetItem(NumberHelper.ToInt(index)),
+                    PythonDict dict => dict.GetItem(index),
+                    _ => throw CreateException("TypeError", $"'{obj?.Type}' object does not support item assignment")
+                };
+                
+                // Apply operator
+                PythonTypeObject result = Operator switch
+                {
+                    "+=" => ApplyAdd(currentValue, newValue),
+                    "-=" => ApplySubtract(currentValue, newValue),
+                    "*=" => ApplyMultiply(currentValue, newValue),
+                    "/=" => ApplyDivide(currentValue, newValue),
+                    "%=" => ApplyModulo(currentValue, newValue),
+                    "**=" => ApplyPower(currentValue, newValue),
+                    _ => throw CreateException("SyntaxError", $"Invalid compound assignment operator: {Operator}")
+                };
+                
+                // Set the new value
+                switch (obj)
+                {
+                    case PythonList list when NumberHelper.IsNumber(index):
+                        list.SetItem(NumberHelper.ToInt(index), result);
+                        break;
+                    case PythonDict dict:
+                        dict.SetItem(index, result);
+                        break;
+                    default:
+                        throw CreateException("TypeError", $"'{obj?.Type}' object does not support item assignment");
+                }
+                
+                return result;
+            }
+            catch (PythonException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Error in index compound assignment: {ex.Message}");
+            }
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyAdd(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Add(right),
+            PythonFloat lf => lf.Add(right),
+            PythonString ls => ls.Add(right),
+            PythonList ll when right is PythonList rl => AddLists(ll, rl),
+            _ => throw CreateException("TypeError", $"unsupported operand type(s) for += with index")
+        };
+
+        private static PythonList AddLists(PythonList left, PythonList right)
+        {
+            var result = new PythonList();
+            result.Items.AddRange(left.Items);
+            result.Items.AddRange(right.Items);
+            return result;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplySubtract(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Subtract(right),
+            PythonFloat lf => lf.Subtract(right),
+            _ => throw CreateException("TypeError", $"unsupported operand type(s) for -= with index")
+        };
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyMultiply(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Multiply(right),
+            PythonFloat lf => lf.Multiply(right),
+            PythonString ls when NumberHelper.IsNumber(right) => ls.Repeat(NumberHelper.ToInt(right)),
+            PythonList list when NumberHelper.IsNumber(right) => MultiplyList(list, NumberHelper.ToInt(right)),
+            _ => throw CreateException("TypeError", $"unsupported operand type(s) for *= with index")
+        };
+
+        private static PythonList MultiplyList(PythonList list, int times)
+        {
+            var result = new PythonList();
+            for (int i = 0; i < times; i++)
+                result.Items.AddRange(list.Items);
+            return result;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyDivide(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Divide(right),
+            PythonFloat lf => lf.Divide(right),
+            _ => throw CreateException("TypeError", $"unsupported operand type(s) for /= with index")
+        };
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyModulo(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Modulo(right),
+            PythonFloat lf => lf.Modulo(right),
+            _ => throw CreateException("TypeError", $"unsupported operand type(s) for %= with index")
+        };
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyPower(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Power(right),
+            PythonFloat lf => lf.Power(right),
+            _ => throw CreateException("TypeError", $"unsupported operand type(s) for **= with index")
+        };
+    }
 
     // Optimized File Object for with statement support
     public sealed class FileObject : PythonTypeObject
@@ -559,7 +831,7 @@ namespace SharpPy
         {
             if (closed) throw new PythonException("ValueError", "I/O operation on closed file");
             if (reader == null) throw new PythonException("IOError", "File not open for reading");
-            
+
             var lines = new PythonList();
             string line;
             while ((line = reader.ReadLine()) != null)
@@ -600,18 +872,21 @@ namespace SharpPy
             "read" => new BuiltinFunction("read", args => Read()),
             "readline" => new BuiltinFunction("readline", args => ReadLine()),
             "readlines" => new BuiltinFunction("readlines", args => ReadLines()),
-            "write" => new BuiltinFunction("write", args => {
+            "write" => new BuiltinFunction("write", args =>
+            {
                 if (args.Count != 1) throw new PythonException("TypeError", "write() takes exactly 1 argument");
                 string text = (args[0] as PythonString)?.Value ?? args[0].ToPythonString();
                 Write(text);
                 return PythonInt.Create(text.Length);
             }),
-            "close" => new BuiltinFunction("close", args => {
+            "close" => new BuiltinFunction("close", args =>
+            {
                 Close();
                 return PythonNone.Instance;
             }),
             "__enter__" => new BuiltinFunction("__enter__", args => this),
-            "__exit__" => new BuiltinFunction("__exit__", args => {
+            "__exit__" => new BuiltinFunction("__exit__", args =>
+            {
                 Close();
                 return PythonBool.False;
             }),

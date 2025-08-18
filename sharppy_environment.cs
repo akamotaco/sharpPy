@@ -5,18 +5,32 @@ using System.Linq;
 
 namespace SharpPy
 {
+    public enum EnvironmentType
+    {
+        Builtin,
+        Global,
+        Enclosing,
+        Local
+    }
+
     public class Environment : PythonTypeObject
     {
         public Dictionary<string, PythonTypeObject> variables { get; private set; } = new Dictionary<string, PythonTypeObject>();
         public Environment parent;
+        public Environment globalEnv;  // Global 환경 참조 추가
+        public EnvironmentType envType;
         public List<string> SearchPaths { get; set; }
 
-        public override PythonType Type => PythonType.Environment;
+        // global/nonlocal 선언된 변수들 추적
+        public HashSet<string> globalVars = new HashSet<string>();
+        public HashSet<string> nonlocalVars = new HashSet<string>();
 
-        public Environment(Environment parent = null)
+        public Environment(Environment parent = null, Environment global = null, EnvironmentType type = EnvironmentType.Local)
         {
             this.parent = parent;
-            
+            this.globalEnv = global ?? (parent?.globalEnv) ?? this;  // global 환경 상속
+            this.envType = type;
+
             if (parent != null && parent.SearchPaths != null)
             {
                 SearchPaths = parent.SearchPaths;
@@ -27,13 +41,44 @@ namespace SharpPy
             }
         }
 
-        // NEW: Setup builtins using the Builtins module
+        // 실제 locals() 구현 - 현재 환경의 로컬 변수만 (built-in 제외)
+        public PythonDict GetLocals()
+        {
+            var dict = new PythonDict();
+            foreach (var kvp in variables)
+            {
+                // __builtins__는 제외
+                if (kvp.Key != "__builtins__")
+                {
+                    dict.Items[new PythonString(kvp.Key)] = kvp.Value;
+                }
+            }
+            return dict;
+        }
+
+
+        // 실제 globals() 구현 - global 환경의 변수들
+        public PythonDict GetGlobals()
+        {
+            var dict = new PythonDict();
+            var globalVars = globalEnv?.variables ?? variables;
+
+            foreach (var kvp in globalVars)
+            {
+                dict.Items[new PythonString(kvp.Key)] = kvp.Value;
+            }
+            return dict;
+        }
+
+        // SetupBuiltins 메서드 수정
         public static void SetupBuiltins(Environment env)
         {
-            // Use the new Builtins module to setup built-in functions
+            // Global 환경임을 표시
+            env.envType = EnvironmentType.Global;
+            env.globalEnv = env;
+
+            // 기존 코드...
             Builtins.SetupBuiltins(env);
-            
-            // Override eval, exec, compile with proper implementations
             SetupSpecialBuiltins(env);
         }
 
@@ -209,52 +254,135 @@ namespace SharpPy
                 }
             }));
 
-            // Override globals() to use current environment
-            env.SetVariable("globals", new BuiltinFunction("globals", args =>
+            env.SetVariable("globals", new BuiltinFunction("globals", (currentEnv, args) =>
             {
-                if (args.Count != 0) 
+                if (args.Count != 0)
                     throw new PythonException("TypeError", "globals() takes no arguments");
 
-                // Return the current environment's dictionary representation
-                // __builtins__ 내용은 포함하지 않고, __builtins__ 모듈 자체만 포함
-                return env.ToDict();
+                return currentEnv.GetGlobals();
             }));
 
             // Override locals() to use current environment  
-            env.SetVariable("locals", new BuiltinFunction("locals", args =>
+            // locals() - 환경을 받는 버전으로 수정  
+            env.SetVariable("locals", new BuiltinFunction("locals", (currentEnv, args) =>
             {
-                if (args.Count != 0) 
+                if (args.Count != 0)
                     throw new PythonException("TypeError", "locals() takes no arguments");
 
-                // Return the current environment's dictionary representation
-                // In a real implementation, this would return only local variables
-                return env.ToDict();
+                return currentEnv.GetLocals();
             }));
 
             // Override dir() to use current environment when no args
-            env.SetVariable("dir", new BuiltinFunction("dir", args =>
+            env.SetVariable("dir", new BuiltinFunction("dir", (currentEnv, args) =>
             {
-                if (args.Count > 1) 
+                if (args.Count > 1)
                     throw new PythonException("TypeError", "dir() takes at most 1 argument");
-                
+
                 var result = new PythonList();
-                
+
                 if (args.Count == 0)
                 {
-                    // No arguments - return names in current scope
-                    var allVars = env.GetAllVariables();
-                    var names = allVars.Keys.OrderBy(k => k).ToList();
+                    // No arguments - return names in current scope (locals only)
+                    var localVars = currentEnv.GetLocals();
+                    var names = localVars.Items.Keys
+                        .Select(k => (k as PythonString)?.Value)
+                        .Where(n => n != null)
+                        .OrderBy(n => n)
+                        .ToList();
+
                     foreach (var name in names)
                     {
                         result.Items.Add(new PythonString(name));
                     }
                     return result;
                 }
-                
-                // With argument - use the default implementation from Builtins
+
+                // With argument - use the existing logic
+                var obj = args[0];
+                // ... 기존 dir() 로직 ...
                 var builtinDir = Builtins.GetBuiltinsModule().GetAttribute("dir") as BuiltinFunction;
                 return builtinDir?.Call(args) ?? result;
+
+                // return result; ???
             }));
+        }
+
+        public void SetVariable(string name, PythonTypeObject value)
+        {
+            // global 선언된 변수는 global 환경에 설정
+            if (globalVars.Contains(name))
+            {
+                if (globalEnv != null && globalEnv != this)
+                {
+                    globalEnv.variables[name] = value;
+                    return;
+                }
+            }
+
+            // nonlocal 선언된 변수는 enclosing 환경에서 찾아서 설정
+            if (nonlocalVars.Contains(name))
+            {
+                Environment enclosing = parent;
+                while (enclosing != null && enclosing.envType != EnvironmentType.Global)
+                {
+                    if (enclosing.variables.ContainsKey(name))
+                    {
+                        enclosing.variables[name] = value;
+                        return;
+                    }
+                    enclosing = enclosing.parent;
+                }
+                throw new PythonException("SyntaxError", $"no binding for nonlocal '{name}' found");
+            }
+
+            // 일반 변수는 현재 환경에 설정
+            variables[name] = value;
+        }
+
+        public PythonTypeObject GetVariable(string name)
+        {
+            // global 선언된 변수는 global 환경에서 직접 가져옴
+            if (globalVars.Contains(name))
+            {
+                if (globalEnv != null && globalEnv != this && globalEnv.variables.ContainsKey(name))
+                {
+                    return globalEnv.variables[name];
+                }
+            }
+
+            // LEGB 순서로 탐색
+            // 1. Local
+            if (variables.ContainsKey(name))
+                return variables[name];
+
+            // 2. Enclosing (parent가 global이 아닌 경우만)
+            Environment current = parent;
+            while (current != null && current.envType != EnvironmentType.Global)
+            {
+                if (current.variables.ContainsKey(name))
+                    return current.variables[name];
+                current = current.parent;
+            }
+
+            // 3. Global
+            if (globalEnv != null && globalEnv != this && globalEnv.variables.ContainsKey(name))
+                return globalEnv.variables[name];
+
+            // 4. Built-in
+            if (globalEnv != null && globalEnv.variables.ContainsKey("__builtins__"))
+            {
+                var builtinsModule = globalEnv.variables["__builtins__"];
+                if (builtinsModule is PythonModule module)
+                {
+                    try
+                    {
+                        return module.GetAttribute(name);
+                    }
+                    catch (PythonException) { }
+                }
+            }
+
+            throw new PythonException("NameError", $"Name '{name}' is not defined");
         }
 
         // Rest of the Environment class methods remain unchanged
@@ -298,41 +426,6 @@ namespace SharpPy
             return dict;
         }
 
-        public void SetVariable(string name, PythonTypeObject value) => variables[name] = value;
-
-        public PythonTypeObject GetVariable(string name)
-        {
-            // 1. 먼저 현재 환경에서 찾기
-            if (variables.ContainsKey(name))
-                return variables[name];
-            
-            // 2. 부모 환경에서 찾기
-            if (parent != null)
-                return parent.GetVariable(name);
-            
-            // 3. __builtins__에서 찾기 (새로 추가)
-            // 최상위 환경인 경우에만 __builtins__ 확인
-            if (parent == null)  // Global environment
-            {
-                if (variables.ContainsKey("__builtins__"))
-                {
-                    var builtinsModule = variables["__builtins__"];
-                    if (builtinsModule is PythonModule module)
-                    {
-                        try
-                        {
-                            return module.GetAttribute(name);
-                        }
-                        catch (PythonException)
-                        {
-                            // __builtins__에도 없으면 NameError
-                        }
-                    }
-                }
-            }
-            
-            throw new PythonException("NameError", $"Name '{name}' is not defined");
-        }
 
         public void DeleteVariable(string name)
         {
@@ -355,11 +448,11 @@ namespace SharpPy
             // 1. 현재 환경 확인
             if (variables.ContainsKey(name))
                 return true;
-            
+
             // 2. 부모 환경 확인
             if (parent != null)
                 return parent.HasVariable(name);
-            
+
             // 3. __builtins__ 확인 (새로 추가)
             if (parent == null)  // Global environment
             {
@@ -380,10 +473,10 @@ namespace SharpPy
                     }
                 }
             }
-            
+
             return false;
         }
-        
+
         public Dictionary<string, PythonTypeObject> GetAllVariables()
         {
             var result = new Dictionary<string, PythonTypeObject>();
@@ -399,25 +492,11 @@ namespace SharpPy
             }
             return result;
         }
-
-        public override bool IsTrue()
-        {
-            throw new NotImplementedException();
-        }
-
-        public override string ToPythonString()
-        {
-            throw new NotImplementedException();
-        }
-
-        public override bool Equals(PythonTypeObject other)
-        {
-            throw new NotImplementedException();
-        }
-
-        public override object GetRawValue()
-        {
-            throw new NotImplementedException();
-        }
+        
+        public override PythonType Type => PythonType.Environment;
+        public override bool IsTrue() => true;
+        public override string ToPythonString() => $"<environment at {GetHashCode():X}>";
+        public override bool Equals(PythonTypeObject other) => ReferenceEquals(this, other);
+        public override object GetRawValue() => this;
     }
 }

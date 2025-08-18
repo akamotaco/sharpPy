@@ -21,7 +21,8 @@ namespace SharpPy
         // Delimiters
         LPAREN, RPAREN, LBRACKET, RBRACKET, LBRACE, RBRACE, COLON, COMMA, DOT,
         // Special
-        NEWLINE, EOF, INDENT, DEDENT
+        NEWLINE, EOF, INDENT, DEDENT, PASS,
+        GLOBAL, NONLOCAL,  // 추가
     }
 
     public enum PythonType : byte // Changed to byte for memory optimization

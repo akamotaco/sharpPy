@@ -10,12 +10,18 @@ namespace SharpPy
         private Environment globalEnv;
         private VirtualMachine virtualMachine;
         private bool useBytecode;
-        private string currentFileName = "<string>"; // 현재 실행 중인 파일명 추적
-
+        private string currentFileName = "<string>";
+        
         public PythonInterpreter(bool useBytecode = false)
         {
-            globalEnv = new Environment();
-            Environment.SetupBuiltins(globalEnv);  // 명시적으로 builtin 설정
+            globalEnv = new Environment(null, null, EnvironmentType.Global);
+            globalEnv.globalEnv = globalEnv;
+            Environment.SetupBuiltins(globalEnv);
+            
+            // __name__ = "__main__" 설정 (메인 모듈)
+            globalEnv.SetVariable("__name__", new PythonString("__main__"));
+            globalEnv.SetVariable("__file__", new PythonString("<stdin>"));
+            
             virtualMachine = new VirtualMachine(globalEnv);
             this.useBytecode = useBytecode;
         }
@@ -235,7 +241,7 @@ namespace SharpPy
             Console.WriteLine(Disassembler.Disassemble(codeObject));
         }
 
-        public void ExecuteFile(string filename)
+         public void ExecuteFile(string filename)
         {
             try
             {
@@ -245,7 +251,9 @@ namespace SharpPy
                     return;
                 }
 
-                // Check if it's a bytecode file
+                // 파일 실행 시 __file__ 업데이트
+                globalEnv.SetVariable("__file__", new PythonString(filename));
+                
                 if (filename.EndsWith(".pyc"))
                 {
                     LoadAndExecuteBytecode(filename);
@@ -253,7 +261,6 @@ namespace SharpPy
                 else
                 {
                     string code = File.ReadAllText(filename);
-                    // 파일명을 제대로 전달
                     Execute(code, filename);
                 }
             }

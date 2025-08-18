@@ -415,6 +415,17 @@ namespace SharpPy
 
                 return obj switch
                 {
+                    // Function 타입들 추가
+                    UserFunction func => func.GetAttribute(Attribute),
+                    LambdaFunction lambda => lambda.GetAttribute(Attribute),
+                    BuiltinFunction builtin => builtin.GetAttribute(Attribute),
+                    BoundMethod bound => bound.GetAttribute(Attribute),
+                    Function func => func.GetAttribute(Attribute),  // 기타 Function 타입
+                    
+                    // Class 타입 추가
+                    PythonClass cls => cls.GetAttribute(Attribute),
+                    
+                    // 기존 타입들
                     PythonInstance instance => instance.GetAttribute(Attribute),
                     PythonList list => list.GetMethod(Attribute),
                     PythonTuple tuple => tuple.GetMethod(Attribute),
@@ -422,6 +433,7 @@ namespace SharpPy
                     PythonModule module => module.GetAttribute(Attribute),
                     PythonString str => str.GetMethod(Attribute),
                     FileObject file => file.GetMethod(Attribute),
+                    
                     _ => throw CreateException("AttributeError", $"'{obj?.Type}' object has no attribute '{Attribute}'")
                 };
             }

@@ -43,6 +43,7 @@ namespace SharpPy
                     "and" => PythonBool.Create(leftVal.IsTrue() && rightVal.IsTrue()),
                     "or" => PythonBool.Create(leftVal.IsTrue() || rightVal.IsTrue()),
                     "in" => PythonBool.Create(IsIn(leftVal, rightVal)),
+                    "not in" => PythonBool.Create(!IsIn(leftVal, rightVal)),
                     "is" => PythonBool.Create(IsIdentical(leftVal, rightVal)),
                     "is not" => PythonBool.Create(!IsIdentical(leftVal, rightVal)),
                     _ => throw CreateException("TypeError", $"Unknown operator: {Operator}")
@@ -265,81 +266,6 @@ namespace SharpPy
             catch (Exception ex)
             {
                 throw CreateException("RuntimeError", $"Internal error in unary operation '{Operator}': {ex.Message}");
-            }
-        }
-    }
-
-    // Optimized Assignment Nodes
-    public sealed class AssignmentNode : ASTNode
-    {
-        public string VariableName { get; }
-        public ASTNode Value { get; }
-
-        public AssignmentNode(string name, ASTNode value, int line = 0, int column = 0) : base(line, column)
-        {
-            VariableName = name;
-            Value = value;
-        }
-
-        public override PythonTypeObject Evaluate(Environment env)
-        {
-            try
-            {
-                var value = Value.Evaluate(env);
-                env.SetVariable(VariableName, value);
-                return value;
-            }
-            catch (PythonException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                throw CreateException("RuntimeError", $"Internal error in assignment to '{VariableName}': {ex.Message}");
-            }
-        }
-    }
-
-    public sealed class IndexAssignmentNode : ASTNode
-    {
-        public ASTNode Object { get; }
-        public ASTNode Index { get; }
-        public ASTNode Value { get; }
-
-        public IndexAssignmentNode(ASTNode obj, ASTNode index, ASTNode value, int line = 0, int column = 0) : base(line, column)
-        {
-            Object = obj;
-            Index = index;
-            Value = value;
-        }
-
-        public override PythonTypeObject Evaluate(Environment env)
-        {
-            try
-            {
-                var obj = Object.Evaluate(env);
-                var index = Index.Evaluate(env);
-                var value = Value.Evaluate(env);
-
-                switch (obj)
-                {
-                    case PythonList list when NumberHelper.IsNumber(index):
-                        list.SetItem(NumberHelper.ToInt(index), value);
-                        return value;
-                    case PythonDict dict:
-                        dict.SetItem(index, value);
-                        return value;
-                    default:
-                        throw CreateException("TypeError", $"'{obj?.Type}' object does not support item assignment");
-                }
-            }
-            catch (PythonException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                throw CreateException("RuntimeError", $"Internal error in index assignment: {ex.Message}");
             }
         }
     }
