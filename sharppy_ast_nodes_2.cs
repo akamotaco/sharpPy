@@ -993,16 +993,16 @@ namespace SharpPy
             }
         }
     }
-    
+
     public class GlobalNode : ASTNode
     {
         public List<string> Names { get; }
-        
+
         public GlobalNode(List<string> names, int line = 0, int column = 0) : base(line, column)
         {
             Names = names;
         }
-        
+
         public override PythonTypeObject Evaluate(Environment env)
         {
             foreach (var name in Names)
@@ -1017,12 +1017,12 @@ namespace SharpPy
     public class NonlocalNode : ASTNode
     {
         public List<string> Names { get; }
-        
+
         public NonlocalNode(List<string> names, int line = 0, int column = 0) : base(line, column)
         {
             Names = names;
         }
-        
+
         public override PythonTypeObject Evaluate(Environment env)
         {
             // nonlocal은 global 환경에서는 사용할 수 없음
@@ -1030,7 +1030,7 @@ namespace SharpPy
             {
                 throw CreateException("SyntaxError", "nonlocal declaration not allowed at module level");
             }
-            
+
             foreach (var name in Names)
             {
                 // enclosing 환경에서 변수 존재 확인
@@ -1045,14 +1045,33 @@ namespace SharpPy
                     }
                     enclosing = enclosing.parent;
                 }
-                
+
                 if (!found)
                 {
                     throw CreateException("SyntaxError", $"no binding for nonlocal '{name}' found");
                 }
-                
+
                 env.nonlocalVars.Add(name);
             }
+            return PythonNone.Instance;
+        }
+    }
+    
+    // Expression used as a statement (result should be discarded)
+    public sealed class ExpressionStatementNode : ASTNode
+    {
+        public ASTNode Expression { get; }
+        
+        public ExpressionStatementNode(ASTNode expression, int line = 0, int column = 0) 
+            : base(line, column)
+        {
+            Expression = expression;
+        }
+        
+        public override PythonTypeObject Evaluate(Environment env)
+        {
+            // Expression을 평가하지만 결과는 버림 (부작용만 실행)
+            Expression.Evaluate(env);
             return PythonNone.Instance;
         }
     }

@@ -209,6 +209,12 @@ namespace SharpPy
                 case WithNode withNode:
                     CompileWith(withNode);
                     break;
+                
+                case ExpressionStatementNode exprStmt:
+                    // Expression을 컴파일하고 결과를 스택에서 제거
+                    CompileNode(exprStmt.Expression);
+                    Emit(OpCode.POP_TOP, 0, node.Line);
+                    break;
 
                 default:
                     throw new PythonException("CompileError", $"Cannot compile node type: {node.GetType().Name}");
@@ -583,11 +589,10 @@ namespace SharpPy
             {
                 if (expr != null)
                 {
-                    // Evaluate expression and convert to string
-                    CompileNode(expr);
-                    // Call str() on the expression
-                    EmitLoadName("str");
-                    Emit(OpCode.CALL_FUNCTION, 1);
+                    // 중요: 함수를 먼저 로드하고, 그 다음에 인자를 평가!
+                    EmitLoadName("str");         // Stack: [str]
+                    CompileNode(expr);           // Stack: [str, 10]
+                    Emit(OpCode.CALL_FUNCTION, 1); // str(10) 호출
                 }
                 else if (!string.IsNullOrEmpty(text))
                 {

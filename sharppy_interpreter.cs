@@ -8,7 +8,7 @@ namespace SharpPy
     public class PythonInterpreter
     {
         private Environment globalEnv;
-        private VirtualMachine virtualMachine;
+        protected VirtualMachine virtualMachine;
         private bool useBytecode;
         private string currentFileName = "<string>";
         
@@ -198,7 +198,7 @@ namespace SharpPy
             Console.WriteLine();
         }
 
-        public object CompileAndExecute(Environment env, string code, string filename = "<string>")
+        public virtual object CompileAndExecute(Environment env, string code, string filename = "<string>")
         {
             try
             {
@@ -1380,6 +1380,48 @@ print(T('Hello', ' ', True, True))                  # AT_ONCE: APPEND: Hello
             catch (Exception ex)
             {
                 Console.WriteLine($"✗ default parameter Manager test failed: {ex.Message}\n");
+            }
+
+            {
+                //jit test
+                var jitinterpreter = new JitEnabledInterpreter(useBytecode: true, enableJit: true);
+            
+                // JIT 테스트 코드
+                string testCode = @"
+# Fibonacci - JIT가 효과적인 예제
+def fib(n):
+    if n <= 1:
+        return nexit()
+    return fib(n-1) + fib(n-2)
+
+# 처음 몇 번은 인터프리터로 실행
+for i in range(5):
+    result = fib(10)
+    print(f'Fib(10) = {result}')
+
+# 이후 JIT 컴파일되어 빠르게 실행
+for i in range(10):
+    result = fib(15)
+    print(f'Fib(15) = {result}')
+
+# 간단한 루프 - JIT 최적화 대상
+def sum_range(n):
+    total = 0
+    for i in range(n):
+        total += i
+    return total
+
+# JIT 임계값 도달까지 실행
+for _ in range(15):
+    result = sum_range(1000)
+    
+print(f'Sum of 1000 = {result}')
+";
+
+                jitinterpreter.Execute(testCode);
+                
+                // JIT 통계 출력
+                jitinterpreter.PrintJitStatistics();
             }
 
             Console.WriteLine("=== All New Features Tests Complete ===");

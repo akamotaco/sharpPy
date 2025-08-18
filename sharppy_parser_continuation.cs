@@ -574,7 +574,7 @@ namespace SharpPy
                 }
             }
 
-            return expr;
+            return new ExpressionStatementNode(expr, line, column);
         }
 
         private ASTNode ParseExpressionOrTuple()
