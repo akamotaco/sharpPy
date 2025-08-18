@@ -1383,15 +1383,12 @@ print(T('Hello', ' ', True, True))                  # AT_ONCE: APPEND: Hello
             }
 
             {
-                //jit test
-                var jitinterpreter = new JitEnabledInterpreter(useBytecode: true, enableJit: true);
-            
-                // JIT 테스트 코드
+                var intp = new PythonInterpreter(useBytecode: true);
                 string testCode = @"
 # Fibonacci - JIT가 효과적인 예제
 def fib(n):
     if n <= 1:
-        return nexit()
+        return n
     return fib(n-1) + fib(n-2)
 
 # 처음 몇 번은 인터프리터로 실행
@@ -1418,10 +1415,7 @@ for _ in range(15):
 print(f'Sum of 1000 = {result}')
 ";
 
-                jitinterpreter.Execute(testCode);
-                
-                // JIT 통계 출력
-                jitinterpreter.PrintJitStatistics();
+                intp.Execute(testCode);
             }
 
             Console.WriteLine("=== All New Features Tests Complete ===");
