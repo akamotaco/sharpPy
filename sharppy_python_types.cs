@@ -594,7 +594,11 @@ namespace SharpPy
                     $"Function {Name} takes at most {Parameters.Count} arguments ({arguments.Count} given)");
             }
 
-            var funcEnv = new Environment(ClosureEnv);
+            var funcEnv = new Environment(
+                ClosureEnv,                      // parent (enclosing)
+                ClosureEnv.globalEnv,            // global 환경 전달
+                EnvironmentType.Enclosing        // 함수는 Enclosing 환경
+            );
 
             // 매개변수 바인딩
             for (int i = 0; i < Parameters.Count; i++)
@@ -707,7 +711,11 @@ namespace SharpPy
                     $"Lambda function takes at most {Parameters.Count} arguments ({arguments.Count} given)");
             }
 
-            var funcEnv = new Environment(ClosureEnv);
+            var funcEnv = new Environment(
+                ClosureEnv,
+                ClosureEnv.globalEnv,
+                EnvironmentType.Enclosing
+            );
 
             for (int i = 0; i < Parameters.Count; i++)
             {
@@ -744,17 +752,41 @@ namespace SharpPy
         private static string GetValueType(PythonTypeObject value) => 
             value == null || value is PythonNone ? "None" : value.Type.ToString().ToLower();
     }
-    
+
     public sealed class BuiltinFunction : Function
     {
         private readonly Func<List<PythonTypeObject>, PythonTypeObject> implementation;
+        private readonly Func<Environment, List<PythonTypeObject>, PythonTypeObject> envImplementation;
+
+        public bool NeedsEnvironment { get; }
 
         public BuiltinFunction(string name, Func<List<PythonTypeObject>, PythonTypeObject> impl) : base(name)
         {
             implementation = impl;
+            NeedsEnvironment = false;
         }
 
-        public override PythonTypeObject Call(List<PythonTypeObject> arguments) => implementation(arguments);
+        // 환경이 필요한 내장 함수용 생성자 추가
+        public BuiltinFunction(string name, Func<Environment, List<PythonTypeObject>, PythonTypeObject> impl) : base(name)
+        {
+            envImplementation = impl;
+            NeedsEnvironment = true;
+        }
+
+        public override PythonTypeObject Call(List<PythonTypeObject> arguments)
+        {
+            if (NeedsEnvironment)
+                throw new PythonException("RuntimeError", $"Function {Name} requires environment context");
+            return implementation(arguments);
+        }
+
+        // 환경과 함께 호출하는 메서드
+        public PythonTypeObject CallWithEnv(Environment env, List<PythonTypeObject> arguments)
+        {
+            if (NeedsEnvironment)
+                return envImplementation(env, arguments);
+            return implementation(arguments);
+        }
     }
 
     // Optimized Bound Method

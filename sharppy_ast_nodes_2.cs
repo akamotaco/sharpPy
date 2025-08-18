@@ -66,6 +66,9 @@ namespace SharpPy
 
                 return function switch
                 {
+                    // BuiltinFunction에 환경이 필요한 경우 처리 추가
+                    BuiltinFunction builtinFunc when builtinFunc.NeedsEnvironment =>
+                        builtinFunc.CallWithEnv(env, args),
                     UserFunction userFunc => userFunc.Call(args),
                     LambdaFunction lambdaFunc => lambdaFunc.Call(args),
                     BuiltinFunction builtinFunc => builtinFunc.Call(args),
@@ -897,7 +900,7 @@ namespace SharpPy
 
         public override string ToString() => "pass";
     }
-    
+
     // AnnotatedAssignmentNode - 변수 타입 어노테이션: x: int = 10
     public sealed class AnnotatedAssignmentNode : ASTNode
     {
@@ -905,7 +908,7 @@ namespace SharpPy
         public TypeHint TypeHint { get; }
         public ASTNode Value { get; }  // null일 수 있음 (x: int 처럼 타입만 선언)
 
-        public AnnotatedAssignmentNode(string name, TypeHint typeHint, ASTNode value, int line = 0, int column = 0) 
+        public AnnotatedAssignmentNode(string name, TypeHint typeHint, ASTNode value, int line = 0, int column = 0)
             : base(line, column)
         {
             VariableName = name;
@@ -925,7 +928,7 @@ namespace SharpPy
                     env.SetVariable(VariableName, value);
                     return value;
                 }
-                
+
                 // 타입만 선언한 경우 (x: int) - 아무것도 하지 않음
                 return PythonNone.Instance;
             }
@@ -948,7 +951,7 @@ namespace SharpPy
         public TypeHint TypeHint { get; }
         public ASTNode Value { get; }  // null일 수 있음
 
-        public AnnotatedAttributeAssignmentNode(ASTNode obj, string attribute, TypeHint typeHint, ASTNode value, int line = 0, int column = 0) 
+        public AnnotatedAttributeAssignmentNode(ASTNode obj, string attribute, TypeHint typeHint, ASTNode value, int line = 0, int column = 0)
             : base(line, column)
         {
             Object = obj;
@@ -962,21 +965,21 @@ namespace SharpPy
             try
             {
                 var obj = Object.Evaluate(env);
-                
+
                 // 값이 있으면 할당
                 if (Value != null)
                 {
                     var value = Value.Evaluate(env);
-                    
+
                     if (obj is PythonInstance instance)
                     {
                         instance.SetAttribute(Attribute, value);
                         return value;
                     }
-                    
+
                     throw CreateException("AttributeError", $"'{obj?.Type}' object has no attribute '{Attribute}'");
                 }
-                
+
                 // 타입만 선언한 경우 - 아무것도 하지 않음
                 return PythonNone.Instance;
             }
@@ -988,6 +991,69 @@ namespace SharpPy
             {
                 throw CreateException("RuntimeError", $"Error in annotated attribute assignment: {ex.Message}");
             }
+        }
+    }
+    
+    public class GlobalNode : ASTNode
+    {
+        public List<string> Names { get; }
+        
+        public GlobalNode(List<string> names, int line = 0, int column = 0) : base(line, column)
+        {
+            Names = names;
+        }
+        
+        public override PythonTypeObject Evaluate(Environment env)
+        {
+            foreach (var name in Names)
+            {
+                env.globalVars.Add(name);
+            }
+            return PythonNone.Instance;
+        }
+    }
+
+    // NonlocalNode 추가
+    public class NonlocalNode : ASTNode
+    {
+        public List<string> Names { get; }
+        
+        public NonlocalNode(List<string> names, int line = 0, int column = 0) : base(line, column)
+        {
+            Names = names;
+        }
+        
+        public override PythonTypeObject Evaluate(Environment env)
+        {
+            // nonlocal은 global 환경에서는 사용할 수 없음
+            if (env.envType == EnvironmentType.Global)
+            {
+                throw CreateException("SyntaxError", "nonlocal declaration not allowed at module level");
+            }
+            
+            foreach (var name in Names)
+            {
+                // enclosing 환경에서 변수 존재 확인
+                Environment enclosing = env.parent;
+                bool found = false;
+                while (enclosing != null && enclosing != env.globalEnv)
+                {
+                    if (enclosing.variables.ContainsKey(name))
+                    {
+                        found = true;
+                        break;
+                    }
+                    enclosing = enclosing.parent;
+                }
+                
+                if (!found)
+                {
+                    throw CreateException("SyntaxError", $"no binding for nonlocal '{name}' found");
+                }
+                
+                env.nonlocalVars.Add(name);
+            }
+            return PythonNone.Instance;
         }
     }
 }

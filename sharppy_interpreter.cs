@@ -14,8 +14,9 @@ namespace SharpPy
 
         public PythonInterpreter(bool useBytecode = false)
         {
-            globalEnv = new Environment();
-            Environment.SetupBuiltins(globalEnv);  // 명시적으로 builtin 설정
+            globalEnv = new Environment(null, null, EnvironmentType.Global);
+            globalEnv.globalEnv = globalEnv;  // 자신을 global로 설정
+            Environment.SetupBuiltins(globalEnv);
             virtualMachine = new VirtualMachine(globalEnv);
             this.useBytecode = useBytecode;
         }
