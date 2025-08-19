@@ -15,6 +15,8 @@ namespace SharpPy
         STORE_NAME = 3,     // Store top of stack in variable
         POP_TOP = 4,        // Remove top of stack
         DUP_TOP = 5,    // Duplicate top of stack
+        DUP_TOP_TWO = 6,    // 스택 상위 2개 항목 복제
+        ROT_THREE = 7,       // 스택 상위 3개 항목 회전
 
         // Arithmetic operations
         BINARY_ADD = 10,
@@ -50,6 +52,9 @@ namespace SharpPy
         CALL_FUNCTION = 50,
         RETURN_VALUE = 51,
         MAKE_FUNCTION = 52,
+        CALL_FUNCTION_KW = 53,     // 키워드 인자가 있는 함수 호출
+        CALL_FUNCTION_VAR = 54,    // 가변 인자가 있는 함수 호출
+        BUILD_MAP = 55,             // 딕셔너리 생성 (키워드 인자용)
 
         // Collection operations
         BUILD_LIST = 60,
@@ -60,6 +65,7 @@ namespace SharpPy
         LOAD_ATTR = 65,
         STORE_ATTR = 66,
         UNPACK_SEQUENCE = 67,
+        BUILD_SLICE = 68,    // 슬라이스 객체 생성
 
         // Loop operations
         GET_ITER = 70,
@@ -112,9 +118,19 @@ namespace SharpPy
         public int ArgumentCount { get; }
         public Dictionary<int, int> LineNumberTable { get; } // bytecode offset -> line number
 
-        public CodeObject(string name, string filename, List<Instruction> instructions, 
-                         List<PythonTypeObject> constants, List<string> names, List<string> varNames,
-                         int argumentCount = 0)
+        public int KwOnlyArgCount { get; }
+        public bool HasVarArgs { get; }
+        public bool HasKwArgs { get; }
+        public string VarArgsName { get; }
+        public string KwArgsName { get; }
+        public List<string> DefaultValues { get; }  // 기본값이 있는 파라미터 이름들
+
+        public CodeObject(string name, string filename, List<Instruction> instructions,
+                     List<PythonTypeObject> constants, List<string> names, List<string> varNames,
+                     int argumentCount = 0, int kwOnlyArgCount = 0,
+                     bool hasVarArgs = false, bool hasKwArgs = false,
+                     string varArgsName = null, string kwArgsName = null,
+                     List<string> defaultValues = null)
         {
             Name = name;
             Filename = filename;
@@ -123,9 +139,14 @@ namespace SharpPy
             Names = names ?? new List<string>();
             VarNames = varNames ?? new List<string>();
             ArgumentCount = argumentCount;
+            KwOnlyArgCount = kwOnlyArgCount;
+            HasVarArgs = hasVarArgs;
+            HasKwArgs = hasKwArgs;
+            VarArgsName = varArgsName;
+            KwArgsName = kwArgsName;
+            DefaultValues = defaultValues ?? new List<string>();
             LineNumberTable = new Dictionary<int, int>();
 
-            // Build line number table
             for (int i = 0; i < Instructions.Count; i++)
             {
                 if (Instructions[i].LineNumber > 0)
@@ -142,14 +163,14 @@ namespace SharpPy
             sb.AppendLine($"Names: [{string.Join(", ", Names)}]");
             sb.AppendLine($"Variables: [{string.Join(", ", VarNames)}]");
             sb.AppendLine("Bytecode:");
-            
+
             for (int i = 0; i < Instructions.Count; i++)
             {
                 var inst = Instructions[i];
                 var lineInfo = LineNumberTable.ContainsKey(i) ? $"L{LineNumberTable[i]:D3}" : "   ";
                 sb.AppendLine($"  {i:D3} {lineInfo} {inst}");
             }
-            
+
             return sb.ToString();
         }
     }
@@ -218,7 +239,7 @@ namespace SharpPy
                 // CodeObject의 Filename을 임시로 변경하거나
                 // 에러 발생시 사용할 수 있도록 저장
                 var originalFilename = code.Filename;
-                
+
                 // 새로운 CodeObject 생성 (filename만 변경)
                 code = new CodeObject(
                     code.Name,
@@ -230,7 +251,7 @@ namespace SharpPy
                     code.ArgumentCount
                 );
             }
-            
+
             currentFrame = new Frame(code, locals, globalEnv);
             frameStack.Push(currentFrame);
 
@@ -268,7 +289,7 @@ namespace SharpPy
                         case OpCode.LOAD_NAME:
                             var name = code.Names[arg];
                             PythonTypeObject value = null;
-                            
+
                             // First try locals
                             try
                             {
@@ -286,7 +307,7 @@ namespace SharpPy
                                     throw new PythonException("NameError", $"name '{name}' is not defined");
                                 }
                             }
-                            
+
                             stack.Push(value);
                             break;
 
@@ -306,7 +327,7 @@ namespace SharpPy
                                 stack.Push(top);
                             }
                             break;
-                            
+
                         case OpCode.BINARY_ADD:
                             ExecuteBinaryOp("+");
                             break;
@@ -336,6 +357,10 @@ namespace SharpPy
 
                         case OpCode.UNARY_NOT:
                             stack.Push(new PythonBool(!stack.Pop().IsTrue()));
+                            break;
+
+                        case OpCode.UNPACK_SEQUENCE:
+                            ExecuteUnpackSequence(arg);
                             break;
 
                         case OpCode.COMPARE_EQ:
@@ -382,7 +407,15 @@ namespace SharpPy
                             continue;
 
                         case OpCode.CALL_FUNCTION:
-                            ExecuteFunctionCall(arg);
+                            ExecuteFunctionCall(arg, false);
+                            break;
+
+                        case OpCode.CALL_FUNCTION_KW:
+                            ExecuteFunctionCallWithKeywords(arg);
+                            break;
+
+                        case OpCode.BUILD_MAP:
+                            ExecuteBuildMap(arg);
                             break;
 
                         case OpCode.RETURN_VALUE:
@@ -416,6 +449,25 @@ namespace SharpPy
                             }
                             break;
 
+                        case OpCode.LOAD_ATTR:
+                            ExecuteLoadAttr(arg);
+                            break;
+
+                        case OpCode.STORE_ATTR:
+                            ExecuteStoreAttr(arg);
+                            break;
+
+                        case OpCode.STORE_INDEX:
+                            ExecuteStoreIndex();
+                            break;
+
+                        case OpCode.DUP_TOP_TWO:
+                            ExecuteDupTopTwo();
+                            break;
+
+                        case OpCode.BUILD_SLICE:
+                            ExecuteBuildSlice(arg);
+                            break;
                         case OpCode.IMPORT_NAME:
                             ExecuteImportName();
                             break;
@@ -465,7 +517,7 @@ namespace SharpPy
         {
             var right = currentFrame.Stack.Pop();
             var left = currentFrame.Stack.Pop();
-            
+
             PythonTypeObject result = op switch
             {
                 "+" => AddValues(left, right),
@@ -476,7 +528,7 @@ namespace SharpPy
                 "**" => PowerValues(left, right),
                 _ => throw new PythonException("RuntimeError", $"Unknown binary operator: {op}")
             };
-            
+
             currentFrame.Stack.Push(result);
         }
 
@@ -536,7 +588,7 @@ namespace SharpPy
         {
             var right = currentFrame.Stack.Pop();
             var left = currentFrame.Stack.Pop();
-            
+
             bool result = op switch
             {
                 "==" => left.Equals(right),
@@ -547,7 +599,7 @@ namespace SharpPy
                 ">=" => CompareValues(left, right) >= 0,
                 _ => throw new PythonException("RuntimeError", $"Unknown comparison operator: {op}")
             };
-            
+
             currentFrame.Stack.Push(new PythonBool(result));
         }
 
@@ -555,35 +607,67 @@ namespace SharpPy
         {
             if (NumberHelper.IsNumber(left) && NumberHelper.IsNumber(right))
                 return NumberHelper.ToDouble(left).CompareTo(NumberHelper.ToDouble(right));
-            if (left is PythonString ls && right is PythonString rs) 
+            if (left is PythonString ls && right is PythonString rs)
                 return string.Compare(ls.Value, rs.Value);
-            
+
             // 타입 정보를 제대로 출력하도록 수정
             string leftType = left?.Type.ToString() ?? "None";
             string rightType = right?.Type.ToString() ?? "None";
             throw new PythonException("TypeError", $"'<' not supported between instances of '{leftType}' and '{rightType}'");
         }
 
-        private void ExecuteFunctionCall(int argCount)
+        private void ExecuteFunctionCall(int argCount, bool hasKeywords = false)
         {
             var args = new List<PythonTypeObject>();
+            Dictionary<string, PythonTypeObject> kwargs = null;
+
+            if (hasKeywords)
+            {
+                // 스택에서 키워드 인자 딕셔너리 가져오기
+                var kwDict = currentFrame.Stack.Pop() as PythonDict;
+                if (kwDict != null)
+                {
+                    kwargs = new Dictionary<string, PythonTypeObject>();
+                    foreach (var kvp in kwDict.Items)
+                    {
+                        if (kvp.Key is PythonString key)
+                            kwargs[key.Value] = kvp.Value;
+                    }
+                }
+            }
+
+            // 위치 인자 가져오기
             for (int i = 0; i < argCount; i++)
                 args.Insert(0, currentFrame.Stack.Pop());
-            
+
             var function = currentFrame.Stack.Pop();
-            
+
             PythonTypeObject result = function switch
             {
-                UserFunction userFunc => userFunc.Call(args),
-                LambdaFunction lambdaFunc => lambdaFunc.Call(args),
-                BytecodeFunction bytecodeFunc => bytecodeFunc.Call(args),
+                BytecodeFunction bytecodeFunc => bytecodeFunc.CallWithKeywords(args, kwargs),
                 BuiltinFunction builtinFunc => builtinFunc.Call(args),
-                BoundMethod boundMethod => boundMethod.Call(args),
                 PythonClass pythonClass => pythonClass.CreateInstance(args),
                 _ => throw new PythonException("TypeError", $"'{function?.Type}' object is not callable")
             };
-            
+
             currentFrame.Stack.Push(result);
+        }
+
+        private void ExecuteFunctionCallWithKeywords(int argCount)
+        {
+            ExecuteFunctionCall(argCount, true);
+        }
+
+        private void ExecuteBuildMap(int count)
+        {
+            var dict = new PythonDict();
+            for (int i = 0; i < count; i++)
+            {
+                var value = currentFrame.Stack.Pop();
+                var key = currentFrame.Stack.Pop();
+                dict.Items[key] = value;
+            }
+            currentFrame.Stack.Push(dict);
         }
 
         private void ExecuteBuildList(int count)
@@ -614,23 +698,44 @@ namespace SharpPy
             currentFrame.Stack.Push(dict);
         }
 
-        private void ExecuteMakeFunction(int argCount)
+        private void ExecuteMakeFunction(int arg)
         {
+            // arg의 하위 8비트는 일반 인자 수, 상위 8비트는 기본값 수
+            int argCount = arg & 0xFF;
+            int defaultCount = (arg >> 8) & 0xFF;
+
+            // 스택에서 CodeObject 가져오기 (기본값보다 먼저)
             var codeObjectWrapper = currentFrame.Stack.Pop() as PythonCodeObject;
             if (codeObjectWrapper == null)
                 throw new PythonException("TypeError", "MAKE_FUNCTION expects CodeObject");
 
             var codeObject = codeObjectWrapper.Code;
-            
-            // Create a function that can be called later
-            var function = new BytecodeFunction(codeObject, currentFrame.Locals);
+
+            // 스택에서 기본값들 가져오기 (역순)
+            var defaultValues = new List<PythonTypeObject>();
+            for (int i = 0; i < defaultCount; i++)
+            {
+                defaultValues.Insert(0, currentFrame.Stack.Pop());
+            }
+
+            // 기본값이 있으면 BytecodeFunctionWithDefaults, 없으면 BytecodeFunction
+            PythonTypeObject function;
+            if (defaultCount > 0)
+            {
+                function = new BytecodeFunctionWithDefaults(codeObject, currentFrame.Locals, defaultValues);
+            }
+            else
+            {
+                function = new BytecodeFunction(codeObject, currentFrame.Locals);
+            }
+
             currentFrame.Stack.Push(function);
         }
 
         private void ExecuteGetIter()
         {
             var obj = currentFrame.Stack.Pop();
-            
+
             // Convert object to iterator (simplified)
             if (obj is PythonList list)
             {
@@ -653,7 +758,7 @@ namespace SharpPy
         private bool ExecuteForIter(int jumpTarget)
         {
             var iterator = currentFrame.Stack.Peek();
-            
+
             if (iterator is IIterator iter)
             {
                 if (iter.HasNext())
@@ -668,7 +773,7 @@ namespace SharpPy
                     return false; // Exit loop, jump to target
                 }
             }
-            
+
             throw new PythonException("TypeError", "FOR_ITER expects iterator");
         }
 
@@ -695,7 +800,7 @@ namespace SharpPy
         {
             var itemName = currentFrame.Stack.Pop() as PythonString;
             var module = currentFrame.Stack.Pop() as PythonModule;
-            
+
             if (itemName == null || module == null)
                 throw new PythonException("TypeError", "IMPORT_FROM expects string and module");
 
@@ -756,6 +861,131 @@ namespace SharpPy
                 throw new PythonException("Exception", "Exception raised");
             }
         }
+
+        private void ExecuteUnpackSequence(int count)
+        {
+            var sequence = currentFrame.Stack.Pop();
+
+            List<PythonTypeObject> items = sequence switch
+            {
+                PythonList list => list.Items,
+                PythonTuple tuple => tuple.Items,
+                PythonString str => str.Value.Select(c => new PythonString(c.ToString()) as PythonTypeObject).ToList(),
+                _ => throw new PythonException("TypeError", $"cannot unpack non-sequence {sequence?.Type}")
+            };
+
+            if (items.Count != count)
+            {
+                throw new PythonException("ValueError",
+                    $"too many values to unpack (expected {count}, got {items.Count})");
+            }
+
+            // 스택에 역순으로 푸시 (왼쪽부터 오른쪽 순서로)
+            foreach (var item in items)
+            {
+                currentFrame.Stack.Push(item);
+            }
+        }
+
+        private void ExecuteLoadAttr(int nameIndex)
+        {
+            var obj = currentFrame.Stack.Pop();
+            var attrName = currentFrame.Code.Names[nameIndex];
+
+            PythonTypeObject result = obj switch
+            {
+                PythonInstance instance => instance.GetAttribute(attrName),
+                PythonModule module => module.GetAttribute(attrName),
+                PythonClass cls => cls.GetAttribute(attrName),
+                PythonList list => list.GetMethod(attrName),
+                PythonDict dict => dict.GetMethod(attrName),
+                PythonString str => str.GetMethod(attrName),
+                FileObject file => file.GetMethod(attrName),
+                Function func => func.GetAttribute(attrName),
+                _ => throw new PythonException("AttributeError",
+                    $"'{obj?.Type}' object has no attribute '{attrName}'")
+            };
+
+            currentFrame.Stack.Push(result);
+        }
+
+        private void ExecuteStoreAttr(int nameIndex)
+        {
+            var value = currentFrame.Stack.Pop();
+            var obj = currentFrame.Stack.Pop();
+            var attrName = currentFrame.Code.Names[nameIndex];
+
+            if (obj is PythonInstance instance)
+            {
+                instance.SetAttribute(attrName, value);
+            }
+            else
+            {
+                throw new PythonException("AttributeError",
+                    $"'{obj?.Type}' object has no attribute '{attrName}'");
+            }
+        }
+
+        private void ExecuteStoreIndex()
+        {
+            var value = currentFrame.Stack.Pop();
+            var index = currentFrame.Stack.Pop();
+            var obj = currentFrame.Stack.Pop();
+
+            switch (obj)
+            {
+                case PythonList list when NumberHelper.IsNumber(index):
+                    list.SetItem(NumberHelper.ToInt(index), value);
+                    break;
+                case PythonDict dict:
+                    dict.SetItem(index, value);
+                    break;
+                default:
+                    throw new PythonException("TypeError",
+                        $"'{obj?.Type}' object does not support item assignment");
+            }
+        }
+
+        private void ExecuteDupTopTwo()
+        {
+            if (currentFrame.Stack.Count >= 2)
+            {
+                var top = currentFrame.Stack.Pop();
+                var second = currentFrame.Stack.Pop();
+
+                // Push back in order: original pair, then duplicate
+                currentFrame.Stack.Push(second);
+                currentFrame.Stack.Push(top);
+                currentFrame.Stack.Push(second);
+                currentFrame.Stack.Push(top);
+            }
+            else
+            {
+                throw new PythonException("RuntimeError", "Stack underflow in DUP_TOP_TWO");
+            }
+        }
+
+        private void ExecuteBuildSlice(int count)
+        {
+            PythonTypeObject step = null;
+            PythonTypeObject stop = null;
+            PythonTypeObject start = null;
+
+            if (count >= 3)
+                step = currentFrame.Stack.Pop();
+            if (count >= 2)
+                stop = currentFrame.Stack.Pop();
+            if (count >= 1)
+                start = currentFrame.Stack.Pop();
+
+            // 슬라이스 객체 생성 (간단한 튜플로 대체)
+            var slice = new PythonTuple();
+            slice.Items.Add(start ?? PythonNone.Instance);
+            slice.Items.Add(stop ?? PythonNone.Instance);
+            slice.Items.Add(step ?? PythonNone.Instance);
+
+            currentFrame.Stack.Push(slice);
+        }
     }
 
     // Simple iterator interface for bytecode VM
@@ -773,7 +1003,7 @@ namespace SharpPy
         public override string ToPythonString() => "<iterator>";
         public override object GetRawValue() => this;
         public override bool Equals(PythonTypeObject other) => ReferenceEquals(this, other);
-        
+
         public abstract bool HasNext();
         public abstract PythonTypeObject Next();
     }
@@ -812,10 +1042,12 @@ namespace SharpPy
     }
 
     // Bytecode-based function (for lambda compiled to bytecode)
+    // bytecode_system.cs의 BytecodeFunction 클래스 수정
+
     public class BytecodeFunction : Function
     {
-        private readonly CodeObject code;
-        private readonly Environment closure;
+        protected readonly CodeObject code;
+        protected readonly Environment closure;
 
         public BytecodeFunction(CodeObject code, Environment closure) : base(code.Name)
         {
@@ -823,21 +1055,285 @@ namespace SharpPy
             this.closure = closure;
         }
 
-        public override PythonTypeObject Call(List<PythonTypeObject> arguments)
+        public virtual PythonTypeObject CallWithKeywords(List<PythonTypeObject> args, Dictionary<string, PythonTypeObject> kwargs)
         {
-            if (arguments.Count != code.ArgumentCount)
-                throw new PythonException("TypeError", $"Function expects {code.ArgumentCount} arguments, got {arguments.Count}");
-
             var funcEnv = new Environment(closure);
-            
-            // 파라미터를 funcEnv에 바인딩
-            // VarNames를 사용하지만, 실제 변수명으로 환경에 설정
-            for (int i = 0; i < arguments.Count && i < code.VarNames.Count; i++)
+            int normalArgCount = code.ArgumentCount;
+            int providedPosArgs = args.Count;
+
+            // 파라미터별 값 할당
+            var paramValues = new PythonTypeObject[normalArgCount];
+            var paramAssigned = new bool[normalArgCount];
+
+            // 위치 인자 할당
+            int posArgsToAssign = Math.Min(providedPosArgs, normalArgCount);
+            for (int i = 0; i < posArgsToAssign; i++)
             {
-                funcEnv.SetVariable(code.VarNames[i], arguments[i]);
+                paramValues[i] = args[i];
+                paramAssigned[i] = true;
             }
 
-            // Find the global environment
+            // 키워드 인자 할당
+            if (kwargs != null)
+            {
+                foreach (var kvp in kwargs)
+                {
+                    // VarNames에서 파라미터 찾기 (일반 파라미터만)
+                    int paramIndex = -1;
+                    for (int i = 0; i < normalArgCount && i < code.VarNames.Count; i++)
+                    {
+                        if (code.VarNames[i] == kvp.Key)
+                        {
+                            paramIndex = i;
+                            break;
+                        }
+                    }
+
+                    if (paramIndex >= 0)
+                    {
+                        if (paramAssigned[paramIndex])
+                        {
+                            throw new PythonException("TypeError",
+                                $"{code.Name}() got multiple values for argument '{kvp.Key}'");
+                        }
+                        paramValues[paramIndex] = kvp.Value;
+                        paramAssigned[paramIndex] = true;
+                    }
+                    else if (!code.HasKwArgs)
+                    {
+                        throw new PythonException("TypeError",
+                            $"{code.Name}() got an unexpected keyword argument '{kvp.Key}'");
+                    }
+                }
+            }
+
+            // 모든 필수 파라미터가 할당되었는지 확인
+            for (int i = 0; i < normalArgCount; i++)
+            {
+                if (!paramAssigned[i])
+                {
+                    throw new PythonException("TypeError",
+                        $"{code.Name}() missing required positional argument: '{code.VarNames[i]}'");
+                }
+                funcEnv.SetVariable(code.VarNames[i], paramValues[i]);
+            }
+
+            // *args 처리 - 중요: VarArgsName을 사용
+            if (code.HasVarArgs && !string.IsNullOrEmpty(code.VarArgsName))
+            {
+                var varArgsList = new PythonList();
+                for (int i = normalArgCount; i < providedPosArgs; i++)
+                {
+                    varArgsList.Items.Add(args[i]);
+                }
+                // VarArgsName으로 환경에 설정
+                funcEnv.SetVariable(code.VarArgsName, varArgsList);
+            }
+            else if (providedPosArgs > normalArgCount)
+            {
+                throw new PythonException("TypeError",
+                    $"{code.Name}() takes {normalArgCount} positional arguments but {providedPosArgs} were given");
+            }
+
+            // **kwargs 처리
+            if (code.HasKwArgs && !string.IsNullOrEmpty(code.KwArgsName))
+            {
+                var kwArgsDict = new PythonDict();
+                if (kwargs != null)
+                {
+                    foreach (var kvp in kwargs)
+                    {
+                        bool isNormalParam = false;
+                        for (int i = 0; i < normalArgCount && i < code.VarNames.Count; i++)
+                        {
+                            if (code.VarNames[i] == kvp.Key)
+                            {
+                                isNormalParam = true;
+                                break;
+                            }
+                        }
+
+                        if (!isNormalParam)
+                        {
+                            kwArgsDict.Items[new PythonString(kvp.Key)] = kvp.Value;
+                        }
+                    }
+                }
+                // KwArgsName으로 환경에 설정
+                funcEnv.SetVariable(code.KwArgsName, kwArgsDict);
+            }
+
+            var globalEnv = closure;
+            while (globalEnv.parent != null)
+                globalEnv = globalEnv.parent;
+
+            var vm = new VirtualMachine(globalEnv);
+            return vm.Execute(funcEnv, code);
+        }
+
+        public override PythonTypeObject Call(List<PythonTypeObject> arguments)
+        {
+            return CallWithKeywords(arguments, null);
+        }
+    }
+
+    public class BytecodeFunctionWithDefaults : BytecodeFunction
+    {
+        private readonly List<PythonTypeObject> defaultValues;
+        private readonly CodeObject code;
+        private readonly Environment closure;
+
+        public BytecodeFunctionWithDefaults(CodeObject code, Environment closure, List<PythonTypeObject> defaults)
+            : base(code, closure)
+        {
+            this.code = code;
+            this.closure = closure;
+            this.defaultValues = defaults ?? new List<PythonTypeObject>();
+        }
+
+        public override PythonTypeObject CallWithKeywords(List<PythonTypeObject> args, Dictionary<string, PythonTypeObject> kwargs)
+        {
+            var funcEnv = new Environment(closure);
+
+            int normalArgCount = code.ArgumentCount;
+            int providedPosArgs = args.Count;
+            int requiredArgs = normalArgCount - defaultValues.Count;
+
+            // 파라미터별 값 할당 추적
+            var paramValues = new PythonTypeObject[normalArgCount];
+            var paramAssigned = new bool[normalArgCount];
+
+            // 1. 위치 인자 먼저 할당 (normalArgCount까지만, 나머지는 *args로)
+            int posArgsToAssign = Math.Min(providedPosArgs, normalArgCount);
+            for (int i = 0; i < posArgsToAssign; i++)
+            {
+                paramValues[i] = args[i];
+                paramAssigned[i] = true;
+            }
+
+            // 2. 키워드 인자로 나머지 파라미터 채우기
+            if (kwargs != null)
+            {
+                foreach (var kvp in kwargs)
+                {
+                    // 파라미터 이름으로 인덱스 찾기
+                    int paramIndex = -1;
+                    for (int i = 0; i < code.VarNames.Count && i < normalArgCount; i++)
+                    {
+                        if (code.VarNames[i] == kvp.Key)
+                        {
+                            paramIndex = i;
+                            break;
+                        }
+                    }
+
+                    if (paramIndex >= 0 && paramIndex < normalArgCount)
+                    {
+                        if (paramAssigned[paramIndex])
+                        {
+                            throw new PythonException("TypeError",
+                                $"{code.Name}() got multiple values for argument '{kvp.Key}'");
+                        }
+                        paramValues[paramIndex] = kvp.Value;
+                        paramAssigned[paramIndex] = true;
+                    }
+                    else if (!code.HasKwArgs)
+                    {
+                        throw new PythonException("TypeError",
+                            $"{code.Name}() got an unexpected keyword argument '{kvp.Key}'");
+                    }
+                    // HasKwArgs가 true면 나중에 **kwargs로 처리
+                }
+            }
+
+            // 3. 기본값으로 나머지 채우기
+            for (int i = 0; i < normalArgCount; i++)
+            {
+                if (!paramAssigned[i])
+                {
+                    // 기본값이 있는지 확인
+                    int defaultIndex = i - requiredArgs;
+                    if (defaultIndex >= 0 && defaultIndex < defaultValues.Count)
+                    {
+                        paramValues[i] = defaultValues[defaultIndex];
+                        paramAssigned[i] = true;
+                    }
+                }
+            }
+
+            // 4. 모든 필수 인자가 채워졌는지 확인
+            var missingParams = new List<string>();
+            for (int i = 0; i < requiredArgs; i++)  // 필수 인자만 체크
+            {
+                if (!paramAssigned[i])
+                {
+                    missingParams.Add(code.VarNames[i]);
+                }
+            }
+
+            if (missingParams.Count > 0)
+            {
+                string missingList = string.Join(", ", missingParams.Select(p => $"'{p}'"));
+                throw new PythonException("TypeError",
+                    $"{code.Name}() missing {missingParams.Count} required positional argument(s): {missingList}");
+            }
+
+            // 5. 환경에 파라미터 값 설정
+            for (int i = 0; i < normalArgCount; i++)
+            {
+                if (paramAssigned[i])  // 할당된 것만 설정
+                {
+                    funcEnv.SetVariable(code.VarNames[i], paramValues[i]);
+                }
+            }
+
+            // 6. *args 처리
+            if (code.HasVarArgs && !string.IsNullOrEmpty(code.VarArgsName))
+            {
+                var varArgsList = new PythonList();
+                // normalArgCount 이후의 모든 위치 인자를 *args에 추가
+                for (int i = normalArgCount; i < providedPosArgs; i++)
+                {
+                    varArgsList.Items.Add(args[i]);
+                }
+                funcEnv.SetVariable(code.VarArgsName, varArgsList);
+            }
+            else if (providedPosArgs > normalArgCount)
+            {
+                // *args가 없는데 추가 위치 인자가 있으면 에러
+                throw new PythonException("TypeError",
+                    $"{code.Name}() takes {normalArgCount} positional arguments but {providedPosArgs} were given");
+            }
+
+            // 7. **kwargs 처리
+            if (code.HasKwArgs && !string.IsNullOrEmpty(code.KwArgsName))
+            {
+                var kwArgsDict = new PythonDict();
+                if (kwargs != null)
+                {
+                    foreach (var kvp in kwargs)
+                    {
+                        // 일반 파라미터가 아닌 것만 kwargs에 추가
+                        bool isNormalParam = false;
+                        for (int i = 0; i < normalArgCount; i++)
+                        {
+                            if (code.VarNames[i] == kvp.Key)
+                            {
+                                isNormalParam = true;
+                                break;
+                            }
+                        }
+
+                        if (!isNormalParam)
+                        {
+                            kwArgsDict.Items[new PythonString(kvp.Key)] = kvp.Value;
+                        }
+                    }
+                }
+                funcEnv.SetVariable(code.KwArgsName, kwArgsDict);
+            }
+
+            // 전역 환경 찾기
             var globalEnv = closure;
             while (globalEnv.parent != null)
                 globalEnv = globalEnv.parent;

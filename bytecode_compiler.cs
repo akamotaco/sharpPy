@@ -17,6 +17,9 @@ namespace SharpPy
         private string filename;
         private string currentFunctionName;
 
+        private int? currentLoopStart = null;
+        private List<int> currentBreakJumps = null;
+
         public BytecodeCompiler(string filename = "<string>")
         {
             this.filename = filename;
@@ -144,6 +147,10 @@ namespace SharpPy
                     CompileFor(forNode);
                     break;
 
+                case MultiForNode multiForNode:  // 추가!
+                    CompileMultiFor(multiForNode);
+                    break;
+
                 case WhileNode whileNode:
                     CompileWhile(whileNode);
                     break;
@@ -181,16 +188,49 @@ namespace SharpPy
                     break;
 
                 case BreakNode:
-                    Emit(OpCode.BREAK_LOOP, 0, node.Line);
+                    if (currentBreakJumps == null)
+                        throw new PythonException("SyntaxError", "'break' outside loop", node.Line, node.Column);
+                    currentBreakJumps.Add(instructions.Count);
+                    Emit(OpCode.JUMP_ABSOLUTE, 0, node.Line); // 나중에 패치
                     break;
 
                 case ContinueNode:
-                    Emit(OpCode.CONTINUE_LOOP, 0, node.Line);
+                    if (currentLoopStart == null)
+                        throw new PythonException("SyntaxError", "'continue' not properly in loop", node.Line, node.Column);
+                    Emit(OpCode.JUMP_ABSOLUTE, currentLoopStart.Value, node.Line);
                     break;
 
                 case BlockNode block:
                     foreach (var stmt in block.Statements)
                         CompileNode(stmt);
+                    break;
+
+                case AttributeNode attrNode:
+                    CompileAttribute(attrNode);
+                    break;
+
+                case AttributeAssignmentNode attrAssign:
+                    CompileAttributeAssignment(attrAssign);
+                    break;
+
+                case AttributeCompoundAssignmentNode attrCompound:
+                    CompileAttributeCompoundAssignment(attrCompound);
+                    break;
+
+                case IndexNode indexNode:
+                    CompileIndex(indexNode);
+                    break;
+
+                case IndexAssignmentNode indexAssign:
+                    CompileIndexAssignment(indexAssign);
+                    break;
+
+                case IndexCompoundAssignmentNode indexCompound:
+                    CompileIndexCompoundAssignment(indexCompound);
+                    break;
+
+                case SliceNode sliceNode:
+                    CompileSlice(sliceNode);
                     break;
 
                 // NEW CASES for new features
@@ -209,7 +249,7 @@ namespace SharpPy
                 case WithNode withNode:
                     CompileWith(withNode);
                     break;
-                
+
                 case ExpressionStatementNode exprStmt:
                     // Expression을 컴파일하고 결과를 스택에서 제거
                     CompileNode(exprStmt.Expression);
@@ -293,10 +333,30 @@ namespace SharpPy
         {
             CompileNode(node.Function);
 
+            // 위치 인자 컴파일
             foreach (var arg in node.Arguments)
                 CompileNode(arg);
 
-            Emit(OpCode.CALL_FUNCTION, node.Arguments.Count, node.Line);
+            // 키워드 인자가 있으면
+            if (node.KeywordArguments != null && node.KeywordArguments.Count > 0)
+            {
+                // 키워드 인자를 위한 딕셔너리 생성
+                foreach (var kvp in node.KeywordArguments)
+                {
+                    EmitLoadConst(new PythonString(kvp.Key));
+                    CompileNode(kvp.Value);
+                }
+
+                Emit(OpCode.BUILD_MAP, node.KeywordArguments.Count, node.Line);
+
+                // 키워드 인자가 있는 함수 호출
+                Emit(OpCode.CALL_FUNCTION_KW, node.Arguments.Count, node.Line);
+            }
+            else
+            {
+                // 일반 함수 호출
+                Emit(OpCode.CALL_FUNCTION, node.Arguments.Count, node.Line);
+            }
         }
 
         private void CompileLambda(LambdaNode node)
@@ -331,46 +391,46 @@ namespace SharpPy
         private void CompileIf(IfNode node)
         {
             var jumpTargets = new List<int>();
-            
+
             // Compile if condition
             CompileNode(node.Condition);
-            
+
             var ifFalseLabel = instructions.Count + 1;
             Emit(OpCode.JUMP_IF_FALSE, ifFalseLabel); // Will be patched
-            
+
             // Compile if body
             foreach (var stmt in node.ThenBody)
                 CompileNode(stmt);
-            
+
             jumpTargets.Add(instructions.Count);
             Emit(OpCode.JUMP_ABSOLUTE, 0); // Will be patched to jump to end
-            
+
             // Patch if false jump
             instructions[ifFalseLabel - 1] = new Instruction(OpCode.JUMP_IF_FALSE, instructions.Count, node.Line);
-            
+
             // Compile elif clauses
             foreach (var (elifCondition, elifBody) in node.ElifClauses)
             {
                 CompileNode(elifCondition);
-                
+
                 var elifFalseLabel = instructions.Count + 1;
                 Emit(OpCode.JUMP_IF_FALSE, elifFalseLabel); // Will be patched
-                
+
                 // Compile elif body
                 foreach (var stmt in elifBody)
                     CompileNode(stmt);
-                
+
                 jumpTargets.Add(instructions.Count);
                 Emit(OpCode.JUMP_ABSOLUTE, 0); // Will be patched to jump to end
-                
+
                 // Patch elif false jump
                 instructions[elifFalseLabel - 1] = new Instruction(OpCode.JUMP_IF_FALSE, instructions.Count, node.Line);
             }
-            
+
             // Compile else body
             foreach (var stmt in node.ElseBody)
                 CompileNode(stmt);
-            
+
             // Patch all jump-to-end instructions
             var endLabel = instructions.Count;
             foreach (var jumpIndex in jumpTargets)
@@ -385,18 +445,37 @@ namespace SharpPy
             Emit(OpCode.GET_ITER);
 
             var loopStart = instructions.Count;
-            Emit(OpCode.FOR_ITER, 0); // Will be patched with exit address
+            var breakJumps = new List<int>();  // break 점프들을 추적
 
-            // Store iterator value in loop variable
+            Emit(OpCode.FOR_ITER, 0); // 나중에 패치
+
             EmitStoreName(node.Variable);
 
+            // Body 컴파일 전에 루프 컨텍스트 설정 (break/continue 처리용)
+            var previousLoopStart = currentLoopStart;
+            var previousBreakJumps = currentBreakJumps;
+            currentLoopStart = loopStart;
+            currentBreakJumps = breakJumps;
+
             foreach (var stmt in node.Body)
+            {
                 CompileNode(stmt);
+            }
 
             Emit(OpCode.JUMP_ABSOLUTE, loopStart);
 
-            // Patch FOR_ITER to jump here when done
+            // FOR_ITER 패치
             instructions[loopStart] = new Instruction(OpCode.FOR_ITER, instructions.Count);
+
+            // break 점프들 패치
+            foreach (var breakJump in breakJumps)
+            {
+                instructions[breakJump] = new Instruction(OpCode.JUMP_ABSOLUTE, instructions.Count);
+            }
+
+            // 이전 루프 컨텍스트 복원
+            currentLoopStart = previousLoopStart;
+            currentBreakJumps = previousBreakJumps;
         }
 
         private void CompileWhile(WhileNode node)
@@ -449,23 +528,59 @@ namespace SharpPy
 
         private void CompileFunctionDef(FunctionDefNode node)
         {
-            // Create a nested compiler for the function
             var funcCompiler = new BytecodeCompiler(filename);
             funcCompiler.currentFunctionName = node.Name;
 
-            // Add parameter names as local variables AND to names list
+            int normalArgCount = 0;
+            int defaultCount = 0;
+            bool hasVarArgs = false;
+            bool hasKwArgs = false;
+            string varArgsName = null;
+            string kwArgsName = null;
+            var paramNamesWithDefaults = new List<string>();
+
+            // 파라미터 처리 - 순서 중요!
+            // 1. 먼저 일반 파라미터들 처리
             foreach (var param in node.Parameters)
             {
-                funcCompiler.AddVarName(param.Name);
-                // IMPORTANT: Also add to names list so LOAD_NAME can find them
-                funcCompiler.GetNameIndex(param.Name);
+                if (param.Kind == ParameterKind.Normal)
+                {
+                    normalArgCount++;
+                    funcCompiler.AddVarName(param.Name);
+                    // Names 리스트에도 추가 (LOAD_NAME을 위해)
+                    funcCompiler.GetNameIndex(param.Name);
+
+                    if (param.DefaultValue != null)
+                    {
+                        paramNamesWithDefaults.Add(param.Name);
+                        defaultCount++;
+                    }
+                }
             }
 
-            // Compile function body
+            // 2. 그 다음 *args와 **kwargs 처리
+            foreach (var param in node.Parameters)
+            {
+                if (param.Kind == ParameterKind.VarArgs)
+                {
+                    hasVarArgs = true;
+                    varArgsName = param.Name;
+                    // VarNames에 추가하지 않고, Names에만 추가
+                    funcCompiler.GetNameIndex(param.Name);
+                }
+                else if (param.Kind == ParameterKind.KwArgs)
+                {
+                    hasKwArgs = true;
+                    kwArgsName = param.Name;
+                    // VarNames에 추가하지 않고, Names에만 추가
+                    funcCompiler.GetNameIndex(param.Name);
+                }
+            }
+
+            // 함수 본문 컴파일
             foreach (var stmt in node.Body)
                 funcCompiler.CompileNode(stmt);
 
-            // Add implicit return None if no explicit return
             if (funcCompiler.instructions.Count == 0 ||
                 funcCompiler.instructions.Last().OpCode != OpCode.RETURN_VALUE)
             {
@@ -480,12 +595,29 @@ namespace SharpPy
                 funcCompiler.constants,
                 funcCompiler.names,
                 funcCompiler.varNames,
-                node.Parameters.Count
+                normalArgCount,  // *args와 **kwargs는 포함하지 않음
+                0,
+                hasVarArgs,
+                hasKwArgs,
+                varArgsName,
+                kwArgsName,
+                paramNamesWithDefaults
             );
 
-            // Create function object at runtime
+            // 기본값들을 스택에 푸시
+            foreach (var param in node.Parameters)
+            {
+                if (param.Kind == ParameterKind.Normal && param.DefaultValue != null)
+                {
+                    CompileNode(param.DefaultValue);
+                }
+            }
+
             EmitLoadConst(new PythonCodeObject(funcCode));
-            Emit(OpCode.MAKE_FUNCTION, node.Parameters.Count, node.Line);
+
+            int makeArg = normalArgCount | (defaultCount << 8);
+            Emit(OpCode.MAKE_FUNCTION, makeArg, node.Line);
+
             EmitStoreName(node.Name);
         }
 
@@ -535,7 +667,7 @@ namespace SharpPy
             {
                 // 모듈을 스택에 남겨두고
                 Emit(OpCode.DUP_TOP); // 스택 복사 (새로운 opcode 추가 필요)
-                
+
                 // 모든 public 속성을 가져와서 현재 네임스페이스에 추가
                 // 이는 특별한 처리가 필요함
             }
@@ -551,7 +683,7 @@ namespace SharpPy
                     var storeName = alias ?? itemName;
                     EmitStoreName(storeName);
                 }
-                
+
                 // 마지막에 모듈 제거
                 Emit(OpCode.POP_TOP);
             }
@@ -761,6 +893,184 @@ namespace SharpPy
             varNames.Add(name);
             varNameMap[name] = index;
             return index;
+        }
+
+        private void CompileMultiFor(MultiForNode node)
+        {
+            // iterable 컴파일
+            CompileNode(node.Iterable);
+            Emit(OpCode.GET_ITER);
+
+            var loopStart = instructions.Count;
+            Emit(OpCode.FOR_ITER, 0); // 나중에 패치될 종료 주소
+
+            // 언패킹을 위한 UNPACK_SEQUENCE 사용
+            Emit(OpCode.UNPACK_SEQUENCE, node.Variables.Count);
+
+            // 각 변수에 저장 (역순으로)
+            for (int i = node.Variables.Count - 1; i >= 0; i--)
+            {
+                EmitStoreName(node.Variables[i]);
+            }
+
+            // 루프 본문 컴파일
+            foreach (var stmt in node.Body)
+            {
+                CompileNode(stmt);
+            }
+
+            // 루프 시작으로 점프
+            Emit(OpCode.JUMP_ABSOLUTE, loopStart);
+
+            // FOR_ITER 패치 - 루프 종료 시 여기로 점프
+            instructions[loopStart] = new Instruction(OpCode.FOR_ITER, instructions.Count);
+        }
+        
+        private void CompileAttribute(AttributeNode node)
+        {
+            // 객체 컴파일
+            CompileNode(node.Object);
+            
+            // 속성 이름을 names 리스트에 추가
+            int nameIndex = GetNameIndex(node.Attribute);
+            
+            // LOAD_ATTR 명령어 생성
+            Emit(OpCode.LOAD_ATTR, nameIndex, node.Line);
+        }
+
+        private void CompileAttributeAssignment(AttributeAssignmentNode node)
+        {
+            // 객체 컴파일
+            CompileNode(node.Object);
+            
+            // 값 컴파일
+            CompileNode(node.Value);
+            
+            // 속성 이름을 names 리스트에 추가
+            int nameIndex = GetNameIndex(node.Attribute);
+            
+            // STORE_ATTR 명령어 생성
+            Emit(OpCode.STORE_ATTR, nameIndex, node.Line);
+        }
+
+        private void CompileAttributeCompoundAssignment(AttributeCompoundAssignmentNode node)
+        {
+            // 객체를 두 번 로드 (한 번은 읽기용, 한 번은 쓰기용)
+            CompileNode(node.Object);
+            Emit(OpCode.DUP_TOP); // 객체 복제
+            
+            // 현재 속성 값 로드
+            int nameIndex = GetNameIndex(node.Attribute);
+            Emit(OpCode.LOAD_ATTR, nameIndex);
+            
+            // 새 값 컴파일
+            CompileNode(node.Value);
+            
+            // 연산 수행
+            var opCode = node.Operator switch
+            {
+                "+=" => OpCode.BINARY_ADD,
+                "-=" => OpCode.BINARY_SUBTRACT,
+                "*=" => OpCode.BINARY_MULTIPLY,
+                "/=" => OpCode.BINARY_DIVIDE,
+                "%=" => OpCode.BINARY_MODULO,
+                "**=" => OpCode.BINARY_POWER,
+                _ => throw new PythonException("CompileError", $"Unknown compound operator: {node.Operator}")
+            };
+            
+            Emit(opCode);
+            
+            // 결과를 속성에 저장
+            Emit(OpCode.STORE_ATTR, nameIndex, node.Line);
+        }
+
+        private void CompileIndex(IndexNode node)
+        {
+            // 객체 컴파일
+            CompileNode(node.Object);
+            
+            // 인덱스 컴파일
+            CompileNode(node.Index);
+            
+            // LOAD_INDEX 명령어 생성
+            Emit(OpCode.LOAD_INDEX, 0, node.Line);
+        }
+
+        private void CompileIndexAssignment(IndexAssignmentNode node)
+        {
+            // 객체 컴파일
+            CompileNode(node.Object);
+            
+            // 인덱스 컴파일
+            CompileNode(node.Index);
+            
+            // 값 컴파일
+            CompileNode(node.Value);
+            
+            // STORE_INDEX 명령어 생성
+            Emit(OpCode.STORE_INDEX, 0, node.Line);
+        }
+
+        private void CompileIndexCompoundAssignment(IndexCompoundAssignmentNode node)
+        {
+            // 객체와 인덱스를 복제
+            CompileNode(node.Object);
+            CompileNode(node.Index);
+            
+            // 스택: [obj, index]
+            // 복제를 위해 두 번째 세트 생성
+            Emit(OpCode.DUP_TOP_TWO); // 새로운 opcode 필요
+            
+            // 현재 값 로드
+            Emit(OpCode.LOAD_INDEX);
+            
+            // 새 값 컴파일
+            CompileNode(node.Value);
+            
+            // 연산 수행
+            var opCode = node.Operator switch
+            {
+                "+=" => OpCode.BINARY_ADD,
+                "-=" => OpCode.BINARY_SUBTRACT,
+                "*=" => OpCode.BINARY_MULTIPLY,
+                "/=" => OpCode.BINARY_DIVIDE,
+                "%=" => OpCode.BINARY_MODULO,
+                "**=" => OpCode.BINARY_POWER,
+                _ => throw new PythonException("CompileError", $"Unknown compound operator: {node.Operator}")
+            };
+            
+            Emit(opCode);
+            
+            // 결과 저장
+            Emit(OpCode.STORE_INDEX, 0, node.Line);
+        }
+
+        private void CompileSlice(SliceNode node)
+        {
+            // 객체 컴파일
+            CompileNode(node.Object);
+            
+            // 슬라이스 인덱스들 컴파일
+            if (node.Start != null)
+                CompileNode(node.Start);
+            else
+                EmitLoadConst(PythonNone.Instance);
+                
+            if (node.Stop != null)
+                CompileNode(node.Stop);
+            else
+                EmitLoadConst(PythonNone.Instance);
+                
+            if (node.Step != null)
+                CompileNode(node.Step);
+            else
+                EmitLoadConst(PythonNone.Instance);
+            
+            // BUILD_SLICE opcode 생성
+            Emit(OpCode.BUILD_SLICE, 3, node.Line);
+            
+            // 슬라이스 적용
+            Emit(OpCode.LOAD_INDEX, 0, node.Line);
         }
     }
 }

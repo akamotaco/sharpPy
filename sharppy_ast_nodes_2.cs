@@ -47,10 +47,10 @@ namespace SharpPy
     {
         public ASTNode Function { get; }
         public List<ASTNode> Arguments { get; }
-        public Dictionary<string, ASTNode> KeywordArguments { get; }  // 추가
+        public Dictionary<string, ASTNode> KeywordArguments { get; }
 
         public FunctionCallNode(ASTNode function, List<ASTNode> arguments,
-                              Dictionary<string, ASTNode> kwArgs = null,  // 추가
+                              Dictionary<string, ASTNode> kwArgs = null,
                               int line = 0, int column = 0) : base(line, column)
         {
             Function = function;
@@ -78,11 +78,14 @@ namespace SharpPy
                 {
                     UserFunction userFunc => userFunc.CallWithKeywords(args, kwargs),
                     LambdaFunction lambdaFunc => lambdaFunc.CallWithKeywords(args, kwargs),
+                    BytecodeFunctionWithDefaults bytecodeWithDefaults => bytecodeWithDefaults.CallWithKeywords(args, kwargs),
+                    BytecodeFunction bytecodeFunc => bytecodeFunc.CallWithKeywords(args, kwargs),
                     BuiltinFunction builtinFunc when builtinFunc.NeedsEnvironment =>
                         builtinFunc.CallWithEnv(env, args),
                     BuiltinFunction builtinFunc => builtinFunc.Call(args),
                     BoundMethod boundMethod => boundMethod.CallWithKeywords(args, kwargs),
                     PythonClass pythonClass => pythonClass.CreateInstance(args),
+                    Function func => func.Call(args),  // Generic Function fallback
                     _ => throw CreateException("TypeError", $"'{function?.Type}' object is not callable")
                 };
             }
