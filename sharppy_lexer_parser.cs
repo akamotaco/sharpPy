@@ -61,7 +61,7 @@ namespace SharpPy
             "def", "class", "if", "else", "elif", "for", "while", "in", "is",
             "break", "continue", "try", "except", "finally", "raise", "import",
             "from", "as", "return", "and", "or", "not", "lambda", "with", "del", 
-            "pass", "global", "nonlocal", "assert",
+            "pass", "global", "nonlocal", "yield", "assert", "async", "await",
             "match", "case"
         };
 
@@ -1342,7 +1342,20 @@ namespace SharpPy
         private void HandleBlockEnd()
         {
             if (currentToken.Type == TokenType.DEDENT)
-                Advance();      // <-- 직접 소비
+            {
+                if (position + 1 < tokenCount)
+                {
+                    var nextToken = tokens[position + 1];
+                    if (!ContinuationTokens.Contains(nextToken.Type))
+                    {
+                        Advance();
+                    }
+                }
+                else
+                {
+                    Advance();
+                }
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
