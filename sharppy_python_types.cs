@@ -330,6 +330,134 @@ namespace SharpPy
         }
     }
 
+    public sealed class PythonSet : PythonTypeObject
+    {
+        // 비어있는 세트 객체를 위한 정적 인스턴스
+        private static readonly PythonSet EmptySet = new PythonSet();
+        // 세트의 내장 메서드를 관리하는 정적 레지스트리
+        private static Dictionary<string, Func<PythonSet, List<PythonTypeObject>, PythonTypeObject>> methodRegistry;
+        
+        // 세트의 요소를 저장하는 HashSet. 중복을 자동으로 처리합니다.
+        public HashSet<PythonTypeObject> Elements { get; }
+        
+        // 정적 생성자: 클래스가 처음 로드될 때 메서드 레지스트리를 초기화합니다.
+        static PythonSet()
+        {
+            InitializeMethodRegistry();
+        }
+        
+        // 세트의 내장 메서드를 정의하고 등록합니다.
+        private static void InitializeMethodRegistry()
+        {
+            methodRegistry = new Dictionary<string, Func<PythonSet, List<PythonTypeObject>, PythonTypeObject>>
+            {
+                ["add"] = (self, args) => {
+                    if (args.Count != 1) throw new PythonException("TypeError", "add() takes exactly one argument");
+                    self.Elements.Add(args[0]);
+                    return PythonNone.Instance;
+                },
+                ["remove"] = (self, args) => {
+                    if (args.Count != 1) throw new PythonException("TypeError", "remove() takes exactly one argument");
+                    if (!self.Elements.Remove(args[0]))
+                        throw new PythonException("KeyError", $"{args[0].ToPythonString()}");
+                    return PythonNone.Instance;
+                },
+                ["discard"] = (self, args) => {
+                    if (args.Count != 1) throw new PythonException("TypeError", "discard() takes exactly one argument");
+                    self.Elements.Remove(args[0]);
+                    return PythonNone.Instance;
+                },
+                ["pop"] = (self, args) => {
+                    if (args.Count != 0) throw new PythonException("TypeError", "pop() takes no arguments");
+                    if (self.Elements.Count == 0) throw new PythonException("KeyError", "pop from an empty set");
+                    var item = self.Elements.First();
+                    self.Elements.Remove(item);
+                    return item;
+                },
+                ["clear"] = (self, args) => {
+                    if (args.Count != 0) throw new PythonException("TypeError", "clear() takes no arguments");
+                    self.Elements.Clear();
+                    return PythonNone.Instance;
+                }
+            };
+        }
+        
+        // 기본 생성자
+        public PythonSet()
+        {
+            Elements = new HashSet<PythonTypeObject>();
+        }
+        
+        // 다른 컬렉션으로부터 세트를 생성하는 생성자
+        public PythonSet(IEnumerable<PythonTypeObject> collection)
+        {
+            Elements = new HashSet<PythonTypeObject>(collection);
+        }
+        
+        public static PythonSet Empty => EmptySet;
+        
+        public override PythonType Type => PythonType.Set;
+        public override bool IsTrue() => Elements.Count > 0;
+        // 세트는 순서가 없는 자료구조이므로 IsSequence는 false를 반환합니다.
+        public override bool IsSequence() => false;
+        public override object GetRawValue() => this;
+        
+        // 세트를 파이썬 문자열 형식으로 변환합니다. 예: {1, 'a', 3} 또는 set()
+        public override string ToPythonString()
+        {
+            if (Elements.Count == 0) return "set()";
+            return "{" + string.Join(", ", Elements.Select(FormatItem)) + "}";
+        }
+        
+        // 두 세트가 동일한지 비교합니다. 순서에 상관없이 요소가 모두 같으면 true를 반환합니다.
+        public override bool Equals(PythonTypeObject other)
+        {
+            if (!(other is PythonSet ps)) return false;
+            return Elements.SetEquals(ps.Elements);
+        }
+        
+        // 세트의 해시코드를 계산합니다. 순서에 무관하도록 모든 요소의 해시코드를 XOR 연산합니다.
+        public override int GetHashCode()
+        {
+            int hash = 0;
+            foreach (var item in Elements)
+            {
+                hash ^= item.GetHashCode();
+            }
+            return hash;
+        }
+
+        // 이름에 해당하는 내장 메서드를 찾아 반환합니다.
+        public override BuiltinFunction GetMethod(string name)
+        {
+            if (methodRegistry.TryGetValue(name, out var method))
+            {
+                return new BuiltinFunction(name, args => method(this, args));
+            }
+            throw new PythonException("AttributeError", $"'set' object has no attribute '{name}'");
+        }
+        
+        // 사용 가능한 모든 내장 메서드의 이름을 반환합니다.
+        public override List<string> GetMethodNames()
+        {
+            return methodRegistry.Keys.OrderBy(k => k).ToList();
+        }
+        
+        // SetNode에서 세트를 구성할 때 사용하는 외부용 Add 메서드
+        public void Add(PythonTypeObject item)
+        {
+            Elements.Add(item);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static string FormatItem(PythonTypeObject item) => item switch
+        {
+            PythonString s => $"'{s.Value}'",
+            PythonNone => "None",
+            _ => item.ToPythonString()
+        };
+    }
+
     // Optimized Python Dictionary
     public sealed class PythonDict : PythonTypeObject
     {
@@ -345,28 +473,28 @@ namespace SharpPy
         {
             Items = new Dictionary<PythonTypeObject, PythonTypeObject>();
         }
-        
+
         public PythonDict(int capacity)
         {
             Items = new Dictionary<PythonTypeObject, PythonTypeObject>(capacity);
         }
-        
+
         public override PythonType Type => PythonType.Dict;
         public override bool IsTrue() => Items.Count > 0;
         public override object GetRawValue() => this;
-        
+
         public override string ToPythonString()
         {
             if (Items.Count == 0) return "{}";
             var pairs = Items.Select(kvp => $"{FormatItem(kvp.Key)}: {FormatItem(kvp.Value)}");
             return "{" + string.Join(", ", pairs) + "}";
         }
-        
+
         public override bool Equals(PythonTypeObject other)
         {
             if (!(other is PythonDict pd) || Items.Count != pd.Items.Count)
                 return false;
-            
+
             foreach (var kvp in Items)
             {
                 bool found = false;
@@ -384,21 +512,22 @@ namespace SharpPy
             }
             return true;
         }
-        
-        public override int GetHashCode() => 
+
+        public override int GetHashCode() =>
             throw new PythonException("TypeError", "unhashable type: 'dict'");
 
-        
+
         private static void InitializeMethodRegistry()
         {
             methodRegistry = new Dictionary<string, Func<PythonDict, List<PythonTypeObject>, PythonTypeObject>>
             {
-                ["get"] = (self, args) => {
-                    if (args.Count < 1 || args.Count > 2) 
+                ["get"] = (self, args) =>
+                {
+                    if (args.Count < 1 || args.Count > 2)
                         throw new PythonException("TypeError", "get() takes 1 or 2 arguments");
                     var key = args[0];
                     var defaultValue = args.Count == 2 ? args[1] : PythonNone.Instance;
-                    
+
                     foreach (var kvp in self.Items)
                     {
                         if (kvp.Key.Equals(key))
@@ -406,19 +535,22 @@ namespace SharpPy
                     }
                     return defaultValue;
                 },
-                ["keys"] = (self, args) => {
+                ["keys"] = (self, args) =>
+                {
                     if (args.Count != 0) throw new PythonException("TypeError", "keys() takes no arguments");
                     var list = new PythonList(self.Items.Count);
                     list.Items.AddRange(self.Items.Keys);
                     return list;
                 },
-                ["values"] = (self, args) => {
+                ["values"] = (self, args) =>
+                {
                     if (args.Count != 0) throw new PythonException("TypeError", "values() takes no arguments");
                     var list = new PythonList(self.Items.Count);
                     list.Items.AddRange(self.Items.Values);
                     return list;
                 },
-                ["items"] = (self, args) => {
+                ["items"] = (self, args) =>
+                {
                     if (args.Count != 0) throw new PythonException("TypeError", "items() takes no arguments");
                     var list = new PythonList(self.Items.Count);
                     foreach (var kvp in self.Items)
@@ -430,8 +562,9 @@ namespace SharpPy
                     }
                     return list;
                 },
-                ["pop"] = (self, args) => {
-                    if (args.Count < 1 || args.Count > 2) 
+                ["pop"] = (self, args) =>
+                {
+                    if (args.Count < 1 || args.Count > 2)
                         throw new PythonException("TypeError", "pop() takes 1 or 2 arguments");
                     var key = args[0];
                     foreach (var kvp in self.Items)
@@ -445,12 +578,14 @@ namespace SharpPy
                     if (args.Count == 2) return args[1];
                     throw new PythonException("KeyError", $"KeyError: {key}");
                 },
-                ["clear"] = (self, args) => {
+                ["clear"] = (self, args) =>
+                {
                     if (args.Count != 0) throw new PythonException("TypeError", "clear() takes no arguments");
                     self.Items.Clear();
                     return PythonNone.Instance;
                 },
-                ["update"] = (self, args) => {
+                ["update"] = (self, args) =>
+                {
                     if (args.Count != 1) throw new PythonException("TypeError", "update() takes exactly one argument");
                     if (!(args[0] is PythonDict other))
                         throw new PythonException("TypeError", "update() argument must be a dict");
@@ -458,19 +593,21 @@ namespace SharpPy
                         self.Items[kvp.Key] = kvp.Value;
                     return PythonNone.Instance;
                 },
-                ["copy"] = (self, args) => {
+                ["copy"] = (self, args) =>
+                {
                     if (args.Count != 0) throw new PythonException("TypeError", "copy() takes no arguments");
                     var newDict = new PythonDict(self.Items.Count);
                     foreach (var kvp in self.Items)
                         newDict.Items[kvp.Key] = kvp.Value;
                     return newDict;
                 },
-                ["setdefault"] = (self, args) => {
+                ["setdefault"] = (self, args) =>
+                {
                     if (args.Count < 1 || args.Count > 2)
                         throw new PythonException("TypeError", "setdefault() takes 1 or 2 arguments");
                     var key = args[0];
                     var defaultValue = args.Count == 2 ? args[1] : PythonNone.Instance;
-                    
+
                     foreach (var kvp in self.Items)
                     {
                         if (kvp.Key.Equals(key))
@@ -490,7 +627,7 @@ namespace SharpPy
             }
             throw new PythonException("AttributeError", $"'dict' object has no attribute '{name}'");
         }
-        
+
         public override List<string> GetMethodNames()
         {
             return methodRegistry.Keys.OrderBy(k => k).ToList();
@@ -503,7 +640,7 @@ namespace SharpPy
             PythonNone => "None",
             _ => item.ToPythonString()
         };
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public PythonTypeObject GetItem(PythonTypeObject key)
         {
@@ -514,13 +651,13 @@ namespace SharpPy
             }
             throw new PythonException("KeyError", $"KeyError: {key}");
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetItem(PythonTypeObject key, PythonTypeObject value)
         {
             Items[key] = value;
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool ContainsKey(PythonTypeObject key) => Items.ContainsKey(key);
     }

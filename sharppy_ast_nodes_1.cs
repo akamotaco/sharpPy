@@ -149,6 +149,48 @@ namespace SharpPy
         }
     }
 
+    public sealed class SetNode : ASTNode
+    {
+        // 세트(set)에 포함될 요소들의 AST 노드 리스트입니다.
+        public List<ASTNode> Elements { get; }
+
+        // 생성자
+        public SetNode(List<ASTNode> elements, int line = 0, int column = 0) : base(line, column)
+            => Elements = elements;
+
+        // 런타임에 SetNode를 평가하여 PythonSet 객체를 생성합니다.
+        public override PythonTypeObject Evaluate(Environment env)
+        {
+            try
+            {
+                // 런타임에 사용될 PythonSet 객체를 생성합니다.
+                // PythonSet 클래스가 내장 해시 메커니즘을 통해 중복을 처리할 것입니다.
+                var set = new PythonSet();
+
+                foreach (var element in Elements)
+                {
+                    // 각 요소 노드를 평가하여 실제 파이썬 객체로 만듭니다.
+                    var item = element.Evaluate(env);
+
+                    // 평가된 객체를 세트에 추가합니다.
+                    set.Add(item);
+                }
+
+                return set;
+            }
+            catch (PythonException)
+            {
+                // 이미 처리된 파이썬 예외는 그대로 다시 던집니다.
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // 그 외의 예외는 RuntimeError로 래핑하여 던집니다.
+                throw CreateException("RuntimeError", $"Internal error creating set: {ex.Message}");
+            }
+        }
+    }
+    
     public sealed class DictNode : ASTNode
     {
         public List<(ASTNode Key, ASTNode Value)> Pairs { get; }

@@ -7,27 +7,10 @@ using System.Runtime.CompilerServices;
 
 namespace SharpPy
 {
-    // Core Enums
-    public enum TokenType : byte // Changed to byte for memory optimization
-    {
-        // Literals
-        NUMBER, STRING, BOOLEAN, NONE, IDENTIFIER, FSTRING,
-        // Keywords
-        DEF, CLASS, IF, ELSE, ELIF, FOR, WHILE, IN, IS, BREAK, CONTINUE,
-        TRY, EXCEPT, FINALLY, RAISE, IMPORT, FROM, AS, RETURN, AND, OR, NOT, LAMBDA,
-        WITH, DEL,
-        // Operators
-        OPERATOR, ASSIGN, COMPOUND_ASSIGN,
-        // Delimiters
-        LPAREN, RPAREN, LBRACKET, RBRACKET, LBRACE, RBRACE, COLON, COMMA, DOT,
-        // Special
-        NEWLINE, EOF, INDENT, DEDENT, PASS,
-        GLOBAL, NONLOCAL,  // 추가
-    }
-
+    
     public enum PythonType : byte // Changed to byte for memory optimization
     {
-        Int, Float, String, Boolean, None, List, Dict, Tuple, Function, Class, Instance, Module, Environment
+        Int, Float, String, Boolean, None, List, Dict, Tuple, Set, Function, Class, Instance, Module, Environment
     }
 
     // Base class for all Python objects
@@ -811,25 +794,6 @@ namespace SharpPy
         }
 
         public bool HasDefault => DefaultValue != null;
-    }
-
-    // Enhanced Token Class
-    public sealed class Token
-    {
-        public TokenType Type { get; }
-        public string Value { get; }
-        public int Line { get; }
-        public int Column { get; }
-
-        public Token(TokenType type, string value, int line = 1, int column = 1)
-        {
-            Type = type;
-            Value = value;
-            Line = line;
-            Column = column;
-        }
-
-        public override string ToString() => $"Token({Type}, {Value}) at {Line}:{Column}";
     }
 
     // Optimized Helper class for number operations
