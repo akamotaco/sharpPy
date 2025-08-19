@@ -537,46 +537,29 @@ namespace SharpPy
 
             int normalArgCount = 0;
             int defaultCount = 0;
-            bool hasVarArgs = false;
-            bool hasKwArgs = false;
-            string varArgsName = null;
-            string kwArgsName = null;
-            var paramNamesWithDefaults = new List<string>();
+            var defaultValues = new List<ASTNode>();  // 기본값 AST 노드 저장
 
-            // 파라미터 처리 - 순서 중요!
-            // 1. 먼저 일반 파라미터들 처리
+            // 파라미터 처리
             foreach (var param in node.Parameters)
             {
                 if (param.Kind == ParameterKind.Normal)
                 {
                     normalArgCount++;
                     funcCompiler.AddVarName(param.Name);
-                    // Names 리스트에도 추가 (LOAD_NAME을 위해)
                     funcCompiler.GetNameIndex(param.Name);
 
                     if (param.DefaultValue != null)
                     {
-                        paramNamesWithDefaults.Add(param.Name);
+                        defaultValues.Add(param.DefaultValue);  // AST 노드 저장
                         defaultCount++;
                     }
                 }
-            }
-
-            // 2. 그 다음 *args와 **kwargs 처리
-            foreach (var param in node.Parameters)
-            {
-                if (param.Kind == ParameterKind.VarArgs)
+                else if (param.Kind == ParameterKind.VarArgs)
                 {
-                    hasVarArgs = true;
-                    varArgsName = param.Name;
-                    // VarNames에 추가하지 않고, Names에만 추가
                     funcCompiler.GetNameIndex(param.Name);
                 }
                 else if (param.Kind == ParameterKind.KwArgs)
                 {
-                    hasKwArgs = true;
-                    kwArgsName = param.Name;
-                    // VarNames에 추가하지 않고, Names에만 추가
                     funcCompiler.GetNameIndex(param.Name);
                 }
             }
@@ -599,22 +582,19 @@ namespace SharpPy
                 funcCompiler.constants,
                 funcCompiler.names,
                 funcCompiler.varNames,
-                normalArgCount,  // *args와 **kwargs는 포함하지 않음
+                normalArgCount,
                 0,
-                hasVarArgs,
-                hasKwArgs,
-                varArgsName,
-                kwArgsName,
-                paramNamesWithDefaults
+                node.Parameters.Any(p => p.Kind == ParameterKind.VarArgs),
+                node.Parameters.Any(p => p.Kind == ParameterKind.KwArgs),
+                node.Parameters.FirstOrDefault(p => p.Kind == ParameterKind.VarArgs)?.Name,
+                node.Parameters.FirstOrDefault(p => p.Kind == ParameterKind.KwArgs)?.Name,
+                node.Parameters.Where(p => p.DefaultValue != null).Select(p => p.Name).ToList()
             );
 
-            // 기본값들을 스택에 푸시
-            foreach (var param in node.Parameters)
+            // 기본값들을 스택에 푸시 (역순으로)
+            foreach (var defaultValue in defaultValues)
             {
-                if (param.Kind == ParameterKind.Normal && param.DefaultValue != null)
-                {
-                    CompileNode(param.DefaultValue);
-                }
+                CompileNode(defaultValue);  // 현재 환경에서 평가
             }
 
             EmitLoadConst(new PythonCodeObject(funcCode));
@@ -627,28 +607,23 @@ namespace SharpPy
 
         private void CompileMultipleAssignment(MultipleAssignmentNode node)
         {
+            // 값 평가
             CompileNode(node.Value);
 
-            // For now, use a simplified approach
-            // In a full implementation, we'd use UNPACK_SEQUENCE opcode
-            for (int i = 0; i < node.VariableNames.Count; i++)
-            {
-                if (i < node.VariableNames.Count - 1)
-                {
-                    Emit(OpCode.LOAD_CONST, GetConstantIndex(new PythonInt(i))); // Load index
-                    Emit(OpCode.LOAD_INDEX); // Custom opcode for indexing
-                }
-                else
-                {
-                    // Last item, just use the value directly
-                    Emit(OpCode.LOAD_CONST, GetConstantIndex(new PythonInt(i)));
-                    Emit(OpCode.LOAD_INDEX);
-                }
+            // UNPACK_SEQUENCE 사용
+            Emit(OpCode.UNPACK_SEQUENCE, node.VariableNames.Count, node.Line);
 
-                if (node.VariableNames[i] != "_") // Skip underscore variables
+            // 각 변수에 할당 (역순으로 - 스택이기 때문)
+            for (int i = node.VariableNames.Count - 1; i >= 0; i--)
+            {
+                if (node.VariableNames[i] != "_")  // underscore는 무시
+                {
                     EmitStoreName(node.VariableNames[i]);
+                }
                 else
-                    Emit(OpCode.POP_TOP); // Discard underscore values
+                {
+                    Emit(OpCode.POP_TOP);  // 값 버리기
+                }
             }
         }
 
@@ -718,17 +693,19 @@ namespace SharpPy
         // NEW METHODS for new features
         private void CompileFString(FStringNode node)
         {
-            // Build the f-string at runtime
-            EmitLoadConst(new PythonString(""));  // Start with empty string
+            // 빈 문자열로 시작
+            EmitLoadConst(new PythonString(""));
 
             foreach (var (text, expr) in node.Parts)
             {
                 if (expr != null)
                 {
-                    // 중요: 함수를 먼저 로드하고, 그 다음에 인자를 평가!
-                    EmitLoadName("str");         // Stack: [str]
-                    CompileNode(expr);           // Stack: [str, 10]
-                    Emit(OpCode.CALL_FUNCTION, 1); // str(10) 호출
+                    // 표현식 평가
+                    CompileNode(expr);
+
+                    // 문자열로 변환하는 내장 opcode 추가 필요
+                    // 또는 ToPythonString을 호출하는 특별한 opcode
+                    Emit(OpCode.FORMAT_VALUE, 0, node.Line); // 새로운 opcode 필요
                 }
                 else if (!string.IsNullOrEmpty(text))
                 {
@@ -739,52 +716,64 @@ namespace SharpPy
                     continue;
                 }
 
-                // Concatenate with previous string
+                // 이전 문자열과 연결
                 Emit(OpCode.BINARY_ADD);
             }
         }
 
         private void CompileListComprehension(ListComprehensionNode node)
         {
-            // Create empty list
-            Emit(OpCode.BUILD_LIST, 0);
+            // 빈 리스트 생성
+            Emit(OpCode.BUILD_LIST, 0, node.Line);
 
-            // Compile iterable
+            // iterable 컴파일
             CompileNode(node.Iterable);
             Emit(OpCode.GET_ITER);
 
             var loopStart = instructions.Count;
-            Emit(OpCode.FOR_ITER, 0); // Will be patched with exit address
+            var forIterIndex = instructions.Count;
+            Emit(OpCode.FOR_ITER, 0); // 나중에 패치
 
-            // Store iterator value in loop variable
+            // 루프 변수에 저장
             EmitStoreName(node.Variable);
 
-            // Check condition if exists
+            // 조건 체크 (있는 경우)
+            int? jumpIfFalseIndex = null;
             if (node.Condition != null)
             {
                 CompileNode(node.Condition);
-                var skipLabel = instructions.Count + 1;
-                Emit(OpCode.JUMP_IF_FALSE, skipLabel); // Will be patched
-
-                // Evaluate expression and append to list
-                CompileNode(node.Expression);
-                // Note: In real implementation, we'd need a way to append to the list
-                // For now, this is simplified
-
-                // Patch skip jump
-                instructions[skipLabel - 1] = new Instruction(OpCode.JUMP_IF_FALSE, instructions.Count);
+                jumpIfFalseIndex = instructions.Count;
+                Emit(OpCode.JUMP_IF_FALSE, 0); // 나중에 패치
             }
-            else
+
+            // 리스트 복사 (append를 위해)
+            Emit(OpCode.DUP_TOP);
+
+            // 표현식 평가
+            CompileNode(node.Expression);
+
+            // 리스트에 추가 (새로운 opcode 필요)
+            Emit(OpCode.LIST_APPEND, 1, node.Line);
+
+            // 조건이 false인 경우 여기로 점프
+            if (jumpIfFalseIndex.HasValue)
             {
-                // Evaluate expression and append to list
-                CompileNode(node.Expression);
-                // Simplified - in real implementation would append to list
+                instructions[jumpIfFalseIndex.Value] = new Instruction(
+                    OpCode.JUMP_IF_FALSE,
+                    instructions.Count,
+                    node.Line
+                );
             }
 
-            Emit(OpCode.JUMP_ABSOLUTE, loopStart);
+            // 루프 시작으로 점프
+            Emit(OpCode.JUMP_ABSOLUTE, loopStart, node.Line);
 
-            // Patch FOR_ITER to jump here when done
-            instructions[loopStart] = new Instruction(OpCode.FOR_ITER, instructions.Count);
+            // FOR_ITER 패치 - 루프 종료 시 여기로
+            instructions[forIterIndex] = new Instruction(
+                OpCode.FOR_ITER,
+                instructions.Count,
+                node.Line
+            );
         }
 
         private void CompileCompoundAssignment(CompoundAssignmentNode node)

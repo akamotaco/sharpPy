@@ -81,6 +81,8 @@ namespace SharpPy
         // Import operations
         IMPORT_NAME = 90,
         IMPORT_FROM = 91,
+        FORMAT_VALUE = 95,  // F-string formatting
+        LIST_APPEND = 96,  // List comprehension append
 
         // Special
         NOP = 255           // No operation
@@ -348,12 +350,14 @@ namespace SharpPy
                             break;
 
                         case OpCode.UNARY_NEGATIVE:
-                            var val = stack.Pop();
-                            if (NumberHelper.IsNumber(val))
-                                stack.Push(NumberHelper.Negate(val));
-                            else
-                                throw new PythonException("TypeError", "Cannot negate non-number");
-                            break;
+                            {
+                                var val = stack.Pop();
+                                if (NumberHelper.IsNumber(val))
+                                    stack.Push(NumberHelper.Negate(val));
+                                else
+                                    throw new PythonException("TypeError", "Cannot negate non-number");
+                                break;
+                            }
 
                         case OpCode.UNARY_NOT:
                             stack.Push(new PythonBool(!stack.Pop().IsTrue()));
@@ -412,6 +416,24 @@ namespace SharpPy
 
                         case OpCode.CALL_FUNCTION_KW:
                             ExecuteFunctionCallWithKeywords(arg);
+                            break;
+
+                        case OpCode.FORMAT_VALUE:
+                            {
+                                var val = currentFrame.Stack.Pop();
+                                var formatted = val.ToPythonString();
+                                currentFrame.Stack.Push(new PythonString(formatted));
+                                break;
+                            }
+                        
+                        case OpCode.LIST_APPEND:
+                            {
+                                var val = currentFrame.Stack.Pop();
+                                var list = currentFrame.Stack.Peek() as PythonList;  // Peek, don't pop
+                                if (list == null)
+                                    throw new PythonException("TypeError", "LIST_APPEND expects list");
+                                list.Items.Add(val);
+                            }
                             break;
 
                         case OpCode.BUILD_MAP:
@@ -655,7 +677,54 @@ namespace SharpPy
 
         private void ExecuteFunctionCallWithKeywords(int argCount)
         {
-            ExecuteFunctionCall(argCount, true);
+            // 스택에서 키워드 인자 딕셔너리 가져오기
+            var kwDictObj = currentFrame.Stack.Pop();
+            var kwargs = new Dictionary<string, PythonTypeObject>();
+
+            if (kwDictObj is PythonDict kwDict)
+            {
+                foreach (var kvp in kwDict.Items)
+                {
+                    if (kvp.Key is PythonString key)
+                    {
+                        kwargs[key.Value] = kvp.Value;
+                    }
+                    else
+                    {
+                        throw new PythonException("TypeError",
+                            "keywords must be strings");
+                    }
+                }
+            }
+
+            // 위치 인자 가져오기
+            var args = new List<PythonTypeObject>();
+            for (int i = 0; i < argCount; i++)
+            {
+                args.Insert(0, currentFrame.Stack.Pop());
+            }
+
+            // 함수 객체 가져오기
+            var function = currentFrame.Stack.Pop();
+
+            PythonTypeObject result = function switch
+            {
+                UserFunction userFunc => userFunc.CallWithKeywords(args, kwargs),
+                LambdaFunction lambdaFunc => lambdaFunc.CallWithKeywords(args, kwargs),
+                BytecodeFunctionWithDefaults bytecodeWithDefaults => bytecodeWithDefaults.CallWithKeywords(args, kwargs),
+                BytecodeFunction bytecodeFunc => bytecodeFunc.CallWithKeywords(args, kwargs),
+                BoundMethod boundMethod => boundMethod.CallWithKeywords(args, kwargs),
+                BuiltinFunction builtinFunc when kwargs.Count == 0 => builtinFunc.Call(args),
+                BuiltinFunction _ => throw new PythonException("TypeError",
+                    "builtin functions do not support keyword arguments"),
+                PythonClass pythonClass when kwargs.Count == 0 => pythonClass.CreateInstance(args),
+                PythonClass _ => throw new PythonException("TypeError",
+                    "class instantiation does not support keyword arguments yet"),
+                _ => throw new PythonException("TypeError",
+                    $"'{function?.Type}' object is not callable")
+            };
+
+            currentFrame.Stack.Push(result);
         }
 
         private void ExecuteBuildMap(int count)
@@ -881,9 +950,9 @@ namespace SharpPy
             }
 
             // 스택에 역순으로 푸시 (왼쪽부터 오른쪽 순서로)
-            foreach (var item in items)
+            for (int i = items.Count - 1; i >= 0; i--)
             {
-                currentFrame.Stack.Push(item);
+                currentFrame.Stack.Push(items[i]);
             }
         }
 
