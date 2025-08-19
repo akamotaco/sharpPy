@@ -330,134 +330,6 @@ namespace SharpPy
         }
     }
 
-    public sealed class PythonSet : PythonTypeObject
-    {
-        // 비어있는 세트 객체를 위한 정적 인스턴스
-        private static readonly PythonSet EmptySet = new PythonSet();
-        // 세트의 내장 메서드를 관리하는 정적 레지스트리
-        private static Dictionary<string, Func<PythonSet, List<PythonTypeObject>, PythonTypeObject>> methodRegistry;
-        
-        // 세트의 요소를 저장하는 HashSet. 중복을 자동으로 처리합니다.
-        public HashSet<PythonTypeObject> Elements { get; }
-        
-        // 정적 생성자: 클래스가 처음 로드될 때 메서드 레지스트리를 초기화합니다.
-        static PythonSet()
-        {
-            InitializeMethodRegistry();
-        }
-        
-        // 세트의 내장 메서드를 정의하고 등록합니다.
-        private static void InitializeMethodRegistry()
-        {
-            methodRegistry = new Dictionary<string, Func<PythonSet, List<PythonTypeObject>, PythonTypeObject>>
-            {
-                ["add"] = (self, args) => {
-                    if (args.Count != 1) throw new PythonException("TypeError", "add() takes exactly one argument");
-                    self.Elements.Add(args[0]);
-                    return PythonNone.Instance;
-                },
-                ["remove"] = (self, args) => {
-                    if (args.Count != 1) throw new PythonException("TypeError", "remove() takes exactly one argument");
-                    if (!self.Elements.Remove(args[0]))
-                        throw new PythonException("KeyError", $"{args[0].ToPythonString()}");
-                    return PythonNone.Instance;
-                },
-                ["discard"] = (self, args) => {
-                    if (args.Count != 1) throw new PythonException("TypeError", "discard() takes exactly one argument");
-                    self.Elements.Remove(args[0]);
-                    return PythonNone.Instance;
-                },
-                ["pop"] = (self, args) => {
-                    if (args.Count != 0) throw new PythonException("TypeError", "pop() takes no arguments");
-                    if (self.Elements.Count == 0) throw new PythonException("KeyError", "pop from an empty set");
-                    var item = self.Elements.First();
-                    self.Elements.Remove(item);
-                    return item;
-                },
-                ["clear"] = (self, args) => {
-                    if (args.Count != 0) throw new PythonException("TypeError", "clear() takes no arguments");
-                    self.Elements.Clear();
-                    return PythonNone.Instance;
-                }
-            };
-        }
-        
-        // 기본 생성자
-        public PythonSet()
-        {
-            Elements = new HashSet<PythonTypeObject>();
-        }
-        
-        // 다른 컬렉션으로부터 세트를 생성하는 생성자
-        public PythonSet(IEnumerable<PythonTypeObject> collection)
-        {
-            Elements = new HashSet<PythonTypeObject>(collection);
-        }
-        
-        public static PythonSet Empty => EmptySet;
-        
-        public override PythonType Type => PythonType.Set;
-        public override bool IsTrue() => Elements.Count > 0;
-        // 세트는 순서가 없는 자료구조이므로 IsSequence는 false를 반환합니다.
-        public override bool IsSequence() => false;
-        public override object GetRawValue() => this;
-        
-        // 세트를 파이썬 문자열 형식으로 변환합니다. 예: {1, 'a', 3} 또는 set()
-        public override string ToPythonString()
-        {
-            if (Elements.Count == 0) return "set()";
-            return "{" + string.Join(", ", Elements.Select(FormatItem)) + "}";
-        }
-        
-        // 두 세트가 동일한지 비교합니다. 순서에 상관없이 요소가 모두 같으면 true를 반환합니다.
-        public override bool Equals(PythonTypeObject other)
-        {
-            if (!(other is PythonSet ps)) return false;
-            return Elements.SetEquals(ps.Elements);
-        }
-        
-        // 세트의 해시코드를 계산합니다. 순서에 무관하도록 모든 요소의 해시코드를 XOR 연산합니다.
-        public override int GetHashCode()
-        {
-            int hash = 0;
-            foreach (var item in Elements)
-            {
-                hash ^= item.GetHashCode();
-            }
-            return hash;
-        }
-
-        // 이름에 해당하는 내장 메서드를 찾아 반환합니다.
-        public override BuiltinFunction GetMethod(string name)
-        {
-            if (methodRegistry.TryGetValue(name, out var method))
-            {
-                return new BuiltinFunction(name, args => method(this, args));
-            }
-            throw new PythonException("AttributeError", $"'set' object has no attribute '{name}'");
-        }
-        
-        // 사용 가능한 모든 내장 메서드의 이름을 반환합니다.
-        public override List<string> GetMethodNames()
-        {
-            return methodRegistry.Keys.OrderBy(k => k).ToList();
-        }
-        
-        // SetNode에서 세트를 구성할 때 사용하는 외부용 Add 메서드
-        public void Add(PythonTypeObject item)
-        {
-            Elements.Add(item);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static string FormatItem(PythonTypeObject item) => item switch
-        {
-            PythonString s => $"'{s.Value}'",
-            PythonNone => "None",
-            _ => item.ToPythonString()
-        };
-    }
-
     // Optimized Python Dictionary
     public sealed class PythonDict : PythonTypeObject
     {
@@ -782,22 +654,22 @@ namespace SharpPy
 
             // 3. 기본값 처리
             for (int i = 0; i < normalParams.Count; i++)
-            {
-                var param = normalParams[i];
-                
-                if (!funcEnv.HasLocalVariable(param.Name))
                 {
-                    if (param.HasDefault && i < evaluatedDefaults.Count && evaluatedDefaults[i] != null)
+                    var param = normalParams[i];
+
+                    if (!funcEnv.HasLocalVariable(param.Name))
                     {
-                        funcEnv.SetVariable(param.Name, evaluatedDefaults[i]);
-                    }
-                    else
-                    {
-                        throw new PythonException("TypeError", 
-                            $"{Name}() missing required positional argument: '{param.Name}'");
+                        if (param.HasDefault && i < evaluatedDefaults.Count && evaluatedDefaults[i] != null)
+                        {
+                            funcEnv.SetVariable(param.Name, evaluatedDefaults[i]);
+                        }
+                        else
+                        {
+                            throw new PythonException("TypeError",
+                                $"{Name}() missing required positional argument: '{param.Name}'");
+                        }
                     }
                 }
-            }
 
             // 4. *args 처리
             if (varArgsParam != null)
@@ -1081,30 +953,58 @@ namespace SharpPy
             throw new PythonException("AttributeError", $"type object '{Name}' has no attribute '{name}'");
         }
 
-        public PythonInstance CreateInstance(List<PythonTypeObject> args = null)
+        public PythonInstance CreateInstance(List<PythonTypeObject> args)
+        {
+            return CreateInstanceWithKeywords(args, new Dictionary<string, PythonTypeObject>());
+        }
+
+        public PythonInstance CreateInstanceWithKeywords(List<PythonTypeObject> positionalArgs, 
+                                                     Dictionary<string, PythonTypeObject> keywordArgs)
         {
             var instance = new PythonInstance(this);
-
+            
+            // __init__ 메서드 찾기
             if (ClassEnv.HasVariable("__init__"))
             {
-                var initMethod = ClassEnv.GetVariable("__init__") as Function;
-                if (initMethod != null)
+                var initMethod = ClassEnv.GetVariable("__init__");
+                
+                // self를 첫 번째 인자로 추가
+                var argsWithSelf = new List<PythonTypeObject> { instance };
+                argsWithSelf.AddRange(positionalArgs);
+                
+                // __init__ 호출 시 keyword arguments도 전달
+                switch (initMethod)
                 {
-                    var initArgs = new List<PythonTypeObject>(1 + (args?.Count ?? 0)) { instance };
-                    if (args != null) initArgs.AddRange(args);
-
-                    // __init__의 반환값 확인
-                    var result = initMethod.Call(initArgs);
-
-                    // __init__이 self를 반환한 경우 그것을 사용, 
-                    // None을 반환한 경우 원래 instance 사용
-                    if (result is PythonInstance returnedInstance)
-                    {
-                        return returnedInstance;
-                    }
+                    case UserFunction userFunc:
+                        userFunc.CallWithKeywords(argsWithSelf, keywordArgs);
+                        break;
+                        
+                    case BytecodeFunctionWithDefaults bytecodeFunc:
+                        bytecodeFunc.CallWithKeywords(argsWithSelf, keywordArgs);
+                        break;
+                        
+                    case Function func:
+                        // 기본 Function 타입은 keyword를 지원하지 않으면 positional만 사용
+                        if (keywordArgs.Count > 0)
+                        {
+                            throw new PythonException("TypeError", 
+                                $"__init__() got unexpected keyword arguments");
+                        }
+                        func.Call(argsWithSelf);
+                        break;
+                        
+                    default:
+                        throw new PythonException("TypeError", 
+                            "__init__ must be a callable");
                 }
             }
-
+            else if (positionalArgs.Count > 0 || keywordArgs.Count > 0)
+            {
+                // __init__이 없는데 인자가 전달된 경우
+                throw new PythonException("TypeError", 
+                    $"{Name}() takes no arguments");
+            }
+            
             return instance;
         }
         

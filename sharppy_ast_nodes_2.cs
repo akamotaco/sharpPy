@@ -84,8 +84,8 @@ namespace SharpPy
                         builtinFunc.CallWithEnv(env, args),
                     BuiltinFunction builtinFunc => builtinFunc.Call(args),
                     BoundMethod boundMethod => boundMethod.CallWithKeywords(args, kwargs),
-                    PythonClass pythonClass => pythonClass.CreateInstance(args),
-                    Function func => func.Call(args),  // Generic Function fallback
+                    PythonClass pythonClass => pythonClass.CreateInstanceWithKeywords(args, kwargs), // 수정된 부분
+                    Function func => func.Call(args),
                     _ => throw CreateException("TypeError", $"'{function?.Type}' object is not callable")
                 };
             }

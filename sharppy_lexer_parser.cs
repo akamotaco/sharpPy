@@ -16,7 +16,7 @@ namespace SharpPy
         TRY, EXCEPT, FINALLY, RAISE, IMPORT, FROM, AS, RETURN, AND, OR, NOT, LAMBDA,
         WITH, DEL, PASS, GLOBAL, NONLOCAL,
         // Additional keywords (NEW)
-        YIELD, ASSERT, ASYNC, AWAIT, MATCH, CASE,
+        YIELD, ASSERT, MATCH, CASE,
         // Operators
         OPERATOR, ASSIGN, COMPOUND_ASSIGN, WALRUS, // Added WALRUS for :=
         // Delimiters
@@ -61,7 +61,7 @@ namespace SharpPy
             "def", "class", "if", "else", "elif", "for", "while", "in", "is",
             "break", "continue", "try", "except", "finally", "raise", "import",
             "from", "as", "return", "and", "or", "not", "lambda", "with", "del", 
-            "pass", "global", "nonlocal", "yield", "assert", "async", "await",
+            "pass", "global", "nonlocal", "assert",
             "match", "case"
         };
 
@@ -377,10 +377,13 @@ namespace SharpPy
             }
 
             // Add remaining DEDENT tokens
-            while (indentStack.Count > 1)
+            if (tokens.Count > 0 && tokens[^1].Type == TokenType.NEWLINE)
             {
-                indentStack.Pop();
-                tokens.Add(new Token(TokenType.DEDENT, "", line, column));
+                while (indentStack.Count > 1)
+                {
+                    indentStack.Pop();
+                    tokens.Add(new Token(TokenType.DEDENT, "", line, column));
+                }
             }
 
             tokens.Add(new Token(TokenType.EOF, "", line, column));
@@ -692,8 +695,6 @@ namespace SharpPy
             "nonlocal" => TokenType.NONLOCAL,
             "yield" => TokenType.YIELD,
             "assert" => TokenType.ASSERT,
-            "async" => TokenType.ASYNC,
-            "await" => TokenType.AWAIT,
             "match" => TokenType.MATCH,
             "case" => TokenType.CASE,
             _ => TokenType.IDENTIFIER
@@ -717,7 +718,7 @@ namespace SharpPy
             TokenType.RETURN, TokenType.BREAK, TokenType.CONTINUE, TokenType.RAISE,
             TokenType.IMPORT, TokenType.FROM, TokenType.NOT, TokenType.DEL,
             TokenType.PASS, TokenType.LAMBDA, TokenType.GLOBAL, TokenType.NONLOCAL,
-            TokenType.YIELD, TokenType.ASSERT, TokenType.ASYNC, TokenType.MATCH,
+            TokenType.YIELD, TokenType.ASSERT, TokenType.MATCH,
             TokenType.AT // For decorators
         };
 
@@ -832,10 +833,9 @@ namespace SharpPy
                 TokenType.PASS => ParsePass(),
                 TokenType.GLOBAL => ParseGlobal(),
                 TokenType.NONLOCAL => ParseNonlocal(),
-                // TokenType.YIELD => ParseYield(),
-                // TokenType.ASSERT => ParseAssert(),
-                // TokenType.ASYNC => ParseAsync(),
-                // TokenType.MATCH => ParseMatch(),
+                TokenType.YIELD => ParseYield(),
+                TokenType.ASSERT => ParseAssert(),
+                TokenType.MATCH => ParseMatch(),
                 _ => ParseExpressionStatement()
             };
         }
@@ -857,22 +857,22 @@ namespace SharpPy
             }
 
             // After decorators, must be class or function def
-            // if (currentToken.Type == TokenType.DEF)
-            // {
-            //     var funcDef = ParseFunctionDef();
-            //     if (funcDef is FunctionDefNode funcNode)
-            //     {
-            //         return new DecoratedFunctionNode(funcNode, decorators, funcNode.Line, funcNode.Column);
-            //     }
-            // }
-            // else if (currentToken.Type == TokenType.CLASS)
-            // {
-            //     var classDef = ParseClassDef();
-            //     if (classDef is ClassDefNode classNode)
-            //     {
-            //         return new DecoratedClassNode(classNode, decorators, classNode.Line, classNode.Column);
-            //     }
-            // }
+            if (currentToken.Type == TokenType.DEF)
+            {
+                var funcDef = ParseFunctionDef();
+                if (funcDef is FunctionDefNode funcNode)
+                {
+                    return new DecoratedFunctionNode(funcNode, decorators, funcNode.Line, funcNode.Column);
+                }
+            }
+            else if (currentToken.Type == TokenType.CLASS)
+            {
+                var classDef = ParseClassDef();
+                if (classDef is ClassDefNode classNode)
+                {
+                    return new DecoratedClassNode(classNode, decorators, classNode.Line, classNode.Column);
+                }
+            }
             // else if (currentToken.Type == TokenType.ASYNC)
             // {
             //     var asyncDef = ParseAsync();
@@ -881,219 +881,119 @@ namespace SharpPy
             //         return new DecoratedAsyncFunctionNode(asyncNode, decorators, asyncNode.Line, asyncNode.Column);
             //     }
             // }
-            // else
-            // {
-            //     throw new PythonException("SyntaxError", 
-            //         "Decorators can only be applied to class, function, or async function definitions",
-            //         currentToken.Line, currentToken.Column);
-            // }
+            else
+            {
+                throw new PythonException("SyntaxError", 
+                    "Decorators can only be applied to class, function, or async function definitions",
+                    currentToken.Line, currentToken.Column);
+            }
 
             return null; // Should never reach here
         }
 
         // NEW: Parse yield statement
-        // private ASTNode ParseYield()
-        // {
-        //     int line = currentToken.Line;
-        //     int column = currentToken.Column;
+        private ASTNode ParseYield()
+        {
+            int line = currentToken.Line;
+            int column = currentToken.Column;
 
-        //     Expect(TokenType.YIELD);
+            Expect(TokenType.YIELD);
             
-        //     // Check for yield from
-        //     bool isYieldFrom = false;
-        //     if (currentToken.Type == TokenType.FROM)
-        //     {
-        //         Advance();
-        //         isYieldFrom = true;
-        //     }
+            // Check for yield from
+            bool isYieldFrom = false;
+            if (currentToken.Type == TokenType.FROM)
+            {
+                Advance();
+                isYieldFrom = true;
+            }
 
-        //     ASTNode value = null;
-        //     if (!IsEndOfStatement())
-        //     {
-        //         value = ParseExpressionOrTuple();
-        //     }
+            ASTNode value = null;
+            if (!IsEndOfStatement())
+            {
+                value = ParseExpressionOrTuple();
+            }
 
-        //     return isYieldFrom 
-        //         ? new YieldFromNode(value, line, column)
-        //         : new YieldNode(value, line, column);
-        // }
+            return isYieldFrom 
+                ? new YieldFromNode(value, line, column)
+                : new YieldNode(value, line, column);
+        }
 
         // NEW: Parse assert statement
-        // private ASTNode ParseAssert()
-        // {
-        //     int line = currentToken.Line;
-        //     int column = currentToken.Column;
+        private ASTNode ParseAssert()
+        {
+            int line = currentToken.Line;
+            int column = currentToken.Column;
 
-        //     Expect(TokenType.ASSERT);
+            Expect(TokenType.ASSERT);
             
-        //     var condition = ParseExpression();
+            var condition = ParseExpression();
             
-        //     ASTNode message = null;
-        //     if (currentToken.Type == TokenType.COMMA)
-        //     {
-        //         Advance();
-        //         message = ParseExpression();
-        //     }
+            ASTNode message = null;
+            if (currentToken.Type == TokenType.COMMA)
+            {
+                Advance();
+                message = ParseExpression();
+            }
 
-        //     return new AssertNode(condition, message, line, column);
-        // }
-
-        // NEW: Parse async statements
-        // private ASTNode ParseAsync()
-        // {
-        //     int line = currentToken.Line;
-        //     int column = currentToken.Column;
-
-        //     Expect(TokenType.ASYNC);
-
-        //     if (currentToken.Type == TokenType.DEF)
-        //     {
-        //         // async def
-        //         Advance();
-        //         string name = currentToken.Value;
-        //         Expect(TokenType.IDENTIFIER);
-                
-        //         // Parse parameters (reuse existing logic)
-        //         Expect(TokenType.LPAREN);
-        //         var parameters = ParseParameters();
-        //         Expect(TokenType.RPAREN);
-                
-        //         TypeHint returnTypeHint = null;
-        //         if (currentToken.Type == TokenType.OPERATOR && currentToken.Value == "->")
-        //         {
-        //             Advance();
-        //             returnTypeHint = ParseTypeHint();
-        //         }
-                
-        //         Expect(TokenType.COLON);
-        //         SkipNewlines();
-        //         var body = ParseBlock();
-                
-        //         return new AsyncFunctionDefNode(name, parameters, body, returnTypeHint, line, column);
-        //     }
-        //     else if (currentToken.Type == TokenType.FOR)
-        //     {
-        //         // async for
-        //         return ParseAsyncFor(line, column);
-        //     }
-        //     else if (currentToken.Type == TokenType.WITH)
-        //     {
-        //         // async with
-        //         return ParseAsyncWith(line, column);
-        //     }
-        //     else
-        //     {
-        //         throw new PythonException("SyntaxError", 
-        //             "Expected 'def', 'for', or 'with' after 'async'",
-        //             currentToken.Line, currentToken.Column);
-        //     }
-        // }
-
-        // NEW: Parse async for
-        // private ASTNode ParseAsyncFor(int line, int column)
-        // {
-        //     Expect(TokenType.FOR);
-            
-        //     var variables = new List<string>();
-        //     variables.Add(currentToken.Value);
-        //     Expect(TokenType.IDENTIFIER);
-
-        //     while (currentToken.Type == TokenType.COMMA)
-        //     {
-        //         Advance();
-        //         variables.Add(currentToken.Value);
-        //         Expect(TokenType.IDENTIFIER);
-        //     }
-
-        //     Expect(TokenType.IN);
-        //     var iterable = ParseExpression();
-        //     Expect(TokenType.COLON);
-        //     SkipNewlines();
-        //     var body = ParseBlock();
-
-        //     return variables.Count == 1
-        //         ? new AsyncForNode(variables[0], iterable, body, line, column)
-        //         : new AsyncMultiForNode(variables, iterable, body, line, column);
-        // }
-
-        // NEW: Parse async with
-        // private ASTNode ParseAsyncWith(int line, int column)
-        // {
-        //     Expect(TokenType.WITH);
-            
-        //     var contextExpr = ParseExpression();
-            
-        //     string variable = null;
-        //     if (currentToken.Type == TokenType.AS)
-        //     {
-        //         Advance();
-        //         variable = currentToken.Value;
-        //         Expect(TokenType.IDENTIFIER);
-        //     }
-
-        //     Expect(TokenType.COLON);
-        //     SkipNewlines();
-        //     var body = ParseBlock();
-
-        //     return new AsyncWithNode(contextExpr, variable, body, line, column);
-        // }
+            return new AssertNode(condition, message, line, column);
+        }
 
         // NEW: Parse match statement (Python 3.10+)
-        // private ASTNode ParseMatch()
-        // {
-        //     int line = currentToken.Line;
-        //     int column = currentToken.Column;
+        private ASTNode ParseMatch()
+        {
+            int line = currentToken.Line;
+            int column = currentToken.Column;
 
-        //     Expect(TokenType.MATCH);
-        //     var subject = ParseExpression();
-        //     Expect(TokenType.COLON);
-        //     SkipNewlines();
+            Expect(TokenType.MATCH);
+            var subject = ParseExpression();
+            Expect(TokenType.COLON);
+            SkipNewlines();
             
-        //     var cases = new List<(ASTNode pattern, ASTNode guard, List<ASTNode> body)>();
+            var cases = new List<(ASTNode pattern, ASTNode guard, List<ASTNode> body)>();
             
-        //     Expect(TokenType.INDENT);
-        //     SkipNewlines();
+            Expect(TokenType.INDENT);
+            SkipNewlines();
             
-        //     while (currentToken.Type == TokenType.CASE)
-        //     {
-        //         Advance(); // Skip 'case'
+            while (currentToken.Type == TokenType.CASE)
+            {
+                Advance(); // Skip 'case'
                 
-        //         var pattern = ParsePattern();
+                var pattern = ParsePattern();
                 
-        //         ASTNode guard = null;
-        //         if (currentToken.Type == TokenType.IF)
-        //         {
-        //             Advance();
-        //             guard = ParseExpression();
-        //         }
+                ASTNode guard = null;
+                if (currentToken.Type == TokenType.IF)
+                {
+                    Advance();
+                    guard = ParseExpression();
+                }
                 
-        //         Expect(TokenType.COLON);
-        //         SkipNewlines();
-        //         var body = ParseBlock();
+                Expect(TokenType.COLON);
+                SkipNewlines();
+                var body = ParseBlock();
                 
-        //         cases.Add((pattern, guard, body));
+                cases.Add((pattern, guard, body));
                 
-        //         SkipNewlinesAndIndents();
-        //     }
+                SkipNewlinesAndIndents();
+            }
             
-        //     if (currentToken.Type == TokenType.DEDENT)
-        //     {
-        //         Advance();
-        //     }
+            if (currentToken.Type == TokenType.DEDENT)
+            {
+                Advance();
+            }
             
-        //     return new MatchNode(subject, cases, line, column);
-        // }
+            return new MatchNode(subject, cases, line, column);
+        }
 
         // NEW: Parse pattern for match statement
         private ASTNode ParsePattern()
         {
             // Simplified pattern parsing - can be extended
-            // if (currentToken.Type == TokenType.IDENTIFIER && currentToken.Value == "_")
-            // {
-            //     Advance();
-            //     return new WildcardPatternNode(currentToken.Line, currentToken.Column);
-            // }
-            //else
+            if (currentToken.Type == TokenType.IDENTIFIER && currentToken.Value == "_")
+            {
+                Advance();
+                return new WildcardPatternNode(currentToken.Line, currentToken.Column);
+            }
+            else
             if (currentToken.Type == TokenType.NUMBER || 
                      currentToken.Type == TokenType.STRING ||
                      currentToken.Type == TokenType.BOOLEAN ||
@@ -1404,12 +1304,7 @@ namespace SharpPy
 
                 while (currentToken.Type != TokenType.DEDENT && currentToken.Type != TokenType.EOF)
                 {
-                    if (currentToken.Type == TokenType.NEWLINE)
-                    {
-                        Advance();
-                        continue;
-                    }
-
+                    if (currentToken.Type == TokenType.NEWLINE) { Advance(); continue; }
                     if (IsBlockStatement())
                     {
                         statements.Add(ParseStatement());
@@ -1447,20 +1342,7 @@ namespace SharpPy
         private void HandleBlockEnd()
         {
             if (currentToken.Type == TokenType.DEDENT)
-            {
-                if (position + 1 < tokenCount)
-                {
-                    var nextToken = tokens[position + 1];
-                    if (!ContinuationTokens.Contains(nextToken.Type))
-                    {
-                        Advance();
-                    }
-                }
-                else
-                {
-                    Advance();
-                }
-            }
+                Advance();      // <-- 직접 소비
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1520,7 +1402,11 @@ namespace SharpPy
             SkipNewlines();
             var thenBody = ParseBlock();
 
-            HandleBlockEnd();
+            // After ParseBlock, we're at DEDENT
+            if (currentToken.Type == TokenType.DEDENT)
+            {
+                Advance();
+            }
             SkipNewlines();
 
             var elifClauses = new List<(ASTNode, List<ASTNode>)>();
@@ -1532,7 +1418,10 @@ namespace SharpPy
                 SkipNewlines();
                 var elifBody = ParseBlock();
 
-                HandleBlockEnd();
+                if (currentToken.Type == TokenType.DEDENT)
+                {
+                    Advance();
+                }
                 SkipNewlines();
                 elifClauses.Add((elifCondition, elifBody));
             }
@@ -1544,6 +1433,11 @@ namespace SharpPy
                 Expect(TokenType.COLON);
                 SkipNewlines();
                 elseBody = ParseBlock();
+
+                if (currentToken.Type == TokenType.DEDENT)
+                {
+                    Advance();
+                }
             }
 
             return new IfNode(condition, thenBody, elifClauses, elseBody, line, column);
@@ -1912,21 +1806,21 @@ namespace SharpPy
             }
 
             // Handle walrus operator (NEW)
-            // if (currentToken.Type == TokenType.WALRUS)
-            // {
-            //     if (expr is VariableNode varNode)
-            //     {
-            //         Advance();
-            //         var value = ParseExpression();
-            //         return new WalrusNode(varNode.Name, value, line, column);
-            //     }
-            //     else
-            //     {
-            //         throw new PythonException("SyntaxError",
-            //             "Invalid target for walrus operator",
-            //             currentToken.Line, currentToken.Column);
-            //     }
-            // }
+            if (currentToken.Type == TokenType.WALRUS)
+            {
+                if (expr is VariableNode varNode)
+                {
+                    Advance();
+                    var value = ParseExpression();
+                    return new WalrusNode(varNode.Name, value, line, column);
+                }
+                else
+                {
+                    throw new PythonException("SyntaxError",
+                        "Invalid target for walrus operator",
+                        currentToken.Line, currentToken.Column);
+                }
+            }
 
             // Handle compound assignments
             if (currentToken.Type == TokenType.COMPOUND_ASSIGN)
@@ -2702,14 +2596,17 @@ namespace SharpPy
             {
                 Advance();
                 SkipNewlinesAndIndents();
-                var value = ParseExpression();
+                
+                // Parse value with potential string concatenation
+                var value = ParseDictValue();
+                
                 SkipNewlinesAndIndents();
 
                 // Check for dict comprehension
-                // if (currentToken.Type == TokenType.FOR)
-                // {
-                //     return ParseDictComprehension(firstExpr, value, line, column);
-                // }
+                if (currentToken.Type == TokenType.FOR)
+                {
+                    return ParseDictComprehension(firstExpr, value, line, column);
+                }
 
                 // Regular dict
                 var pairs = new List<(ASTNode, ASTNode)> { (firstExpr, value) };
@@ -2726,7 +2623,10 @@ namespace SharpPy
                     SkipNewlinesAndIndents();
                     Expect(TokenType.COLON);
                     SkipNewlinesAndIndents();
-                    var val = ParseExpression();
+                    
+                    // Parse value with potential string concatenation
+                    var val = ParseDictValue();
+                    
                     pairs.Add((key, val));
                     SkipNewlinesAndIndents();
                 }
@@ -2760,6 +2660,57 @@ namespace SharpPy
                 Expect(TokenType.RBRACE);
                 return new SetNode(elements, line, column);
             }
+        }
+
+        private ASTNode ParseDictValue()
+        {
+            // 첫 번째 표현식 파싱
+            var firstExpr = ParseExpression();
+
+            // 문자열인 경우 추가 문자열 연결 확인
+            if (IsStringLiteral(firstExpr))
+            {
+                var parts = new List<ASTNode> { firstExpr };
+
+                // 줄바꿈과 들여쓰기를 건너뛰고 다음 토큰 확인
+                while (true)
+                {
+                    int savePos = position;
+                    var saveToken = currentToken;
+
+                    SkipNewlinesAndIndents();
+
+                    // 문자열이나 f-string이 있으면 연결
+                    if (currentToken.Type == TokenType.STRING || currentToken.Type == TokenType.FSTRING)
+                    {
+                        if (currentToken.Type == TokenType.STRING)
+                        {
+                            parts.Add(new StringNode(currentToken.Value, currentToken.Line, currentToken.Column));
+                            Advance();
+                        }
+                        else if (currentToken.Type == TokenType.FSTRING)
+                        {
+                            parts.Add(new FStringNode(currentToken.Value, currentToken.Line, currentToken.Column));
+                            Advance();
+                        }
+                    }
+                    else
+                    {
+                        // 문자열이 아니면 원래 위치로 복원
+                        position = savePos;
+                        currentToken = saveToken;
+                        break;
+                    }
+                }
+
+                // 여러 부분이 있으면 StringConcatenationNode로 반환
+                if (parts.Count > 1)
+                {
+                    return new StringConcatenationNode(parts, firstExpr.Line, firstExpr.Column);
+                }
+            }
+
+            return firstExpr;
         }
 
         // NEW: Parse generator expressions
@@ -2851,15 +2802,15 @@ namespace SharpPy
                     return new ListComprehensionNode(expr, comprehensions[0].Variables[0], 
                         comprehensions[0].Iterable, comprehensions[0].Conditions.FirstOrDefault(), line, column);
                 
-                // case ComprehensionType.Set:
-                //     Expect(TokenType.RBRACE);
-                //     return new SetComprehensionNode(expr, comprehensions[0].Variables[0], 
-                //         comprehensions[0].Iterable, comprehensions[0].Conditions.FirstOrDefault(), line, column);
+                case ComprehensionType.Set:
+                    Expect(TokenType.RBRACE);
+                    return new SetComprehensionNode(expr, comprehensions[0].Variables[0], 
+                        comprehensions[0].Iterable, comprehensions[0].Conditions.FirstOrDefault(), line, column);
                 
-                // case ComprehensionType.Generator:
-                //     Expect(TokenType.RPAREN);
-                //     return new GeneratorExpressionNode(expr, comprehensions[0].Variables[0], 
-                //         comprehensions[0].Iterable, comprehensions[0].Conditions.FirstOrDefault(), line, column);
+                case ComprehensionType.Generator:
+                    Expect(TokenType.RPAREN);
+                    return new GeneratorExpressionNode(expr, comprehensions[0].Variables[0], 
+                        comprehensions[0].Iterable, comprehensions[0].Conditions.FirstOrDefault(), line, column);
                 
                 default:
                     throw new PythonException("SyntaxError", "Invalid comprehension type", line, column);
@@ -2867,27 +2818,27 @@ namespace SharpPy
         }
 
         // NEW: Parse dict comprehension
-        // private ASTNode ParseDictComprehension(ASTNode key, ASTNode value, int line, int column)
-        // {
-        //     Advance(); // Skip 'for'
+        private ASTNode ParseDictComprehension(ASTNode key, ASTNode value, int line, int column)
+        {
+            Advance(); // Skip 'for'
 
-        //     string variable = currentToken.Value;
-        //     Expect(TokenType.IDENTIFIER);
+            string variable = currentToken.Value;
+            Expect(TokenType.IDENTIFIER);
 
-        //     Expect(TokenType.IN);
-        //     var iterable = ParseOrExpression();
+            Expect(TokenType.IN);
+            var iterable = ParseOrExpression();
 
-        //     ASTNode condition = null;
-        //     if (currentToken.Type == TokenType.IF)
-        //     {
-        //         Advance();
-        //         condition = ParseOrExpression();
-        //     }
+            ASTNode condition = null;
+            if (currentToken.Type == TokenType.IF)
+            {
+                Advance();
+                condition = ParseOrExpression();
+            }
 
-        //     Expect(TokenType.RBRACE);
+            Expect(TokenType.RBRACE);
 
-        //     return new DictComprehensionNode(key, value, variable, iterable, condition, line, column);
-        // }
+            return new DictComprehensionNode(key, value, variable, iterable, condition, line, column);
+        }
 
         private ASTNode ParseArgumentExpression()
         {
