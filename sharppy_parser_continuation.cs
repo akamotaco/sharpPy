@@ -71,7 +71,7 @@ namespace SharpPy
                 Expect(TokenType.COLON);
                 SkipNewlines();
                 var elifBody = ParseBlock();
-                
+
                 // Handle DEDENT after elif block
                 if (currentToken.Type == TokenType.DEDENT)
                 {
@@ -84,7 +84,7 @@ namespace SharpPy
                         }
                     }
                 }
-                
+
                 SkipNewlines();
                 elifClauses.Add((elifCondition, elifBody));
             }
@@ -158,7 +158,7 @@ namespace SharpPy
             int column = currentToken.Column;
 
             //Console.WriteLine($"[ParseTry] Starting at line {line}");
-            
+
             Expect(TokenType.TRY);
             Expect(TokenType.COLON);
             SkipNewlines();
@@ -173,16 +173,16 @@ namespace SharpPy
 
             // 중요: ParseBlock 후 토큰 상태 확인 및 정리
             //Console.WriteLine($"[ParseTry] Before cleanup, current token: {currentToken.Type} at line {currentToken.Line}");
-            
+
             // DEDENT, NEWLINE 등을 건너뛰기
-            while (currentToken.Type == TokenType.NEWLINE || 
+            while (currentToken.Type == TokenType.NEWLINE ||
                 currentToken.Type == TokenType.DEDENT ||
                 currentToken.Type == TokenType.INDENT)
             {
                 //Console.WriteLine($"[ParseTry] Skipping {currentToken.Type}");
                 Advance();
             }
-            
+
             //Console.WriteLine($"[ParseTry] After cleanup, current token: {currentToken.Type} '{currentToken.Value}' at line {currentToken.Line}");
 
             // except 절 처리
@@ -190,7 +190,7 @@ namespace SharpPy
             {
                 //Console.WriteLine($"[ParseTry] Found EXCEPT at line {currentToken.Line}");
                 Advance(); // Skip 'except'
-                
+
                 string exceptionType = null;
                 string variable = null;
 
@@ -198,7 +198,7 @@ namespace SharpPy
                 {
                     exceptionType = currentToken.Value;
                     Advance();
-                    
+
                     if (currentToken.Type == TokenType.AS)
                     {
                         Advance(); // Skip 'as'
@@ -209,15 +209,15 @@ namespace SharpPy
 
                 Expect(TokenType.COLON);
                 SkipNewlines();
-                
+
                 //Console.WriteLine($"[ParseTry] Before parsing except body");
                 var exceptBody = ParseBlock();
                 //Console.WriteLine($"[ParseTry] After parsing except body");
-                
+
                 exceptClauses.Add((exceptionType, variable, exceptBody));
 
                 // 다음 except/else/finally를 위한 정리
-                while (currentToken.Type == TokenType.NEWLINE || 
+                while (currentToken.Type == TokenType.NEWLINE ||
                     currentToken.Type == TokenType.DEDENT ||
                     currentToken.Type == TokenType.INDENT)
                 {
@@ -233,9 +233,9 @@ namespace SharpPy
                 Expect(TokenType.COLON);
                 SkipNewlines();
                 elseBody = ParseBlock();
-                
+
                 // 정리
-                while (currentToken.Type == TokenType.NEWLINE || 
+                while (currentToken.Type == TokenType.NEWLINE ||
                     currentToken.Type == TokenType.DEDENT ||
                     currentToken.Type == TokenType.INDENT)
                 {
@@ -487,10 +487,10 @@ namespace SharpPy
             {
                 // Variable type annotation: x: int = 10 or x: int
                 Advance(); // Skip ':'
-                
+
                 // Parse type hint
                 var typeHint = ParseTypeHint();
-                
+
                 // Check for assignment after type annotation
                 ASTNode value = null;
                 if (currentToken.Type == TokenType.ASSIGN)
@@ -498,7 +498,7 @@ namespace SharpPy
                     Advance(); // Skip '='
                     value = ParseExpressionOrTuple();
                 }
-                
+
                 // Create annotated assignment node
                 if (expr is VariableNode varNode)
                 {
@@ -510,8 +510,8 @@ namespace SharpPy
                 }
                 else
                 {
-                    throw new PythonException("SyntaxError", 
-                        "Invalid target for annotated assignment", 
+                    throw new PythonException("SyntaxError",
+                        "Invalid target for annotated assignment",
                         currentToken.Line, currentToken.Column);
                 }
             }
@@ -522,7 +522,7 @@ namespace SharpPy
                 string op = currentToken.Value;
                 Advance(); // Skip compound assignment operator
                 var value = ParseExpressionOrTuple();
-                
+
                 // Handle different types of left-hand expressions
                 if (expr is VariableNode varNode)
                 {
@@ -541,8 +541,8 @@ namespace SharpPy
                 }
                 else
                 {
-                    throw new PythonException("SyntaxError", 
-                        $"Invalid target for compound assignment", 
+                    throw new PythonException("SyntaxError",
+                        $"Invalid target for compound assignment",
                         currentToken.Line, currentToken.Column);
                 }
             }
@@ -685,7 +685,7 @@ namespace SharpPy
                     // 'not in'은 ParseInExpression에서 처리
                     return ParseInExpression();
                 }
-                
+
                 // 일반 not 처리
                 int line = currentToken.Line;
                 int column = currentToken.Column;
@@ -705,8 +705,8 @@ namespace SharpPy
 
             // 'in' 및 'not in' 처리
             while (currentToken.Type == TokenType.IN ||
-                (currentToken.Type == TokenType.NOT && 
-                    position + 1 < tokens.Count && 
+                (currentToken.Type == TokenType.NOT &&
+                    position + 1 < tokens.Count &&
                     tokens[position + 1].Type == TokenType.IN))
             {
                 if (currentToken.Type == TokenType.NOT)
@@ -862,12 +862,12 @@ namespace SharpPy
                             int savePos = position;
                             string possibleKeyword = currentToken.Value;
                             Advance();
-                            
+
                             if (currentToken.Type == TokenType.ASSIGN)
                             {
                                 // 키워드 인자
                                 Advance(); // Skip '='
-                                var value = ParseExpression();
+                                var value = ParseArgumentExpression(); // 문자열 연결 지원
                                 keywordArguments[possibleKeyword] = value;
                                 seenKeyword = true;
                             }
@@ -876,15 +876,15 @@ namespace SharpPy
                                 // 일반 위치 인자 - 롤백
                                 position = savePos;
                                 currentToken = tokens[position];
-                                
+
                                 if (seenKeyword)
                                 {
-                                    throw new PythonException("SyntaxError", 
+                                    throw new PythonException("SyntaxError",
                                         "positional argument follows keyword argument",
                                         currentToken.Line, currentToken.Column);
                                 }
-                                
-                                arguments.Add(ParseExpression());
+
+                                arguments.Add(ParseArgumentExpression()); // 문자열 연결 지원
                             }
                         }
                         else
@@ -892,11 +892,11 @@ namespace SharpPy
                             // 일반 표현식
                             if (seenKeyword)
                             {
-                                throw new PythonException("SyntaxError", 
+                                throw new PythonException("SyntaxError",
                                     "positional argument follows keyword argument",
                                     currentToken.Line, currentToken.Column);
                             }
-                            arguments.Add(ParseExpression());
+                            arguments.Add(ParseArgumentExpression()); // 문자열 연결 지원
                         }
 
                         SkipNewlinesAndIndents();
@@ -910,8 +910,8 @@ namespace SharpPy
                         }
                         else if (currentToken.Type != TokenType.RPAREN)
                         {
-                            throw new PythonException("SyntaxError", 
-                                $"Expected ',' or ')' in function call", 
+                            throw new PythonException("SyntaxError",
+                                $"Expected ',' or ')' in function call",
                                 currentToken.Line, currentToken.Column);
                         }
                     }
@@ -922,7 +922,6 @@ namespace SharpPy
                 else if (currentToken.Type == TokenType.LBRACKET)
                 {
                     // 기존 인덱스/슬라이스 처리 코드...
-                    // (변경 없음)
                     Advance();
                     var indices = new List<ASTNode>();
                     var hasColon = false;
@@ -1008,14 +1007,9 @@ namespace SharpPy
                     return new NumberNode(numberValue, line, column);
 
                 case TokenType.STRING:
-                    string strValue = currentToken.Value;
-                    Advance();
-                    return new StringNode(strValue, line, column);
-
-                case TokenType.FSTRING:  // Handle f-strings (NEW)
-                    string fstrValue = currentToken.Value;
-                    Advance();
-                    return new FStringNode(fstrValue, line, column);
+                case TokenType.FSTRING:
+                    // String Literal Concatenation 처리
+                    return ParseStringLiteralConcatenation();
 
                 case TokenType.BOOLEAN:
                     bool boolValue = currentToken.Value == "True";
@@ -1086,6 +1080,46 @@ namespace SharpPy
             }
         }
 
+        private ASTNode ParseStringLiteralConcatenation()
+        {
+            int line = currentToken.Line;
+            int column = currentToken.Column;
+
+            var parts = new List<ASTNode>();
+
+            // 연속된 문자열 리터럴 수집
+            while (currentToken.Type == TokenType.STRING || currentToken.Type == TokenType.FSTRING)
+            {
+                if (currentToken.Type == TokenType.STRING)
+                {
+                    parts.Add(new StringNode(currentToken.Value, currentToken.Line, currentToken.Column));
+                    Advance();
+                }
+                else if (currentToken.Type == TokenType.FSTRING)
+                {
+                    parts.Add(new FStringNode(currentToken.Value, currentToken.Line, currentToken.Column));
+                    Advance();
+                }
+
+                // 다음 토큰이 문자열인지 확인 (공백 무시)
+                // 단, 일반 공백은 무시하지만 NEWLINE은 확인 필요
+                if (currentToken.Type != TokenType.STRING && currentToken.Type != TokenType.FSTRING)
+                {
+                    // 연결이 끝남
+                    break;
+                }
+            }
+
+            // 단일 문자열인 경우 그대로 반환
+            if (parts.Count == 1)
+            {
+                return parts[0];
+            }
+
+            // 여러 문자열을 연결
+            return new StringConcatenationNode(parts, line, column);
+        }
+
         private ASTNode ParseLambda()
         {
             int line = currentToken.Line;
@@ -1095,15 +1129,15 @@ namespace SharpPy
 
             var parameters = new List<Parameter>();
             bool hasSeenDefault = false;
-            
+
             if (currentToken.Type != TokenType.COLON)
             {
                 do
                 {
                     if (currentToken.Type != TokenType.IDENTIFIER)
                     {
-                        throw new PythonException("SyntaxError", 
-                            $"Expected parameter name in lambda", 
+                        throw new PythonException("SyntaxError",
+                            $"Expected parameter name in lambda",
                             currentToken.Line, currentToken.Column);
                     }
 
@@ -1119,8 +1153,8 @@ namespace SharpPy
                     }
                     else if (hasSeenDefault)
                     {
-                        throw new PythonException("SyntaxError", 
-                            "non-default argument follows default argument", 
+                        throw new PythonException("SyntaxError",
+                            "non-default argument follows default argument",
                             currentToken.Line, currentToken.Column);
                     }
 
@@ -1131,8 +1165,8 @@ namespace SharpPy
                         Advance();
                         if (currentToken.Type == TokenType.COLON)
                         {
-                            throw new PythonException("SyntaxError", 
-                                $"Expected parameter after ',' in lambda", 
+                            throw new PythonException("SyntaxError",
+                                $"Expected parameter after ',' in lambda",
                                 currentToken.Line, currentToken.Column);
                         }
                     }
@@ -1260,6 +1294,75 @@ namespace SharpPy
 
             Expect(TokenType.RBRACE);
             return new DictNode(pairs, line, column);
+        }
+
+        private ASTNode ParseArgumentExpression()
+        {
+            // 첫 번째 표현식 파싱
+            var firstExpr = ParseSingleArgumentExpression();
+
+            // 문자열 리터럴 연결 확인
+            if (IsStringLiteral(firstExpr))
+            {
+                var parts = new List<ASTNode> { firstExpr };
+
+                // 연속된 문자열 리터럴 확인
+                while (true)
+                {
+                    // 현재 위치 저장
+                    int savePos = position;
+                    var saveToken = currentToken;
+
+                    // 줄바꿈과 들여쓰기 건너뛰기
+                    SkipNewlinesAndIndents();
+
+                    // 다음이 문자열인지 확인
+                    if (currentToken.Type == TokenType.STRING || currentToken.Type == TokenType.FSTRING)
+                    {
+                        if (currentToken.Type == TokenType.STRING)
+                        {
+                            parts.Add(new StringNode(currentToken.Value, currentToken.Line, currentToken.Column));
+                            Advance();
+                        }
+                        else if (currentToken.Type == TokenType.FSTRING)
+                        {
+                            parts.Add(new FStringNode(currentToken.Value, currentToken.Line, currentToken.Column));
+                            Advance();
+                        }
+                    }
+                    else
+                    {
+                        // 문자열이 아니면 롤백
+                        position = savePos;
+                        currentToken = saveToken;
+                        break;
+                    }
+                }
+
+                // 여러 문자열이 있으면 StringConcatenationNode 생성
+                if (parts.Count > 1)
+                {
+                    return new StringConcatenationNode(parts, firstExpr.Line, firstExpr.Column);
+                }
+                else
+                {
+                    return firstExpr;
+                }
+            }
+
+            return firstExpr;
+        }
+
+        private ASTNode ParseSingleArgumentExpression()
+        {
+            // 일반 표현식 파싱 (조건식 포함)
+            return ParseConditionalExpression();
+        }
+
+        // 문자열 리터럴인지 확인하는 헬퍼 메서드
+        private bool IsStringLiteral(ASTNode node)
+        {
+            return node is StringNode || node is FStringNode;
         }
     }
 }

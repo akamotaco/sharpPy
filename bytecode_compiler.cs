@@ -250,6 +250,10 @@ namespace SharpPy
                     CompileWith(withNode);
                     break;
 
+                case StringConcatenationNode strConcat:
+                    CompileStringConcatenation(strConcat);
+                    break;
+
                 case ExpressionStatementNode exprStmt:
                     // Expression을 컴파일하고 결과를 스택에서 제거
                     CompileNode(exprStmt.Expression);
@@ -925,15 +929,15 @@ namespace SharpPy
             // FOR_ITER 패치 - 루프 종료 시 여기로 점프
             instructions[loopStart] = new Instruction(OpCode.FOR_ITER, instructions.Count);
         }
-        
+
         private void CompileAttribute(AttributeNode node)
         {
             // 객체 컴파일
             CompileNode(node.Object);
-            
+
             // 속성 이름을 names 리스트에 추가
             int nameIndex = GetNameIndex(node.Attribute);
-            
+
             // LOAD_ATTR 명령어 생성
             Emit(OpCode.LOAD_ATTR, nameIndex, node.Line);
         }
@@ -942,13 +946,13 @@ namespace SharpPy
         {
             // 객체 컴파일
             CompileNode(node.Object);
-            
+
             // 값 컴파일
             CompileNode(node.Value);
-            
+
             // 속성 이름을 names 리스트에 추가
             int nameIndex = GetNameIndex(node.Attribute);
-            
+
             // STORE_ATTR 명령어 생성
             Emit(OpCode.STORE_ATTR, nameIndex, node.Line);
         }
@@ -958,14 +962,14 @@ namespace SharpPy
             // 객체를 두 번 로드 (한 번은 읽기용, 한 번은 쓰기용)
             CompileNode(node.Object);
             Emit(OpCode.DUP_TOP); // 객체 복제
-            
+
             // 현재 속성 값 로드
             int nameIndex = GetNameIndex(node.Attribute);
             Emit(OpCode.LOAD_ATTR, nameIndex);
-            
+
             // 새 값 컴파일
             CompileNode(node.Value);
-            
+
             // 연산 수행
             var opCode = node.Operator switch
             {
@@ -977,9 +981,9 @@ namespace SharpPy
                 "**=" => OpCode.BINARY_POWER,
                 _ => throw new PythonException("CompileError", $"Unknown compound operator: {node.Operator}")
             };
-            
+
             Emit(opCode);
-            
+
             // 결과를 속성에 저장
             Emit(OpCode.STORE_ATTR, nameIndex, node.Line);
         }
@@ -988,10 +992,10 @@ namespace SharpPy
         {
             // 객체 컴파일
             CompileNode(node.Object);
-            
+
             // 인덱스 컴파일
             CompileNode(node.Index);
-            
+
             // LOAD_INDEX 명령어 생성
             Emit(OpCode.LOAD_INDEX, 0, node.Line);
         }
@@ -1000,13 +1004,13 @@ namespace SharpPy
         {
             // 객체 컴파일
             CompileNode(node.Object);
-            
+
             // 인덱스 컴파일
             CompileNode(node.Index);
-            
+
             // 값 컴파일
             CompileNode(node.Value);
-            
+
             // STORE_INDEX 명령어 생성
             Emit(OpCode.STORE_INDEX, 0, node.Line);
         }
@@ -1016,17 +1020,17 @@ namespace SharpPy
             // 객체와 인덱스를 복제
             CompileNode(node.Object);
             CompileNode(node.Index);
-            
+
             // 스택: [obj, index]
             // 복제를 위해 두 번째 세트 생성
             Emit(OpCode.DUP_TOP_TWO); // 새로운 opcode 필요
-            
+
             // 현재 값 로드
             Emit(OpCode.LOAD_INDEX);
-            
+
             // 새 값 컴파일
             CompileNode(node.Value);
-            
+
             // 연산 수행
             var opCode = node.Operator switch
             {
@@ -1038,9 +1042,9 @@ namespace SharpPy
                 "**=" => OpCode.BINARY_POWER,
                 _ => throw new PythonException("CompileError", $"Unknown compound operator: {node.Operator}")
             };
-            
+
             Emit(opCode);
-            
+
             // 결과 저장
             Emit(OpCode.STORE_INDEX, 0, node.Line);
         }
@@ -1049,28 +1053,41 @@ namespace SharpPy
         {
             // 객체 컴파일
             CompileNode(node.Object);
-            
+
             // 슬라이스 인덱스들 컴파일
             if (node.Start != null)
                 CompileNode(node.Start);
             else
                 EmitLoadConst(PythonNone.Instance);
-                
+
             if (node.Stop != null)
                 CompileNode(node.Stop);
             else
                 EmitLoadConst(PythonNone.Instance);
-                
+
             if (node.Step != null)
                 CompileNode(node.Step);
             else
                 EmitLoadConst(PythonNone.Instance);
-            
+
             // BUILD_SLICE opcode 생성
             Emit(OpCode.BUILD_SLICE, 3, node.Line);
-            
+
             // 슬라이스 적용
             Emit(OpCode.LOAD_INDEX, 0, node.Line);
+        }
+
+        private void CompileStringConcatenation(StringConcatenationNode node)
+        {
+            // 첫 번째 부분을 스택에 로드
+            CompileNode(node.Parts[0]);
+
+            // 나머지 부분들을 순차적으로 연결
+            for (int i = 1; i < node.Parts.Count; i++)
+            {
+                CompileNode(node.Parts[i]);
+                Emit(OpCode.BINARY_ADD, 0, node.Line);
+            }
         }
     }
 }
