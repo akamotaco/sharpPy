@@ -46,7 +46,10 @@ namespace SharpPy
             {
                 var previousFileName = currentFileName;
                 currentFileName = filename;
-                
+
+                // 글로벌 환경에 파일 정보 설정
+                globalEnv.CurrentFileName = filename;
+
                 try
                 {
                     var env = this.globalEnv;
@@ -67,32 +70,8 @@ namespace SharpPy
             }
             catch (PythonException ex)
             {
-                // 파일명 업데이트 (throw하지 않고 새 예외 객체 생성)
-                if (string.IsNullOrEmpty(ex.FileName) || ex.FileName == "<string>")
-                {
-                    ex = new PythonException(ex.Type, ex.Message, ex.Line, ex.Column, filename);
-                }
                 DisplayError(ex, code, filename);
-                return null;  // null 반환하여 실행 계속
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"  File \"{filename}\"");
-                Console.WriteLine($"Error: {ex.Message}");
-                Console.WriteLine($"Exception type: {ex.GetType().Name}");
-                
-                if (ex.StackTrace != null)
-                {
-                    var relevantStack = ex.StackTrace.Split('\n')
-                        .Where(line => line.Contains("SharpPy") || line.Contains("PythonInterpreter"))
-                        .Take(3);
-                    foreach (var line in relevantStack)
-                    {
-                        Console.WriteLine($"  {line.Trim()}");
-                    }
-                }
-                Console.WriteLine();
-                return null;  // null 반환하여 실행 계속
+                return null;
             }
         }
 
@@ -241,7 +220,7 @@ namespace SharpPy
             Console.WriteLine(Disassembler.Disassemble(codeObject));
         }
 
-         public void ExecuteFile(string filename)
+        public void ExecuteFile(string filename)
         {
             try
             {
@@ -251,9 +230,10 @@ namespace SharpPy
                     return;
                 }
 
-                // 파일 실행 시 __file__ 업데이트
+                // 파일 실행 시 환경 설정
                 globalEnv.SetVariable("__file__", new PythonString(filename));
-                
+                globalEnv.CurrentFileName = filename;
+
                 if (filename.EndsWith(".pyc"))
                 {
                     LoadAndExecuteBytecode(filename);

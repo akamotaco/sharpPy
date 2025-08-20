@@ -22,8 +22,8 @@ namespace SharpPy
         public abstract PythonTypeObject Evaluate(Environment env);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected PythonException CreateException(string type, string message, string fileName = "<string>") =>
-            new PythonException(type, message, Line, Column, fileName);
+        protected PythonException CreateException(string type, string message, string fileName = null) =>
+            new PythonException(type, message, Line, Column, fileName ?? "<string>");
     }
 
     // Optimized Expression Nodes
@@ -85,7 +85,10 @@ namespace SharpPy
             catch (PythonException ex)
             {
                 if (ex.Line == 0)
-                    throw CreateException(ex.Type, ex.Message);
+                {
+                    // 현재 환경의 파일 정보와 이 노드의 라인 정보를 사용
+                    throw new PythonException(ex.Type, ex.Message, Line, Column, env.CurrentFileName);
+                }
                 throw;
             }
         }

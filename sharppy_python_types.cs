@@ -601,10 +601,13 @@ namespace SharpPy
             }
         }
 
-        public PythonTypeObject CallWithKeywords(List<PythonTypeObject> positionalArgs, 
+        public PythonTypeObject CallWithKeywords(List<PythonTypeObject> positionalArgs,
                                             Dictionary<string, PythonTypeObject> keywordArgs)
         {
             var funcEnv = new Environment(ClosureEnv, ClosureEnv.globalEnv, EnvironmentType.Enclosing);
+
+            // 함수가 정의된 환경의 파일 정보 상속
+            funcEnv.CurrentFileName = ClosureEnv.CurrentFileName;
 
             // 파라미터 분류
             var normalParams = Parameters.Where(p => p.Kind == ParameterKind.Normal).ToList();
@@ -619,11 +622,11 @@ namespace SharpPy
             for (int i = 0; i < normalParams.Count && posArgIndex < positionalArgs.Count; i++)
             {
                 var param = normalParams[i];
-                
+
                 // 키워드로 이미 제공된 경우 건너뛰기
                 if (keywordArgs.ContainsKey(param.Name))
                     continue;
-                    
+
                 funcEnv.SetVariable(param.Name, positionalArgs[posArgIndex]);
                 posArgIndex++;
             }
@@ -632,44 +635,44 @@ namespace SharpPy
             foreach (var kvp in keywordArgs)
             {
                 var param = normalParams.FirstOrDefault(p => p.Name == kvp.Key);
-                
+
                 if (param != null)
                 {
                     // 이미 위치 인자로 할당된 경우 에러
                     if (funcEnv.HasLocalVariable(param.Name))
                     {
-                        throw new PythonException("TypeError", 
+                        throw new PythonException("TypeError",
                             $"{Name}() got multiple values for argument '{param.Name}'");
                     }
-                    
+
                     funcEnv.SetVariable(param.Name, kvp.Value);
                     usedKeywords.Add(kvp.Key);
                 }
                 else if (kwArgsParam == null)
                 {
-                    throw new PythonException("TypeError", 
+                    throw new PythonException("TypeError",
                         $"{Name}() got an unexpected keyword argument '{kvp.Key}'");
                 }
             }
 
             // 3. 기본값 처리
             for (int i = 0; i < normalParams.Count; i++)
-                {
-                    var param = normalParams[i];
+            {
+                var param = normalParams[i];
 
-                    if (!funcEnv.HasLocalVariable(param.Name))
+                if (!funcEnv.HasLocalVariable(param.Name))
+                {
+                    if (param.HasDefault && i < evaluatedDefaults.Count && evaluatedDefaults[i] != null)
                     {
-                        if (param.HasDefault && i < evaluatedDefaults.Count && evaluatedDefaults[i] != null)
-                        {
-                            funcEnv.SetVariable(param.Name, evaluatedDefaults[i]);
-                        }
-                        else
-                        {
-                            throw new PythonException("TypeError",
-                                $"{Name}() missing required positional argument: '{param.Name}'");
-                        }
+                        funcEnv.SetVariable(param.Name, evaluatedDefaults[i]);
+                    }
+                    else
+                    {
+                        throw new PythonException("TypeError",
+                            $"{Name}() missing required positional argument: '{param.Name}'");
                     }
                 }
+            }
 
             // 4. *args 처리
             if (varArgsParam != null)
@@ -683,7 +686,7 @@ namespace SharpPy
             }
             else if (posArgIndex < positionalArgs.Count)
             {
-                throw new PythonException("TypeError", 
+                throw new PythonException("TypeError",
                     $"{Name}() takes {normalParams.Count} positional arguments but {positionalArgs.Count} were given");
             }
 
@@ -708,17 +711,10 @@ namespace SharpPy
                 foreach (var stmt in Body)
                     result = stmt.Evaluate(funcEnv);
 
-                if (ReturnTypeHint != null && !ReturnTypeHint.IsCompatible(result))
-                    throw new PythonException("TypeError",
-                        $"Return value expected {ReturnTypeHint}, got {GetValueType(result)}");
-
                 return result;
             }
             catch (ReturnException ex)
             {
-                if (ReturnTypeHint != null && !ReturnTypeHint.IsCompatible(ex.Value))
-                    throw new PythonException("TypeError",
-                        $"Return value expected {ReturnTypeHint}, got {GetValueType(ex.Value)}");
                 return ex.Value;
             }
         }
