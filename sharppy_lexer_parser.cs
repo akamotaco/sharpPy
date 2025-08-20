@@ -99,6 +99,13 @@ namespace SharpPy
             indentStack.Push(0);
             atLineStart = true;
             currentChar = position < inputLength ? this.input[position] : '\0';
+
+            // 디버그: Lexer 생성 확인
+            if (DEBUG_MODE)
+            {
+                Console.WriteLine($"[DEBUG] New Lexer created for input length: {inputLength}");
+                Console.WriteLine($"[DEBUG] IndentStack initialized with: {string.Join(", ", indentStack)}");
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -222,6 +229,13 @@ namespace SharpPy
             string nextKeyword = PeekNextKeyword();
             bool isContinuation = ContinuationKeywords.Contains(nextKeyword);
 
+            if (DEBUG_MODE)
+            {
+                Console.WriteLine($"[DEBUG] Line {line}: IndentLevel={indentLevel}, " +
+                                $"CurrentStack=[{string.Join(", ", indentStack)}], " +
+                                $"NextKeyword={nextKeyword}, IsContinuation={isContinuation}");
+            }
+            
             if (hasTab && hasSpace && !mixedIndentWarning)
             {
                 mixedIndentWarning = true;
@@ -265,12 +279,23 @@ namespace SharpPy
             }
         }
 
-        private void ProcessRegularIndent(List<Token> tokens, int indentLevel, int currentIndent, int tokenLine, int tokenColumn)
+        private void ProcessRegularIndent(List<Token> tokens, int indentLevel, int currentIndent,
+                                 int tokenLine, int tokenColumn)
         {
+            if (DEBUG_MODE)
+            {
+                Console.WriteLine($"[DEBUG] ProcessRegularIndent: Level={indentLevel}, Current={currentIndent}");
+            }
+
             if (indentLevel > currentIndent)
             {
                 indentStack.Push(indentLevel);
                 tokens.Add(new Token(TokenType.INDENT, "", tokenLine, tokenColumn));
+
+                if (DEBUG_MODE)
+                {
+                    Console.WriteLine($"[DEBUG] INDENT added. New stack: [{string.Join(", ", indentStack)}]");
+                }
             }
             else if (indentLevel < currentIndent)
             {
@@ -284,10 +309,17 @@ namespace SharpPy
                         tokenLine, tokenColumn);
                 }
 
+                int dedentCount = 0;
                 while (indentStack.Count > 1 && indentStack.Peek() > indentLevel)
                 {
                     indentStack.Pop();
                     tokens.Add(new Token(TokenType.DEDENT, "", tokenLine, tokenColumn));
+                    dedentCount++;
+                }
+
+                if (DEBUG_MODE)
+                {
+                    Console.WriteLine($"[DEBUG] {dedentCount} DEDENT(s) added. New stack: [{string.Join(", ", indentStack)}]");
                 }
             }
         }
@@ -376,17 +408,32 @@ namespace SharpPy
                 HandleSingleCharToken(tokens, tokenLine, tokenColumn);
             }
 
-            // Add remaining DEDENT tokens
-            if (tokens.Count > 0 && tokens[^1].Type == TokenType.NEWLINE)
+            // 마지막 토큰이 NEWLINE이 아니어도 파일 끝에서는 
+            // 암시적인 NEWLINE이 있다고 가정해야 함
+            if (tokens.Count > 0 && tokens[^1].Type != TokenType.NEWLINE)
             {
-                while (indentStack.Count > 1)
-                {
-                    indentStack.Pop();
-                    tokens.Add(new Token(TokenType.DEDENT, "", line, column));
-                }
+                tokens.Add(new Token(TokenType.NEWLINE, "\n", line, column));
+            }
+
+            // Add remaining DEDENT tokens
+            while (indentStack.Count > 1)
+            {
+                indentStack.Pop();
+                tokens.Add(new Token(TokenType.DEDENT, "", line, column));
             }
 
             tokens.Add(new Token(TokenType.EOF, "", line, column));
+
+            // 디버그 출력
+            foreach (var token in tokens)
+            {
+                if (token.Type == TokenType.INDENT || token.Type == TokenType.DEDENT ||
+                    token.Type == TokenType.CLASS || token.Type == TokenType.DEF)
+                {
+                    Console.WriteLine($"[Token] {token.Type} at {token.Line}:{token.Column}");
+                }
+            }
+
             return tokens;
         }
 
@@ -976,11 +1023,6 @@ namespace SharpPy
                 SkipNewlinesAndIndents();
             }
             
-            if (currentToken.Type == TokenType.DEDENT)
-            {
-                Advance();
-            }
-            
             return new MatchNode(subject, cases, line, column);
         }
 
@@ -1292,7 +1334,8 @@ namespace SharpPy
             return SimpleTypeHint.Create(pythonType);
         }
 
-        // Consolidated block parsing with better continuation handling
+        // ParseBlock() 메서드를 다음과 같이 수정:
+
         private List<ASTNode> ParseBlock()
         {
             var statements = new List<ASTNode>();
@@ -1304,15 +1347,20 @@ namespace SharpPy
 
                 while (currentToken.Type != TokenType.DEDENT && currentToken.Type != TokenType.EOF)
                 {
-                    if (currentToken.Type == TokenType.NEWLINE) { Advance(); continue; }
+                    if (currentToken.Type == TokenType.NEWLINE)
+                    {
+                        Advance();
+                        continue;
+                    }
+
                     if (IsBlockStatement())
                     {
                         statements.Add(ParseStatement());
                         SkipNewlines();
-                    }
-                    else if (currentToken.Type == TokenType.DEDENT)
-                    {
-                        break;
+                        
+                        // Continue parsing if we're still at the same block level
+                        // Don't break on DEDENT immediately after a nested block
+                        continue;
                     }
                     else if (ContinuationTokens.Contains(currentToken.Type))
                     {
@@ -1326,7 +1374,11 @@ namespace SharpPy
                     }
                 }
 
-                HandleBlockEnd();
+                // Consume the DEDENT that ends this block
+                if (currentToken.Type == TokenType.DEDENT)
+                {
+                    Advance();
+                }
             }
             else
             {
@@ -1341,21 +1393,7 @@ namespace SharpPy
         // Helper to handle block ending
         private void HandleBlockEnd()
         {
-            if (currentToken.Type == TokenType.DEDENT)
-            {
-                if (position + 1 < tokenCount)
-                {
-                    var nextToken = tokens[position + 1];
-                    if (!ContinuationTokens.Contains(nextToken.Type))
-                    {
-                        Advance();
-                    }
-                }
-                else
-                {
-                    Advance();
-                }
-            }
+            
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1374,7 +1412,7 @@ namespace SharpPy
             if (currentToken.Type == TokenType.LPAREN)
             {
                 Advance();
-                
+
                 while (currentToken.Type != TokenType.RPAREN)
                 {
                     if (currentToken.Type == TokenType.IDENTIFIER)
@@ -1382,7 +1420,7 @@ namespace SharpPy
                         baseClasses.Add(currentToken.Value);
                         Advance();
                     }
-                    
+
                     if (currentToken.Type == TokenType.COMMA)
                     {
                         Advance();
@@ -1393,7 +1431,7 @@ namespace SharpPy
                         break;
                     }
                 }
-                
+
                 Expect(TokenType.RPAREN);
             }
 
@@ -1401,6 +1439,10 @@ namespace SharpPy
             SkipNewlines();
 
             var body = ParseBlock();
+
+            // ParseBlock() 후에 추가 DEDENT나 NEWLINE 처리
+            SkipNewlinesAndIndents();
+
             return new ClassDefNode(name, body, baseClasses.FirstOrDefault(), line, column);
         }
 
@@ -1415,11 +1457,8 @@ namespace SharpPy
             SkipNewlines();
             var thenBody = ParseBlock();
 
-            // After ParseBlock, we're at DEDENT
-            if (currentToken.Type == TokenType.DEDENT)
-            {
-                Advance();
-            }
+            // DON'T consume DEDENT here - ParseBlock already handled it
+            // Just skip newlines to position for next token
             SkipNewlines();
 
             var elifClauses = new List<(ASTNode, List<ASTNode>)>();
@@ -1431,10 +1470,6 @@ namespace SharpPy
                 SkipNewlines();
                 var elifBody = ParseBlock();
 
-                if (currentToken.Type == TokenType.DEDENT)
-                {
-                    Advance();
-                }
                 SkipNewlines();
                 elifClauses.Add((elifCondition, elifBody));
             }
@@ -1447,10 +1482,7 @@ namespace SharpPy
                 SkipNewlines();
                 elseBody = ParseBlock();
 
-                if (currentToken.Type == TokenType.DEDENT)
-                {
-                    Advance();
-                }
+                SkipNewlines();
             }
 
             return new IfNode(condition, thenBody, elifClauses, elseBody, line, column);

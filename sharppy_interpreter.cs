@@ -370,6 +370,94 @@ namespace SharpPy
     {
         static void Main(string[] args)
         {
+        //     // 1. 직접 a_b.py 실행해서 환경 확인
+        // Console.WriteLine("=== Test 1: Direct execution of a_b.py ===");
+        
+        // var env = new Environment();
+        // Environment.SetupBuiltins(env);
+        
+        // string code = File.ReadAllText("a_b.py");
+        // var lexer = new Lexer(code);
+        // var tokens = lexer.Tokenize();
+        // var parser = new Parser(tokens);
+        // var ast = parser.Parse();
+        
+        // foreach (var node in ast)
+        // {
+        //     node.Evaluate(env);
+        // }
+        
+        // Console.WriteLine("Variables in environment after execution:");
+        // foreach (var kvp in env.variables)
+        // {
+        //     Console.WriteLine($"  - {kvp.Key}: {kvp.Value?.GetType().Name}");
+        // }
+        
+        // // 클래스 a와 b가 있는지 확인
+        // try
+        // {
+        //     var classA = env.GetVariable("a");
+        //     Console.WriteLine($"✓ Class 'a' found: {classA}");
+        // }
+        // catch (Exception ex)
+        // {
+        //     Console.WriteLine($"✗ Class 'a' not found: {ex.Message}");
+        // }
+        
+        // try
+        // {
+        //     var classB = env.GetVariable("b");
+        //     Console.WriteLine($"✓ Class 'b' found: {classB}");
+        // }
+        // catch (Exception ex)
+        // {
+        //     Console.WriteLine($"✗ Class 'b' not found: {ex.Message}");
+        // }
+        
+        // // 2. 모듈로 import 테스트
+        // Console.WriteLine("\n=== Test 2: Import as module ===");
+        
+        // var module = new PythonModule("a_b");
+        
+        // // 모듈 환경에서 코드 실행
+        // var lexer2 = new Lexer(code);
+        // var tokens2 = lexer2.Tokenize();
+        // var parser2 = new Parser(tokens2);
+        // var ast2 = parser2.Parse();
+        
+        // foreach (var node in ast2)
+        // {
+        //     node.Evaluate(module.ModuleEnv);
+        // }
+        
+        // Console.WriteLine("Variables in module.ModuleEnv:");
+        // foreach (var kvp in module.ModuleEnv.variables)
+        // {
+        //     Console.WriteLine($"  - {kvp.Key}: {kvp.Value?.GetType().Name}");
+        // }
+        
+        // // GetAttribute 테스트
+        // try
+        // {
+        //     var attrA = module.GetAttribute("a");
+        //     Console.WriteLine($"✓ module.GetAttribute('a') succeeded: {attrA}");
+        // }
+        // catch (Exception ex)
+        // {
+        //     Console.WriteLine($"✗ module.GetAttribute('a') failed: {ex.Message}");
+        // }
+        
+        // try
+        // {
+        //     var attrB = module.GetAttribute("b");
+        //     Console.WriteLine($"✓ module.GetAttribute('b') succeeded: {attrB}");
+        // }
+        // catch (Exception ex)
+        // {
+        //     Console.WriteLine($"✗ module.GetAttribute('b') failed: {ex.Message}");
+        // }
+
+        //     return;
             bool bytecode_test = false;
 
             var interpreter = new PythonInterpreter(useBytecode:bytecode_test);
