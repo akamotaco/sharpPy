@@ -370,7 +370,9 @@ namespace SharpPy
     {
         static void Main(string[] args)
         {
-            var interpreter = new PythonInterpreter();
+            bool bytecode_test = false;
+
+            var interpreter = new PythonInterpreter(useBytecode:bytecode_test);
 
             if (args.Length > 0)
             {
