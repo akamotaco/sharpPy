@@ -401,6 +401,7 @@ namespace SharpPy
         }
     }
 
+    // AttributeNode의 Evaluate 메서드 수정
     public sealed class AttributeNode : ASTNode
     {
         public ASTNode Object { get; }
@@ -420,12 +421,15 @@ namespace SharpPy
 
                 return obj switch
                 {
-                    // Function 타입들 추가
+                    // PythonSuper 추가 - 가장 먼저 처리
+                    PythonSuper super => super.GetAttribute(Attribute),
+
+                    // Function 타입들 (기존 코드)
                     UserFunction func => func.GetAttribute(Attribute),
                     LambdaFunction lambda => lambda.GetAttribute(Attribute),
                     BuiltinFunction builtin => builtin.GetAttribute(Attribute),
                     BoundMethod bound => bound.GetAttribute(Attribute),
-                    Function func => func.GetAttribute(Attribute),  // 기타 Function 타입
+                    Function func => func.GetAttribute(Attribute),
 
                     // Class 타입 추가
                     PythonClass cls => cls.GetAttribute(Attribute),

@@ -104,7 +104,8 @@ namespace SharpPy
         public string BaseClass { get; }
         public List<ASTNode> Body { get; }
 
-        public ClassDefNode(string name, List<ASTNode> body, string baseClass = null, int line = 0, int column = 0) : base(line, column)
+        public ClassDefNode(string name, List<ASTNode> body, string baseClass = null, int line = 0, int column = 0)
+            : base(line, column)
         {
             Name = name;
             BaseClass = baseClass;
@@ -127,11 +128,16 @@ namespace SharpPy
 
                 var classEnv = new Environment(env);
 
-                // Inherit methods from parent class
+                // 부모 클래스의 메서드 상속 (단, __init__은 제외)
                 if (parentClass != null)
                 {
                     foreach (var kvp in parentClass.ClassEnv.GetAllVariables())
-                        classEnv.SetVariable(kvp.Key, kvp.Value);
+                    {
+                        if (kvp.Key != "__init__")
+                        {
+                            classEnv.SetVariable(kvp.Key, kvp.Value);
+                        }
+                    }
                 }
 
                 foreach (var stmt in Body)

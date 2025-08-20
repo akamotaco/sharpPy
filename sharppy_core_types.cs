@@ -10,7 +10,7 @@ namespace SharpPy
     
     public enum PythonType : byte // Changed to byte for memory optimization
     {
-        Int, Float, String, Boolean, None, List, Dict, Tuple, Set, Function, Class, Instance, Module, Environment
+        Int, Float, String, Boolean, None, List, Dict, Tuple, Set, Function, Class, Instance, Module, Environment, Super
     }
 
     // Base class for all Python objects

@@ -791,6 +791,83 @@ namespace SharpPy
         /// </summary>
         private static void RegisterIntrospectionFunctions(PythonModule module)
         {
+            // super() function 추가
+            module.SetAttribute("super", new BuiltinFunction("super", (env, args) =>
+            {
+                if (args.Count == 0)
+                {
+                    // Python 3 스타일: super()
+                    PythonInstance self = null;
+                    PythonClass currentClass = null;
+                    
+                    try
+                    {
+                        var selfObj = env.GetVariable("self");
+                        if (selfObj is PythonInstance inst)
+                        {
+                            self = inst;
+                            currentClass = inst.Class;
+                        }
+                    }
+                    catch (PythonException)
+                    {
+                        throw new PythonException("RuntimeError", "super(): no arguments");
+                    }
+                    
+                    if (self == null || currentClass == null)
+                    {
+                        throw new PythonException("RuntimeError", "super(): __class__ cell not found");
+                    }
+                    
+                    return new PythonSuper(currentClass, self);
+                }
+                else if (args.Count == 1)
+                {
+                    if (args[0] is PythonClass cls)
+                    {
+                        return new PythonSuper(cls, null);
+                    }
+                    // int, str 등 내장 타입 처리
+                    throw new PythonException("TypeError", "super() argument 1 must be type");
+                }
+                else if (args.Count == 2)
+                {
+                    if (!(args[0] is PythonClass cls))
+                    {
+                        throw new PythonException("TypeError", "super() argument 1 must be type");
+                    }
+                    
+                    if (args[1] is PythonInstance inst)
+                    {
+                        // 인스턴스 검증
+                        PythonClass checkClass = inst.Class;
+                        bool isInstance = false;
+                        while (checkClass != null)
+                        {
+                            if (ReferenceEquals(checkClass, cls))
+                            {
+                                isInstance = true;
+                                break;
+                            }
+                            checkClass = checkClass.ParentClass;
+                        }
+                        
+                        if (!isInstance)
+                        {
+                            throw new PythonException("TypeError", 
+                                "super(type, obj): obj must be an instance or subtype of type");
+                        }
+                        
+                        return new PythonSuper(cls, inst);
+                    }
+                    
+                    throw new PythonException("TypeError", "super() argument 2 must be an instance");
+                }
+                
+                throw new PythonException("TypeError", 
+                    $"super() takes at most 2 arguments ({args.Count} given)");
+            }));
+            
             // globals() function
             module.SetAttribute("globals", new BuiltinFunction("globals", args =>
             {
