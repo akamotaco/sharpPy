@@ -425,14 +425,14 @@ namespace SharpPy
             tokens.Add(new Token(TokenType.EOF, "", line, column));
 
             // 디버그 출력
-            foreach (var token in tokens)
-            {
-                if (token.Type == TokenType.INDENT || token.Type == TokenType.DEDENT ||
-                    token.Type == TokenType.CLASS || token.Type == TokenType.DEF)
-                {
-                    Console.WriteLine($"[Token] {token.Type} at {token.Line}:{token.Column}");
-                }
-            }
+            // foreach (var token in tokens)
+            // {
+            //     if (token.Type == TokenType.INDENT || token.Type == TokenType.DEDENT ||
+            //         token.Type == TokenType.CLASS || token.Type == TokenType.DEF)
+            //     {
+            //         Console.WriteLine($"[Token] {token.Type} at {token.Line}:{token.Column}");
+            //     }
+            // }
 
             return tokens;
         }
@@ -1443,7 +1443,7 @@ namespace SharpPy
             // ParseBlock() 후에 추가 DEDENT나 NEWLINE 처리
             SkipNewlinesAndIndents();
 
-            return new ClassDefNode(name, body, baseClasses.FirstOrDefault(), line, column);
+            return new ClassDefNode(name, body, baseClasses, line, column);
         }
 
         private ASTNode ParseIf()

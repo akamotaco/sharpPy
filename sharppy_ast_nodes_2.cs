@@ -101,14 +101,14 @@ namespace SharpPy
     public sealed class ClassDefNode : ASTNode
     {
         public string Name { get; }
-        public string BaseClass { get; }
+        public List<string> BaseClasses { get; }  // 단일 상속에서 다중 상속으로 변경
         public List<ASTNode> Body { get; }
 
-        public ClassDefNode(string name, List<ASTNode> body, string baseClass = null, int line = 0, int column = 0)
+        public ClassDefNode(string name, List<ASTNode> body, List<string> baseClasses = null, int line = 0, int column = 0)
             : base(line, column)
         {
             Name = name;
-            BaseClass = baseClass;
+            BaseClasses = baseClasses ?? new List<string>();
             Body = body;
         }
 
@@ -116,24 +116,29 @@ namespace SharpPy
         {
             try
             {
-                PythonClass parentClass = null;
-                if (!string.IsNullOrEmpty(BaseClass))
+                // 부모 클래스들 가져오기
+                var parentClasses = new List<PythonClass>();
+                foreach (var baseName in BaseClasses)
                 {
-                    var baseObj = env.GetVariable(BaseClass);
+                    var baseObj = env.GetVariable(baseName);
                     if (baseObj is PythonClass baseClass)
-                        parentClass = baseClass;
+                        parentClasses.Add(baseClass);
                     else
-                        throw CreateException("TypeError", $"'{BaseClass}' is not a class");
+                        throw CreateException("TypeError", $"'{baseName}' is not a class");
                 }
 
                 var classEnv = new Environment(env);
 
-                // 부모 클래스의 메서드 상속
-                if (parentClass != null)
+                // 모든 부모 클래스의 메서드 상속 (MRO 순서대로)
+                // 임시로 클래스 생성하여 MRO 계산
+                var tempClass = new PythonClass(Name, classEnv, parentClasses);
+                var mro = tempClass.GetMRO();
+
+                // MRO 순서의 역순으로 메서드 상속 (나중 것이 먼저 것을 덮어씀)
+                for (int i = mro.Count - 1; i >= 1; i--) // 0은 자기 자신이므로 제외
                 {
-                    foreach (var kvp in parentClass.ClassEnv.GetAllVariables())
+                    foreach (var kvp in mro[i].ClassEnv.GetAllVariables())
                     {
-                        // 모든 메서드를 일단 상속받음
                         classEnv.SetVariable(kvp.Key, kvp.Value);
                     }
                 }
@@ -142,7 +147,7 @@ namespace SharpPy
                 foreach (var stmt in Body)
                     stmt.Evaluate(classEnv);
 
-                var pythonClass = new PythonClass(Name, classEnv, parentClass);
+                var pythonClass = new PythonClass(Name, classEnv, parentClasses);
                 env.SetVariable(Name, pythonClass);
                 return pythonClass;
             }

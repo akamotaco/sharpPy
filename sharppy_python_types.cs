@@ -998,13 +998,25 @@ namespace SharpPy
     {
         public string Name { get; }
         public Environment ClassEnv { get; }
-        public PythonClass ParentClass { get; }
+        public List<PythonClass> ParentClasses { get; }  // 다중 상속을 위해 List로 변경
+        private List<PythonClass> _mro;  // Method Resolution Order 캐시
 
-        public PythonClass(string name, Environment classEnv, PythonClass parentClass = null)
+        // 단일 상속을 위한 호환성 유지
+        public PythonClass ParentClass => ParentClasses?.FirstOrDefault();
+
+        // 다중 상속 생성자
+        public PythonClass(string name, Environment classEnv, List<PythonClass> parentClasses = null)
         {
             Name = name;
             ClassEnv = classEnv;
-            ParentClass = parentClass;
+            ParentClasses = parentClasses ?? new List<PythonClass>();
+            _mro = null; // 지연 계산
+        }
+
+        // 단일 상속 생성자 (호환성)
+        public PythonClass(string name, Environment classEnv, PythonClass parentClass)
+            : this(name, classEnv, parentClass != null ? new List<PythonClass> { parentClass } : null)
+        {
         }
 
         public override PythonType Type => PythonType.Class;
@@ -1015,17 +1027,101 @@ namespace SharpPy
         public override bool Equals(PythonTypeObject other) => ReferenceEquals(this, other);
         public override int GetHashCode() => base.GetHashCode();
 
+        // C3 선형화 알고리즘으로 MRO 계산
+        public List<PythonClass> GetMRO()
+        {
+            if (_mro != null) return _mro;
+
+            _mro = C3Linearization();
+            return _mro;
+        }
+
+        private List<PythonClass> C3Linearization()
+        {
+            // C3 알고리즘 구현
+            var result = new List<PythonClass> { this };
+
+            if (ParentClasses.Count == 0)
+                return result;
+
+            // 부모들의 MRO 가져오기
+            var parentMROs = new List<List<PythonClass>>();
+            foreach (var parent in ParentClasses)
+            {
+                parentMROs.Add(parent.GetMRO());
+            }
+
+            // 부모 클래스 리스트 추가
+            var parentsAsList = new List<PythonClass>(ParentClasses);
+
+            // 모든 리스트를 작업 리스트로 복사
+            var lists = new List<List<PythonClass>>();
+            foreach (var mro in parentMROs)
+            {
+                lists.Add(new List<PythonClass>(mro));
+            }
+            lists.Add(parentsAsList);
+
+            // C3 병합
+            while (lists.Any(l => l.Count > 0))
+            {
+                PythonClass candidate = null;
+
+                // 좋은 head 찾기
+                foreach (var list in lists.Where(l => l.Count > 0))
+                {
+                    var head = list[0];
+
+                    // head가 다른 리스트의 tail에 있는지 확인
+                    bool inTail = false;
+                    foreach (var otherList in lists)
+                    {
+                        if (otherList.Count > 1 && otherList.Skip(1).Contains(head))
+                        {
+                            inTail = true;
+                            break;
+                        }
+                    }
+
+                    if (!inTail)
+                    {
+                        candidate = head;
+                        break;
+                    }
+                }
+
+                if (candidate == null)
+                {
+                    throw new PythonException("TypeError",
+                        $"Cannot create a consistent method resolution order (MRO) for bases {string.Join(", ", ParentClasses.Select(p => p.Name))}");
+                }
+
+                result.Add(candidate);
+
+                // 모든 리스트에서 candidate 제거
+                foreach (var list in lists)
+                {
+                    list.Remove(candidate);
+                }
+
+                // 빈 리스트 제거
+                lists.RemoveAll(l => l.Count == 0);
+            }
+
+            return result;
+        }
+
         public PythonTypeObject GetClassAttribute(string name)
         {
-            // 클래스 자체의 속성만 확인 (전역 환경 제외)
-            PythonClass currentClass = this;
-            while (currentClass != null)
+            // MRO 순서대로 속성 찾기
+            var mro = GetMRO();
+
+            foreach (var cls in mro)
             {
-                if (currentClass.ClassEnv.HasLocalVariable(name))
+                if (cls.ClassEnv.HasLocalVariable(name))
                 {
-                    return currentClass.ClassEnv.GetLocalVariable(name);
+                    return cls.ClassEnv.GetLocalVariable(name);
                 }
-                currentClass = currentClass.ParentClass;
             }
 
             throw new PythonException("AttributeError", $"type object '{Name}' has no attribute '{name}'");
@@ -1041,40 +1137,31 @@ namespace SharpPy
         {
             var instance = new PythonInstance(this);
 
-            // __init__ 메서드 찾기
-            if (ClassEnv.HasVariable("__init__"))
-            {
-                var initMethod = ClassEnv.GetVariable("__init__");
+            // __init__ 메서드 찾기 (MRO 순서대로)
+            UserFunction initMethod = null;
+            var mro = GetMRO();
 
+            foreach (var cls in mro)
+            {
+                if (cls.ClassEnv.HasLocalVariable("__init__"))
+                {
+                    var method = cls.ClassEnv.GetLocalVariable("__init__");
+                    if (method is UserFunction userFunc)
+                    {
+                        initMethod = userFunc;
+                        break;
+                    }
+                }
+            }
+
+            if (initMethod != null)
+            {
                 // self를 첫 번째 인자로 추가
                 var argsWithSelf = new List<PythonTypeObject> { instance };
                 argsWithSelf.AddRange(positionalArgs);
 
-                // __init__ 호출 시 keyword arguments도 전달
-                switch (initMethod)
-                {
-                    case UserFunction userFunc:
-                        userFunc.CallWithKeywords(argsWithSelf, keywordArgs);
-                        break;
-
-                    case BytecodeFunctionWithDefaults bytecodeFunc:
-                        bytecodeFunc.CallWithKeywords(argsWithSelf, keywordArgs);
-                        break;
-
-                    case Function func:
-                        // 기본 Function 타입은 keyword를 지원하지 않으면 positional만 사용
-                        if (keywordArgs.Count > 0)
-                        {
-                            throw new PythonException("TypeError",
-                                $"__init__() got unexpected keyword arguments");
-                        }
-                        func.Call(argsWithSelf);
-                        break;
-
-                    default:
-                        throw new PythonException("TypeError",
-                            "__init__ must be a callable");
-                }
+                // __init__ 호출
+                initMethod.CallWithKeywords(argsWithSelf, keywordArgs);
             }
             else if (positionalArgs.Count > 0 || keywordArgs.Count > 0)
             {
@@ -1093,11 +1180,17 @@ namespace SharpPy
                 case "__name__":
                     return new PythonString(Name);
                 case "__bases__":
-                    // 부모 클래스 튜플 반환
+                    // 부모 클래스들 튜플 반환
                     var bases = new PythonTuple();
-                    if (ParentClass != null)
-                        bases.Items.Add(ParentClass);
+                    foreach (var parent in ParentClasses)
+                        bases.Items.Add(parent);
                     return bases;
+                case "__mro__":
+                    // MRO 튜플 반환
+                    var mroTuple = new PythonTuple();
+                    foreach (var cls in GetMRO())
+                        mroTuple.Items.Add(cls);
+                    return mroTuple;
                 case "__dict__":
                     var dict = new PythonDict();
                     foreach (var kvp in ClassEnv.variables)
@@ -1140,16 +1233,15 @@ namespace SharpPy
                 methods.Add(key);
             }
 
-            // 클래스와 부모 클래스들의 메서드
-            PythonClass currentClass = Class;
-            while (currentClass != null)
+            // MRO 순서대로 모든 메서드
+            var mro = Class.GetMRO();
+            foreach (var cls in mro)
             {
-                foreach (var kvp in currentClass.ClassEnv.variables)
+                foreach (var kvp in cls.ClassEnv.variables)
                 {
                     if (!methods.Contains(kvp.Key))
                         methods.Add(kvp.Key);
                 }
-                currentClass = currentClass.ParentClass;
             }
 
             return methods.OrderBy(m => m).ToList();
@@ -1157,7 +1249,7 @@ namespace SharpPy
 
         public override PythonTypeObject GetAttribute(string name)
         {
-            // 1. 먼저 인스턴스 변수 확인 (부모 환경 탐색 없이)
+            // 1. 먼저 인스턴스 변수 확인
             if (InstanceEnv.HasLocalVariable(name))
             {
                 var value = InstanceEnv.GetLocalVariable(name);
@@ -1166,21 +1258,20 @@ namespace SharpPy
                     : value;
             }
 
-            // 2. 클래스와 부모 클래스들의 메서드/속성 확인
-            PythonClass currentClass = Class;
-            while (currentClass != null)
+            // 2. MRO 순서대로 클래스 메서드/속성 확인
+            var mro = Class.GetMRO();
+            foreach (var cls in mro)
             {
-                if (currentClass.ClassEnv.HasLocalVariable(name))
+                if (cls.ClassEnv.HasLocalVariable(name))
                 {
-                    var value = currentClass.ClassEnv.GetLocalVariable(name);
+                    var value = cls.ClassEnv.GetLocalVariable(name);
                     return value is UserFunction userFunction
                         ? new BoundMethod(name, userFunction, this)
                         : value;
                 }
-                currentClass = currentClass.ParentClass;
             }
 
-            // 3. 특수 메서드들 확인 (__str__, __repr__ 등)
+            // 3. 특수 메서드들 확인
             if (name == "__class__")
                 return Class;
             if (name == "__dict__")
@@ -1189,7 +1280,7 @@ namespace SharpPy
                 var vars = InstanceEnv.GetAllVariables();
                 foreach (var kvp in vars)
                 {
-                    if (InstanceEnv.HasLocalVariable(kvp.Key))  // 인스턴스 변수만
+                    if (InstanceEnv.HasLocalVariable(kvp.Key))
                         dict.Items[new PythonString(kvp.Key)] = kvp.Value;
                 }
                 return dict;
@@ -1280,31 +1371,36 @@ namespace SharpPy
 
         public override PythonTypeObject GetAttribute(string name)
         {
-            // Animal 클래스가 object를 상속받는 경우 (부모가 없는 경우)
-            if (targetClass?.ParentClass == null)
+            // MRO에서 현재 클래스 다음부터 찾기
+            var mro = instance?.Class.GetMRO() ?? targetClass.GetMRO();
+
+            int startIndex = -1;
+            for (int i = 0; i < mro.Count; i++)
             {
-                // object의 기본 메서드들
+                if (ReferenceEquals(mro[i], targetClass))
+                {
+                    startIndex = i + 1;
+                    break;
+                }
+            }
+
+            if (startIndex < 0 || startIndex >= mro.Count)
+            {
+                // 기본 object 메서드들
                 if (name == "__init__")
                 {
-                    // object.__init__은 self 외에 추가 인자를 받지 않음
-                    return new BuiltinFunction("__init__", args =>
-                    {
-                        // args[0]은 self, 나머지는 무시
-                        return PythonNone.Instance;
-                    });
+                    return new BuiltinFunction("__init__", args => PythonNone.Instance);
                 }
                 throw new PythonException("AttributeError",
                     $"super object has no attribute '{name}'");
             }
 
-            // 부모 클래스에서 속성 찾기
-            PythonClass searchClass = targetClass.ParentClass;
-
-            while (searchClass != null)
+            // MRO 순서대로 속성 찾기
+            for (int i = startIndex; i < mro.Count; i++)
             {
-                if (searchClass.ClassEnv.HasLocalVariable(name))
+                if (mro[i].ClassEnv.HasLocalVariable(name))
                 {
-                    var value = searchClass.ClassEnv.GetLocalVariable(name);
+                    var value = mro[i].ClassEnv.GetLocalVariable(name);
 
                     // 인스턴스가 있고 함수인 경우 바인딩
                     if (instance != null && value is UserFunction userFunc)
@@ -1314,8 +1410,6 @@ namespace SharpPy
 
                     return value;
                 }
-
-                searchClass = searchClass.ParentClass;
             }
 
             // 못 찾았으면 기본 object 메서드 확인
