@@ -31,6 +31,7 @@ namespace SharpPy
             // 표준 라이브러리 모듈 등록
             _stdlibModules = new Dictionary<string, Func<List<string>, PythonModule>>
             {
+                ["copy"] = CopyModule.CreateCopyModule,  // copy 모듈 추가
                 ["json"] = JsonModule.CreateJsonModule,
                 ["random"] = RandomModule.CreateRandomModule,
                 ["math"] = MathModule.CreateMathModule,
