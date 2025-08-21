@@ -1212,13 +1212,18 @@ namespace SharpPy
 
         public override PythonTypeObject GetAttribute(string name)
         {
-            // 부모 클래스가 없으면 object의 기본 메서드 제공
+            // Animal 클래스가 object를 상속받는 경우 (부모가 없는 경우)
             if (targetClass?.ParentClass == null)
             {
+                // object의 기본 메서드들
                 if (name == "__init__")
                 {
-                    // object.__init__은 추가 인자를 무시
-                    return new BuiltinFunction("__init__", args => PythonNone.Instance);
+                    // object.__init__은 self 외에 추가 인자를 받지 않음
+                    return new BuiltinFunction("__init__", args =>
+                    {
+                        // args[0]은 self, 나머지는 무시
+                        return PythonNone.Instance;
+                    });
                 }
                 throw new PythonException("AttributeError",
                     $"super object has no attribute '{name}'");
