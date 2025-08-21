@@ -223,7 +223,7 @@ namespace SharpPy
                     return PythonBool.False;
                 }
 
-                throw new PythonException("TypeError", "isinstance() arg 2 must be a type or class" + typeObj);
+                throw new PythonException("TypeError", "isinstance() arg 2 must be a type or class");
             }));
         }
 
