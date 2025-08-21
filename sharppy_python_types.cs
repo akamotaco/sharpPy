@@ -623,156 +623,222 @@ namespace SharpPy
             // 함수가 정의된 환경의 파일 정보 상속
             funcEnv.CurrentFileName = ClosureEnv.CurrentFileName;
 
-            // 파라미터 분류
-            var normalParams = Parameters.Where(p => p.Kind == ParameterKind.Normal).ToList();
-            var varArgsParam = Parameters.FirstOrDefault(p => p.Kind == ParameterKind.VarArgs);
-            var kwArgsParam = Parameters.FirstOrDefault(p => p.Kind == ParameterKind.KwArgs);
+            // 함수 진입 시 스택 프레임 추가
+            var frame = new StackFrame(funcEnv.CurrentFileName, Name, 0, 0);
+            ExecutionContext.PushFrame(frame);
 
-            // 사용된 키워드 인자 추적
-            var usedKeywords = new HashSet<string>();
-            var assignedParams = new Dictionary<string, PythonTypeObject>();
-
-            // 1. 위치 인자를 일반 매개변수에 할당
-            int posArgIndex = 0;
-            for (int i = 0; i < normalParams.Count && posArgIndex < positionalArgs.Count; i++)
-            {
-                var param = normalParams[i];
-
-                // 키워드로 이미 제공된 경우 건너뛰기
-                if (keywordArgs.ContainsKey(param.Name))
-                    continue;
-
-                var value = positionalArgs[posArgIndex];
-
-                // 타입 힌트 검사
-                if (param.TypeHint != null && !param.TypeHint.IsCompatible(value))
-                {
-                    throw new PythonException("TypeError",
-                        $"Argument '{param.Name}' expected {param.TypeHint}, got {GetValueType(value)}");
-                }
-
-                funcEnv.SetVariable(param.Name, value);
-                assignedParams[param.Name] = value;
-                posArgIndex++;
-            }
-
-            // 2. 키워드 인자 처리
-            foreach (var kvp in keywordArgs)
-            {
-                var param = normalParams.FirstOrDefault(p => p.Name == kvp.Key);
-
-                if (param != null)
-                {
-                    // 이미 위치 인자로 할당된 경우 에러
-                    if (funcEnv.HasLocalVariable(param.Name))
-                    {
-                        throw new PythonException("TypeError",
-                            $"{Name}() got multiple values for argument '{param.Name}'");
-                    }
-
-                    // 타입 힌트 검사
-                    if (param.TypeHint != null && !param.TypeHint.IsCompatible(kvp.Value))
-                    {
-                        throw new PythonException("TypeError",
-                            $"Argument '{param.Name}' expected {param.TypeHint}, got {GetValueType(kvp.Value)}");
-                    }
-
-                    funcEnv.SetVariable(param.Name, kvp.Value);
-                    assignedParams[param.Name] = kvp.Value;
-                    usedKeywords.Add(kvp.Key);
-                }
-                else if (kwArgsParam == null)
-                {
-                    throw new PythonException("TypeError",
-                        $"{Name}() got an unexpected keyword argument '{kvp.Key}'");
-                }
-            }
-
-            // 3. 기본값 처리
-            for (int i = 0; i < normalParams.Count; i++)
-            {
-                var param = normalParams[i];
-
-                if (!funcEnv.HasLocalVariable(param.Name))
-                {
-                    if (param.HasDefault && i < evaluatedDefaults.Count && evaluatedDefaults[i] != null)
-                    {
-                        var defaultValue = evaluatedDefaults[i];
-
-                        // 기본값도 타입 힌트 검사
-                        if (param.TypeHint != null && !param.TypeHint.IsCompatible(defaultValue))
-                        {
-                            throw new PythonException("TypeError",
-                                $"Default value for '{param.Name}' expected {param.TypeHint}, got {GetValueType(defaultValue)}");
-                        }
-
-                        funcEnv.SetVariable(param.Name, defaultValue);
-                        assignedParams[param.Name] = defaultValue;
-                    }
-                    else
-                    {
-                        throw new PythonException("TypeError",
-                            $"{Name}() missing required positional argument: '{param.Name}'");
-                    }
-                }
-            }
-
-            // 4. *args 처리
-            if (varArgsParam != null)
-            {
-                var extraArgs = new PythonTuple();
-                for (int i = posArgIndex; i < positionalArgs.Count; i++)
-                {
-                    extraArgs.Items.Add(positionalArgs[i]);
-                }
-                funcEnv.SetVariable(varArgsParam.Name, extraArgs);
-            }
-            else if (posArgIndex < positionalArgs.Count)
-            {
-                throw new PythonException("TypeError",
-                    $"{Name}() takes {normalParams.Count} positional arguments but {positionalArgs.Count} were given");
-            }
-
-            // 5. **kwargs 처리
-            if (kwArgsParam != null)
-            {
-                var extraKwargs = new PythonDict();
-                foreach (var kvp in keywordArgs)
-                {
-                    if (!usedKeywords.Contains(kvp.Key))
-                    {
-                        extraKwargs.Items[new PythonString(kvp.Key)] = kvp.Value;
-                    }
-                }
-                funcEnv.SetVariable(kwArgsParam.Name, extraKwargs);
-            }
-
-            // 함수 본문 실행
             try
             {
-                PythonTypeObject result = PythonNone.Instance;
-                foreach (var stmt in Body)
-                    result = stmt.Evaluate(funcEnv);
 
-                // 반환값 타입 힌트 검사
-                if (ReturnTypeHint != null && !ReturnTypeHint.IsCompatible(result))
+                // 파라미터 분류
+                var normalParams = Parameters.Where(p => p.Kind == ParameterKind.Normal).ToList();
+                var varArgsParam = Parameters.FirstOrDefault(p => p.Kind == ParameterKind.VarArgs);
+                var kwArgsParam = Parameters.FirstOrDefault(p => p.Kind == ParameterKind.KwArgs);
+
+                // 사용된 키워드 인자 추적
+                var usedKeywords = new HashSet<string>();
+                var assignedParams = new Dictionary<string, PythonTypeObject>();
+
+                // 1. 위치 인자를 일반 매개변수에 할당
+                int posArgIndex = 0;
+                for (int i = 0; i < normalParams.Count && posArgIndex < positionalArgs.Count; i++)
                 {
-                    throw new PythonException("TypeError",
-                        $"Return value expected {ReturnTypeHint}, got {GetValueType(result)}");
+                    var param = normalParams[i];
+
+                    // 키워드로 이미 제공된 경우 건너뛰기
+                    if (keywordArgs.ContainsKey(param.Name))
+                        continue;
+
+                    var value = positionalArgs[posArgIndex];
+
+                    // 타입 힌트 검사
+                    if (param.TypeHint != null && !param.TypeHint.IsCompatible(value))
+                    {
+                        throw new PythonException("TypeError",
+                            $"Argument '{param.Name}' expected {param.TypeHint}, got {GetValueType(value)}");
+                    }
+
+                    funcEnv.SetVariable(param.Name, value);
+                    assignedParams[param.Name] = value;
+                    posArgIndex++;
                 }
 
-                return result;
+                // 2. 키워드 인자 처리
+                foreach (var kvp in keywordArgs)
+                {
+                    var param = normalParams.FirstOrDefault(p => p.Name == kvp.Key);
+
+                    if (param != null)
+                    {
+                        // 이미 위치 인자로 할당된 경우 에러
+                        if (funcEnv.HasLocalVariable(param.Name))
+                        {
+                            throw new PythonException("TypeError",
+                                $"{Name}() got multiple values for argument '{param.Name}'");
+                        }
+
+                        // 타입 힌트 검사
+                        if (param.TypeHint != null && !param.TypeHint.IsCompatible(kvp.Value))
+                        {
+                            throw new PythonException("TypeError",
+                                $"Argument '{param.Name}' expected {param.TypeHint}, got {GetValueType(kvp.Value)}");
+                        }
+
+                        funcEnv.SetVariable(param.Name, kvp.Value);
+                        assignedParams[param.Name] = kvp.Value;
+                        usedKeywords.Add(kvp.Key);
+                    }
+                    else if (kwArgsParam == null)
+                    {
+                        throw new PythonException("TypeError",
+                            $"{Name}() got an unexpected keyword argument '{kvp.Key}'");
+                    }
+                }
+
+                // 3. 기본값 처리
+                for (int i = 0; i < normalParams.Count; i++)
+                {
+                    var param = normalParams[i];
+
+                    if (!funcEnv.HasLocalVariable(param.Name))
+                    {
+                        if (param.HasDefault && i < evaluatedDefaults.Count && evaluatedDefaults[i] != null)
+                        {
+                            var defaultValue = evaluatedDefaults[i];
+
+                            // 기본값도 타입 힌트 검사
+                            if (param.TypeHint != null && !param.TypeHint.IsCompatible(defaultValue))
+                            {
+                                throw new PythonException("TypeError",
+                                    $"Default value for '{param.Name}' expected {param.TypeHint}, got {GetValueType(defaultValue)}");
+                            }
+
+                            funcEnv.SetVariable(param.Name, defaultValue);
+                            assignedParams[param.Name] = defaultValue;
+                        }
+                        else
+                        {
+                            throw new PythonException("TypeError",
+                                $"{Name}() missing required positional argument: '{param.Name}'");
+                        }
+                    }
+                }
+
+                // 4. *args 처리
+                if (varArgsParam != null)
+                {
+                    var extraArgs = new PythonTuple();
+                    for (int i = posArgIndex; i < positionalArgs.Count; i++)
+                    {
+                        extraArgs.Items.Add(positionalArgs[i]);
+                    }
+                    funcEnv.SetVariable(varArgsParam.Name, extraArgs);
+                }
+                else if (posArgIndex < positionalArgs.Count)
+                {
+                    throw new PythonException("TypeError",
+                        $"{Name}() takes {normalParams.Count} positional arguments but {positionalArgs.Count} were given");
+                }
+
+                // 5. **kwargs 처리
+                if (kwArgsParam != null)
+                {
+                    var extraKwargs = new PythonDict();
+                    foreach (var kvp in keywordArgs)
+                    {
+                        if (!usedKeywords.Contains(kvp.Key))
+                        {
+                            extraKwargs.Items[new PythonString(kvp.Key)] = kvp.Value;
+                        }
+                    }
+                    funcEnv.SetVariable(kwArgsParam.Name, extraKwargs);
+                }
+
+                // 함수 본문 실행
+                try
+                {
+                    PythonTypeObject result = PythonNone.Instance;
+                    foreach (var stmt in Body)
+                    {
+                        // 현재 실행 중인 문장의 위치 업데이트
+                        if (ExecutionContext.CurrentFrame != null)
+                        {
+                            ExecutionContext.CurrentFrame.Line = stmt.Line;
+                            ExecutionContext.CurrentFrame.Column = stmt.Column;
+                        }
+
+                        result = stmt.Evaluate(funcEnv);
+                    }
+
+                    // 암시적 return None에 대한 타입 체크
+                    if (ReturnTypeHint != null && !ReturnTypeHint.IsCompatible(result))
+                    {
+                        // 함수의 마지막 줄 위치 사용
+                        var lastLine = Body.Count > 0 ? Body[Body.Count - 1].Line : 0;
+                        var lastColumn = Body.Count > 0 ? Body[Body.Count - 1].Column : 0;
+
+                        var ex = new PythonException("TypeError",
+                            $"Return value expected {ReturnTypeHint}, got {GetValueType(result)}",
+                            lastLine, lastColumn, funcEnv.CurrentFileName);
+
+                        // 현재 스택 프레임 추가
+                        ex.AddStackFrame(new StackFrame(funcEnv.CurrentFileName, Name, lastLine, lastColumn));
+
+                        // 호출 스택 추가
+                        foreach (var sf in ExecutionContext.GetCallStack().Skip(1).Reverse())
+                        {
+                            ex.AddStackFrame(sf);
+                        }
+
+                        throw ex;
+                    }
+
+                    return result;
+                }
+                catch (ReturnException ex)
+                {
+                    // return 문에서 반환된 값의 타입 체크
+                    if (ReturnTypeHint != null && !ReturnTypeHint.IsCompatible(ex.Value))
+                    {
+                        var typeEx = new PythonException("TypeError",
+                            $"Return value expected {ReturnTypeHint}, got {GetValueType(ex.Value)}",
+                            ex.Line, ex.Column, ex.FileName ?? funcEnv.CurrentFileName);
+
+                        // return 문 위치를 스택에 추가
+                        typeEx.AddStackFrame(new StackFrame(
+                            ex.FileName ?? funcEnv.CurrentFileName,
+                            Name,
+                            ex.Line,
+                            ex.Column
+                        ));
+
+                        // 호출 스택 추가
+                        foreach (var sf in ExecutionContext.GetCallStack().Skip(1).Reverse())
+                        {
+                            typeEx.AddStackFrame(sf);
+                        }
+
+                        throw typeEx;
+                    }
+
+                    return ex.Value;
+                }
             }
-            catch (ReturnException ex)
+            catch (PythonException ex)
             {
-                // 반환값 타입 힌트 검사
-                if (ReturnTypeHint != null && !ReturnTypeHint.IsCompatible(ex.Value))
+                // 이미 스택 정보가 있으면 그대로 전달
+                if (ex.CallStack.Count > 0)
                 {
-                    throw new PythonException("TypeError",
-                        $"Return value expected {ReturnTypeHint}, got {GetValueType(ex.Value)}");
+                    throw;
                 }
 
-                return ex.Value;
+                // 스택 정보가 없으면 현재 위치 추가
+                ex.AddStackFrame(ExecutionContext.CurrentFrame);
+                throw;
+            }
+            finally
+            {
+                ExecutionContext.PopFrame();
             }
         }
 
@@ -1148,12 +1214,13 @@ namespace SharpPy
             return CreateInstanceWithKeywords(args, new Dictionary<string, PythonTypeObject>());
         }
 
+        // PythonClass의 CreateInstanceWithKeywords 메서드 수정
         public PythonInstance CreateInstanceWithKeywords(List<PythonTypeObject> positionalArgs,
                                                      Dictionary<string, PythonTypeObject> keywordArgs)
         {
             var instance = new PythonInstance(this);
 
-            // __init__ 메서드 찾기 (MRO 순서대로)
+            // __init__ 메서드 찾기
             UserFunction initMethod = null;
             var mro = GetMRO();
 
@@ -1172,18 +1239,28 @@ namespace SharpPy
 
             if (initMethod != null)
             {
-                // self를 첫 번째 인자로 추가
-                var argsWithSelf = new List<PythonTypeObject> { instance };
-                argsWithSelf.AddRange(positionalArgs);
+                // __init__ 호출 위치 기록
+                var frame = new StackFrame(
+                    ClassEnv.CurrentFileName ?? "<class>",
+                    "__init__",
+                    0, 0
+                );
+                ExecutionContext.PushFrame(frame);
 
-                // __init__ 호출
-                initMethod.CallWithKeywords(argsWithSelf, keywordArgs);
+                try
+                {
+                    var argsWithSelf = new List<PythonTypeObject> { instance };
+                    argsWithSelf.AddRange(positionalArgs);
+                    initMethod.CallWithKeywords(argsWithSelf, keywordArgs);
+                }
+                finally
+                {
+                    ExecutionContext.PopFrame();
+                }
             }
             else if (positionalArgs.Count > 0 || keywordArgs.Count > 0)
             {
-                // __init__이 없는데 인자가 전달된 경우
-                throw new PythonException("TypeError",
-                    $"{Name}() takes no arguments");
+                throw new PythonException("TypeError", $"{Name}() takes no arguments");
             }
 
             return instance;

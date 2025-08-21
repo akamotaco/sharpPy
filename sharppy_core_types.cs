@@ -593,32 +593,119 @@ namespace SharpPy
         public override int GetHashCode() => 0;
     }
 
+    public class StackFrame
+    {
+        public string FileName { get; set; }
+        public string FunctionName { get; set; }
+        public int Line { get; set; }
+        public int Column { get; set; }
+        public string SourceLine { get; set; }  // 실제 소스 코드 라인
+
+        public StackFrame(string fileName, string functionName, int line, int column)
+        {
+            FileName = fileName;
+            FunctionName = functionName;
+            Line = line;
+            Column = column;
+        }
+
+        public override string ToString()
+        {
+            return $"  File \"{FileName}\", line {Line}, in {FunctionName}";
+        }
+    }
+
     // Enhanced Exception Classes
-    public sealed class PythonException : Exception
+    public class PythonException : Exception
     {
         public string Type { get; }
-        public int Line { get; }
-        public int Column { get; }
-        public string FileName { get; }
+        public int Line { get; set; }
+        public int Column { get; set; }
+        public string FileName { get; set; }
+        public List<StackFrame> CallStack { get; }
 
-        public PythonException(string type, string message, int line = 0, int column = 0, string fileName = "<string>")
+        public PythonException(string type, string message, int line = 0, int column = 0, string fileName = null)
             : base(message)
         {
             Type = type;
             Line = line;
             Column = column;
-            FileName = fileName;
+            FileName = fileName ?? "<string>";
+            CallStack = new List<StackFrame>();
         }
 
-        public override string ToString() => Line > 0
-            ? $"  File \"{FileName}\", line {Line}, column {Column}\n{Type}: {Message}"
-            : $"  File \"{FileName}\"\n{Type}: {Message}";
+        public void AddStackFrame(StackFrame frame)
+        {
+            CallStack.Add(frame);
+        }
+
+        public string GetTraceback()
+        {
+            if (CallStack.Count == 0)
+            {
+                return $"  File \"{FileName}\", line {Line}, column {Column}\n{Type}: {Message}";
+            }
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("Traceback (most recent call last):");
+
+            // 스택을 역순으로 출력 (호출 순서대로)
+            for (int i = CallStack.Count - 1; i >= 0; i--)
+            {
+                sb.AppendLine(CallStack[i].ToString());
+                if (!string.IsNullOrEmpty(CallStack[i].SourceLine))
+                {
+                    sb.AppendLine($"    {CallStack[i].SourceLine}");
+                }
+            }
+
+            sb.Append($"{Type}: {Message}");
+            return sb.ToString();
+        }
     }
 
-    public sealed class ReturnException : Exception
+    public static class ExecutionContext
+    {
+        private static Stack<StackFrame> callStack = new Stack<StackFrame>();
+        
+        public static void PushFrame(StackFrame frame)
+        {
+            callStack.Push(frame);
+        }
+        
+        public static void PopFrame()
+        {
+            if (callStack.Count > 0)
+                callStack.Pop();
+        }
+        
+        public static StackFrame CurrentFrame => callStack.Count > 0 ? callStack.Peek() : null;
+        
+        public static List<StackFrame> GetCallStack()
+        {
+            return callStack.ToList();
+        }
+        
+        public static void Clear()
+        {
+            callStack.Clear();
+        }
+    }
+
+    public class ReturnException : Exception
     {
         public PythonTypeObject Value { get; }
-        public ReturnException(PythonTypeObject value) => Value = value;
+        public int Line { get; }
+        public int Column { get; }
+        public string FileName { get; }
+
+        public ReturnException(PythonTypeObject value, int line = 0, int column = 0, string fileName = null)
+        {
+            Value = value;
+            Line = line;
+            Column = column;
+            FileName = fileName;
+        }
     }
 
     public sealed class BreakException : Exception { }
