@@ -7,27 +7,10 @@ using System.Runtime.CompilerServices;
 
 namespace SharpPy
 {
-    // Core Enums
-    public enum TokenType : byte // Changed to byte for memory optimization
-    {
-        // Literals
-        NUMBER, STRING, BOOLEAN, NONE, IDENTIFIER, FSTRING,
-        // Keywords
-        DEF, CLASS, IF, ELSE, ELIF, FOR, WHILE, IN, IS, BREAK, CONTINUE,
-        TRY, EXCEPT, FINALLY, RAISE, IMPORT, FROM, AS, RETURN, AND, OR, NOT, LAMBDA,
-        WITH, DEL,
-        // Operators
-        OPERATOR, ASSIGN, COMPOUND_ASSIGN,
-        // Delimiters
-        LPAREN, RPAREN, LBRACKET, RBRACKET, LBRACE, RBRACE, COLON, COMMA, DOT,
-        // Special
-        NEWLINE, EOF, INDENT, DEDENT, PASS,
-        GLOBAL, NONLOCAL,  // 추가
-    }
-
+    
     public enum PythonType : byte // Changed to byte for memory optimization
     {
-        Int, Float, String, Boolean, None, List, Dict, Tuple, Function, Class, Instance, Module, Environment
+        Int, Float, String, Boolean, None, List, Dict, Tuple, Set, Function, Class, Instance, Module, Environment, Super
     }
 
     // Base class for all Python objects
@@ -788,39 +771,29 @@ namespace SharpPy
         public override string ToString() => $"Union[{string.Join(", ", Types)}]";
     }
 
+    public enum ParameterKind
+    {
+        Normal,      // 일반 매개변수
+        VarArgs,     // *args
+        KwArgs       // **kwargs
+    }
+
     public sealed class Parameter
     {
         public string Name { get; }
         public TypeHint TypeHint { get; }
-        public ASTNode DefaultValue { get; }  // 기본값 추가
+        public ASTNode DefaultValue { get; }
+        public ParameterKind Kind { get; }  // 추가
 
-        public Parameter(string name, TypeHint typeHint = null, ASTNode defaultValue = null)
+        public Parameter(string name, TypeHint typeHint = null, ASTNode defaultValue = null, ParameterKind kind = ParameterKind.Normal)
         {
             Name = name;
             TypeHint = typeHint;
             DefaultValue = defaultValue;
+            Kind = kind;
         }
 
         public bool HasDefault => DefaultValue != null;
-    }
-
-    // Enhanced Token Class
-    public sealed class Token
-    {
-        public TokenType Type { get; }
-        public string Value { get; }
-        public int Line { get; }
-        public int Column { get; }
-
-        public Token(TokenType type, string value, int line = 1, int column = 1)
-        {
-            Type = type;
-            Value = value;
-            Line = line;
-            Column = column;
-        }
-
-        public override string ToString() => $"Token({Type}, {Value}) at {Line}:{Column}";
     }
 
     // Optimized Helper class for number operations

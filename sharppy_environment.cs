@@ -25,6 +25,8 @@ namespace SharpPy
         public HashSet<string> globalVars = new HashSet<string>();
         public HashSet<string> nonlocalVars = new HashSet<string>();
 
+        public string CurrentFileName { get; set; } = "<string>";
+
         public Environment(Environment parent = null, Environment global = null, EnvironmentType type = EnvironmentType.Local)
         {
             this.parent = parent;
@@ -38,6 +40,12 @@ namespace SharpPy
             else
             {
                 SearchPaths = StandardLibrary.GetGlobalSearchPaths();
+            }
+
+            // 부모 환경에서 파일 정보 상속
+            if (parent != null)
+            {
+                CurrentFileName = parent.CurrentFileName;
             }
         }
 

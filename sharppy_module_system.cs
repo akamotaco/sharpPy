@@ -73,6 +73,9 @@ namespace SharpPy
                         module.ModuleEnv.SetVariable("__name__", new PythonString(name));
                         module.ModuleEnv.SetVariable("__file__", new PythonString(directFilePath));
                         
+                        // 현재 파일 정보 설정 - 이것이 핵심!
+                        module.ModuleEnv.CurrentFileName = directFilePath;
+
                         // __builtins__ 설정
                         if (parentEnv != null)
                         {

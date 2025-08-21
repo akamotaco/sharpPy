@@ -2,6 +2,8 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Text;
+
 
 namespace SharpPy
 {
@@ -20,18 +22,18 @@ namespace SharpPy
         public abstract PythonTypeObject Evaluate(Environment env);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected PythonException CreateException(string type, string message, string fileName = "<string>") =>
-            new PythonException(type, message, Line, Column, fileName);
+        protected PythonException CreateException(string type, string message, string fileName = null) =>
+            new PythonException(type, message, Line, Column, fileName ?? "<string>");
     }
 
     // Optimized Expression Nodes
     public sealed class NumberNode : ASTNode
     {
         public object Value { get; }
-        
-        public NumberNode(object value, int line = 0, int column = 0) : base(line, column) 
+
+        public NumberNode(object value, int line = 0, int column = 0) : base(line, column)
             => Value = value;
-            
+
         public override PythonTypeObject Evaluate(Environment env) => Value switch
         {
             int i => PythonInt.Create(i),
@@ -43,35 +45,35 @@ namespace SharpPy
     public sealed class StringNode : ASTNode
     {
         public string Value { get; }
-        
-        public StringNode(string value, int line = 0, int column = 0) : base(line, column) 
+
+        public StringNode(string value, int line = 0, int column = 0) : base(line, column)
             => Value = value;
-            
+
         public override PythonTypeObject Evaluate(Environment env) => new PythonString(Value);
     }
 
     public sealed class BooleanNode : ASTNode
     {
         public bool Value { get; }
-        
-        public BooleanNode(bool value, int line = 0, int column = 0) : base(line, column) 
+
+        public BooleanNode(bool value, int line = 0, int column = 0) : base(line, column)
             => Value = value;
-            
+
         public override PythonTypeObject Evaluate(Environment env) => PythonBool.Create(Value);
     }
 
     public sealed class NoneNode : ASTNode
     {
         public NoneNode(int line = 0, int column = 0) : base(line, column) { }
-        
+
         public override PythonTypeObject Evaluate(Environment env) => PythonNone.Instance;
     }
 
     public sealed class VariableNode : ASTNode
     {
         public string Name { get; }
-        
-        public VariableNode(string name, int line = 0, int column = 0) : base(line, column) 
+
+        public VariableNode(string name, int line = 0, int column = 0) : base(line, column)
             => Name = name;
 
         public override PythonTypeObject Evaluate(Environment env)
@@ -83,7 +85,10 @@ namespace SharpPy
             catch (PythonException ex)
             {
                 if (ex.Line == 0)
-                    throw CreateException(ex.Type, ex.Message);
+                {
+                    // 현재 환경의 파일 정보와 이 노드의 라인 정보를 사용
+                    throw new PythonException(ex.Type, ex.Message, Line, Column, env.CurrentFileName);
+                }
                 throw;
             }
         }
@@ -92,8 +97,8 @@ namespace SharpPy
     public sealed class ListNode : ASTNode
     {
         public List<ASTNode> Elements { get; }
-        
-        public ListNode(List<ASTNode> elements, int line = 0, int column = 0) : base(line, column) 
+
+        public ListNode(List<ASTNode> elements, int line = 0, int column = 0) : base(line, column)
             => Elements = elements;
 
         public override PythonTypeObject Evaluate(Environment env)
@@ -102,7 +107,7 @@ namespace SharpPy
             {
                 var list = new PythonList();
                 list.Items.Capacity = Elements.Count; // Pre-allocate capacity
-                
+
                 foreach (var element in Elements)
                     list.Items.Add(element.Evaluate(env));
                 return list;
@@ -121,8 +126,8 @@ namespace SharpPy
     public sealed class TupleNode : ASTNode
     {
         public List<ASTNode> Elements { get; }
-        
-        public TupleNode(List<ASTNode> elements, int line = 0, int column = 0) : base(line, column) 
+
+        public TupleNode(List<ASTNode> elements, int line = 0, int column = 0) : base(line, column)
             => Elements = elements;
 
         public override PythonTypeObject Evaluate(Environment env)
@@ -131,7 +136,7 @@ namespace SharpPy
             {
                 var tuple = new PythonTuple();
                 tuple.Items.Capacity = Elements.Count; // Pre-allocate capacity
-                
+
                 foreach (var element in Elements)
                     tuple.Items.Add(element.Evaluate(env));
                 return tuple;
@@ -150,8 +155,8 @@ namespace SharpPy
     public sealed class DictNode : ASTNode
     {
         public List<(ASTNode Key, ASTNode Value)> Pairs { get; }
-        
-        public DictNode(List<(ASTNode, ASTNode)> pairs, int line = 0, int column = 0) : base(line, column) 
+
+        public DictNode(List<(ASTNode, ASTNode)> pairs, int line = 0, int column = 0) : base(line, column)
             => Pairs = pairs;
 
         public override PythonTypeObject Evaluate(Environment env)
@@ -160,7 +165,7 @@ namespace SharpPy
             {
                 var dict = new PythonDict();
                 dict.Items.EnsureCapacity(Pairs.Count); // Pre-allocate capacity
-                
+
                 foreach (var (key, value) in Pairs)
                 {
                     var keyObj = key.Evaluate(env);
@@ -261,7 +266,7 @@ namespace SharpPy
         {
             int count = list.Items.Count;
             int step = GetSliceStep(Step?.Evaluate(env));
-            
+
             int? start, stop;
             if (step > 0)
             {
@@ -289,7 +294,7 @@ namespace SharpPy
             {
                 int actualStart = start ?? count - 1;
                 int actualStop = stop ?? -count - 1;
-                
+
                 for (int i = actualStart; i >= 0 && i < count; i += step)
                 {
                     result.Items.Add(list.Items[i]);
@@ -307,7 +312,7 @@ namespace SharpPy
         {
             int count = tuple.Items.Count;
             int step = GetSliceStep(Step?.Evaluate(env));
-            
+
             int? start, stop;
             if (step > 0)
             {
@@ -335,7 +340,7 @@ namespace SharpPy
             {
                 int actualStart = start ?? count - 1;
                 int actualStop = stop ?? -count - 1;
-                
+
                 for (int i = actualStart; i >= 0 && i < count; i += step)
                 {
                     result.Items.Add(tuple.Items[i]);
@@ -353,7 +358,7 @@ namespace SharpPy
         {
             int count = str.Length;
             int step = GetSliceStep(Step?.Evaluate(env));
-            
+
             int? start, stop;
             if (step > 0)
             {
@@ -365,7 +370,7 @@ namespace SharpPy
                 start = GetSliceIndex(Start?.Evaluate(env), count - 1, count);
                 stop = GetSliceIndex(Stop?.Evaluate(env), -count - 1, count);
             }
-            
+
             return str.Slice(start, stop, step);
         }
 
@@ -396,6 +401,7 @@ namespace SharpPy
         }
     }
 
+    // AttributeNode의 Evaluate 메서드 수정
     public sealed class AttributeNode : ASTNode
     {
         public ASTNode Object { get; }
@@ -415,16 +421,19 @@ namespace SharpPy
 
                 return obj switch
                 {
-                    // Function 타입들 추가
+                    // PythonSuper 추가 - 가장 먼저 처리
+                    PythonSuper super => super.GetAttribute(Attribute),
+
+                    // Function 타입들 (기존 코드)
                     UserFunction func => func.GetAttribute(Attribute),
                     LambdaFunction lambda => lambda.GetAttribute(Attribute),
                     BuiltinFunction builtin => builtin.GetAttribute(Attribute),
                     BoundMethod bound => bound.GetAttribute(Attribute),
-                    Function func => func.GetAttribute(Attribute),  // 기타 Function 타입
-                    
+                    Function func => func.GetAttribute(Attribute),
+
                     // Class 타입 추가
                     PythonClass cls => cls.GetAttribute(Attribute),
-                    
+
                     // 기존 타입들
                     PythonInstance instance => instance.GetAttribute(Attribute),
                     PythonList list => list.GetMethod(Attribute),
@@ -433,7 +442,7 @@ namespace SharpPy
                     PythonModule module => module.GetAttribute(Attribute),
                     PythonString str => str.GetMethod(Attribute),
                     FileObject file => file.GetMethod(Attribute),
-                    
+
                     _ => throw CreateException("AttributeError", $"'{obj?.Type}' object has no attribute '{Attribute}'")
                 };
             }
@@ -505,6 +514,53 @@ namespace SharpPy
                 throw CreateException("RuntimeError", $"Internal error creating lambda: {ex.Message}");
             }
         }
+    }
+    
+    public sealed class StringConcatenationNode : ASTNode
+    {
+        public List<ASTNode> Parts { get; }
+        
+        public StringConcatenationNode(List<ASTNode> parts, int line = 0, int column = 0) 
+            : base(line, column)
+        {
+            Parts = parts;
+        }
+        
+        public override PythonTypeObject Evaluate(Environment env)
+        {
+            try
+            {
+                var result = new StringBuilder();
+                
+                foreach (var part in Parts)
+                {
+                    var value = part.Evaluate(env);
+                    
+                    if (value is PythonString str)
+                    {
+                        result.Append(str.Value);
+                    }
+                    else
+                    {
+                        // 다른 타입은 문자열로 변환
+                        result.Append(value.ToPythonString());
+                    }
+                }
+                
+                return new PythonString(result.ToString());
+            }
+            catch (PythonException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", 
+                    $"Internal error in string literal concatenation: {ex.Message}");
+            }
+        }
+        
+        public override string ToString() => $"StringConcat({string.Join(", ", Parts)})";
     }
 }
 

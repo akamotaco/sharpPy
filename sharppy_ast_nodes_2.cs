@@ -42,15 +42,20 @@ namespace SharpPy
         }
     }
 
+    // sharppy_ast_nodes_2.cs 수정
     public sealed class FunctionCallNode : ASTNode
     {
         public ASTNode Function { get; }
         public List<ASTNode> Arguments { get; }
+        public Dictionary<string, ASTNode> KeywordArguments { get; }
 
-        public FunctionCallNode(ASTNode function, List<ASTNode> arguments, int line = 0, int column = 0) : base(line, column)
+        public FunctionCallNode(ASTNode function, List<ASTNode> arguments,
+                              Dictionary<string, ASTNode> kwArgs = null,
+                              int line = 0, int column = 0) : base(line, column)
         {
             Function = function;
             Arguments = arguments;
+            KeywordArguments = kwArgs ?? new Dictionary<string, ASTNode>();
         }
 
         public override PythonTypeObject Evaluate(Environment env)
@@ -59,33 +64,33 @@ namespace SharpPy
             {
                 var function = Function.Evaluate(env);
 
-                // Pre-evaluate all arguments
+                // 위치 인자 평가
                 var args = new List<PythonTypeObject>(Arguments.Count);
                 foreach (var arg in Arguments)
                     args.Add(arg.Evaluate(env));
 
+                // 키워드 인자 평가
+                var kwargs = new Dictionary<string, PythonTypeObject>();
+                foreach (var kvp in KeywordArguments)
+                    kwargs[kvp.Key] = kvp.Value.Evaluate(env);
+
                 return function switch
                 {
-                    // BuiltinFunction에 환경이 필요한 경우 처리 추가
+                    UserFunction userFunc => userFunc.CallWithKeywords(args, kwargs),
+                    LambdaFunction lambdaFunc => lambdaFunc.CallWithKeywords(args, kwargs),
+                    BytecodeFunctionWithDefaults bytecodeWithDefaults => bytecodeWithDefaults.CallWithKeywords(args, kwargs),
+                    BytecodeFunction bytecodeFunc => bytecodeFunc.CallWithKeywords(args, kwargs),
                     BuiltinFunction builtinFunc when builtinFunc.NeedsEnvironment =>
                         builtinFunc.CallWithEnv(env, args),
-                    UserFunction userFunc => userFunc.Call(args),
-                    LambdaFunction lambdaFunc => lambdaFunc.Call(args),
                     BuiltinFunction builtinFunc => builtinFunc.Call(args),
-                    BoundMethod boundMethod => boundMethod.Call(args),
-                    PythonClass pythonClass => pythonClass.CreateInstance(args),
-                    BytecodeFunction bytecodeFunc => bytecodeFunc.Call(args),
+                    BoundMethod boundMethod => boundMethod.CallWithKeywords(args, kwargs),
+                    PythonClass pythonClass => pythonClass.CreateInstanceWithKeywords(args, kwargs), // 수정된 부분
+                    Function func => func.Call(args),
                     _ => throw CreateException("TypeError", $"'{function?.Type}' object is not callable")
                 };
             }
-            catch (PythonException)
-            {
-                throw;
-            }
-            catch (ReturnException)
-            {
-                throw;
-            }
+            catch (PythonException) { throw; }
+            catch (ReturnException) { throw; }
             catch (Exception ex)
             {
                 throw CreateException("RuntimeError", $"Internal error calling function: {ex.Message}");
@@ -99,7 +104,8 @@ namespace SharpPy
         public string BaseClass { get; }
         public List<ASTNode> Body { get; }
 
-        public ClassDefNode(string name, List<ASTNode> body, string baseClass = null, int line = 0, int column = 0) : base(line, column)
+        public ClassDefNode(string name, List<ASTNode> body, string baseClass = null, int line = 0, int column = 0)
+            : base(line, column)
         {
             Name = name;
             BaseClass = baseClass;
@@ -122,13 +128,17 @@ namespace SharpPy
 
                 var classEnv = new Environment(env);
 
-                // Inherit methods from parent class
+                // 부모 클래스의 메서드 상속
                 if (parentClass != null)
                 {
                     foreach (var kvp in parentClass.ClassEnv.GetAllVariables())
+                    {
+                        // 모든 메서드를 일단 상속받음
                         classEnv.SetVariable(kvp.Key, kvp.Value);
+                    }
                 }
 
+                // 클래스 body 평가 (자식 클래스에서 재정의하면 덮어씀)
                 foreach (var stmt in Body)
                     stmt.Evaluate(classEnv);
 
@@ -993,16 +1003,16 @@ namespace SharpPy
             }
         }
     }
-    
+
     public class GlobalNode : ASTNode
     {
         public List<string> Names { get; }
-        
+
         public GlobalNode(List<string> names, int line = 0, int column = 0) : base(line, column)
         {
             Names = names;
         }
-        
+
         public override PythonTypeObject Evaluate(Environment env)
         {
             foreach (var name in Names)
@@ -1017,12 +1027,12 @@ namespace SharpPy
     public class NonlocalNode : ASTNode
     {
         public List<string> Names { get; }
-        
+
         public NonlocalNode(List<string> names, int line = 0, int column = 0) : base(line, column)
         {
             Names = names;
         }
-        
+
         public override PythonTypeObject Evaluate(Environment env)
         {
             // nonlocal은 global 환경에서는 사용할 수 없음
@@ -1030,7 +1040,7 @@ namespace SharpPy
             {
                 throw CreateException("SyntaxError", "nonlocal declaration not allowed at module level");
             }
-            
+
             foreach (var name in Names)
             {
                 // enclosing 환경에서 변수 존재 확인
@@ -1045,14 +1055,33 @@ namespace SharpPy
                     }
                     enclosing = enclosing.parent;
                 }
-                
+
                 if (!found)
                 {
                     throw CreateException("SyntaxError", $"no binding for nonlocal '{name}' found");
                 }
-                
+
                 env.nonlocalVars.Add(name);
             }
+            return PythonNone.Instance;
+        }
+    }
+    
+    // Expression used as a statement (result should be discarded)
+    public sealed class ExpressionStatementNode : ASTNode
+    {
+        public ASTNode Expression { get; }
+        
+        public ExpressionStatementNode(ASTNode expression, int line = 0, int column = 0) 
+            : base(line, column)
+        {
+            Expression = expression;
+        }
+        
+        public override PythonTypeObject Evaluate(Environment env)
+        {
+            // Expression을 평가하지만 결과는 버림 (부작용만 실행)
+            Expression.Evaluate(env);
             return PythonNone.Instance;
         }
     }

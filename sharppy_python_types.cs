@@ -21,28 +21,28 @@ namespace SharpPy
         {
             Items = new List<PythonTypeObject>();
         }
-        
+
         public PythonList(int capacity)
         {
             Items = new List<PythonTypeObject>(capacity);
         }
-        
+
         public override PythonType Type => PythonType.List;
         public override bool IsTrue() => Items.Count > 0;
         public override bool IsSequence() => true;
         public override object GetRawValue() => this;
-        
+
         public override string ToPythonString()
         {
             if (Items.Count == 0) return "[]";
             return "[" + string.Join(", ", Items.Select(FormatItem)) + "]";
         }
-        
+
         public override bool Equals(PythonTypeObject other)
         {
             if (!(other is PythonList pl) || Items.Count != pl.Items.Count)
                 return false;
-            
+
             for (int i = 0; i < Items.Count; i++)
             {
                 if (!Items[i].Equals(pl.Items[i]))
@@ -50,20 +50,22 @@ namespace SharpPy
             }
             return true;
         }
-        
-        public override int GetHashCode() => 
+
+        public override int GetHashCode() =>
             throw new PythonException("TypeError", "unhashable type: 'list'");
-        
+
         private static void InitializeMethodRegistry()
         {
             methodRegistry = new Dictionary<string, Func<PythonList, List<PythonTypeObject>, PythonTypeObject>>
             {
-                ["append"] = (self, args) => {
+                ["append"] = (self, args) =>
+                {
                     if (args.Count != 1) throw new PythonException("TypeError", "append() takes exactly one argument");
                     self.Items.Add(args[0]);
                     return PythonNone.Instance;
                 },
-                ["extend"] = (self, args) => {
+                ["extend"] = (self, args) =>
+                {
                     if (args.Count != 1) throw new PythonException("TypeError", "extend() takes exactly one argument");
                     switch (args[0])
                     {
@@ -82,18 +84,20 @@ namespace SharpPy
                     }
                     return PythonNone.Instance;
                 },
-                ["insert"] = (self, args) => {
+                ["insert"] = (self, args) =>
+                {
                     if (args.Count != 2) throw new PythonException("TypeError", "insert() takes exactly two arguments");
                     if (!NumberHelper.IsNumber(args[0]))
                         throw new PythonException("TypeError", "insert() first argument must be an integer");
-                    
+
                     int i = NumberHelper.ToInt(args[0]);
                     if (i < 0) i = Math.Max(0, self.Items.Count + i);
                     if (i > self.Items.Count) i = self.Items.Count;
                     self.Items.Insert(i, args[1]);
                     return PythonNone.Instance;
                 },
-                ["remove"] = (self, args) => {
+                ["remove"] = (self, args) =>
+                {
                     if (args.Count != 1) throw new PythonException("TypeError", "remove() takes exactly one argument");
                     for (int i = 0; i < self.Items.Count; i++)
                     {
@@ -105,25 +109,28 @@ namespace SharpPy
                     }
                     throw new PythonException("ValueError", "list.remove(x): x not in list");
                 },
-                ["pop"] = (self, args) => {
+                ["pop"] = (self, args) =>
+                {
                     if (args.Count > 1) throw new PythonException("TypeError", "pop() takes at most 1 argument");
                     if (self.Items.Count == 0) throw new PythonException("IndexError", "pop from empty list");
 
                     int index = args.Count == 0 ? self.Items.Count - 1 : NumberHelper.ToInt(args[0]);
                     if (index < 0) index += self.Items.Count;
-                    if (index < 0 || index >= self.Items.Count) 
+                    if (index < 0 || index >= self.Items.Count)
                         throw new PythonException("IndexError", "pop index out of range");
 
                     var item = self.Items[index];
                     self.Items.RemoveAt(index);
                     return item;
                 },
-                ["clear"] = (self, args) => {
+                ["clear"] = (self, args) =>
+                {
                     if (args.Count != 0) throw new PythonException("TypeError", "clear() takes no arguments");
                     self.Items.Clear();
                     return PythonNone.Instance;
                 },
-                ["index"] = (self, args) => {
+                ["index"] = (self, args) =>
+                {
                     if (args.Count != 1) throw new PythonException("TypeError", "index() takes exactly one argument");
                     for (int i = 0; i < self.Items.Count; i++)
                     {
@@ -132,27 +139,32 @@ namespace SharpPy
                     }
                     throw new PythonException("ValueError", $"{args[0]} is not in list");
                 },
-                ["count"] = (self, args) => {
+                ["count"] = (self, args) =>
+                {
                     if (args.Count != 1) throw new PythonException("TypeError", "count() takes exactly one argument");
                     return PythonInt.Create(self.Items.Count(item => item.Equals(args[0])));
                 },
-                ["sort"] = (self, args) => {
+                ["sort"] = (self, args) =>
+                {
                     if (args.Count > 1) throw new PythonException("TypeError", "sort() takes at most 1 argument");
-                    self.Items.Sort((a, b) => {
+                    self.Items.Sort((a, b) =>
+                    {
                         if (NumberHelper.IsNumber(a) && NumberHelper.IsNumber(b))
                             return NumberHelper.ToDouble(a).CompareTo(NumberHelper.ToDouble(b));
-                        if (a is PythonString sa && b is PythonString sb) 
+                        if (a is PythonString sa && b is PythonString sb)
                             return string.Compare(sa.Value, sb.Value);
                         return 0;
                     });
                     return PythonNone.Instance;
                 },
-                ["reverse"] = (self, args) => {
+                ["reverse"] = (self, args) =>
+                {
                     if (args.Count != 0) throw new PythonException("TypeError", "reverse() takes no arguments");
                     self.Items.Reverse();
                     return PythonNone.Instance;
                 },
-                ["copy"] = (self, args) => {
+                ["copy"] = (self, args) =>
+                {
                     if (args.Count != 0) throw new PythonException("TypeError", "copy() takes no arguments");
                     var newList = new PythonList(self.Items.Count);
                     newList.Items.AddRange(self.Items);
@@ -169,7 +181,7 @@ namespace SharpPy
             }
             throw new PythonException("AttributeError", $"'list' object has no attribute '{name}'");
         }
-        
+
         public override List<string> GetMethodNames()
         {
             return methodRegistry.Keys.OrderBy(k => k).ToList();
@@ -182,7 +194,7 @@ namespace SharpPy
             PythonNone => "None",
             _ => item.ToPythonString()
         };
-        
+
         public PythonList Repeat(int times)
         {
             if (times <= 0) return new PythonList();
@@ -191,7 +203,7 @@ namespace SharpPy
                 result.Items.AddRange(Items);
             return result;
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public PythonTypeObject GetItem(int index)
         {
@@ -200,7 +212,7 @@ namespace SharpPy
                 throw new PythonException("IndexError", "list index out of range");
             return Items[index];
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetItem(int index, PythonTypeObject value)
         {
@@ -216,23 +228,25 @@ namespace SharpPy
     {
         private static readonly PythonTuple EmptyTuple = new PythonTuple();
         private static Dictionary<string, Func<PythonTuple, List<PythonTypeObject>, PythonTypeObject>> methodRegistry;
-        
+
         public List<PythonTypeObject> Items { get; }
-        
+
         static PythonTuple()
         {
             InitializeMethodRegistry();
         }
-        
+
         private static void InitializeMethodRegistry()
         {
             methodRegistry = new Dictionary<string, Func<PythonTuple, List<PythonTypeObject>, PythonTypeObject>>
             {
-                ["count"] = (self, args) => {
+                ["count"] = (self, args) =>
+                {
                     if (args.Count != 1) throw new PythonException("TypeError", "count() takes exactly one argument");
                     return PythonInt.Create(self.Items.Count(item => item.Equals(args[0])));
                 },
-                ["index"] = (self, args) => {
+                ["index"] = (self, args) =>
+                {
                     if (args.Count != 1) throw new PythonException("TypeError", "index() takes exactly one argument");
                     for (int i = 0; i < self.Items.Count; i++)
                     {
@@ -243,36 +257,36 @@ namespace SharpPy
                 }
             };
         }
-        
+
         public PythonTuple()
         {
             Items = new List<PythonTypeObject>();
         }
-        
+
         public PythonTuple(int capacity)
         {
             Items = new List<PythonTypeObject>(capacity);
         }
-        
+
         public static PythonTuple Empty => EmptyTuple;
-        
+
         public override PythonType Type => PythonType.Tuple;
         public override bool IsTrue() => Items.Count > 0;
         public override bool IsSequence() => true;
         public override object GetRawValue() => this;
-        
+
         public override string ToPythonString()
         {
             if (Items.Count == 0) return "()";
             if (Items.Count == 1) return $"({FormatItem(Items[0])},)";
             return "(" + string.Join(", ", Items.Select(FormatItem)) + ")";
         }
-        
+
         public override bool Equals(PythonTypeObject other)
         {
             if (!(other is PythonTuple pt) || Items.Count != pt.Items.Count)
                 return false;
-            
+
             for (int i = 0; i < Items.Count; i++)
             {
                 if (!Items[i].Equals(pt.Items[i]))
@@ -280,7 +294,7 @@ namespace SharpPy
             }
             return true;
         }
-        
+
         public override int GetHashCode()
         {
             int hash = 17;
@@ -297,7 +311,7 @@ namespace SharpPy
             }
             throw new PythonException("AttributeError", $"'tuple' object has no attribute '{name}'");
         }
-        
+
         public override List<string> GetMethodNames()
         {
             return methodRegistry.Keys.OrderBy(k => k).ToList();
@@ -310,7 +324,7 @@ namespace SharpPy
             PythonNone => "None",
             _ => item.ToPythonString()
         };
-        
+
         public PythonTuple Repeat(int times)
         {
             if (times <= 0) return EmptyTuple;
@@ -319,7 +333,7 @@ namespace SharpPy
                 result.Items.AddRange(Items);
             return result;
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public PythonTypeObject GetItem(int index)
         {
@@ -345,28 +359,28 @@ namespace SharpPy
         {
             Items = new Dictionary<PythonTypeObject, PythonTypeObject>();
         }
-        
+
         public PythonDict(int capacity)
         {
             Items = new Dictionary<PythonTypeObject, PythonTypeObject>(capacity);
         }
-        
+
         public override PythonType Type => PythonType.Dict;
         public override bool IsTrue() => Items.Count > 0;
         public override object GetRawValue() => this;
-        
+
         public override string ToPythonString()
         {
             if (Items.Count == 0) return "{}";
             var pairs = Items.Select(kvp => $"{FormatItem(kvp.Key)}: {FormatItem(kvp.Value)}");
             return "{" + string.Join(", ", pairs) + "}";
         }
-        
+
         public override bool Equals(PythonTypeObject other)
         {
             if (!(other is PythonDict pd) || Items.Count != pd.Items.Count)
                 return false;
-            
+
             foreach (var kvp in Items)
             {
                 bool found = false;
@@ -384,21 +398,22 @@ namespace SharpPy
             }
             return true;
         }
-        
-        public override int GetHashCode() => 
+
+        public override int GetHashCode() =>
             throw new PythonException("TypeError", "unhashable type: 'dict'");
 
-        
+
         private static void InitializeMethodRegistry()
         {
             methodRegistry = new Dictionary<string, Func<PythonDict, List<PythonTypeObject>, PythonTypeObject>>
             {
-                ["get"] = (self, args) => {
-                    if (args.Count < 1 || args.Count > 2) 
+                ["get"] = (self, args) =>
+                {
+                    if (args.Count < 1 || args.Count > 2)
                         throw new PythonException("TypeError", "get() takes 1 or 2 arguments");
                     var key = args[0];
                     var defaultValue = args.Count == 2 ? args[1] : PythonNone.Instance;
-                    
+
                     foreach (var kvp in self.Items)
                     {
                         if (kvp.Key.Equals(key))
@@ -406,19 +421,22 @@ namespace SharpPy
                     }
                     return defaultValue;
                 },
-                ["keys"] = (self, args) => {
+                ["keys"] = (self, args) =>
+                {
                     if (args.Count != 0) throw new PythonException("TypeError", "keys() takes no arguments");
                     var list = new PythonList(self.Items.Count);
                     list.Items.AddRange(self.Items.Keys);
                     return list;
                 },
-                ["values"] = (self, args) => {
+                ["values"] = (self, args) =>
+                {
                     if (args.Count != 0) throw new PythonException("TypeError", "values() takes no arguments");
                     var list = new PythonList(self.Items.Count);
                     list.Items.AddRange(self.Items.Values);
                     return list;
                 },
-                ["items"] = (self, args) => {
+                ["items"] = (self, args) =>
+                {
                     if (args.Count != 0) throw new PythonException("TypeError", "items() takes no arguments");
                     var list = new PythonList(self.Items.Count);
                     foreach (var kvp in self.Items)
@@ -430,8 +448,9 @@ namespace SharpPy
                     }
                     return list;
                 },
-                ["pop"] = (self, args) => {
-                    if (args.Count < 1 || args.Count > 2) 
+                ["pop"] = (self, args) =>
+                {
+                    if (args.Count < 1 || args.Count > 2)
                         throw new PythonException("TypeError", "pop() takes 1 or 2 arguments");
                     var key = args[0];
                     foreach (var kvp in self.Items)
@@ -445,12 +464,14 @@ namespace SharpPy
                     if (args.Count == 2) return args[1];
                     throw new PythonException("KeyError", $"KeyError: {key}");
                 },
-                ["clear"] = (self, args) => {
+                ["clear"] = (self, args) =>
+                {
                     if (args.Count != 0) throw new PythonException("TypeError", "clear() takes no arguments");
                     self.Items.Clear();
                     return PythonNone.Instance;
                 },
-                ["update"] = (self, args) => {
+                ["update"] = (self, args) =>
+                {
                     if (args.Count != 1) throw new PythonException("TypeError", "update() takes exactly one argument");
                     if (!(args[0] is PythonDict other))
                         throw new PythonException("TypeError", "update() argument must be a dict");
@@ -458,19 +479,21 @@ namespace SharpPy
                         self.Items[kvp.Key] = kvp.Value;
                     return PythonNone.Instance;
                 },
-                ["copy"] = (self, args) => {
+                ["copy"] = (self, args) =>
+                {
                     if (args.Count != 0) throw new PythonException("TypeError", "copy() takes no arguments");
                     var newDict = new PythonDict(self.Items.Count);
                     foreach (var kvp in self.Items)
                         newDict.Items[kvp.Key] = kvp.Value;
                     return newDict;
                 },
-                ["setdefault"] = (self, args) => {
+                ["setdefault"] = (self, args) =>
+                {
                     if (args.Count < 1 || args.Count > 2)
                         throw new PythonException("TypeError", "setdefault() takes 1 or 2 arguments");
                     var key = args[0];
                     var defaultValue = args.Count == 2 ? args[1] : PythonNone.Instance;
-                    
+
                     foreach (var kvp in self.Items)
                     {
                         if (kvp.Key.Equals(key))
@@ -490,7 +513,7 @@ namespace SharpPy
             }
             throw new PythonException("AttributeError", $"'dict' object has no attribute '{name}'");
         }
-        
+
         public override List<string> GetMethodNames()
         {
             return methodRegistry.Keys.OrderBy(k => k).ToList();
@@ -503,7 +526,7 @@ namespace SharpPy
             PythonNone => "None",
             _ => item.ToPythonString()
         };
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public PythonTypeObject GetItem(PythonTypeObject key)
         {
@@ -514,13 +537,13 @@ namespace SharpPy
             }
             throw new PythonException("KeyError", $"KeyError: {key}");
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetItem(PythonTypeObject key, PythonTypeObject value)
         {
             Items[key] = value;
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool ContainsKey(PythonTypeObject key) => Items.ContainsKey(key);
     }
@@ -530,9 +553,9 @@ namespace SharpPy
     {
         public string Name { get; }
         protected Function(string name) => Name = name;
-        
+
         public abstract PythonTypeObject Call(List<PythonTypeObject> arguments);
-        
+
         public override PythonType Type => PythonType.Function;
         public override bool IsTrue() => true;
         public override bool IsCallable() => true;
@@ -540,7 +563,7 @@ namespace SharpPy
         public override object GetRawValue() => this;
         public override bool Equals(PythonTypeObject other) => ReferenceEquals(this, other);
         public override int GetHashCode() => base.GetHashCode();
-        
+
         // GetAttribute 추가
         public override PythonTypeObject GetAttribute(string name)
         {
@@ -553,30 +576,31 @@ namespace SharpPy
                 case "__module__":
                     return new PythonString("__main__");  // 기본값
                 default:
-                    throw new PythonException("AttributeError", 
+                    throw new PythonException("AttributeError",
                         $"'function' object has no attribute '{name}'");
             }
         }
     }
 
+    // sharppy_python_types.cs의 UserFunction 클래스 수정
     public sealed class UserFunction : Function
     {
         public List<Parameter> Parameters { get; }
         public List<ASTNode> Body { get; }
         public Environment ClosureEnv { get; }
         public TypeHint ReturnTypeHint { get; }
-        
+
         private List<PythonTypeObject> evaluatedDefaults;
 
-        public UserFunction(string name, List<Parameter> parameters, List<ASTNode> body, 
-                            Environment closureEnv, TypeHint returnTypeHint = null)
+        public UserFunction(string name, List<Parameter> parameters, List<ASTNode> body,
+                        Environment closureEnv, TypeHint returnTypeHint = null)
             : base(name)
         {
             Parameters = parameters;
             Body = body;
             ClosureEnv = closureEnv;
             ReturnTypeHint = returnTypeHint;
-            
+
             evaluatedDefaults = new List<PythonTypeObject>();
             foreach (var param in parameters)
             {
@@ -591,82 +615,130 @@ namespace SharpPy
             }
         }
 
-        public override PythonTypeObject Call(List<PythonTypeObject> arguments)
+        public PythonTypeObject CallWithKeywords(List<PythonTypeObject> positionalArgs,
+                                            Dictionary<string, PythonTypeObject> keywordArgs)
         {
-            // 필수 매개변수 개수 계산
-            int requiredParams = Parameters.Count(p => !p.HasDefault);
+            var funcEnv = new Environment(ClosureEnv, ClosureEnv.globalEnv, EnvironmentType.Enclosing);
 
-            // 인자 개수 검증
-            if (arguments.Count < requiredParams)
+            // 함수가 정의된 환경의 파일 정보 상속
+            funcEnv.CurrentFileName = ClosureEnv.CurrentFileName;
+
+            // 파라미터 분류
+            var normalParams = Parameters.Where(p => p.Kind == ParameterKind.Normal).ToList();
+            var varArgsParam = Parameters.FirstOrDefault(p => p.Kind == ParameterKind.VarArgs);
+            var kwArgsParam = Parameters.FirstOrDefault(p => p.Kind == ParameterKind.KwArgs);
+
+            // 사용된 키워드 인자 추적
+            var usedKeywords = new HashSet<string>();
+
+            // 1. 위치 인자를 일반 매개변수에 할당
+            int posArgIndex = 0;
+            for (int i = 0; i < normalParams.Count && posArgIndex < positionalArgs.Count; i++)
+            {
+                var param = normalParams[i];
+
+                // 키워드로 이미 제공된 경우 건너뛰기
+                if (keywordArgs.ContainsKey(param.Name))
+                    continue;
+
+                funcEnv.SetVariable(param.Name, positionalArgs[posArgIndex]);
+                posArgIndex++;
+            }
+
+            // 2. 키워드 인자 처리
+            foreach (var kvp in keywordArgs)
+            {
+                var param = normalParams.FirstOrDefault(p => p.Name == kvp.Key);
+
+                if (param != null)
+                {
+                    // 이미 위치 인자로 할당된 경우 에러
+                    if (funcEnv.HasLocalVariable(param.Name))
+                    {
+                        throw new PythonException("TypeError",
+                            $"{Name}() got multiple values for argument '{param.Name}'");
+                    }
+
+                    funcEnv.SetVariable(param.Name, kvp.Value);
+                    usedKeywords.Add(kvp.Key);
+                }
+                else if (kwArgsParam == null)
+                {
+                    throw new PythonException("TypeError",
+                        $"{Name}() got an unexpected keyword argument '{kvp.Key}'");
+                }
+            }
+
+            // 3. 기본값 처리
+            for (int i = 0; i < normalParams.Count; i++)
+            {
+                var param = normalParams[i];
+
+                if (!funcEnv.HasLocalVariable(param.Name))
+                {
+                    if (param.HasDefault && i < evaluatedDefaults.Count && evaluatedDefaults[i] != null)
+                    {
+                        funcEnv.SetVariable(param.Name, evaluatedDefaults[i]);
+                    }
+                    else
+                    {
+                        throw new PythonException("TypeError",
+                            $"{Name}() missing required positional argument: '{param.Name}'");
+                    }
+                }
+            }
+
+            // 4. *args 처리
+            if (varArgsParam != null)
+            {
+                var extraArgs = new PythonTuple();
+                for (int i = posArgIndex; i < positionalArgs.Count; i++)
+                {
+                    extraArgs.Items.Add(positionalArgs[i]);
+                }
+                funcEnv.SetVariable(varArgsParam.Name, extraArgs);
+            }
+            else if (posArgIndex < positionalArgs.Count)
             {
                 throw new PythonException("TypeError",
-                    $"Function {Name} missing {requiredParams - arguments.Count} required positional argument(s)");
+                    $"{Name}() takes {normalParams.Count} positional arguments but {positionalArgs.Count} were given");
             }
 
-            if (arguments.Count > Parameters.Count)
+            // 5. **kwargs 처리
+            if (kwArgsParam != null)
             {
-                throw new PythonException("TypeError",
-                    $"Function {Name} takes at most {Parameters.Count} arguments ({arguments.Count} given)");
+                var extraKwargs = new PythonDict();
+                foreach (var kvp in keywordArgs)
+                {
+                    if (!usedKeywords.Contains(kvp.Key))
+                    {
+                        extraKwargs.Items[new PythonString(kvp.Key)] = kvp.Value;
+                    }
+                }
+                funcEnv.SetVariable(kwArgsParam.Name, extraKwargs);
             }
 
-            var funcEnv = new Environment(
-                ClosureEnv,                      // parent (enclosing)
-                ClosureEnv.globalEnv,            // global 환경 전달
-                EnvironmentType.Enclosing        // 함수는 Enclosing 환경
-            );
-
-            // 매개변수 바인딩
-            for (int i = 0; i < Parameters.Count; i++)
-            {
-                var param = Parameters[i];
-                PythonTypeObject arg;
-
-                // 인자가 제공되었으면 사용, 아니면 기본값 사용
-                if (i < arguments.Count)
-                {
-                    arg = arguments[i];
-                }
-                else if (evaluatedDefaults[i] != null)
-                {
-                    arg = evaluatedDefaults[i];
-                }
-                else
-                {
-                    // 이 경우는 위의 검증에서 걸러져야 함
-                    throw new PythonException("TypeError",
-                        $"Function {Name} missing required argument: '{param.Name}'");
-                }
-
-                // 타입 검증
-                if (param.TypeHint != null && !param.TypeHint.IsCompatible(arg))
-                {
-                    throw new PythonException("TypeError",
-                        $"Argument for parameter '{param.Name}' expected {param.TypeHint}, got {GetValueType(arg)}");
-                }
-
-                funcEnv.SetVariable(param.Name, arg);
-            }
-
+            // 함수 본문 실행
             try
             {
                 PythonTypeObject result = PythonNone.Instance;
                 foreach (var stmt in Body)
                     result = stmt.Evaluate(funcEnv);
 
-                if (ReturnTypeHint != null && !ReturnTypeHint.IsCompatible(result))
-                    throw new PythonException("TypeError",
-                        $"Return value expected {ReturnTypeHint}, got {GetValueType(result)}");
-
                 return result;
             }
             catch (ReturnException ex)
             {
-                if (ReturnTypeHint != null && !ReturnTypeHint.IsCompatible(ex.Value))
-                    throw new PythonException("TypeError",
-                        $"Return value expected {ReturnTypeHint}, got {GetValueType(ex.Value)}");
                 return ex.Value;
             }
         }
+
+        // 기존 Call 메서드는 키워드 인자 없이 호출용
+        public override PythonTypeObject Call(List<PythonTypeObject> arguments)
+        {
+            return CallWithKeywords(arguments, new Dictionary<string, PythonTypeObject>());
+        }
+
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static string GetValueType(PythonTypeObject value)
@@ -679,7 +751,8 @@ namespace SharpPy
                 _ => value.Type.ToString().ToLower()
             };
         }
-        
+
+
         public override PythonTypeObject GetAttribute(string name)
         {
             switch (name)
@@ -709,7 +782,7 @@ namespace SharpPy
             Parameters = parameters;
             Body = body;
             ClosureEnv = closureEnv;
-            
+
             // 기본값 평가
             evaluatedDefaults = new List<PythonTypeObject>();
             foreach (var param in parameters)
@@ -725,61 +798,68 @@ namespace SharpPy
             }
         }
 
-        public override PythonTypeObject Call(List<PythonTypeObject> arguments)
+        public PythonTypeObject CallWithKeywords(List<PythonTypeObject> positionalArgs,
+                                            Dictionary<string, PythonTypeObject> keywordArgs)
         {
-            int requiredParams = Parameters.Count(p => !p.HasDefault);
-            
-            if (arguments.Count < requiredParams)
-            {
-                throw new PythonException("TypeError", 
-                    $"Lambda function missing {requiredParams - arguments.Count} required positional argument(s)");
-            }
-            
-            if (arguments.Count > Parameters.Count)
-            {
-                throw new PythonException("TypeError", 
-                    $"Lambda function takes at most {Parameters.Count} arguments ({arguments.Count} given)");
-            }
+            // UserFunction과 유사한 로직으로 구현
+            // 단, 람다는 보통 *args, **kwargs를 지원하지 않으므로 간단하게 구현
+            var funcEnv = new Environment(ClosureEnv, ClosureEnv.globalEnv, EnvironmentType.Enclosing);
 
-            var funcEnv = new Environment(
-                ClosureEnv,
-                ClosureEnv.globalEnv,
-                EnvironmentType.Enclosing
-            );
-
-            for (int i = 0; i < Parameters.Count; i++)
+            int posArgIndex = 0;
+            for (int i = 0; i < Parameters.Count && posArgIndex < positionalArgs.Count; i++)
             {
                 var param = Parameters[i];
-                PythonTypeObject arg;
-                
-                if (i < arguments.Count)
+                if (keywordArgs.ContainsKey(param.Name))
+                    continue;
+                funcEnv.SetVariable(param.Name, positionalArgs[posArgIndex]);
+                posArgIndex++;
+            }
+
+            foreach (var kvp in keywordArgs)
+            {
+                var param = Parameters.FirstOrDefault(p => p.Name == kvp.Key);
+                if (param != null)
                 {
-                    arg = arguments[i];
-                }
-                else if (evaluatedDefaults[i] != null)
-                {
-                    arg = evaluatedDefaults[i];
+                    if (funcEnv.HasLocalVariable(param.Name))
+                        throw new PythonException("TypeError",
+                            $"Lambda got multiple values for argument '{param.Name}'");
+                    funcEnv.SetVariable(param.Name, kvp.Value);
                 }
                 else
                 {
-                    throw new PythonException("TypeError", 
-                        $"Lambda function missing required argument: '{param.Name}'");
+                    throw new PythonException("TypeError",
+                        $"Lambda got an unexpected keyword argument '{kvp.Key}'");
                 }
+            }
 
-                if (param.TypeHint != null && !param.TypeHint.IsCompatible(arg))
+            // 기본값 처리
+            for (int i = 0; i < Parameters.Count; i++)
+            {
+                var param = Parameters[i];
+                if (!funcEnv.HasLocalVariable(param.Name))
                 {
-                    throw new PythonException("TypeError", 
-                        $"Argument for parameter '{param.Name}' expected {param.TypeHint}, got {GetValueType(arg)}");
+                    if (param.HasDefault && i < evaluatedDefaults.Count && evaluatedDefaults[i] != null)
+                    {
+                        funcEnv.SetVariable(param.Name, evaluatedDefaults[i]);
+                    }
+                    else
+                    {
+                        throw new PythonException("TypeError",
+                            $"Lambda missing required argument: '{param.Name}'");
+                    }
                 }
-
-                funcEnv.SetVariable(param.Name, arg);
             }
 
             return Body.Evaluate(funcEnv);
         }
-        
+
+        public override PythonTypeObject Call(List<PythonTypeObject> arguments)
+        {
+            return CallWithKeywords(arguments, new Dictionary<string, PythonTypeObject>());
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static string GetValueType(PythonTypeObject value) => 
+        private static string GetValueType(PythonTypeObject value) =>
             value == null || value is PythonNone ? "None" : value.Type.ToString().ToLower();
     }
 
@@ -831,14 +911,18 @@ namespace SharpPy
             this.instance = instance;
         }
 
-        public override PythonTypeObject Call(List<PythonTypeObject> arguments)
+        public PythonTypeObject CallWithKeywords(List<PythonTypeObject> positionalArgs,
+                                                Dictionary<string, PythonTypeObject> keywordArgs)
         {
-            var newArgs = new List<PythonTypeObject>(arguments.Count + 1) { instance };
-            newArgs.AddRange(arguments);
-            return method.Call(newArgs);
+            var newArgs = new List<PythonTypeObject>(positionalArgs.Count + 1) { instance };
+            newArgs.AddRange(positionalArgs);
+            return method.CallWithKeywords(newArgs, keywordArgs);
         }
 
-        public override string ToPythonString() => $"<bound method {Name}>";
+        public override PythonTypeObject Call(List<PythonTypeObject> arguments)
+        {
+            return CallWithKeywords(arguments, new Dictionary<string, PythonTypeObject>());
+        }
     }
 
     // Optimized Class System
@@ -879,33 +963,61 @@ namespace SharpPy
             throw new PythonException("AttributeError", $"type object '{Name}' has no attribute '{name}'");
         }
 
-        public PythonInstance CreateInstance(List<PythonTypeObject> args = null)
+        public PythonInstance CreateInstance(List<PythonTypeObject> args)
+        {
+            return CreateInstanceWithKeywords(args, new Dictionary<string, PythonTypeObject>());
+        }
+
+        public PythonInstance CreateInstanceWithKeywords(List<PythonTypeObject> positionalArgs,
+                                                     Dictionary<string, PythonTypeObject> keywordArgs)
         {
             var instance = new PythonInstance(this);
 
+            // __init__ 메서드 찾기
             if (ClassEnv.HasVariable("__init__"))
             {
-                var initMethod = ClassEnv.GetVariable("__init__") as Function;
-                if (initMethod != null)
+                var initMethod = ClassEnv.GetVariable("__init__");
+
+                // self를 첫 번째 인자로 추가
+                var argsWithSelf = new List<PythonTypeObject> { instance };
+                argsWithSelf.AddRange(positionalArgs);
+
+                // __init__ 호출 시 keyword arguments도 전달
+                switch (initMethod)
                 {
-                    var initArgs = new List<PythonTypeObject>(1 + (args?.Count ?? 0)) { instance };
-                    if (args != null) initArgs.AddRange(args);
+                    case UserFunction userFunc:
+                        userFunc.CallWithKeywords(argsWithSelf, keywordArgs);
+                        break;
 
-                    // __init__의 반환값 확인
-                    var result = initMethod.Call(initArgs);
+                    case BytecodeFunctionWithDefaults bytecodeFunc:
+                        bytecodeFunc.CallWithKeywords(argsWithSelf, keywordArgs);
+                        break;
 
-                    // __init__이 self를 반환한 경우 그것을 사용, 
-                    // None을 반환한 경우 원래 instance 사용
-                    if (result is PythonInstance returnedInstance)
-                    {
-                        return returnedInstance;
-                    }
+                    case Function func:
+                        // 기본 Function 타입은 keyword를 지원하지 않으면 positional만 사용
+                        if (keywordArgs.Count > 0)
+                        {
+                            throw new PythonException("TypeError",
+                                $"__init__() got unexpected keyword arguments");
+                        }
+                        func.Call(argsWithSelf);
+                        break;
+
+                    default:
+                        throw new PythonException("TypeError",
+                            "__init__ must be a callable");
                 }
+            }
+            else if (positionalArgs.Count > 0 || keywordArgs.Count > 0)
+            {
+                // __init__이 없는데 인자가 전달된 경우
+                throw new PythonException("TypeError",
+                    $"{Name}() takes no arguments");
             }
 
             return instance;
         }
-        
+
         public override PythonTypeObject GetAttribute(string name)
         {
             switch (name)
@@ -930,7 +1042,7 @@ namespace SharpPy
             }
         }
     }
-    
+
     // PythonInstance with GetMethodNames
     public sealed class PythonInstance : PythonTypeObject
     {
@@ -953,13 +1065,13 @@ namespace SharpPy
         public override List<string> GetMethodNames()
         {
             var methods = new HashSet<string>();
-            
+
             // 인스턴스 변수들
             foreach (var key in InstanceEnv.variables.Keys)
             {
                 methods.Add(key);
             }
-            
+
             // 클래스와 부모 클래스들의 메서드
             PythonClass currentClass = Class;
             while (currentClass != null)
@@ -971,7 +1083,7 @@ namespace SharpPy
                 }
                 currentClass = currentClass.ParentClass;
             }
-            
+
             return methods.OrderBy(m => m).ToList();
         }
 
@@ -1035,7 +1147,7 @@ namespace SharpPy
             // __name__ 속성 설정
             ModuleEnv.SetVariable("__name__", new PythonString(name));
             ModuleEnv.SetVariable("__file__", new PythonString("<module>"));
-            
+
             if (searchPaths != null)
             {
                 ModuleEnv.SearchPaths = new List<string>(searchPaths);
@@ -1077,6 +1189,75 @@ namespace SharpPy
                 attrs.Add(kvp.Key);
             }
             return attrs.OrderBy(a => a).ToList();
+        }
+    }
+
+    public sealed class PythonSuper : PythonTypeObject
+    {
+        private readonly PythonClass targetClass;
+        private readonly PythonInstance instance;
+
+        public PythonSuper(PythonClass cls, PythonInstance inst = null)
+        {
+            targetClass = cls;
+            instance = inst;
+        }
+
+        public override PythonType Type => PythonType.Super;
+        public override bool IsTrue() => true;
+        public override string ToPythonString() =>
+            $"<super: {targetClass?.Name ?? "NULL"}, {instance?.Class.Name ?? "NULL"}>";
+        public override object GetRawValue() => this;
+        public override bool Equals(PythonTypeObject other) => ReferenceEquals(this, other);
+
+        public override PythonTypeObject GetAttribute(string name)
+        {
+            // Animal 클래스가 object를 상속받는 경우 (부모가 없는 경우)
+            if (targetClass?.ParentClass == null)
+            {
+                // object의 기본 메서드들
+                if (name == "__init__")
+                {
+                    // object.__init__은 self 외에 추가 인자를 받지 않음
+                    return new BuiltinFunction("__init__", args =>
+                    {
+                        // args[0]은 self, 나머지는 무시
+                        return PythonNone.Instance;
+                    });
+                }
+                throw new PythonException("AttributeError",
+                    $"super object has no attribute '{name}'");
+            }
+
+            // 부모 클래스에서 속성 찾기
+            PythonClass searchClass = targetClass.ParentClass;
+
+            while (searchClass != null)
+            {
+                if (searchClass.ClassEnv.HasLocalVariable(name))
+                {
+                    var value = searchClass.ClassEnv.GetLocalVariable(name);
+
+                    // 인스턴스가 있고 함수인 경우 바인딩
+                    if (instance != null && value is UserFunction userFunc)
+                    {
+                        return new BoundMethod(name, userFunc, instance);
+                    }
+
+                    return value;
+                }
+
+                searchClass = searchClass.ParentClass;
+            }
+
+            // 못 찾았으면 기본 object 메서드 확인
+            if (name == "__init__")
+            {
+                return new BuiltinFunction("__init__", args => PythonNone.Instance);
+            }
+
+            throw new PythonException("AttributeError",
+                $"super object has no attribute '{name}'");
         }
     }
 }
