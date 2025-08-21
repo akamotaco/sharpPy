@@ -151,32 +151,32 @@ namespace SharpPy
         /// </summary>
         private static void RegisterTypeFunctions(PythonModule module)
         {
-            // str() function
-            module.SetAttribute("str", new BuiltinFunction("str", args =>
+            // str을 CallableType으로 등록
+            module.SetAttribute("str", new CallableType("str", PythonType.String, args =>
             {
                 if (args.Count != 1)
                     throw new PythonException("TypeError", "str() takes exactly one argument");
                 return args[0].ToStr();
             }));
 
-            // int() function
-            module.SetAttribute("int", new BuiltinFunction("int", args =>
+            // int를 CallableType으로 등록
+            module.SetAttribute("int", new CallableType("int", PythonType.Int, args =>
             {
                 if (args.Count != 1)
                     throw new PythonException("TypeError", "int() takes exactly one argument");
                 return args[0].ToInt();
             }));
 
-            // float() function
-            module.SetAttribute("float", new BuiltinFunction("float", args =>
+            // float를 CallableType으로 등록
+            module.SetAttribute("float", new CallableType("float", PythonType.Float, args =>
             {
                 if (args.Count != 1)
                     throw new PythonException("TypeError", "float() takes exactly one argument");
                 return args[0].ToFloat();
             }));
 
-            // bool() function
-            module.SetAttribute("bool", new BuiltinFunction("bool", args =>
+            // bool을 CallableType으로 등록
+            module.SetAttribute("bool", new CallableType("bool", PythonType.Boolean, args =>
             {
                 if (args.Count != 1)
                     throw new PythonException("TypeError", "bool() takes exactly one argument");
@@ -201,16 +201,17 @@ namespace SharpPy
                 var typeObj = args[1];
 
                 // Handle type checking
-                if (typeObj is PythonString typeStr)
+                // CallableType 처리
+                if (typeObj is CallableType ct)
                 {
-                    string objType = GetTypeName(obj);
-                    return new PythonBool(objType == typeStr.Value);
+                    return new PythonBool(obj.Type == ct.RepresentsType);
                 }
-                else if (typeObj is PythonClass cls)
+                
+                // PythonClass 처리 (기존 코드)
+                if (typeObj is PythonClass cls)
                 {
                     if (obj is PythonInstance inst)
                     {
-                        // Check if instance is of this class or derived class
                         PythonClass currentClass = inst.Class;
                         while (currentClass != null)
                         {
@@ -218,12 +219,11 @@ namespace SharpPy
                                 return PythonBool.True;
                             currentClass = currentClass.ParentClass;
                         }
-                        return PythonBool.False;
                     }
                     return PythonBool.False;
                 }
 
-                throw new PythonException("TypeError", "isinstance() arg 2 must be a type or class");
+                throw new PythonException("TypeError", "isinstance() arg 2 must be a type or class" + typeObj);
             }));
         }
 
@@ -250,7 +250,7 @@ namespace SharpPy
             }));
 
             // list() function
-            module.SetAttribute("list", new BuiltinFunction("list", args =>
+            module.SetAttribute("list", new CallableType("list", PythonType.List, args =>
             {
                 var list = new PythonList();
                 if (args.Count == 1)
@@ -890,6 +890,30 @@ namespace SharpPy
                     $"super() takes at most 2 arguments ({args.Count} given)");
             }));
 
+            // staticmethod decorator
+            module.SetAttribute("staticmethod", new BuiltinFunction("staticmethod", args =>
+            {
+                if (args.Count != 1)
+                    throw new PythonException("TypeError", "staticmethod() takes exactly one argument");
+
+                if (args[0] is Function func)
+                    return new StaticMethod(func);
+
+                throw new PythonException("TypeError", "staticmethod() argument must be callable");
+            }));
+
+            // classmethod decorator
+            module.SetAttribute("classmethod", new BuiltinFunction("classmethod", args =>
+            {
+                if (args.Count != 1)
+                    throw new PythonException("TypeError", "classmethod() takes exactly one argument");
+
+                if (args[0] is Function func)
+                    return new ClassMethod(func);
+
+                throw new PythonException("TypeError", "classmethod() argument must be callable");
+            }));
+
             // globals() function
             module.SetAttribute("globals", new BuiltinFunction("globals", args =>
             {
@@ -1317,23 +1341,23 @@ namespace SharpPy
                 _ => obj.GetType().Name
             };
         }
-        
+
         // Helper 함수 추가 (Builtins 클래스 내부에 private static 메서드로)
-private static PythonClass FindClassForEnvironment(Environment env, PythonClass instanceClass)
-{
-    // 환경이 특정 클래스에 속하는지 확인
-    PythonClass current = instanceClass;
-    while (current != null)
-    {
-        if (ReferenceEquals(env, current.ClassEnv) || 
-            IsParentOf(current.ClassEnv, env))
+        private static PythonClass FindClassForEnvironment(Environment env, PythonClass instanceClass)
         {
-            return current;
+            // 환경이 특정 클래스에 속하는지 확인
+            PythonClass current = instanceClass;
+            while (current != null)
+            {
+                if (ReferenceEquals(env, current.ClassEnv) ||
+                    IsParentOf(current.ClassEnv, env))
+                {
+                    return current;
+                }
+                current = current.ParentClass;
+            }
+            return null;
         }
-        current = current.ParentClass;
-    }
-    return null;
-}
 
         private static bool IsParentOf(Environment parent, Environment child)
         {
@@ -1345,6 +1369,34 @@ private static PythonClass FindClassForEnvironment(Environment env, PythonClass 
                 current = current.parent;
             }
             return false;
+        }
+    }
+
+    public sealed class CallableType : PythonTypeObject
+    {
+        public string Name { get; }
+        public PythonType RepresentsType { get; }
+        private readonly Func<List<PythonTypeObject>, PythonTypeObject> converter;
+
+        public CallableType(string name, PythonType representsType,
+                           Func<List<PythonTypeObject>, PythonTypeObject> converter)
+        {
+            Name = name;
+            RepresentsType = representsType;
+            this.converter = converter;
+        }
+
+        public override PythonType Type => PythonType.Class;  // 클래스로 표시
+        public override bool IsTrue() => true;
+        public override bool IsCallable() => true;
+        public override string ToPythonString() => $"<class '{Name}'>";  // function이 아닌 class로
+        public override object GetRawValue() => this;
+        public override bool Equals(PythonTypeObject other) => ReferenceEquals(this, other);
+
+        // 호출 기능
+        public PythonTypeObject Call(List<PythonTypeObject> arguments)
+        {
+            return converter(arguments);
         }
     }
 }

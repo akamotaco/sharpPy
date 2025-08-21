@@ -1111,6 +1111,11 @@ namespace SharpPy
             return result;
         }
 
+        public void SetAttribute(string name, PythonTypeObject value)
+        {
+            ClassEnv.SetVariable(name, value);
+        }
+
         public PythonTypeObject GetClassAttribute(string name)
         {
             // MRO 순서대로 속성 찾기
@@ -1120,11 +1125,22 @@ namespace SharpPy
             {
                 if (cls.ClassEnv.HasLocalVariable(name))
                 {
-                    return cls.ClassEnv.GetLocalVariable(name);
+                    var value = cls.ClassEnv.GetLocalVariable(name);
+
+                    // StaticMethod는 언래핑
+                    if (value is StaticMethod sm)
+                        return sm.Method;
+
+                    // ClassMethod는 클래스를 첫 번째 인자로 바인딩
+                    if (value is ClassMethod cm)
+                        return new BoundClassMethod(name, cm.Method, this);
+
+                    return value;
                 }
             }
 
-            throw new PythonException("AttributeError", $"type object '{Name}' has no attribute '{name}'");
+            throw new PythonException("AttributeError",
+                $"type object '{Name}' has no attribute '{name}'");
         }
 
         public PythonInstance CreateInstance(List<PythonTypeObject> args)
@@ -1179,18 +1195,31 @@ namespace SharpPy
             {
                 case "__name__":
                     return new PythonString(Name);
+
                 case "__bases__":
-                    // 부모 클래스들 튜플 반환
                     var bases = new PythonTuple();
                     foreach (var parent in ParentClasses)
                         bases.Items.Add(parent);
                     return bases;
+
                 case "__mro__":
-                    // MRO 튜플 반환
                     var mroTuple = new PythonTuple();
                     foreach (var cls in GetMRO())
                         mroTuple.Items.Add(cls);
                     return mroTuple;
+
+                case "mro":
+                    return new BuiltinFunction("mro", args =>
+                    {
+                        if (args.Count != 0)
+                            throw new PythonException("TypeError", "mro() takes no arguments");
+
+                        var mroList = new PythonList();
+                        foreach (var cls in GetMRO())
+                            mroList.Items.Add(cls);
+                        return mroList;
+                    });
+
                 case "__dict__":
                     var dict = new PythonDict();
                     foreach (var kvp in ClassEnv.variables)
@@ -1198,6 +1227,7 @@ namespace SharpPy
                         dict.Items[new PythonString(kvp.Key)] = kvp.Value;
                     }
                     return dict;
+
                 default:
                     return GetClassAttribute(name);
             }
@@ -1249,6 +1279,31 @@ namespace SharpPy
 
         public override PythonTypeObject GetAttribute(string name)
         {
+            // 특수 속성들 먼저 확인
+            if (name == "__class__")
+                return Class;
+
+            if (name == "__mro__")
+            {
+                // 인스턴스의 클래스 MRO 반환
+                var mroTuple = new PythonTuple();
+                foreach (var cls in Class.GetMRO())
+                    mroTuple.Items.Add(cls);
+                return mroTuple;
+            }
+
+            if (name == "__dict__")
+            {
+                var dict = new PythonDict();
+                var vars = InstanceEnv.GetAllVariables();
+                foreach (var kvp in vars)
+                {
+                    if (InstanceEnv.HasLocalVariable(kvp.Key))
+                        dict.Items[new PythonString(kvp.Key)] = kvp.Value;
+                }
+                return dict;
+            }
+
             // 1. 먼저 인스턴스 변수 확인
             if (InstanceEnv.HasLocalVariable(name))
             {
@@ -1265,28 +1320,25 @@ namespace SharpPy
                 if (cls.ClassEnv.HasLocalVariable(name))
                 {
                     var value = cls.ClassEnv.GetLocalVariable(name);
-                    return value is UserFunction userFunction
-                        ? new BoundMethod(name, userFunction, this)
-                        : value;
+
+                    // StaticMethod - 언래핑만 하고 바인딩 없음
+                    if (value is StaticMethod sm)
+                        return sm.Method;
+
+                    // ClassMethod - 클래스를 첫 번째 인자로 바인딩
+                    if (value is ClassMethod cm)
+                        return new BoundClassMethod(name, cm.Method, Class);
+
+                    // 일반 메서드 - self를 첫 번째 인자로 바인딩
+                    if (value is UserFunction userFunc)
+                        return new BoundMethod(name, userFunc, this);
+
+                    return value;
                 }
             }
 
-            // 3. 특수 메서드들 확인
-            if (name == "__class__")
-                return Class;
-            if (name == "__dict__")
-            {
-                var dict = new PythonDict();
-                var vars = InstanceEnv.GetAllVariables();
-                foreach (var kvp in vars)
-                {
-                    if (InstanceEnv.HasLocalVariable(kvp.Key))
-                        dict.Items[new PythonString(kvp.Key)] = kvp.Value;
-                }
-                return dict;
-            }
-
-            throw new PythonException("AttributeError", $"'{Class.Name}' object has no attribute '{name}'");
+            throw new PythonException("AttributeError",
+                $"'{Class.Name}' object has no attribute '{name}'");
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1420,6 +1472,42 @@ namespace SharpPy
 
             throw new PythonException("AttributeError",
                 $"super object has no attribute '{name}'");
+        }
+    }
+
+    public sealed class BoundClassMethod : Function
+    {
+        private readonly Function method;
+        private readonly PythonClass cls;
+
+        public BoundClassMethod(string name, Function method, PythonClass cls) : base(name)
+        {
+            this.method = method;
+            this.cls = cls;
+        }
+
+        public override PythonTypeObject Call(List<PythonTypeObject> arguments)
+        {
+            // 클래스를 첫 번째 인자로 추가
+            var newArgs = new List<PythonTypeObject>(arguments.Count + 1) { cls };
+            newArgs.AddRange(arguments);
+
+            if (method is UserFunction userFunc)
+                return userFunc.Call(newArgs);
+
+            return method.Call(newArgs);
+        }
+
+        public PythonTypeObject CallWithKeywords(List<PythonTypeObject> positionalArgs,
+                                                Dictionary<string, PythonTypeObject> keywordArgs)
+        {
+            var newArgs = new List<PythonTypeObject>(positionalArgs.Count + 1) { cls };
+            newArgs.AddRange(positionalArgs);
+
+            if (method is UserFunction userFunc)
+                return userFunc.CallWithKeywords(newArgs, keywordArgs);
+
+            return method.Call(newArgs);
         }
     }
 }

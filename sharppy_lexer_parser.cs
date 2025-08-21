@@ -49,7 +49,7 @@ namespace SharpPy
     {
         private static readonly bool DEBUG_MODE = false;
         private const int TAB_SIZE = 8;
-        
+
         // Consolidated keyword sets
         private static readonly HashSet<string> ContinuationKeywords = new HashSet<string>
         {
@@ -60,14 +60,14 @@ namespace SharpPy
         {
             "def", "class", "if", "else", "elif", "for", "while", "in", "is",
             "break", "continue", "try", "except", "finally", "raise", "import",
-            "from", "as", "return", "and", "or", "not", "lambda", "with", "del", 
+            "from", "as", "return", "and", "or", "not", "lambda", "with", "del",
             "pass", "global", "nonlocal", "yield", "assert", "async", "await",
             "match", "case"
         };
 
         private static readonly HashSet<string> TwoCharOperators = new HashSet<string>
         {
-            "+=", "-=", "*=", "/=", "%=", "==", "!=", "<=", ">=", "**", "->", 
+            "+=", "-=", "*=", "/=", "%=", "==", "!=", "<=", ">=", "**", "->",
             "//", "<<", ">>", "&=", "|=", "^=", ":=" // Added walrus and floor division
         };
 
@@ -235,7 +235,7 @@ namespace SharpPy
                                 $"CurrentStack=[{string.Join(", ", indentStack)}], " +
                                 $"NextKeyword={nextKeyword}, IsContinuation={isContinuation}");
             }
-            
+
             if (hasTab && hasSpace && !mixedIndentWarning)
             {
                 mixedIndentWarning = true;
@@ -504,7 +504,7 @@ namespace SharpPy
             if (position + 1 < inputLength)
             {
                 string twoChar = input.Substring(position, 2);
-                
+
                 // Special case for walrus operator
                 if (twoChar == ":=")
                 {
@@ -513,10 +513,10 @@ namespace SharpPy
                     Advance();
                     return true;
                 }
-                
+
                 if (TwoCharOperators.Contains(twoChar))
                 {
-                    TokenType type = twoChar.Contains('=') && twoChar != "==" && twoChar != "!=" && 
+                    TokenType type = twoChar.Contains('=') && twoChar != "==" && twoChar != "!=" &&
                                    twoChar != "<=" && twoChar != ">=" && twoChar != "->"
                         ? TokenType.COMPOUND_ASSIGN
                         : TokenType.OPERATOR;
@@ -575,8 +575,8 @@ namespace SharpPy
                     Advance();
                     sb.Append(currentChar);
                     Advance();
-                    
-                    while (currentChar != '\0' && 
+
+                    while (currentChar != '\0' &&
                            (char.IsLetterOrDigit(currentChar) || currentChar == '_'))
                     {
                         if (currentChar != '_') // Python allows _ in numbers for readability
@@ -587,9 +587,9 @@ namespace SharpPy
                 }
             }
 
-            while (currentChar != '\0' && 
-                   (char.IsDigit(currentChar) || currentChar == '.' || 
-                    currentChar == 'e' || currentChar == 'E' || 
+            while (currentChar != '\0' &&
+                   (char.IsDigit(currentChar) || currentChar == '.' ||
+                    currentChar == 'e' || currentChar == 'E' ||
                     currentChar == '_' || (currentChar == '-' && (sb[sb.Length - 1] == 'e' || sb[sb.Length - 1] == 'E'))))
             {
                 if (currentChar == '.')
@@ -602,12 +602,12 @@ namespace SharpPy
                     if (hasE) break;
                     hasE = true;
                 }
-                
+
                 if (currentChar != '_')
                     sb.Append(currentChar);
                 Advance();
             }
-            
+
             return sb.ToString();
         }
 
@@ -891,12 +891,12 @@ namespace SharpPy
         private ASTNode ParseDecorated()
         {
             var decorators = new List<ASTNode>();
-            
+
             while (currentToken.Type == TokenType.AT)
             {
                 int line = currentToken.Line;
                 int column = currentToken.Column;
-                
+
                 Advance(); // Skip @
                 var decorator = ParseExpression();
                 decorators.Add(decorator);
@@ -930,7 +930,7 @@ namespace SharpPy
             // }
             else
             {
-                throw new PythonException("SyntaxError", 
+                throw new PythonException("SyntaxError",
                     "Decorators can only be applied to class, function, or async function definitions",
                     currentToken.Line, currentToken.Column);
             }
@@ -945,7 +945,7 @@ namespace SharpPy
             int column = currentToken.Column;
 
             Expect(TokenType.YIELD);
-            
+
             // Check for yield from
             bool isYieldFrom = false;
             if (currentToken.Type == TokenType.FROM)
@@ -960,7 +960,7 @@ namespace SharpPy
                 value = ParseExpressionOrTuple();
             }
 
-            return isYieldFrom 
+            return isYieldFrom
                 ? new YieldFromNode(value, line, column)
                 : new YieldNode(value, line, column);
         }
@@ -972,9 +972,9 @@ namespace SharpPy
             int column = currentToken.Column;
 
             Expect(TokenType.ASSERT);
-            
+
             var condition = ParseExpression();
-            
+
             ASTNode message = null;
             if (currentToken.Type == TokenType.COMMA)
             {
@@ -995,34 +995,34 @@ namespace SharpPy
             var subject = ParseExpression();
             Expect(TokenType.COLON);
             SkipNewlines();
-            
+
             var cases = new List<(ASTNode pattern, ASTNode guard, List<ASTNode> body)>();
-            
+
             Expect(TokenType.INDENT);
             SkipNewlines();
-            
+
             while (currentToken.Type == TokenType.CASE)
             {
                 Advance(); // Skip 'case'
-                
+
                 var pattern = ParsePattern();
-                
+
                 ASTNode guard = null;
                 if (currentToken.Type == TokenType.IF)
                 {
                     Advance();
                     guard = ParseExpression();
                 }
-                
+
                 Expect(TokenType.COLON);
                 SkipNewlines();
                 var body = ParseBlock();
-                
+
                 cases.Add((pattern, guard, body));
-                
+
                 SkipNewlinesAndIndents();
             }
-            
+
             return new MatchNode(subject, cases, line, column);
         }
 
@@ -1036,7 +1036,7 @@ namespace SharpPy
                 return new WildcardPatternNode(currentToken.Line, currentToken.Column);
             }
             else
-            if (currentToken.Type == TokenType.NUMBER || 
+            if (currentToken.Type == TokenType.NUMBER ||
                      currentToken.Type == TokenType.STRING ||
                      currentToken.Type == TokenType.BOOLEAN ||
                      currentToken.Type == TokenType.NONE)
@@ -1053,7 +1053,7 @@ namespace SharpPy
         private List<Parameter> ParseParameters()
         {
             SkipNewlinesAndIndents();
-            
+
             var parameters = new List<Parameter>();
             bool hasSeenDefault = false;
             bool hasSeenVarArgs = false;
@@ -1067,7 +1067,7 @@ namespace SharpPy
                         throw new PythonException("SyntaxError", "**kwargs must come after *args", currentToken.Line, currentToken.Column);
 
                     Advance();
-                    
+
                     if (currentToken.Type == TokenType.COMMA || currentToken.Type == TokenType.RPAREN)
                     {
                         // Keyword-only separator
@@ -1199,7 +1199,7 @@ namespace SharpPy
             Expect(TokenType.LPAREN);
 
             var parameters = ParseParameters();
-            
+
             Expect(TokenType.RPAREN);
 
             TypeHint returnTypeHint = null;
@@ -1357,7 +1357,7 @@ namespace SharpPy
                     {
                         statements.Add(ParseStatement());
                         SkipNewlines();
-                        
+
                         // Continue parsing if we're still at the same block level
                         // Don't break on DEDENT immediately after a nested block
                         continue;
@@ -1393,7 +1393,7 @@ namespace SharpPy
         // Helper to handle block ending
         private void HandleBlockEnd()
         {
-            
+
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1774,11 +1774,11 @@ namespace SharpPy
             int line = currentToken.Line;
             int column = currentToken.Column;
             Expect(TokenType.RAISE);
-            
+
             ASTNode exception = null;
             if (!IsEndOfStatement())
                 exception = ParseExpression();
-                
+
             return new RaiseNode(exception, line, column);
         }
 
@@ -2226,7 +2226,7 @@ namespace SharpPy
             {
                 int line = currentToken.Line;
                 int column = currentToken.Column;
-                
+
                 if (currentToken.Value == "-" || currentToken.Value == "+" || currentToken.Value == "~")
                 {
                     string op = currentToken.Value;
@@ -2280,6 +2280,7 @@ namespace SharpPy
         }
 
         // Extracted function call parsing
+        // ParseFunctionCall 메서드를 다음과 같이 수정
         private ASTNode ParseFunctionCall(ASTNode node, int line, int column)
         {
             Advance(); // Skip '('
@@ -2288,10 +2289,42 @@ namespace SharpPy
             var arguments = new List<ASTNode>();
             var keywordArguments = new Dictionary<string, ASTNode>();
             bool seenKeyword = false;
+            bool hasStarArgs = false;
+            bool hasKwArgs = false;
+            ASTNode starArgs = null;
+            ASTNode kwArgs = null;
 
             while (currentToken.Type != TokenType.RPAREN)
             {
-                if (currentToken.Type == TokenType.IDENTIFIER)
+                // Handle *args unpacking
+                if (currentToken.Type == TokenType.OPERATOR && currentToken.Value == "*")
+                {
+                    if (hasStarArgs)
+                        throw new PythonException("SyntaxError",
+                            "Only one *args unpacking allowed", currentToken.Line, currentToken.Column);
+                    if (hasKwArgs)
+                        throw new PythonException("SyntaxError",
+                            "**kwargs must come after *args", currentToken.Line, currentToken.Column);
+
+                    Advance(); // Skip *
+                    starArgs = ParseArgumentExpression();
+                    hasStarArgs = true;
+                    arguments.Add(new UnpackNode(starArgs, UnpackType.Star, line, column));
+                }
+                // Handle **kwargs unpacking
+                else if (currentToken.Type == TokenType.OPERATOR && currentToken.Value == "**")
+                {
+                    if (hasKwArgs)
+                        throw new PythonException("SyntaxError",
+                            "Only one **kwargs unpacking allowed", currentToken.Line, currentToken.Column);
+
+                    Advance(); // Skip **
+                    kwArgs = ParseArgumentExpression();
+                    hasKwArgs = true;
+                    arguments.Add(new UnpackNode(kwArgs, UnpackType.DoubleStar, line, column));
+                }
+                // Handle regular arguments
+                else if (currentToken.Type == TokenType.IDENTIFIER)
                 {
                     int savePos = position;
                     string possibleKeyword = currentToken.Value;
@@ -2309,11 +2342,12 @@ namespace SharpPy
                         position = savePos;
                         currentToken = tokens[position];
 
-                        if (seenKeyword)
+                        if (seenKeyword || hasStarArgs || hasKwArgs)
                         {
-                            throw new PythonException("SyntaxError",
-                                "positional argument follows keyword argument",
-                                currentToken.Line, currentToken.Column);
+                            if (!hasStarArgs && !hasKwArgs && seenKeyword)
+                                throw new PythonException("SyntaxError",
+                                    "positional argument follows keyword argument",
+                                    currentToken.Line, currentToken.Column);
                         }
 
                         arguments.Add(ParseArgumentExpression());
@@ -2641,10 +2675,10 @@ namespace SharpPy
             {
                 Advance();
                 SkipNewlinesAndIndents();
-                
+
                 // Parse value with potential string concatenation
                 var value = ParseDictValue();
-                
+
                 SkipNewlinesAndIndents();
 
                 // Check for dict comprehension
@@ -2668,10 +2702,10 @@ namespace SharpPy
                     SkipNewlinesAndIndents();
                     Expect(TokenType.COLON);
                     SkipNewlinesAndIndents();
-                    
+
                     // Parse value with potential string concatenation
                     var val = ParseDictValue();
-                    
+
                     pairs.Add((key, val));
                     SkipNewlinesAndIndents();
                 }
@@ -2844,19 +2878,19 @@ namespace SharpPy
             {
                 case ComprehensionType.List:
                     Expect(TokenType.RBRACKET);
-                    return new ListComprehensionNode(expr, comprehensions[0].Variables[0], 
+                    return new ListComprehensionNode(expr, comprehensions[0].Variables[0],
                         comprehensions[0].Iterable, comprehensions[0].Conditions.FirstOrDefault(), line, column);
-                
+
                 case ComprehensionType.Set:
                     Expect(TokenType.RBRACE);
-                    return new SetComprehensionNode(expr, comprehensions[0].Variables[0], 
+                    return new SetComprehensionNode(expr, comprehensions[0].Variables[0],
                         comprehensions[0].Iterable, comprehensions[0].Conditions.FirstOrDefault(), line, column);
-                
+
                 case ComprehensionType.Generator:
                     Expect(TokenType.RPAREN);
-                    return new GeneratorExpressionNode(expr, comprehensions[0].Variables[0], 
+                    return new GeneratorExpressionNode(expr, comprehensions[0].Variables[0],
                         comprehensions[0].Iterable, comprehensions[0].Conditions.FirstOrDefault(), line, column);
-                
+
                 default:
                     throw new PythonException("SyntaxError", "Invalid comprehension type", line, column);
             }
@@ -2967,6 +3001,31 @@ namespace SharpPy
             Variables = variables;
             Iterable = iterable;
             Conditions = conditions;
+        }
+    }
+
+    public enum UnpackType
+    {
+        Star,       // *args
+        DoubleStar  // **kwargs
+    }
+    
+    public class UnpackNode : ASTNode
+    {
+        public ASTNode Expression { get; }
+        public UnpackType Type { get; }
+
+        public UnpackNode(ASTNode expression, UnpackType type, int line = 0, int column = 0)
+            : base(line, column)
+        {
+            Expression = expression;
+            Type = type;
+        }
+
+        public override PythonTypeObject Evaluate(Environment env)
+        {
+            // 언패킹 로직은 FunctionCallNode에서 처리
+            return Expression.Evaluate(env);
         }
     }
 }

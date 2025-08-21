@@ -64,18 +64,71 @@ namespace SharpPy
             {
                 var function = Function.Evaluate(env);
 
-                // 위치 인자 평가
-                var args = new List<PythonTypeObject>(Arguments.Count);
-                foreach (var arg in Arguments)
-                    args.Add(arg.Evaluate(env));
-
-                // 키워드 인자 평가
+                // 위치 인자와 키워드 인자 수집
+                var args = new List<PythonTypeObject>();
                 var kwargs = new Dictionary<string, PythonTypeObject>();
-                foreach (var kvp in KeywordArguments)
-                    kwargs[kvp.Key] = kvp.Value.Evaluate(env);
 
+                // 위치 인자 평가 (UnpackNode 처리 포함)
+                foreach (var arg in Arguments)
+                {
+                    if (arg is UnpackNode unpackNode)
+                    {
+                        // *args 언패킹 처리
+                        if (unpackNode.Type == UnpackType.Star)
+                        {
+                            var iterableValue = unpackNode.Expression.Evaluate(env);
+
+                            // 이터러블을 개별 인자로 확장
+                            List<PythonTypeObject> items = iterableValue switch
+                            {
+                                PythonList list => list.Items,
+                                PythonTuple tuple => tuple.Items,
+                                PythonString str => str.Value.Select(c => new PythonString(c.ToString()) as PythonTypeObject).ToList(),
+                                _ => throw CreateException("TypeError", $"argument after * must be an iterable, not {iterableValue?.Type}")
+                            };
+
+                            args.AddRange(items);
+                        }
+                        // **kwargs 언패킹 처리
+                        else if (unpackNode.Type == UnpackType.DoubleStar)
+                        {
+                            var dictValue = unpackNode.Expression.Evaluate(env);
+
+                            if (!(dictValue is PythonDict dict))
+                                throw CreateException("TypeError", $"argument after ** must be a mapping, not {dictValue?.Type}");
+
+                            // 딕셔너리의 키-값 쌍을 키워드 인자로 확장
+                            foreach (var kvp in dict.Items)
+                            {
+                                if (!(kvp.Key is PythonString keyStr))
+                                    throw CreateException("TypeError", "keywords must be strings");
+
+                                kwargs[keyStr.Value] = kvp.Value;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // 일반 인자
+                        args.Add(arg.Evaluate(env));
+                    }
+                }
+
+                // 키워드 인자 평가 (기존 KeywordArguments 처리)
+                foreach (var kvp in KeywordArguments)
+                {
+                    if (kwargs.ContainsKey(kvp.Key))
+                        throw CreateException("TypeError", $"got multiple values for keyword argument '{kvp.Key}'");
+
+                    kwargs[kvp.Key] = kvp.Value.Evaluate(env);
+                }
+
+                // 함수 호출
                 return function switch
                 {
+                    // CallableType 추가 (맨 위에 배치하는 것이 좋음)
+                    CallableType callableType => callableType.Call(args),
+
                     UserFunction userFunc => userFunc.CallWithKeywords(args, kwargs),
                     LambdaFunction lambdaFunc => lambdaFunc.CallWithKeywords(args, kwargs),
                     BytecodeFunctionWithDefaults bytecodeWithDefaults => bytecodeWithDefaults.CallWithKeywords(args, kwargs),
@@ -84,7 +137,7 @@ namespace SharpPy
                         builtinFunc.CallWithEnv(env, args),
                     BuiltinFunction builtinFunc => builtinFunc.Call(args),
                     BoundMethod boundMethod => boundMethod.CallWithKeywords(args, kwargs),
-                    PythonClass pythonClass => pythonClass.CreateInstanceWithKeywords(args, kwargs), // 수정된 부분
+                    PythonClass pythonClass => pythonClass.CreateInstanceWithKeywords(args, kwargs),
                     Function func => func.Call(args),
                     _ => throw CreateException("TypeError", $"'{function?.Type}' object is not callable")
                 };
@@ -642,7 +695,7 @@ namespace SharpPy
         {
             try
             {
-                Console.WriteLine($"Importing from module: {ModuleName}");
+                // Console.WriteLine($"Importing from module: {ModuleName}");
 
                 // import * 처리
                 if (ImportItems.Count == 1 && ImportItems[0].Name == "*")
@@ -808,6 +861,12 @@ namespace SharpPy
                 if (obj is PythonInstance instance)
                 {
                     instance.SetAttribute(Attribute, value);
+                    return value;
+                }
+
+                if (obj is PythonClass cls)
+                {
+                    cls.SetAttribute(Attribute, value);
                     return value;
                 }
 

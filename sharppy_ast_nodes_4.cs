@@ -847,23 +847,34 @@ namespace SharpPy
             {
                 // First evaluate the function
                 var func = Function.Evaluate(env);
-                
+
                 // Apply decorators in reverse order (bottom to top)
                 for (int i = Decorators.Count - 1; i >= 0; i--)
                 {
                     var decorator = Decorators[i].Evaluate(env);
-                    
-                    // Call decorator with function as argument
-                    if (decorator is Function decoratorFunc)
+
+                    // Special handling for built-in decorators
+                    if (decorator is BuiltinFunction builtinFunc)
                     {
+                        // staticmethod, classmethod 등의 내장 데코레이터
+                        func = builtinFunc.Call(new List<PythonTypeObject> { func });
+                    }
+                    else if (decorator is Function decoratorFunc)
+                    {
+                        // 일반 함수 데코레이터
                         func = decoratorFunc.Call(new List<PythonTypeObject> { func });
+                    }
+                    else if (decorator is PythonClass decoratorClass)
+                    {
+                        // 클래스 데코레이터 (함수를 감싸는 클래스)
+                        func = decoratorClass.CreateInstance(new List<PythonTypeObject> { func });
                     }
                     else
                     {
                         throw CreateException("TypeError", $"'{decorator?.Type}' object is not callable");
                     }
                 }
-                
+
                 // Set the decorated function in the environment
                 env.SetVariable(Function.Name, func);
                 return func;
