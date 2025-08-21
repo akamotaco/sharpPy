@@ -819,22 +819,26 @@ namespace SharpPy
 
         public override bool IsCompatible(PythonTypeObject value)
         {
-            // None은 항상 허용
-            if (value is PythonNone) return true;
-
-            // 인스턴스인 경우 클래스 이름 확인
-            if (value is PythonInstance instance)
+            switch (value)
             {
-                return instance.Class.Name == ClassName;
-            }
+                case PythonInstance instance:
+                    // 인스턴스의 MRO에서 ClassName 찾기
+                    return IsInMRO(instance.Class, ClassName);
 
-            // 클래스 자체인 경우
-            if (value is PythonClass cls)
-            {
-                return cls.Name == ClassName;
-            }
+                case PythonClass cls:
+                    // 클래스 자체의 MRO에서 ClassName 찾기
+                    return IsInMRO(cls, ClassName);
 
-            return false;
+                default:
+                    return false;
+            }
+        }
+
+        private bool IsInMRO(PythonClass cls, string targetClassName)
+        {
+            // GetMRO()는 이미 전체 상속 체인을 C3 알고리즘으로 계산함
+            var mro = cls.GetMRO();
+            return mro.Any(c => c.Name == targetClassName);
         }
 
         public override string ToString() => ClassName;
