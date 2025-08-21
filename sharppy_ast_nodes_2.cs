@@ -128,18 +128,17 @@ namespace SharpPy
 
                 var classEnv = new Environment(env);
 
-                // 부모 클래스의 메서드 상속 (단, __init__은 제외)
+                // 부모 클래스의 메서드 상속
                 if (parentClass != null)
                 {
                     foreach (var kvp in parentClass.ClassEnv.GetAllVariables())
                     {
-                        if (kvp.Key != "__init__")
-                        {
-                            classEnv.SetVariable(kvp.Key, kvp.Value);
-                        }
+                        // 모든 메서드를 일단 상속받음
+                        classEnv.SetVariable(kvp.Key, kvp.Value);
                     }
                 }
 
+                // 클래스 body 평가 (자식 클래스에서 재정의하면 덮어씀)
                 foreach (var stmt in Body)
                     stmt.Evaluate(classEnv);
 

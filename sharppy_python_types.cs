@@ -616,7 +616,7 @@ namespace SharpPy
         }
 
         public PythonTypeObject CallWithKeywords(List<PythonTypeObject> positionalArgs,
-                                            Dictionary<string, PythonTypeObject> keywordArgs)
+                                    Dictionary<string, PythonTypeObject> keywordArgs)
         {
             var funcEnv = new Environment(ClosureEnv, ClosureEnv.globalEnv, EnvironmentType.Enclosing);
 
@@ -630,6 +630,7 @@ namespace SharpPy
 
             // 사용된 키워드 인자 추적
             var usedKeywords = new HashSet<string>();
+            var assignedParams = new Dictionary<string, PythonTypeObject>();
 
             // 1. 위치 인자를 일반 매개변수에 할당
             int posArgIndex = 0;
@@ -641,7 +642,17 @@ namespace SharpPy
                 if (keywordArgs.ContainsKey(param.Name))
                     continue;
 
-                funcEnv.SetVariable(param.Name, positionalArgs[posArgIndex]);
+                var value = positionalArgs[posArgIndex];
+
+                // 타입 힌트 검사
+                if (param.TypeHint != null && !param.TypeHint.IsCompatible(value))
+                {
+                    throw new PythonException("TypeError",
+                        $"Argument '{param.Name}' expected {param.TypeHint}, got {GetValueType(value)}");
+                }
+
+                funcEnv.SetVariable(param.Name, value);
+                assignedParams[param.Name] = value;
                 posArgIndex++;
             }
 
@@ -659,7 +670,15 @@ namespace SharpPy
                             $"{Name}() got multiple values for argument '{param.Name}'");
                     }
 
+                    // 타입 힌트 검사
+                    if (param.TypeHint != null && !param.TypeHint.IsCompatible(kvp.Value))
+                    {
+                        throw new PythonException("TypeError",
+                            $"Argument '{param.Name}' expected {param.TypeHint}, got {GetValueType(kvp.Value)}");
+                    }
+
                     funcEnv.SetVariable(param.Name, kvp.Value);
+                    assignedParams[param.Name] = kvp.Value;
                     usedKeywords.Add(kvp.Key);
                 }
                 else if (kwArgsParam == null)
@@ -678,7 +697,17 @@ namespace SharpPy
                 {
                     if (param.HasDefault && i < evaluatedDefaults.Count && evaluatedDefaults[i] != null)
                     {
-                        funcEnv.SetVariable(param.Name, evaluatedDefaults[i]);
+                        var defaultValue = evaluatedDefaults[i];
+
+                        // 기본값도 타입 힌트 검사
+                        if (param.TypeHint != null && !param.TypeHint.IsCompatible(defaultValue))
+                        {
+                            throw new PythonException("TypeError",
+                                $"Default value for '{param.Name}' expected {param.TypeHint}, got {GetValueType(defaultValue)}");
+                        }
+
+                        funcEnv.SetVariable(param.Name, defaultValue);
+                        assignedParams[param.Name] = defaultValue;
                     }
                     else
                     {
@@ -725,10 +754,24 @@ namespace SharpPy
                 foreach (var stmt in Body)
                     result = stmt.Evaluate(funcEnv);
 
+                // 반환값 타입 힌트 검사
+                if (ReturnTypeHint != null && !ReturnTypeHint.IsCompatible(result))
+                {
+                    throw new PythonException("TypeError",
+                        $"Return value expected {ReturnTypeHint}, got {GetValueType(result)}");
+                }
+
                 return result;
             }
             catch (ReturnException ex)
             {
+                // 반환값 타입 힌트 검사
+                if (ReturnTypeHint != null && !ReturnTypeHint.IsCompatible(ex.Value))
+                {
+                    throw new PythonException("TypeError",
+                        $"Return value expected {ReturnTypeHint}, got {GetValueType(ex.Value)}");
+                }
+
                 return ex.Value;
             }
         }
@@ -799,10 +842,8 @@ namespace SharpPy
         }
 
         public PythonTypeObject CallWithKeywords(List<PythonTypeObject> positionalArgs,
-                                            Dictionary<string, PythonTypeObject> keywordArgs)
+                                    Dictionary<string, PythonTypeObject> keywordArgs)
         {
-            // UserFunction과 유사한 로직으로 구현
-            // 단, 람다는 보통 *args, **kwargs를 지원하지 않으므로 간단하게 구현
             var funcEnv = new Environment(ClosureEnv, ClosureEnv.globalEnv, EnvironmentType.Enclosing);
 
             int posArgIndex = 0;
@@ -811,7 +852,17 @@ namespace SharpPy
                 var param = Parameters[i];
                 if (keywordArgs.ContainsKey(param.Name))
                     continue;
-                funcEnv.SetVariable(param.Name, positionalArgs[posArgIndex]);
+
+                var value = positionalArgs[posArgIndex];
+
+                // 타입 힌트 검사
+                if (param.TypeHint != null && !param.TypeHint.IsCompatible(value))
+                {
+                    throw new PythonException("TypeError",
+                        $"Lambda argument '{param.Name}' expected {param.TypeHint}, got {GetValueType(value)}");
+                }
+
+                funcEnv.SetVariable(param.Name, value);
                 posArgIndex++;
             }
 
@@ -823,6 +874,14 @@ namespace SharpPy
                     if (funcEnv.HasLocalVariable(param.Name))
                         throw new PythonException("TypeError",
                             $"Lambda got multiple values for argument '{param.Name}'");
+
+                    // 타입 힌트 검사
+                    if (param.TypeHint != null && !param.TypeHint.IsCompatible(kvp.Value))
+                    {
+                        throw new PythonException("TypeError",
+                            $"Lambda argument '{param.Name}' expected {param.TypeHint}, got {GetValueType(kvp.Value)}");
+                    }
+
                     funcEnv.SetVariable(param.Name, kvp.Value);
                 }
                 else
@@ -840,7 +899,16 @@ namespace SharpPy
                 {
                     if (param.HasDefault && i < evaluatedDefaults.Count && evaluatedDefaults[i] != null)
                     {
-                        funcEnv.SetVariable(param.Name, evaluatedDefaults[i]);
+                        var defaultValue = evaluatedDefaults[i];
+
+                        // 기본값 타입 힌트 검사
+                        if (param.TypeHint != null && !param.TypeHint.IsCompatible(defaultValue))
+                        {
+                            throw new PythonException("TypeError",
+                                $"Lambda default value for '{param.Name}' expected {param.TypeHint}, got {GetValueType(defaultValue)}");
+                        }
+
+                        funcEnv.SetVariable(param.Name, defaultValue);
                     }
                     else
                     {
@@ -1212,13 +1280,18 @@ namespace SharpPy
 
         public override PythonTypeObject GetAttribute(string name)
         {
-            // 부모 클래스가 없으면 object의 기본 메서드 제공
+            // Animal 클래스가 object를 상속받는 경우 (부모가 없는 경우)
             if (targetClass?.ParentClass == null)
             {
+                // object의 기본 메서드들
                 if (name == "__init__")
                 {
-                    // object.__init__은 추가 인자를 무시
-                    return new BuiltinFunction("__init__", args => PythonNone.Instance);
+                    // object.__init__은 self 외에 추가 인자를 받지 않음
+                    return new BuiltinFunction("__init__", args =>
+                    {
+                        // args[0]은 self, 나머지는 무시
+                        return PythonNone.Instance;
+                    });
                 }
                 throw new PythonException("AttributeError",
                     $"super object has no attribute '{name}'");

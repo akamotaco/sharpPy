@@ -39,14 +39,14 @@ namespace SharpPy
         public static void SetupBuiltins(Environment env)
         {
             var builtins = GetBuiltinsModule();
-            
+
             // REMOVED: 직접 복사하는 부분 제거
             // Copy all builtins to the environment
             // foreach (var kvp in builtins.ModuleEnv.GetAllVariables())
             // {
             //     env.SetVariable(kvp.Key, kvp.Value);
             // }
-            
+
             // Only set __builtins__ module
             env.SetVariable("__builtins__", builtins);
         }
@@ -57,7 +57,7 @@ namespace SharpPy
         private static PythonModule CreateBuiltinsModule()
         {
             var module = new PythonModule("__builtins__");
-            
+
             // Register all built-in functions
             RegisterIOFunctions(module);
             RegisterTypeFunctions(module);
@@ -67,7 +67,7 @@ namespace SharpPy
             RegisterIntrospectionFunctions(module);
             RegisterEvalFunctions(module);
             RegisterConstants(module);
-            
+
             return module;
         }
 
@@ -93,12 +93,12 @@ namespace SharpPy
             // input() function
             module.SetAttribute("input", new BuiltinFunction("input", args =>
             {
-                if (args.Count > 1) 
+                if (args.Count > 1)
                     throw new PythonException("TypeError", "input() takes at most 1 argument");
-                
+
                 if (args.Count == 1 && args[0] is PythonString prompt)
                     Console.Write(prompt.Value);
-                
+
                 return new PythonString(Console.ReadLine() ?? "");
             }));
 
@@ -154,7 +154,7 @@ namespace SharpPy
             // str() function
             module.SetAttribute("str", new BuiltinFunction("str", args =>
             {
-                if (args.Count != 1) 
+                if (args.Count != 1)
                     throw new PythonException("TypeError", "str() takes exactly one argument");
                 return args[0].ToStr();
             }));
@@ -162,7 +162,7 @@ namespace SharpPy
             // int() function
             module.SetAttribute("int", new BuiltinFunction("int", args =>
             {
-                if (args.Count != 1) 
+                if (args.Count != 1)
                     throw new PythonException("TypeError", "int() takes exactly one argument");
                 return args[0].ToInt();
             }));
@@ -170,7 +170,7 @@ namespace SharpPy
             // float() function
             module.SetAttribute("float", new BuiltinFunction("float", args =>
             {
-                if (args.Count != 1) 
+                if (args.Count != 1)
                     throw new PythonException("TypeError", "float() takes exactly one argument");
                 return args[0].ToFloat();
             }));
@@ -178,7 +178,7 @@ namespace SharpPy
             // bool() function
             module.SetAttribute("bool", new BuiltinFunction("bool", args =>
             {
-                if (args.Count != 1) 
+                if (args.Count != 1)
                     throw new PythonException("TypeError", "bool() takes exactly one argument");
                 return args[0].ToBool();
             }));
@@ -186,7 +186,7 @@ namespace SharpPy
             // type() function
             module.SetAttribute("type", new BuiltinFunction("type", args =>
             {
-                if (args.Count != 1) 
+                if (args.Count != 1)
                     throw new PythonException("TypeError", "type() takes exactly one argument");
                 return new PythonString(GetTypeName(args[0]));
             }));
@@ -196,10 +196,10 @@ namespace SharpPy
             {
                 if (args.Count != 2)
                     throw new PythonException("TypeError", "isinstance() takes exactly 2 arguments");
-                
+
                 var obj = args[0];
                 var typeObj = args[1];
-                
+
                 // Handle type checking
                 if (typeObj is PythonString typeStr)
                 {
@@ -222,7 +222,7 @@ namespace SharpPy
                     }
                     return PythonBool.False;
                 }
-                
+
                 throw new PythonException("TypeError", "isinstance() arg 2 must be a type or class");
             }));
         }
@@ -235,9 +235,9 @@ namespace SharpPy
             // len() function
             module.SetAttribute("len", new BuiltinFunction("len", args =>
             {
-                if (args.Count != 1) 
+                if (args.Count != 1)
                     throw new PythonException("TypeError", "len() takes exactly one argument");
-                
+
                 var obj = args[0];
                 return obj switch
                 {
@@ -315,7 +315,7 @@ namespace SharpPy
                 {
                     var seen = new HashSet<string>();
                     var items = new List<PythonTypeObject>();
-                    
+
                     switch (args[0])
                     {
                         case PythonList sourceList:
@@ -329,7 +329,7 @@ namespace SharpPy
                                 items.Add(new PythonString(c.ToString()));
                             break;
                     }
-                    
+
                     foreach (var item in items)
                     {
                         var key = item.ToPythonString();
@@ -346,7 +346,7 @@ namespace SharpPy
             // range() function
             module.SetAttribute("range", new BuiltinFunction("range", args =>
             {
-                if (args.Count < 1 || args.Count > 3) 
+                if (args.Count < 1 || args.Count > 3)
                     throw new PythonException("TypeError", "range() takes 1 to 3 arguments");
 
                 int start = 0, stop, step = 1;
@@ -365,7 +365,7 @@ namespace SharpPy
                     start = NumberHelper.ToInt(args[0]);
                     stop = NumberHelper.ToInt(args[1]);
                     step = NumberHelper.ToInt(args[2]);
-                    if (step == 0) 
+                    if (step == 0)
                         throw new PythonException("ValueError", "range() step argument must not be zero");
                 }
 
@@ -393,9 +393,9 @@ namespace SharpPy
             // abs() function
             module.SetAttribute("abs", new BuiltinFunction("abs", args =>
             {
-                if (args.Count != 1) 
+                if (args.Count != 1)
                     throw new PythonException("TypeError", "abs() takes exactly one argument");
-                
+
                 if (!NumberHelper.IsNumber(args[0]))
                     throw new PythonException("TypeError", "abs() argument must be a number");
 
@@ -410,12 +410,12 @@ namespace SharpPy
             // max() function
             module.SetAttribute("max", new BuiltinFunction("max", args =>
             {
-                if (args.Count == 0) 
+                if (args.Count == 0)
                     throw new PythonException("TypeError", "max expected at least 1 argument, got 0");
-                
+
                 if (args.Count == 1 && args[0] is PythonList list)
                 {
-                    if (list.Items.Count == 0) 
+                    if (list.Items.Count == 0)
                         throw new PythonException("ValueError", "max() arg is an empty sequence");
 
                     PythonTypeObject maxVal = list.Items[0];
@@ -439,12 +439,12 @@ namespace SharpPy
             // min() function
             module.SetAttribute("min", new BuiltinFunction("min", args =>
             {
-                if (args.Count == 0) 
+                if (args.Count == 0)
                     throw new PythonException("TypeError", "min expected at least 1 argument, got 0");
-                
+
                 if (args.Count == 1 && args[0] is PythonList list)
                 {
-                    if (list.Items.Count == 0) 
+                    if (list.Items.Count == 0)
                         throw new PythonException("ValueError", "min() arg is an empty sequence");
 
                     PythonTypeObject minVal = list.Items[0];
@@ -468,9 +468,9 @@ namespace SharpPy
             // sum() function
             module.SetAttribute("sum", new BuiltinFunction("sum", args =>
             {
-                if (args.Count < 1 || args.Count > 2) 
+                if (args.Count < 1 || args.Count > 2)
                     throw new PythonException("TypeError", "sum() takes 1 or 2 arguments");
-                
+
                 PythonTypeObject start = args.Count == 2 ? args[1] : PythonInt.Create(0);
 
                 if (args[0] is PythonList list)
@@ -490,18 +490,18 @@ namespace SharpPy
             {
                 if (args.Count < 1 || args.Count > 2)
                     throw new PythonException("TypeError", "round() takes 1 or 2 arguments");
-                
+
                 if (!NumberHelper.IsNumber(args[0]))
                     throw new PythonException("TypeError", "round() first argument must be a number");
-                
+
                 double value = NumberHelper.ToDouble(args[0]);
                 int digits = args.Count == 2 ? NumberHelper.ToInt(args[1]) : 0;
-                
+
                 double rounded = Math.Round(value, digits);
-                
+
                 if (digits == 0 && args[0] is PythonInt)
                     return PythonInt.Create((int)rounded);
-                
+
                 return new PythonFloat(rounded);
             }));
 
@@ -510,19 +510,19 @@ namespace SharpPy
             {
                 if (args.Count < 2 || args.Count > 3)
                     throw new PythonException("TypeError", "pow() takes 2 or 3 arguments");
-                
+
                 if (!NumberHelper.IsNumber(args[0]) || !NumberHelper.IsNumber(args[1]))
                     throw new PythonException("TypeError", "pow() arguments must be numbers");
-                
+
                 var result = NumberHelper.Power(args[0], args[1]);
-                
+
                 if (args.Count == 3)
                 {
                     if (!NumberHelper.IsNumber(args[2]))
                         throw new PythonException("TypeError", "pow() 3rd argument must be a number");
                     result = NumberHelper.Modulo(result, args[2]);
                 }
-                
+
                 return result;
             }));
         }
@@ -535,12 +535,12 @@ namespace SharpPy
             // enumerate() function
             module.SetAttribute("enumerate", new BuiltinFunction("enumerate", args =>
             {
-                if (args.Count < 1 || args.Count > 2) 
+                if (args.Count < 1 || args.Count > 2)
                     throw new PythonException("TypeError", "enumerate() takes 1 or 2 arguments");
-                
+
                 int start = args.Count == 2 ? NumberHelper.ToInt(args[1]) : 0;
                 var result = new PythonList();
-                
+
                 List<PythonTypeObject> items = args[0] switch
                 {
                     PythonList list => list.Items,
@@ -566,7 +566,7 @@ namespace SharpPy
                 if (args.Count == 0) return new PythonList();
 
                 var iterables = new List<List<PythonTypeObject>>();
-                
+
                 foreach (var arg in args)
                 {
                     List<PythonTypeObject> items = arg switch
@@ -596,9 +596,9 @@ namespace SharpPy
             // map() function
             module.SetAttribute("map", new BuiltinFunction("map", args =>
             {
-                if (args.Count != 2) 
+                if (args.Count != 2)
                     throw new PythonException("TypeError", "map() takes exactly 2 arguments");
-                
+
                 if (!(args[0] is Function function))
                     throw new PythonException("TypeError", "map() first argument must be callable");
 
@@ -622,7 +622,7 @@ namespace SharpPy
             // filter() function
             module.SetAttribute("filter", new BuiltinFunction("filter", args =>
             {
-                if (args.Count != 2) 
+                if (args.Count != 2)
                     throw new PythonException("TypeError", "filter() takes exactly 2 arguments");
 
                 List<PythonTypeObject> items = args[1] switch
@@ -664,9 +664,9 @@ namespace SharpPy
             // sorted() function
             module.SetAttribute("sorted", new BuiltinFunction("sorted", args =>
             {
-                if (args.Count < 1 || args.Count > 2) 
+                if (args.Count < 1 || args.Count > 2)
                     throw new PythonException("TypeError", "sorted() takes 1 or 2 arguments");
-                
+
                 List<PythonTypeObject> items = args[0] switch
                 {
                     PythonList list => new List<PythonTypeObject>(list.Items),
@@ -684,7 +684,7 @@ namespace SharpPy
                     {
                         if (NumberHelper.IsNumber(a) && NumberHelper.IsNumber(b))
                             return NumberHelper.ToDouble(a).CompareTo(NumberHelper.ToDouble(b));
-                        if (a is PythonString sa && b is PythonString sb) 
+                        if (a is PythonString sa && b is PythonString sb)
                             return string.Compare(sa.Value, sb.Value);
                         return 0;
                     });
@@ -693,22 +693,22 @@ namespace SharpPy
                 {
                     // Sort with key function
                     var keyed = items
-                        .Select(item => new 
-                        { 
-                            Item = item, 
-                            Key = function.Call(new List<PythonTypeObject> { item }) 
+                        .Select(item => new
+                        {
+                            Item = item,
+                            Key = function.Call(new List<PythonTypeObject> { item })
                         })
                         .ToList();
-                    
+
                     keyed.Sort((a, b) =>
                     {
                         if (NumberHelper.IsNumber(a.Key) && NumberHelper.IsNumber(b.Key))
                             return NumberHelper.ToDouble(a.Key).CompareTo(NumberHelper.ToDouble(b.Key));
-                        if (a.Key is PythonString sa && b.Key is PythonString sb) 
+                        if (a.Key is PythonString sa && b.Key is PythonString sb)
                             return string.Compare(sa.Value, sb.Value);
                         return 0;
                     });
-                    
+
                     items = keyed.Select(x => x.Item).ToList();
                 }
                 else
@@ -724,7 +724,7 @@ namespace SharpPy
             // any() function
             module.SetAttribute("any", new BuiltinFunction("any", args =>
             {
-                if (args.Count != 1) 
+                if (args.Count != 1)
                     throw new PythonException("TypeError", "any() takes exactly one argument");
 
                 List<PythonTypeObject> items = args[0] switch
@@ -746,7 +746,7 @@ namespace SharpPy
             // all() function
             module.SetAttribute("all", new BuiltinFunction("all", args =>
             {
-                if (args.Count != 1) 
+                if (args.Count != 1)
                     throw new PythonException("TypeError", "all() takes exactly one argument");
 
                 List<PythonTypeObject> items = args[0] switch
@@ -792,33 +792,56 @@ namespace SharpPy
         private static void RegisterIntrospectionFunctions(PythonModule module)
         {
             // super() function 추가
+            // super() function 수정
             module.SetAttribute("super", new BuiltinFunction("super", (env, args) =>
             {
                 if (args.Count == 0)
                 {
                     // Python 3 스타일: super()
+                    // 현재 클래스와 self를 자동으로 찾기
                     PythonInstance self = null;
                     PythonClass currentClass = null;
-                    
+
                     try
                     {
+                        // self 찾기
                         var selfObj = env.GetVariable("self");
                         if (selfObj is PythonInstance inst)
                         {
                             self = inst;
-                            currentClass = inst.Class;
+
+                            // 현재 메서드가 속한 클래스 찾기
+                            // 환경 체인을 거슬러 올라가며 클래스 환경 찾기
+                            Environment checkEnv = env;
+                            while (checkEnv != null)
+                            {
+                                // 클래스 환경인지 확인
+                                PythonClass foundClass = FindClassForEnvironment(checkEnv, inst.Class);
+                                if (foundClass != null)
+                                {
+                                    currentClass = foundClass;
+                                    break;
+                                }
+                                checkEnv = checkEnv.parent;
+                            }
+
+                            if (currentClass == null)
+                            {
+                                // 대체 방법: instance의 클래스 사용
+                                currentClass = inst.Class;
+                            }
                         }
                     }
                     catch (PythonException)
                     {
                         throw new PythonException("RuntimeError", "super(): no arguments");
                     }
-                    
+
                     if (self == null || currentClass == null)
                     {
                         throw new PythonException("RuntimeError", "super(): __class__ cell not found");
                     }
-                    
+
                     return new PythonSuper(currentClass, self);
                 }
                 else if (args.Count == 1)
@@ -827,7 +850,6 @@ namespace SharpPy
                     {
                         return new PythonSuper(cls, null);
                     }
-                    // int, str 등 내장 타입 처리
                     throw new PythonException("TypeError", "super() argument 1 must be type");
                 }
                 else if (args.Count == 2)
@@ -836,7 +858,7 @@ namespace SharpPy
                     {
                         throw new PythonException("TypeError", "super() argument 1 must be type");
                     }
-                    
+
                     if (args[1] is PythonInstance inst)
                     {
                         // 인스턴스 검증
@@ -851,29 +873,29 @@ namespace SharpPy
                             }
                             checkClass = checkClass.ParentClass;
                         }
-                        
+
                         if (!isInstance)
                         {
-                            throw new PythonException("TypeError", 
+                            throw new PythonException("TypeError",
                                 "super(type, obj): obj must be an instance or subtype of type");
                         }
-                        
+
                         return new PythonSuper(cls, inst);
                     }
-                    
+
                     throw new PythonException("TypeError", "super() argument 2 must be an instance");
                 }
-                
-                throw new PythonException("TypeError", 
+
+                throw new PythonException("TypeError",
                     $"super() takes at most 2 arguments ({args.Count} given)");
             }));
-            
+
             // globals() function
             module.SetAttribute("globals", new BuiltinFunction("globals", args =>
             {
-                if (args.Count != 0) 
+                if (args.Count != 0)
                     throw new PythonException("TypeError", "globals() takes no arguments");
-                
+
                 // This needs to be handled specially by the interpreter
                 // For now, return an empty dict
                 return new PythonDict();
@@ -882,9 +904,9 @@ namespace SharpPy
             // locals() function
             module.SetAttribute("locals", new BuiltinFunction("locals", args =>
             {
-                if (args.Count != 0) 
+                if (args.Count != 0)
                     throw new PythonException("TypeError", "locals() takes no arguments");
-                
+
                 // This needs to be handled specially by the interpreter
                 // For now, return an empty dict
                 return new PythonDict();
@@ -943,35 +965,35 @@ namespace SharpPy
             // dir() function
             module.SetAttribute("dir", new BuiltinFunction("dir", args =>
             {
-                if (args.Count > 1) 
+                if (args.Count > 1)
                     throw new PythonException("TypeError", "dir() takes at most 1 argument");
-                
+
                 var result = new PythonList();
-                
+
                 if (args.Count == 0)
                 {
                     // Return current scope names - needs special handling
                     return result;
                 }
-                
+
                 // Return attributes of the object
                 var obj = args[0];
                 var attributes = new HashSet<string>();
-                
+
                 // Get built-in methods for the object type
                 var methodNames = obj.GetMethodNames();
                 foreach (var method in methodNames)
                 {
                     attributes.Add(method);
                 }
-                
+
                 // Add type-specific attributes
                 switch (obj)
                 {
                     case PythonInstance instance:
                         foreach (var key in instance.InstanceEnv.variables.Keys)
                             attributes.Add(key);
-                        
+
                         PythonClass currentClass = instance.Class;
                         while (currentClass != null)
                         {
@@ -980,49 +1002,49 @@ namespace SharpPy
                             currentClass = currentClass.ParentClass;
                         }
                         break;
-                        
+
                     case PythonClass cls:
                         var classVars = cls.ClassEnv.GetAllVariables();
                         foreach (var kvp in classVars)
                             attributes.Add(kvp.Key);
                         break;
-                        
+
                     case PythonModule mod:
                         var moduleVars = mod.ModuleEnv.GetAllVariables();
                         foreach (var kvp in moduleVars)
                             attributes.Add(kvp.Key);
                         break;
                 }
-                
+
                 // Add common attributes all objects have
                 attributes.Add("__class__");
                 attributes.Add("__repr__");
                 attributes.Add("__str__");
                 attributes.Add("__hash__");
                 attributes.Add("__eq__");
-                
+
                 // Sort and add to result
                 var sortedAttrs = attributes.OrderBy(a => a).ToList();
                 foreach (var attr in sortedAttrs)
                 {
                     result.Items.Add(new PythonString(attr));
                 }
-                
+
                 return result;
             }));
 
             // hasattr() function
             module.SetAttribute("hasattr", new BuiltinFunction("hasattr", args =>
             {
-                if (args.Count != 2) 
+                if (args.Count != 2)
                     throw new PythonException("TypeError", "hasattr() takes exactly 2 arguments");
-                
+
                 var obj = args[0];
                 if (!(args[1] is PythonString attrName))
                     throw new PythonException("TypeError", "hasattr() attribute name must be a string");
-                
+
                 var name = attrName.Value;
-                
+
                 try
                 {
                     // Try to get the attribute
@@ -1031,15 +1053,15 @@ namespace SharpPy
                         case PythonInstance instance:
                             instance.GetAttribute(name);
                             return PythonBool.True;
-                            
+
                         case PythonClass cls:
                             cls.ClassEnv.GetVariable(name);
                             return PythonBool.True;
-                            
+
                         case PythonModule mod:
                             mod.GetAttribute(name);
                             return PythonBool.True;
-                            
+
                         case PythonList:
                         case PythonDict:
                         case PythonTuple:
@@ -1053,11 +1075,11 @@ namespace SharpPy
                             {
                                 return PythonBool.False;
                             }
-                            
+
                         default:
-                            var builtinAttrs = new HashSet<string> 
-                            { 
-                                "__class__", "__repr__", "__str__", "__hash__", "__eq__" 
+                            var builtinAttrs = new HashSet<string>
+                            {
+                                "__class__", "__repr__", "__str__", "__hash__", "__eq__"
                             };
                             return PythonBool.Create(builtinAttrs.Contains(name));
                     }
@@ -1071,53 +1093,53 @@ namespace SharpPy
             // getattr() function
             module.SetAttribute("getattr", new BuiltinFunction("getattr", args =>
             {
-                if (args.Count < 2 || args.Count > 3) 
+                if (args.Count < 2 || args.Count > 3)
                     throw new PythonException("TypeError", "getattr() takes 2 or 3 arguments");
-                
+
                 var obj = args[0];
                 if (!(args[1] is PythonString attrName))
                     throw new PythonException("TypeError", "getattr() attribute name must be a string");
-                
+
                 var name = attrName.Value;
                 var defaultValue = args.Count == 3 ? args[2] : null;
-                
+
                 try
                 {
                     switch (obj)
                     {
                         case PythonInstance instance:
                             return instance.GetAttribute(name);
-                            
+
                         case PythonClass cls:
                             return cls.ClassEnv.GetVariable(name);
-                            
+
                         case PythonModule mod:
                             return mod.GetAttribute(name);
-                            
+
                         case PythonList list:
                             return list.GetMethod(name);
-                            
+
                         case PythonDict dict:
                             return dict.GetMethod(name);
-                            
+
                         case PythonTuple tuple:
                             return tuple.GetMethod(name);
-                            
+
                         case PythonString str:
                             return str.GetMethod(name);
-                            
+
                         case Function func when name == "__name__":
                             return new PythonString(func.Name);
-                            
+
                         default:
                             if (name == "__class__")
                                 return new PythonString(GetTypeName(obj));
                             if (name == "__repr__" || name == "__str__")
                                 return new BuiltinFunction(name, _ => new PythonString(obj.ToPythonString()));
-                                
+
                             if (defaultValue != null)
                                 return defaultValue;
-                            throw new PythonException("AttributeError", 
+                            throw new PythonException("AttributeError",
                                 $"'{GetTypeName(obj)}' object has no attribute '{name}'");
                     }
                 }
@@ -1130,32 +1152,32 @@ namespace SharpPy
             // setattr() function
             module.SetAttribute("setattr", new BuiltinFunction("setattr", args =>
             {
-                if (args.Count != 3) 
+                if (args.Count != 3)
                     throw new PythonException("TypeError", "setattr() takes exactly 3 arguments");
-                
+
                 var obj = args[0];
                 if (!(args[1] is PythonString attrName))
                     throw new PythonException("TypeError", "setattr() attribute name must be a string");
-                
+
                 var name = attrName.Value;
                 var value = args[2];
-                
+
                 switch (obj)
                 {
                     case PythonInstance instance:
                         instance.SetAttribute(name, value);
                         return PythonNone.Instance;
-                        
+
                     case PythonClass cls:
                         cls.ClassEnv.SetVariable(name, value);
                         return PythonNone.Instance;
-                        
+
                     case PythonModule mod:
                         mod.SetAttribute(name, value);
                         return PythonNone.Instance;
-                        
+
                     default:
-                        throw new PythonException("AttributeError", 
+                        throw new PythonException("AttributeError",
                             $"'{GetTypeName(obj)}' object attribute '{name}' is read-only");
                 }
             }));
@@ -1163,31 +1185,31 @@ namespace SharpPy
             // delattr() function
             module.SetAttribute("delattr", new BuiltinFunction("delattr", args =>
             {
-                if (args.Count != 2) 
+                if (args.Count != 2)
                     throw new PythonException("TypeError", "delattr() takes exactly 2 arguments");
-                
+
                 var obj = args[0];
                 if (!(args[1] is PythonString attrName))
                     throw new PythonException("TypeError", "delattr() attribute name must be a string");
-                
+
                 var name = attrName.Value;
-                
+
                 switch (obj)
                 {
                     case PythonInstance instance:
                         instance.InstanceEnv.DeleteVariable(name);
                         return PythonNone.Instance;
-                        
+
                     case PythonClass cls:
                         cls.ClassEnv.DeleteVariable(name);
                         return PythonNone.Instance;
-                        
+
                     case PythonModule mod:
                         mod.ModuleEnv.DeleteVariable(name);
                         return PythonNone.Instance;
-                        
+
                     default:
-                        throw new PythonException("AttributeError", 
+                        throw new PythonException("AttributeError",
                             $"'{GetTypeName(obj)}' object attribute '{name}' cannot be deleted");
                 }
             }));
@@ -1197,7 +1219,7 @@ namespace SharpPy
             {
                 if (args.Count != 1)
                     throw new PythonException("TypeError", "id() takes exactly one argument");
-                
+
                 // Return hash code as object id
                 return PythonInt.Create(args[0].GetHashCode());
             }));
@@ -1207,7 +1229,7 @@ namespace SharpPy
             {
                 if (args.Count != 1)
                     throw new PythonException("TypeError", "repr() takes exactly one argument");
-                
+
                 return new PythonString(args[0].ToPythonString());
             }));
         }
@@ -1223,21 +1245,21 @@ namespace SharpPy
             // eval() function
             module.SetAttribute("eval", new BuiltinFunction("eval", args =>
             {
-                throw new PythonException("NotImplementedError", 
+                throw new PythonException("NotImplementedError",
                     "eval() must be implemented by the interpreter");
             }));
 
             // exec() function
             module.SetAttribute("exec", new BuiltinFunction("exec", args =>
             {
-                throw new PythonException("NotImplementedError", 
+                throw new PythonException("NotImplementedError",
                     "exec() must be implemented by the interpreter");
             }));
 
             // compile() function
             module.SetAttribute("compile", new BuiltinFunction("compile", args =>
             {
-                throw new PythonException("NotImplementedError", 
+                throw new PythonException("NotImplementedError",
                     "compile() must be implemented by the interpreter");
             }));
         }
@@ -1249,15 +1271,15 @@ namespace SharpPy
         {
             // None constant
             module.SetAttribute("None", PythonNone.Instance);
-            
+
             // Boolean constants
             module.SetAttribute("True", PythonBool.True);
             module.SetAttribute("False", PythonBool.False);
-            
+
             // Special constants
             module.SetAttribute("NotImplemented", new PythonString("NotImplemented"));
             module.SetAttribute("Ellipsis", new PythonString("..."));
-            
+
             // Version info (mock)
             var versionTuple = new PythonTuple();
             versionTuple.Items.Add(PythonInt.Create(3));
@@ -1294,6 +1316,35 @@ namespace SharpPy
                 PythonModule mod => $"module '{mod.Name}'",
                 _ => obj.GetType().Name
             };
+        }
+        
+        // Helper 함수 추가 (Builtins 클래스 내부에 private static 메서드로)
+private static PythonClass FindClassForEnvironment(Environment env, PythonClass instanceClass)
+{
+    // 환경이 특정 클래스에 속하는지 확인
+    PythonClass current = instanceClass;
+    while (current != null)
+    {
+        if (ReferenceEquals(env, current.ClassEnv) || 
+            IsParentOf(current.ClassEnv, env))
+        {
+            return current;
+        }
+        current = current.ParentClass;
+    }
+    return null;
+}
+
+        private static bool IsParentOf(Environment parent, Environment child)
+        {
+            Environment current = child;
+            while (current != null)
+            {
+                if (ReferenceEquals(parent, current))
+                    return true;
+                current = current.parent;
+            }
+            return false;
         }
     }
 }
