@@ -189,6 +189,7 @@ namespace SharpPy
 
                 // MRO 순서의 역순으로 메서드 상속 (나중 것이 먼저 것을 덮어씀)
                 for (int i = mro.Count - 1; i >= 1; i--) // 0은 자기 자신이므로 제외
+
                 {
                     foreach (var kvp in mro[i].ClassEnv.GetAllVariables())
                     {
