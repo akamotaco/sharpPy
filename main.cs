@@ -133,7 +133,16 @@ namespace SharpPy
                 var fileToExecute = args[^1];
                 if (!fileToExecute.StartsWith("--"))
                 {
-                    interpreter.ExecuteFile(fileToExecute);
+                    // ExecuteFile 호출 전에 작업 디렉토리 변경
+                    if (Path.GetDirectoryName(fileToExecute) is string dir && !string.IsNullOrEmpty(dir))
+                    {
+                        Directory.SetCurrentDirectory(Path.GetFullPath(dir));
+                        interpreter.ExecuteFile(Path.GetFileName(fileToExecute));
+                    }
+                    else
+                    {
+                        interpreter.ExecuteFile(fileToExecute);
+                    }
                     return;
                 }
             }
