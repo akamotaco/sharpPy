@@ -852,10 +852,24 @@ namespace SharpPy
 
         public override bool IsCompatible(PythonTypeObject value)
         {
-            return Types.Any(t => t.IsCompatible(value));
+        // 디버깅 코드 추가
+            Console.WriteLine($"[DEBUG] UnionTypeHint checking value type: {value?.Type}");
+            foreach (var t in Types)
+            {
+                Console.WriteLine($"[DEBUG] Checking against: {t}");
+                bool compatible = t.IsCompatible(value);
+                Console.WriteLine($"[DEBUG] Compatible: {compatible}");
+                if (compatible) return true;
+            }
+            return false;
         }
 
-        public override string ToString() => $"Union[{string.Join(", ", Types)}]";
+        public override string ToString()
+        {
+            // Python 3.10+ 스타일: int | None
+            // 이전 스타일: Union[int, None]
+            return string.Join(" | ", Types.Select(t => t.ToString()));
+        }
     }
 
     public enum ParameterKind

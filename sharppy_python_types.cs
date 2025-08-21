@@ -6,6 +6,12 @@ using System.Runtime.CompilerServices;
 
 namespace SharpPy
 {
+    public static class TypeCheckMode
+    {
+        public static bool Enabled { get; set; } = true;  // 기본값: 활성화
+        public static bool Strict { get; set; } = false;  // 엄격 모드
+    }
+
     // Optimized Python List
     public class PythonList : PythonTypeObject
     {
@@ -771,7 +777,7 @@ namespace SharpPy
                     }
 
                     // 암시적 return None에 대한 타입 체크
-                    if (ReturnTypeHint != null && !ReturnTypeHint.IsCompatible(result))
+                    if (TypeCheckMode.Enabled && ReturnTypeHint != null && !ReturnTypeHint.IsCompatible(result))
                     {
                         // 함수의 마지막 줄 위치 사용
                         var lastLine = Body.Count > 0 ? Body[Body.Count - 1].Line : 0;
@@ -798,7 +804,7 @@ namespace SharpPy
                 catch (ReturnException ex)
                 {
                     // return 문에서 반환된 값의 타입 체크
-                    if (ReturnTypeHint != null && !ReturnTypeHint.IsCompatible(ex.Value))
+                    if (TypeCheckMode.Enabled && ReturnTypeHint != null && !ReturnTypeHint.IsCompatible(ex.Value))
                     {
                         var typeEx = new PythonException("TypeError",
                             $"Return value expected {ReturnTypeHint}, got {GetValueType(ex.Value)}",
@@ -855,12 +861,61 @@ namespace SharpPy
             return value switch
             {
                 PythonNone => "None",
+                PythonInt => "int",
+                PythonFloat => "float",
+                PythonString => "str",
+                PythonBool => "bool",
+                PythonList list => $"list[{GetListElementType(list)}]",
+                PythonDict dict => $"dict{GetDictElementTypes(dict)}",
+                PythonTuple tuple => $"tuple[{GetTupleElementTypes(tuple)}]",
+                PythonSet set => $"set[{GetSetElementType(set)}]",
                 PythonInstance instance => instance.Class.Name,
-                PythonClass cls => $"Type[{cls.Name}]",
+                PythonClass cls => $"type[{cls.Name}]",
+                Function func => $"Callable",
                 _ => value.Type.ToString().ToLower()
             };
         }
 
+        private static string GetListElementType(PythonList list)
+        {
+            if (list.Items.Count == 0) return "Any";
+            var types = list.Items.Select(item => GetValueType(item)).Distinct();
+            return types.Count() == 1 ? types.First() : "Any";
+        }
+
+        private static string GetTupleElementTypes(PythonTuple tuple)
+        {
+            if (tuple.Items.Count == 0) 
+                return "";  // 빈 튜플: tuple[()]
+            
+            // 튜플은 각 위치의 타입을 모두 표시
+            var types = tuple.Items.Select(item => GetValueType(item));
+            return string.Join(", ", types);
+        }
+
+        private static string GetDictElementTypes(PythonDict dict)
+        {
+            if (dict.Items.Count == 0) 
+                return "";  // 빈 딕셔너리: dict
+            
+            // 키와 값의 타입을 분석
+            var keyTypes = dict.Items.Keys.Select(k => GetValueType(k)).Distinct();
+            var valueTypes = dict.Items.Values.Select(v => GetValueType(v)).Distinct();
+            
+            string keyType = keyTypes.Count() == 1 ? keyTypes.First() : "Any";
+            string valueType = valueTypes.Count() == 1 ? valueTypes.First() : "Any";
+            
+            return $"[{keyType}, {valueType}]";
+        }
+
+        private static string GetSetElementType(PythonSet set)
+        {
+            if (set.Items.Count == 0) 
+                return "Any";  // 빈 셋
+            
+            var types = set.Items.Select(item => GetValueType(item)).Distinct();
+            return types.Count() == 1 ? types.First() : "Any";
+        }
 
         public override PythonTypeObject GetAttribute(string name)
         {

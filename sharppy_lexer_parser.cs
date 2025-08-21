@@ -1219,6 +1219,31 @@ namespace SharpPy
 
         private TypeHint ParseTypeHint()
         {
+            // 첫 번째 타입 파싱
+            var firstType = ParseSingleTypeHint();
+
+            // '|' 연산자 확인 (Python 3.10+ union syntax)
+            if (currentToken.Type == TokenType.OPERATOR && currentToken.Value == "|")
+            {
+                var types = new List<TypeHint> { firstType };
+
+                while (currentToken.Type == TokenType.OPERATOR && currentToken.Value == "|")
+                {
+                    Advance(); // Skip '|'
+                    SkipNewlinesAndIndents(); // 줄바꿈 가능
+                    types.Add(ParseSingleTypeHint());
+                }
+
+                return new UnionTypeHint(types);
+            }
+
+            return firstType;
+        }
+
+        // 기존 ParseTypeHint 로직을 ParseSingleTypeHint로 분리
+        private TypeHint ParseSingleTypeHint()
+        {
+            // 문자열 타입 힌트 (forward reference)
             if (currentToken.Type == TokenType.STRING)
             {
                 string className = currentToken.Value;
@@ -1226,19 +1251,34 @@ namespace SharpPy
                 return new ClassTypeHint(className);
             }
 
+            // None 타입 처리 (키워드이므로 별도 처리)
+            if (currentToken.Type == TokenType.NONE)
+            {
+                Advance();
+                return SimpleTypeHint.Create(PythonType.None);
+            }
+
+            // True/False도 타입 힌트로 사용 가능 (Literal[True] 등)
+            if (currentToken.Type == TokenType.BOOLEAN)
+            {
+                Advance();
+                return SimpleTypeHint.Create(PythonType.Boolean);
+            }
+
+            // 일반 식별자 처리
             if (currentToken.Type != TokenType.IDENTIFIER)
                 throw new PythonException("SyntaxError", "Expected type hint", currentToken.Line, currentToken.Column);
 
             string typeName = currentToken.Value;
             Advance();
 
-            // Handle special type hints
+            // Special type hints
             if (typeName == "Optional")
             {
                 if (currentToken.Type == TokenType.LBRACKET)
                 {
                     Advance();
-                    var innerType = ParseTypeHint();
+                    var innerType = ParseTypeHint();  // 재귀적으로 ParseTypeHint 호출
                     Expect(TokenType.RBRACKET);
                     return new UnionTypeHint(new List<TypeHint>
                     {
@@ -1257,7 +1297,7 @@ namespace SharpPy
 
                     do
                     {
-                        types.Add(ParseTypeHint());
+                        types.Add(ParseTypeHint());  // 재귀적으로 ParseTypeHint 호출
                         if (currentToken.Type == TokenType.COMMA)
                         {
                             Advance();
@@ -1274,6 +1314,60 @@ namespace SharpPy
                 }
             }
 
+            if (typeName == "Literal")
+            {
+                if (currentToken.Type == TokenType.LBRACKET)
+                {
+                    Advance();
+                    var values = new List<PythonTypeObject>();
+
+                    do
+                    {
+                        // Literal 값 파싱
+                        if (currentToken.Type == TokenType.NUMBER)
+                        {
+                            var numNode = ParseNumber(currentToken.Line, currentToken.Column);
+                            values.Add(numNode.Evaluate(new Environment()));
+                        }
+                        else if (currentToken.Type == TokenType.STRING)
+                        {
+                            values.Add(new PythonString(currentToken.Value));
+                            Advance();
+                        }
+                        else if (currentToken.Type == TokenType.BOOLEAN)
+                        {
+                            values.Add(PythonBool.Create(currentToken.Value == "True"));
+                            Advance();
+                        }
+                        else if (currentToken.Type == TokenType.NONE)
+                        {
+                            values.Add(PythonNone.Instance);
+                            Advance();
+                        }
+                        else
+                        {
+                            throw new PythonException("SyntaxError",
+                                "Literal types must be literal values",
+                                currentToken.Line, currentToken.Column);
+                        }
+
+                        if (currentToken.Type == TokenType.COMMA)
+                        {
+                            Advance();
+                            SkipNewlinesAndIndents();
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    } while (currentToken.Type != TokenType.RBRACKET);
+
+                    Expect(TokenType.RBRACKET);
+                    return new LiteralTypeHint(values);
+                }
+            }
+
+            // 기본 타입들
             var pythonType = typeName switch
             {
                 "int" => PythonType.Int,
@@ -1284,18 +1378,11 @@ namespace SharpPy
                 "dict" => PythonType.Dict,
                 "tuple" => PythonType.Tuple,
                 "set" => PythonType.Set,
-                "None" => PythonType.None,
+                "None" => PythonType.None,  // 이 케이스는 실제로는 위에서 처리되므로 도달하지 않음
                 _ => PythonType.Instance
             };
 
-            if (pythonType == PythonType.Instance && typeName != "Any")
-            {
-                if (currentToken.Type != TokenType.LBRACKET)
-                {
-                    return new ClassTypeHint(typeName);
-                }
-            }
-
+            // Generic 타입 처리 (list[int], dict[str, int] 등)
             if (currentToken.Type == TokenType.LBRACKET)
             {
                 Advance();
@@ -1305,7 +1392,7 @@ namespace SharpPy
 
                 while (currentToken.Type != TokenType.RBRACKET)
                 {
-                    genericArgs.Add(ParseTypeHint());
+                    genericArgs.Add(ParseTypeHint());  // 재귀적으로 ParseTypeHint 호출
                     SkipNewlinesAndIndents();
 
                     if (currentToken.Type == TokenType.COMMA)
@@ -1326,9 +1413,14 @@ namespace SharpPy
                 return new GenericTypeHint(pythonType, genericArgs);
             }
 
-            if (typeName == "Any")
+            // 클래스 타입이나 Any
+            if (pythonType == PythonType.Instance)
             {
-                return new AnyTypeHint();
+                if (typeName == "Any")
+                {
+                    return new AnyTypeHint();
+                }
+                return new ClassTypeHint(typeName);
             }
 
             return SimpleTypeHint.Create(pythonType);
@@ -3009,7 +3101,7 @@ namespace SharpPy
         Star,       // *args
         DoubleStar  // **kwargs
     }
-    
+
     public class UnpackNode : ASTNode
     {
         public ASTNode Expression { get; }
@@ -3026,6 +3118,27 @@ namespace SharpPy
         {
             // 언패킹 로직은 FunctionCallNode에서 처리
             return Expression.Evaluate(env);
+        }
+    }
+
+    public sealed class LiteralTypeHint : TypeHint
+    {
+        public List<PythonTypeObject> Values { get; }
+
+        public LiteralTypeHint(List<PythonTypeObject> values)
+        {
+            Values = values ?? new List<PythonTypeObject>();
+        }
+
+        public override bool IsCompatible(PythonTypeObject value)
+        {
+            return Values.Any(v => v.Equals(value));
+        }
+
+        public override string ToString()
+        {
+            var valueStrings = Values.Select(v => v.ToPythonString());
+            return $"Literal[{string.Join(", ", valueStrings)}]";
         }
     }
 }
