@@ -19,7 +19,6 @@ namespace SharpPy
         private bool useBytecode;
         private string currentFileName = "<string>";
 
-        // 내장 모듈 캐시 (sys 등 특별한 모듈용)
         private Dictionary<string, PythonModule> builtinModules;
 
         // sys.path에 대한 직접 참조 (편의를 위해)
@@ -35,19 +34,11 @@ namespace SharpPy
             SearchPaths = InitializeSearchPaths();
 
             // 2. sys 모듈을 특별하게 생성 (SysModuleInstance 사용)
-            SysModule = new SysModuleInstance(this, SearchPaths);
+            SysModule = new SysModuleInstance(SearchPaths);
 
-            // 3. sys.path를 실제 SearchPaths와 동기화
-            if (SysModule != null)
-            {
-                var sysPath = SysModule.GetAttribute("path");
-                if (sysPath is SysPathList pathList)
-                {
-                    // SysPathList가 내부적으로 SearchPaths를 참조하도록 이미 구성됨
-                    // 필요시 SearchPaths 업데이트를 반영하는 로직 추가 가능
-                }
-            }
-
+            // ✅ 추가: ModuleSystem에 sys 등록
+            ModuleSystem.RegisterBuiltinModule("sys", SysModule);
+            
             // 4. 내장 모듈 레지스트리 초기화
             builtinModules = new Dictionary<string, PythonModule>
             {
@@ -60,77 +51,10 @@ namespace SharpPy
             SysModule.RegisterModule("sys", SysModule);
             SysModule.RegisterModule("__main__", new PythonModule("__main__", SearchPaths));
 
-            // 6. __import__ 함수 오버라이드 (import 구문의 실제 구현)
-            globalEnv.SetVariable("__import__", new BuiltinFunction("__import__", (env, args) =>
-            {
-                if (args.Count < 1)
-                    throw new PythonException("TypeError", "__import__() takes at least 1 argument");
-
-                var moduleName = (args[0] as PythonString)?.Value;
-                if (moduleName == null)
-                    throw new PythonException("TypeError", "__import__() argument must be str");
-
-                // sys.modules에서 먼저 확인 (SysModuleInstance 메서드 사용)
-                if (SysModule.IsModuleLoaded(moduleName))
-                {
-                    return SysModule.GetLoadedModule(moduleName);
-                }
-
-                // 내장 모듈 체크
-                if (builtinModules.ContainsKey(moduleName))
-                {
-                    var module = builtinModules[moduleName];
-
-                    // sys.modules에 등록
-                    SysModule.RegisterModule(moduleName, module);
-
-                    return module;
-                }
-
-                // 표준 라이브러리 체크 (sys는 이미 내장 모듈로 처리됨)
-                if (StandardLibrary.IsStdlibModule(moduleName))
-                {
-                    var module = StandardLibrary.CreateStdlibModule(moduleName, GetCurrentSearchPaths());
-
-                    // __builtins__ 설정
-                    if (module != null && env != null)
-                    {
-                        try
-                        {
-                            var builtins = env.GetVariable("__builtins__");
-                            if (builtins != null)
-                            {
-                                module.ModuleEnv.SetVariable("__builtins__", builtins);
-                            }
-                        }
-                        catch { }
-                    }
-
-                    // sys.modules에 등록
-                    if (module != null)
-                    {
-                        SysModule.RegisterModule(moduleName, module);
-                    }
-
-                    return module;
-                }
-
-                // 일반 파일 시스템 모듈 import
-                var importedModule = ModuleSystem.ImportModule(env, moduleName, GetCurrentSearchPaths());
-
-                // sys.modules에 등록
-                if (importedModule != null)
-                {
-                    SysModule.RegisterModule(moduleName, importedModule);
-                }
-
-                return importedModule;
-            }));
-
-            // 7. builtins 설정 (sys 제외)
+            // 6. builtins 설정 (sys 제외)
             Environment.SetupBuiltins(globalEnv);
 
-            // 8. 메인 모듈 설정
+            // 7. 메인 모듈 설정
             globalEnv.SetVariable("__name__", new PythonString("__main__"));
             globalEnv.SetVariable("__file__", new PythonString("<stdin>"));
 

@@ -8,12 +8,8 @@ namespace SharpPy
     // sys.path를 나타내는 특별한 리스트 클래스
     public class SysPath : PythonList
     {
-        private PythonInterpreter interpreter;
-        
-        public SysPath(PythonInterpreter interpreter) : base()
+        public SysPath() : base()
         {
-            this.interpreter = interpreter;
-            
             // 기본 경로 초기화
             Items.Add(new PythonString("."));
             Items.Add(new PythonString("./lib"));
@@ -47,13 +43,11 @@ namespace SharpPy
     // sys 모듈 구현
     public class SysModule : PythonModule
     {
-        private PythonInterpreter interpreter;
         public SysPath Path { get; private set; }
         
-        public SysModule(PythonInterpreter interpreter) : base("sys", null)
+        public SysModule() : base("sys", null)
         {
-            this.interpreter = interpreter;
-            this.Path = new SysPath(interpreter);
+            this.Path = new SysPath();
             
             SetupSysModule();
         }
@@ -159,12 +153,10 @@ namespace SharpPy
     public class SysModuleInstance : PythonModule
     {
         private SysPathList pathList;
-        private PythonInterpreter interpreter;
 
-        public SysModuleInstance(PythonInterpreter interpreter, List<string> searchPaths)
+        public SysModuleInstance(List<string> searchPaths)
             : base("sys", searchPaths)
         {
-            this.interpreter = interpreter;
             SetupSysModule(searchPaths);
         }
 

@@ -16,6 +16,13 @@ namespace SharpPy
     public static class ModuleSystem
     {
         private static Dictionary<string, PythonModule> loadedModules = new Dictionary<string, PythonModule>();
+        private static Dictionary<string, PythonModule> builtinModules = new Dictionary<string, PythonModule>();
+
+        public static void RegisterBuiltinModule(string name, PythonModule module)
+        {
+            if (module != null)
+                builtinModules[name] = module;
+        }
 
         // 인터프리터에서 sys.path를 가져오는 헬퍼 메서드
         private static List<string> GetSearchPaths(Environment env, List<string> overridePaths = null)
@@ -123,6 +130,12 @@ namespace SharpPy
                 searchPaths = new List<string> { "." };
             }
 
+            // ✅ 추가: 내장 모듈 체크를 sys 특별 처리 전에 추가
+            if (builtinModules.ContainsKey(name))
+            {
+                return builtinModules[name];
+            }
+            
             // 2. sys 모듈 특별 처리 (내장 모듈)
             if (name == "sys" && parentEnv != null)
             {
