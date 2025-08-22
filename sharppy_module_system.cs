@@ -17,8 +17,131 @@ namespace SharpPy
     {
         private static Dictionary<string, PythonModule> loadedModules = new Dictionary<string, PythonModule>();
 
+        // 인터프리터에서 sys.path를 가져오는 헬퍼 메서드
+        private static List<string> GetSearchPaths(Environment env, List<string> overridePaths = null)
+        {
+            // 명시적으로 제공된 경로가 있으면 사용
+            if (overridePaths != null && overridePaths.Count > 0)
+                return overridePaths;
+
+            // sys 모듈에서 path 가져오기
+            try
+            {
+                if (env.HasVariable("sys"))
+                {
+                    var sysModule = env.GetVariable("sys");
+                    if (sysModule is SysModule sys)
+                    {
+                        return sys.Path.ToStringList();
+                    }
+                    else if (sysModule is PythonModule module)
+                    {
+                        var pathAttr = module.GetAttribute("path");
+                        if (pathAttr is SysPath sysPath)
+                        {
+                            return sysPath.ToStringList();
+                        }
+                        else if (pathAttr is PythonList pathList)
+                        {
+                            return pathList.Items
+                                .Where(item => item is PythonString)
+                                .Select(item => ((PythonString)item).Value)
+                                .ToList();
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            // sys.path를 찾을 수 없으면 기본값 사용
+            return new List<string> { "." };
+        }
+
         public static PythonModule ImportModule(Environment parentEnv, string name, List<string> searchPaths = null)
         {
+            // 1. sys.modules에서 먼저 확인 (표준 Python 동작)
+            try
+            {
+                if (parentEnv != null && parentEnv.HasVariable("sys"))
+                {
+                    var sys = parentEnv.GetVariable("sys");
+
+                    // SysModuleInstance인 경우
+                    if (sys is SysModuleInstance sysInstance)
+                    {
+                        // 이미 로드된 모듈 확인
+                        var loadedModule = sysInstance.GetLoadedModule(name);
+                        if (loadedModule != null)
+                            return loadedModule;
+
+                        // searchPaths가 없으면 sys.path 사용
+                        if (searchPaths == null)
+                        {
+                            searchPaths = sysInstance.GetSearchPaths();
+                        }
+                    }
+                    // 일반 PythonModule인 경우 (기존 방식)
+                    else if (sys is PythonModule sysModule)
+                    {
+                        var sysModules = sysModule.GetAttribute("modules") as PythonDict;
+                        if (sysModules != null)
+                        {
+                            var key = new PythonString(name);
+                            if (sysModules.Items.ContainsKey(key))
+                            {
+                                return sysModules.Items[key] as PythonModule;
+                            }
+                        }
+
+                        // searchPaths가 없으면 sys.path 사용
+                        if (searchPaths == null)
+                        {
+                            var sysPath = sysModule.GetAttribute("path");
+                            if (sysPath is SysPathList pathList)
+                            {
+                                searchPaths = pathList.Items
+                                    .Where(item => item is PythonString)
+                                    .Select(item => ((PythonString)item).Value)
+                                    .ToList();
+                            }
+                            else if (sysPath is PythonList list)
+                            {
+                                searchPaths = list.Items
+                                    .Where(item => item is PythonString)
+                                    .Select(item => ((PythonString)item).Value)
+                                    .ToList();
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            // searchPaths가 여전히 null이면 기본값
+            if (searchPaths == null)
+            {
+                searchPaths = new List<string> { "." };
+            }
+
+            // 2. sys 모듈 특별 처리 (내장 모듈)
+            if (name == "sys" && parentEnv != null)
+            {
+                try
+                {
+                    var sys = parentEnv.GetVariable("sys");
+                    if (sys is SysModuleInstance)
+                    {
+                        // 이미 초기화된 sys 모듈 반환
+                        return sys as PythonModule;
+                    }
+                }
+                catch { }
+                // sys가 없으면 에러 (PythonInterpreter를 통해서만 생성 가능)
+                throw new PythonException("ImportError",
+                    "sys module must be initialized through PythonInterpreter");
+            }
+
+            // 3. 로컬 캐시 확인 (하위 호환성)
             if (loadedModules.ContainsKey(name))
             {
                 var cachedModule = loadedModules[name];
@@ -33,10 +156,16 @@ namespace SharpPy
                     }
                 }
 
+                // sys.modules에도 등록
+                RegisterInSysModules(parentEnv, name, cachedModule);
+
                 return cachedModule;
             }
 
-            // 표준 라이브러리 모듈 확인
+            // searchPaths가 없으면 sys.path에서 가져오기
+            searchPaths = GetSearchPaths(parentEnv, searchPaths);
+
+            // 3. 표준 라이브러리 모듈 확인
             var module = StandardLibrary.CreateStdlibModule(name, searchPaths);
             if (module != null)
             {
@@ -55,11 +184,11 @@ namespace SharpPy
                 }
 
                 loadedModules[name] = module;
+                RegisterInSysModules(parentEnv, name, module);
                 return module;
             }
 
-            if (searchPaths == null)
-                searchPaths = new List<string> { "." };
+            // searchPaths는 이미 위에서 설정됨
 
             try
             {
@@ -101,6 +230,7 @@ namespace SharpPy
                         interpreter.SetGlobalEnv(module.ModuleEnv);
                         interpreter.Execute(code, directFilePath);
                         loadedModules[name] = module;
+                        RegisterInSysModules(parentEnv, name, module);
 
                         return module;
                     }
@@ -115,6 +245,7 @@ namespace SharpPy
                         if (module != null)
                         {
                             loadedModules[name] = module;
+                            RegisterInSysModules(parentEnv, name, module);
                             return module;
                         }
                     }
@@ -355,6 +486,36 @@ namespace SharpPy
         public static List<string> GetLoadedModules()
         {
             return loadedModules.Keys.ToList();
+        }
+
+        // sys.modules에 모듈 등록 헬퍼
+        private static void RegisterInSysModules(Environment env, string name, PythonModule module)
+        {
+            if (env == null || module == null) return;
+
+            try
+            {
+                if (env.HasVariable("sys"))
+                {
+                    var sys = env.GetVariable("sys");
+
+                    // SysModuleInstance인 경우 직접 메서드 사용
+                    if (sys is SysModuleInstance sysInstance)
+                    {
+                        sysInstance.RegisterModule(name, module);
+                    }
+                    // 일반 PythonModule인 경우 (기존 방식)
+                    else if (sys is PythonModule sysModule)
+                    {
+                        var sysModules = sysModule.GetAttribute("modules") as PythonDict;
+                        if (sysModules != null)
+                        {
+                            sysModules.Items[new PythonString(name)] = module;
+                        }
+                    }
+                }
+            }
+            catch { }
         }
     }
 }

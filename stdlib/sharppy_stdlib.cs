@@ -38,7 +38,6 @@ namespace SharpPy
                 ["datetime"] = DateTimeModule.Create,
                 ["collections"] = CollectionsModule.Create,
                 ["re"] = RegexModule.Create,
-                ["sys"] = SysModule.Create,
                 ["os"] = OsModule.Create,
                 ["os.path"] = OsPathModule.Create,
                 ["itertools"] = ItertoolsModule.Create,
@@ -377,76 +376,6 @@ namespace SharpPy
             module.SetAttribute("M", PythonInt.Create(8));
             module.SetAttribute("DOTALL", PythonInt.Create(16));
             module.SetAttribute("S", PythonInt.Create(16));
-            
-            return module;
-        }
-    }
-
-    /// <summary>
-    /// sys 모듈
-    /// </summary>
-    public static class SysModule
-    {
-        private static readonly Dictionary<string, Func<List<PythonTypeObject>, PythonTypeObject>> methods;
-        
-        static SysModule()
-        {
-            methods = new Dictionary<string, Func<List<PythonTypeObject>, PythonTypeObject>>
-            {
-                ["exit"] = args =>
-                {
-                    int exitCode = 0;
-                    if (args.Count > 0 && NumberHelper.IsNumber(args[0]))
-                        exitCode = NumberHelper.ToInt(args[0]);
-
-                    throw new PythonException("SystemExit", exitCode.ToString());
-                },
-                
-                ["getrecursionlimit"] = args =>
-                {
-                    if (args.Count != 0)
-                        throw new PythonException("TypeError", "getrecursionlimit() takes no arguments");
-                    return PythonInt.Create(1000);  // Default Python recursion limit
-                },
-                
-                ["setrecursionlimit"] = args =>
-                {
-                    if (args.Count != 1)
-                        throw new PythonException("TypeError", "setrecursionlimit() takes exactly 1 argument");
-                    // 실제로는 설정하지 않고 None 반환
-                    return PythonNone.Instance;
-                }
-            };
-        }
-        
-        public static PythonModule Create(List<string> searchPaths)
-        {
-            var module = new EnhancedModule("sys", searchPaths, methods);
-
-            // sys.path - 특별한 리스트
-            var actualSearchPaths = searchPaths ?? StandardLibrary.GetGlobalSearchPaths();
-            var pathList = new SysPathList(actualSearchPaths);
-            module.SetAttribute("path", pathList);
-
-            // sys.version
-            module.SetAttribute("version", new PythonString("SharpPy 1.0.0 (Python 3.x compatible)"));
-
-            // sys.platform
-            module.SetAttribute("platform", new PythonString(
-                System.Environment.OSVersion.Platform == PlatformID.Win32NT ? "win32" :
-                System.Environment.OSVersion.Platform == PlatformID.Unix ? "linux" :
-                System.Environment.OSVersion.Platform == PlatformID.MacOSX ? "darwin" :
-                "unknown"
-            ));
-
-            // sys.argv
-            module.SetAttribute("argv", new PythonList());
-
-            // sys.modules (간단한 구현)
-            module.SetAttribute("modules", new PythonDict());
-            
-            // sys.maxsize
-            module.SetAttribute("maxsize", PythonInt.Create(int.MaxValue));
             
             return module;
         }
