@@ -460,8 +460,15 @@ namespace SharpPy
                     char quoteChar = input[position + 1];
                     if (input[position + 2] == quoteChar && input[position + 3] == quoteChar)
                     {
-                        Advance();
+                        Advance(); // Skip 'f'
                         string content = ReadTripleQuotedString(quoteChar.ToString());
+
+                        // f-string 삼중 따옴표 후에도 atLineStart 확인
+                        if (currentChar != '\n' && currentChar != '\0')
+                        {
+                            atLineStart = false;
+                        }
+
                         tokens.Add(new Token(TokenType.FSTRING, content, tokenLine, tokenColumn));
                         return true;
                     }
@@ -660,17 +667,28 @@ namespace SharpPy
             int startLine = line;
             int startColumn = column;
 
+            // 삼중 따옴표 시작 부분 건너뛰기
             for (int i = 0; i < 3; i++)
                 Advance();
 
+            // 삼중 따옴표 문자열 읽기
             while (position + 2 < inputLength)
             {
                 if (currentChar == quoteType[0] &&
                     position + 1 < inputLength && input[position + 1] == quoteType[0] &&
                     position + 2 < inputLength && input[position + 2] == quoteType[0])
                 {
+                    // 삼중 따옴표 끝 부분 건너뛰기
                     for (int i = 0; i < 3; i++)
                         Advance();
+
+                    // 중요: 삼중 따옴표가 끝난 후 현재 위치 확인
+                    // 줄의 시작이 아니라면 atLineStart를 false로 설정
+                    if (currentChar != '\n' && currentChar != '\0')
+                    {
+                        atLineStart = false;
+                    }
+
                     return sb.ToString();
                 }
 
@@ -678,6 +696,7 @@ namespace SharpPy
                 Advance();
             }
 
+            // 나머지 처리 (파일 끝까지 읽는 경우)
             while (currentChar != '\0')
             {
                 if (currentChar == quoteType[0] &&
@@ -686,6 +705,13 @@ namespace SharpPy
                 {
                     for (int i = 0; i < 3; i++)
                         Advance();
+
+                    // 여기서도 동일하게 처리
+                    if (currentChar != '\n' && currentChar != '\0')
+                    {
+                        atLineStart = false;
+                    }
+
                     return sb.ToString();
                 }
                 sb.Append(currentChar);

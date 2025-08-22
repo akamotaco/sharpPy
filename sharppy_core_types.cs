@@ -667,25 +667,25 @@ namespace SharpPy
     public static class ExecutionContext
     {
         private static Stack<StackFrame> callStack = new Stack<StackFrame>();
-        
+
         public static void PushFrame(StackFrame frame)
         {
             callStack.Push(frame);
         }
-        
+
         public static void PopFrame()
         {
             if (callStack.Count > 0)
                 callStack.Pop();
         }
-        
+
         public static StackFrame CurrentFrame => callStack.Count > 0 ? callStack.Peek() : null;
-        
+
         public static List<StackFrame> GetCallStack()
         {
             return callStack.ToList();
         }
-        
+
         public static void Clear()
         {
             callStack.Clear();
@@ -856,7 +856,7 @@ namespace SharpPy
 
         public override bool IsCompatible(PythonTypeObject value)
         {
-        // 디버깅 코드 추가
+            // 디버깅 코드 추가
             Console.WriteLine($"[DEBUG] UnionTypeHint checking value type: {value?.Type}");
             foreach (var t in Types)
             {
@@ -1008,21 +1008,21 @@ namespace SharpPy
         Static,
         Class
     }
-public sealed class StaticMethod : PythonTypeObject
-{
-    public Function Method { get; }
-    
-    public StaticMethod(Function method)
+    public sealed class StaticMethod : PythonTypeObject
     {
-        Method = method;
+        public Function Method { get; }
+
+        public StaticMethod(Function method)
+        {
+            Method = method;
+        }
+
+        public override PythonType Type => PythonType.Function;
+        public override bool IsTrue() => true;
+        public override string ToPythonString() => $"<staticmethod object>";
+        public override object GetRawValue() => this;
+        public override bool Equals(PythonTypeObject other) => ReferenceEquals(this, other);
     }
-    
-    public override PythonType Type => PythonType.Function;
-    public override bool IsTrue() => true;
-    public override string ToPythonString() => $"<staticmethod object>";
-    public override object GetRawValue() => this;
-    public override bool Equals(PythonTypeObject other) => ReferenceEquals(this, other);
-}
 
     public sealed class ClassMethod : PythonTypeObject
     {
@@ -1036,6 +1036,52 @@ public sealed class StaticMethod : PythonTypeObject
         public override PythonType Type => PythonType.Function;
         public override bool IsTrue() => true;
         public override string ToPythonString() => $"<classmethod object>";
+        public override object GetRawValue() => this;
+        public override bool Equals(PythonTypeObject other) => ReferenceEquals(this, other);
+    }
+    
+    public sealed class ExceptionClassCallable : PythonTypeObject
+{
+    public string Name { get; }
+    
+    public ExceptionClassCallable(string name)
+    {
+        Name = name;
+    }
+    
+    public override PythonType Type => PythonType.Class;
+    public override bool IsTrue() => true;
+    public override bool IsCallable() => true;
+    public override string ToPythonString() => $"<class '{Name}'>";
+    public override object GetRawValue() => this;
+    public override bool Equals(PythonTypeObject other) => ReferenceEquals(this, other);
+    
+    public PythonExceptionInstance CreateInstance(List<PythonTypeObject> args)
+    {
+        string message = "";
+        if (args.Count > 0)
+        {
+            message = args[0].ToPythonString();
+        }
+        return new PythonExceptionInstance(Name, message);
+    }
+}
+
+    // 예외 인스턴스를 나타내는 타입
+    public sealed class PythonExceptionInstance : PythonTypeObject
+    {
+        public string ExceptionType { get; }
+        public string Message { get; }
+
+        public PythonExceptionInstance(string exceptionType, string message)
+        {
+            ExceptionType = exceptionType;
+            Message = message;
+        }
+
+        public override PythonType Type => PythonType.Instance;
+        public override bool IsTrue() => true;
+        public override string ToPythonString() => Message;
         public override object GetRawValue() => this;
         public override bool Equals(PythonTypeObject other) => ReferenceEquals(this, other);
     }

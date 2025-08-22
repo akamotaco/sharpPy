@@ -67,6 +67,7 @@ namespace SharpPy
             RegisterIntrospectionFunctions(module);
             RegisterEvalFunctions(module);
             RegisterConstants(module);
+            RegisterExceptionClasses(module);  // <-- 이 줄 추가
 
             return module;
         }
@@ -1310,6 +1311,41 @@ namespace SharpPy
             versionTuple.Items.Add(PythonInt.Create(10));
             versionTuple.Items.Add(PythonInt.Create(0));
             module.SetAttribute("__version__", versionTuple);
+        }
+
+        /// <summary>
+        /// Register built-in exception classes
+        /// </summary>
+        private static void RegisterExceptionClasses(PythonModule module)
+        {
+            // 기본 예외 클래스들 등록
+            var exceptionTypes = new Dictionary<string, string>
+            {
+                ["Exception"] = "Exception",
+                ["ValueError"] = "ValueError",
+                ["TypeError"] = "TypeError",
+                ["RuntimeError"] = "RuntimeError",
+                ["KeyError"] = "KeyError",
+                ["IndexError"] = "IndexError",
+                ["AttributeError"] = "AttributeError",
+                ["NameError"] = "NameError",
+                ["SyntaxError"] = "SyntaxError",
+                ["IndentationError"] = "IndentationError",
+                ["ImportError"] = "ImportError",
+                ["ZeroDivisionError"] = "ZeroDivisionError",
+                ["OverflowError"] = "OverflowError",
+                ["AssertionError"] = "AssertionError",
+                ["NotImplementedError"] = "NotImplementedError",
+                ["StopIteration"] = "StopIteration",
+                ["FileNotFoundError"] = "FileNotFoundError",
+                ["IOError"] = "IOError"
+            };
+
+            foreach (var kvp in exceptionTypes)
+            {
+                var exceptionName = kvp.Key;
+                module.SetAttribute(exceptionName, new ExceptionClassCallable(exceptionName));
+            }
         }
 
         // Helper methods

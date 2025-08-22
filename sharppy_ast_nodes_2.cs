@@ -141,7 +141,10 @@ namespace SharpPy
                     // 함수 호출
                     return function switch
                     {
-                        // CallableType 추가 (맨 위에 배치하는 것이 좋음)
+                        // ExceptionClassCallable 추가 (맨 위에 배치)
+                        ExceptionClassCallable exClass => exClass.CreateInstance(args),
+                        
+                        // CallableType 추가 (그 다음에 배치)
                         CallableType callableType => callableType.Call(args),
 
                         UserFunction userFunc => userFunc.CallWithKeywords(args, kwargs),
@@ -594,8 +597,13 @@ namespace SharpPy
                 {
                     if (string.IsNullOrEmpty(exceptionType) || ex.Type == exceptionType)
                     {
+                        // except 블록 처리 부분에서
                         if (!string.IsNullOrEmpty(variable))
-                            env.SetVariable(variable, new PythonString(ex.Message));
+                        {
+                            // 예외 객체를 변수에 저장 (메시지뿐만 아니라 전체 예외 정보)
+                            var exceptionObj = new PythonExceptionInstance(ex.Type, ex.Message);
+                            env.SetVariable(variable, exceptionObj);
+                        }
 
                         foreach (var stmt in body)
                             result = stmt.Evaluate(env);
@@ -649,9 +657,27 @@ namespace SharpPy
         {
             try
             {
+                if (Exception == null)
+                {
+                    // bare raise - re-raise current exception
+                    throw CreateException("RuntimeError", "No active exception to re-raise");
+                }
+
                 var ex = Exception.Evaluate(env);
+
+                // 예외 인스턴스인 경우 (ValueError("message") 형태로 호출된 결과)
+                if (ex is PythonExceptionInstance exInstance)
+                {
+                    throw CreateException(exInstance.ExceptionType, exInstance.Message);
+                }
+
+                // 문자열인 경우 (기존 방식 호환)
                 if (ex is PythonString message)
+                {
                     throw CreateException("Exception", message.Value);
+                }
+
+                // 기타 경우
                 throw CreateException("Exception", ex?.ToPythonString() ?? "");
             }
             catch (PythonException)

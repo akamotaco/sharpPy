@@ -1,3 +1,5 @@
+#if GODOT
+#else
 using DotNet_IO;
 
 namespace SharpPy
@@ -1144,3 +1146,4 @@ complex_func(1, 2, 3, 4, x=5, y=6)
         }
     }
 }
+#endif
