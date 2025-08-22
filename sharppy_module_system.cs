@@ -8,6 +8,66 @@ namespace SharpPy
 {
     public static class ModuleSystem
     {
+        private static bool FileExistsWithExactCase(string filePath)
+        {
+            // 파일이 존재하는지 먼저 확인
+            if (!File.Exists(filePath))
+                return false;
+
+            // Windows에서도 대소문자를 정확히 확인
+            try
+            {
+                var directory = Path.GetDirectoryName(filePath);
+                var fileName = Path.GetFileName(filePath);
+
+                if (string.IsNullOrEmpty(directory))
+                    directory = ".";
+
+                var actualFiles = Directory.GetFiles(directory, fileName);
+
+                // 정확히 일치하는 파일이 있는지 확인
+                foreach (var actualFile in actualFiles)
+                {
+                    if (Path.GetFileName(actualFile) == fileName)
+                        return true;
+                }
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+        private static bool DirectoryExistsWithExactCase(string dirPath)
+        {
+            if (!Directory.Exists(dirPath))
+                return false;
+
+            try
+            {
+                var parentDir = Path.GetDirectoryName(dirPath);
+                var dirName = Path.GetFileName(dirPath);
+
+                if (string.IsNullOrEmpty(parentDir))
+                    parentDir = ".";
+
+                var actualDirs = Directory.GetDirectories(parentDir, dirName);
+
+                foreach (var actualDir in actualDirs)
+                {
+                    if (Path.GetFileName(actualDir) == dirName)
+                        return true;
+                }
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+        
         private static Dictionary<string, PythonModule> loadedModules = new Dictionary<string, PythonModule>();
 
         // module_system.cs의 ImportModule 함수만 수정
@@ -65,7 +125,7 @@ namespace SharpPy
                     var directFilePath = Path.Combine(searchPath, 
                         string.Join(Path.DirectorySeparatorChar.ToString(), parts) + ".py");
                     
-                    if (File.Exists(directFilePath))
+                    if (FileExistsWithExactCase(directFilePath))
                     {
                         module = new PythonModule(name, searchPaths);
                         
@@ -103,7 +163,7 @@ namespace SharpPy
                     var packagePath = Path.Combine(searchPath, 
                         string.Join(Path.DirectorySeparatorChar.ToString(), parts));
                     
-                    if (Directory.Exists(packagePath))
+                    if (DirectoryExistsWithExactCase(packagePath))
                     {
                         module = CreatePackageModule(name, packagePath, searchPaths);
                         if (module != null)
@@ -126,7 +186,7 @@ namespace SharpPy
                             if (loadedModules.ContainsKey(subName))
                                 continue;
                             
-                            if (Directory.Exists(subPath))
+                            if (DirectoryExistsWithExactCase(subPath))
                             {
                                 var subModule = CreatePackageModule(subName, subPath, searchPaths);
                                 if (subModule != null)
@@ -147,7 +207,7 @@ namespace SharpPy
                             if (i == parts.Length)
                             {
                                 var filePath = subPath + ".py";
-                                if (File.Exists(filePath))
+                                if (FileExistsWithExactCase(filePath))
                                 {
                                     module = new PythonModule(subName, searchPaths);
                                     string code = File.ReadAllText(filePath);
@@ -181,7 +241,7 @@ namespace SharpPy
                     foreach (var searchPath in searchPaths)
                     {
                         var filePath = Path.Combine(searchPath, name + ".py");
-                        if (File.Exists(filePath))
+                        if (FileExistsWithExactCase(filePath))
                         {
                             module = new PythonModule(name, searchPaths);
             
@@ -207,7 +267,7 @@ namespace SharpPy
                         }
                         
                         var packageDir = Path.Combine(searchPath, name);
-                        if (Directory.Exists(packageDir))
+                        if (DirectoryExistsWithExactCase(packageDir))
                         {
                             module = CreatePackageModule(name, packageDir, searchPaths);
                             if (module != null)
@@ -248,7 +308,7 @@ namespace SharpPy
                 }
                 
                 var initFile = Path.Combine(packageDir, "__init__.py");
-                if (File.Exists(initFile))
+                if (FileExistsWithExactCase(initFile))
                 {
                     string code = File.ReadAllText(initFile);
                     var interpreter = new SharpPy.PythonInterpreter();
@@ -465,7 +525,7 @@ namespace SharpPy
         //     {
         //         if (args.Count != 1) throw new PythonException("TypeError", "exists() takes exactly one argument");
         //         string path = (args[0] as PythonString)?.Value ?? "";
-        //         return new PythonBool(File.Exists(path) || Directory.Exists(path));
+        //         return new PythonBool(File.Exists(path) || DirectoryExistsWithExactCase(path));
         //     }));
 
         //     module.SetAttribute("isfile", new BuiltinFunction("isfile", args =>
@@ -479,7 +539,7 @@ namespace SharpPy
         //     {
         //         if (args.Count != 1) throw new PythonException("TypeError", "isdir() takes exactly one argument");
         //         string path = (args[0] as PythonString)?.Value ?? "";
-        //         return new PythonBool(Directory.Exists(path));
+        //         return new PythonBool(DirectoryExistsWithExactCase(path));
         //     }));
 
         //     return module;
