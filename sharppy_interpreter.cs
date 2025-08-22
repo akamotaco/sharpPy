@@ -4,6 +4,12 @@ using System.Linq;
 using System.IO;
 using System.Collections.Generic;
 
+#if GODOT
+using Godot_IO;
+#else
+using DotNet_IO;
+#endif
+
 namespace SharpPy
 {
     public class PythonInterpreter
@@ -12,25 +18,25 @@ namespace SharpPy
         protected VirtualMachine virtualMachine;
         private bool useBytecode;
         private string currentFileName = "<string>";
-        
+
         // 내장 모듈 캐시 (sys 등 특별한 모듈용)
         private Dictionary<string, PythonModule> builtinModules;
-        
+
         // sys.path에 대한 직접 참조 (편의를 위해)
         public List<string> SearchPaths { get; private set; }
         public SysModuleInstance SysModule { get; private set; }  // SysModuleInstance 타입으로 변경
-        
+
         public PythonInterpreter(bool useBytecode = false)
         {
             globalEnv = new Environment(null, null, EnvironmentType.Global);
             globalEnv.globalEnv = globalEnv;
-            
+
             // 1. 초기 검색 경로 설정 (sys 모듈 생성 전)
             SearchPaths = InitializeSearchPaths();
-            
+
             // 2. sys 모듈을 특별하게 생성 (SysModuleInstance 사용)
             SysModule = new SysModuleInstance(this, SearchPaths);
-            
+
             // 3. sys.path를 실제 SearchPaths와 동기화
             if (SysModule != null)
             {
@@ -41,7 +47,7 @@ namespace SharpPy
                     // 필요시 SearchPaths 업데이트를 반영하는 로직 추가 가능
                 }
             }
-            
+
             // 4. 내장 모듈 레지스트리 초기화
             builtinModules = new Dictionary<string, PythonModule>
             {
@@ -49,43 +55,43 @@ namespace SharpPy
                 // 다른 항상 사용 가능한 모듈들 추가 가능
                 // ["builtins"] = ...,
             };
-            
+
             // 5. sys.modules 초기화
             SysModule.RegisterModule("sys", SysModule);
             SysModule.RegisterModule("__main__", new PythonModule("__main__", SearchPaths));
-            
+
             // 6. __import__ 함수 오버라이드 (import 구문의 실제 구현)
             globalEnv.SetVariable("__import__", new BuiltinFunction("__import__", (env, args) =>
             {
                 if (args.Count < 1)
                     throw new PythonException("TypeError", "__import__() takes at least 1 argument");
-                    
+
                 var moduleName = (args[0] as PythonString)?.Value;
                 if (moduleName == null)
                     throw new PythonException("TypeError", "__import__() argument must be str");
-                
+
                 // sys.modules에서 먼저 확인 (SysModuleInstance 메서드 사용)
                 if (SysModule.IsModuleLoaded(moduleName))
                 {
                     return SysModule.GetLoadedModule(moduleName);
                 }
-                
+
                 // 내장 모듈 체크
                 if (builtinModules.ContainsKey(moduleName))
                 {
                     var module = builtinModules[moduleName];
-                    
+
                     // sys.modules에 등록
                     SysModule.RegisterModule(moduleName, module);
-                    
+
                     return module;
                 }
-                
+
                 // 표준 라이브러리 체크 (sys는 이미 내장 모듈로 처리됨)
                 if (StandardLibrary.IsStdlibModule(moduleName))
                 {
                     var module = StandardLibrary.CreateStdlibModule(moduleName, GetCurrentSearchPaths());
-                    
+
                     // __builtins__ 설정
                     if (module != null && env != null)
                     {
@@ -99,46 +105,46 @@ namespace SharpPy
                         }
                         catch { }
                     }
-                    
+
                     // sys.modules에 등록
                     if (module != null)
                     {
                         SysModule.RegisterModule(moduleName, module);
                     }
-                    
+
                     return module;
                 }
-                
+
                 // 일반 파일 시스템 모듈 import
                 var importedModule = ModuleSystem.ImportModule(env, moduleName, GetCurrentSearchPaths());
-                
+
                 // sys.modules에 등록
                 if (importedModule != null)
                 {
                     SysModule.RegisterModule(moduleName, importedModule);
                 }
-                
+
                 return importedModule;
             }));
-            
+
             // 7. builtins 설정 (sys 제외)
             Environment.SetupBuiltins(globalEnv);
-            
+
             // 8. 메인 모듈 설정
             globalEnv.SetVariable("__name__", new PythonString("__main__"));
             globalEnv.SetVariable("__file__", new PythonString("<stdin>"));
-            
+
             virtualMachine = new VirtualMachine(globalEnv);
             this.useBytecode = useBytecode;
         }
-        
+
         private List<string> InitializeSearchPaths()
         {
             var paths = new List<string>();
-            
+
             // 현재 디렉토리
             paths.Add(".");
-            
+
             // 실행 파일 디렉토리의 lib
             string exeDir = Path.GetDirectoryName(
                 System.Reflection.Assembly.GetExecutingAssembly().Location);
@@ -148,7 +154,7 @@ namespace SharpPy
                 paths.Add(Path.Combine(exeDir, "lib", "python"));
                 paths.Add(Path.Combine(exeDir, "site-packages"));
             }
-            
+
             // PYTHONPATH 환경 변수
             string pythonPath = System.Environment.GetEnvironmentVariable("PYTHONPATH");
             if (!string.IsNullOrEmpty(pythonPath))
@@ -162,10 +168,10 @@ namespace SharpPy
                     }
                 }
             }
-            
+
             return paths;
         }
-        
+
         // 현재 sys.path 가져오기
         private List<string> GetCurrentSearchPaths()
         {
@@ -174,7 +180,7 @@ namespace SharpPy
             {
                 return SysModule.GetSearchPaths();
             }
-            
+
             // 실패시 초기값 반환
             return SearchPaths;
         }
@@ -182,10 +188,10 @@ namespace SharpPy
         public void SetGlobalEnv(Environment env)
         {
             globalEnv = env;
-            
+
             // sys 모듈이 없으면 내장 모듈로 제공 (import를 통해서만 접근 가능)
             // 직접 설정하지 않음
-            
+
             virtualMachine = new VirtualMachine(globalEnv);
         }
 
@@ -227,7 +233,7 @@ namespace SharpPy
                     Console.WriteLine($"SystemExit: {ex.Message}");
                     return null;
                 }
-                
+
                 DisplayError(ex, code, filename);
                 return null;
             }
@@ -237,7 +243,7 @@ namespace SharpPy
         {
             try
             {
-                if (!File.Exists(filename))
+                if (!Helper.FileExists(filename))
                 {
                     Console.WriteLine($"Error: File '{filename}' not found");
                     return;
@@ -246,7 +252,7 @@ namespace SharpPy
                 // 파일 실행 시 환경 설정
                 globalEnv.SetVariable("__file__", new PythonString(filename));
                 globalEnv.CurrentFileName = filename;
-                
+
                 // 파일이 있는 디렉토리를 sys.path 맨 앞에 추가
                 string fileDir = Path.GetDirectoryName(Path.GetFullPath(filename));
                 if (!string.IsNullOrEmpty(fileDir))
@@ -258,10 +264,10 @@ namespace SharpPy
                         var insertMethod = pathList.GetMethod("insert");
                         if (insertMethod != null)
                         {
-                            insertMethod.Call(new List<PythonTypeObject> 
-                            { 
-                                PythonInt.Create(0), 
-                                new PythonString(fileDir) 
+                            insertMethod.Call(new List<PythonTypeObject>
+                            {
+                                PythonInt.Create(0),
+                                new PythonString(fileDir)
                             });
                         }
                     }
@@ -273,7 +279,7 @@ namespace SharpPy
                 }
                 else
                 {
-                    string code = File.ReadAllText(filename);
+                    string code = Helper.ReadAllText(filename);
                     Execute(code, filename);
                 }
             }
@@ -282,14 +288,14 @@ namespace SharpPy
                 Console.WriteLine($"Error reading file '{filename}': {ex.Message}");
             }
         }
-        
+
         // sys 모듈에 대한 특별한 접근자
         public SysModuleInstance GetSysModule()
         {
             // import sys를 하지 않아도 내부적으로 sys 모듈 참조 가능
             return SysModule;
         }
-        
+
         // sys.path에 경로 추가 (편의 메서드)
         public void AddToSysPath(string path)
         {
@@ -305,7 +311,7 @@ namespace SharpPy
         }
 
         // 나머지 메서드들 (ExecuteAST, DisplayError, StartRepl 등)은 기존과 동일...
-        
+
         private object ExecuteAST(string code, string filename)
         {
             var lexer = new Lexer(code);
@@ -325,14 +331,14 @@ namespace SharpPy
                 {
                     if (ex.FileName == "<string>" && filename != "<string>")
                     {
-                        throw new PythonException(ex.Type, ex.Message, 
-                            ex.Line > 0 ? ex.Line : statement.Line, 
-                            ex.Column > 0 ? ex.Column : statement.Column, 
+                        throw new PythonException(ex.Type, ex.Message,
+                            ex.Line > 0 ? ex.Line : statement.Line,
+                            ex.Column > 0 ? ex.Column : statement.Column,
                             filename);
                     }
                     if (ex.Line == 0 && statement.Line > 0)
                     {
-                        throw new PythonException(ex.Type, ex.Message, 
+                        throw new PythonException(ex.Type, ex.Message,
                             statement.Line, statement.Column, filename);
                     }
                     throw;
@@ -353,14 +359,14 @@ namespace SharpPy
                 {
                     int line = statement.Line > 0 ? statement.Line : 0;
                     int column = statement.Column > 0 ? statement.Column : 0;
-                    throw new PythonException("RuntimeError", 
+                    throw new PythonException("RuntimeError",
                         $"Internal error: {ex.Message}", line, column, filename);
                 }
             }
 
             return result;
         }
-        
+
         private void DisplayError(PythonException ex, string code, string filename)
         {
             string displayFileName = ex.FileName != "<string>" ? ex.FileName : filename;
@@ -369,11 +375,11 @@ namespace SharpPy
             {
                 Console.WriteLine($"  File \"{displayFileName}\", line {ex.Line}, column {ex.Column}");
 
-                if (displayFileName != "<string>" && File.Exists(displayFileName))
+                if (displayFileName != "<string>" && Helper.FileExists(displayFileName))
                 {
                     try
                     {
-                        var lines = File.ReadAllLines(displayFileName);
+                        var lines = Helper.ReadAllText(displayFileName);
                         if (ex.Line <= lines.Length)
                         {
                             Console.WriteLine($"    {lines[ex.Line - 1]}");
@@ -402,7 +408,7 @@ namespace SharpPy
             Console.WriteLine($"{ex.Type}: {ex.Message}");
             Console.WriteLine();
         }
-        
+
         private void ShowErrorFromCode(string code, int line, int column)
         {
             if (string.IsNullOrEmpty(code)) return;
@@ -425,26 +431,26 @@ namespace SharpPy
                 // 무시
             }
         }
-        
+
         // 나머지 메서드들...
         public CodeObject Compile(string code, string filename = "<string>", string mode = "exec")
         {
             return PythonCompiler.Compile(code, filename, mode);
         }
-        
+
         public void SaveBytecode(string code, string sourceFile, string outputFile)
         {
             var codeObject = PythonCompiler.Compile(code, sourceFile);
             BytecodeSerializer.SaveToFile(codeObject, outputFile);
         }
-        
+
         public object LoadAndExecuteBytecode(string bytecodeFile)
         {
             var env = this.globalEnv;
             var codeObject = BytecodeSerializer.LoadFromFile(bytecodeFile);
             return virtualMachine.Execute(env, codeObject);
         }
-        
+
         public void ShowBytecode(string code, string filename = "<string>")
         {
             var codeObject = PythonCompiler.Compile(code, filename);

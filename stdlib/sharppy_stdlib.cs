@@ -3,6 +3,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
+#if GODOT
+using Godot_IO;
+#else
+using DotNet_IO;
+#endif
+
 namespace SharpPy
 {
     /// <summary>
@@ -15,12 +21,12 @@ namespace SharpPy
 
         // 전역 searchPaths 참조
         private static List<string> _globalSearchPaths;
-        
+
         public static void SetGlobalSearchPaths(List<string> searchPaths)
         {
             _globalSearchPaths = searchPaths;
         }
-        
+
         public static List<string> GetGlobalSearchPaths()
         {
             return _globalSearchPaths ?? new List<string> { "." };
@@ -83,7 +89,7 @@ namespace SharpPy
     public static class DateTimeModule
     {
         private static readonly Dictionary<string, Func<List<PythonTypeObject>, PythonTypeObject>> methods;
-        
+
         static DateTimeModule()
         {
             methods = new Dictionary<string, Func<List<PythonTypeObject>, PythonTypeObject>>
@@ -104,7 +110,7 @@ namespace SharpPy
                     dict.SetItem(new PythonString("microsecond"), PythonInt.Create(now.Millisecond * 1000));
                     return dict;
                 },
-                
+
                 ["utcnow"] = args =>
                 {
                     if (args.Count != 0)
@@ -121,33 +127,33 @@ namespace SharpPy
                     dict.SetItem(new PythonString("microsecond"), PythonInt.Create(now.Millisecond * 1000));
                     return dict;
                 },
-                
+
                 ["date"] = args =>
                 {
                     if (args.Count != 3)
                         throw new PythonException("TypeError", "date() takes exactly 3 arguments");
-                    
+
                     int year = NumberHelper.ToInt(args[0]);
                     int month = NumberHelper.ToInt(args[1]);
                     int day = NumberHelper.ToInt(args[2]);
-                    
+
                     var dict = new PythonDict();
                     dict.SetItem(new PythonString("year"), PythonInt.Create(year));
                     dict.SetItem(new PythonString("month"), PythonInt.Create(month));
                     dict.SetItem(new PythonString("day"), PythonInt.Create(day));
                     return dict;
                 },
-                
+
                 ["time"] = args =>
                 {
                     if (args.Count < 1 || args.Count > 4)
                         throw new PythonException("TypeError", "time() takes 1 to 4 arguments");
-                    
+
                     int hour = NumberHelper.ToInt(args[0]);
                     int minute = args.Count > 1 ? NumberHelper.ToInt(args[1]) : 0;
                     int second = args.Count > 2 ? NumberHelper.ToInt(args[2]) : 0;
                     int microsecond = args.Count > 3 ? NumberHelper.ToInt(args[3]) : 0;
-                    
+
                     var dict = new PythonDict();
                     dict.SetItem(new PythonString("hour"), PythonInt.Create(hour));
                     dict.SetItem(new PythonString("minute"), PythonInt.Create(minute));
@@ -157,15 +163,15 @@ namespace SharpPy
                 }
             };
         }
-        
+
         public static PythonModule Create(List<string> searchPaths)
         {
             var module = new EnhancedModule("datetime", searchPaths, methods);
-            
+
             // 상수 추가
             module.SetAttribute("MINYEAR", PythonInt.Create(1));
             module.SetAttribute("MAXYEAR", PythonInt.Create(9999));
-            
+
             return module;
         }
     }
@@ -176,7 +182,7 @@ namespace SharpPy
     public static class CollectionsModule
     {
         private static readonly Dictionary<string, Func<List<PythonTypeObject>, PythonTypeObject>> methods;
-        
+
         static CollectionsModule()
         {
             methods = new Dictionary<string, Func<List<PythonTypeObject>, PythonTypeObject>>
@@ -184,7 +190,7 @@ namespace SharpPy
                 ["Counter"] = args =>
                 {
                     var counter = new PythonDict();
-                    
+
                     if (args.Count > 0)
                     {
                         if (args[0] is PythonList list)
@@ -219,16 +225,16 @@ namespace SharpPy
                             }
                         }
                     }
-                    
+
                     return counter;
                 },
-                
+
                 ["defaultdict"] = args =>
                 {
                     // 간단한 구현: 일반 dict 반환
                     return new PythonDict();
                 },
-                
+
                 ["deque"] = args =>
                 {
                     var deque = new PythonList();
@@ -238,12 +244,12 @@ namespace SharpPy
                     }
                     return deque;
                 },
-                
+
                 ["namedtuple"] = args =>
                 {
                     if (args.Count < 2)
                         throw new PythonException("TypeError", "namedtuple() takes at least 2 arguments");
-                    
+
                     // 간단한 구현: 클래스 이름만 반환
                     if (args[0] is PythonString className)
                     {
@@ -253,7 +259,7 @@ namespace SharpPy
                 }
             };
         }
-        
+
         public static PythonModule Create(List<string> searchPaths)
         {
             return new EnhancedModule("collections", searchPaths, methods);
@@ -266,7 +272,7 @@ namespace SharpPy
     public static class RegexModule
     {
         private static readonly Dictionary<string, Func<List<PythonTypeObject>, PythonTypeObject>> methods;
-        
+
         static RegexModule()
         {
             methods = new Dictionary<string, Func<List<PythonTypeObject>, PythonTypeObject>>
@@ -287,10 +293,10 @@ namespace SharpPy
                         match.SetItem(new PythonString("end"), PythonInt.Create(pattern.Value.Length));
                         return match;
                     }
-                    
+
                     return PythonNone.Instance;
                 },
-                
+
                 ["search"] = args =>
                 {
                     if (args.Count != 2)
@@ -308,10 +314,10 @@ namespace SharpPy
                         match.SetItem(new PythonString("end"), PythonInt.Create(index + pattern.Value.Length));
                         return match;
                     }
-                    
+
                     return PythonNone.Instance;
                 },
-                
+
                 ["findall"] = args =>
                 {
                     if (args.Count != 2)
@@ -333,20 +339,20 @@ namespace SharpPy
 
                     return result;
                 },
-                
+
                 ["sub"] = args =>
                 {
                     if (args.Count != 3)
                         throw new PythonException("TypeError", "sub() takes exactly 3 arguments");
 
-                    if (!(args[0] is PythonString pattern) || 
+                    if (!(args[0] is PythonString pattern) ||
                         !(args[1] is PythonString replacement) ||
                         !(args[2] is PythonString text))
                         throw new PythonException("TypeError", "sub() arguments must be strings");
 
                     return new PythonString(text.Value.Replace(pattern.Value, replacement.Value));
                 },
-                
+
                 ["split"] = args =>
                 {
                     if (args.Count != 2)
@@ -359,16 +365,16 @@ namespace SharpPy
                     var result = new PythonList();
                     foreach (var part in parts)
                         result.Items.Add(new PythonString(part));
-                    
+
                     return result;
                 }
             };
         }
-        
+
         public static PythonModule Create(List<string> searchPaths)
         {
             var module = new EnhancedModule("re", searchPaths, methods);
-            
+
             // 정규식 플래그 상수
             module.SetAttribute("IGNORECASE", PythonInt.Create(2));
             module.SetAttribute("I", PythonInt.Create(2));
@@ -376,7 +382,7 @@ namespace SharpPy
             module.SetAttribute("M", PythonInt.Create(8));
             module.SetAttribute("DOTALL", PythonInt.Create(16));
             module.SetAttribute("S", PythonInt.Create(16));
-            
+
             return module;
         }
     }
@@ -387,7 +393,7 @@ namespace SharpPy
     public static class OsModule
     {
         private static readonly Dictionary<string, Func<List<PythonTypeObject>, PythonTypeObject>> methods;
-        
+
         static OsModule()
         {
             methods = new Dictionary<string, Func<List<PythonTypeObject>, PythonTypeObject>>
@@ -398,15 +404,15 @@ namespace SharpPy
                         throw new PythonException("TypeError", "getcwd() takes no arguments");
                     return new PythonString(System.IO.Directory.GetCurrentDirectory());
                 },
-                
+
                 ["chdir"] = args =>
                 {
                     if (args.Count != 1)
                         throw new PythonException("TypeError", "chdir() takes exactly 1 argument");
-                    
+
                     if (!(args[0] is PythonString path))
                         throw new PythonException("TypeError", "chdir() argument must be a string");
-                    
+
                     try
                     {
                         System.IO.Directory.SetCurrentDirectory(path.Value);
@@ -415,10 +421,10 @@ namespace SharpPy
                     {
                         throw new PythonException("OSError", ex.Message);
                     }
-                    
+
                     return PythonNone.Instance;
                 },
-                
+
                 ["listdir"] = args =>
                 {
                     string path = ".";
@@ -428,7 +434,7 @@ namespace SharpPy
                             throw new PythonException("TypeError", "listdir() argument must be a string");
                         path = pathStr.Value;
                     }
-                    
+
                     try
                     {
                         var entries = System.IO.Directory.GetFileSystemEntries(path);
@@ -444,15 +450,15 @@ namespace SharpPy
                         throw new PythonException("OSError", ex.Message);
                     }
                 },
-                
+
                 ["mkdir"] = args =>
                 {
                     if (args.Count < 1 || args.Count > 2)
                         throw new PythonException("TypeError", "mkdir() takes 1 or 2 arguments");
-                    
+
                     if (!(args[0] is PythonString path))
                         throw new PythonException("TypeError", "mkdir() path must be a string");
-                    
+
                     try
                     {
                         System.IO.Directory.CreateDirectory(path.Value);
@@ -461,25 +467,25 @@ namespace SharpPy
                     {
                         throw new PythonException("OSError", ex.Message);
                     }
-                    
+
                     return PythonNone.Instance;
                 }
             };
         }
-        
+
         public static PythonModule Create(List<string> searchPaths)
         {
             var module = new EnhancedModule("os", searchPaths, methods);
-            
+
             // os 상수들
             module.SetAttribute("name", new PythonString(
                 System.Environment.OSVersion.Platform == PlatformID.Win32NT ? "nt" : "posix"
             ));
-            
+
             module.SetAttribute("sep", new PythonString(System.IO.Path.DirectorySeparatorChar.ToString()));
             module.SetAttribute("pathsep", new PythonString(System.IO.Path.PathSeparator.ToString()));
             module.SetAttribute("linesep", new PythonString(System.Environment.NewLine));
-            
+
             return module;
         }
     }
@@ -490,7 +496,7 @@ namespace SharpPy
     public static class OsPathModule
     {
         private static readonly Dictionary<string, Func<List<PythonTypeObject>, PythonTypeObject>> methods;
-        
+
         static OsPathModule()
         {
             methods = new Dictionary<string, Func<List<PythonTypeObject>, PythonTypeObject>>
@@ -511,7 +517,7 @@ namespace SharpPy
 
                     return new PythonString(System.IO.Path.Combine(paths.ToArray()));
                 },
-                
+
                 ["exists"] = args =>
                 {
                     if (args.Count != 1)
@@ -520,10 +526,10 @@ namespace SharpPy
                     if (!(args[0] is PythonString path))
                         throw new PythonException("TypeError", "exists() argument must be a string");
 
-                    bool exists = System.IO.File.Exists(path.Value) || System.IO.Directory.Exists(path.Value);
+                    bool exists = Helper.FileExists(path.Value) || Helper.DirExists(path.Value);
                     return PythonBool.Create(exists);
                 },
-                
+
                 ["basename"] = args =>
                 {
                     if (args.Count != 1)
@@ -534,7 +540,7 @@ namespace SharpPy
 
                     return new PythonString(System.IO.Path.GetFileName(path.Value));
                 },
-                
+
                 ["dirname"] = args =>
                 {
                     if (args.Count != 1)
@@ -545,7 +551,7 @@ namespace SharpPy
 
                     return new PythonString(System.IO.Path.GetDirectoryName(path.Value) ?? "");
                 },
-                
+
                 ["splitext"] = args =>
                 {
                     if (args.Count != 1)
@@ -556,13 +562,13 @@ namespace SharpPy
 
                     var name = System.IO.Path.GetFileNameWithoutExtension(path.Value);
                     var ext = System.IO.Path.GetExtension(path.Value);
-                    
+
                     var tuple = new PythonTuple();
                     tuple.Items.Add(new PythonString(name));
                     tuple.Items.Add(new PythonString(ext));
                     return tuple;
                 },
-                
+
                 ["abspath"] = args =>
                 {
                     if (args.Count != 1)
@@ -573,7 +579,7 @@ namespace SharpPy
 
                     return new PythonString(System.IO.Path.GetFullPath(path.Value));
                 },
-                
+
                 ["isfile"] = args =>
                 {
                     if (args.Count != 1)
@@ -582,9 +588,9 @@ namespace SharpPy
                     if (!(args[0] is PythonString path))
                         throw new PythonException("TypeError", "isfile() argument must be a string");
 
-                    return PythonBool.Create(System.IO.File.Exists(path.Value));
+                    return PythonBool.Create(Helper.FileExists(path.Value));
                 },
-                
+
                 ["isdir"] = args =>
                 {
                     if (args.Count != 1)
@@ -593,11 +599,11 @@ namespace SharpPy
                     if (!(args[0] is PythonString path))
                         throw new PythonException("TypeError", "isdir() argument must be a string");
 
-                    return PythonBool.Create(System.IO.Directory.Exists(path.Value));
+                    return PythonBool.Create(Helper.DirExists(path.Value));
                 }
             };
         }
-        
+
         public static PythonModule Create(List<string> searchPaths)
         {
             return new EnhancedModule("os.path", searchPaths, methods);
@@ -610,7 +616,7 @@ namespace SharpPy
     public static class ItertoolsModule
     {
         private static readonly Dictionary<string, Func<List<PythonTypeObject>, PythonTypeObject>> methods;
-        
+
         static ItertoolsModule()
         {
             methods = new Dictionary<string, Func<List<PythonTypeObject>, PythonTypeObject>>
@@ -618,7 +624,7 @@ namespace SharpPy
                 ["count"] = args =>
                 {
                     int start = 0, step = 1;
-                    
+
                     if (args.Count > 0 && NumberHelper.IsNumber(args[0]))
                         start = NumberHelper.ToInt(args[0]);
                     if (args.Count > 1 && NumberHelper.IsNumber(args[1]))
@@ -632,7 +638,7 @@ namespace SharpPy
                     }
                     return result;
                 },
-                
+
                 ["cycle"] = args =>
                 {
                     if (args.Count != 1)
@@ -648,7 +654,7 @@ namespace SharpPy
 
                     throw new PythonException("TypeError", "cycle() argument must be iterable");
                 },
-                
+
                 ["repeat"] = args =>
                 {
                     if (args.Count < 1)
@@ -656,7 +662,7 @@ namespace SharpPy
 
                     var obj = args[0];
                     int times = 10; // 기본값
-                    
+
                     if (args.Count > 1 && NumberHelper.IsNumber(args[1]))
                         times = NumberHelper.ToInt(args[1]);
 
@@ -667,7 +673,7 @@ namespace SharpPy
                     }
                     return result;
                 },
-                
+
                 ["chain"] = args =>
                 {
                     var result = new PythonList();
@@ -682,27 +688,27 @@ namespace SharpPy
                     }
                     return result;
                 },
-                
+
                 ["combinations"] = args =>
                 {
                     if (args.Count != 2)
                         throw new PythonException("TypeError", "combinations() takes exactly 2 arguments");
-                    
+
                     // 간단한 구현: 빈 리스트 반환
                     return new PythonList();
                 },
-                
+
                 ["permutations"] = args =>
                 {
                     if (args.Count < 1 || args.Count > 2)
                         throw new PythonException("TypeError", "permutations() takes 1 or 2 arguments");
-                    
+
                     // 간단한 구현: 빈 리스트 반환
                     return new PythonList();
                 }
             };
         }
-        
+
         public static PythonModule Create(List<string> searchPaths)
         {
             return new EnhancedModule("itertools", searchPaths, methods);
@@ -715,7 +721,7 @@ namespace SharpPy
     public static class FunctoolsModule
     {
         private static readonly Dictionary<string, Func<List<PythonTypeObject>, PythonTypeObject>> methods;
-        
+
         static FunctoolsModule()
         {
             methods = new Dictionary<string, Func<List<PythonTypeObject>, PythonTypeObject>>
@@ -761,16 +767,16 @@ namespace SharpPy
 
                     return accumulator;
                 },
-                
+
                 ["partial"] = args =>
                 {
                     if (args.Count < 1)
                         throw new PythonException("TypeError", "partial() takes at least 1 argument");
-                    
+
                     // 간단한 구현: 원래 함수 반환
                     return args[0];
                 },
-                
+
                 ["lru_cache"] = args =>
                 {
                     // 데코레이터로 사용됨 - 간단히 항등 함수 반환
@@ -783,7 +789,7 @@ namespace SharpPy
                 }
             };
         }
-        
+
         public static PythonModule Create(List<string> searchPaths)
         {
             return new EnhancedModule("functools", searchPaths, methods);
@@ -796,7 +802,7 @@ namespace SharpPy
     public static class StringModule
     {
         private static readonly Dictionary<string, Func<List<PythonTypeObject>, PythonTypeObject>> methods;
-        
+
         static StringModule()
         {
             methods = new Dictionary<string, Func<List<PythonTypeObject>, PythonTypeObject>>
@@ -805,12 +811,12 @@ namespace SharpPy
                 {
                     if (args.Count < 1 || args.Count > 2)
                         throw new PythonException("TypeError", "capwords() takes 1 or 2 arguments");
-                    
+
                     if (!(args[0] is PythonString text))
                         throw new PythonException("TypeError", "capwords() first argument must be a string");
-                    
+
                     string sep = args.Count > 1 && args[1] is PythonString sepStr ? sepStr.Value : " ";
-                    
+
                     var words = text.Value.Split(new[] { sep }, StringSplitOptions.None);
                     for (int i = 0; i < words.Length; i++)
                     {
@@ -819,16 +825,16 @@ namespace SharpPy
                             words[i] = char.ToUpper(words[i][0]) + words[i].Substring(1).ToLower();
                         }
                     }
-                    
+
                     return new PythonString(string.Join(sep, words));
                 }
             };
         }
-        
+
         public static PythonModule Create(List<string> searchPaths)
         {
             var module = new EnhancedModule("string", searchPaths, methods);
-            
+
             // string 상수들
             module.SetAttribute("ascii_lowercase", new PythonString("abcdefghijklmnopqrstuvwxyz"));
             module.SetAttribute("ascii_uppercase", new PythonString("ABCDEFGHIJKLMNOPQRSTUVWXYZ"));
@@ -841,7 +847,7 @@ namespace SharpPy
             module.SetAttribute("printable", new PythonString(
                 "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~ \t\n\r\f\v"
             ));
-            
+
             return module;
         }
     }
@@ -852,38 +858,38 @@ namespace SharpPy
     public class EnhancedModule : PythonModule
     {
         private readonly Dictionary<string, Func<List<PythonTypeObject>, PythonTypeObject>> methodRegistry;
-        
-        public EnhancedModule(string name, List<string> searchPaths, 
+
+        public EnhancedModule(string name, List<string> searchPaths,
                             Dictionary<string, Func<List<PythonTypeObject>, PythonTypeObject>> methods)
             : base(name, searchPaths)
         {
             methodRegistry = methods;
-            
+
             // 메소드를 모듈 속성으로 등록
             foreach (var kvp in methods)
             {
                 SetAttribute(kvp.Key, new BuiltinFunction(kvp.Key, kvp.Value));
             }
         }
-        
+
         public override List<string> GetMethodNames()
         {
             var names = new List<string>();
-            
+
             // 모든 모듈 속성 가져오기
             var vars = ModuleEnv.GetAllVariables();
             foreach (var kvp in vars)
             {
                 names.Add(kvp.Key);
             }
-            
+
             // 메소드 레지스트리에서도 가져오기
             foreach (var method in methodRegistry.Keys)
             {
                 if (!names.Contains(method))
                     names.Add(method);
             }
-            
+
             return names.OrderBy(n => n).ToList();
         }
     }
@@ -895,7 +901,7 @@ namespace SharpPy
     {
         private List<string> _searchPaths;
         private static Dictionary<string, Func<SysPathList, List<PythonTypeObject>, PythonTypeObject>> customMethods;
-        
+
         static SysPathList()
         {
             customMethods = new Dictionary<string, Func<SysPathList, List<PythonTypeObject>, PythonTypeObject>>
@@ -904,49 +910,49 @@ namespace SharpPy
                 {
                     if (args.Count != 1)
                         throw new PythonException("TypeError", "append() takes exactly one argument");
-                    
+
                     if (!(args[0] is PythonString pathStr))
                         throw new PythonException("TypeError", "sys.path must contain strings");
-                    
+
                     self.Items.Add(args[0]);
                     self._searchPaths.Add(pathStr.Value);
-                    
+
                     return PythonNone.Instance;
                 },
-                
+
                 ["insert"] = (self, args) =>
                 {
                     if (args.Count != 2)
                         throw new PythonException("TypeError", "insert() takes exactly 2 arguments");
-                    
+
                     if (!NumberHelper.IsNumber(args[0]))
                         throw new PythonException("TypeError", "insert() first argument must be an integer");
-                    
+
                     if (!(args[1] is PythonString pathStr))
                         throw new PythonException("TypeError", "sys.path must contain strings");
-                    
+
                     int index = NumberHelper.ToInt(args[0]);
                     if (index < 0) index = Math.Max(0, self.Items.Count + index);
                     if (index > self.Items.Count) index = self.Items.Count;
-                    
+
                     self.Items.Insert(index, args[1]);
-                    
+
                     if (index <= self._searchPaths.Count)
                         self._searchPaths.Insert(index, pathStr.Value);
                     else
                         self._searchPaths.Add(pathStr.Value);
-                    
+
                     return PythonNone.Instance;
                 },
-                
+
                 ["remove"] = (self, args) =>
                 {
                     if (args.Count != 1)
                         throw new PythonException("TypeError", "remove() takes exactly one argument");
-                    
+
                     if (!(args[0] is PythonString pathStr))
                         throw new PythonException("TypeError", "sys.path must contain strings");
-                    
+
                     for (int i = 0; i < self.Items.Count; i++)
                     {
                         if (self.Items[i].Equals(args[0]))
@@ -956,34 +962,34 @@ namespace SharpPy
                             return PythonNone.Instance;
                         }
                     }
-                    
+
                     throw new PythonException("ValueError", "list.remove(x): x not in list");
                 },
-                
+
                 ["clear"] = (self, args) =>
                 {
                     if (args.Count != 0)
                         throw new PythonException("TypeError", "clear() takes no arguments");
-                    
+
                     self.Items.Clear();
                     self._searchPaths.Clear();
-                    
+
                     return PythonNone.Instance;
                 }
             };
         }
-        
+
         public SysPathList(List<string> searchPaths) : base()
         {
             _searchPaths = searchPaths;
-            
+
             // 초기값 설정
             foreach (var path in searchPaths)
             {
                 Items.Add(new PythonString(path));
             }
         }
-        
+
         public override BuiltinFunction GetMethod(string name)
         {
             // 커스텀 메소드가 있으면 우선 사용
@@ -991,30 +997,30 @@ namespace SharpPy
             {
                 return new BuiltinFunction(name, args => customMethod(this, args));
             }
-            
+
             // 없으면 기본 리스트 메소드 사용
             return base.GetMethod(name);
         }
-        
+
         public override List<string> GetMethodNames()
         {
             var baseNames = base.GetMethodNames();
             // sys.path는 일반 리스트와 동일한 메소드를 가짐
             return baseNames;
         }
-        
+
         // 인덱스 접근 시 searchPaths도 업데이트
         public new void SetItem(int index, PythonTypeObject value)
         {
             if (!(value is PythonString pathStr))
                 throw new PythonException("TypeError", "sys.path must contain strings");
-            
+
             if (index < 0) index += Items.Count;
             if (index < 0 || index >= Items.Count)
                 throw new PythonException("IndexError", "list assignment index out of range");
-            
+
             Items[index] = value;
-            
+
             if (index < _searchPaths.Count)
                 _searchPaths[index] = pathStr.Value;
         }
