@@ -134,9 +134,9 @@ namespace Godot_IO
             
             try
             {
-                // Godot에서 대소문자 정확한 매칭 확인
-                string directory = System.IO.Path.GetDirectoryName(filePath);
-                string fileName = System.IO.Path.GetFileName(filePath);
+                // Godot String 메서드 사용
+                string directory = filePath.GetBaseDir();
+                string fileName = filePath.GetFile();
                 
                 if (string.IsNullOrEmpty(directory))
                     directory = ".";
@@ -179,8 +179,17 @@ namespace Godot_IO
             
             try
             {
-                string parentDir = System.IO.Path.GetDirectoryName(dirPath);
-                string dirName = System.IO.Path.GetFileName(dirPath);
+                // Godot String 메서드 사용
+                string parentDir = dirPath.GetBaseDir();
+                string dirName = dirPath.GetFile();
+                
+                // 디렉토리 경로가 "/"로 끝나는 경우 처리
+                if (string.IsNullOrEmpty(dirName) && dirPath.EndsWith("/"))
+                {
+                    dirPath = dirPath.TrimSuffix("/");
+                    parentDir = dirPath.GetBaseDir();
+                    dirName = dirPath.GetFile();
+                }
                 
                 if (string.IsNullOrEmpty(parentDir))
                     parentDir = ".";
@@ -238,6 +247,62 @@ namespace Godot_IO
             }
             
             return path;
+        }
+        
+        // 추가 유틸리티: 확장자 가져오기
+        public static string GetExtension(string path)
+        {
+            return path.GetExtension();
+        }
+        
+        // 추가 유틸리티: 확장자 없는 파일명 가져오기
+        public static string GetBaseName(string path)
+        {
+            return path.GetFile().GetBaseName();
+        }
+        
+        // 추가 유틸리티: 파일명만 가져오기
+        public static string GetFileName(string path)
+        {
+            return path.GetFile();
+        }
+        
+        // 추가 유틸리티: 디렉토리 경로만 가져오기
+        public static string GetDirectory(string path)
+        {
+            return path.GetBaseDir();
+        }
+        
+        // 추가 유틸리티: 경로 정규화 (중복 슬래시 제거 등)
+        public static string SimplifyPath(string path)
+        {
+            return path.SimplifyPath();
+        }
+        
+        // 추가 유틸리티: 상대 경로인지 확인
+        public static bool IsRelativePath(string path)
+        {
+            return path.IsRelativePath();
+        }
+        
+        // 추가 유틸리티: 절대 경로인지 확인
+        public static bool IsAbsolutePath(string path)
+        {
+            return path.IsAbsolutePath();
+        }
+        
+        // 추가 유틸리티: 경로 유효성 검사
+        public static bool IsValidPath(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return false;
+            
+            // Godot 프로토콜 체크
+            if (IsGodotPath(path))
+                return true;
+            
+            // 일반 경로 유효성 체크 - 금지된 문자 확인
+            return !path.Contains("\0") && !path.Contains("\n") && !path.Contains("\r");
         }
     }
 }

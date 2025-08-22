@@ -219,7 +219,7 @@ namespace SharpPy
                     var directFilePath = Helper.CombinePath(searchPath,
                         string.Join("/", parts) + ".py");  // 항상 슬래시 사용
 
-                    if (Helper.FileExists(directFilePath))
+                    if (Helper.FileExistsExact(directFilePath))
                     {
                         module = new PythonModule(name, searchPaths);
 
@@ -258,7 +258,7 @@ namespace SharpPy
                     var packagePath = Helper.CombinePath(searchPath,
                         string.Join("/", parts));  // 항상 슬래시 사용
 
-                    if (Helper.DirExists(packagePath))
+                    if (Helper.DirExistsExact(packagePath))
                     {
                         module = CreatePackageModule(name, packagePath, searchPaths);
                         if (module != null)
@@ -282,7 +282,7 @@ namespace SharpPy
                             if (loadedModules.ContainsKey(subName))
                                 continue;
 
-                            if (Helper.DirExists(subPath))
+                            if (Helper.DirExistsExact(subPath))
                             {
                                 var subModule = CreatePackageModule(subName, subPath, searchPaths);
                                 if (subModule != null)
@@ -303,7 +303,7 @@ namespace SharpPy
                             if (i == parts.Length)
                             {
                                 var filePath = subPath + ".py";
-                                if (Helper.FileExists(filePath))
+                                if (Helper.FileExistsExact(filePath))
                                 {
                                     module = new PythonModule(subName, searchPaths);
 
@@ -357,7 +357,7 @@ namespace SharpPy
                     foreach (var searchPath in searchPaths)
                     {
                         var filePath = Helper.CombinePath(searchPath, name + ".py");
-                        if (Helper.FileExists(filePath))
+                        if (Helper.FileExistsExact(filePath))
                         {
                             module = new PythonModule(name, searchPaths);
 
@@ -388,7 +388,7 @@ namespace SharpPy
                         }
 
                         var packageDir = Helper.CombinePath(searchPath, name);
-                        if (Helper.DirExists(packageDir))
+                        if (Helper.DirExistsExact(packageDir))
                         {
                             module = CreatePackageModule(name, packageDir, searchPaths);
                             if (module != null)
@@ -429,7 +429,7 @@ namespace SharpPy
                 // }
 
                 var initFile = Helper.CombinePath(packageDir, "__init__.py");
-                if (Helper.FileExists(initFile))
+                if (Helper.FileExistsExact(initFile))
                 {
                     // 파일 정보 설정
                     module.ModuleEnv.SetVariable("__name__", new PythonString(packageName));

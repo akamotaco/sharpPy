@@ -162,7 +162,7 @@ namespace SharpPy
         {
             try
             {
-                if (!Helper.FileExists(filename))
+                if (!Helper.FileExistsExact(filename))
                 {
                     Console.WriteLine($"Error: File '{filename}' not found");
                     return;
@@ -294,7 +294,7 @@ namespace SharpPy
             {
                 Console.WriteLine($"  File \"{displayFileName}\", line {ex.Line}, column {ex.Column}");
 
-                if (displayFileName != "<string>" && Helper.FileExists(displayFileName))
+                if (displayFileName != "<string>" && Helper.FileExistsExact(displayFileName))
                 {
                     try
                     {

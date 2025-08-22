@@ -526,7 +526,7 @@ namespace SharpPy
                     if (!(args[0] is PythonString path))
                         throw new PythonException("TypeError", "exists() argument must be a string");
 
-                    bool exists = Helper.FileExists(path.Value) || Helper.DirExists(path.Value);
+                    bool exists = Helper.FileExistsExact(path.Value) || Helper.DirExistsExact(path.Value);
                     return PythonBool.Create(exists);
                 },
 
@@ -588,7 +588,7 @@ namespace SharpPy
                     if (!(args[0] is PythonString path))
                         throw new PythonException("TypeError", "isfile() argument must be a string");
 
-                    return PythonBool.Create(Helper.FileExists(path.Value));
+                    return PythonBool.Create(Helper.FileExistsExact(path.Value));
                 },
 
                 ["isdir"] = args =>
@@ -599,7 +599,7 @@ namespace SharpPy
                     if (!(args[0] is PythonString path))
                         throw new PythonException("TypeError", "isdir() argument must be a string");
 
-                    return PythonBool.Create(Helper.DirExists(path.Value));
+                    return PythonBool.Create(Helper.DirExistsExact(path.Value));
                 }
             };
         }
