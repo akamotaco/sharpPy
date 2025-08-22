@@ -15,11 +15,63 @@ namespace SharpPy
 
     public class Environment : PythonTypeObject
     {
+        private PythonInterpreter _interpreter;
+    
+        public PythonInterpreter Interpreter 
+        { 
+            get 
+            {
+                // 자신에게 없으면 global에서 가져오기 (Lazy Initialization)
+                if (_interpreter == null && globalEnv != null && globalEnv != this)
+                    return globalEnv.Interpreter;
+                return _interpreter;
+            }
+            set { _interpreter = value; }
+        }
+        
+        public List<string> SearchPaths
+        {
+            get
+            {
+                // Global 환경이면 인터프리터의 sys.path 사용
+                if (Interpreter?.SysModule != null)
+                {
+                    return Interpreter.SysModule.GetSearchPaths();
+                }
+
+                // Global이 아니면 global 환경의 SearchPaths 사용
+                if (globalEnv != null && globalEnv != this)
+                {
+                    return globalEnv.SearchPaths;
+                }
+
+                // 폴백
+                return _localSearchPaths ?? new List<string> { "." };
+            }
+            set
+            {
+                // sys.path 업데이트
+                if (Interpreter?.SysModule != null)
+                {
+                    // sys.path를 직접 수정
+                    var paths = Interpreter.SysModule.GetSearchPaths();
+                    paths.Clear();
+                    paths.AddRange(value);
+                }
+                else
+                {
+                    _localSearchPaths = value;
+                }
+            }
+        }
+        
+        private List<string> _localSearchPaths;
+        
         public Dictionary<string, PythonTypeObject> variables { get; private set; } = new Dictionary<string, PythonTypeObject>();
         public Environment parent;
         public Environment globalEnv;  // Global 환경 참조 추가
+        // ✅ 추가: 인터프리터 참조
         public EnvironmentType envType;
-        public List<string> SearchPaths { get; set; }
 
         // global/nonlocal 선언된 변수들 추적
         public HashSet<string> globalVars = new HashSet<string>();
@@ -32,15 +84,6 @@ namespace SharpPy
             this.parent = parent;
             this.globalEnv = global ?? (parent?.globalEnv) ?? this;  // global 환경 상속
             this.envType = type;
-
-            if (parent != null && parent.SearchPaths != null)
-            {
-                SearchPaths = parent.SearchPaths;
-            }
-            else
-            {
-                SearchPaths = StandardLibrary.GetGlobalSearchPaths();
-            }
 
             // 부모 환경에서 파일 정보 상속
             if (parent != null)

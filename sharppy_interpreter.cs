@@ -22,7 +22,6 @@ namespace SharpPy
         private Dictionary<string, PythonModule> builtinModules;
 
         // sys.path에 대한 직접 참조 (편의를 위해)
-        public List<string> SearchPaths { get; private set; }
         public SysModuleInstance SysModule { get; private set; }  // SysModuleInstance 타입으로 변경
 
         public PythonInterpreter(bool useBytecode = false)
@@ -30,11 +29,13 @@ namespace SharpPy
             globalEnv = new Environment(null, null, EnvironmentType.Global);
             globalEnv.globalEnv = globalEnv;
 
-            // 1. 초기 검색 경로 설정 (sys 모듈 생성 전)
-            SearchPaths = InitializeSearchPaths();
+            // ✅ 환경에 인터프리터 연결
+            globalEnv.Interpreter = this;
 
+            var initialPaths = InitializeSearchPaths();
+            
             // 2. sys 모듈을 특별하게 생성 (SysModuleInstance 사용)
-            SysModule = new SysModuleInstance(SearchPaths);
+            SysModule = new SysModuleInstance(this, initialPaths);
 
             // ✅ 추가: ModuleSystem에 sys 등록
             ModuleSystem.RegisterBuiltinModule("sys", SysModule);
@@ -49,7 +50,7 @@ namespace SharpPy
 
             // 5. sys.modules 초기화
             SysModule.RegisterModule("sys", SysModule);
-            SysModule.RegisterModule("__main__", new PythonModule("__main__", SearchPaths));
+            SysModule.RegisterModule("__main__", new PythonModule("__main__", initialPaths));
 
             // 6. builtins 설정 (sys 제외)
             Environment.SetupBuiltins(globalEnv);
@@ -60,6 +61,13 @@ namespace SharpPy
 
             virtualMachine = new VirtualMachine(globalEnv);
             this.useBytecode = useBytecode;
+        }
+
+        public Environment CreateEnvironment(Environment parent = null)
+        {
+            var env = new Environment(parent ?? globalEnv);
+            env.Interpreter = this;  // 인터프리터 연결
+            return env;
         }
 
         private List<string> InitializeSearchPaths()
@@ -94,19 +102,6 @@ namespace SharpPy
             }
 
             return paths;
-        }
-
-        // 현재 sys.path 가져오기
-        private List<string> GetCurrentSearchPaths()
-        {
-            // SysModuleInstance의 메서드 사용
-            if (SysModule != null)
-            {
-                return SysModule.GetSearchPaths();
-            }
-
-            // 실패시 초기값 반환
-            return SearchPaths;
         }
 
         public void SetGlobalEnv(Environment env)

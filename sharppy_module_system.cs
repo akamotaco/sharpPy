@@ -66,6 +66,12 @@ namespace SharpPy
 
         public static PythonModule ImportModule(Environment parentEnv, string name, List<string> searchPaths = null)
         {
+            // searchPaths가 없으면 Environment의 것 사용 (자동으로 sys.path)
+            if (searchPaths == null && parentEnv != null)
+            {
+                searchPaths = parentEnv.SearchPaths;  // 이제 sys.path를 반환
+            }
+            
             // 1. sys.modules에서 먼저 확인 (표준 Python 동작)
             try
             {
@@ -417,10 +423,10 @@ namespace SharpPy
                 var module = new PythonModule(packageName, searchPaths);
 
                 // 패키지 디렉토리를 검색 경로에 추가
-                if (!module.ModuleEnv.SearchPaths.Contains(packageDir))
-                {
-                    module.ModuleEnv.SearchPaths.Insert(0, packageDir);
-                }
+                // if (!module.ModuleEnv.SearchPaths.Contains(packageDir))
+                // {
+                //     module.ModuleEnv.SearchPaths.Insert(0, packageDir);
+                // }
 
                 var initFile = Helper.CombinePath(packageDir, "__init__.py");
                 if (Helper.FileExists(initFile))
