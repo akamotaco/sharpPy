@@ -21,7 +21,6 @@ namespace SharpPy
         public abstract string ToPythonString();
         public abstract bool Equals(PythonTypeObject other);
         public abstract object GetRawValue();
-
         public override string ToString() => ToPythonString();
 
         // Virtual methods with default implementations
@@ -29,14 +28,51 @@ namespace SharpPy
         public virtual bool IsSequence() => false;
         public virtual bool IsCallable() => false;
 
+        // Python type conversions
         public virtual PythonInt ToInt() =>
             throw new PythonException("TypeError", $"Cannot convert {Type} to int");
-
         public virtual PythonFloat ToFloat() =>
             throw new PythonException("TypeError", $"Cannot convert {Type} to float");
-
         public virtual PythonString ToStr() => new PythonString(ToPythonString());
         public virtual PythonBool ToBool() => new PythonBool(IsTrue());
+
+        // C# native type conversions (NEW)
+        public virtual int AsInt() =>
+            throw new PythonException("TypeError", $"Cannot convert {Type} to C# int");
+        public virtual long AsLong() =>
+            throw new PythonException("TypeError", $"Cannot convert {Type} to C# long");
+        public virtual double AsDouble() =>
+            throw new PythonException("TypeError", $"Cannot convert {Type} to C# double");
+
+        public virtual float AsFloat() =>
+            throw new PythonException("TypeError", $"Cannot convert {Type} to C# float");
+
+        public virtual string AsString()
+        {
+            // 기본적으로 ToPythonString() 사용
+            return ToPythonString();
+        }
+
+        public virtual bool AsBool()
+        {
+            // 기본적으로 IsTrue() 사용
+            return IsTrue();
+        }
+
+        public virtual List<T> AsList<T>() where T : class
+        {
+            throw new PythonException("TypeError", $"Cannot convert {Type} to C# List");
+        }
+
+        public virtual Dictionary<TKey, TValue> AsDict<TKey, TValue>()
+        {
+            throw new PythonException("TypeError", $"Cannot convert {Type} to C# Dictionary");
+        }
+
+        public virtual T[] AsArray<T>()
+        {
+            throw new PythonException("TypeError", $"Cannot convert {Type} to C# Array");
+        }
 
         // Virtual method to get all available method names
         public virtual List<string> GetMethodNames()
@@ -111,6 +147,15 @@ namespace SharpPy
 
         public override PythonInt ToInt() => this;
         public override PythonFloat ToFloat() => new PythonFloat(Value);
+
+        // C# native type conversions
+        public override int AsInt() => Value;
+        public override long AsLong() => (long)Value;
+        public override double AsDouble() => (double)Value;
+        public override float AsFloat() => (float)Value;
+        public override string AsString() => Value.ToString();
+        public override bool AsBool() => Value != 0;
+        
         public override int GetHashCode() => Value.GetHashCode();
 
         // Optimized arithmetic operations
@@ -198,6 +243,15 @@ namespace SharpPy
         public override PythonType Type => PythonType.Float;
         public override bool IsTrue() => Value != 0;
         public override string ToPythonString() => Value.ToString();
+
+        // C# native type conversions
+        public override int AsInt() => (int)Value;
+        public override long AsLong() => (long)Value;
+        public override double AsDouble() => Value;
+        public override float AsFloat() => (float)Value;
+        public override string AsString() => Value.ToString();
+        public override bool AsBool() => Value != 0.0;
+        
         public override object GetRawValue() => Value;
         public override bool IsNumber() => true;
 
@@ -291,6 +345,15 @@ namespace SharpPy
         public override PythonType Type => PythonType.Boolean;
         public override bool IsTrue() => Value;
         public override string ToPythonString() => Value ? "True" : "False";
+
+        // C# native type conversions
+        public override int AsInt() => Value ? 1 : 0;
+        public override long AsLong() => Value ? 1L : 0L;
+        public override double AsDouble() => Value ? 1.0 : 0.0;
+        public override float AsFloat() => Value ? 1.0f : 0.0f;
+        public override string AsString() => Value ? "True" : "False";
+        public override bool AsBool() => Value;
+        
         public override object GetRawValue() => Value;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -471,6 +534,11 @@ namespace SharpPy
         public override PythonType Type => PythonType.String;
         public override bool IsTrue() => !string.IsNullOrEmpty(Value);
         public override string ToPythonString() => Value;
+
+        // C# native type conversions
+        public override string AsString() => Value;
+        public override bool AsBool() => !string.IsNullOrEmpty(Value);
+
         public override object GetRawValue() => Value;
         public override bool IsSequence() => true;
 
@@ -588,6 +656,11 @@ namespace SharpPy
         public override PythonType Type => PythonType.None;
         public override bool IsTrue() => false;
         public override string ToPythonString() => "None";
+        
+        // C# native type conversions
+        public override string AsString() => "None";
+        public override bool AsBool() => false;
+
         public override object GetRawValue() => null;
         public override bool Equals(PythonTypeObject other) => other is PythonNone;
         public override int GetHashCode() => 0;
