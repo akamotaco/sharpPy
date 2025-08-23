@@ -163,6 +163,10 @@ namespace SharpPy
                     CompileConditionalExpression(condExpr);
                     break;
 
+                case AnnotatedAttributeAssignmentNode annotatedAttrAssign:
+                    CompileAnnotatedAttributeAssignment(annotatedAttrAssign);
+                    break;
+
                 case MultipleAssignmentNode multiAssign:
                     CompileMultipleAssignment(multiAssign);
                     break;
@@ -259,6 +263,10 @@ namespace SharpPy
                     CompileNode(exprStmt.Expression);
                     Emit(OpCode.POP_TOP, 0, node.Line);
                     break;
+                case PassNode:
+                    // pass는 아무것도 하지 않음 - 명령어를 생성하지 않음
+                    // 또는 NOP를 생성할 수도 있음: Emit(OpCode.NOP, 0, node.Line);
+                    break;
 
                 default:
                     throw new PythonException("CompileError", $"Cannot compile node type: {node.GetType().Name}");
@@ -284,6 +292,8 @@ namespace SharpPy
                 ">" => OpCode.COMPARE_GT,
                 "<=" => OpCode.COMPARE_LE,
                 ">=" => OpCode.COMPARE_GE,
+                "is" => OpCode.COMPARE_IS,           // 추가
+                "is not" => OpCode.COMPARE_IS_NOT,    // 추가 (새로운 OpCode 필요)
                 "and" => OpCode.LOGICAL_AND,
                 "or" => OpCode.LOGICAL_OR,
                 _ => throw new PythonException("CompileError", $"Unknown binary operator: {node.Operator}")
@@ -369,9 +379,34 @@ namespace SharpPy
             var lambdaCompiler = new BytecodeCompiler(filename);
             lambdaCompiler.currentFunctionName = "<lambda>";
 
-            // Add parameter names
+            int normalArgCount = 0;
+            int defaultCount = 0;
+            var defaultValues = new List<ASTNode>();  // 기본값 AST 노드 저장
+
+            // 파라미터 처리 (기본값 포함)
             foreach (var param in node.Parameters)
-                lambdaCompiler.AddVarName(param.Name);
+            {
+                if (param.Kind == ParameterKind.Normal)
+                {
+                    normalArgCount++;
+                    lambdaCompiler.AddVarName(param.Name);
+                    lambdaCompiler.GetNameIndex(param.Name);
+
+                    if (param.DefaultValue != null)
+                    {
+                        defaultValues.Add(param.DefaultValue);  // AST 노드 저장
+                        defaultCount++;
+                    }
+                }
+                else if (param.Kind == ParameterKind.VarArgs)
+                {
+                    lambdaCompiler.GetNameIndex(param.Name);
+                }
+                else if (param.Kind == ParameterKind.KwArgs)
+                {
+                    lambdaCompiler.GetNameIndex(param.Name);
+                }
+            }
 
             // Compile lambda body
             lambdaCompiler.CompileNode(node.Body);
@@ -384,12 +419,27 @@ namespace SharpPy
                 lambdaCompiler.constants,
                 lambdaCompiler.names,
                 lambdaCompiler.varNames,
-                node.Parameters.Count
+                normalArgCount,
+                0,
+                node.Parameters.Any(p => p.Kind == ParameterKind.VarArgs),
+                node.Parameters.Any(p => p.Kind == ParameterKind.KwArgs),
+                node.Parameters.FirstOrDefault(p => p.Kind == ParameterKind.VarArgs)?.Name,
+                node.Parameters.FirstOrDefault(p => p.Kind == ParameterKind.KwArgs)?.Name,
+                node.Parameters.Where(p => p.DefaultValue != null).Select(p => p.Name).ToList()
             );
+
+            // 기본값들을 스택에 푸시 (역순으로)
+            foreach (var defaultValue in defaultValues)
+            {
+                CompileNode(defaultValue);  // 현재 환경에서 평가
+            }
 
             // Create lambda function object at runtime
             EmitLoadConst(new PythonCodeObject(lambdaCode));
-            Emit(OpCode.MAKE_FUNCTION, node.Parameters.Count, node.Line);
+
+            // MAKE_FUNCTION에 기본값 정보 전달
+            int makeArg = normalArgCount | (defaultCount << 8);
+            Emit(OpCode.MAKE_FUNCTION, makeArg, node.Line);
         }
 
         private void CompileIf(IfNode node)
@@ -538,6 +588,7 @@ namespace SharpPy
             int normalArgCount = 0;
             int defaultCount = 0;
             var defaultValues = new List<ASTNode>();  // 기본값 AST 노드 저장
+            var parameterTypeHints = new List<TypeHint>();  // 추가
 
             // 파라미터 처리
             foreach (var param in node.Parameters)
@@ -547,6 +598,8 @@ namespace SharpPy
                     normalArgCount++;
                     funcCompiler.AddVarName(param.Name);
                     funcCompiler.GetNameIndex(param.Name);
+
+                    parameterTypeHints.Add(param.TypeHint);  // 추가
 
                     if (param.DefaultValue != null)
                     {
@@ -588,7 +641,9 @@ namespace SharpPy
                 node.Parameters.Any(p => p.Kind == ParameterKind.KwArgs),
                 node.Parameters.FirstOrDefault(p => p.Kind == ParameterKind.VarArgs)?.Name,
                 node.Parameters.FirstOrDefault(p => p.Kind == ParameterKind.KwArgs)?.Name,
-                node.Parameters.Where(p => p.DefaultValue != null).Select(p => p.Name).ToList()
+                node.Parameters.Where(p => p.DefaultValue != null).Select(p => p.Name).ToList(),
+                parameterTypeHints,           // 추가
+                node.ReturnTypeHint           // 추가
             );
 
             // 기본값들을 스택에 푸시 (역순으로)
@@ -613,8 +668,8 @@ namespace SharpPy
             // UNPACK_SEQUENCE 사용
             Emit(OpCode.UNPACK_SEQUENCE, node.VariableNames.Count, node.Line);
 
-            // 각 변수에 할당 (역순으로 - 스택이기 때문)
-            for (int i = node.VariableNames.Count - 1; i >= 0; i--)
+            // 각 변수에 할당 - 정순으로!
+            for (int i = 0; i < node.VariableNames.Count; i++)
             {
                 if (node.VariableNames[i] != "_")  // underscore는 무시
                 {
@@ -644,11 +699,8 @@ namespace SharpPy
             // import * 처리
             if (node.ImportItems.Count == 1 && node.ImportItems[0].Name == "*")
             {
-                // 모듈을 스택에 남겨두고
-                Emit(OpCode.DUP_TOP); // 스택 복사 (새로운 opcode 추가 필요)
-
-                // 모든 public 속성을 가져와서 현재 네임스페이스에 추가
-                // 이는 특별한 처리가 필요함
+                // IMPORT_STAR opcode 사용
+                Emit(OpCode.IMPORT_STAR, 0, node.Line);
             }
             else
             {
@@ -670,9 +722,49 @@ namespace SharpPy
 
         private void CompileClassDef(ClassDefNode node)
         {
-            // Simplified class compilation
-            // In a full implementation, we'd create a proper class object
-            EmitLoadConst(new PythonString($"<class {node.Name}>"));
+            // 클래스 body를 별도의 CodeObject로 컴파일
+            var classCompiler = new BytecodeCompiler(filename);
+            classCompiler.currentFunctionName = $"<class {node.Name}>";
+
+            // 클래스 body 컴파일 (메서드 정의 등)
+            foreach (var stmt in node.Body)
+            {
+                classCompiler.CompileNode(stmt);
+            }
+
+            // 클래스 코드는 반드시 None을 반환해야 함
+            if (classCompiler.instructions.Count == 0 ||
+                classCompiler.instructions.Last().OpCode != OpCode.RETURN_VALUE)
+            {
+                classCompiler.EmitLoadConst(PythonNone.Instance);
+                classCompiler.Emit(OpCode.RETURN_VALUE);
+            }
+
+            var classCode = new CodeObject(
+                $"<class {node.Name}>",
+                filename,
+                classCompiler.instructions,
+                classCompiler.constants,
+                classCompiler.names,
+                classCompiler.varNames
+            );
+
+            // 부모 클래스들을 스택에 push (역순으로)
+            for (int i = node.BaseClasses.Count - 1; i >= 0; i--)
+            {
+                EmitLoadName(node.BaseClasses[i]);
+            }
+
+            // 클래스 이름을 스택에 push
+            EmitLoadConst(new PythonString(node.Name));
+
+            // 클래스 코드 객체를 스택에 push
+            EmitLoadConst(new PythonCodeObject(classCode));
+
+            // BUILD_CLASS opcode 실행 (부모 클래스 개수를 인자로)
+            Emit(OpCode.BUILD_CLASS, node.BaseClasses.Count, node.Line);
+
+            // 생성된 클래스를 변수에 저장
             EmitStoreName(node.Name);
         }
 
@@ -746,14 +838,12 @@ namespace SharpPy
                 Emit(OpCode.JUMP_IF_FALSE, 0); // 나중에 패치
             }
 
-            // 리스트 복사 (append를 위해)
-            Emit(OpCode.DUP_TOP);
-
             // 표현식 평가
             CompileNode(node.Expression);
 
-            // 리스트에 추가 (새로운 opcode 필요)
-            Emit(OpCode.LIST_APPEND, 1, node.Line);
+            // 리스트에 추가
+            // LIST_APPEND는 TOS를 TOS-2(또는 지정된 위치)의 리스트에 추가
+            Emit(OpCode.LIST_APPEND, 2, node.Line);  // 2는 스택에서 리스트의 위치
 
             // 조건이 false인 경우 여기로 점프
             if (jumpIfFalseIndex.HasValue)
@@ -774,6 +864,9 @@ namespace SharpPy
                 instructions.Count,
                 node.Line
             );
+
+            // 스택 정리 - 이터레이터 제거는 FOR_ITER가 자동으로 처리
+            // 리스트는 스택에 남아있음
         }
 
         private void CompileCompoundAssignment(CompoundAssignmentNode node)
@@ -804,27 +897,30 @@ namespace SharpPy
 
         private void CompileWith(WithNode node)
         {
-            // Simplified with statement compilation
-            // In a full implementation, this would be more complex
-
-            // Compile context expression
+            // Context manager 평가
             CompileNode(node.ContextExpression);
 
-            // Store in temporary variable if 'as' clause is present
+            // WITH_SETUP: context manager 저장하고 __enter__ 호출
+            Emit(OpCode.WITH_SETUP, 0, node.Line);
+
+            // 'as' 절 처리
             if (!string.IsNullOrEmpty(node.Variable))
             {
                 EmitStoreName(node.Variable);
             }
             else
             {
-                Emit(OpCode.POP_TOP);  // Discard if no variable
+                Emit(OpCode.POP_TOP);
             }
 
-            // Compile body
+            // with 블록 본문
             foreach (var stmt in node.Body)
             {
                 CompileNode(stmt);
             }
+
+            // WITH_CLEANUP_FINISH: __exit__ 호출
+            Emit(OpCode.WITH_CLEANUP_FINISH, 0, node.Line);
         }
 
         // Helper methods for emitting instructions
@@ -1077,6 +1173,27 @@ namespace SharpPy
                 CompileNode(node.Parts[i]);
                 Emit(OpCode.BINARY_ADD, 0, node.Line);
             }
+        }
+
+        private void CompileAnnotatedAttributeAssignment(AnnotatedAttributeAssignmentNode node)
+        {
+            // 타입 힌트는 런타임에 영향을 주지 않으므로 무시하고
+            // 값이 있는 경우에만 할당 처리
+            if (node.Value != null)
+            {
+                // 객체 컴파일
+                CompileNode(node.Object);
+
+                // 값 컴파일
+                CompileNode(node.Value);
+
+                // 속성 이름을 names 리스트에 추가
+                int nameIndex = GetNameIndex(node.Attribute);
+
+                // STORE_ATTR 명령어 생성
+                Emit(OpCode.STORE_ATTR, nameIndex, node.Line);
+            }
+            // 값이 없으면 (타입 힌트만 있는 경우) 아무것도 하지 않음
         }
     }
 }

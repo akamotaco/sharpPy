@@ -885,9 +885,9 @@ namespace SharpPy
 
         private static string GetTupleElementTypes(PythonTuple tuple)
         {
-            if (tuple.Items.Count == 0) 
+            if (tuple.Items.Count == 0)
                 return "";  // 빈 튜플: tuple[()]
-            
+
             // 튜플은 각 위치의 타입을 모두 표시
             var types = tuple.Items.Select(item => GetValueType(item));
             return string.Join(", ", types);
@@ -895,24 +895,24 @@ namespace SharpPy
 
         private static string GetDictElementTypes(PythonDict dict)
         {
-            if (dict.Items.Count == 0) 
+            if (dict.Items.Count == 0)
                 return "";  // 빈 딕셔너리: dict
-            
+
             // 키와 값의 타입을 분석
             var keyTypes = dict.Items.Keys.Select(k => GetValueType(k)).Distinct();
             var valueTypes = dict.Items.Values.Select(v => GetValueType(v)).Distinct();
-            
+
             string keyType = keyTypes.Count() == 1 ? keyTypes.First() : "Any";
             string valueType = valueTypes.Count() == 1 ? valueTypes.First() : "Any";
-            
+
             return $"[{keyType}, {valueType}]";
         }
 
         private static string GetSetElementType(PythonSet set)
         {
-            if (set.Items.Count == 0) 
+            if (set.Items.Count == 0)
                 return "Any";  // 빈 셋
-            
+
             var types = set.Items.Select(item => GetValueType(item)).Distinct();
             return types.Count() == 1 ? types.First() : "Any";
         }
@@ -1276,7 +1276,7 @@ namespace SharpPy
             var instance = new PythonInstance(this);
 
             // __init__ 메서드 찾기
-            UserFunction initMethod = null;
+            Function initMethod = null;
             var mro = GetMRO();
 
             foreach (var cls in mro)
@@ -1284,9 +1284,11 @@ namespace SharpPy
                 if (cls.ClassEnv.HasLocalVariable("__init__"))
                 {
                     var method = cls.ClassEnv.GetLocalVariable("__init__");
-                    if (method is UserFunction userFunc)
+
+                    // BytecodeFunction, UserFunction 모두 처리
+                    if (method is Function func)  // ← 수정!
                     {
-                        initMethod = userFunc;
+                        initMethod = func;
                         break;
                     }
                 }
@@ -1306,7 +1308,20 @@ namespace SharpPy
                 {
                     var argsWithSelf = new List<PythonTypeObject> { instance };
                     argsWithSelf.AddRange(positionalArgs);
-                    initMethod.CallWithKeywords(argsWithSelf, keywordArgs);
+
+                    // BytecodeFunction과 UserFunction 모두 처리
+                    if (initMethod is BytecodeFunction bytecodeFunc)
+                    {
+                        bytecodeFunc.CallWithKeywords(argsWithSelf, keywordArgs);
+                    }
+                    else if (initMethod is UserFunction userFunc)
+                    {
+                        userFunc.CallWithKeywords(argsWithSelf, keywordArgs);
+                    }
+                    else
+                    {
+                        initMethod.Call(argsWithSelf);  // 기타 Function 타입
+                    }
                 }
                 finally
                 {
@@ -1440,9 +1455,14 @@ namespace SharpPy
             if (InstanceEnv.HasLocalVariable(name))
             {
                 var value = InstanceEnv.GetLocalVariable(name);
-                return value is UserFunction userFunction
-                    ? new BoundMethod(name, userFunction, this)
-                    : value;
+
+                // UserFunction뿐만 아니라 BytecodeFunction도 바인딩
+                if (value is UserFunction userFunction)
+                    return new BoundMethod(name, userFunction, this);
+                else if (value is BytecodeFunction bytecodeFunc)
+                    return new BoundBytecodeMethod(name, bytecodeFunc, this);  // 새 클래스 필요
+                else
+                    return value;
             }
 
             // 2. MRO 순서대로 클래스 메서드/속성 확인
@@ -1464,6 +1484,8 @@ namespace SharpPy
                     // 일반 메서드 - self를 첫 번째 인자로 바인딩
                     if (value is UserFunction userFunc)
                         return new BoundMethod(name, userFunc, this);
+                    else if (value is BytecodeFunction bytecodeFunc)
+                        return new BoundBytecodeMethod(name, bytecodeFunc, this);
 
                     return value;
                 }
@@ -1587,9 +1609,17 @@ namespace SharpPy
                     var value = mro[i].ClassEnv.GetLocalVariable(name);
 
                     // 인스턴스가 있고 함수인 경우 바인딩
-                    if (instance != null && value is UserFunction userFunc)
+                    if (value is UserFunction userFunc)
                     {
                         return new BoundMethod(name, userFunc, instance);
+                    }
+                    else if (value is BytecodeFunction bytecodeFunc)  // ⭐ BytecodeFunction 케이스 추가!
+                    {
+                        return new BoundBytecodeMethod(name, bytecodeFunc, instance);
+                    }
+                    else if (value is BytecodeFunctionWithDefaults bytecodeWithDefaults)  // ⭐ 기본값이 있는 경우도 추가!
+                    {
+                        return new BoundBytecodeMethod(name, bytecodeWithDefaults, instance);
                     }
 
                     return value;
@@ -1640,6 +1670,39 @@ namespace SharpPy
                 return userFunc.CallWithKeywords(newArgs, keywordArgs);
 
             return method.Call(newArgs);
+        }
+    }
+
+    public sealed class BoundBytecodeMethod : Function
+    {
+        private readonly BytecodeFunction method;
+        private readonly PythonTypeObject instance;
+
+        public BoundBytecodeMethod(string name, BytecodeFunction method, PythonTypeObject instance)
+            : base(name)
+        {
+            this.method = method;
+            this.instance = instance;
+        }
+
+        public PythonTypeObject CallWithKeywords(List<PythonTypeObject> positionalArgs,
+                                                Dictionary<string, PythonTypeObject> keywordArgs)
+        {
+            var newArgs = new List<PythonTypeObject>(positionalArgs.Count + 1) { instance };
+            newArgs.AddRange(positionalArgs);
+
+            // BytecodeFunctionWithDefaults도 처리할 수 있도록
+            if (method is BytecodeFunctionWithDefaults withDefaults)
+            {
+                return withDefaults.CallWithKeywords(newArgs, keywordArgs);
+            }
+            
+            return method.CallWithKeywords(newArgs, keywordArgs);
+        }
+
+        public override PythonTypeObject Call(List<PythonTypeObject> arguments)
+        {
+            return CallWithKeywords(arguments, new Dictionary<string, PythonTypeObject>());
         }
     }
 }
