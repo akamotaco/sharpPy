@@ -46,7 +46,7 @@ module.SetAttribute("_func1", new BuiltinFunction("_func1", py_args =>
 }
 ```
 
-### complex function 1
+### complex function 2
 ```c#
 module.SetAttribute("_func2", new BuiltinFunction("_func2", py_args =>
 {
@@ -61,7 +61,7 @@ module.SetAttribute("_func2", new BuiltinFunction("_func2", py_args =>
 }
 ```
 
-### complex function 3 (for Godot)
+### complex function 3 (with Godot Method)
 ```c#
 module.SetAttribute("_func3", new BuiltinFunction("_func3", py_args =>
 {
