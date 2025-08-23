@@ -3,6 +3,7 @@ using System;
 using System.Text;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace SharpPy
 {
@@ -16,7 +17,7 @@ namespace SharpPy
         POP_TOP = 4,        // Remove top of stack
         DUP_TOP = 5,    // Duplicate top of stack
         DUP_TOP_TWO = 6,    // 스택 상위 2개 항목 복제
-        ROT_THREE = 7,       // 스택 상위 3개 항목 회전
+        ROT_TWO = 7,  // 스택의 상위 2개 항목을 교환
 
         // Arithmetic operations
         BINARY_ADD = 10,
@@ -37,6 +38,7 @@ namespace SharpPy
         COMPARE_GE = 25,
         COMPARE_IN = 26,
         COMPARE_IS = 27,
+        COMPARE_IS_NOT = 28,  // 추가
 
         // Logical operations
         LOGICAL_AND = 30,
@@ -81,8 +83,13 @@ namespace SharpPy
         // Import operations
         IMPORT_NAME = 90,
         IMPORT_FROM = 91,
+        IMPORT_STAR = 92,
         FORMAT_VALUE = 95,  // F-string formatting
         LIST_APPEND = 96,  // List comprehension append
+
+        BUILD_CLASS = 100,  // 클래스 생성
+        WITH_SETUP = 103,          // with 블록 시작 (__enter__ 호출)
+        WITH_CLEANUP_FINISH = 104, // with 블록 종료 (__exit__ 호출)
 
         // Special
         NOP = 255           // No operation
@@ -126,13 +133,17 @@ namespace SharpPy
         public string VarArgsName { get; }
         public string KwArgsName { get; }
         public List<string> DefaultValues { get; }  // 기본값이 있는 파라미터 이름들
+        public List<TypeHint> ParameterTypeHints { get; }
+        public TypeHint ReturnTypeHint { get; }
 
         public CodeObject(string name, string filename, List<Instruction> instructions,
                      List<PythonTypeObject> constants, List<string> names, List<string> varNames,
                      int argumentCount = 0, int kwOnlyArgCount = 0,
                      bool hasVarArgs = false, bool hasKwArgs = false,
                      string varArgsName = null, string kwArgsName = null,
-                     List<string> defaultValues = null)
+                     List<string> defaultValues = null,
+                    List<TypeHint> parameterTypeHints = null,  // 추가
+                     TypeHint returnTypeHint = null)            // 추가)
         {
             Name = name;
             Filename = filename;
@@ -147,6 +158,8 @@ namespace SharpPy
             VarArgsName = varArgsName;
             KwArgsName = kwArgsName;
             DefaultValues = defaultValues ?? new List<string>();
+            ParameterTypeHints = parameterTypeHints ?? new List<TypeHint>();
+            ReturnTypeHint = returnTypeHint;
             LineNumberTable = new Dictionary<int, int>();
 
             for (int i = 0; i < Instructions.Count; i++)
@@ -197,21 +210,23 @@ namespace SharpPy
     // Stack frame for function calls
     public class Frame
     {
-        public CodeObject Code { get; }
-        public Environment Locals { get; }
+        public CodeObject Code { get; set; }
+        public Environment Locals { get; set; }
         public Environment Globals { get; }
-        public Stack<PythonTypeObject> Stack { get; }
+        public Stack<PythonTypeObject> Stack { get; set; }
         public int InstructionPointer { get; set; }
-        public Frame Previous { get; }
 
-        public Frame(CodeObject code, Environment locals, Environment globals, Frame previous = null)
+        public Stack<int> ExceptionHandlers { get; set; }  // 간단히 점프 주소만 저장
+
+
+        public Frame(CodeObject code, Environment locals, Environment globals)
         {
             Code = code;
             Locals = locals;
             Globals = globals;
             Stack = new Stack<PythonTypeObject>();
             InstructionPointer = 0;
-            Previous = previous;
+            ExceptionHandlers = new Stack<int>();  // 초기화
         }
     }
 
@@ -221,6 +236,23 @@ namespace SharpPy
         private Frame currentFrame;
         private Stack<Frame> frameStack;
         private Environment globalEnv;
+
+        // 예외 핸들러를 위한 구조체 추가
+        private struct ExceptionHandler
+        {
+            public int StartAddress;
+            public int EndAddress;
+            public int HandlerAddress;
+            public string ExceptionType;
+
+            public ExceptionHandler(int start, int end, int handler, string exType)
+            {
+                StartAddress = start;
+                EndAddress = end;
+                HandlerAddress = handler;
+                ExceptionType = exType;
+            }
+        }
 
         public VirtualMachine(Environment globalEnv)
         {
@@ -273,6 +305,7 @@ namespace SharpPy
             var frame = currentFrame;
             var code = frame.Code;
             var stack = frame.Stack;
+
 
             while (frame.InstructionPointer < code.Instructions.Count)
             {
@@ -327,6 +360,20 @@ namespace SharpPy
                             {
                                 var top = stack.Peek();
                                 stack.Push(top);
+                            }
+                            break;
+
+                        case OpCode.ROT_TWO:
+                            {
+                                if (stack.Count < 2)
+                                    throw new PythonException("RuntimeError", "Stack underflow in ROT_TWO");
+
+                                var top = stack.Pop();
+                                var second = stack.Pop();
+
+                                // 순서를 바꿔서 다시 푸시
+                                stack.Push(top);    // top이 아래로
+                                stack.Push(second); // second가 위로
                             }
                             break;
 
@@ -391,12 +438,18 @@ namespace SharpPy
                             continue;
 
                         case OpCode.JUMP_IF_FALSE:
-                            if (!stack.Pop().IsTrue())
                             {
-                                frame.InstructionPointer = arg;
-                                continue;
+                                var condition = stack.Peek();  // Pop 대신 Peek 사용
+                                if (!condition.IsTrue())
+                                {
+                                    stack.Pop();  // false인 경우에만 제거
+                                    frame.InstructionPointer = arg;
+                                    continue;
+                                }
+                                stack.Pop();  // true인 경우에도 제거
                             }
                             break;
+
 
                         case OpCode.JUMP_IF_TRUE:
                             if (stack.Pop().IsTrue())
@@ -406,11 +459,20 @@ namespace SharpPy
                             }
                             break;
 
+                        case OpCode.COMPARE_IS:
+                            ExecuteCompare("is");
+                            break;
+
+                        case OpCode.COMPARE_IS_NOT:
+                            ExecuteCompare("is not");
+                            break;
+
                         case OpCode.JUMP_ABSOLUTE:
                             frame.InstructionPointer = arg;
                             continue;
 
                         case OpCode.CALL_FUNCTION:
+                            // 디버깅: 스택 상태 확인
                             ExecuteFunctionCall(arg, false);
                             break;
 
@@ -425,14 +487,27 @@ namespace SharpPy
                                 currentFrame.Stack.Push(new PythonString(formatted));
                                 break;
                             }
-                        
+
                         case OpCode.LIST_APPEND:
                             {
                                 var val = currentFrame.Stack.Pop();
-                                var list = currentFrame.Stack.Peek() as PythonList;  // Peek, don't pop
-                                if (list == null)
+
+                                // arg는 스택에서 리스트의 위치를 나타냄
+                                // 스택 위치: TOS-arg
+                                if (arg < 1 || arg > currentFrame.Stack.Count)
+                                    throw new PythonException("RuntimeError", "LIST_APPEND: invalid stack position");
+
+                                // 스택을 임시 배열로 변환
+                                var tempStack1 = currentFrame.Stack.ToArray();
+
+                                // arg 위치의 리스트 가져오기 (TOS-arg+1)
+                                var listObj = tempStack1[arg - 1];
+
+                                if (!(listObj is PythonList list))
                                     throw new PythonException("TypeError", "LIST_APPEND expects list");
+
                                 list.Items.Add(val);
+                                // 리스트는 스택에 그대로 둠 (참조 타입이므로 이미 수정됨)
                             }
                             break;
 
@@ -498,12 +573,12 @@ namespace SharpPy
                             ExecuteImportFrom();
                             break;
 
-                        case OpCode.LOAD_INDEX:
-                            ExecuteLoadIndex();
+                        case OpCode.IMPORT_STAR:
+                            ExecuteImportStar();
                             break;
 
-                        case OpCode.RAISE_VARARGS:
-                            ExecuteRaise(arg);
+                        case OpCode.LOAD_INDEX:
+                            ExecuteLoadIndex();
                             break;
 
                         case OpCode.BREAK_LOOP:
@@ -511,7 +586,158 @@ namespace SharpPy
                             // These would be handled by loop compilation
                             break;
 
+                        case OpCode.WITH_SETUP:
+                            {
+                                var contextManager = currentFrame.Stack.Peek(); // Peek으로 유지
+
+                                // __enter__ 호출
+                                PythonTypeObject enterResult;
+
+                                if (contextManager is FileObject fileObj)
+                                {
+                                    // FileObject는 자기 자신을 반환
+                                    enterResult = fileObj;
+                                }
+                                else if (contextManager is PythonInstance instance)
+                                {
+                                    try
+                                    {
+                                        var enterMethod = instance.GetAttribute("__enter__");
+                                        if (enterMethod is Function enterFunc)
+                                        {
+                                            enterResult = enterFunc.Call(new List<PythonTypeObject>());
+                                        }
+                                        else
+                                        {
+                                            throw new PythonException("AttributeError", "__enter__ is not callable");
+                                        }
+                                    }
+                                    catch
+                                    {
+                                        throw new PythonException("AttributeError",
+                                            "Context manager missing __enter__ method");
+                                    }
+                                }
+                                else
+                                {
+                                    throw new PythonException("TypeError",
+                                        "Object does not support context management protocol");
+                                }
+
+                                currentFrame.Stack.Push(enterResult);
+                            }
+                            break;
+
+                        case OpCode.WITH_CLEANUP_FINISH:
+                            {
+                                // 스택에서 context manager 제거
+                                var contextManager = currentFrame.Stack.Pop();
+
+                                // __exit__ 호출
+                                if (contextManager is FileObject fileObj)
+                                {
+                                    fileObj.Close();
+                                }
+                                else if (contextManager is PythonInstance instance)
+                                {
+                                    try
+                                    {
+                                        var exitMethod = instance.GetAttribute("__exit__");
+                                        if (exitMethod is Function exitFunc)
+                                        {
+                                            var args = new List<PythonTypeObject>
+                                            {
+                                                PythonNone.Instance,  // exc_type
+                                                PythonNone.Instance,  // exc_value
+                                                PythonNone.Instance   // traceback
+                                            };
+                                            exitFunc.Call(args);
+                                        }
+                                    }
+                                    catch
+                                    {
+                                        // __exit__ 실행 중 발생한 예외는 무시
+                                    }
+                                }
+                            }
+                            break;
+
+                        case OpCode.CALL_FUNCTION_VAR:
+                            {
+                                var tupleOrList = stack.Pop();
+                                var unpackedArgs = new List<PythonTypeObject>();
+
+                                for (int i = 0; i < arg; i++)
+                                    unpackedArgs.Insert(0, stack.Pop());
+
+                                if (tupleOrList is PythonTuple tuple)
+                                    unpackedArgs.AddRange(tuple.Items);
+                                else if (tupleOrList is PythonList list)
+                                    unpackedArgs.AddRange(list.Items);
+
+                                var function = stack.Pop();
+
+                                PythonTypeObject result = function switch
+                                {
+                                    ExceptionClassCallable exClass => exClass.CreateInstance(unpackedArgs),  // ⭐ 추가!
+                                    CallableType callableType => callableType.Call(unpackedArgs),
+                                    BoundMethod boundMethod => boundMethod.Call(unpackedArgs),
+                                    BoundBytecodeMethod boundBytecodeMethod => boundBytecodeMethod.Call(unpackedArgs),
+                                    BoundClassMethod boundClassMethod => boundClassMethod.Call(unpackedArgs),
+                                    BytecodeFunctionWithDefaults bytecodeWithDefaults => bytecodeWithDefaults.CallWithKeywords(unpackedArgs, null),
+                                    BytecodeFunction bytecodeFunc => bytecodeFunc.CallWithKeywords(unpackedArgs, null),
+                                    BuiltinFunction builtinFunc when builtinFunc.NeedsEnvironment =>
+                                        builtinFunc.CallWithEnv(currentFrame.Locals, unpackedArgs),
+                                    BuiltinFunction builtinFunc => builtinFunc.Call(unpackedArgs),
+                                    PythonClass pythonClass => pythonClass.CreateInstance(unpackedArgs),
+                                    UserFunction userFunc => userFunc.Call(unpackedArgs),
+                                    LambdaFunction lambdaFunc => lambdaFunc.Call(unpackedArgs),
+                                    Function func => func.Call(unpackedArgs),
+                                    _ => throw new PythonException("TypeError", $"'{function?.Type}' object is not callable")
+                                };
+
+                                stack.Push(result);
+                            }
+                            break;
+
+
+                        case OpCode.SETUP_EXCEPT:
+                            // except 블록 주소를 스택에 저장
+                            frame.ExceptionHandlers.Push(arg);
+                            break;
+
+                        case OpCode.POP_EXCEPT:
+                            /// 예외 핸들러 제거
+                            if (frame.ExceptionHandlers.Count > 0)
+                                frame.ExceptionHandlers.Pop();
+                            break;
+
+                        case OpCode.RAISE_VARARGS:
+                            {
+                                if (arg == 0)
+                                {
+                                    throw new PythonException("RuntimeError", "No active exception to re-raise");
+                                }
+
+                                var exceptionObj = stack.Pop();
+
+                                if (exceptionObj is PythonExceptionInstance exInst)
+                                {
+                                    throw new PythonException(exInst.ExceptionType, exInst.Message);
+                                }
+                                else
+                                {
+                                    throw new PythonException("TypeError", "exceptions must derive from BaseException");
+                                }
+                            }
+                            break;
+
+
                         case OpCode.NOP:
+                            break;
+
+                        case OpCode.BUILD_CLASS:
+                            ExecuteBuildClass(arg);
                             break;
 
                         default:
@@ -522,13 +748,24 @@ namespace SharpPy
                 }
                 catch (PythonException ex)
                 {
-                    // Add line number information if not present
-                    if (ex.Line == 0 && code.LineNumberTable.ContainsKey(frame.InstructionPointer))
+                    // 예외 핸들러가 있으면
+                    if (frame.ExceptionHandlers.Count > 0)
                     {
-                        var lineNum = code.LineNumberTable[frame.InstructionPointer];
-                        throw new PythonException(ex.Type, ex.Message, lineNum, 0, code.Filename);
+                        var handlerAddress = frame.ExceptionHandlers.Pop();
+                        frame.InstructionPointer = handlerAddress;
+
+                        // 예외 객체를 스택에 푸시
+                        var exceptionObj = new PythonExceptionInstance(ex.Type, ex.Message);
+                        stack.Push(exceptionObj);
+
+                        // 예외 처리 계속
+                        continue;
                     }
-                    throw;
+                    else
+                    {
+                        // 핸들러가 없으면 예외 전파
+                        throw;
+                    }
                 }
             }
 
@@ -559,6 +796,8 @@ namespace SharpPy
             if (left is PythonInt li) return li.Add(right);
             if (left is PythonFloat lf) return lf.Add(right);
             if (left is PythonString ls) return ls.Add(right);
+
+            // 리스트 덧셈
             if (left is PythonList ll && right is PythonList rl)
             {
                 var newList = new PythonList();
@@ -566,6 +805,27 @@ namespace SharpPy
                 newList.Items.AddRange(rl.Items);
                 return newList;
             }
+
+            // 튜플 덧셈 추가
+            if (left is PythonTuple lt && right is PythonTuple rt)
+            {
+                var newTuple = new PythonTuple();
+                newTuple.Items.AddRange(lt.Items);
+                newTuple.Items.AddRange(rt.Items);
+                return newTuple;
+            }
+
+            // 딕셔너리 덧셈 추가
+            if (left is PythonDict ld && right is PythonDict rd)
+            {
+                var newDict = new PythonDict();
+                foreach (var kvp in ld.Items)
+                    newDict.Items[kvp.Key] = kvp.Value;
+                foreach (var kvp in rd.Items)
+                    newDict.Items[kvp.Key] = kvp.Value;
+                return newDict;
+            }
+
             throw new PythonException("TypeError", "Unsupported operand types for +");
         }
 
@@ -580,8 +840,51 @@ namespace SharpPy
         {
             if (left is PythonInt li) return li.Multiply(right);
             if (left is PythonFloat lf) return lf.Multiply(right);
+
+            // 문자열 반복
             if (left is PythonString ls && NumberHelper.IsNumber(right))
                 return ls.Repeat(NumberHelper.ToInt(right));
+
+            // 리스트 반복
+            if (left is PythonList list && NumberHelper.IsNumber(right))
+            {
+                int times = NumberHelper.ToInt(right);
+                var newList = new PythonList();
+                for (int i = 0; i < times; i++)
+                    newList.Items.AddRange(list.Items);
+                return newList;
+            }
+
+            // 튜플 반복 추가
+            if (left is PythonTuple tuple && NumberHelper.IsNumber(right))
+            {
+                int times = NumberHelper.ToInt(right);
+                var newTuple = new PythonTuple();
+                for (int i = 0; i < times; i++)
+                    newTuple.Items.AddRange(tuple.Items);
+                return newTuple;
+            }
+
+            // 반대 순서도 처리 (3 * [1, 2])
+            if (NumberHelper.IsNumber(left) && right is PythonList rlist)
+            {
+                int times = NumberHelper.ToInt(left);
+                var newList = new PythonList();
+                for (int i = 0; i < times; i++)
+                    newList.Items.AddRange(rlist.Items);
+                return newList;
+            }
+
+            // 반대 순서 튜플 반복
+            if (NumberHelper.IsNumber(left) && right is PythonTuple rtuple)
+            {
+                int times = NumberHelper.ToInt(left);
+                var newTuple = new PythonTuple();
+                for (int i = 0; i < times; i++)
+                    newTuple.Items.AddRange(rtuple.Items);
+                return newTuple;
+            }
+
             throw new PythonException("TypeError", "Unsupported operand types for *");
         }
 
@@ -619,6 +922,8 @@ namespace SharpPy
                 ">" => CompareValues(left, right) > 0,
                 "<=" => CompareValues(left, right) <= 0,
                 ">=" => CompareValues(left, right) >= 0,
+                "is" => ReferenceEquals(left, right),      // 추가
+                "is not" => !ReferenceEquals(left, right), // 추가
                 _ => throw new PythonException("RuntimeError", $"Unknown comparison operator: {op}")
             };
 
@@ -640,91 +945,142 @@ namespace SharpPy
 
         private void ExecuteFunctionCall(int argCount, bool hasKeywords = false)
         {
-            var args = new List<PythonTypeObject>();
-            Dictionary<string, PythonTypeObject> kwargs = null;
-
-            if (hasKeywords)
+            try
             {
-                // 스택에서 키워드 인자 딕셔너리 가져오기
-                var kwDict = currentFrame.Stack.Pop() as PythonDict;
-                if (kwDict != null)
+                var args = new List<PythonTypeObject>();
+                Dictionary<string, PythonTypeObject> kwargs = null;
+
+                if (hasKeywords)
                 {
-                    kwargs = new Dictionary<string, PythonTypeObject>();
-                    foreach (var kvp in kwDict.Items)
+                    var kwDict = currentFrame.Stack.Pop() as PythonDict;
+                    if (kwDict != null)
                     {
-                        if (kvp.Key is PythonString key)
-                            kwargs[key.Value] = kvp.Value;
+                        kwargs = new Dictionary<string, PythonTypeObject>();
+                        foreach (var kvp in kwDict.Items)
+                        {
+                            if (kvp.Key is PythonString key)
+                                kwargs[key.Value] = kvp.Value;
+                        }
                     }
                 }
+
+                for (int i = 0; i < argCount; i++)
+                    args.Insert(0, currentFrame.Stack.Pop());
+
+                var function = currentFrame.Stack.Pop();
+
+                PythonTypeObject result = function switch
+                {
+                    ExceptionClassCallable exClass => exClass.CreateInstance(args),
+                    CallableType callableType => callableType.Call(args),
+                    BoundMethod boundMethod => boundMethod.Call(args),
+                    BoundBytecodeMethod boundBytecodeMethod => boundBytecodeMethod.Call(args),
+                    BoundClassMethod boundClassMethod => boundClassMethod.Call(args),
+                    BytecodeFunctionWithDefaults bytecodeWithDefaults => bytecodeWithDefaults.CallWithKeywords(args, kwargs),
+                    BytecodeFunction bytecodeFunc => bytecodeFunc.CallWithKeywords(args, kwargs),
+                    BuiltinFunction builtinFunc when builtinFunc.NeedsEnvironment =>
+                        builtinFunc.CallWithEnv(currentFrame.Locals, args),
+                    BuiltinFunction builtinFunc => builtinFunc.Call(args),
+                    PythonClass pythonClass => pythonClass.CreateInstanceWithKeywords(
+                        args,
+                        kwargs ?? new Dictionary<string, PythonTypeObject>()),
+                    UserFunction userFunc => userFunc.Call(args),
+                    LambdaFunction lambdaFunc => lambdaFunc.Call(args),
+                    Function func => func.Call(args),
+                    _ => throw new PythonException("TypeError", $"'{function?.Type}' object is not callable")
+                };
+
+                currentFrame.Stack.Push(result ?? PythonNone.Instance);
             }
-
-            // 위치 인자 가져오기
-            for (int i = 0; i < argCount; i++)
-                args.Insert(0, currentFrame.Stack.Pop());
-
-            var function = currentFrame.Stack.Pop();
-
-            PythonTypeObject result = function switch
+            catch (PythonException)
             {
-                BytecodeFunction bytecodeFunc => bytecodeFunc.CallWithKeywords(args, kwargs),
-                BuiltinFunction builtinFunc => builtinFunc.Call(args),
-                PythonClass pythonClass => pythonClass.CreateInstance(args),
-                _ => throw new PythonException("TypeError", $"'{function?.Type}' object is not callable")
-            };
+                // Python 예외는 그대로 전파
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // 다른 예외는 Python 예외로 변환
+                var lineNumber = currentFrame.InstructionPointer < currentFrame.Code.Instructions.Count
+                    ? currentFrame.Code.Instructions[currentFrame.InstructionPointer].LineNumber
+                    : 0;
 
-            currentFrame.Stack.Push(result);
+                throw new PythonException("RuntimeError",
+                    $"Internal error in function call: {ex.Message}",
+                    lineNumber);
+            }
         }
 
         private void ExecuteFunctionCallWithKeywords(int argCount)
         {
-            // 스택에서 키워드 인자 딕셔너리 가져오기
-            var kwDictObj = currentFrame.Stack.Pop();
-            var kwargs = new Dictionary<string, PythonTypeObject>();
-
-            if (kwDictObj is PythonDict kwDict)
+            try
             {
-                foreach (var kvp in kwDict.Items)
+                var kwDictObj = currentFrame.Stack.Pop();
+                var kwargs = new Dictionary<string, PythonTypeObject>();
+
+                if (kwDictObj is PythonDict kwDict)
                 {
-                    if (kvp.Key is PythonString key)
+                    foreach (var kvp in kwDict.Items)
                     {
-                        kwargs[key.Value] = kvp.Value;
-                    }
-                    else
-                    {
-                        throw new PythonException("TypeError",
-                            "keywords must be strings");
+                        if (kvp.Key is PythonString key)
+                        {
+                            kwargs[key.Value] = kvp.Value;
+                        }
+                        else
+                        {
+                            throw new PythonException("TypeError", "keywords must be strings");
+                        }
                     }
                 }
+
+                var args = new List<PythonTypeObject>();
+                for (int i = 0; i < argCount; i++)
+                {
+                    args.Insert(0, currentFrame.Stack.Pop());
+                }
+
+                var function = currentFrame.Stack.Pop();
+
+                PythonTypeObject result = function switch
+                {
+                    ExceptionClassCallable exClass => exClass.CreateInstance(args),
+                    CallableType callableType when kwargs.Count == 0 => callableType.Call(args),
+                    CallableType _ => throw new PythonException("TypeError",
+                        "built-in type constructors do not support keyword arguments"),
+                    BoundMethod boundMethod => boundMethod.CallWithKeywords(args, kwargs),
+                    BoundBytecodeMethod boundBytecodeMethod => boundBytecodeMethod.CallWithKeywords(args, kwargs),
+                    BoundClassMethod boundClassMethod => boundClassMethod.CallWithKeywords(args, kwargs),
+                    UserFunction userFunc => userFunc.CallWithKeywords(args, kwargs),
+                    LambdaFunction lambdaFunc => lambdaFunc.CallWithKeywords(args, kwargs),
+                    BytecodeFunctionWithDefaults bytecodeWithDefaults => bytecodeWithDefaults.CallWithKeywords(args, kwargs),
+                    BytecodeFunction bytecodeFunc => bytecodeFunc.CallWithKeywords(args, kwargs),
+                    BuiltinFunction builtinFunc when builtinFunc.NeedsEnvironment && kwargs.Count == 0 =>
+                        builtinFunc.CallWithEnv(currentFrame.Locals, args),
+                    BuiltinFunction builtinFunc when kwargs.Count == 0 => builtinFunc.Call(args),
+                    BuiltinFunction _ => throw new PythonException("TypeError",
+                        "builtin functions do not support keyword arguments"),
+                    PythonClass pythonClass => pythonClass.CreateInstanceWithKeywords(args, kwargs),
+                    _ => throw new PythonException("TypeError",
+                        $"'{function?.Type}' object is not callable")
+                };
+
+                currentFrame.Stack.Push(result ?? PythonNone.Instance);
             }
-
-            // 위치 인자 가져오기
-            var args = new List<PythonTypeObject>();
-            for (int i = 0; i < argCount; i++)
+            catch (PythonException)
             {
-                args.Insert(0, currentFrame.Stack.Pop());
+                // Python 예외는 그대로 전파
+                throw;
             }
-
-            // 함수 객체 가져오기
-            var function = currentFrame.Stack.Pop();
-
-            PythonTypeObject result = function switch
+            catch (Exception ex)
             {
-                UserFunction userFunc => userFunc.CallWithKeywords(args, kwargs),
-                LambdaFunction lambdaFunc => lambdaFunc.CallWithKeywords(args, kwargs),
-                BytecodeFunctionWithDefaults bytecodeWithDefaults => bytecodeWithDefaults.CallWithKeywords(args, kwargs),
-                BytecodeFunction bytecodeFunc => bytecodeFunc.CallWithKeywords(args, kwargs),
-                BoundMethod boundMethod => boundMethod.CallWithKeywords(args, kwargs),
-                BuiltinFunction builtinFunc when kwargs.Count == 0 => builtinFunc.Call(args),
-                BuiltinFunction _ => throw new PythonException("TypeError",
-                    "builtin functions do not support keyword arguments"),
-                PythonClass pythonClass when kwargs.Count == 0 => pythonClass.CreateInstance(args),
-                PythonClass _ => throw new PythonException("TypeError",
-                    "class instantiation does not support keyword arguments yet"),
-                _ => throw new PythonException("TypeError",
-                    $"'{function?.Type}' object is not callable")
-            };
+                // 다른 예외는 Python 예외로 변환
+                var lineNumber = currentFrame.InstructionPointer < currentFrame.Code.Instructions.Count
+                    ? currentFrame.Code.Instructions[currentFrame.InstructionPointer].LineNumber
+                    : 0;
 
-            currentFrame.Stack.Push(result);
+                throw new PythonException("RuntimeError",
+                    $"Internal error in function call: {ex.Message}",
+                    lineNumber);
+            }
         }
 
         private void ExecuteBuildMap(int count)
@@ -758,12 +1114,22 @@ namespace SharpPy
         private void ExecuteBuildDict(int count)
         {
             var dict = new PythonDict();
+            var pairs = new List<(PythonTypeObject key, PythonTypeObject value)>();
+
+            // 스택에서 모든 key-value 쌍을 꺼내기
             for (int i = 0; i < count; i++)
             {
                 var value = currentFrame.Stack.Pop();
                 var key = currentFrame.Stack.Pop();
-                dict.Items[key] = value;
+                pairs.Add((key, value));
             }
+
+            // 역순으로 딕셔너리에 추가 (원래 순서 복원)
+            for (int i = pairs.Count - 1; i >= 0; i--)
+            {
+                dict.SetItem(pairs[i].key, pairs[i].value);
+            }
+
             currentFrame.Stack.Push(dict);
         }
 
@@ -875,12 +1241,46 @@ namespace SharpPy
 
             try
             {
-                var value = module.GetAttribute(itemName.Value);
-                currentFrame.Stack.Push(value);
+                // 먼저 모듈의 속성으로 찾기
+                try
+                {
+                    var value = module.GetAttribute(itemName.Value);
+                    currentFrame.Stack.Push(value);
+                    return;
+                }
+                catch (PythonException)
+                {
+                    // 속성이 없으면 하위 모듈로 시도
+                }
+
+                // 하위 모듈로 import 시도 (예: folder.m)
+                var fullModuleName = $"{module.Name}.{itemName.Value}";
+                var searchPaths = currentFrame.Globals.SearchPaths ?? new List<string> { "." };
+
+                try
+                {
+                    var subModule = ModuleSystem.ImportModule(currentFrame.Globals, fullModuleName, searchPaths);
+
+                    // 상위 모듈에 속성으로 추가
+                    module.SetAttribute(itemName.Value, subModule);
+
+                    currentFrame.Stack.Push(subModule);
+                }
+                catch (PythonException ex)
+                {
+                    // ImportFrom 사용 (AST와 동일한 방식)
+                    var result = ModuleSystem.ImportFrom(currentFrame.Globals, module.Name, itemName.Value, searchPaths);
+                    currentFrame.Stack.Push(result);
+                }
             }
-            catch (Exception)
+            catch (PythonException)
             {
-                throw new PythonException("ImportError", $"cannot import name '{itemName.Value}' from module '{module.Name}'");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new PythonException("ImportError",
+                    $"cannot import name '{itemName.Value}' from module '{module.Name}': {ex.Message}");
             }
         }
 
@@ -889,6 +1289,27 @@ namespace SharpPy
             var index = currentFrame.Stack.Pop();
             var obj = currentFrame.Stack.Pop();
 
+            // 슬라이스인지 확인 (BUILD_SLICE가 만든 3개 요소의 튜플)
+            if (index is PythonTuple sliceTuple && sliceTuple.Items.Count == 3)
+            {
+                // AST의 SliceNode와 동일한 방식으로 처리
+                var start = sliceTuple.Items[0];
+                var stop = sliceTuple.Items[1];
+                var step = sliceTuple.Items[2];
+
+                PythonTypeObject result = obj switch
+                {
+                    PythonList p_list => SliceList(p_list, start, stop, step),
+                    PythonTuple tuple => SliceTuple(tuple, start, stop, step),
+                    PythonString str => SliceString(str, start, stop, step),
+                    _ => throw new PythonException("TypeError", $"'{obj?.Type}' object is not subscriptable")
+                };
+
+                currentFrame.Stack.Push(result);
+                return;
+            }
+
+            // 일반 인덱스 처리
             if (obj is PythonList list && NumberHelper.IsNumber(index))
             {
                 int i = NumberHelper.ToInt(index);
@@ -916,18 +1337,192 @@ namespace SharpPy
             throw new PythonException("TypeError", "object is not subscriptable");
         }
 
-        private void ExecuteRaise(int argCount)
+        // AST의 SliceNode 메서드들과 동일한 로직
+        private PythonList SliceList(PythonList list, PythonTypeObject start, PythonTypeObject stop, PythonTypeObject step)
         {
-            if (argCount == 1)
+            int count = list.Items.Count;
+            int stepVal = GetSliceStep(step);
+
+            int? startIdx, stopIdx;
+            if (stepVal > 0)
             {
-                var exception = currentFrame.Stack.Pop();
-                if (exception is PythonString message)
-                    throw new PythonException("Exception", message.Value);
-                throw new PythonException("Exception", exception?.ToPythonString() ?? "");
+                startIdx = GetSliceIndex(start, 0, count);
+                stopIdx = GetSliceIndex(stop, count, count);
             }
             else
             {
-                throw new PythonException("Exception", "Exception raised");
+                startIdx = GetSliceIndex(start, count - 1, count);
+                stopIdx = GetSliceIndex(stop, -count - 1, count);
+            }
+
+            var result = new PythonList();
+
+            if (stepVal > 0)
+            {
+                int actualStart = startIdx ?? 0;
+                int actualStop = stopIdx ?? count;
+                for (int i = actualStart; i < actualStop && i < count; i += stepVal)
+                    if (i >= 0)
+                        result.Items.Add(list.Items[i]);
+            }
+            else if (stepVal < 0)
+            {
+                int actualStart = startIdx ?? count - 1;
+                int actualStop = stopIdx ?? -count - 1;
+
+                for (int i = actualStart; i >= 0 && i < count; i += stepVal)
+                {
+                    result.Items.Add(list.Items[i]);
+                    if (i <= actualStop + count && actualStop < 0)
+                        break;
+                    if (actualStop >= 0 && i <= actualStop)
+                        break;
+                }
+            }
+
+            return result;
+        }
+
+        private PythonTuple SliceTuple(PythonTuple tuple, PythonTypeObject start, PythonTypeObject stop, PythonTypeObject step)
+        {
+            int count = tuple.Items.Count;
+            int stepVal = GetSliceStep(step);
+
+            int? startIdx, stopIdx;
+            if (stepVal > 0)
+            {
+                startIdx = GetSliceIndex(start, 0, count);
+                stopIdx = GetSliceIndex(stop, count, count);
+            }
+            else
+            {
+                startIdx = GetSliceIndex(start, count - 1, count);
+                stopIdx = GetSliceIndex(stop, -count - 1, count);
+            }
+
+            var result = new PythonTuple();
+
+            if (stepVal > 0)
+            {
+                int actualStart = startIdx ?? 0;
+                int actualStop = stopIdx ?? count;
+                for (int i = actualStart; i < actualStop && i < count; i += stepVal)
+                    if (i >= 0)
+                        result.Items.Add(tuple.Items[i]);
+            }
+            else if (stepVal < 0)
+            {
+                int actualStart = startIdx ?? count - 1;
+                int actualStop = stopIdx ?? -count - 1;
+
+                for (int i = actualStart; i >= 0 && i < count; i += stepVal)
+                {
+                    result.Items.Add(tuple.Items[i]);
+                    if (i <= actualStop + count && actualStop < 0)
+                        break;
+                    if (actualStop >= 0 && i <= actualStop)
+                        break;
+                }
+            }
+
+            return result;
+        }
+
+        private PythonString SliceString(PythonString str, PythonTypeObject start, PythonTypeObject stop, PythonTypeObject step)
+        {
+            int count = str.Length;
+            int stepVal = GetSliceStep(step);
+
+            int? startIdx, stopIdx;
+            if (stepVal > 0)
+            {
+                startIdx = GetSliceIndex(start, 0, count);
+                stopIdx = GetSliceIndex(stop, count, count);
+            }
+            else
+            {
+                startIdx = GetSliceIndex(start, count - 1, count);
+                stopIdx = GetSliceIndex(stop, -count - 1, count);
+            }
+
+            var result = new StringBuilder();
+
+            if (stepVal > 0)
+            {
+                int actualStart = startIdx ?? 0;
+                int actualStop = stopIdx ?? count;
+                for (int i = actualStart; i < actualStop && i < count; i += stepVal)
+                    if (i >= 0)
+                        result.Append(str.Value[i]);
+            }
+            else if (stepVal < 0)
+            {
+                int actualStart = startIdx ?? count - 1;
+                int actualStop = stopIdx ?? -count - 1;
+
+                for (int i = actualStart; i >= 0 && i < count; i += stepVal)
+                {
+                    result.Append(str.Value[i]);
+                    if (i <= actualStop + count && actualStop < 0)
+                        break;
+                    if (actualStop >= 0 && i <= actualStop)
+                        break;
+                }
+            }
+
+            return new PythonString(result.ToString());
+        }
+
+        // AST의 SliceNode와 동일한 헬퍼 메서드들
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private int? GetSliceIndex(PythonTypeObject indexObj, int? defaultValue, int count)
+        {
+            if (indexObj == null || indexObj is PythonNone) return defaultValue;
+            if (NumberHelper.IsNumber(indexObj))
+            {
+                int index = NumberHelper.ToInt(indexObj);
+                if (index < 0) index += count;
+                return index;
+            }
+            return defaultValue;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private int GetSliceStep(PythonTypeObject stepObj)
+        {
+            if (stepObj == null || stepObj is PythonNone) return 1;
+            if (NumberHelper.IsNumber(stepObj))
+            {
+                int step = NumberHelper.ToInt(stepObj);
+                if (step == 0)
+                    throw new PythonException("ValueError", "slice step cannot be zero");
+                return step;
+            }
+            return 1;
+        }
+
+        private void ExecuteRaise(int argCount)
+        {
+            if (argCount == 0)
+            {
+                // re-raise (현재 예외 다시 발생)
+                throw new PythonException("RuntimeError", "No active exception to re-raise");
+            }
+
+            var exceptionObj = currentFrame.Stack.Pop();
+
+            if (exceptionObj is PythonExceptionInstance exInst)
+            {
+                throw new PythonException(exInst.ExceptionType, exInst.Message);
+            }
+            else if (exceptionObj is ExceptionClassCallable exClass)
+            {
+                // 클래스만 있는 경우 빈 메시지로 생성
+                throw new PythonException(exClass.Name, "");
+            }
+            else
+            {
+                throw new PythonException("TypeError", "exceptions must derive from BaseException");
             }
         }
 
@@ -949,10 +1544,10 @@ namespace SharpPy
                     $"too many values to unpack (expected {count}, got {items.Count})");
             }
 
-            // 스택에 역순으로 푸시 (왼쪽부터 오른쪽 순서로)
-            for (int i = items.Count - 1; i >= 0; i--)
+            // 스택에 정순으로 푸시
+            foreach (var item in items)
             {
-                currentFrame.Stack.Push(items[i]);
+                currentFrame.Stack.Push(item);
             }
         }
 
@@ -963,10 +1558,12 @@ namespace SharpPy
 
             PythonTypeObject result = obj switch
             {
+                PythonSuper super => super.GetAttribute(attrName),  // ⭐ PythonSuper 케이스 추가!
                 PythonInstance instance => instance.GetAttribute(attrName),
                 PythonModule module => module.GetAttribute(attrName),
                 PythonClass cls => cls.GetAttribute(attrName),
                 PythonList list => list.GetMethod(attrName),
+                PythonTuple tuple => tuple.GetMethod(attrName),  // ✅ 이미 추가되어야 함
                 PythonDict dict => dict.GetMethod(attrName),
                 PythonString str => str.GetMethod(attrName),
                 FileObject file => file.GetMethod(attrName),
@@ -987,6 +1584,10 @@ namespace SharpPy
             if (obj is PythonInstance instance)
             {
                 instance.SetAttribute(attrName, value);
+            }
+            else if (obj is PythonClass cls)  // ⭐ PythonClass 케이스 추가
+            {
+                cls.SetAttribute(attrName, value);
             }
             else
             {
@@ -1054,6 +1655,97 @@ namespace SharpPy
             slice.Items.Add(step ?? PythonNone.Instance);
 
             currentFrame.Stack.Push(slice);
+        }
+
+        private void ExecuteBuildClass(int baseCount)
+        {
+            // 스택에서 정보 가져오기
+            var classCodeObj = currentFrame.Stack.Pop() as PythonCodeObject;
+            var className = (currentFrame.Stack.Pop() as PythonString)?.Value;
+
+            if (classCodeObj == null || className == null)
+                throw new PythonException("TypeError", "BUILD_CLASS requires code object and name");
+
+            // 부모 클래스들 가져오기
+            var parentClasses = new List<PythonClass>();
+            for (int i = 0; i < baseCount; i++)
+            {
+                var baseObj = currentFrame.Stack.Pop();
+                if (baseObj is PythonClass baseClass)
+                {
+                    parentClasses.Insert(0, baseClass);
+                }
+                else
+                {
+                    throw new PythonException("TypeError",
+                        $"'{baseObj?.ToPythonString()}' is not a class");
+                }
+            }
+
+            // 새 Environment 생성 (중요: 전역 환경의 자식으로)
+            var classEnv = new Environment(currentFrame.Globals);
+
+            // MRO 계산을 위한 임시 클래스 생성
+            var tempClass = new PythonClass(className, classEnv, parentClasses);
+            var mro = tempClass.GetMRO();
+
+            // MRO 역순으로 메서드 상속
+            for (int i = mro.Count - 1; i >= 1; i--)
+            {
+                foreach (var kvp in mro[i].ClassEnv.GetAllVariables())
+                {
+                    classEnv.SetVariable(kvp.Key, kvp.Value);
+                }
+            }
+
+            // ⭐ 중요: 클래스 본문 실행 (메서드 정의들이 classEnv에 저장됨)
+            var savedFrame = currentFrame;
+            currentFrame = new Frame(classCodeObj.Code, classEnv, currentFrame.Globals);
+
+            try
+            {
+                // 클래스 본문 코드 실행
+                ExecuteFrame();
+            }
+            finally
+            {
+                currentFrame = savedFrame;
+            }
+
+            // 최종 PythonClass 객체 생성
+            var pythonClass = new PythonClass(className, classEnv, parentClasses);
+
+            // 스택에 클래스 푸시
+            currentFrame.Stack.Push(pythonClass);
+        }
+
+        private void ExecuteImportStar()
+        {
+            var module = currentFrame.Stack.Pop() as PythonModule;
+
+            if (module == null)
+                throw new PythonException("TypeError", "IMPORT_STAR expects module");
+
+            try
+            {
+                // 모듈의 모든 public 변수를 현재 프레임의 로컬 환경에 복사
+                var allVars = module.ModuleEnv.GetAllVariables();
+
+                foreach (var kvp in allVars)
+                {
+                    // __로 시작하는 private 변수는 제외
+                    if (!kvp.Key.StartsWith("_"))
+                    {
+                        // 현재 프레임의 로컬 환경에 직접 설정
+                        currentFrame.Locals.SetVariable(kvp.Key, kvp.Value);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new PythonException("ImportError",
+                    $"Failed to import * from module '{module.Name}': {ex.Message}");
+            }
         }
     }
 
@@ -1140,6 +1832,19 @@ namespace SharpPy
             {
                 paramValues[i] = args[i];
                 paramAssigned[i] = true;
+
+                // 타입 체크 추가 - TypeCheckMode.Enabled 체크 추가!
+                if (TypeCheckMode.Enabled && i < code.ParameterTypeHints.Count && code.ParameterTypeHints[i] != null)
+                {
+                    var typeHint = code.ParameterTypeHints[i];
+                    if (!typeHint.IsCompatible(args[i]))
+                    {
+                        string paramName = i < code.VarNames.Count ? code.VarNames[i] : $"arg{i}";
+
+                        throw new PythonException("TypeError",
+                            $"Argument '{paramName}' expected {typeHint}, got {GetValueType(args[i])}");
+                    }
+                }
             }
 
             // 키워드 인자 할당
@@ -1165,6 +1870,18 @@ namespace SharpPy
                             throw new PythonException("TypeError",
                                 $"{code.Name}() got multiple values for argument '{kvp.Key}'");
                         }
+
+                        // 타입 체크 추가 - TypeCheckMode.Enabled 체크 추가!
+                        if (TypeCheckMode.Enabled && paramIndex < code.ParameterTypeHints.Count && code.ParameterTypeHints[paramIndex] != null)
+                        {
+                            var typeHint = code.ParameterTypeHints[paramIndex];
+                            if (!typeHint.IsCompatible(kvp.Value))
+                            {
+                                throw new PythonException("TypeError",
+                                    $"Argument '{kvp.Key}' expected {typeHint}, got {GetValueType(kvp.Value)}");
+                            }
+                        }
+
                         paramValues[paramIndex] = kvp.Value;
                         paramAssigned[paramIndex] = true;
                     }
@@ -1187,21 +1904,20 @@ namespace SharpPy
                 funcEnv.SetVariable(code.VarNames[i], paramValues[i]);
             }
 
-            // *args 처리 - 중요: VarArgsName을 사용
+            // *args 처리
             if (code.HasVarArgs && !string.IsNullOrEmpty(code.VarArgsName))
             {
-                var varArgsList = new PythonList();
+                var varArgsTuple = new PythonTuple();
                 for (int i = normalArgCount; i < providedPosArgs; i++)
                 {
-                    varArgsList.Items.Add(args[i]);
+                    varArgsTuple.Items.Add(args[i]);
                 }
-                // VarArgsName으로 환경에 설정
-                funcEnv.SetVariable(code.VarArgsName, varArgsList);
+                funcEnv.SetVariable(code.VarArgsName, varArgsTuple);
             }
             else if (providedPosArgs > normalArgCount)
             {
                 throw new PythonException("TypeError",
-                    $"{code.Name}() takes {normalArgCount} positional arguments but {providedPosArgs} were given");
+                            $"{code.Name}() takes {normalArgCount} positional arguments but {providedPosArgs} were given");
             }
 
             // **kwargs 처리
@@ -1228,7 +1944,6 @@ namespace SharpPy
                         }
                     }
                 }
-                // KwArgsName으로 환경에 설정
                 funcEnv.SetVariable(code.KwArgsName, kwArgsDict);
             }
 
@@ -1237,26 +1952,86 @@ namespace SharpPy
                 globalEnv = globalEnv.parent;
 
             var vm = new VirtualMachine(globalEnv);
-            return vm.Execute(funcEnv, code);
+            var result = vm.Execute(funcEnv, code);
+
+            // 반환값 타입 체크 추가
+            if (TypeCheckMode.Enabled && code.ReturnTypeHint != null && !code.ReturnTypeHint.IsCompatible(result))
+            {
+                throw new PythonException("TypeError",
+                    $"Return value expected {code.ReturnTypeHint}, got {GetValueType(result)}");
+            }
+
+            return result;
         }
 
         public override PythonTypeObject Call(List<PythonTypeObject> arguments)
         {
             return CallWithKeywords(arguments, null);
         }
+
+        // UserFunction에서 가져온 헬퍼 메서드
+        private static string GetValueType(PythonTypeObject value)
+        {
+            return value switch
+            {
+                PythonNone => "None",
+                PythonInt => "int",
+                PythonFloat => "float",
+                PythonString => "str",
+                PythonBool => "bool",
+                PythonList list => $"list[{GetListElementType(list)}]",
+                PythonDict dict => $"dict{GetDictElementTypes(dict)}",
+                PythonTuple tuple => $"tuple[{GetTupleElementTypes(tuple)}]",
+                PythonSet set => $"set[{GetSetElementType(set)}]",
+                PythonInstance instance => instance.Class.Name,
+                PythonClass cls => $"type[{cls.Name}]",
+                Function func => $"Callable",
+                _ => value.Type.ToString().ToLower()
+            };
+        }
+
+        private static string GetListElementType(PythonList list)
+        {
+            if (list.Items.Count == 0) return "Any";
+            var types = list.Items.Select(item => GetValueType(item)).Distinct();
+            return types.Count() == 1 ? types.First() : "Any";
+        }
+
+        private static string GetTupleElementTypes(PythonTuple tuple)
+        {
+            if (tuple.Items.Count == 0)
+                return "";
+            var types = tuple.Items.Select(item => GetValueType(item));
+            return string.Join(", ", types);
+        }
+
+        private static string GetDictElementTypes(PythonDict dict)
+        {
+            if (dict.Items.Count == 0)
+                return "";
+            var keyTypes = dict.Items.Keys.Select(k => GetValueType(k)).Distinct();
+            var valueTypes = dict.Items.Values.Select(v => GetValueType(v)).Distinct();
+            string keyType = keyTypes.Count() == 1 ? keyTypes.First() : "Any";
+            string valueType = valueTypes.Count() == 1 ? valueTypes.First() : "Any";
+            return $"[{keyType}, {valueType}]";
+        }
+
+        private static string GetSetElementType(PythonSet set)
+        {
+            if (set.Items.Count == 0)
+                return "Any";
+            var types = set.Items.Select(item => GetValueType(item)).Distinct();
+            return types.Count() == 1 ? types.First() : "Any";
+        }
     }
 
     public class BytecodeFunctionWithDefaults : BytecodeFunction
     {
         private readonly List<PythonTypeObject> defaultValues;
-        private readonly CodeObject code;
-        private readonly Environment closure;
 
         public BytecodeFunctionWithDefaults(CodeObject code, Environment closure, List<PythonTypeObject> defaults)
             : base(code, closure)
         {
-            this.code = code;
-            this.closure = closure;
             this.defaultValues = defaults ?? new List<PythonTypeObject>();
         }
 
@@ -1278,6 +2053,19 @@ namespace SharpPy
             {
                 paramValues[i] = args[i];
                 paramAssigned[i] = true;
+
+                // 타입 체크 추가 - TypeCheckMode.Enabled 체크!
+                if (TypeCheckMode.Enabled && i < code.ParameterTypeHints.Count && code.ParameterTypeHints[i] != null)
+                {
+                    var typeHint = code.ParameterTypeHints[i];
+                    if (!typeHint.IsCompatible(args[i]))
+                    {
+                        string paramName = i < code.VarNames.Count ? code.VarNames[i] : $"arg{i}";
+
+                        throw new PythonException("TypeError",
+                            $"Argument '{paramName}' expected {typeHint}, got {GetValueType(args[i])}");
+                    }
+                }
             }
 
             // 2. 키워드 인자로 나머지 파라미터 채우기
@@ -1303,6 +2091,18 @@ namespace SharpPy
                             throw new PythonException("TypeError",
                                 $"{code.Name}() got multiple values for argument '{kvp.Key}'");
                         }
+
+                        // 타입 체크 추가
+                        if (TypeCheckMode.Enabled && paramIndex < code.ParameterTypeHints.Count && code.ParameterTypeHints[paramIndex] != null)
+                        {
+                            var typeHint = code.ParameterTypeHints[paramIndex];
+                            if (!typeHint.IsCompatible(kvp.Value))
+                            {
+                                throw new PythonException("TypeError",
+                                    $"Argument '{kvp.Key}' expected {typeHint}, got {GetValueType(kvp.Value)}");
+                            }
+                        }
+
                         paramValues[paramIndex] = kvp.Value;
                         paramAssigned[paramIndex] = true;
                     }
@@ -1324,7 +2124,21 @@ namespace SharpPy
                     int defaultIndex = i - requiredArgs;
                     if (defaultIndex >= 0 && defaultIndex < defaultValues.Count)
                     {
-                        paramValues[i] = defaultValues[defaultIndex];
+                        var defaultValue = defaultValues[defaultIndex];
+
+                        // 기본값도 타입 체크
+                        if (TypeCheckMode.Enabled && i < code.ParameterTypeHints.Count && code.ParameterTypeHints[i] != null)
+                        {
+                            var typeHint = code.ParameterTypeHints[i];
+                            if (!typeHint.IsCompatible(defaultValue))
+                            {
+                                string paramName = i < code.VarNames.Count ? code.VarNames[i] : $"arg{i}";
+                                throw new PythonException("TypeError",
+                                    $"Default value for '{paramName}' expected {typeHint}, got {GetValueType(defaultValue)}");
+                            }
+                        }
+
+                        paramValues[i] = defaultValue;
                         paramAssigned[i] = true;
                     }
                 }
@@ -1359,13 +2173,13 @@ namespace SharpPy
             // 6. *args 처리
             if (code.HasVarArgs && !string.IsNullOrEmpty(code.VarArgsName))
             {
-                var varArgsList = new PythonList();
-                // normalArgCount 이후의 모든 위치 인자를 *args에 추가
+                var varArgsTuple = new PythonTuple();  // PythonList가 아닌 PythonTuple!
+                                                       // normalArgCount 이후의 모든 위치 인자를 *args에 추가
                 for (int i = normalArgCount; i < providedPosArgs; i++)
                 {
-                    varArgsList.Items.Add(args[i]);
+                    varArgsTuple.Items.Add(args[i]);
                 }
-                funcEnv.SetVariable(code.VarArgsName, varArgsList);
+                funcEnv.SetVariable(code.VarArgsName, varArgsTuple);
             }
             else if (providedPosArgs > normalArgCount)
             {
@@ -1408,7 +2222,71 @@ namespace SharpPy
                 globalEnv = globalEnv.parent;
 
             var vm = new VirtualMachine(globalEnv);
-            return vm.Execute(funcEnv, code);
+            var result = vm.Execute(funcEnv, code);
+
+            // 반환값 타입 체크
+            if (TypeCheckMode.Enabled && code.ReturnTypeHint != null && !code.ReturnTypeHint.IsCompatible(result))
+            {
+                throw new PythonException("TypeError",
+                    $"Return value expected {code.ReturnTypeHint}, got {GetValueType(result)}");
+            }
+
+            return result;
+        }
+
+        // UserFunction에서 가져온 헬퍼 메서드들
+        private static string GetValueType(PythonTypeObject value)
+        {
+            return value switch
+            {
+                PythonNone => "None",
+                PythonInt => "int",
+                PythonFloat => "float",
+                PythonString => "str",
+                PythonBool => "bool",
+                PythonList list => $"list[{GetListElementType(list)}]",
+                PythonDict dict => $"dict{GetDictElementTypes(dict)}",
+                PythonTuple tuple => $"tuple[{GetTupleElementTypes(tuple)}]",
+                PythonSet set => $"set[{GetSetElementType(set)}]",
+                PythonInstance instance => instance.Class.Name,
+                PythonClass cls => $"type[{cls.Name}]",
+                Function func => $"Callable",
+                _ => value.Type.ToString().ToLower()
+            };
+        }
+
+        private static string GetListElementType(PythonList list)
+        {
+            if (list.Items.Count == 0) return "Any";
+            var types = list.Items.Select(item => GetValueType(item)).Distinct();
+            return types.Count() == 1 ? types.First() : "Any";
+        }
+
+        private static string GetTupleElementTypes(PythonTuple tuple)
+        {
+            if (tuple.Items.Count == 0)
+                return "";
+            var types = tuple.Items.Select(item => GetValueType(item));
+            return string.Join(", ", types);
+        }
+
+        private static string GetDictElementTypes(PythonDict dict)
+        {
+            if (dict.Items.Count == 0)
+                return "";
+            var keyTypes = dict.Items.Keys.Select(k => GetValueType(k)).Distinct();
+            var valueTypes = dict.Items.Values.Select(v => GetValueType(v)).Distinct();
+            string keyType = keyTypes.Count() == 1 ? keyTypes.First() : "Any";
+            string valueType = valueTypes.Count() == 1 ? valueTypes.First() : "Any";
+            return $"[{keyType}, {valueType}]";
+        }
+
+        private static string GetSetElementType(PythonSet set)
+        {
+            if (set.Items.Count == 0)
+                return "Any";
+            var types = set.Items.Select(item => GetValueType(item)).Distinct();
+            return types.Count() == 1 ? types.First() : "Any";
         }
     }
 }
