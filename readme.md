@@ -1,21 +1,22 @@
-# code test
+# SharpPy (Coding with AI)
+Python interpreter (not native python) by pure C# code.\
+It working Godot on Android.\
+(*.py resources exporting required when Godot Export)
 
-## basic test
+## Basic test (dotnet core)
  > dotnet run
 
-## script test
+## Script test (dotnet core)
  > dotnet run test\test.py
 
-## godot
+## with Godot
 SharpPy working with Godot Engine.
 (remove main.cs, sharppy.csproj, sharppy.sln files)
-
-## Coding with AI.
 
 # Godot implementation
 
 ## Create interpreter
-  > _Py = new PythonInterpreter();
+  > _Py = new SharpPy.PythonInterpreter();
 
 ## Declare built-in function
 ```c#
