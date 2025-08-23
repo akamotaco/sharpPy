@@ -60,18 +60,25 @@ namespace SharpPy
 
         public override PythonTypeObject Evaluate(Environment env)
         {
+            string funcName = "<unknown>";
             try
             {
                 var function = Function.Evaluate(env);
 
                 // 함수 호출 전에 호출 위치를 스택에 기록
-                string funcName = function switch
+                funcName = function switch
                 {
                     UserFunction uf => uf.Name,
                     BoundMethod bm => bm.Name,
                     PythonClass pc => pc.Name,
-                    BuiltinFunction bf => bf.Name,  // 추가
-                    _ => "<unknown>"
+                    BuiltinFunction bf => bf.Name,
+                    LambdaFunction => "<lambda>",
+                    _ => Function switch
+                    {
+                        VariableNode vn => vn.Name,  // 변수명에서 함수 이름 가져오기
+                        AttributeNode an => an.Attribute,  // 메서드 이름
+                        _ => "<unknown>"
+                    }
                 };
 
                 var callFrame = new StackFrame(env.CurrentFileName, "<module>", Line, Column);
@@ -161,57 +168,45 @@ namespace SharpPy
                         _ => throw CreateException("TypeError", $"'{function?.Type}' object is not callable")
                     };
                 }
-                catch (PythonException ex)
-                {
-                    // 스택 프레임 추가
-                    ex.AddStackFrame(callFrame);
-
-                    // 예외에 Line/Column 정보가 없으면 현재 위치 정보 설정
-                    if (ex.Line == 0 && ex.Column == 0)
-                    {
-                        ex.Line = Line;
-                        ex.Column = Column;
-                        ex.FileName = env.CurrentFileName;
-                    }
-
-                    // Godot 콘솔에 전체 traceback 출력
-                    Console.WriteLine(ex.GetTraceback());
-
-                    throw;
-                }
                 finally
                 {
                     ExecutionContext.PopFrame();
                 }
             }
             catch (PythonException ex)
-            { // 최상위 레벨에서도 traceback 출력
-                Console.WriteLine("=== Python Exception ===");
-                Console.WriteLine(ex.GetTraceback());
-                Console.WriteLine("========================");
+            {
+                // Python 예외에 컨텍스트 정보 추가
+                if (string.IsNullOrEmpty(ex.FileName))
+                {
+                    ex.FileName = env.CurrentFileName;
+                    ex.Line = Line;
+                    ex.Column = Column;
+                }
+
+                // 에러 메시지에 함수 이름 포함
+                Console.WriteLine($"Python Error in '{funcName}': {ex.Type}: {ex.Message}");
+                Console.WriteLine($"  File: {ex.FileName}, Line {ex.Line}, Column {ex.Column}");
+
                 throw;
             }
-            // catch (ReturnException ex) { throw; }
+            // catch (ReturnException) { throw; }
             catch (Exception ex)
             {
-                // C# 예외를 Python 예외로 변환
-                var pyEx = new PythonException("RuntimeError", 
-                    $"Internal error calling function: {ex.Message}", 
-                    Line, Column, env.CurrentFileName);
-                
-                // 현재 콜스택 추가
-                foreach (var frame in ExecutionContext.GetCallStack())
+                // ⭐ 함수 이름과 파일 정보를 포함한 에러 메시지
+                var detailedMessage = $"Error in function '{funcName}' at {env.CurrentFileName}:{Line}:{Column}: {ex.Message}";
+
+                // 스택 정보도 추가
+                var stackInfo = ExecutionContext.GetCallStack();
+                if (stackInfo.Count > 0)
                 {
-                    pyEx.AddStackFrame(frame);
+                    Console.WriteLine("Call Stack:");
+                    foreach (var frame in stackInfo)
+                    {
+                        Console.WriteLine($"  {frame}");
+                    }
                 }
-                
-                Console.WriteLine("=== Internal Error ===");
-                Console.WriteLine(pyEx.GetTraceback());
-                Console.WriteLine("C# Stack: " + ex.StackTrace);
-                Console.WriteLine("======================");
-                
-                throw pyEx;
-                // throw CreateException("RuntimeError", $"Internal error calling function: {ex.Message}");
+
+                throw new PythonException("RuntimeError", detailedMessage, Line, Column, env.CurrentFileName);
             }
         }
     }

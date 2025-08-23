@@ -656,9 +656,9 @@ namespace SharpPy
         public override PythonType Type => PythonType.None;
         public override bool IsTrue() => false;
         public override string ToPythonString() => "None";
-        
+
         // C# native type conversions
-        public override string AsString() => "None";
+        public override string AsString() => null; // "None";
         public override bool AsBool() => false;
 
         public override object GetRawValue() => null;
