@@ -930,12 +930,9 @@ namespace SharpPy
         public override bool IsCompatible(PythonTypeObject value)
         {
             // 디버깅 코드 추가
-            Console.WriteLine($"[DEBUG] UnionTypeHint checking value type: {value?.Type}");
             foreach (var t in Types)
             {
-                Console.WriteLine($"[DEBUG] Checking against: {t}");
                 bool compatible = t.IsCompatible(value);
-                Console.WriteLine($"[DEBUG] Compatible: {compatible}");
                 if (compatible) return true;
             }
             return false;
