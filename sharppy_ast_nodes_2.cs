@@ -70,6 +70,7 @@ namespace SharpPy
                     UserFunction uf => uf.Name,
                     BoundMethod bm => bm.Name,
                     PythonClass pc => pc.Name,
+                    BuiltinFunction bf => bf.Name,  // 추가
                     _ => "<unknown>"
                 };
 
@@ -143,7 +144,7 @@ namespace SharpPy
                     {
                         // ExceptionClassCallable 추가 (맨 위에 배치)
                         ExceptionClassCallable exClass => exClass.CreateInstance(args),
-                        
+
                         // CallableType 추가 (그 다음에 배치)
                         CallableType callableType => callableType.Call(args),
 
@@ -160,16 +161,57 @@ namespace SharpPy
                         _ => throw CreateException("TypeError", $"'{function?.Type}' object is not callable")
                     };
                 }
+                catch (PythonException ex)
+                {
+                    // 스택 프레임 추가
+                    ex.AddStackFrame(callFrame);
+
+                    // 예외에 Line/Column 정보가 없으면 현재 위치 정보 설정
+                    if (ex.Line == 0 && ex.Column == 0)
+                    {
+                        ex.Line = Line;
+                        ex.Column = Column;
+                        ex.FileName = env.CurrentFileName;
+                    }
+
+                    // Godot 콘솔에 전체 traceback 출력
+                    Console.WriteLine(ex.GetTraceback());
+
+                    throw;
+                }
                 finally
                 {
                     ExecutionContext.PopFrame();
                 }
             }
-            catch (PythonException) { throw; }
-            catch (ReturnException) { throw; }
+            catch (PythonException ex)
+            { // 최상위 레벨에서도 traceback 출력
+                Console.WriteLine("=== Python Exception ===");
+                Console.WriteLine(ex.GetTraceback());
+                Console.WriteLine("========================");
+                throw;
+            }
+            // catch (ReturnException ex) { throw; }
             catch (Exception ex)
             {
-                throw CreateException("RuntimeError", $"Internal error calling function: {ex.Message}");
+                // C# 예외를 Python 예외로 변환
+                var pyEx = new PythonException("RuntimeError", 
+                    $"Internal error calling function: {ex.Message}", 
+                    Line, Column, env.CurrentFileName);
+                
+                // 현재 콜스택 추가
+                foreach (var frame in ExecutionContext.GetCallStack())
+                {
+                    pyEx.AddStackFrame(frame);
+                }
+                
+                Console.WriteLine("=== Internal Error ===");
+                Console.WriteLine(pyEx.GetTraceback());
+                Console.WriteLine("C# Stack: " + ex.StackTrace);
+                Console.WriteLine("======================");
+                
+                throw pyEx;
+                // throw CreateException("RuntimeError", $"Internal error calling function: {ex.Message}");
             }
         }
     }
