@@ -4,10 +4,10 @@ It working Godot on Android.\
 (*.py resources exporting required when Godot Export)
 
 ## Basic test (dotnet core)
- > dotnet run
+ > \> dotnet run
 
 ## Script test (dotnet core)
- > dotnet run test\test.py
+ > \> dotnet run test\test.py
 
 ## with Godot
 SharpPy working with Godot Engine.
@@ -16,7 +16,10 @@ SharpPy working with Godot Engine.
 # Godot implementation
 
 ## Create interpreter
-  > _Py = new SharpPy.PythonInterpreter();
+```c#
+_Py = new SharpPy.PythonInterpreter();
+_Py.AddToSysPath("res://python/script/folder);
+```
 
 ## Declare built-in function
 ```c#
