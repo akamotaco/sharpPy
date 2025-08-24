@@ -247,7 +247,24 @@ namespace SharpPy
             int tokenLine = line;
             int tokenColumn = column;
 
-            if (isContinuation)
+            // CPython 방식: 최상위 레벨(0)로 돌아가는 경우를 먼저 체크
+            if (indentLevel == 0 && !isContinuation && indentStack.Count > 1)
+            {
+                // 모든 열린 블록을 닫음
+                int dedentCount = 0;
+                while (indentStack.Count > 1)
+                {
+                    indentStack.Pop();
+                    tokens.Add(new Token(TokenType.DEDENT, "", tokenLine, tokenColumn));
+                    dedentCount++;
+                }
+
+                if (DEBUG_MODE)
+                {
+                    Console.WriteLine($"[DEBUG] Back to top level: {dedentCount} DEDENT(s) added. Stack reset to: [0]");
+                }
+            }
+            else if (isContinuation)
             {
                 ProcessContinuationIndent(tokens, indentLevel, tokenLine, tokenColumn);
             }
@@ -260,27 +277,33 @@ namespace SharpPy
             lastTokenWasNewline = false;
         }
 
-        private void ProcessContinuationIndent(List<Token> tokens, int indentLevel, int tokenLine, int tokenColumn)
+        private void ProcessContinuationIndent(List<Token> tokens, int indentLevel,
+                                      int tokenLine, int tokenColumn)
         {
-            bool foundLevel = indentStack.Any(level => level == indentLevel);
+            // continuation 키워드 전에 필요한 DEDENT 처리
+            while (indentStack.Count > 0 && indentStack.Peek() > indentLevel)
+            {
+                indentStack.Pop();
+                tokens.Add(new Token(TokenType.DEDENT, "", tokenLine, tokenColumn));
 
-            if (!foundLevel)
+                if (DEBUG_MODE)
+                {
+                    Console.WriteLine($"[DEBUG] DEDENT before continuation. Stack: [{string.Join(", ", indentStack)}]");
+                }
+            }
+
+            // 레벨 확인
+            if (!indentStack.Contains(indentLevel))
             {
                 var expected = string.Join(", ", indentStack.Reverse());
                 throw new PythonException("IndentationError",
                     $"Unindent does not match any outer indentation level (expected one of: {expected}, got: {indentLevel})",
                     tokenLine, tokenColumn);
             }
-
-            while (indentStack.Count > 0 && indentStack.Peek() > indentLevel)
-            {
-                indentStack.Pop();
-                tokens.Add(new Token(TokenType.DEDENT, "", tokenLine, tokenColumn));
-            }
         }
 
         private void ProcessRegularIndent(List<Token> tokens, int indentLevel, int currentIndent,
-                                 int tokenLine, int tokenColumn)
+                         int tokenLine, int tokenColumn)
         {
             if (DEBUG_MODE)
             {
@@ -289,6 +312,7 @@ namespace SharpPy
 
             if (indentLevel > currentIndent)
             {
+                // INDENT: 새로운 블록 시작
                 indentStack.Push(indentLevel);
                 tokens.Add(new Token(TokenType.INDENT, "", tokenLine, tokenColumn));
 
@@ -299,18 +323,43 @@ namespace SharpPy
             }
             else if (indentLevel < currentIndent)
             {
-                bool foundLevel = indentStack.Any(level => level == indentLevel);
+                // DEDENT: 블록 종료
+                // CPython 방식: 스택에서 정확한 레벨을 찾아야 함
+                int dedentCount = 0;
+                bool foundLevel = false;
+
+                // 스택을 거꾸로 탐색하여 매칭되는 레벨 찾기
+                var tempStack = new Stack<int>(indentStack.Reverse());
+
+                while (tempStack.Count > 0)
+                {
+                    int stackLevel = tempStack.Peek();
+
+                    if (stackLevel == indentLevel)
+                    {
+                        foundLevel = true;
+                        break;
+                    }
+                    else if (stackLevel < indentLevel)
+                    {
+                        // 스택에 없는 중간 레벨로 dedent하려는 경우
+                        break;
+                    }
+
+                    tempStack.Pop();
+                }
 
                 if (!foundLevel)
                 {
-                    var expected = string.Join(", ", indentStack.Reverse());
+                    // CPython 스타일 에러 메시지
+                    var expected = string.Join(", ", indentStack.Reverse().Skip(1)); // 0 제외
                     throw new PythonException("IndentationError",
-                        $"Unindent does not match any outer indentation level (expected one of: {expected}, got: {indentLevel})",
+                        $"unindent does not match any outer indentation level",
                         tokenLine, tokenColumn);
                 }
 
-                int dedentCount = 0;
-                while (indentStack.Count > 1 && indentStack.Peek() > indentLevel)
+                // 실제로 DEDENT 토큰 생성
+                while (indentStack.Peek() != indentLevel)
                 {
                     indentStack.Pop();
                     tokens.Add(new Token(TokenType.DEDENT, "", tokenLine, tokenColumn));
@@ -322,6 +371,7 @@ namespace SharpPy
                     Console.WriteLine($"[DEBUG] {dedentCount} DEDENT(s) added. New stack: [{string.Join(", ", indentStack)}]");
                 }
             }
+            // else: 같은 레벨이면 아무것도 하지 않음
         }
 
         public List<Token> Tokenize()
@@ -424,15 +474,19 @@ namespace SharpPy
 
             tokens.Add(new Token(TokenType.EOF, "", line, column));
 
-            // 디버그 출력
-            // foreach (var token in tokens)
-            // {
-            //     if (token.Type == TokenType.INDENT || token.Type == TokenType.DEDENT ||
-            //         token.Type == TokenType.CLASS || token.Type == TokenType.DEF)
-            //     {
-            //         Console.WriteLine($"[Token] {token.Type} at {token.Line}:{token.Column}");
-            //     }
-            // }
+            if (DEBUG_MODE)
+            {
+                Console.WriteLine("\n[DEBUG] Generated tokens:");
+                foreach (var token in tokens)
+                {
+                    if (token.Type == TokenType.INDENT || token.Type == TokenType.DEDENT ||
+                        token.Type == TokenType.DEF || token.Type == TokenType.IDENTIFIER ||
+                        token.Type == TokenType.NEWLINE || token.Type == TokenType.EOF)
+                    {
+                        Console.WriteLine($"  {token.Type} {(token.Value != "" ? "'" + token.Value + "'" : "")} at {token.Line}:{token.Column}");
+                    }
+                }
+            }
 
             return tokens;
         }
@@ -776,6 +830,7 @@ namespace SharpPy
 
     public class Parser
     {
+        private static readonly bool DEBUG_MODE = false;
         private readonly List<Token> tokens;
         private readonly int tokenCount;
         private int position;
@@ -857,14 +912,27 @@ namespace SharpPy
         public List<ASTNode> Parse()
         {
             var statements = new List<ASTNode>(32);
-            SkipNewlinesAndIndents();
+            SkipNewlines();  // INDENT/DEDENT는 건너뛰지 않음
 
             while (currentToken.Type != TokenType.EOF)
             {
-                SkipNewlinesAndIndents();
+                if (DEBUG_MODE)
+                    Console.WriteLine($"[PARSER DEBUG] Current token: {currentToken.Type} '{currentToken.Value}' at {currentToken.Line}:{currentToken.Column}");
+
+                SkipNewlines();
                 if (currentToken.Type == TokenType.EOF) break;
 
-                // Check for unexpected continuation tokens
+                // DEDENT 처리
+                while (currentToken.Type == TokenType.DEDENT)
+                {
+                    if (DEBUG_MODE)
+                        Console.WriteLine($"[PARSER DEBUG] Consuming DEDENT at top level");
+                    Advance();
+                    SkipNewlines();
+                }
+
+                if (currentToken.Type == TokenType.EOF) break;
+
                 if (ContinuationTokens.Contains(currentToken.Type))
                 {
                     throw new PythonException("SyntaxError",
@@ -872,9 +940,14 @@ namespace SharpPy
                         currentToken.Line, currentToken.Column);
                 }
 
+                if (DEBUG_MODE)
+                    Console.WriteLine($"[PARSER DEBUG] Parsing statement starting with: {currentToken.Type}");
                 var statement = ParseStatement();
                 statements.Add(statement);
-                SkipNewlinesAndIndents();
+                if (DEBUG_MODE)
+                    Console.WriteLine($"[PARSER DEBUG] Statement parsed, current token: {currentToken.Type}");
+
+                SkipNewlines();
             }
 
             return statements;
@@ -1219,15 +1292,24 @@ namespace SharpPy
             int line = currentToken.Line;
             int column = currentToken.Column;
 
+            // 디버그 출력
+            if (DEBUG_MODE)
+            {
+                Console.WriteLine($"[PARSER DEBUG] Entering ParseFunctionDef at {line}:{column}");
+            }
+
             Expect(TokenType.DEF);
+            
+            // 함수 이름
             string name = currentToken.Value;
             Expect(TokenType.IDENTIFIER);
+            
+            // 매개변수 목록
             Expect(TokenType.LPAREN);
-
             var parameters = ParseParameters();
-
             Expect(TokenType.RPAREN);
 
+            // 반환 타입 힌트 (선택적)
             TypeHint returnTypeHint = null;
             if (currentToken.Type == TokenType.OPERATOR && currentToken.Value == "->")
             {
@@ -1235,12 +1317,111 @@ namespace SharpPy
                 returnTypeHint = ParseTypeHint();
             }
 
+            // 콜론과 함수 본문
             Expect(TokenType.COLON);
             SkipNewlines();
 
+            // CPython 방식: ParseBlock이 함수 본문 전체를 처리
+            // - INDENT를 소비
+            // - 본문의 모든 문장을 파싱
+            // - 함수 본문의 DEDENT를 소비
             var body = ParseBlock();
 
+            // CPython 중요 포인트:
+            // ParseBlock이 이미 함수 본문의 DEDENT를 소비했음
+            // 여기서 추가 DEDENT를 소비하면 안 됨!
+            // 
+            // 만약 다음 토큰이 DEDENT라면, 그것은:
+            // - 외부 함수/클래스의 끝
+            // - 또는 다른 블록 구조의 끝
+            // 이는 상위 파서가 처리해야 함
+
+            if (DEBUG_MODE)
+            {
+                Console.WriteLine($"[PARSER DEBUG] ParseFunctionDef completed. Current token: {currentToken.Type} at {currentToken.Line}:{currentToken.Column}");
+            }
+
+            // 함수 정의 노드 생성
             return new FunctionDefNode(name, parameters, body, returnTypeHint, line, column);
+        }
+
+        // ParseBlock 메서드도 CPython 방식으로 보완
+        private List<ASTNode> ParseBlock()
+        {
+            var statements = new List<ASTNode>();
+
+            // 블록은 반드시 INDENT로 시작
+            if (currentToken.Type != TokenType.INDENT)
+            {
+                throw new PythonException("IndentationError",
+                    "expected an indented block",
+                    currentToken.Line, currentToken.Column);
+            }
+
+            Advance(); // INDENT 소비
+            SkipNewlines();
+
+            // 블록 내용 파싱
+            while (currentToken.Type != TokenType.DEDENT && currentToken.Type != TokenType.EOF)
+            {
+                // 빈 줄 건너뛰기
+                if (currentToken.Type == TokenType.NEWLINE)
+                {
+                    Advance();
+                    continue;
+                }
+
+                // continuation 키워드를 만나면 현재 블록 종료
+                // (elif, else, except, finally, case)
+                if (ContinuationTokens.Contains(currentToken.Type))
+                {
+                    break;
+                }
+
+                // 문장 파싱
+                if (IsBlockStatement())
+                {
+                    statements.Add(ParseStatement());
+                    SkipNewlines();
+                }
+                else
+                {
+                    throw new PythonException("SyntaxError",
+                        $"Unexpected token in block: {currentToken.Type}",
+                        currentToken.Line, currentToken.Column);
+                }
+            }
+
+            // CPython 핵심: 이 블록의 DEDENT 정확히 하나만 소비
+            if (currentToken.Type == TokenType.DEDENT)
+            {
+                if (DEBUG_MODE)
+                {
+                    Console.WriteLine($"[PARSER DEBUG] ParseBlock consuming ONE DEDENT at {currentToken.Line}:{currentToken.Column}");
+                }
+                Advance(); // 정확히 하나의 DEDENT만 소비
+
+                // 중요: 추가 DEDENT가 있어도 소비하지 않음
+                // 다음 DEDENT는 상위 블록의 끝을 나타냄
+            }
+            else if (currentToken.Type == TokenType.EOF)
+            {
+                // 파일 끝에서는 DEDENT가 없을 수 있음
+                // (대화형 모드나 불완전한 입력)
+            }
+            else if (ContinuationTokens.Contains(currentToken.Type))
+            {
+                // continuation 토큰으로 끝나는 것은 정상
+                // (예: try 블록 후 except)
+            }
+            else
+            {
+                throw new PythonException("IndentationError",
+                    $"expected dedent, got {currentToken.Type}",
+                    currentToken.Line, currentToken.Column);
+            }
+
+            return statements;
         }
 
         private TypeHint ParseTypeHint()
@@ -1452,68 +1633,6 @@ namespace SharpPy
             return SimpleTypeHint.Create(pythonType);
         }
 
-        // ParseBlock() 메서드를 다음과 같이 수정:
-
-        private List<ASTNode> ParseBlock()
-        {
-            var statements = new List<ASTNode>();
-
-            if (currentToken.Type == TokenType.INDENT)
-            {
-                Advance();
-                SkipNewlines();
-
-                while (currentToken.Type != TokenType.DEDENT && currentToken.Type != TokenType.EOF)
-                {
-                    if (currentToken.Type == TokenType.NEWLINE)
-                    {
-                        Advance();
-                        continue;
-                    }
-
-                    if (IsBlockStatement())
-                    {
-                        statements.Add(ParseStatement());
-                        SkipNewlines();
-
-                        // Continue parsing if we're still at the same block level
-                        // Don't break on DEDENT immediately after a nested block
-                        continue;
-                    }
-                    else if (ContinuationTokens.Contains(currentToken.Type))
-                    {
-                        break;
-                    }
-                    else
-                    {
-                        throw new PythonException("SyntaxError",
-                            $"Unexpected token in block: {currentToken.Type}",
-                            currentToken.Line, currentToken.Column);
-                    }
-                }
-
-                // Consume the DEDENT that ends this block
-                if (currentToken.Type == TokenType.DEDENT)
-                {
-                    Advance();
-                }
-            }
-            else
-            {
-                throw new PythonException("IndentationError",
-                    "expected an indented block",
-                    currentToken.Line, currentToken.Column);
-            }
-
-            return statements;
-        }
-
-        // Helper to handle block ending
-        private void HandleBlockEnd()
-        {
-
-        }
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool IsBlockStatement() => BlockStatementTokens.Contains(currentToken.Type);
 
@@ -1664,75 +1783,115 @@ namespace SharpPy
             Expect(TokenType.COLON);
             SkipNewlines();
 
+            // try 블록 파싱 - ParseBlock이 try 블록의 DEDENT를 소비
             var tryBody = ParseBlock();
 
             var exceptClauses = new List<(string, string, List<ASTNode>)>();
             List<ASTNode> elseBody = null;
             List<ASTNode> finallyBody = null;
 
-            // Clean up tokens after try block
-            while (currentToken.Type == TokenType.NEWLINE ||
-                currentToken.Type == TokenType.DEDENT ||
-                currentToken.Type == TokenType.INDENT)
-            {
-                Advance();
-            }
+            // CPython 방식: try 블록 후 NEWLINE만 건너뜀 (DEDENT는 이미 소비됨)
+            SkipNewlines();
 
+            // except 절들 처리
             while (currentToken.Type == TokenType.EXCEPT)
             {
-                Advance();
+                Advance(); // 'except' 키워드 소비
 
-                string exceptionType = null;
+                List<string> exceptionTypes = new List<string>();
                 string variable = null;
 
-                if (currentToken.Type == TokenType.IDENTIFIER)
+                // 괄호로 묶인 여러 예외 처리
+                if (currentToken.Type == TokenType.LPAREN)
                 {
-                    exceptionType = currentToken.Value;
                     Advance();
+                    SkipNewlinesAndIndents(); // 괄호 내부에서는 줄바꿈 허용
 
-                    if (currentToken.Type == TokenType.AS)
+                    do
                     {
-                        Advance();
-                        variable = currentToken.Value;
-                        Expect(TokenType.IDENTIFIER);
-                    }
+                        if (currentToken.Type == TokenType.IDENTIFIER)
+                        {
+                            exceptionTypes.Add(currentToken.Value);
+                            Advance();
+                            SkipNewlinesAndIndents();
+                        }
+
+                        if (currentToken.Type == TokenType.COMMA)
+                        {
+                            Advance();
+                            SkipNewlinesAndIndents();
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    } while (currentToken.Type == TokenType.IDENTIFIER);
+
+                    Expect(TokenType.RPAREN);
+                }
+                // 단일 예외 처리
+                else if (currentToken.Type == TokenType.IDENTIFIER)
+                {
+                    exceptionTypes.Add(currentToken.Value);
+                    Advance();
+                }
+                // bare except (예외 타입 없음)
+                else if (currentToken.Type == TokenType.COLON)
+                {
+                    // 예외 타입 없는 except 절
+                    exceptionTypes.Add(null);
+                }
+
+                // 'as' 절 처리
+                if (currentToken.Type == TokenType.AS)
+                {
+                    Advance();
+                    variable = currentToken.Value;
+                    Expect(TokenType.IDENTIFIER);
                 }
 
                 Expect(TokenType.COLON);
                 SkipNewlines();
 
+                // except 블록 파싱 - ParseBlock이 except 블록의 DEDENT를 소비
                 var exceptBody = ParseBlock();
+
+                // 여러 예외 타입을 하나의 문자열로 결합 (또는 null)
+                string exceptionType = exceptionTypes.Count > 0 && exceptionTypes[0] != null ?
+                    string.Join(",", exceptionTypes) : null;
+
                 exceptClauses.Add((exceptionType, variable, exceptBody));
 
-                while (currentToken.Type == TokenType.NEWLINE ||
-                    currentToken.Type == TokenType.DEDENT ||
-                    currentToken.Type == TokenType.INDENT)
-                {
-                    Advance();
-                }
+                // CPython 방식: except 블록 후 NEWLINE만 건너뜀
+                SkipNewlines();
             }
 
+            // else 절 처리 (선택적)
             if (currentToken.Type == TokenType.ELSE)
             {
                 Advance();
                 Expect(TokenType.COLON);
                 SkipNewlines();
+
+                // else 블록 파싱 - ParseBlock이 else 블록의 DEDENT를 소비
                 elseBody = ParseBlock();
 
-                while (currentToken.Type == TokenType.NEWLINE ||
-                    currentToken.Type == TokenType.DEDENT ||
-                    currentToken.Type == TokenType.INDENT)
-                {
-                    Advance();
-                }
+                // CPython 방식: else 블록 후 NEWLINE만 건너뜀
+                SkipNewlines();
             }
 
+            // finally 절 처리 (선택적)
             if (currentToken.Type == TokenType.FINALLY)
             {
                 Advance();
                 Expect(TokenType.COLON);
                 SkipNewlines();
+
+                // finally 블록 파싱 - ParseBlock이 finally 블록의 DEDENT를 소비
                 finallyBody = ParseBlock();
+
+                // CPython 방식: finally 블록 후 처리는 상위 컨텍스트에 맡김
+                // 추가 DEDENT를 소비하지 않음
             }
 
             return new TryNode(tryBody, exceptClauses, elseBody, finallyBody, line, column);
