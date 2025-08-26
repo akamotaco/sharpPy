@@ -63,7 +63,7 @@ public class PyBuiltinsModule : PyObject
         if (BuiltinDict.TryGetValue(name, out PyObject value))
             return value;
             
-        throw new AttributeError($"module 'builtins' has no attribute '{name}'");
+        throw PyAttributeError.Create($"module 'builtins' has no attribute '{name}'");
     }
     
     public override void SetAttribute(string name, PyObject value)
@@ -246,7 +246,7 @@ public class PyScope
             }
             if (verbose) Console.WriteLine($"  ❌ B에서 못 찾음");
 
-            throw new NameError($"name '{name}' is not defined");
+            throw PyNameError.Create($"name '{name}' is not defined");
         }
 
         public void AssignVariable(string name, PyObject value, HashSet<string> globalVars = null)

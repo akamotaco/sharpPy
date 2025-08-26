@@ -125,7 +125,7 @@ namespace SharpPy
                     var globalValue = frame.ScopeChain.GlobalScope.GetVariable(globalName) ?? 
                                     frame.ScopeChain.BuiltinModule.GetBuiltin(globalName);
                     if (globalValue == null)
-                        throw new NameError($"name '{globalName}' is not defined");
+                        throw PyNameError.Create($"name '{globalName}' is not defined");
                     frame.ValueStack.Push(globalValue);
                     break;
                     
@@ -219,14 +219,14 @@ namespace SharpPy
                     "-" => new PyInt(leftInt.Value - rightInt.Value),
                     "*" => new PyInt(leftInt.Value * rightInt.Value),
                     "/" => new PyInt(leftInt.Value / rightInt.Value),
-                    _ => throw new TypeError($"unsupported operator: {op}")
+                    _ => throw PyTypeError.Create($"unsupported operator: {op}")
                 };
                 
                 Console.WriteLine($"    → {left} {op} {right} = {result}");
                 return result;
             }
             
-            throw new TypeError($"unsupported operand type(s) for {op}: '{left.GetTypeName()}' and '{right.GetTypeName()}'");
+            throw PyTypeError.Create($"unsupported operand type(s) for {op}: '{left.GetTypeName()}' and '{right.GetTypeName()}'");
         }
     }
 

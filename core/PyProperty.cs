@@ -28,7 +28,7 @@ public interface IDescriptor
         public PyObject Get(PyObject instance, PyType owner)
         {
             if (_getter == null)
-                throw new AttributeError("unreadable attribute");
+                throw PyAttributeError.Create("unreadable attribute");
 
             if (instance == null)
                 return this; // 클래스에서 접근할 때는 property 객체 자체 반환
@@ -39,14 +39,14 @@ public interface IDescriptor
         public void Set(PyObject instance, PyObject value)
         {
             if (_setter == null)
-                throw new AttributeError("can't set attribute");
+                throw PyAttributeError.Create("can't set attribute");
             _setter.Call(instance, value);
         }
 
         public void Delete(PyObject instance)
         {
             if (_deleter == null)
-                throw new AttributeError("can't delete attribute");
+                throw PyAttributeError.Create("can't delete attribute");
             _deleter.Call(instance);
         }
 

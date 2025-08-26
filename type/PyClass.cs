@@ -1,19 +1,25 @@
 namespace SharpPy
 {
-    // 사용자 정의 클래스
+    #region User-Defined Classes
+
+    /// <summary>
+    /// 사용자 정의 클래스
+    /// </summary>
     public class PyClass : PyType
     {
         public Dictionary<string, PyObject> ClassDict { get; }
 
-        public PyClass(string name, PyType[] baseTypes) : base(name, baseTypes)
+        public PyClass(string name, PyType[] baseTypes, Dictionary<string, PyObject> classDict = null) 
+            : base(name, baseTypes)
         {
-            ClassDict = new Dictionary<string, PyObject>();
+            ClassDict = classDict ?? new Dictionary<string, PyObject>();
         }
 
         public PyClassInstance CreateInstance(params PyObject[] args)
         {
             var instance = new PyClassInstance(this);
 
+            // __init__ 호출 (있다면)
             // __init__ 호출
             if (HasMethod("__init__"))
             {
@@ -47,21 +53,28 @@ namespace SharpPy
         // 클래스 attribute 접근
         public override PyObject GetAttribute(string name)
         {
-            // Special attributes
-            if (name == "__name__") return new PyString(Name);
-            if (name == "__bases__") return new PyTuple(BaseTypes);
-            if (name == "__mro__") return new PyTuple(MRO.Cast<PyObject>().ToArray());
-            if (name == "__dict__") return new PyDict(ClassDict);
-            if (name == "__call__") return this; // 클래스 자체가 __call__ (인스턴스 생성)
-
-            if (ClassDict.TryGetValue(name, out PyObject value))
+            switch (name)
             {
-                if (value is IDescriptor desc)
-                    return desc.Get(null, this);
-                return value;
+                case "__name__":
+                    return new PyString(Name);
+                case "__bases__":
+                    return new PyTuple(BaseTypes);
+                case "__mro__":
+                    return new PyTuple(MRO.Cast<PyObject>().ToArray());
+                case "__dict__":
+                    return new PyDict(ClassDict);
+                case "__call__":
+                    return this; // 클래스 자체가 __call__
+                default:
+                    if (ClassDict.TryGetValue(name, out PyObject value))
+                    {
+                        // Descriptor 처리
+                        if (value is IDescriptor desc)
+                            return desc.Get(null, this);
+                        return value;
+                    }
+                    return base.GetAttribute(name);
             }
-
-            return base.GetAttribute(name);
         }
 
         public override void SetAttribute(string name, PyObject value)
@@ -70,7 +83,13 @@ namespace SharpPy
         }
     }
 
-    // 사용자 정의 클래스의 인스턴스
+    #endregion
+
+    #region Class Instances
+
+    /// <summary>
+    /// 사용자 정의 클래스의 인스턴스
+    /// </summary>
     public class PyClassInstance : PyObject
     {
         public PyClass InstanceType { get; }
@@ -111,11 +130,20 @@ namespace SharpPy
 
             return base.GetAttribute(name);
         }
+
+        public override string ToRepr()
+        {
+            return $"<{GetTypeName()} object at 0x{GetHashCode():x}>";
+        }
     }
+
+    #endregion
 
     #region Super Implementation
 
-    // Python의 super() 구현
+    /// <summary>
+    /// Python의 super() 구현
+    /// </summary>
     public class PySuper : PyObject
     {
         public PyType Type { get; }
@@ -140,6 +168,9 @@ namespace SharpPy
             }
         }
 
+        public override string GetTypeName() => "super";
+        public override string ToRepr() => $"<super: {Type.Name}, {Instance}>";
+
         public override PyObject GetAttribute(string name)
         {
             // super()의 MRO에서 메서드 찾기
@@ -156,12 +187,9 @@ namespace SharpPy
                 }
             }
 
-            throw new AttributeError($"'super' object has no attribute '{name}'");
+            throw PyAttributeError.Create($"'super' object has no attribute '{name}'");
         }
-
-        public override string GetTypeName() => "super";
-        public override string ToString() => $"<super: {Type.Name}, {Instance}>";
     }
 
-#endregion
+    #endregion
 }

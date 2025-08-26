@@ -20,7 +20,7 @@ namespace SharpPy
                 "len" => CallLen(args),
                 "abs" => CallAbs(args),
                 "callable" => CallCallable(args),
-                _ => throw new NotImplementedError($"Built-in function '{Name}' not implemented")
+                _ => throw PyNotImplementedError.Create($"Built-in function '{Name}' not implemented")
             };
         }
 
@@ -35,7 +35,7 @@ namespace SharpPy
         private PyObject CallLen(PyObject[] args)
         {
             if (args.Length != 1)
-                throw new TypeError($"len() takes exactly one argument ({args.Length} given)");
+                throw PyTypeError.Create($"len() takes exactly one argument ({args.Length} given)");
 
             // 간단한 구현
             if (args[0] is PyString str)
@@ -43,24 +43,24 @@ namespace SharpPy
             else if (args[0] is PyTuple tuple)
                 return new PyInt(tuple.Items.Length);
             else
-                throw new TypeError($"object of type '{args[0].GetTypeName()}' has no len()");
+                throw PyTypeError.Create($"object of type '{args[0].GetTypeName()}' has no len()");
         }
 
         private PyObject CallAbs(PyObject[] args)
         {
             if (args.Length != 1)
-                throw new TypeError($"abs() takes exactly one argument ({args.Length} given)");
+                throw PyTypeError.Create($"abs() takes exactly one argument ({args.Length} given)");
 
             if (args[0] is PyInt intVal)
                 return new PyInt(Math.Abs(intVal.Value));
             else
-                throw new TypeError($"bad operand type for abs(): '{args[0].GetTypeName()}'");
+                throw PyTypeError.Create($"bad operand type for abs(): '{args[0].GetTypeName()}'");
         }
 
         private PyObject CallCallable(PyObject[] args)
         {
             if (args.Length != 1)
-                throw new TypeError($"callable() takes exactly one argument ({args.Length} given)");
+                throw PyTypeError.Create($"callable() takes exactly one argument ({args.Length} given)");
 
             return PyBool.FromBool(args[0].IsCallable());
         }
@@ -74,7 +74,7 @@ namespace SharpPy
             {
                 "__name__" => new PyString(Name),
                 "__call__" => this,
-                _ => throw new AttributeError($"'builtin_function_or_method' object has no attribute '{name}'")
+                _ => throw PyAttributeError.Create($"'builtin_function_or_method' object has no attribute '{name}'")
             };
         }
 

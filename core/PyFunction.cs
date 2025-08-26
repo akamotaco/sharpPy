@@ -45,12 +45,12 @@ public class PyFunction : PyObject, IDescriptor
     
     public void Set(PyObject instance, PyObject value)
     {
-        throw new AttributeError("can't set function");
+        throw PyAttributeError.Create("can't set function");
     }
     
     public void Delete(PyObject instance)
     {
-        throw new AttributeError("can't delete function");
+        throw PyAttributeError.Create("can't delete function");
     }
     
     public bool IsDataDescriptor() => false; // function은 non-data descriptor
@@ -64,7 +64,7 @@ public class PyFunction : PyObject, IDescriptor
             "__module__" => DefiningModule != null ? new PyString(DefiningModule.Name) : new PyString("__main__"),
             "__doc__" => new PyString($"Function {Name}"),
             "__call__" => this, // 함수 자체가 __call__
-            _ => Attributes.TryGetValue(name, out PyObject value) ? value : throw new AttributeError($"'function' object has no attribute '{name}'")
+            _ => Attributes.TryGetValue(name, out PyObject value) ? value : throw PyAttributeError.Create($"'function' object has no attribute '{name}'")
         };
     }
     

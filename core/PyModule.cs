@@ -37,7 +37,7 @@ public class PyModule : PyObject
         if (ModuleDict.TryGetValue(name, out PyObject value))
             return value;
         
-        throw new AttributeError($"module '{Name}' has no attribute '{name}'");
+        throw PyAttributeError.Create($"module '{Name}' has no attribute '{name}'");
     }
     
     public override void SetAttribute(string name, PyObject value)
@@ -172,7 +172,7 @@ __all__ = ['VERSION', 'public_function']
             // 2. 모듈 파일 찾기
             if (!_moduleFiles.TryGetValue(moduleName, out string sourceCode))
             {
-                throw new ModuleNotFoundError($"No module named '{moduleName}'");
+                throw PyModuleNotFoundError.Create($"No module named '{moduleName}'");
             }
 
             // 3. 새로운 모듈 객체 생성
@@ -205,9 +205,10 @@ __all__ = ['VERSION', 'public_function']
                     var item = module.GetAttribute(itemName);
                     result[itemName] = item;
                 }
-                catch (AttributeError)
+                catch (PythonException pe)
                 {
-                    throw new ImportError($"cannot import name '{itemName}' from '{moduleName}'");
+                    var pae = (PyAttributeError)pe.PyException;
+                    throw PyImportError.Create($"cannot import name '{itemName}' from '{moduleName}'");
                 }
             }
 
