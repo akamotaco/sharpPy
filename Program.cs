@@ -28,6 +28,11 @@ namespace SharpPy
             Console.WriteLine("\n🔢 PyFloat 테스트:");
             SharpPy.Tests.PyFloatDemo.RunDemo();
 
+            // 새로운 Python 타입들 테스트
+            Console.WriteLine("\n🆕 새로운 Python 타입 테스트:");
+            Console.WriteLine("------------------------------");
+            SharpPy.Tests.NewTypesDemo.RunDemo();
+
             Console.WriteLine("\n✅ 모든 테스트 완료!");
         }
     }

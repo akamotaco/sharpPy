@@ -17,16 +17,23 @@ namespace SharpPy
         public static readonly PyType IntType = new PyType("int", new[] { ObjectType });
         public static readonly PyType FloatType = new PyType("float", new[] { ObjectType });
         public static readonly PyType BoolType = new PyType("bool", new[] { IntType });
+        public static readonly PyType ComplexType = new PyType("complex", new[] { ObjectType });
         
         // 컬렉션 타입들
         public static readonly PyType StrType = new PyType("str", new[] { ObjectType });
         public static readonly PyType ListType = new PyType("list", new[] { ObjectType });
         public static readonly PyType TupleType = new PyType("tuple", new[] { ObjectType });
         public static readonly PyType DictType = new PyType("dict", new[] { ObjectType });
+        public static readonly PyType SetType = new PyType("set", new[] { ObjectType });
+        public static readonly PyType FrozenSetType = new PyType("frozenset", new[] { ObjectType });
+        public static readonly PyType RangeType = new PyType("range", new[] { ObjectType });
+        public static readonly PyType SliceType = new PyType("slice", new[] { ObjectType });
         
         // 함수 타입들
         public static readonly PyType FunctionType = new PyType("function", new[] { ObjectType });
         public static readonly PyType MethodType = new PyType("method", new[] { ObjectType });
+        public static readonly PyType IteratorType = new PyType("iterator", new[] { ObjectType });
+        public static readonly PyType GeneratorType = new PyType("generator", new[] { IteratorType });
         
         // Descriptor 타입들 (데모에서 필요)
         public static readonly PyType PropertyType = new PyType("property", new[] { ObjectType });
@@ -66,6 +73,7 @@ namespace SharpPy
         public static readonly PyType IndentationErrorType = new PyType("IndentationError", new[] { SyntaxErrorType });
         
         public static readonly PyType StopIterationType = new PyType("StopIteration", new[] { ExceptionType });
+        public static readonly PyType GeneratorExitType = new PyType("GeneratorExit", new[] { BaseExceptionType });
 
         #endregion
 
