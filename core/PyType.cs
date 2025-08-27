@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace SharpPy
 {
     /// <summary>
@@ -219,7 +221,17 @@ namespace SharpPy
                 if (args[0] is PyString name && args[1] is PyTuple bases && args[2] is PyDict classDict)
                 {
                     var baseTypes = bases.Items.Cast<PyType>().ToArray();
-                    return new PyClass(name.Value, baseTypes, classDict.Items);
+                    // CPython 호환: PyDict의 PyObject 키를 string 키로 변환
+                    var stringDict = new Dictionary<string, PyObject>();
+                    foreach (var kv in classDict.InternalDict)
+                    {
+                        if (kv.Key is PyString keyStr)
+                        {
+                            stringDict[keyStr.Value] = kv.Value;
+                        }
+                        // 문자열이 아닌 키는 무시 (CPython과 동일한 동작)
+                    }
+                    return new PyClass(name.Value, baseTypes, stringDict);
                 }
                 throw PyTypeError.Create("type() arguments must be (name, bases, dict)");
             }

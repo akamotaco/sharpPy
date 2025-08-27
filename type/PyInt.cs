@@ -1,11 +1,395 @@
+using System;
+
 namespace SharpPy
 {
+    /// <summary>
+    /// Python int 타입 구현 - C# int를 기반으로 한 정수
+    /// </summary>
     public class PyInt : PyObject
     {
+        #region Core Properties
+
         public int Value { get; }
+
         public PyInt(int value) => Value = value;
+
         public override PyType GetPyType() => PyType.IntType;
         public override string GetTypeName() => "int";
-        public override string ToString() => Value.ToString();
+
+        #endregion
+
+        #region String Representation
+
+        public override string ToStr() => Value.ToString();
+        public override string ToRepr() => Value.ToString();
+
+        #endregion
+
+        #region Hash and Equality
+
+        public override int ToHash() => Value.GetHashCode();
+
+        protected override PyObject PyEquals(PyObject other)
+        {
+            return other switch
+            {
+                PyInt otherInt => PyBool.FromBool(Value == otherInt.Value),
+                PyFloat otherFloat => PyBool.FromBool(Value == otherFloat.Value),
+                PyBool otherBool => PyBool.FromBool(Value == (otherBool.Value ? 1 : 0)),
+                _ => PyBool.False
+            };
+        }
+
+        #endregion
+
+        #region Comparison Operations
+
+        protected override PyObject PyLess(PyObject other)
+        {
+            return other switch
+            {
+                PyInt otherInt => PyBool.FromBool(Value < otherInt.Value),
+                PyFloat otherFloat => PyBool.FromBool(Value < otherFloat.Value),
+                PyBool otherBool => PyBool.FromBool(Value < (otherBool.Value ? 1 : 0)),
+                _ => throw PyTypeError.Create($"'<' not supported between instances of 'int' and '{other.GetTypeName()}'")
+            };
+        }
+
+        protected override PyObject PyLessEqual(PyObject other)
+        {
+            return other switch
+            {
+                PyInt otherInt => PyBool.FromBool(Value <= otherInt.Value),
+                PyFloat otherFloat => PyBool.FromBool(Value <= otherFloat.Value),
+                PyBool otherBool => PyBool.FromBool(Value <= (otherBool.Value ? 1 : 0)),
+                _ => throw PyTypeError.Create($"'<=' not supported between instances of 'int' and '{other.GetTypeName()}'")
+            };
+        }
+
+        protected override PyObject PyGreater(PyObject other)
+        {
+            return other switch
+            {
+                PyInt otherInt => PyBool.FromBool(Value > otherInt.Value),
+                PyFloat otherFloat => PyBool.FromBool(Value > otherFloat.Value),
+                PyBool otherBool => PyBool.FromBool(Value > (otherBool.Value ? 1 : 0)),
+                _ => throw PyTypeError.Create($"'>' not supported between instances of 'int' and '{other.GetTypeName()}'")
+            };
+        }
+
+        protected override PyObject PyGreaterEqual(PyObject other)
+        {
+            return other switch
+            {
+                PyInt otherInt => PyBool.FromBool(Value >= otherInt.Value),
+                PyFloat otherFloat => PyBool.FromBool(Value >= otherFloat.Value),
+                PyBool otherBool => PyBool.FromBool(Value >= (otherBool.Value ? 1 : 0)),
+                _ => throw PyTypeError.Create($"'>=' not supported between instances of 'int' and '{other.GetTypeName()}'")
+            };
+        }
+
+        #endregion
+
+        #region Arithmetic Operations
+
+        public PyObject Add(PyObject other)
+        {
+            return other switch
+            {
+                PyInt otherInt => new PyInt(Value + otherInt.Value),
+                PyFloat otherFloat => new PyFloat(Value + otherFloat.Value),
+                PyBool otherBool => new PyInt(Value + (otherBool.Value ? 1 : 0)),
+                _ => PyNotImplemented.Instance
+            };
+        }
+
+        public PyObject Subtract(PyObject other)
+        {
+            return other switch
+            {
+                PyInt otherInt => new PyInt(Value - otherInt.Value),
+                PyFloat otherFloat => new PyFloat(Value - otherFloat.Value),
+                PyBool otherBool => new PyInt(Value - (otherBool.Value ? 1 : 0)),
+                _ => PyNotImplemented.Instance
+            };
+        }
+
+        public PyObject Multiply(PyObject other)
+        {
+            return other switch
+            {
+                PyInt otherInt => new PyInt(Value * otherInt.Value),
+                PyFloat otherFloat => new PyFloat(Value * otherFloat.Value),
+                PyBool otherBool => new PyInt(Value * (otherBool.Value ? 1 : 0)),
+                _ => PyNotImplemented.Instance
+            };
+        }
+
+        public PyObject TrueDivide(PyObject other)
+        {
+            double otherValue;
+            if (other is PyInt otherInt)
+                otherValue = (double)otherInt.Value;
+            else if (other is PyFloat otherFloat)
+                otherValue = otherFloat.Value;
+            else if (other is PyBool otherBool)
+                otherValue = otherBool.Value ? 1.0 : 0.0;
+            else
+                throw PyTypeError.Create($"unsupported operand type(s) for /: 'int' and '{other.GetTypeName()}'");
+
+            if (otherValue == 0.0)
+                throw PyZeroDivisionError.Create("division by zero");
+
+            return new PyFloat(Value / otherValue);
+        }
+
+        public PyObject FloorDivide(PyObject other)
+        {
+            if (other is PyInt otherInt)
+            {
+                if (otherInt.Value == 0)
+                    throw PyZeroDivisionError.Create("integer division or modulo by zero");
+                return new PyInt(Value / otherInt.Value);
+            }
+            if (other is PyFloat otherFloat)
+            {
+                if (otherFloat.Value == 0.0)
+                    throw PyZeroDivisionError.Create("integer division or modulo by zero");
+                return new PyFloat(Math.Floor(Value / otherFloat.Value));
+            }
+            if (other is PyBool otherBool)
+            {
+                if (!otherBool.Value)
+                    throw PyZeroDivisionError.Create("integer division or modulo by zero");
+                return new PyInt(Value);
+            }
+            throw PyTypeError.Create($"unsupported operand type(s) for //: 'int' and '{other.GetTypeName()}'");
+        }
+
+        public PyObject Modulo(PyObject other)
+        {
+            if (other is PyInt otherInt)
+            {
+                if (otherInt.Value == 0)
+                    throw PyZeroDivisionError.Create("integer division or modulo by zero");
+                return new PyInt(Value % otherInt.Value);
+            }
+            if (other is PyFloat otherFloat)
+            {
+                if (otherFloat.Value == 0.0)
+                    throw PyZeroDivisionError.Create("float modulo");
+                return new PyFloat(Value % otherFloat.Value);
+            }
+            if (other is PyBool otherBool)
+            {
+                if (!otherBool.Value)
+                    throw PyZeroDivisionError.Create("integer division or modulo by zero");
+                return new PyInt(0);
+            }
+            throw PyTypeError.Create($"unsupported operand type(s) for %: 'int' and '{other.GetTypeName()}'");
+        }
+
+        public PyObject Power(PyObject other)
+        {
+            int otherValue;
+            if (other is PyInt otherInt)
+                otherValue = otherInt.Value;
+            else if (other is PyBool otherBool)
+                otherValue = otherBool.Value ? 1 : 0;
+            else
+                throw PyTypeError.Create($"unsupported operand type(s) for ** or pow(): 'int' and '{other.GetTypeName()}'");
+
+            if (otherValue < 0)
+            {
+                // 음수 거듭제곱은 float 결과
+                return new PyFloat(Math.Pow(Value, otherValue));
+            }
+
+            var intResult = (long)Math.Pow(Value, otherValue);
+            if (intResult > int.MaxValue)
+                return new PyFloat(intResult);
+            
+            return new PyInt((int)intResult);
+        }
+
+        #endregion
+
+        #region Bitwise Operations
+
+        public PyObject BitwiseAnd(PyObject other)
+        {
+            if (other is PyInt otherInt)
+                return new PyInt(Value & otherInt.Value);
+            if (other is PyBool otherBool)
+                return new PyInt(Value & (otherBool.Value ? 1 : 0));
+            throw PyTypeError.Create($"unsupported operand type(s) for &: 'int' and '{other.GetTypeName()}'");
+        }
+
+        public PyObject BitwiseOr(PyObject other)
+        {
+            if (other is PyInt otherInt)
+                return new PyInt(Value | otherInt.Value);
+            if (other is PyBool otherBool)
+                return new PyInt(Value | (otherBool.Value ? 1 : 0));
+            throw PyTypeError.Create($"unsupported operand type(s) for |: 'int' and '{other.GetTypeName()}'");
+        }
+
+        public PyObject BitwiseXor(PyObject other)
+        {
+            if (other is PyInt otherInt)
+                return new PyInt(Value ^ otherInt.Value);
+            if (other is PyBool otherBool)
+                return new PyInt(Value ^ (otherBool.Value ? 1 : 0));
+            throw PyTypeError.Create($"unsupported operand type(s) for ^: 'int' and '{other.GetTypeName()}'");
+        }
+
+        public PyObject LeftShift(PyObject other)
+        {
+            if (!(other is PyInt otherInt))
+                throw PyTypeError.Create($"unsupported operand type(s) for <<: 'int' and '{other.GetTypeName()}'");
+            
+            if (otherInt.Value < 0)
+                throw PyValueError.Create("negative shift count");
+            
+            return new PyInt(Value << otherInt.Value);
+        }
+
+        public PyObject RightShift(PyObject other)
+        {
+            if (!(other is PyInt otherInt))
+                throw PyTypeError.Create($"unsupported operand type(s) for >>: 'int' and '{other.GetTypeName()}'");
+            
+            if (otherInt.Value < 0)
+                throw PyValueError.Create("negative shift count");
+            
+            return new PyInt(Value >> otherInt.Value);
+        }
+
+        #endregion
+
+        #region Unary Operations
+
+        public PyObject Negative() => new PyInt(-Value);
+        public PyObject Positive() => this;
+        public PyObject Absolute() => new PyInt(Math.Abs(Value));
+        public PyObject Invert() => new PyInt(~Value);
+
+        #endregion
+
+        #region Type Conversion
+
+        public override int ToInt() => Value;
+        public override double ToFloat() => Value;
+        public override bool PyBoolValue() => Value != 0;
+
+        #endregion
+
+        #region Number Base Methods
+
+        public PyString Bin() => new PyString("0b" + Convert.ToString(Value, 2));
+        public PyString Oct() => new PyString("0o" + Convert.ToString(Value, 8));
+        public PyString Hex() => new PyString("0x" + Convert.ToString(Value, 16));
+
+        #endregion
+
+        #region Bit Manipulation
+
+        /// <summary>
+        /// int.bit_length() - 이진 표현에서 부호 비트를 제외한 비트 수
+        /// </summary>
+        public PyInt BitLength()
+        {
+            if (Value == 0) return new PyInt(0);
+            var abs = Math.Abs(Value);
+            return new PyInt((int)Math.Floor(Math.Log(abs, 2)) + 1);
+        }
+
+        /// <summary>
+        /// int.bit_count() - 1인 비트의 개수
+        /// </summary>
+        public PyInt BitCount()
+        {
+            var count = 0;
+            var n = Math.Abs(Value);
+            while (n > 0)
+            {
+                count += n & 1;
+                n >>= 1;
+            }
+            return new PyInt(count);
+        }
+
+        #endregion
+
+        #region Static Factory Methods
+
+        public static PyInt FromString(string s, int baseValue = 10)
+        {
+            try
+            {
+                s = s.Trim();
+                
+                // 진법 접두사 처리
+                if (baseValue == 0)
+                {
+                    if (s.StartsWith("0x") || s.StartsWith("0X"))
+                    {
+                        baseValue = 16;
+                        s = s.Substring(2);
+                    }
+                    else if (s.StartsWith("0b") || s.StartsWith("0B"))
+                    {
+                        baseValue = 2;
+                        s = s.Substring(2);
+                    }
+                    else if (s.StartsWith("0o") || s.StartsWith("0O"))
+                    {
+                        baseValue = 8;
+                        s = s.Substring(2);
+                    }
+                    else
+                    {
+                        baseValue = 10;
+                    }
+                }
+
+                var result = Convert.ToInt32(s, baseValue);
+                return new PyInt(result);
+            }
+            catch (Exception)
+            {
+                throw PyValueError.Create($"invalid literal for int() with base {baseValue}: '{s}'");
+            }
+        }
+
+        public static PyInt FromNumber(PyObject obj)
+        {
+            if (obj is PyInt pyInt)
+                return pyInt;
+            if (obj is PyFloat pyFloat)
+                return new PyInt((int)Math.Truncate(pyFloat.Value));
+            if (obj is PyBool pyBool)
+                return new PyInt(pyBool.Value ? 1 : 0);
+            throw PyTypeError.Create($"int() argument must be a string, a bytes-like object or a number, not '{obj.GetTypeName()}'");
+        }
+
+        #endregion
+
+        #region Constants
+
+        public static readonly PyInt Zero = new PyInt(0);
+        public static readonly PyInt One = new PyInt(1);
+        public static readonly PyInt MinusOne = new PyInt(-1);
+
+        #endregion
+
+        #region Evaluate Method (NotImplementedException)
+
+        public PyObject Evaluate(PyScope scope)
+        {
+            throw new NotImplementedException("PyInt.Evaluate() - 나중에 구현예정");
+        }
+
+        #endregion
     }
 }
