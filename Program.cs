@@ -8,6 +8,8 @@ namespace SharpPy
 
             Demo.CompletePythonSystemDemo.Demo();
             Demo.VMIntegrationDemo.Demo();
+            var test = new SharpPy.Verification.Python312SyntaxVerification();
+            test.VerifyAllSyntax();
 
             return;
         }
