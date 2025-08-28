@@ -122,7 +122,7 @@ namespace SharpPy
 
         #region Arithmetic Operations
 
-        public PyObject Add(PyObject other)
+        public override PyObject Add(PyObject other)
         {
             return other switch
             {
@@ -133,7 +133,7 @@ namespace SharpPy
             };
         }
 
-        public PyObject Subtract(PyObject other)
+        public override PyObject Subtract(PyObject other)
         {
             return other switch
             {
@@ -144,7 +144,7 @@ namespace SharpPy
             };
         }
 
-        public PyObject Multiply(PyObject other)
+        public override PyObject Multiply(PyObject other)
         {
             return other switch
             {
@@ -155,7 +155,7 @@ namespace SharpPy
             };
         }
 
-        public PyObject TrueDivide(PyObject other)
+        public override PyObject Divide(PyObject other)
         {
             var otherValue = other switch
             {
@@ -171,7 +171,7 @@ namespace SharpPy
             return new PyFloat(Value / otherValue);
         }
 
-        public PyObject FloorDivide(PyObject other)
+        public override PyObject FloorDivide(PyObject other)
         {
             var otherValue = other switch
             {
@@ -203,10 +203,8 @@ namespace SharpPy
             return new PyFloat(Value % otherValue);
         }
 
-        public PyObject Power(PyObject other, PyObject modulus = null)
+        public override PyObject Power(PyObject other)
         {
-            if (modulus != null)
-                throw PyTypeError.Create("pow() 3rd argument not allowed unless all arguments are integers");
 
             var otherValue = other switch
             {
@@ -232,12 +230,12 @@ namespace SharpPy
 
         #region Unary Operations
 
-        public PyObject Negative()
+        public override PyObject Negative()
         {
             return new PyFloat(-Value);
         }
 
-        public PyObject Positive()
+        public override PyObject Positive()
         {
             return this; // +x는 x와 같음
         }

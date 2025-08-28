@@ -98,7 +98,7 @@ namespace SharpPy
 
         #region Arithmetic Operations (bool은 int의 서브클래스처럼 동작)
 
-        public PyObject Add(PyObject other)
+        public override PyObject Add(PyObject other)
         {
             int boolAsInt = Value ? 1 : 0;
             return other switch
@@ -110,7 +110,7 @@ namespace SharpPy
             };
         }
 
-        public PyObject Subtract(PyObject other)
+        public override PyObject Subtract(PyObject other)
         {
             int boolAsInt = Value ? 1 : 0;
             return other switch
@@ -122,7 +122,7 @@ namespace SharpPy
             };
         }
 
-        public PyObject Multiply(PyObject other)
+        public override PyObject Multiply(PyObject other)
         {
             int boolAsInt = Value ? 1 : 0;
             return other switch
@@ -134,7 +134,7 @@ namespace SharpPy
             };
         }
 
-        public PyObject TrueDivide(PyObject other)
+        public override PyObject Divide(PyObject other)
         {
             double boolAsDouble = Value ? 1.0 : 0.0;
             
@@ -152,7 +152,7 @@ namespace SharpPy
             return new PyFloat(boolAsDouble / otherValue);
         }
 
-        public PyObject FloorDivide(PyObject other)
+        public override PyObject FloorDivide(PyObject other)
         {
             int boolAsInt = Value ? 1 : 0;
             
@@ -208,7 +208,7 @@ namespace SharpPy
             throw PyTypeError.Create($"unsupported operand type(s) for %: 'bool' and '{other.GetTypeName()}'");
         }
 
-        public PyObject Power(PyObject other)
+        public override PyObject Power(PyObject other)
         {
             int boolAsInt = Value ? 1 : 0;
             

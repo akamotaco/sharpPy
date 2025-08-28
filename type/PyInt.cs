@@ -92,7 +92,7 @@ namespace SharpPy
 
         #region Arithmetic Operations
 
-        public PyObject Add(PyObject other)
+        public override PyObject Add(PyObject other)
         {
             return other switch
             {
@@ -103,7 +103,7 @@ namespace SharpPy
             };
         }
 
-        public PyObject Subtract(PyObject other)
+        public override PyObject Subtract(PyObject other)
         {
             return other switch
             {
@@ -114,7 +114,7 @@ namespace SharpPy
             };
         }
 
-        public PyObject Multiply(PyObject other)
+        public override PyObject Multiply(PyObject other)
         {
             return other switch
             {
@@ -125,7 +125,7 @@ namespace SharpPy
             };
         }
 
-        public PyObject TrueDivide(PyObject other)
+        public override PyObject Divide(PyObject other)
         {
             double otherValue;
             if (other is PyInt otherInt)
@@ -143,7 +143,7 @@ namespace SharpPy
             return new PyFloat(Value / otherValue);
         }
 
-        public PyObject FloorDivide(PyObject other)
+        public override PyObject FloorDivide(PyObject other)
         {
             if (other is PyInt otherInt)
             {
@@ -166,7 +166,7 @@ namespace SharpPy
             throw PyTypeError.Create($"unsupported operand type(s) for //: 'int' and '{other.GetTypeName()}'");
         }
 
-        public PyObject Modulo(PyObject other)
+        public override PyObject Modulo(PyObject other)
         {
             if (other is PyInt otherInt)
             {
@@ -189,7 +189,7 @@ namespace SharpPy
             throw PyTypeError.Create($"unsupported operand type(s) for %: 'int' and '{other.GetTypeName()}'");
         }
 
-        public PyObject Power(PyObject other)
+        public override PyObject Power(PyObject other)
         {
             int otherValue;
             if (other is PyInt otherInt)
@@ -216,7 +216,7 @@ namespace SharpPy
 
         #region Bitwise Operations
 
-        public PyObject BitwiseAnd(PyObject other)
+        public override PyObject BitwiseAnd(PyObject other)
         {
             if (other is PyInt otherInt)
                 return new PyInt(Value & otherInt.Value);
@@ -225,7 +225,7 @@ namespace SharpPy
             throw PyTypeError.Create($"unsupported operand type(s) for &: 'int' and '{other.GetTypeName()}'");
         }
 
-        public PyObject BitwiseOr(PyObject other)
+        public override PyObject BitwiseOr(PyObject other)
         {
             if (other is PyInt otherInt)
                 return new PyInt(Value | otherInt.Value);
@@ -234,7 +234,7 @@ namespace SharpPy
             throw PyTypeError.Create($"unsupported operand type(s) for |: 'int' and '{other.GetTypeName()}'");
         }
 
-        public PyObject BitwiseXor(PyObject other)
+        public override PyObject BitwiseXor(PyObject other)
         {
             if (other is PyInt otherInt)
                 return new PyInt(Value ^ otherInt.Value);
@@ -243,7 +243,7 @@ namespace SharpPy
             throw PyTypeError.Create($"unsupported operand type(s) for ^: 'int' and '{other.GetTypeName()}'");
         }
 
-        public PyObject LeftShift(PyObject other)
+        public override PyObject LeftShift(PyObject other)
         {
             if (!(other is PyInt otherInt))
                 throw PyTypeError.Create($"unsupported operand type(s) for <<: 'int' and '{other.GetTypeName()}'");
@@ -254,7 +254,7 @@ namespace SharpPy
             return new PyInt(Value << otherInt.Value);
         }
 
-        public PyObject RightShift(PyObject other)
+        public override PyObject RightShift(PyObject other)
         {
             if (!(other is PyInt otherInt))
                 throw PyTypeError.Create($"unsupported operand type(s) for >>: 'int' and '{other.GetTypeName()}'");
@@ -269,10 +269,10 @@ namespace SharpPy
 
         #region Unary Operations
 
-        public PyObject Negative() => new PyInt(-Value);
-        public PyObject Positive() => this;
+        public override PyObject Negative() => new PyInt(-Value);
+        public override PyObject Positive() => this;
         public PyObject Absolute() => new PyInt(Math.Abs(Value));
-        public PyObject Invert() => new PyInt(~Value);
+        public override PyObject BitwiseNot() => new PyInt(~Value);
 
         #endregion
 

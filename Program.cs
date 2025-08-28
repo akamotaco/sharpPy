@@ -33,6 +33,27 @@ namespace SharpPy
             Console.WriteLine("------------------------------");
             SharpPy.Tests.NewTypesDemo.RunDemo();
 
+            // Python 파이프라인 통합 테스트 (삭제됨)
+            // Console.WriteLine("\n🔄 Python 파이프라인 통합 테스트:");
+            // Console.WriteLine("=================================");
+            // SharpPy.Tests.PipelineDemo.RunDemo();
+
+            // Python 3.12 호환성 분석
+            Console.WriteLine("\n🔍 Python 3.12 호환성 분석:");
+            Console.WriteLine("===============================");
+
+            // 기본 파서 디버깅
+            Console.WriteLine("\n🔧 기본 파서 디버깅:");
+            Console.WriteLine("====================");
+            ParserDebug.TestBasicParsing();
+            
+
+            // 컴프리헨션 파싱 테스트
+            Console.WriteLine("\n🧪 컴프리헨션 파싱 테스트:");
+            Console.WriteLine("==========================");
+            ComprehensionParsingTest.TestComprehensionParsing();
+            ComprehensionParsingTest.TestFileBasedParsing();
+
             Console.WriteLine("\n✅ 모든 테스트 완료!");
         }
     }

@@ -322,6 +322,138 @@ namespace SharpPy
 
         #endregion
 
+        #region Arithmetic Operations
+
+        /// <summary>
+        /// 더하기 연산 (__add__)
+        /// </summary>
+        public virtual PyObject Add(PyObject other)
+        {
+            throw PyTypeError.Create($"unsupported operand type(s) for +: '{GetTypeName()}' and '{other.GetTypeName()}'");
+        }
+
+        /// <summary>
+        /// 빼기 연산 (__sub__)
+        /// </summary>
+        public virtual PyObject Subtract(PyObject other)
+        {
+            throw PyTypeError.Create($"unsupported operand type(s) for -: '{GetTypeName()}' and '{other.GetTypeName()}'");
+        }
+
+        /// <summary>
+        /// 곱하기 연산 (__mul__)
+        /// </summary>
+        public virtual PyObject Multiply(PyObject other)
+        {
+            throw PyTypeError.Create($"unsupported operand type(s) for *: '{GetTypeName()}' and '{other.GetTypeName()}'");
+        }
+
+        /// <summary>
+        /// 나누기 연산 (__truediv__)
+        /// </summary>
+        public virtual PyObject Divide(PyObject other)
+        {
+            throw PyTypeError.Create($"unsupported operand type(s) for /: '{GetTypeName()}' and '{other.GetTypeName()}'");
+        }
+
+        /// <summary>
+        /// 정수 나누기 연산 (__floordiv__)
+        /// </summary>
+        public virtual PyObject FloorDivide(PyObject other)
+        {
+            throw PyTypeError.Create($"unsupported operand type(s) for //: '{GetTypeName()}' and '{other.GetTypeName()}'");
+        }
+
+        /// <summary>
+        /// 나머지 연산 (__mod__)
+        /// </summary>
+        public virtual PyObject Modulo(PyObject other)
+        {
+            throw PyTypeError.Create($"unsupported operand type(s) for %: '{GetTypeName()}' and '{other.GetTypeName()}'");
+        }
+
+        /// <summary>
+        /// 거듭제곱 연산 (__pow__)
+        /// </summary>
+        public virtual PyObject Power(PyObject other)
+        {
+            throw PyTypeError.Create($"unsupported operand type(s) for ** or pow(): '{GetTypeName()}' and '{other.GetTypeName()}'");
+        }
+
+        /// <summary>
+        /// 비트 AND 연산 (__and__)
+        /// </summary>
+        public virtual PyObject BitwiseAnd(PyObject other)
+        {
+            throw PyTypeError.Create($"unsupported operand type(s) for &: '{GetTypeName()}' and '{other.GetTypeName()}'");
+        }
+
+        /// <summary>
+        /// 비트 OR 연산 (__or__)
+        /// </summary>
+        public virtual PyObject BitwiseOr(PyObject other)
+        {
+            throw PyTypeError.Create($"unsupported operand type(s) for |: '{GetTypeName()}' and '{other.GetTypeName()}'");
+        }
+
+        /// <summary>
+        /// 비트 XOR 연산 (__xor__)
+        /// </summary>
+        public virtual PyObject BitwiseXor(PyObject other)
+        {
+            throw PyTypeError.Create($"unsupported operand type(s) for ^: '{GetTypeName()}' and '{other.GetTypeName()}'");
+        }
+
+        /// <summary>
+        /// 왼쪽 시프트 연산 (__lshift__)
+        /// </summary>
+        public virtual PyObject LeftShift(PyObject other)
+        {
+            throw PyTypeError.Create($"unsupported operand type(s) for <<: '{GetTypeName()}' and '{other.GetTypeName()}'");
+        }
+
+        /// <summary>
+        /// 오른쪽 시프트 연산 (__rshift__)
+        /// </summary>
+        public virtual PyObject RightShift(PyObject other)
+        {
+            throw PyTypeError.Create($"unsupported operand type(s) for >>: '{GetTypeName()}' and '{other.GetTypeName()}'");
+        }
+
+        /// <summary>
+        /// 단항 플러스 연산 (__pos__)
+        /// </summary>
+        public virtual PyObject Positive()
+        {
+            throw PyTypeError.Create($"bad operand type for unary +: '{GetTypeName()}'");
+        }
+
+        /// <summary>
+        /// 단항 마이너스 연산 (__neg__)
+        /// </summary>
+        public virtual PyObject Negative()
+        {
+            throw PyTypeError.Create($"bad operand type for unary -: '{GetTypeName()}'");
+        }
+
+        /// <summary>
+        /// 비트 NOT 연산 (__invert__)
+        /// </summary>
+        public virtual PyObject BitwiseNot()
+        {
+            throw PyTypeError.Create($"bad operand type for unary ~: '{GetTypeName()}'");
+        }
+
+        /// <summary>
+        /// 논리 NOT 연산
+        /// </summary>
+        public virtual PyBool Not()
+        {
+            return PyBool.FromBool(!PyBoolValue());
+        }
+
+        #endregion
+
         #region Type Checking
 
         public bool IsInstance<T>() where T : PyObject => this is T;

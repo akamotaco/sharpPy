@@ -24,7 +24,7 @@ namespace SharpPy
         BINARY_ADD = 20,      // 이항 덧셈
         BINARY_SUBTRACT = 21, // 이항 뺄셈
         BINARY_MULTIPLY = 22, // 이항 곱셈
-        BINARY_TRUE_DIVIDE = 23, // 이항 나눗셈 (/)
+        BINARY_DIVIDE = 23, // 이항 나눗셈 (/)
         BINARY_FLOOR_DIVIDE = 24, // 바닥 나눗셈 (//)
         BINARY_MODULO = 25,   // 모듈로 연산 (%)
         BINARY_POWER = 26,    // 거듭제곱 (**)
@@ -48,7 +48,7 @@ namespace SharpPy
         INPLACE_ADD = 50,     // +=
         INPLACE_SUBTRACT = 51, // -=
         INPLACE_MULTIPLY = 52, // *=
-        INPLACE_TRUE_DIVIDE = 53, // /=
+        INPLACE_DIVIDE = 53, // /=
         INPLACE_FLOOR_DIVIDE = 54, // //=
         INPLACE_MODULO = 55,  // %=
         INPLACE_POWER = 56,   // **=

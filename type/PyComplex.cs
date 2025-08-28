@@ -107,7 +107,7 @@ namespace SharpPy
 
         #region Arithmetic Operations
 
-        public PyObject Add(PyObject other)
+        public override PyObject Add(PyObject other)
         {
             return other switch
             {
@@ -124,7 +124,7 @@ namespace SharpPy
             };
         }
 
-        public PyObject Subtract(PyObject other)
+        public override PyObject Subtract(PyObject other)
         {
             return other switch
             {
@@ -141,7 +141,7 @@ namespace SharpPy
             };
         }
 
-        public PyObject Multiply(PyObject other)
+        public override PyObject Multiply(PyObject other)
         {
             return other switch
             {
@@ -157,7 +157,7 @@ namespace SharpPy
             };
         }
 
-        public PyObject TrueDivide(PyObject other)
+        public override PyObject Divide(PyObject other)
         {
             return other switch
             {
@@ -189,7 +189,7 @@ namespace SharpPy
 
         private bool CheckZeroDivision(double value) => value != 0.0;
 
-        public PyObject Power(PyObject other)
+        public override PyObject Power(PyObject other)
         {
             return other switch
             {

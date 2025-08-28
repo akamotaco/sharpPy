@@ -189,6 +189,42 @@ namespace SharpPy
 
         #endregion
 
+        #region Set Arithmetic Operations (Python operators)
+
+        /// <summary>
+        /// 합집합 연산 (| 연산자)
+        /// </summary>
+        public override PyObject BitwiseOr(PyObject other)
+        {
+            return Union(other);
+        }
+
+        /// <summary>
+        /// 교집합 연산 (& 연산자)
+        /// </summary>
+        public override PyObject BitwiseAnd(PyObject other)
+        {
+            return Intersection(other);
+        }
+
+        /// <summary>
+        /// 차집합 연산 (- 연산자)
+        /// </summary>
+        public override PyObject Subtract(PyObject other)
+        {
+            return Difference(other);
+        }
+
+        /// <summary>
+        /// 대칭 차집합 연산 (^ 연산자)
+        /// </summary>
+        public override PyObject BitwiseXor(PyObject other)
+        {
+            return SymmetricDifference(other);
+        }
+
+        #endregion
+
         #region Set Comparison Operations
 
         /// <summary>

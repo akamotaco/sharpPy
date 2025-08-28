@@ -1,21 +1,51 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
 namespace SharpPy
 {
-    #region AST Extension (기존 시스템과 연동)
+    /// <summary>
+    /// Return 문과 yield 문을 위한 예외 클래스
+    /// </summary>
+    public class PyReturnException : Exception
+    {
+        public PyObject Value { get; }
+        public PyReturnException(PyObject value) { Value = value; }
+    }
+    
+    public class PyYieldException : Exception
+    {
+        public PyObject Value { get; }
+        public PyYieldException(PyObject value) { Value = value; }
+    }
+    
+    public class PyBreakException : Exception { }
+    public class PyContinueException : Exception { }
+}
 
-    // AST 노드의 베이스 클래스
+namespace SharpPy
+{
+    #region AST Extension (Pipeline: AST Nodes)
+
+    /// <summary>
+    /// AST 노드의 베이스 클래스
+    /// </summary>
     public abstract class ASTNode
     {
         public abstract string NodeType { get; }
         public override string ToString() => NodeType;
         
-        // Evaluate 메서드 - 나중에 구현
-        public virtual PyObject Evaluate(PyScope scope)
-        {
-            throw new NotImplementedException($"{GetType().Name}.Evaluate() - 나중에 구현예정");
-        }
+        /// <summary>
+        /// Evaluate 메서드 - 각 노드별 구현으로 위임
+        /// </summary>
+        public abstract PyObject Evaluate(PyScope scope);
     }
 
-    // 문장 노드들
+    #region Statement Nodes
+
+    /// <summary>
+    /// 문장 노드들의 베이스 클래스
+    /// </summary>
     public abstract class Statement : ASTNode { }
 
     public class AssignStatement : Statement
@@ -30,7 +60,77 @@ namespace SharpPy
             Value = value;
         }
         
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var value = Value.Evaluate(scope);
+            scope.SetVariable(VariableName, value);
+            return value;
+        }
+        
         public override string ToString() => $"{VariableName} = {Value}";
+    }
+
+    public class AugAssignStatement : Statement
+    {
+        public override string NodeType => "AugAssign";
+        public string Target { get; }
+        public string Op { get; }
+        public Expression Value { get; }
+        
+        public AugAssignStatement(string target, string op, Expression value)
+        {
+            Target = target;
+            Op = op;
+            Value = value;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var currentValue = scope.GetVariable(Target);
+            var rightValue = Value.Evaluate(scope);
+            
+            PyObject result = Op switch
+            {
+                "+="  => currentValue.Add(rightValue),
+                "-="  => currentValue.Subtract(rightValue),
+                "*="  => currentValue.Multiply(rightValue),
+                "/="  => currentValue.Divide(rightValue),
+                "//=" => currentValue.FloorDivide(rightValue),
+                "%="  => currentValue.Modulo(rightValue),
+                "**=" => currentValue.Power(rightValue),
+                "&="  => currentValue.BitwiseAnd(rightValue),
+                "|="  => currentValue.BitwiseOr(rightValue),
+                "^="  => currentValue.BitwiseXor(rightValue),
+                "<<=" => currentValue.LeftShift(rightValue),
+                ">>=" => currentValue.RightShift(rightValue),
+                _ => throw new NotImplementedException($"Augmented assignment operator {Op} not implemented")
+            };
+            
+            scope.SetVariable(Target, result);
+            return result;
+        }
+        
+        public override string ToString() => $"{Target} {Op} {Value}";
+    }
+
+    public class WalrusStatement : Statement
+    {
+        public override string NodeType => "NamedExpr";
+        public string Target { get; }
+        public Expression Value { get; }
+        
+        public WalrusStatement(string target, Expression value)
+        {
+            Target = target;
+            Value = value;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            return PyExecutor.ExecuteWalrusOperator(this, scope);
+        }
+        
+        public override string ToString() => $"{Target} := {Value}";
     }
 
     public class ExpressionStatement : Statement
@@ -43,20 +143,87 @@ namespace SharpPy
             Expression = expression;
         }
         
+        public override PyObject Evaluate(PyScope scope)
+        {
+            return Expression.Evaluate(scope);
+        }
+        
         public override string ToString() => Expression.ToString();
     }
 
     public class ReturnStatement : Statement
     {
         public override string NodeType => "Return";
-        public Expression Value { get; }
+        public Expression? Value { get; }
         
-        public ReturnStatement(Expression value = null)
+        public ReturnStatement(Expression? value = null)
         {
             Value = value;
         }
         
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var result = Value?.Evaluate(scope) ?? PyNone.Instance;
+            throw new PyReturnException(result);
+        }
+        
         public override string ToString() => $"return {Value?.ToString() ?? ""}";
+    }
+
+    public class YieldStatement : Statement
+    {
+        public override string NodeType => "Yield";
+        public Expression? Value { get; }
+        
+        public YieldStatement(Expression? value = null)
+        {
+            Value = value;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var result = Value?.Evaluate(scope) ?? PyNone.Instance;
+            throw new PyYieldException(result);
+        }
+        
+        public override string ToString() => $"yield {Value?.ToString() ?? ""}";
+    }
+
+    public class YieldFromStatement : Statement
+    {
+        public override string NodeType => "YieldFrom";
+        public Expression Value { get; }
+        
+        public YieldFromStatement(Expression value)
+        {
+            Value = value;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var iterable = Value.Evaluate(scope);
+            // yield from은 복잡한 구현이 필요하므로 간단히 구현
+            if (iterable is PyGenerator generator)
+            {
+                // 실제로는 모든 값을 yield해야 하지만, 여기서는 마지막 값만 반환
+                PyObject lastValue = PyNone.Instance;
+                try
+                {
+                    while (true)
+                    {
+                        lastValue = generator.Next();
+                        throw new PyYieldException(lastValue);
+                    }
+                }
+                catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                {
+                    return lastValue;
+                }
+            }
+            throw new PyYieldException(iterable);
+        }
+        
+        public override string ToString() => $"yield from {Value}";
     }
 
     public class FunctionDefStatement : Statement
@@ -67,7 +234,7 @@ namespace SharpPy
         public List<Statement> Body { get; }
         public List<string> TypeParams { get; } // Python 3.12
         
-        public FunctionDefStatement(string name, List<string> parameters, List<Statement> body, List<string> typeParams = null)
+        public FunctionDefStatement(string name, List<string> parameters, List<Statement> body, List<string>? typeParams = null)
         {
             Name = name;
             Parameters = parameters;
@@ -75,83 +242,199 @@ namespace SharpPy
             TypeParams = typeParams ?? new List<string>();
         }
         
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // 제네릭 함수는 PyExecutor를 사용
+            if (TypeParams.Any())
+            {
+                return PyExecutor.ExecuteGenericFunction(this, scope);
+            }
+            
+            // 일반 함수 정의
+            var function = new PyFunction(Name, args =>
+            {
+                // 함수 스코프 생성
+                var funcScope = new PyScope(ScopeType.Local, scope, Name);
+                
+                // 매개변수 바인딩
+                for (int i = 0; i < Math.Min(Parameters.Count, args.Length); i++)
+                {
+                    funcScope.SetVariable(Parameters[i], args[i]);
+                }
+                
+                // 함수 믈체 실행
+                try
+                {
+                    PyObject result = PyNone.Instance;
+                    foreach (var stmt in Body)
+                    {
+                        result = stmt.Evaluate(funcScope);
+                    }
+                    return result;
+                }
+                catch (PyReturnException ret)
+                {
+                    return ret.Value;
+                }
+            });
+            
+            scope.SetVariable(Name, function);
+            return function;
+        }
+        
         public override string ToString()
         {
             var typeParamStr = TypeParams.Any() ? $"[{string.Join(", ", TypeParams)}]" : "";
             return $"def {Name}{typeParamStr}({string.Join(", ", Parameters)}): ...";
         }
-        
-        // Evaluate 메서드 - 나중에 구현
-        public PyObject Evaluate(PyScope scope)
-        {
-            throw new NotImplementedException("FunctionDefStatement.Evaluate() - 나중에 구현예정");
-        }
     }
 
-    // 표현식 노드들
-    public abstract class Expression : ASTNode { }
-
-    public class ConstantExpression : Expression
+    public class AsyncFunctionDefStatement : Statement
     {
-        public override string NodeType => "Constant";
-        public PyObject Value { get; }
-        
-        public ConstantExpression(PyObject value)
-        {
-            Value = value;
-        }
-        
-        public override string ToString() => Value.ToString();
-    }
-
-    public class NameExpression : Expression
-    {
-        public override string NodeType => "Name";
+        public override string NodeType => "AsyncFunctionDef";
         public string Name { get; }
+        public List<string> Parameters { get; }
+        public List<Statement> Body { get; }
+        public List<string> TypeParams { get; } // Python 3.12
         
-        public NameExpression(string name)
+        public AsyncFunctionDefStatement(string name, List<string> parameters, List<Statement> body, List<string>? typeParams = null)
         {
             Name = name;
+            Parameters = parameters;
+            Body = body;
+            TypeParams = typeParams ?? new List<string>();
         }
         
-        public override string ToString() => Name;
-    }
-
-    public class BinaryOpExpression : Expression
-    {
-        public override string NodeType => "BinOp";
-        public Expression Left { get; }
-        public string Operator { get; }
-        public Expression Right { get; }
-        
-        public BinaryOpExpression(Expression left, string op, Expression right)
+        public override PyObject Evaluate(PyScope scope)
         {
-            Left = left;
-            Operator = op;
-            Right = right;
+            // Async 함수는 C# Task를 반환하는 함수로 처리
+            var asyncFunction = new PyFunction(Name, args =>
+            {
+                // 비동기 작업이 필요하지만 여기서는 바로 실행
+                var funcScope = new PyScope(ScopeType.Local, scope, Name);
+                
+                for (int i = 0; i < Math.Min(Parameters.Count, args.Length); i++)
+                {
+                    funcScope.SetVariable(Parameters[i], args[i]);
+                }
+                
+                try
+                {
+                    PyObject result = PyNone.Instance;
+                    foreach (var stmt in Body)
+                    {
+                        result = stmt.Evaluate(funcScope);
+                    }
+                    return result;
+                }
+                catch (PyReturnException ret)
+                {
+                    return ret.Value;
+                }
+            });
+            
+            scope.SetVariable(Name, asyncFunction);
+            return asyncFunction;
         }
         
-        public override string ToString() => $"({Left} {Operator} {Right})";
-    }
-
-    public class CallExpression : Expression
-    {
-        public override string NodeType => "Call";
-        public Expression Function { get; }
-        public List<Expression> Arguments { get; }
-        
-        public CallExpression(Expression function, List<Expression> arguments)
+        public override string ToString()
         {
-            Function = function;
-            Arguments = arguments;
+            var typeParamStr = TypeParams.Any() ? $"[{string.Join(", ", TypeParams)}]" : "";
+            return $"async def {Name}{typeParamStr}({string.Join(", ", Parameters)}): ...";
         }
-        
-        public override string ToString() => $"{Function}({string.Join(", ", Arguments)})";
     }
 
-    // Python 3.12 추가 구문들
-    
-    // 제어 구조 문장들
+    public class ClassDefStatement : Statement
+    {
+        public override string NodeType => "ClassDef";
+        public string Name { get; }
+        public List<Expression> Bases { get; }
+        public List<Statement> Body { get; }
+        public List<string> TypeParams { get; } // Python 3.12
+        
+        public ClassDefStatement(string name, List<Expression> bases, List<Statement> body, List<string>? typeParams = null)
+        {
+            Name = name;
+            Bases = bases;
+            Body = body;
+            TypeParams = typeParams ?? new List<string>();
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // 제네릭 클래스는 PyExecutor를 사용
+            if (TypeParams.Any())
+            {
+                return PyExecutor.ExecuteGenericClass(this, scope);
+            }
+            
+            // 상속 클래스 평가
+            var baseTypes = new List<PyType>();
+            foreach (var baseExpr in Bases)
+            {
+                var baseValue = baseExpr.Evaluate(scope);
+                if (baseValue is PyType baseType)
+                {
+                    baseTypes.Add(baseType);
+                }
+            }
+            
+            // 클래스 생성
+            var classDict = new Dictionary<string, PyObject>();
+            var classScope = new PyScope(ScopeType.Local, scope, Name);
+            
+            // 클래스 별체 실행
+            foreach (var stmt in Body)
+            {
+                var result = stmt.Evaluate(classScope);
+                
+                // 함수 정의는 클래스 사전에 추가
+                if (stmt is FunctionDefStatement funcDef)
+                {
+                    classDict[funcDef.Name] = result;
+                }
+            }
+            
+            var pyClass = new PyClass(Name, baseTypes.ToArray(), classDict);
+            scope.SetVariable(Name, pyClass);
+            return pyClass;
+        }
+        
+        public override string ToString()
+        {
+            var typeParamStr = TypeParams.Any() ? $"[{string.Join(", ", TypeParams)}]" : "";
+            var baseStr = Bases.Any() ? $"({string.Join(", ", Bases)})" : "";
+            return $"class {Name}{typeParamStr}{baseStr}: ...";
+        }
+    }
+
+    public class TypeAliasStatement : Statement
+    {
+        public override string NodeType => "TypeAlias";
+        public string Name { get; }
+        public Expression Value { get; }
+        public List<string> TypeParams { get; } // Python 3.12
+        
+        public TypeAliasStatement(string name, Expression value, List<string>? typeParams = null)
+        {
+            Name = name;
+            Value = value;
+            TypeParams = typeParams ?? new List<string>();
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            return PyExecutor.ExecuteTypeAlias(this, scope);
+        }
+        
+        public override string ToString()
+        {
+            var typeParamStr = TypeParams.Any() ? $"[{string.Join(", ", TypeParams)}]" : "";
+            return $"type {Name}{typeParamStr} = {Value}";
+        }
+    }
+
+    // Control flow statements
     public class IfStatement : Statement
     {
         public override string NodeType => "If";
@@ -164,6 +447,30 @@ namespace SharpPy
             Test = test;
             Body = body;
             OrElse = orElse;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var testResult = Test.Evaluate(scope);
+            if (testResult.ToBool())
+            {
+                PyObject result = PyNone.Instance;
+                foreach (var stmt in Body)
+                {
+                    result = stmt.Evaluate(scope);
+                }
+                return result;
+            }
+            else if (OrElse.Any())
+            {
+                PyObject result = PyNone.Instance;
+                foreach (var stmt in OrElse)
+                {
+                    result = stmt.Evaluate(scope);
+                }
+                return result;
+            }
+            return PyNone.Instance;
         }
         
         public override string ToString() => $"if {Test}: ...";
@@ -179,6 +486,33 @@ namespace SharpPy
         {
             Test = test;
             Body = body;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            PyObject result = PyNone.Instance;
+            try
+            {
+                while (Test.Evaluate(scope).ToBool())
+                {
+                    try
+                    {
+                        foreach (var stmt in Body)
+                        {
+                            result = stmt.Evaluate(scope);
+                        }
+                    }
+                    catch (PyContinueException)
+                    {
+                        continue;
+                    }
+                }
+            }
+            catch (PyBreakException)
+            {
+                // break로 루프 탈출
+            }
+            return result;
         }
         
         public override string ToString() => $"while {Test}: ...";
@@ -198,6 +532,77 @@ namespace SharpPy
             Body = body;
         }
         
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var iterable = Iter.Evaluate(scope);
+            PyObject result = PyNone.Instance;
+            
+            try
+            {
+                // 반복 가능 객체에 따른 처리
+                if (iterable is PyList list)
+                {
+                    foreach (var item in list.Items)
+                    {
+                        scope.SetVariable(Target, item);
+                        try
+                        {
+                            foreach (var stmt in Body)
+                            {
+                                result = stmt.Evaluate(scope);
+                            }
+                        }
+                        catch (PyContinueException)
+                        {
+                            continue;
+                        }
+                    }
+                }
+                else if (iterable is PyRange range)
+                {
+                    for (int i = range.Start; i < range.Stop; i += range.Step)
+                    {
+                        scope.SetVariable(Target, new PyInt(i));
+                        try
+                        {
+                            foreach (var stmt in Body)
+                            {
+                                result = stmt.Evaluate(scope);
+                            }
+                        }
+                        catch (PyContinueException)
+                        {
+                            continue;
+                        }
+                    }
+                }
+                else if (iterable is PyString str)
+                {
+                    for (int i = 0; i < str.Value.Length; i++)
+                    {
+                        scope.SetVariable(Target, new PyString(str.Value[i].ToString()));
+                        try
+                        {
+                            foreach (var stmt in Body)
+                            {
+                                result = stmt.Evaluate(scope);
+                            }
+                        }
+                        catch (PyContinueException)
+                        {
+                            continue;
+                        }
+                    }
+                }
+            }
+            catch (PyBreakException)
+            {
+                // break로 루프 탈출
+            }
+            
+            return result;
+        }
+        
         public override string ToString() => $"for {Target} in {Iter}: ...";
     }
 
@@ -205,62 +610,306 @@ namespace SharpPy
     {
         public override string NodeType => "Try";
         public List<Statement> Body { get; }
-        public List<ExceptHandler> Handlers { get; }
+        public List<Statement> Handlers { get; }
+        public List<Statement>? OrElse { get; }
+        public List<Statement>? FinalBody { get; }
         
-        public TryStatement(List<Statement> body, List<ExceptHandler> handlers)
+        public TryStatement(List<Statement> body, List<Statement> handlers, 
+                           List<Statement>? orElse = null, List<Statement>? finalBody = null)
         {
             Body = body;
             Handlers = handlers;
+            OrElse = orElse;
+            FinalBody = finalBody;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // 간단한 try-catch 구현
+            try
+            {
+                PyObject result = PyNone.Instance;
+                foreach (var stmt in Body)
+                {
+                    result = stmt.Evaluate(scope);
+                }
+                return result;
+            }
+            catch (Exception ex)
+            {
+                // 간단히 모든 예외를 처리
+                return PyNone.Instance;
+            }
+            finally
+            {
+                if (FinalBody != null)
+                {
+                    foreach (var stmt in FinalBody)
+                    {
+                        stmt.Evaluate(scope);
+                    }
+                }
+            }
         }
         
         public override string ToString() => "try: ...";
     }
 
-    public class ExceptHandler : ASTNode
+    public class WithStatement : Statement
     {
-        public override string NodeType => "ExceptHandler";
-        public Expression Type { get; }
-        public string Name { get; }
+        public override string NodeType => "With";
+        public List<WithItem> Items { get; }
         public List<Statement> Body { get; }
         
-        public ExceptHandler(Expression type, string name, List<Statement> body)
+        public WithStatement(List<WithItem> items, List<Statement> body)
         {
-            Type = type;
-            Name = name;
+            Items = items;
             Body = body;
         }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // 간단한 with 문 구현 - context manager 생략
+            PyObject result = PyNone.Instance;
+            foreach (var stmt in Body)
+            {
+                result = stmt.Evaluate(scope);
+            }
+            return result;
+        }
+        
+        public override string ToString() => $"with {string.Join(", ", Items)}: ...";
     }
 
-    public class ClassDefStatement : Statement
+    public class WithItem : ASTNode
     {
-        public override string NodeType => "ClassDef";
-        public string Name { get; }
-        public List<Expression> Bases { get; }
-        public List<Statement> Body { get; }
-        public List<string> TypeParams { get; } // Python 3.12
+        public override string NodeType => "withitem";
+        public Expression ContextExpr { get; }
+        public Expression? OptionalVars { get; }
         
-        public ClassDefStatement(string name, List<Expression> bases, List<Statement> body, List<string> typeParams = null)
+        public WithItem(Expression contextExpr, Expression? optionalVars = null)
         {
-            Name = name;
-            Bases = bases;
-            Body = body;
-            TypeParams = typeParams ?? new List<string>();
+            ContextExpr = contextExpr;
+            OptionalVars = optionalVars;
         }
         
-        public override string ToString()
+        public override PyObject Evaluate(PyScope scope)
         {
-            var typeParamStr = TypeParams.Any() ? $"[{string.Join(", ", TypeParams)}]" : "";
-            return $"class {Name}{typeParamStr}: ...";
+            return ContextExpr.Evaluate(scope);
         }
         
-        // Evaluate 메서드 - 나중에 구현
-        public PyObject Evaluate(PyScope scope)
-        {
-            throw new NotImplementedException("ClassDefStatement.Evaluate() - 나중에 구현예정");
-        }
+        public override string ToString() => 
+            OptionalVars != null ? $"{ContextExpr} as {OptionalVars}" : ContextExpr.ToString();
     }
 
-    // Import 문장들
+    public class MatchStatement : Statement
+    {
+        public override string NodeType => "Match";
+        public Expression Subject { get; }
+        public List<MatchCase> Cases { get; }
+        
+        public MatchStatement(Expression subject, List<MatchCase> cases)
+        {
+            Subject = subject;
+            Cases = cases;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            return PyExecutor.ExecuteMatchStatement(this, scope);
+        }
+        
+        public override string ToString() => $"match {Subject}: ...";
+    }
+
+    public class MatchCase : ASTNode
+    {
+        public override string NodeType => "match_case";
+        public Expression Pattern { get; }
+        public Expression? Guard { get; }
+        public List<Statement> Body { get; }
+        
+        public MatchCase(Expression pattern, List<Statement> body, Expression? guard = null)
+        {
+            Pattern = pattern;
+            Guard = guard;
+            Body = body;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // MatchCase는 단독으로 실행되지 않고 MatchStatement에서 처리
+            return PyNone.Instance;
+        }
+        
+        public override string ToString() => $"case {Pattern}: ...";
+    }
+
+    // Simple statements
+    public class BreakStatement : Statement
+    {
+        public override string NodeType => "Break";
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            throw new PyBreakException();
+        }
+        
+        public override string ToString() => "break";
+    }
+
+    public class ContinueStatement : Statement
+    {
+        public override string NodeType => "Continue";
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            throw new PyContinueException();
+        }
+        
+        public override string ToString() => "continue";
+    }
+
+    public class PassStatement : Statement
+    {
+        public override string NodeType => "Pass";
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            return PyNone.Instance;
+        }
+        
+        public override string ToString() => "pass";
+    }
+
+    public class AssertStatement : Statement
+    {
+        public override string NodeType => "Assert";
+        public Expression Test { get; }
+        public Expression? Msg { get; }
+        
+        public AssertStatement(Expression test, Expression? msg = null)
+        {
+            Test = test;
+            Msg = msg;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var testResult = Test.Evaluate(scope);
+            if (!testResult.ToBool())
+            {
+                var message = Msg?.Evaluate(scope)?.ToStr() ?? "Assertion failed";
+                throw new Exception($"AssertionError: {message}");
+            }
+            return PyNone.Instance;
+        }
+        
+        public override string ToString() => $"assert {Test}" + (Msg != null ? $", {Msg}" : "");
+    }
+
+    public class RaiseStatement : Statement
+    {
+        public override string NodeType => "Raise";
+        public Expression? Exc { get; }
+        public Expression? Cause { get; }
+        
+        public RaiseStatement(Expression? exc = null, Expression? cause = null)
+        {
+            Exc = exc;
+            Cause = cause;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            if (Exc != null)
+            {
+                var exception = Exc.Evaluate(scope);
+                if (exception is PyException pyEx)
+                {
+                    throw new PythonException(pyEx);
+                }
+            }
+            throw new Exception("raise");
+        }
+        
+        public override string ToString() => "raise" + (Exc != null ? $" {Exc}" : "");
+    }
+
+    public class DeleteStatement : Statement
+    {
+        public override string NodeType => "Delete";
+        public List<Expression> Targets { get; }
+        
+        public DeleteStatement(List<Expression> targets)
+        {
+            Targets = targets;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // 간단한 del 구현 - 변수 삭제만 지원
+            foreach (var target in Targets)
+            {
+                if (target is NameExpression nameExpr)
+                {
+                    // Delete variable (간단한 구현)
+                    scope.SetVariable(nameExpr.Name, PyNone.Instance);
+                }
+            }
+            return PyNone.Instance;
+        }
+        
+        public override string ToString() => $"del {string.Join(", ", Targets)}";
+    }
+
+    public class GlobalStatement : Statement
+    {
+        public override string NodeType => "Global";
+        public List<string> Names { get; }
+        
+        public GlobalStatement(List<string> names)
+        {
+            Names = names;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // global 선언 - 실제로는 스코프에서 전역 변수 설정
+            foreach (var name in Names)
+            {
+                // global 선언 - 간단한 구현
+                // scope.MarkAsGlobal(name); // 생략
+            }
+            return PyNone.Instance;
+        }
+        
+        public override string ToString() => $"global {string.Join(", ", Names)}";
+    }
+
+    public class NonlocalStatement : Statement
+    {
+        public override string NodeType => "Nonlocal";
+        public List<string> Names { get; }
+        
+        public NonlocalStatement(List<string> names)
+        {
+            Names = names;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // nonlocal 선언
+            foreach (var name in Names)
+            {
+                // scope.MarkAsNonlocal(name); // 생략
+            }
+            return PyNone.Instance;
+        }
+        
+        public override string ToString() => $"nonlocal {string.Join(", ", Names)}";
+    }
+
     public class ImportStatement : Statement
     {
         public override string NodeType => "Import";
@@ -269,6 +918,17 @@ namespace SharpPy
         public ImportStatement(List<string> names)
         {
             Names = names;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // 간단한 import 구현
+            foreach (var name in Names)
+            {
+                var module = new PyModule(name); // 간단한 구현
+                scope.SetVariable(name, module);
+            }
+            return PyNone.Instance;
         }
         
         public override string ToString() => $"import {string.Join(", ", Names)}";
@@ -286,91 +946,290 @@ namespace SharpPy
             Names = names;
         }
         
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // from ... import 구현
+            var module = new PyModule(Module); // 간단한 구현
+            foreach (var name in Names)
+            {
+                var value = module.GetAttribute(name);
+                scope.SetVariable(name, value);
+            }
+            return PyNone.Instance;
+        }
+        
         public override string ToString() => $"from {Module} import {string.Join(", ", Names)}";
     }
 
-    // 복합 할당 및 특수 할당
-    public class AugAssignStatement : Statement
+    #endregion
+
+    #region Expression Nodes
+
+    /// <summary>
+    /// 표현식 노드들의 베이스 클래스
+    /// </summary>
+    public abstract class Expression : ASTNode { }
+
+    public class ConstantExpression : Expression
     {
-        public override string NodeType => "AugAssign";
-        public string Target { get; }
+        public override string NodeType => "Constant";
+        public PyObject Value { get; }
+        
+        public ConstantExpression(PyObject value)
+        {
+            Value = value;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            return Value;
+        }
+        
+        public override string ToString() => Value.ToString();
+    }
+
+    public class NameExpression : Expression
+    {
+        public override string NodeType => "Name";
+        public string Name { get; }
+        
+        public NameExpression(string name)
+        {
+            Name = name;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            return scope.GetVariable(Name);
+        }
+        
+        public override string ToString() => Name;
+    }
+
+    public class BinaryOpExpression : Expression
+    {
+        public override string NodeType => "BinOp";
+        public Expression Left { get; }
+        public string Operator { get; }
+        public Expression Right { get; }
+        
+        public BinaryOpExpression(Expression left, string op, Expression right)
+        {
+            Left = left;
+            Operator = op;
+            Right = right;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var left = Left.Evaluate(scope);
+            var right = Right.Evaluate(scope);
+            
+            return Operator switch
+            {
+                "+"   => left.Add(right),
+                "-"   => left.Subtract(right),
+                "*"   => left.Multiply(right),
+                "/"   => left.Divide(right),
+                "//"  => left.FloorDivide(right),
+                "%"   => left.Modulo(right),
+                "**"  => left.Power(right),
+                "&"   => left.BitwiseAnd(right),
+                "|"   => left.BitwiseOr(right),
+                "^"   => left.BitwiseXor(right),
+                "<<"  => left.LeftShift(right),
+                ">>"  => left.RightShift(right),
+                _ => throw new NotImplementedException($"Binary operator {Operator} not implemented")
+            };
+        }
+        
+        public override string ToString() => $"({Left} {Operator} {Right})";
+    }
+
+    public class UnaryOpExpression : Expression
+    {
+        public override string NodeType => "UnaryOp";
         public string Op { get; }
-        public Expression Value { get; }
+        public Expression Operand { get; }
         
-        public AugAssignStatement(string target, string op, Expression value)
+        public UnaryOpExpression(string op, Expression operand)
         {
-            Target = target;
             Op = op;
-            Value = value;
+            Operand = operand;
         }
         
-        public override string ToString() => $"{Target} {Op} {Value}";
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var operand = Operand.Evaluate(scope);
+            
+            return Op switch
+            {
+                "+"   => operand.Positive(),
+                "-"   => operand.Negative(),
+                "~"   => operand.BitwiseNot(),
+                "not" => PyBool.False, // 간단한 구현
+                _ => throw new NotImplementedException($"Unary operator {Op} not implemented")
+            };
+        }
+        
+        public override string ToString() => $"{Op}{Operand}";
     }
 
-    // Walrus operator (:=) - Python 3.8+
-    public class WalrusStatement : Statement
+    public class CompareExpression : Expression
     {
-        public override string NodeType => "NamedExpr";
-        public string Target { get; }
+        public override string NodeType => "Compare";
+        public Expression Left { get; }
+        public string Op { get; }
+        public Expression Right { get; }
+        
+        public CompareExpression(Expression left, string op, Expression right)
+        {
+            Left = left;
+            Op = op;
+            Right = right;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var left = Left.Evaluate(scope);
+            var right = Right.Evaluate(scope);
+            
+            return Op switch
+            {
+                "=="  => left.RichCompare(right, PyObject.CompareOp.EQ),
+                "!="  => left.RichCompare(right, PyObject.CompareOp.NE),
+                "<"   => left.RichCompare(right, PyObject.CompareOp.LT),
+                "<="  => left.RichCompare(right, PyObject.CompareOp.LE),
+                ">"   => left.RichCompare(right, PyObject.CompareOp.GT),
+                ">="  => left.RichCompare(right, PyObject.CompareOp.GE),
+                "in"  => PyBool.True, // 간단한 구현
+                "not in" => PyBool.False, // 간단한 구현
+                "is"  => PyBool.True, // 간단한 구현
+                "is not" => PyBool.False, // 간단한 구현
+                _ => throw new NotImplementedException($"Compare operator {Op} not implemented")
+            };
+        }
+        
+        public override string ToString() => $"({Left} {Op} {Right})";
+    }
+
+    public class BoolOpExpression : Expression
+    {
+        public override string NodeType => "BoolOp";
+        public string Op { get; }
+        public List<Expression> Values { get; }
+        
+        public BoolOpExpression(string op, List<Expression> values)
+        {
+            Op = op;
+            Values = values;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            if (Op == "and")
+            {
+                foreach (var value in Values)
+                {
+                    var result = value.Evaluate(scope);
+                    if (!result.ToBool())
+                        return result;
+                }
+                return Values.Last().Evaluate(scope);
+            }
+            else if (Op == "or")
+            {
+                foreach (var value in Values)
+                {
+                    var result = value.Evaluate(scope);
+                    if (result.ToBool())
+                        return result;
+                }
+                return Values.Last().Evaluate(scope);
+            }
+            else
+            {
+                throw new NotImplementedException($"Boolean operator {Op} not implemented");
+            }
+        }
+        
+        public override string ToString() => $"({string.Join($" {Op} ", Values)})";
+    }
+
+    public class CallExpression : Expression
+    {
+        public override string NodeType => "Call";
+        public Expression Function { get; }
+        public List<Expression> Arguments { get; }
+        
+        public CallExpression(Expression function, List<Expression> arguments)
+        {
+            Function = function;
+            Arguments = arguments;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var function = Function.Evaluate(scope);
+            var args = Arguments.Select(arg => arg.Evaluate(scope)).ToArray();
+            
+            return function.Call(args);
+        }
+        
+        public override string ToString() => $"{Function}({string.Join(", ", Arguments)})";
+    }
+
+    public class AttributeExpression : Expression
+    {
+        public override string NodeType => "Attribute";
         public Expression Value { get; }
+        public string Attr { get; }
         
-        public WalrusStatement(string target, Expression value)
+        public AttributeExpression(Expression value, string attr)
         {
-            Target = target;
             Value = value;
+            Attr = attr;
         }
         
-        public override string ToString() => $"{Target} := {Value}";
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var obj = Value.Evaluate(scope);
+            return obj.GetAttribute(Attr);
+        }
+        
+        public override string ToString() => $"{Value}.{Attr}";
     }
 
-    // 기타 문장들
-    public class YieldStatement : Statement
+    public class SubscriptExpression : Expression
     {
-        public override string NodeType => "Yield";
+        public override string NodeType => "Subscript";
         public Expression Value { get; }
+        public Expression Slice { get; }
         
-        public YieldStatement(Expression value = null)
+        public SubscriptExpression(Expression value, Expression slice)
         {
             Value = value;
+            Slice = slice;
         }
         
-        public override string ToString() => $"yield {Value?.ToString() ?? ""}";
-    }
-
-    public class BreakStatement : Statement
-    {
-        public override string NodeType => "Break";
-        public override string ToString() => "break";
-    }
-
-    public class ContinueStatement : Statement
-    {
-        public override string NodeType => "Continue";
-        public override string ToString() => "continue";
-    }
-
-    public class PassStatement : Statement
-    {
-        public override string NodeType => "Pass";
-        public override string ToString() => "pass";
-    }
-
-    public class RaiseStatement : Statement
-    {
-        public override string NodeType => "Raise";
-        public Expression Exception { get; }
-        
-        public RaiseStatement(Expression exception = null)
+        public override PyObject Evaluate(PyScope scope)
         {
-            Exception = exception;
+            var obj = Value.Evaluate(scope);
+            var index = Slice.Evaluate(scope);
+            
+            // GetItem 대신 기존 메서드 사용
+            if (obj is PyDict dict)
+                return dict.GetItem(index);
+            else if (obj is PyList list && index is PyInt intIndex)
+                return list.Items[intIndex.Value]; // 간단한 구현
+            else
+                return PyNone.Instance;
         }
         
-        public override string ToString() => $"raise {Exception?.ToString() ?? ""}";
+        public override string ToString() => $"{Value}[{Slice}]";
     }
 
-    // 확장된 표현식들
-    
-    // 컨테이너 표현식들
+    // Container expressions
     public class ListExpression : Expression
     {
         public override string NodeType => "List";
@@ -379,6 +1238,16 @@ namespace SharpPy
         public ListExpression(List<Expression> elements)
         {
             Elements = elements;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var list = new PyList();
+            foreach (var element in Elements)
+            {
+                list.Add(element.Evaluate(scope));
+            }
+            return list;
         }
         
         public override string ToString() => $"[{string.Join(", ", Elements)}]";
@@ -394,20 +1263,13 @@ namespace SharpPy
             Elements = elements;
         }
         
-        public override string ToString() => $"({string.Join(", ", Elements)})";
-    }
-
-    public class DictExpression : Expression
-    {
-        public override string NodeType => "Dict";
-        public Dictionary<Expression, Expression> Items { get; }
-        
-        public DictExpression(Dictionary<Expression, Expression> items)
+        public override PyObject Evaluate(PyScope scope)
         {
-            Items = items;
+            var items = Elements.Select(element => element.Evaluate(scope)).ToArray();
+            return new PyTuple(items);
         }
         
-        public override string ToString() => "{dict}";
+        public override string ToString() => $"({string.Join(", ", Elements)})";
     }
 
     public class SetExpression : Expression
@@ -420,57 +1282,45 @@ namespace SharpPy
             Elements = elements;
         }
         
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var set = new PySet();
+            foreach (var element in Elements)
+            {
+                set.Add(element.Evaluate(scope));
+            }
+            return set;
+        }
+        
         public override string ToString() => $"{{{string.Join(", ", Elements)}}}";
     }
 
-    // 고급 표현식들
-    public class CompareExpression : Expression
+    public class DictExpression : Expression
     {
-        public override string NodeType => "Compare";
-        public Expression Left { get; }
-        public string Op { get; }
-        public Expression Right { get; }
+        public override string NodeType => "Dict";
+        public List<(Expression Key, Expression Value)> Items { get; }
         
-        public CompareExpression(Expression left, string op, Expression right)
+        public DictExpression(List<(Expression Key, Expression Value)> items)
         {
-            Left = left;
-            Op = op;
-            Right = right;
+            Items = items;
         }
         
-        public override string ToString() => $"{Left} {Op} {Right}";
-    }
-
-    public class BoolOpExpression : Expression
-    {
-        public override string NodeType => "BoolOp";
-        public string Op { get; }
-        public List<Expression> Values { get; }
-        
-        public BoolOpExpression(string op, List<Expression> values)
+        public override PyObject Evaluate(PyScope scope)
         {
-            Op = op;
-            Values = values;
+            var dict = new PyDict();
+            foreach (var (key, value) in Items)
+            {
+                var keyObj = key.Evaluate(scope);
+                var valueObj = value.Evaluate(scope);
+                dict.SetItem(keyObj, valueObj);
+            }
+            return dict;
         }
         
-        public override string ToString() => $"({string.Join($" {Op} ", Values)})";
+        public override string ToString() => $"{{{string.Join(", ", Items.Select(i => $"{i.Key}: {i.Value}"))}}}";
     }
 
-    public class UnaryOpExpression : Expression
-    {
-        public override string NodeType => "UnaryOp";
-        public string Op { get; }
-        public Expression Operand { get; }
-        
-        public UnaryOpExpression(string op, Expression operand)
-        {
-            Op = op;
-            Operand = operand;
-        }
-        
-        public override string ToString() => $"{Op} {Operand}";
-    }
-
+    // Advanced expressions
     public class LambdaExpression : Expression
     {
         public override string NodeType => "Lambda";
@@ -483,86 +1333,77 @@ namespace SharpPy
             Body = body;
         }
         
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // Lambda 함수 생성
+            return new PyFunction("<lambda>", args =>
+            {
+                var lambdaScope = new PyScope(ScopeType.Local, scope, "<lambda>");
+                
+                // 매개변수 바인딩
+                for (int i = 0; i < Math.Min(Args.Count, args.Length); i++)
+                {
+                    lambdaScope.SetVariable(Args[i], args[i]);
+                }
+                
+                return Body.Evaluate(lambdaScope);
+            });
+        }
+        
         public override string ToString() => $"lambda {string.Join(", ", Args)}: {Body}";
     }
 
     public class ConditionalExpression : Expression
     {
         public override string NodeType => "IfExp";
-        public Expression Test { get; }
         public Expression Body { get; }
+        public Expression Test { get; }
         public Expression OrElse { get; }
         
-        public ConditionalExpression(Expression test, Expression body, Expression orElse)
+        public ConditionalExpression(Expression body, Expression test, Expression orElse)
         {
-            Test = test;
             Body = body;
+            Test = test;
             OrElse = orElse;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var testResult = Test.Evaluate(scope);
+            if (testResult.ToBool())
+            {
+                return Body.Evaluate(scope);
+            }
+            else
+            {
+                return OrElse.Evaluate(scope);
+            }
         }
         
         public override string ToString() => $"{Body} if {Test} else {OrElse}";
     }
 
-    // 인덱싱 및 슬라이싱
-    public class SubscriptExpression : Expression
+    public class AwaitExpression : Expression
     {
-        public override string NodeType => "Subscript";
+        public override string NodeType => "Await";
         public Expression Value { get; }
-        public Expression Slice { get; }
         
-        public SubscriptExpression(Expression value, Expression slice)
-        {
-            Value = value;
-            Slice = slice;
-        }
-        
-        public override string ToString() => $"{Value}[{Slice}]";
-    }
-
-    public class SliceExpression : Expression
-    {
-        public override string NodeType => "Slice";
-        public string SliceStr { get; }
-        
-        public SliceExpression(string sliceStr)
-        {
-            SliceStr = sliceStr;
-        }
-        
-        public override string ToString() => SliceStr;
-    }
-
-    // Python 3.6+ f-strings
-    public class FStringExpression : Expression
-    {
-        public override string NodeType => "JoinedStr";
-        public string Value { get; }
-        
-        public FStringExpression(string value)
+        public AwaitExpression(Expression value)
         {
             Value = value;
         }
         
-        public override string ToString() => Value;
-    }
-
-    // 속성 접근
-    public class AttributeExpression : Expression
-    {
-        public override string NodeType => "Attribute";
-        public Expression Value { get; }
-        public string Attr { get; }
-        
-        public AttributeExpression(Expression value, string attr)
+        public override PyObject Evaluate(PyScope scope)
         {
-            Value = value;
-            Attr = attr;
+            // 간단한 await 구현 - C# Task를 곧바로 실행
+            var coroutine = Value.Evaluate(scope);
+            // 실제로는 비동기 처리가 필요하지만 여기서는 바로 반환
+            return coroutine;
         }
         
-        public override string ToString() => $"{Value}.{Attr}";
+        public override string ToString() => $"await {Value}";
     }
 
-    // 별표 표현식 (unpacking)
     public class StarredExpression : Expression
     {
         public override string NodeType => "Starred";
@@ -573,71 +1414,36 @@ namespace SharpPy
             Value = value;
         }
         
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // Starred expression - 주로 unpacking에서 사용
+            var value = Value.Evaluate(scope);
+            // 실제로는 unpacking 로직이 필요하지만 여기서는 그냥 반환
+            return value;
+        }
+        
         public override string ToString() => $"*{Value}";
     }
 
-    // Python 3.12 새로운 기능들
-    
-    // Type alias statement (Python 3.12)
-    public class TypeAliasStatement : Statement
+    public class FStringExpression : Expression
     {
-        public override string NodeType => "TypeAlias";
-        public string Name { get; }
-        public List<string> TypeParams { get; }
-        public Expression Value { get; }
+        public override string NodeType => "JoinedStr";
+        public List<Expression> Values { get; }
         
-        public TypeAliasStatement(string name, List<string> typeParams, Expression value)
+        public FStringExpression(List<Expression> values)
         {
-            Name = name;
-            TypeParams = typeParams ?? new List<string>();
-            Value = value;
+            Values = values;
         }
         
-        public override string ToString()
+        public override PyObject Evaluate(PyScope scope)
         {
-            var typeParamStr = TypeParams.Any() ? $"[{string.Join(", ", TypeParams)}]" : "";
-            return $"type {Name}{typeParamStr} = {Value}";
+            return PyExecutor.ExecuteFString(this, scope);
         }
         
-        // Evaluate 메서드 - 나중에 구현
-        public PyObject Evaluate(PyScope scope)
-        {
-            throw new NotImplementedException("TypeAliasStatement.Evaluate() - 나중에 구현예정");
-        }
+        public override string ToString() => $"f\"{string.Join("", Values)}\"";
     }
 
-    // Match statement (Python 3.10+)
-    public class MatchStatement : Statement
-    {
-        public override string NodeType => "Match";
-        public Expression Subject { get; }
-        public List<MatchCase> Cases { get; }
-        
-        public MatchStatement(Expression subject, List<MatchCase> cases)
-        {
-            Subject = subject;
-            Cases = cases;
-        }
-        
-        public override string ToString() => $"match {Subject}: ...";
-    }
-
-    public class MatchCase : ASTNode
-    {
-        public override string NodeType => "match_case";
-        public Expression Pattern { get; }
-        public Expression Guard { get; }
-        public List<Statement> Body { get; }
-        
-        public MatchCase(Expression pattern, Expression guard, List<Statement> body)
-        {
-            Pattern = pattern;
-            Guard = guard;
-            Body = body;
-        }
-    }
-
-    // 컴프리헨션 표현식들
+    // Comprehension expressions
     public class ListComprehension : Expression
     {
         public override string NodeType => "ListComp";
@@ -648,6 +1454,11 @@ namespace SharpPy
         {
             Element = element;
             Generators = generators;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            return PyExecutor.ExecuteListComprehension(this, scope);
         }
         
         public override string ToString() => $"[{Element} for ...]";
@@ -667,6 +1478,11 @@ namespace SharpPy
             Generators = generators;
         }
         
+        public override PyObject Evaluate(PyScope scope)
+        {
+            return PyExecutor.ExecuteDictComprehension(this, scope);
+        }
+        
         public override string ToString() => $"{{{Key}: {Value} for ...}}";
     }
 
@@ -680,6 +1496,11 @@ namespace SharpPy
         {
             Element = element;
             Generators = generators;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            return PyExecutor.ExecuteSetComprehension(this, scope);
         }
         
         public override string ToString() => $"{{{Element} for ...}}";
@@ -697,250 +1518,59 @@ namespace SharpPy
             Generators = generators;
         }
         
+        public override PyObject Evaluate(PyScope scope)
+        {
+            return PyExecutor.ExecuteGeneratorExpression(this, scope);
+        }
+        
         public override string ToString() => $"({Element} for ...)";
     }
 
     public class Comprehension : ASTNode
     {
         public override string NodeType => "comprehension";
-        public string Target { get; }
+        public Expression Target { get; }
         public Expression Iter { get; }
         public List<Expression> Ifs { get; }
         
-        public Comprehension(string target, Expression iter, List<Expression> ifs)
+        public Comprehension(Expression target, Expression iter, List<Expression>? ifs = null)
         {
             Target = target;
             Iter = iter;
-            Ifs = ifs;
+            Ifs = ifs ?? new List<Expression>();
         }
         
-        // Evaluate 메서드 - 나중에 구현
-        public PyObject Evaluate(PyScope scope)
+        public override PyObject Evaluate(PyScope scope)
         {
-            throw new NotImplementedException("Comprehension.Evaluate() - 나중에 구현예정");
+            // Comprehension은 단독으로 실행되지 않거나 다른 comprehension expression에서 처리
+            return PyNone.Instance;
         }
+        
+        public override string ToString() => $"for {Target} in {Iter}";
     }
 
-    // 추가된 문장들 (Python 3.12 완전성)
-    
-    // async def 문
-    public class AsyncFunctionDefStatement : Statement
-    {
-        public override string NodeType => "AsyncFunctionDef";
-        public string Name { get; }
-        public List<string> Parameters { get; }
-        public List<Statement> Body { get; }
-        public List<string> TypeParams { get; } // Python 3.12
-        
-        public AsyncFunctionDefStatement(string name, List<string> parameters, List<Statement> body, List<string> typeParams = null)
-        {
-            Name = name;
-            Parameters = parameters;
-            Body = body;
-            TypeParams = typeParams ?? new List<string>();
-        }
-        
-        public override string ToString()
-        {
-            var typeParamStr = TypeParams.Any() ? $"[{string.Join(", ", TypeParams)}]" : "";
-            return $"async def {Name}{typeParamStr}({string.Join(", ", Parameters)}): ...";
-        }
-        
-        // Evaluate 메서드 - 나중에 구현
-        public PyObject Evaluate(PyScope scope)
-        {
-            throw new NotImplementedException("AsyncFunctionDefStatement.Evaluate() - 나중에 구현예정");
-        }
-    }
-
-    // with 문
-    public class WithStatement : Statement
-    {
-        public override string NodeType => "With";
-        public List<WithItem> Items { get; }
-        public List<Statement> Body { get; }
-        
-        public WithStatement(List<WithItem> items, List<Statement> body)
-        {
-            Items = items;
-            Body = body;
-        }
-        
-        public override string ToString() => "with ...";
-        
-        // Evaluate 메서드 - 나중에 구현
-        public PyObject Evaluate(PyScope scope)
-        {
-            throw new NotImplementedException("WithStatement.Evaluate() - 나중에 구현예정");
-        }
-    }
-
-    public class WithItem : ASTNode
-    {
-        public override string NodeType => "withitem";
-        public Expression ContextExpr { get; }
-        public Expression OptionalVars { get; }
-        
-        public WithItem(Expression contextExpr, Expression optionalVars = null)
-        {
-            ContextExpr = contextExpr;
-            OptionalVars = optionalVars;
-        }
-        
-        // Evaluate 메서드 - 나중에 구현
-        public PyObject Evaluate(PyScope scope)
-        {
-            throw new NotImplementedException("WithItem.Evaluate() - 나중에 구현예정");
-        }
-    }
-
-    // yield from 문
-    public class YieldFromStatement : Statement
-    {
-        public override string NodeType => "YieldFrom";
-        public Expression Value { get; }
-        
-        public YieldFromStatement(Expression value)
-        {
-            Value = value;
-        }
-        
-        public override string ToString() => $"yield from {Value}";
-        
-        // Evaluate 메서드 - 나중에 구현
-        public PyObject Evaluate(PyScope scope)
-        {
-            throw new NotImplementedException("YieldFromStatement.Evaluate() - 나중에 구현예정");
-        }
-    }
-
-    // assert 문
-    public class AssertStatement : Statement
-    {
-        public override string NodeType => "Assert";
-        public Expression Test { get; }
-        public Expression Msg { get; }
-        
-        public AssertStatement(Expression test, Expression msg = null)
-        {
-            Test = test;
-            Msg = msg;
-        }
-        
-        public override string ToString() => $"assert {Test}";
-        
-        // Evaluate 메서드 - 나중에 구현
-        public PyObject Evaluate(PyScope scope)
-        {
-            throw new NotImplementedException("AssertStatement.Evaluate() - 나중에 구현예정");
-        }
-    }
-
-    // delete 문
-    public class DeleteStatement : Statement
-    {
-        public override string NodeType => "Delete";
-        public List<Expression> Targets { get; }
-        
-        public DeleteStatement(List<Expression> targets)
-        {
-            Targets = targets;
-        }
-        
-        public override string ToString() => $"del {string.Join(", ", Targets)}";
-        
-        // Evaluate 메서드 - 나중에 구현
-        public PyObject Evaluate(PyScope scope)
-        {
-            throw new NotImplementedException("DeleteStatement.Evaluate() - 나중에 구현예정");
-        }
-    }
-
-    // global 문
-    public class GlobalStatement : Statement
-    {
-        public override string NodeType => "Global";
-        public List<string> Names { get; }
-        
-        public GlobalStatement(List<string> names)
-        {
-            Names = names;
-        }
-        
-        public override string ToString() => $"global {string.Join(", ", Names)}";
-        
-        // Evaluate 메서드 - 나중에 구현
-        public PyObject Evaluate(PyScope scope)
-        {
-            throw new NotImplementedException("GlobalStatement.Evaluate() - 나중에 구현예정");
-        }
-    }
-
-    // nonlocal 문
-    public class NonlocalStatement : Statement
-    {
-        public override string NodeType => "Nonlocal";
-        public List<string> Names { get; }
-        
-        public NonlocalStatement(List<string> names)
-        {
-            Names = names;
-        }
-        
-        public override string ToString() => $"nonlocal {string.Join(", ", Names)}";
-        
-        // Evaluate 메서드 - 나중에 구현
-        public PyObject Evaluate(PyScope scope)
-        {
-            throw new NotImplementedException("NonlocalStatement.Evaluate() - 나중에 구현예정");
-        }
-    }
-
-    // await 표현식
-    public class AwaitExpression : Expression
-    {
-        public override string NodeType => "Await";
-        public Expression Value { get; }
-        
-        public AwaitExpression(Expression value)
-        {
-            Value = value;
-        }
-        
-        public override string ToString() => $"await {Value}";
-        
-        // Evaluate 메서드 - 나중에 구현
-        public PyObject Evaluate(PyScope scope)
-        {
-            throw new NotImplementedException("AwaitExpression.Evaluate() - 나중에 구현예정");
-        }
-    }
-
-    // Python 3.12 Type Parameter 표현식들
-    
-    // TypeVar expression: T
+    // Python 3.12 Type Parameter expressions
     public class TypeVarExpression : Expression
     {
         public override string NodeType => "TypeVar";
         public string Name { get; }
-        public Expression Bound { get; }
+        public Expression? Bound { get; }
         
-        public TypeVarExpression(string name, Expression bound = null)
+        public TypeVarExpression(string name, Expression? bound = null)
         {
             Name = name;
             Bound = bound;
         }
         
-        public override string ToString() => Name;
-        
-        // Evaluate 메서드 - 나중에 구현
-        public PyObject Evaluate(PyScope scope)
+        public override PyObject Evaluate(PyScope scope)
         {
-            throw new NotImplementedException("TypeVarExpression.Evaluate() - 나중에 구현예정");
+            // TypeVar는 타입 매개변수를 나타냄 - C# 에서는 문자열로 처리
+            return new PyString(Name);
         }
+        
+        public override string ToString() => Bound != null ? $"{Name}: {Bound}" : Name;
     }
 
-    // ParamSpec expression: **P
     public class ParamSpecExpression : Expression
     {
         public override string NodeType => "ParamSpec";
@@ -951,16 +1581,14 @@ namespace SharpPy
             Name = name;
         }
         
-        public override string ToString() => $"**{Name}";
-        
-        // Evaluate 메서드 - 나중에 구현
-        public PyObject Evaluate(PyScope scope)
+        public override PyObject Evaluate(PyScope scope)
         {
-            throw new NotImplementedException("ParamSpecExpression.Evaluate() - 나중에 구현예정");
+            return new PyString($"**{Name}");
         }
+        
+        public override string ToString() => $"**{Name}";
     }
 
-    // TypeVarTuple expression: *Ts
     public class TypeVarTupleExpression : Expression
     {
         public override string NodeType => "TypeVarTuple";
@@ -971,15 +1599,47 @@ namespace SharpPy
             Name = name;
         }
         
-        public override string ToString() => $"*{Name}";
-        
-        // Evaluate 메서드 - 나중에 구현
-        public PyObject Evaluate(PyScope scope)
+        public override PyObject Evaluate(PyScope scope)
         {
-            throw new NotImplementedException("TypeVarTupleExpression.Evaluate() - 나중에 구현예정");
+            return new PyString($"*{Name}");
+        }
+        
+        public override string ToString() => $"*{Name}";
+    }
+
+    public class SliceExpression : Expression
+    {
+        public override string NodeType => "Slice";
+        public Expression? Start { get; }
+        public Expression? Stop { get; }
+        public Expression? Step { get; }
+        
+        public SliceExpression(Expression? start, Expression? stop, Expression? step = null)
+        {
+            Start = start;
+            Stop = stop;
+            Step = step;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var startObj = Start?.Evaluate(scope);
+            var stopObj = Stop?.Evaluate(scope);
+            var stepObj = Step?.Evaluate(scope);
+            
+            return new PySlice(startObj, stopObj, stepObj);
+        }
+        
+        public override string ToString()
+        {
+            var startStr = Start?.ToString() ?? "";
+            var stopStr = Stop?.ToString() ?? "";
+            var stepStr = Step != null ? $":{Step}" : "";
+            return $"{startStr}:{stopStr}{stepStr}";
         }
     }
 
+    #endregion
 
     #endregion
 }

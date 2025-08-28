@@ -100,7 +100,7 @@ namespace SharpPy
         /// <summary>
         /// 문자열 연결 (+ 연산자)
         /// </summary>
-        public PyObject Add(PyObject other)
+        public override PyObject Add(PyObject other)
         {
             return other switch
             {
@@ -112,7 +112,7 @@ namespace SharpPy
         /// <summary>
         /// 문자열 반복 (* 연산자)
         /// </summary>
-        public PyObject Multiply(PyObject other)
+        public override PyObject Multiply(PyObject other)
         {
             return other switch
             {

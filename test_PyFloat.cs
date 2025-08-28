@@ -71,7 +71,7 @@ namespace SharpPy.Tests
             Console.WriteLine($"  {f1} + {i1} = {add2}");
 
             // 나눗셈
-            var div1 = f1.TrueDivide(f2) as PyFloat;
+            var div1 = f1.Divide(f2) as PyFloat;
             Console.WriteLine($"  {f1} / {f2} = {div1}");
 
             // 거듭제곱
@@ -199,7 +199,7 @@ namespace SharpPy.Tests
             {
                 var f1 = new PyFloat(5.0);
                 var f2 = new PyFloat(0.0);
-                var result = f1.TrueDivide(f2); // 0으로 나누기
+                var result = f1.Divide(f2); // 0으로 나누기
             }
             catch (Exception e)
             {

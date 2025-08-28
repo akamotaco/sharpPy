@@ -340,7 +340,7 @@ namespace SharpPy
                 "+" => ByteCodeOp.BINARY_ADD,
                 "-" => ByteCodeOp.BINARY_SUBTRACT,
                 "*" => ByteCodeOp.BINARY_MULTIPLY,
-                "/" => ByteCodeOp.BINARY_TRUE_DIVIDE,     // Python 3.x 에서 / 는 true division
+                "/" => ByteCodeOp.BINARY_DIVIDE,     // Python 3.x 에서 / 는 true division
                 "//" => ByteCodeOp.BINARY_FLOOR_DIVIDE,   // 바닥 나눗셈
                 "%" => ByteCodeOp.BINARY_MODULO,          // 모듈로 연산
                 "**" => ByteCodeOp.BINARY_POWER,          // 거듭제곱
@@ -419,7 +419,7 @@ namespace SharpPy
                 "+=" => ByteCodeOp.INPLACE_ADD,
                 "-=" => ByteCodeOp.INPLACE_SUBTRACT,
                 "*=" => ByteCodeOp.INPLACE_MULTIPLY,
-                "/=" => ByteCodeOp.INPLACE_TRUE_DIVIDE,
+                "/=" => ByteCodeOp.INPLACE_DIVIDE,
                 "//=" => ByteCodeOp.INPLACE_FLOOR_DIVIDE,
                 "%=" => ByteCodeOp.INPLACE_MODULO,
                 "**=" => ByteCodeOp.INPLACE_POWER,
