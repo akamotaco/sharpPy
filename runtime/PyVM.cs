@@ -11,6 +11,10 @@ namespace SharpPy
         public Dictionary<string, PyObject> FastLocals { get; } // 빠른 지역변수 접근
         public int InstructionPointer { get; set; }
         
+        // CPython-style exception handling support
+        public Stack<int> ExceptionHandlers { get; } = new Stack<int>();
+        public PyBaseException? LastException { get; set; }
+        
         public PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope = null)
         {
             Code = code;
@@ -29,6 +33,25 @@ namespace SharpPy
                 FastLocals[paramName] = args[i];
                 ScopeChain.AssignVariable(paramName, args[i]);
             }
+        }
+        
+        /// <summary>
+        /// CPython-style exception handler management
+        /// </summary>
+        public void PushExceptionHandler(int handlerOffset)
+        {
+            ExceptionHandlers.Push(handlerOffset);
+        }
+        
+        public void PopExceptionHandler()
+        {
+            if (ExceptionHandlers.Count > 0)
+                ExceptionHandlers.Pop();
+        }
+        
+        public int? GetExceptionHandler()
+        {
+            return ExceptionHandlers.Count > 0 ? ExceptionHandlers.Peek() : null;
         }
         
         public override string ToString() => $"<frame for {Code.Name}>";
@@ -200,6 +223,155 @@ namespace SharpPy
                 case ByteCodeOp.NOP:
                     // 아무것도 안 함
                     break;
+
+                // CPython-style Control Flow Opcodes (Phase 1 - High Priority)
+                case ByteCodeOp.POP_JUMP_IF_TRUE:
+                    var truthValue = frame.ValueStack.Pop();
+                    if (truthValue.PyBoolValue())
+                    {
+                        frame.InstructionPointer = instruction.Argument;
+                        return null; // Continue execution from new position
+                    }
+                    break;
+                    
+                case ByteCodeOp.POP_JUMP_IF_FALSE:
+                    var falseValue = frame.ValueStack.Pop();
+                    if (!falseValue.PyBoolValue())
+                    {
+                        frame.InstructionPointer = instruction.Argument;
+                        return null; // Continue execution from new position
+                    }
+                    break;
+                    
+                case ByteCodeOp.JUMP_FORWARD:
+                    frame.InstructionPointer = instruction.Argument;
+                    return null; // Continue execution from new position
+                    
+                case ByteCodeOp.JUMP_BACKWARD:
+                    frame.InstructionPointer = instruction.Argument;
+                    return null; // Continue execution from new position
+
+                // CPython-style Container Building Opcodes (Phase 1)
+                case ByteCodeOp.BUILD_LIST:
+                    var listSize = instruction.Argument;
+                    var listItems = new List<PyObject>();
+                    for (int i = 0; i < listSize; i++)
+                    {
+                        listItems.Insert(0, frame.ValueStack.Pop()); // Reverse order
+                    }
+                    var pyList = new PyList();
+                    foreach (var item in listItems)
+                    {
+                        // Add items to list - need to find proper method
+                        pyList.Add(item);
+                    }
+                    frame.ValueStack.Push(pyList);
+                    break;
+                    
+                case ByteCodeOp.BUILD_TUPLE:
+                    var tupleSize = instruction.Argument;
+                    var tupleItems = new PyObject[tupleSize];
+                    for (int i = tupleSize - 1; i >= 0; i--)
+                    {
+                        tupleItems[i] = frame.ValueStack.Pop();
+                    }
+                    var pyTuple = new PyTuple(tupleItems);
+                    frame.ValueStack.Push(pyTuple);
+                    break;
+                    
+                case ByteCodeOp.BUILD_SET:
+                    var setSize = instruction.Argument;
+                    var pySet = new PySet();
+                    for (int i = 0; i < setSize; i++)
+                    {
+                        pySet.Add(frame.ValueStack.Pop());
+                    }
+                    frame.ValueStack.Push(pySet);
+                    break;
+                    
+                case ByteCodeOp.BUILD_MAP:
+                    var mapSize = instruction.Argument;
+                    var pyDict = new PyDict();
+                    for (int i = 0; i < mapSize; i++)
+                    {
+                        var mapValue = frame.ValueStack.Pop();
+                        var mapKey = frame.ValueStack.Pop();
+                        pyDict.SetItem(mapKey, mapValue);
+                    }
+                    frame.ValueStack.Push(pyDict);
+                    break;
+
+                // CPython-style Iterator Opcodes
+                case ByteCodeOp.GET_ITER:
+                    var iterable = frame.ValueStack.Pop();
+                    var iterator = iterable.GetIterator();
+                    frame.ValueStack.Push(iterator);
+                    break;
+                    
+                case ByteCodeOp.FOR_ITER:
+                    var iter = frame.ValueStack.Peek(); // Don't pop yet
+                    try
+                    {
+                        var nextItem = iter.Next();
+                        frame.ValueStack.Push(nextItem);
+                    }
+                    catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                    {
+                        frame.ValueStack.Pop(); // Remove iterator
+                        frame.InstructionPointer = instruction.Argument; // Jump to end of loop
+                        return null;
+                    }
+                    break;
+
+                // CPython-style Comparison Operations
+                case ByteCodeOp.COMPARE_OP:
+                    var compareRight = frame.ValueStack.Pop();
+                    var compareLeft = frame.ValueStack.Pop();
+                    var compareResult = CompareOperation(compareLeft, compareRight, instruction.Argument);
+                    frame.ValueStack.Push(compareResult);
+                    break;
+
+                // CPython-style Unary Operations
+                case ByteCodeOp.UNARY_POSITIVE:
+                    var posValue = frame.ValueStack.Pop();
+                    frame.ValueStack.Push(posValue.Positive());
+                    break;
+                    
+                case ByteCodeOp.UNARY_NEGATIVE:
+                    var negValue = frame.ValueStack.Pop();
+                    frame.ValueStack.Push(negValue.Negative());
+                    break;
+                    
+                case ByteCodeOp.UNARY_NOT:
+                    var notValue = frame.ValueStack.Pop();
+                    var boolResult = notValue.PyBoolValue() ? PyBool.False : PyBool.True;
+                    frame.ValueStack.Push(boolResult);
+                    break;
+
+                // CPython-style Exception Handling (Basic)
+                case ByteCodeOp.SETUP_EXCEPT:
+                    frame.PushExceptionHandler(instruction.Argument);
+                    break;
+                    
+                case ByteCodeOp.POP_EXCEPT:
+                    frame.PopExceptionHandler();
+                    break;
+                    
+                case ByteCodeOp.RERAISE:
+                    if (frame.LastException != null)
+                        throw new PythonException(frame.LastException);
+                    break;
+
+                // CPython-style Sequence Operations  
+                case ByteCodeOp.UNPACK_SEQUENCE:
+                    var sequence = frame.ValueStack.Pop();
+                    var count = instruction.Argument;
+                    var items = UnpackSequence(sequence, count);
+                    foreach (var item in items.Reverse())
+                    {
+                        frame.ValueStack.Push(item);
+                    }
+                    break;
                     
                 default:
                     throw new NotImplementedException($"OpCode {instruction.OpCode} not implemented");
@@ -227,6 +399,100 @@ namespace SharpPy
             }
             
             throw PyTypeError.Create($"unsupported operand type(s) for {op}: '{left.GetTypeName()}' and '{right.GetTypeName()}'");
+        }
+
+        /// <summary>
+        /// CPython-style comparison operations
+        /// </summary>
+        private PyObject CompareOperation(PyObject left, PyObject right, int compareOp)
+        {
+            var operation = (CompareOp)compareOp;
+            return operation switch
+            {
+                CompareOp.Eq => left.RichCompare(right, PyObject.CompareOp.EQ),
+                CompareOp.NotEq => left.RichCompare(right, PyObject.CompareOp.NE),
+                CompareOp.Lt => left.RichCompare(right, PyObject.CompareOp.LT),
+                CompareOp.LtE => left.RichCompare(right, PyObject.CompareOp.LE),
+                CompareOp.Gt => left.RichCompare(right, PyObject.CompareOp.GT),
+                CompareOp.GtE => left.RichCompare(right, PyObject.CompareOp.GE),
+                CompareOp.In => ((PyBool)right.Contains(left)),
+                CompareOp.NotIn => ((PyBool)right.Contains(left)).Not(),
+                CompareOp.Is => ReferenceEquals(left, right) ? PyBool.True : PyBool.False,
+                CompareOp.IsNot => ReferenceEquals(left, right) ? PyBool.False : PyBool.True,
+                _ => throw new NotImplementedException($"Compare operation {operation} not implemented")
+            };
+        }
+
+        /// <summary>
+        /// CPython-style sequence unpacking
+        /// </summary>
+        private PyObject[] UnpackSequence(PyObject sequence, int count)
+        {
+            if (sequence is PyList list)
+            {
+                if (list.Length() != count)
+                    throw PyValueError.Create($"too many values to unpack (expected {count})");
+                return list.Items.Take(count).ToArray();
+            }
+            else if (sequence is PyTuple tuple)
+            {
+                if (tuple.Items.Length != count)
+                    throw PyValueError.Create($"too many values to unpack (expected {count})");
+                return tuple.Items.Take(count).ToArray();
+            }
+            else if (sequence is PyString str)
+            {
+                if (str.Value.Length != count)
+                    throw PyValueError.Create($"too many values to unpack (expected {count})");
+                return str.Value.Select(c => new PyString(c.ToString())).Cast<PyObject>().ToArray();
+            }
+            else
+            {
+                // Try to get iterator and collect items
+                var iterator = sequence.GetIterator();
+                var items = new List<PyObject>();
+                try
+                {
+                    while (items.Count < count)
+                    {
+                        items.Add(iterator.Next());
+                    }
+                    
+                    // Check if there are more items (would indicate too many values)
+                    try
+                    {
+                        iterator.Next();
+                        throw PyValueError.Create($"too many values to unpack (expected {count})");
+                    }
+                    catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                    {
+                        // This is expected - no more items
+                    }
+                }
+                catch (PythonException ex) when (ex.PyException is PyStopIteration && items.Count < count)
+                {
+                    throw PyValueError.Create($"not enough values to unpack (expected {count}, got {items.Count})");
+                }
+                
+                return items.ToArray();
+            }
+        }
+
+        /// <summary>
+        /// Compare operation enumeration matching CPython
+        /// </summary>
+        private enum CompareOp : int
+        {
+            Lt = 0,
+            LtE = 1, 
+            Eq = 2,
+            NotEq = 3,
+            Gt = 4,
+            GtE = 5,
+            In = 6,
+            NotIn = 7,
+            Is = 8,
+            IsNot = 9
         }
     }
 

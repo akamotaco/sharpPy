@@ -442,10 +442,42 @@ namespace SharpPy
         private void CompileTypeAlias(TypeAliasStatement typeAlias) { /* TODO */ }
         private void CompileImport(ImportStatement import) { /* TODO */ }
         private void CompileImportFrom(ImportFromStatement importFrom) { /* TODO */ }
-        private void CompileIf(IfStatement ifStmt) { /* TODO */ }
-        private void CompileWhile(WhileStatement whileStmt) { /* TODO */ }
-        private void CompileFor(ForStatement forStmt) { /* TODO */ }
-        private void CompileTry(TryStatement tryStmt) { /* TODO */ }
+        /// <summary>
+        /// CPython-style if statement compilation - simplified implementation
+        /// </summary>
+        private void CompileIf(dynamic ifStmt)
+        {
+            // Simplified if statement compilation - TODO: implement full if/else support
+            throw new NotImplementedException("IfStatement compilation not fully implemented yet");
+        }
+        
+        /// <summary>
+        /// CPython-style while loop compilation - simplified implementation
+        /// </summary>
+        private void CompileWhile(dynamic whileStmt)
+        {
+            // Simplified while loop compilation - TODO: implement full while/else support
+            throw new NotImplementedException("WhileStatement compilation not fully implemented yet");
+        }
+        
+        /// <summary>
+        /// CPython-style for loop compilation - simplified implementation  
+        /// </summary>
+        private void CompileFor(dynamic forStmt)
+        {
+            // Simplified for loop compilation - TODO: implement full for/else support
+            throw new NotImplementedException("ForStatement compilation not fully implemented yet");
+        }
+        
+        /// <summary>
+        /// CPython-style exception handling compilation - simplified implementation
+        /// </summary>
+        private void CompileTry(dynamic tryStmt)
+        {
+            // Simplified try statement compilation - TODO: implement full try/except/finally
+            // For now just compile any available body
+            throw new NotImplementedException("TryStatement compilation not fully implemented yet");
+        }
         private void CompileWith(WithStatement withStmt) { /* TODO */ }
         private void CompileMatch(MatchStatement matchStmt) { /* TODO */ }
         private void CompileAssert(AssertStatement assert) { /* TODO */ }
@@ -463,6 +495,126 @@ namespace SharpPy
         {
             throw new NotImplementedException("PythonCompiler.Evaluate() - 나중에 구현예정");
         }
+        
+        #region CPython-style Compiler Helper Methods
+        
+        /// <summary>
+        /// Label management for jumps (CPython style)
+        /// </summary>
+        private class Label
+        {
+            public string Name { get; }
+            public int Offset { get; set; } = -1;
+            public bool IsMarked => Offset >= 0;
+            public List<int> References { get; } = new();
+            
+            public Label(string name)
+            {
+                Name = name;
+            }
+        }
+        
+        private Dictionary<string, Label> _labels = new();
+        private int _labelCounter = 0;
+        
+        private Label CreateLabel(string prefix)
+        {
+            var name = $"{prefix}_{_labelCounter++}";
+            var label = new Label(name);
+            _labels[name] = label;
+            return label;
+        }
+        
+        private void MarkLabel(Label label)
+        {
+            label.Offset = _instructions.Count;
+            
+            // Update all references to this label
+            foreach (var refIndex in label.References)
+            {
+                var oldInstruction = _instructions[refIndex];
+                _instructions[refIndex] = new ByteCodeInstruction(oldInstruction.OpCode, label.Offset);
+            }
+        }
+        
+        
+        /// <summary>
+        /// Loop context management for break/continue (CPython style)
+        /// </summary>
+        private class LoopContext
+        {
+            public Label BreakLabel { get; }
+            public Label ContinueLabel { get; }
+            
+            public LoopContext(Label breakLabel, Label continueLabel)
+            {
+                BreakLabel = breakLabel;
+                ContinueLabel = continueLabel;
+            }
+        }
+        
+        private Stack<LoopContext> _loopStack = new();
+        
+        private void PushLoopContext(Label breakLabel, Label continueLabel)
+        {
+            _loopStack.Push(new LoopContext(breakLabel, continueLabel));
+        }
+        
+        private void PopLoopContext()
+        {
+            if (_loopStack.Count > 0)
+                _loopStack.Pop();
+        }
+        
+        private LoopContext? GetCurrentLoop()
+        {
+            return _loopStack.Count > 0 ? _loopStack.Peek() : null;
+        }
+        
+        /// <summary>
+        /// Enhanced bytecode emission with proper name/constant management
+        /// </summary>
+        
+        private int GetOrAddVarName(string name)
+        {
+            var index = _varNames.IndexOf(name);
+            if (index == -1)
+            {
+                _varNames.Add(name);
+                index = _varNames.Count - 1;
+            }
+            return index;
+        }
+        
+        private int GetOrAddName(string name)
+        {
+            var index = _names.IndexOf(name);
+            if (index == -1)
+            {
+                _names.Add(name);
+                index = _names.Count - 1;
+            }
+            return index;
+        }
+        
+        private int GetOrAddConstant(PyObject constant)
+        {
+            // Use object reference equality for constants
+            for (int i = 0; i < _constants.Count; i++)
+            {
+                if (ReferenceEquals(_constants[i], constant) || 
+                    (constant is PyInt intConst && _constants[i] is PyInt existingInt && intConst.Value == existingInt.Value) ||
+                    (constant is PyString strConst && _constants[i] is PyString existingStr && strConst.Value == existingStr.Value))
+                {
+                    return i;
+                }
+            }
+            
+            _constants.Add(constant);
+            return _constants.Count - 1;
+        }
+        
+        #endregion
     }
 
     #endregion

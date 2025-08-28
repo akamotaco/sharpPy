@@ -1,1 +1,1 @@
-x = 42
+print('range(5):', list(range(5)))

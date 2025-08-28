@@ -12,7 +12,11 @@ namespace SharpPy
         // Literals
         INTEGER,
         FLOAT,
-        STRING,
+        COMPLEX,      // 3+4j
+        STRING,       // "regular"
+        RAW_STRING,   // r"raw"
+        BYTES_STRING, // b"bytes"
+        F_STRING,     // f"formatted"
         IDENTIFIER,
 
         // Keywords

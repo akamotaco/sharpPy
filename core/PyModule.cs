@@ -126,39 +126,14 @@ public class PyModule : PyObject
         // sys.modules 캐시
         public static Dictionary<string, PyModule> SysModules { get; } = new Dictionary<string, PyModule>();
 
-        // 가상 모듈 파일들
-        private static Dictionary<string, string> _moduleFiles = new Dictionary<string, string>
+        // 내장 모듈들
+        private static Dictionary<string, Func<PyModule>> _builtinModules = new Dictionary<string, Func<PyModule>>
         {
-            ["math"] = @"
-PI = 3.14159
-E = 2.71828
-def sqrt(x):
-    return x ** 0.5
-def sin(x):
-    return 0.0
-__all__ = ['PI', 'E', 'sqrt', 'sin']
-",
-            ["os"] = @"
-name = 'posix'
-sep = '/'
-def getcwd():
-    return '/current/path'
-def listdir(path):
-    return []
-__all__ = ['name', 'sep', 'getcwd', 'listdir']
-",
-            ["mymodule"] = @"
-VERSION = '1.0.0'
-DEBUG = True
-def helper_function():
-    return 'helper'
-def public_function():
-    return 'public'
-def _private_function():
-    return 'private'
-__all__ = ['VERSION', 'public_function']
-"
+            ["math"] = () => SharpPy.Modules.MathModule.CreateMathModule(),
+            ["random"] = () => SharpPy.Modules.RandomModule.CreateRandomModule(),
+            ["sys"] = () => SharpPy.Modules.SysModule.CreateSysModule()
         };
+
 
         // import module_name
         public static PyModule Import(string moduleName)
@@ -169,22 +144,112 @@ __all__ = ['VERSION', 'public_function']
                 return cachedModule;
             }
 
-            // 2. 모듈 파일 찾기
-            if (!_moduleFiles.TryGetValue(moduleName, out string sourceCode))
+            // 2. 내장 모듈 확인
+            if (_builtinModules.TryGetValue(moduleName, out Func<PyModule> moduleFactory))
             {
-                throw PyModuleNotFoundError.Create($"No module named '{moduleName}'");
+                var module = moduleFactory();
+                SysModules[moduleName] = module;
+                return module;
             }
 
-            // 3. 새로운 모듈 객체 생성
-            var module = new PyModule(moduleName, $"{moduleName}.py");
+            // 3. sys.path를 사용한 파일 시스템 검색
+            var foundModule = SearchModuleInPath(moduleName);
+            if (foundModule != null)
+            {
+                return foundModule;
+            }
 
-            // 4. sys.modules에 등록 (순환 import 방지)
-            SysModules[moduleName] = module;
+            // 4. 모듈을 찾을 수 없음
+            throw PyModuleNotFoundError.Create($"No module named '{moduleName}'");
+        }
 
-            // 5. 모듈 실행 (초기화)
-            module.Execute(sourceCode);
+        // sys.path에서 모듈 검색
+        private static PyModule SearchModuleInPath(string moduleName)
+        {
+            var sysPath = GetSysPath();
+            if (sysPath == null) return null;
 
-            return module;
+            foreach (var pathObj in sysPath.Items)
+            {
+                if (!(pathObj is PyString pathStr)) continue;
+                var searchPath = pathStr.Value;
+
+                // .py 파일 검색
+                var pyFile = System.IO.Path.Combine(searchPath, moduleName + ".py");
+                if (System.IO.File.Exists(pyFile))
+                {
+                    return LoadModuleFromFile(moduleName, pyFile);
+                }
+
+                // 패키지 디렉토리 검색 (moduleName/__init__.py)
+                var packageDir = System.IO.Path.Combine(searchPath, moduleName);
+                var initFile = System.IO.Path.Combine(packageDir, "__init__.py");
+                if (System.IO.Directory.Exists(packageDir) && System.IO.File.Exists(initFile))
+                {
+                    return LoadModuleFromFile(moduleName, initFile);
+                }
+            }
+
+            return null;
+        }
+
+        // sys.path 가져오기
+        private static PyList GetSysPath()
+        {
+            // sys 모듈이 이미 로드되어 있으면 그것의 path 사용
+            if (SysModules.TryGetValue("sys", out PyModule sysModule))
+            {
+                if (sysModule.ModuleDict.TryGetValue("path", out PyObject pathObj) && pathObj is PyList pathList)
+                {
+                    return pathList;
+                }
+            }
+
+            // sys 모듈이 없으면 기본 경로 생성
+            return CreateDefaultSysPath();
+        }
+
+        // 기본 sys.path 생성
+        private static PyList CreateDefaultSysPath()
+        {
+            var pathList = new List<PyObject>();
+
+            // 현재 디렉토리
+            pathList.Add(new PyString("."));
+
+            // 실행 파일 디렉토리
+            var exeDir = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? "";
+            pathList.Add(new PyString(exeDir));
+
+            // modules 디렉토리
+            pathList.Add(new PyString(System.IO.Path.Combine(exeDir, "modules")));
+
+            return new PyList(pathList.ToArray());
+        }
+
+        // 파일에서 모듈 로드
+        private static PyModule LoadModuleFromFile(string moduleName, string filePath)
+        {
+            try
+            {
+                var sourceCode = System.IO.File.ReadAllText(filePath);
+                var module = new PyModule(moduleName, filePath);
+
+                // sys.modules에 등록 (순환 import 방지)
+                SysModules[moduleName] = module;
+
+                // 모듈 실행 (초기화)
+                module.Execute(sourceCode);
+
+                Console.WriteLine($"📦 모듈 '{moduleName}' 파일에서 로드됨: {filePath}");
+                return module;
+            }
+            catch (System.Exception ex)
+            {
+                // 로드 실패 시 sys.modules에서 제거
+                SysModules.Remove(moduleName);
+                throw PyImportError.Create($"Failed to load module '{moduleName}' from '{filePath}': {ex.Message}");
+            }
         }
 
         // from module_name import item1, item2

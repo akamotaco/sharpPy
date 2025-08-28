@@ -30,14 +30,57 @@ public class PyBuiltinsModule : PyObject
     
     private void InitializeBuiltins()
     {
-        // 내장 함수들
+        // 기본 내장 함수들
         BuiltinDict["print"] = new PyBuiltinFunction("print");
         BuiltinDict["len"] = new PyBuiltinFunction("len");
         BuiltinDict["abs"] = new PyBuiltinFunction("abs");
-        BuiltinDict["max"] = new PyBuiltinFunction("max");
-        BuiltinDict["min"] = new PyBuiltinFunction("min");
         BuiltinDict["callable"] = new PyBuiltinFunction("callable");
+        
+        // 컬렉션 및 이터레이터 함수들
+        BuiltinDict["range"] = new PyBuiltinFunction("range");
+        BuiltinDict["enumerate"] = new PyBuiltinFunction("enumerate");
+        BuiltinDict["zip"] = new PyBuiltinFunction("zip");
+        BuiltinDict["map"] = new PyBuiltinFunction("map");
+        BuiltinDict["filter"] = new PyBuiltinFunction("filter");
+        BuiltinDict["sorted"] = new PyBuiltinFunction("sorted");
+        BuiltinDict["reversed"] = new PyBuiltinFunction("reversed");
+        BuiltinDict["iter"] = new PyBuiltinFunction("iter");
+        BuiltinDict["next"] = new PyBuiltinFunction("next");
+        
+        // 집계 함수들
+        BuiltinDict["sum"] = new PyBuiltinFunction("sum");
+        BuiltinDict["min"] = new PyBuiltinFunction("min");
+        BuiltinDict["max"] = new PyBuiltinFunction("max");
+        BuiltinDict["any"] = new PyBuiltinFunction("any");
+        BuiltinDict["all"] = new PyBuiltinFunction("all");
+        
+        // 타입 및 리플렉션 함수들
         BuiltinDict["isinstance"] = new PyBuiltinFunction("isinstance");
+        BuiltinDict["issubclass"] = new PyBuiltinFunction("issubclass");
+        BuiltinDict["hasattr"] = new PyBuiltinFunction("hasattr");
+        BuiltinDict["getattr"] = new PyBuiltinFunction("getattr");
+        BuiltinDict["setattr"] = new PyBuiltinFunction("setattr");
+        BuiltinDict["delattr"] = new PyBuiltinFunction("delattr");
+        BuiltinDict["type"] = new PyBuiltinFunction("type");
+        BuiltinDict["id"] = new PyBuiltinFunction("id");
+        BuiltinDict["hash"] = new PyBuiltinFunction("hash");
+        
+        // 타입 변환 함수들
+        BuiltinDict["str"] = new PyBuiltinFunction("str");
+        BuiltinDict["int"] = new PyBuiltinFunction("int");
+        BuiltinDict["float"] = new PyBuiltinFunction("float");
+        BuiltinDict["bool"] = new PyBuiltinFunction("bool");
+        BuiltinDict["list"] = new PyBuiltinFunction("list");
+        BuiltinDict["tuple"] = new PyBuiltinFunction("tuple");
+        BuiltinDict["dict"] = new PyBuiltinFunction("dict");
+        BuiltinDict["set"] = new PyBuiltinFunction("set");
+        
+        // 수학 및 기타 함수들
+        BuiltinDict["round"] = new PyBuiltinFunction("round");
+        BuiltinDict["pow"] = new PyBuiltinFunction("pow");
+        BuiltinDict["divmod"] = new PyBuiltinFunction("divmod");
+        BuiltinDict["ord"] = new PyBuiltinFunction("ord");
+        BuiltinDict["chr"] = new PyBuiltinFunction("chr");
         
         // 내장 상수들
         BuiltinDict["True"] = PyBool.True;

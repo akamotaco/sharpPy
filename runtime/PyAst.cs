@@ -30,15 +30,80 @@ namespace SharpPy
     /// <summary>
     /// AST 노드의 베이스 클래스
     /// </summary>
+    /// <summary>
+    /// Visitor pattern interfaces for AST traversal (CPython style)
+    /// </summary>
+    public interface IASTVisitor<T>
+    {
+        T VisitNode(ASTNode node);
+        T VisitStatement(Statement node);
+        T VisitExpression(Expression node);
+        // Add specific node visit methods as needed
+        T GenericVisit(ASTNode node); // Default implementation
+    }
+    
+    public interface IASTVisitor
+    {
+        void VisitNode(ASTNode node);
+        void VisitStatement(Statement node);
+        void VisitExpression(Expression node);
+        void GenericVisit(ASTNode node);
+    }
+
+    /// <summary>
+    /// Enhanced AST Node base class with source location tracking and visitor support (CPython 3.12 style)
+    /// </summary>
     public abstract class ASTNode
     {
         public abstract string NodeType { get; }
-        public override string ToString() => NodeType;
+        
+        // Source Location Information (Python 3.12 requirement)
+        public int LineNo { get; set; } = -1;
+        public int ColOffset { get; set; } = -1;
+        public int? EndLineNo { get; set; }
+        public int? EndColOffset { get; set; }
+        
+        // Parent tracking for advanced analysis
+        public ASTNode? Parent { get; set; }
+        
+        public override string ToString() => $"{NodeType} at {LineNo}:{ColOffset}";
+        
+        // Visitor pattern support
+        public abstract T Accept<T>(IASTVisitor<T> visitor);
+        public abstract void Accept(IASTVisitor visitor);
         
         /// <summary>
         /// Evaluate 메서드 - 각 노드별 구현으로 위임
         /// </summary>
         public abstract PyObject Evaluate(PyScope scope);
+        
+        /// <summary>
+        /// Enhanced evaluation with execution context (for better error handling)
+        /// </summary>
+        public virtual PyObject Evaluate(PyScope scope, IExecutionContext? context = null)
+        {
+            try
+            {
+                return Evaluate(scope);
+            }
+            catch (Exception ex) when (context != null)
+            {
+                // Enhanced error handling with source location
+                throw context.CreateException(this, ex.Message, ex);
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Execution context for enhanced error handling and debugging
+    /// </summary>
+    public interface IExecutionContext
+    {
+        string FileName { get; set; }
+        Stack<ASTNode> CallStack { get; }
+        PyScope CurrentScope { get; set; }
+        
+        Exception CreateException(ASTNode node, string message, Exception? innerException = null);
     }
 
     #region Statement Nodes
@@ -46,7 +111,18 @@ namespace SharpPy
     /// <summary>
     /// 문장 노드들의 베이스 클래스
     /// </summary>
-    public abstract class Statement : ASTNode { }
+    public abstract class Statement : ASTNode 
+    {
+        public override T Accept<T>(IASTVisitor<T> visitor)
+        {
+            return visitor.VisitStatement(this);
+        }
+        
+        public override void Accept(IASTVisitor visitor)
+        {
+            visitor.VisitStatement(this);
+        }
+    }
 
     public class AssignStatement : Statement
     {
@@ -693,6 +769,16 @@ namespace SharpPy
             OptionalVars = optionalVars;
         }
         
+        public override T Accept<T>(IASTVisitor<T> visitor)
+        {
+            return visitor.VisitNode(this);
+        }
+        
+        public override void Accept(IASTVisitor visitor)
+        {
+            visitor.VisitNode(this);
+        }
+        
         public override PyObject Evaluate(PyScope scope)
         {
             return ContextExpr.Evaluate(scope);
@@ -734,6 +820,16 @@ namespace SharpPy
             Pattern = pattern;
             Guard = guard;
             Body = body;
+        }
+        
+        public override T Accept<T>(IASTVisitor<T> visitor)
+        {
+            return visitor.VisitNode(this);
+        }
+        
+        public override void Accept(IASTVisitor visitor)
+        {
+            visitor.VisitNode(this);
         }
         
         public override PyObject Evaluate(PyScope scope)
@@ -968,7 +1064,18 @@ namespace SharpPy
     /// <summary>
     /// 표현식 노드들의 베이스 클래스
     /// </summary>
-    public abstract class Expression : ASTNode { }
+    public abstract class Expression : ASTNode 
+    {
+        public override T Accept<T>(IASTVisitor<T> visitor)
+        {
+            return visitor.VisitExpression(this);
+        }
+        
+        public override void Accept(IASTVisitor visitor)
+        {
+            visitor.VisitExpression(this);
+        }
+    }
 
     public class ConstantExpression : Expression
     {
@@ -1540,6 +1647,16 @@ namespace SharpPy
             Ifs = ifs ?? new List<Expression>();
         }
         
+        public override T Accept<T>(IASTVisitor<T> visitor)
+        {
+            return visitor.VisitNode(this);
+        }
+        
+        public override void Accept(IASTVisitor visitor)
+        {
+            visitor.VisitNode(this);
+        }
+        
         public override PyObject Evaluate(PyScope scope)
         {
             // Comprehension은 단독으로 실행되지 않거나 다른 comprehension expression에서 처리
@@ -1636,6 +1753,320 @@ namespace SharpPy
             var stopStr = Stop?.ToString() ?? "";
             var stepStr = Step != null ? $":{Step}" : "";
             return $"{startStr}:{stopStr}{stepStr}";
+        }
+    }
+
+    #endregion
+
+    #region Python 3.12 Enhanced AST Nodes
+
+    /// <summary>
+    /// Exception Groups (PEP 654) - except* syntax
+    /// </summary>
+    public class TryStarStatement : Statement
+    {
+        public override string NodeType => "TryStar";
+        public List<Statement> Body { get; }
+        public List<ExceptStarHandler> Handlers { get; }
+        public List<Statement>? OrElse { get; }
+        public List<Statement>? FinalBody { get; }
+        
+        public TryStarStatement(List<Statement> body, List<ExceptStarHandler> handlers, 
+                               List<Statement>? orElse = null, List<Statement>? finalBody = null)
+        {
+            Body = body;
+            Handlers = handlers;
+            OrElse = orElse;
+            FinalBody = finalBody;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // Implementation for exception group handling
+            try
+            {
+                foreach (var stmt in Body)
+                    stmt.Evaluate(scope);
+            }
+            catch (Exception ex)
+            {
+                // Handle exception groups with except* handlers
+                foreach (var handler in Handlers)
+                {
+                    if (handler.CanHandle(ex))
+                    {
+                        foreach (var stmt in handler.Body)
+                            stmt.Evaluate(scope);
+                        break;
+                    }
+                }
+            }
+            finally
+            {
+                if (FinalBody != null)
+                {
+                    foreach (var stmt in FinalBody)
+                        stmt.Evaluate(scope);
+                }
+            }
+            
+            return PyNone.Instance;
+        }
+    }
+    
+    /// <summary>
+    /// Exception handler for except* syntax
+    /// </summary>
+    public class ExceptStarHandler : ASTNode
+    {
+        public override string NodeType => "ExceptHandler";
+        public Expression? Type { get; }
+        public string? Name { get; }
+        public List<Statement> Body { get; }
+        
+        public ExceptStarHandler(Expression? type, string? name, List<Statement> body)
+        {
+            Type = type;
+            Name = name;
+            Body = body;
+        }
+        
+        public bool CanHandle(Exception exception)
+        {
+            // Simplified exception type matching
+            return true; // TODO: Implement proper type checking
+        }
+        
+        public override T Accept<T>(IASTVisitor<T> visitor)
+        {
+            return visitor.VisitNode(this);
+        }
+        
+        public override void Accept(IASTVisitor visitor)
+        {
+            visitor.VisitNode(this);
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // Handlers are evaluated by TryStarStatement
+            return PyNone.Instance;
+        }
+    }
+    
+    /// <summary>
+    /// Advanced Pattern Matching Nodes (Python 3.10+ enhanced for 3.12)
+    /// </summary>
+    public class MatchValue : Expression
+    {
+        public override string NodeType => "MatchValue";
+        public Expression Value { get; }
+        
+        public MatchValue(Expression value)
+        {
+            Value = value;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            return Value.Evaluate(scope);
+        }
+        
+        public override T Accept<T>(IASTVisitor<T> visitor)
+        {
+            return visitor.VisitExpression(this);
+        }
+        
+        public override void Accept(IASTVisitor visitor)
+        {
+            visitor.VisitExpression(this);
+        }
+    }
+    
+    public class MatchSingleton : Expression
+    {
+        public override string NodeType => "MatchSingleton";
+        public PyObject Value { get; } // None, True, False
+        
+        public MatchSingleton(PyObject value)
+        {
+            Value = value;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            return Value;
+        }
+        
+        public override T Accept<T>(IASTVisitor<T> visitor)
+        {
+            return visitor.VisitExpression(this);
+        }
+        
+        public override void Accept(IASTVisitor visitor)
+        {
+            visitor.VisitExpression(this);
+        }
+    }
+    
+    public class MatchSequence : Expression
+    {
+        public override string NodeType => "MatchSequence";
+        public List<Expression> Patterns { get; }
+        
+        public MatchSequence(List<Expression> patterns)
+        {
+            Patterns = patterns;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // Pattern matching logic for sequences
+            var results = new List<PyObject>();
+            foreach (var pattern in Patterns)
+                results.Add(pattern.Evaluate(scope));
+            // Return a simple list object for pattern matching
+            return results.Count > 0 ? results[0] : PyNone.Instance;
+        }
+        
+        public override T Accept<T>(IASTVisitor<T> visitor)
+        {
+            return visitor.VisitExpression(this);
+        }
+        
+        public override void Accept(IASTVisitor visitor)
+        {
+            visitor.VisitExpression(this);
+        }
+    }
+    
+    public class MatchMapping : Expression
+    {
+        public override string NodeType => "MatchMapping";
+        public List<Expression> Keys { get; }
+        public List<Expression> Patterns { get; }
+        public string? Rest { get; } // **rest pattern
+        
+        public MatchMapping(List<Expression> keys, List<Expression> patterns, string? rest = null)
+        {
+            Keys = keys;
+            Patterns = patterns;
+            Rest = rest;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // Pattern matching logic for mappings
+            var dict = new PyDict();
+            for (int i = 0; i < Keys.Count && i < Patterns.Count; i++)
+            {
+                var key = Keys[i].Evaluate(scope);
+                var value = Patterns[i].Evaluate(scope);
+                dict.SetItem(key, value);
+            }
+            return dict;
+        }
+        
+        public override T Accept<T>(IASTVisitor<T> visitor)
+        {
+            return visitor.VisitExpression(this);
+        }
+        
+        public override void Accept(IASTVisitor visitor)
+        {
+            visitor.VisitExpression(this);
+        }
+    }
+    
+    public class MatchClass : Expression
+    {
+        public override string NodeType => "MatchClass";
+        public Expression Cls { get; }
+        public List<Expression> Patterns { get; }
+        public List<string> KwdAttrs { get; }
+        public List<Expression> KwdPatterns { get; }
+        
+        public MatchClass(Expression cls, List<Expression> patterns, 
+                         List<string> kwdAttrs, List<Expression> kwdPatterns)
+        {
+            Cls = cls;
+            Patterns = patterns;
+            KwdAttrs = kwdAttrs;
+            KwdPatterns = kwdPatterns;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // Pattern matching logic for class instances
+            var cls = Cls.Evaluate(scope);
+            var instance = ((PyType)cls).CreateInstance();
+            
+            // Set positional patterns
+            for (int i = 0; i < Patterns.Count; i++)
+            {
+                var value = Patterns[i].Evaluate(scope);
+                // TODO: Set positional attributes
+            }
+            
+            // Set keyword patterns
+            for (int i = 0; i < KwdAttrs.Count && i < KwdPatterns.Count; i++)
+            {
+                var value = KwdPatterns[i].Evaluate(scope);
+                instance.SetAttribute(KwdAttrs[i], value);
+            }
+            
+            return instance;
+        }
+        
+        public override T Accept<T>(IASTVisitor<T> visitor)
+        {
+            return visitor.VisitExpression(this);
+        }
+        
+        public override void Accept(IASTVisitor visitor)
+        {
+            visitor.VisitExpression(this);
+        }
+    }
+    
+    /// <summary>
+    /// Enhanced Type Parameter Support (PEP 695)
+    /// </summary>
+    public class TypeParamStatement : Statement
+    {
+        public override string NodeType => "TypeParam";
+        public string Name { get; }
+        public Expression? Bound { get; }
+        public Expression? Default { get; }
+        public bool IsCovariant { get; }
+        public bool IsContravariant { get; }
+        
+        public TypeParamStatement(string name, Expression? bound = null, Expression? @default = null, 
+                                 bool isCovariant = false, bool isContravariant = false)
+        {
+            Name = name;
+            Bound = bound;
+            Default = @default;
+            IsCovariant = isCovariant;
+            IsContravariant = isContravariant;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // Type parameter evaluation
+            var typeParam = new PyString(Name); // Use concrete PyString instead of abstract PyObject
+            scope.SetVariable(Name, typeParam);
+            return typeParam;
+        }
+        
+        public override T Accept<T>(IASTVisitor<T> visitor)
+        {
+            return visitor.VisitStatement(this);
+        }
+        
+        public override void Accept(IASTVisitor visitor)
+        {
+            visitor.VisitStatement(this);
         }
     }
 

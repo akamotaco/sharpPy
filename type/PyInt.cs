@@ -387,7 +387,8 @@ namespace SharpPy
 
         public PyObject Evaluate(PyScope scope)
         {
-            throw new NotImplementedException("PyInt.Evaluate() - 나중에 구현예정");
+            // Integer literals evaluate to themselves (CPython style)
+            return this;
         }
 
         #endregion

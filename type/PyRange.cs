@@ -201,6 +201,14 @@ namespace SharpPy
             return new PyTuple(GetValues().Cast<PyObject>().ToArray());
         }
 
+        /// <summary>
+        /// 반복자 생성 (for 루프 지원)
+        /// </summary>
+        public override PyObject GetIterator()
+        {
+            return new PyRangeIterator(this);
+        }
+
         #endregion
 
         #region Length and Type Checking
@@ -300,7 +308,8 @@ namespace SharpPy
 
         public PyObject Evaluate(PyScope scope)
         {
-            throw new NotImplementedException("PyRange.Evaluate() - 나중에 구현예정");
+            // Range objects evaluate to themselves (CPython style)
+            return this;
         }
 
         #endregion

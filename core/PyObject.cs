@@ -454,6 +454,38 @@ namespace SharpPy
 
         #endregion
 
+        #region Iterator Protocol
+
+        /// <summary>
+        /// 이터레이터 객체 반환 (__iter__)
+        /// </summary>
+        public virtual PyObject GetIterator()
+        {
+            throw PyTypeError.Create($"'{GetTypeName()}' object is not iterable");
+        }
+
+        /// <summary>
+        /// 다음 이터레이션 값 반환 (__next__)
+        /// </summary>
+        public virtual PyObject Next()
+        {
+            throw PyStopIteration.Create();
+        }
+
+        #endregion
+
+        #region Container Protocol
+
+        /// <summary>
+        /// 요소 포함 여부 확인 (__contains__)
+        /// </summary>
+        public virtual PyBool Contains(PyObject item)
+        {
+            throw PyTypeError.Create($"argument of type '{GetTypeName()}' is not iterable");
+        }
+
+        #endregion
+
         #region Type Checking
 
         public bool IsInstance<T>() where T : PyObject => this is T;

@@ -91,7 +91,9 @@ namespace SharpPy
             if (_index >= _list.Length())
                 throw PyStopIteration.Create();
             
-            return _list.Items[_index++];
+            var item = _list.GetItem(_index);
+            _index++;
+            return item;
         }
 
         public override string ToRepr() => $"<list_iterator object>";

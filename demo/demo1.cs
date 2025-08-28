@@ -225,7 +225,7 @@ namespace SharpPy.Demo
             var mathModule = PyImportSystem.Import("math");
             scopeChain.AssignVariable("math", mathModule);
             
-            var pi = mathModule.GetAttribute("PI");
+            var pi = mathModule.GetAttribute("pi");
             Console.WriteLine($"math.PI: {pi}");
             
             // from os import name

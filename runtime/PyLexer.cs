@@ -152,6 +152,17 @@ namespace SharpPy
                 case '"':
                 case '\'':
                     return ScanString(c);
+                    
+                // String prefixes (r, b, f, u)
+                case 'r':
+                case 'R':
+                case 'b': 
+                case 'B':
+                case 'f':
+                case 'F':
+                case 'u':
+                case 'U':
+                    return ScanPossibleString() ?? ScanIdentifier();
 
                 default:
                     if (IsDigit(c))
@@ -218,27 +229,127 @@ namespace SharpPy
             return new PyToken(TokenType.STRING, value.ToString(), line, column);
         }
 
+        /// <summary>
+        /// CPython-style number scanning with support for:
+        /// - Hex (0x), Octal (0o), Binary (0b)  
+        /// - Underscores in numbers (1_000_000)
+        /// - Complex numbers (3+4j)
+        /// - Scientific notation (1e10)
+        /// </summary>
         private PyToken ScanNumber()
         {
             var line = _line;
             var column = _column - 1;
             var start = _position - 1;
-
-            while (IsDigit(Peek())) Advance();
-
+            var firstChar = _source[start];
+            
+            // Handle special prefixes: 0x, 0o, 0b
+            if (firstChar == '0' && !IsAtEnd() && _position < _source.Length)
+            {
+                var nextChar = char.ToLower(Peek());
+                return nextChar switch
+                {
+                    'x' => ScanHexNumber(line, column),
+                    'o' => ScanOctalNumber(line, column), 
+                    'b' => ScanBinaryNumber(line, column),
+                    _ => ScanDecimalNumber(line, column, start)
+                };
+            }
+            
+            return ScanDecimalNumber(line, column, start);
+        }
+        
+        private PyToken ScanHexNumber(int line, int column)
+        {
+            var start = _position - 1;
+            Advance(); // consume 'x'
+            
+            while (IsHexDigit(Peek()) || Peek() == '_')
+            {
+                if (Peek() != '_') // Skip underscores  
+                    Advance();
+                else
+                    Advance();
+            }
+            
+            var hexValue = _source.Substring(start, _position - start);
+            return new PyToken(TokenType.INTEGER, hexValue, line, column);
+        }
+        
+        private PyToken ScanOctalNumber(int line, int column)
+        {
+            var start = _position - 1;
+            Advance(); // consume 'o'
+            
+            while (IsOctalDigit(Peek()) || Peek() == '_')
+            {
+                Advance();
+            }
+            
+            var octalValue = _source.Substring(start, _position - start);
+            return new PyToken(TokenType.INTEGER, octalValue, line, column);
+        }
+        
+        private PyToken ScanBinaryNumber(int line, int column)
+        {
+            var start = _position - 1;
+            Advance(); // consume 'b'
+            
+            while (IsBinaryDigit(Peek()) || Peek() == '_')
+            {
+                Advance();
+            }
+            
+            var binaryValue = _source.Substring(start, _position - start);
+            return new PyToken(TokenType.INTEGER, binaryValue, line, column);
+        }
+        
+        private PyToken ScanDecimalNumber(int line, int column, int start)
+        {
+            // Scan integer part with underscores
+            while (IsDigit(Peek()) || Peek() == '_')
+            {
+                Advance();
+            }
+            
+            bool isFloat = false;
+            
             // Look for decimal part
             if (Peek() == '.' && IsDigit(PeekNext()))
             {
+                isFloat = true;
                 Advance(); // consume .
-                while (IsDigit(Peek())) Advance();
-                
-                var floatValue = _source.Substring(start, _position - start);
-                return new PyToken(TokenType.FLOAT, floatValue, line, column);
+                while (IsDigit(Peek()) || Peek() == '_') Advance();
             }
-
-            var intValue = _source.Substring(start, _position - start);
-            return new PyToken(TokenType.INTEGER, intValue, line, column);
+            
+            // Look for scientific notation (e/E)
+            if (char.ToLower(Peek()) == 'e')
+            {
+                isFloat = true;
+                Advance(); // consume e/E
+                
+                if (Peek() == '+' || Peek() == '-')
+                    Advance(); // consume sign
+                    
+                while (IsDigit(Peek()) || Peek() == '_') Advance();
+            }
+            
+            // Look for complex number suffix (j/J)
+            if (char.ToLower(Peek()) == 'j')
+            {
+                Advance(); // consume j/J
+                var complexValue = _source.Substring(start, _position - start);
+                return new PyToken(TokenType.COMPLEX, complexValue, line, column);
+            }
+            
+            var numberValue = _source.Substring(start, _position - start);
+            var tokenType = isFloat ? TokenType.FLOAT : TokenType.INTEGER;
+            return new PyToken(tokenType, numberValue, line, column);
         }
+        
+        private bool IsHexDigit(char c) => IsDigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+        private bool IsOctalDigit(char c) => c >= '0' && c <= '7';
+        private bool IsBinaryDigit(char c) => c == '0' || c == '1';
 
         private PyToken ScanIdentifier()
         {
@@ -344,6 +455,187 @@ namespace SharpPy
         private bool IsDigit(char c) => c >= '0' && c <= '9';
         private bool IsAlpha(char c) => (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
         private bool IsAlphaNumeric(char c) => IsAlpha(c) || IsDigit(c);
+        
+        /// <summary>
+        /// CPython-style string prefix handling (r, b, f, u prefixes)
+        /// </summary>
+        private PyToken? ScanPossibleString()
+        {
+            var line = _line;
+            var column = _column - 1;
+            var startPos = _position - 1;
+            
+            // Collect potential string prefixes
+            var prefixes = new List<char>();
+            var pos = startPos;
+            
+            while (pos < _source.Length)
+            {
+                var c = char.ToLower(_source[pos]);
+                if (c is 'r' or 'b' or 'f' or 'u')
+                {
+                    prefixes.Add(c);
+                    pos++;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            
+            // Check if followed by string quote
+            if (pos >= _source.Length || (_source[pos] != '"' && _source[pos] != '\''))
+            {
+                // Reset position - this is just an identifier
+                return null;
+            }
+            
+            // Advance to quote position
+            _position = pos;
+            _column += (pos - startPos);
+            
+            var quote = _source[pos];
+            var stringType = DetermineStringType(prefixes);
+            
+            // Handle triple quotes
+            bool isTripleQuoted = false;
+            if (pos + 2 < _source.Length && 
+                _source[pos + 1] == quote && 
+                _source[pos + 2] == quote)
+            {
+                isTripleQuoted = true;
+                _position += 2; // Skip the two extra quotes
+                _column += 2;
+            }
+            
+            Advance(); // consume opening quote
+            
+            var value = isTripleQuoted ? 
+                ScanTripleQuotedString(quote, stringType) : 
+                ScanRegularString(quote, stringType);
+                
+            return new PyToken(stringType, value, line, column);
+        }
+        
+        private TokenType DetermineStringType(List<char> prefixes)
+        {
+            // CPython-style prefix combination handling
+            bool hasRaw = prefixes.Contains('r');
+            bool hasBytes = prefixes.Contains('b');
+            bool hasFormat = prefixes.Contains('f');
+            bool hasUnicode = prefixes.Contains('u');
+            
+            // Python 3.12 rules: b and f are mutually exclusive
+            if (hasBytes && hasFormat)
+                throw new Exception("Cannot combine 'b' and 'f' string prefixes");
+                
+            if (hasFormat) return TokenType.F_STRING;
+            if (hasBytes) return TokenType.BYTES_STRING;  
+            if (hasRaw) return TokenType.RAW_STRING;
+            
+            return TokenType.STRING;
+        }
+        
+        private string ScanTripleQuotedString(char quote, TokenType stringType)
+        {
+            var value = new StringBuilder();
+            var quoteString = new string(quote, 3);
+            
+            while (!IsAtEnd())
+            {
+                // Check for closing triple quote
+                if (_position + 2 < _source.Length &&
+                    _source[_position] == quote &&
+                    _source[_position + 1] == quote &&
+                    _source[_position + 2] == quote)
+                {
+                    _position += 3;
+                    _column += 3;
+                    break;
+                }
+                
+                if (Peek() == '\n')
+                {
+                    _line++;
+                    _column = 1;
+                }
+                
+                // Handle escapes for non-raw strings
+                if (stringType != TokenType.RAW_STRING && Peek() == '\\')
+                {
+                    Advance(); // consume backslash
+                    if (!IsAtEnd())
+                    {
+                        value.Append(ProcessEscapeSequence(Advance()));
+                    }
+                }
+                else
+                {
+                    value.Append(Advance());
+                }
+            }
+            
+            return value.ToString();
+        }
+        
+        private string ScanRegularString(char quote, TokenType stringType)
+        {
+            var value = new StringBuilder();
+            
+            while (!IsAtEnd() && Peek() != quote)
+            {
+                if (Peek() == '\n' && stringType != TokenType.RAW_STRING)
+                {
+                    throw new Exception("Unterminated string literal");
+                }
+                
+                // Handle escapes for non-raw strings  
+                if (stringType != TokenType.RAW_STRING && Peek() == '\\')
+                {
+                    Advance(); // consume backslash
+                    if (!IsAtEnd())
+                    {
+                        value.Append(ProcessEscapeSequence(Advance()));
+                    }
+                }
+                else
+                {
+                    if (Peek() == '\n')
+                    {
+                        _line++;
+                        _column = 1;
+                    }
+                    value.Append(Advance());
+                }
+            }
+            
+            if (IsAtEnd())
+            {
+                throw new Exception("Unterminated string literal");
+            }
+            
+            Advance(); // consume closing quote
+            return value.ToString();
+        }
+        
+        private char ProcessEscapeSequence(char escaped)
+        {
+            return escaped switch
+            {
+                'n' => '\n',
+                't' => '\t', 
+                'r' => '\r',
+                '\\' => '\\',
+                '\'' => '\'',
+                '"' => '"',
+                'a' => '\a',  // bell
+                'b' => '\b',  // backspace
+                'f' => '\f',  // form feed  
+                'v' => '\v',  // vertical tab
+                '0' => '\0',  // null
+                _ => escaped  // literal character
+            };
+        }
     }
 
     #endregion

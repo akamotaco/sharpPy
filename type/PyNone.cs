@@ -110,7 +110,8 @@ namespace SharpPy
 
         public PyObject Evaluate(PyScope scope)
         {
-            throw new NotImplementedException("PyNone.Evaluate() - 나중에 구현예정");
+            // None always evaluates to itself (CPython style)
+            return this;
         }
 
         #endregion

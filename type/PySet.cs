@@ -364,7 +364,8 @@ namespace SharpPy
 
         public PyObject Evaluate(PyScope scope)
         {
-            throw new NotImplementedException("PySet.Evaluate() - 나중에 구현예정");
+            // Set literals evaluate to themselves (CPython style)
+            return this;
         }
 
         #endregion
