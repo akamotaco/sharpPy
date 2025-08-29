@@ -8,14 +8,27 @@ namespace SharpPy
     public class PyClass : PyType
     {
         public Dictionary<string, PyObject> ClassDict { get; }
+        public List<PyObject>? TypeParams { get; set; } // PEP 695 __type_params__
 
-        public PyClass(string name, PyType[] baseTypes, Dictionary<string, PyObject> classDict = null) 
+        public PyClass(string name, PyType[] baseTypes, Dictionary<string, PyObject> classDict = null, List<PyObject>? typeParams = null) 
             : base(name, baseTypes)
         {
             ClassDict = classDict ?? new Dictionary<string, PyObject>();
+            TypeParams = typeParams;
+            
+            // __type_params__ 속성 설정
+            if (TypeParams != null && TypeParams.Count > 0)
+            {
+                var typeParamsTuple = new PyTuple(TypeParams.ToArray());
+                ClassDict["__type_params__"] = typeParamsTuple;
+            }
+            else
+            {
+                ClassDict["__type_params__"] = new PyTuple(new PyObject[0]);
+            }
         }
 
-        public PyClassInstance CreateInstance(params PyObject[] args)
+        public new PyClassInstance CreateInstance(params PyObject[] args)
         {
             var instance = new PyClassInstance(this);
 

@@ -32,6 +32,13 @@ namespace SharpPy
                 ManualIterationTest.RunTest();
                 return;
             }
+            
+            // Try/Except AST test
+            if (args.Length > 0 && args[0] == "test-try-except")
+            {
+                TryExceptASTTest.RunTest();
+                return;
+            }
 
             // 기존 데모들
             Console.WriteLine("📋 기본 시스템 데모:");

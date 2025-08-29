@@ -118,6 +118,22 @@ public class PyModule : PyObject
     }
     
     public override string ToString() => $"<module '{Name}' from '{FileName}'>";
+    
+    /// <summary>
+    /// 모듈에 함수 추가 (표준 라이브러리 모듈용)
+    /// </summary>
+    protected void AddFunction(string name, Func<PyObject[], PyObject> implementation)
+    {
+        ModuleDict[name] = new PyBuiltinFunction(name, implementation);
+    }
+    
+    /// <summary>
+    /// 모듈에 클래스 추가 (표준 라이브러리 모듈용)
+    /// </summary>
+    protected void AddClass(string name, Func<PyType> typeFactory)
+    {
+        ModuleDict[name] = typeFactory();
+    }
 }
 
     // Python import 시스템
@@ -131,7 +147,10 @@ public class PyModule : PyObject
         {
             ["math"] = () => SharpPy.Modules.MathModule.CreateMathModule(),
             ["random"] = () => SharpPy.Modules.RandomModule.CreateRandomModule(),
-            ["sys"] = () => SharpPy.Modules.SysModule.CreateSysModule()
+            ["sys"] = () => SharpPy.Modules.SysModule.CreateSysModule(),
+            ["itertools"] = () => ItertoolsModule.Instance,
+            ["functools"] = () => FunctoolsModule.Instance,
+            ["collections"] = () => CollectionsModule.Instance
         };
 
 

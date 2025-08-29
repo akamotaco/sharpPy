@@ -3,10 +3,17 @@ namespace SharpPy
     public class PyBuiltinFunction : PyObject
     {
         public string Name { get; }
+        private readonly Func<PyObject[], PyObject>? _implementation;
 
         public PyBuiltinFunction(string name)
         {
             Name = name;
+        }
+        
+        public PyBuiltinFunction(string name, Func<PyObject[], PyObject> implementation)
+        {
+            Name = name;
+            _implementation = implementation;
         }
 
         public override string GetTypeName() => "builtin_function_or_method";
@@ -14,6 +21,12 @@ namespace SharpPy
         // 내장 함수 호출
         public override PyObject Call(params PyObject[] args)
         {
+            // 사용자 정의 구현이 있으면 우선 사용
+            if (_implementation != null)
+            {
+                return _implementation(args);
+            }
+            
             return Name switch
             {
                 "print" => CallPrint(args),
@@ -484,14 +497,14 @@ namespace SharpPy
 
             if (classinfo is PyType type)
             {
-                return PyBool.FromBool(obj.IsInstance(type));
+                return PyBool.FromBool(IsInstanceExtended(obj, type));
             }
             else if (classinfo is PyTuple tuple)
             {
                 // 여러 타입 중 하나인지 확인
                 foreach (var item in tuple.Items)
                 {
-                    if (item is PyType t && obj.IsInstance(t))
+                    if (item is PyType t && IsInstanceExtended(obj, t))
                         return PyBool.True;
                 }
                 return PyBool.False;
@@ -500,6 +513,29 @@ namespace SharpPy
             {
                 throw PyTypeError.Create("isinstance() arg 2 must be a type or tuple of types");
             }
+        }
+        
+        /// <summary>
+        /// 제네릭 타입을 지원하는 확장된 isinstance 검사
+        /// </summary>
+        private bool IsInstanceExtended(PyObject obj, PyType type)
+        {
+            // 기본 isinstance 검사
+            if (obj.IsInstance(type))
+                return true;
+            
+            // 제네릭 타입 검사
+            if (type is PyGenericType genericType)
+            {
+                // 객체가 원본 타입의 인스턴스인지 확인
+                if (obj.IsInstance(genericType.OriginType))
+                {
+                    // 런타임에서는 타입 인자는 체크하지 않고 구조만 확인
+                    return true;
+                }
+            }
+            
+            return false;
         }
 
         private PyObject CallIsSubclass(PyObject[] args)

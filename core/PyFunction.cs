@@ -9,13 +9,26 @@ public class PyFunction : PyObject, IDescriptor
     public Func<PyObject[], PyObject> Implementation { get; }
     public Dictionary<string, PyObject> Attributes { get; }
     public PyModule DefiningModule { get; }
+    public List<PyObject>? TypeParams { get; set; } // PEP 695 __type_params__
 
-    public PyFunction(string name, Func<PyObject[], PyObject> implementation = null, PyModule definingModule = null)
+    public PyFunction(string name, Func<PyObject[], PyObject> implementation = null, PyModule definingModule = null, List<PyObject>? typeParams = null)
     {
         Name = name;
         Implementation = implementation ?? DefaultImplementation;
         Attributes = new Dictionary<string, PyObject>();
         DefiningModule = definingModule;
+        TypeParams = typeParams;
+        
+        // __type_params__ 속성 설정
+        if (TypeParams != null && TypeParams.Count > 0)
+        {
+            var typeParamsTuple = new PyTuple(TypeParams.ToArray());
+            Attributes["__type_params__"] = typeParamsTuple;
+        }
+        else
+        {
+            Attributes["__type_params__"] = new PyTuple(new PyObject[0]);
+        }
     }
     
     private PyObject DefaultImplementation(PyObject[] args)
