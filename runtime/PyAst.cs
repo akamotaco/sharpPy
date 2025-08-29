@@ -124,6 +124,54 @@ namespace SharpPy
         }
     }
 
+    /// <summary>
+    /// 데코레이터 표현식 (@decorator_name or @decorator(args))
+    /// </summary>
+    public class DecoratorExpression : ASTNode
+    {
+        public override string NodeType => "Decorator";
+        public Expression DecoratorFunction { get; }
+        public List<Expression> Arguments { get; }
+
+        public DecoratorExpression(Expression decoratorFunction, List<Expression>? arguments = null)
+        {
+            DecoratorFunction = decoratorFunction;
+            Arguments = arguments ?? new List<Expression>();
+        }
+
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // 데코레이터 함수를 평가
+            var decoratorFunc = DecoratorFunction.Evaluate(scope);
+            
+            // 데코레이터에 인수가 있는 경우 (@decorator(arg1, arg2))
+            if (Arguments.Any())
+            {
+                var args = Arguments.Select(arg => arg.Evaluate(scope)).ToArray();
+                // 데코레이터 함수를 호출하여 실제 데코레이터를 반환
+                if (decoratorFunc is PyFunction func)
+                {
+                    return func.Call(args);
+                }
+            }
+            
+            return decoratorFunc;
+        }
+
+        public override T Accept<T>(IASTVisitor<T> visitor) => visitor.GenericVisit(this);
+        public override void Accept(IASTVisitor visitor) => visitor.GenericVisit(this);
+
+        public override string ToString()
+        {
+            if (Arguments.Any())
+            {
+                var argsStr = string.Join(", ", Arguments.Select(a => a.ToString()));
+                return $"@{DecoratorFunction}({argsStr})";
+            }
+            return $"@{DecoratorFunction}";
+        }
+    }
+
     public class AssignStatement : Statement
     {
         public override string NodeType => "Assign";
@@ -309,13 +357,15 @@ namespace SharpPy
         public List<string> Parameters { get; }
         public List<Statement> Body { get; }
         public List<string> TypeParams { get; } // Python 3.12
+        public List<DecoratorExpression> Decorators { get; } // Decorator support
         
-        public FunctionDefStatement(string name, List<string> parameters, List<Statement> body, List<string>? typeParams = null)
+        public FunctionDefStatement(string name, List<string> parameters, List<Statement> body, List<string>? typeParams = null, List<DecoratorExpression>? decorators = null)
         {
             Name = name;
             Parameters = parameters;
             Body = body;
             TypeParams = typeParams ?? new List<string>();
+            Decorators = decorators ?? new List<DecoratorExpression>();
         }
         
         public override PyObject Evaluate(PyScope scope)
@@ -338,7 +388,7 @@ namespace SharpPy
                     funcScope.SetVariable(Parameters[i], args[i]);
                 }
                 
-                // 함수 믈체 실행
+                // 함수 몸체 실행
                 try
                 {
                     PyObject result = PyNone.Instance;
@@ -354,8 +404,26 @@ namespace SharpPy
                 }
             });
             
-            scope.SetVariable(Name, function);
-            return function;
+            // 데코레이터 적용 (역순으로 적용)
+            PyObject decoratedFunction = function;
+            for (int i = Decorators.Count - 1; i >= 0; i--)
+            {
+                var decorator = Decorators[i].Evaluate(scope);
+                if (decorator is PyFunction decoratorFunc)
+                {
+                    decoratedFunction = decoratorFunc.Call(decoratedFunction);
+                }
+                else
+                {
+                    // 데코레이터가 함수가 아닌 경우 (예: property 등)
+                    // 여기서는 단순히 데코레이터를 무시하고 원본 함수를 반환
+                    // 실제로는 더 복잡한 로직이 필요할 수 있음
+                    Console.WriteLine($"Warning: Decorator {decorator} is not a function, skipping");
+                }
+            }
+            
+            scope.SetVariable(Name, decoratedFunction);
+            return decoratedFunction;
         }
         
         public override string ToString()
@@ -557,11 +625,13 @@ namespace SharpPy
         public override string NodeType => "While";
         public Expression Test { get; }
         public List<Statement> Body { get; }
+        public List<Statement>? ElseClause { get; }
         
-        public WhileStatement(Expression test, List<Statement> body)
+        public WhileStatement(Expression test, List<Statement> body, List<Statement>? elseClause = null)
         {
             Test = test;
             Body = body;
+            ElseClause = elseClause;
         }
         
         public override PyObject Evaluate(PyScope scope)
@@ -600,12 +670,14 @@ namespace SharpPy
         public string Target { get; }
         public Expression Iter { get; }
         public List<Statement> Body { get; }
+        public List<Statement>? ElseClause { get; }
         
-        public ForStatement(string target, Expression iter, List<Statement> body)
+        public ForStatement(string target, Expression iter, List<Statement> body, List<Statement>? elseClause = null)
         {
             Target = target;
             Iter = iter;
             Body = body;
+            ElseClause = elseClause;
         }
         
         public override PyObject Evaluate(PyScope scope)
@@ -686,11 +758,11 @@ namespace SharpPy
     {
         public override string NodeType => "Try";
         public List<Statement> Body { get; }
-        public List<Statement> Handlers { get; }
+        public List<ExceptHandler> Handlers { get; }
         public List<Statement>? OrElse { get; }
         public List<Statement>? FinalBody { get; }
         
-        public TryStatement(List<Statement> body, List<Statement> handlers, 
+        public TryStatement(List<Statement> body, List<ExceptHandler> handlers, 
                            List<Statement>? orElse = null, List<Statement>? finalBody = null)
         {
             Body = body;
@@ -701,20 +773,74 @@ namespace SharpPy
         
         public override PyObject Evaluate(PyScope scope)
         {
-            // 간단한 try-catch 구현
+            PyObject result = PyNone.Instance;
+            bool exceptionHandled = false;
+            
             try
             {
-                PyObject result = PyNone.Instance;
                 foreach (var stmt in Body)
                 {
                     result = stmt.Evaluate(scope);
                 }
-                return result;
+                
+                // If no exception occurred, execute else block if present
+                if (OrElse != null)
+                {
+                    foreach (var stmt in OrElse)
+                    {
+                        result = stmt.Evaluate(scope);
+                    }
+                }
             }
             catch (Exception ex)
             {
-                // 간단히 모든 예외를 처리
-                return PyNone.Instance;
+                // Try to find a matching exception handler
+                foreach (var handler in Handlers)
+                {
+                    if (handler.CanHandle(ex, scope))
+                    {
+                        // If handler has a name binding, bind the exception to that name
+                        if (handler.Name != null)
+                        {
+                            // Convert to proper Python exception object
+                            PyBaseException exceptionObj;
+                            if (ex is PythonException pythonException)
+                            {
+                                exceptionObj = pythonException.PyException;
+                            }
+                            else
+                            {
+                                // Convert C# exception to Python exception
+                                exceptionObj = ExceptionSystem.FromCSharpException(ex);
+                            }
+                            
+                            scope.SetVariable(handler.Name, exceptionObj);
+                        }
+                        
+                        // Execute the handler body
+                        try
+                        {
+                            result = handler.Evaluate(scope);
+                            exceptionHandled = true;
+                            break;
+                        }
+                        catch (Exception handlerException)
+                        {
+                            // If handler itself raises an exception, that becomes the new exception
+                            // Unless it's a control flow exception (return, break, continue)
+                            if (handlerException is PyReturnException or PyBreakException or PyContinueException)
+                            {
+                                throw; // Re-throw control flow exceptions
+                            }
+                            // Replace original exception with handler exception
+                            throw;
+                        }
+                    }
+                }
+                
+                // If no handler matched, re-throw the exception
+                if (!exceptionHandled)
+                    throw;
             }
             finally
             {
@@ -726,6 +852,8 @@ namespace SharpPy
                     }
                 }
             }
+            
+            return result;
         }
         
         public override string ToString() => "try: ...";
@@ -921,12 +1049,31 @@ namespace SharpPy
             if (Exc != null)
             {
                 var exception = Exc.Evaluate(scope);
-                if (exception is PyException pyEx)
+                
+                // Handle different exception types
+                if (exception is PyBaseException pyException)
                 {
-                    throw new PythonException(pyEx);
+                    throw new PythonException(pyException);
+                }
+                else if (exception is PyBuiltinType builtinType)
+                {
+                    // Exception type constructor call (e.g., ValueError("message"))
+                    var exceptionInstance = builtinType.Call();
+                    if (exceptionInstance is PyBaseException pyExceptionInstance)
+                    {
+                        throw new PythonException(pyExceptionInstance);
+                    }
+                }
+                // If it's already evaluated, try direct cast to exception
+                else
+                {
+                    // Try to create a RuntimeError with the object as message
+                    throw new PythonException(new PyRuntimeError(exception.ToStr()));
                 }
             }
-            throw new Exception("raise");
+            
+            // Bare raise - re-raise current exception (simplified)
+            throw new PythonException(new PyRuntimeError("No active exception to re-raise"));
         }
         
         public override string ToString() => "raise" + (Exc != null ? $" {Exc}" : "");
@@ -1093,6 +1240,32 @@ namespace SharpPy
         }
         
         public override string ToString() => Value.ToString();
+    }
+
+    /// <summary>
+    /// Walrus 연산자 표현식 (n := value)
+    /// </summary>
+    public class WalrusExpression : Expression
+    {
+        public override string NodeType => "NamedExpr";
+        public string Target { get; }
+        public Expression Value { get; }
+        
+        public WalrusExpression(string target, Expression value)
+        {
+            Target = target;
+            Value = value;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // 표현식을 평가하고 변수에 할당
+            var result = Value.Evaluate(scope);
+            scope.SetVariable(Target, result);
+            return result; // walrus operator returns the assigned value
+        }
+        
+        public override string ToString() => $"({Target} := {Value})";
     }
 
     public class NameExpression : Expression
@@ -1549,6 +1722,127 @@ namespace SharpPy
         
         public override string ToString() => $"f\"{string.Join("", Values)}\"";
     }
+    
+    /// <summary>
+    /// f-string 표현식 내의 포맷 값 (예: {value:format})
+    /// </summary>
+    public class FormattedValue : Expression
+    {
+        public override string NodeType => "FormattedValue";
+        public Expression Value { get; }
+        public string? FormatSpec { get; }
+        
+        public FormattedValue(Expression value, string? formatSpec = null)
+        {
+            Value = value;
+            FormatSpec = formatSpec;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var obj = Value.Evaluate(scope);
+            
+            // 포맷 지정자가 있으면 적용
+            if (!string.IsNullOrEmpty(FormatSpec))
+            {
+                return ApplyFormat(obj, FormatSpec);
+            }
+            
+            return obj;
+        }
+        
+        /// <summary>
+        /// Python 스타일 포매팅 적용
+        /// </summary>
+        private PyObject ApplyFormat(PyObject obj, string formatSpec)
+        {
+            try
+            {
+                // 숫자 포매팅 지원
+                if (obj is PyFloat floatObj)
+                {
+                    if (formatSpec.EndsWith("f"))
+                    {
+                        // 소수점 자릿수 지정 (예: .2f)
+                        if (formatSpec.StartsWith(".") && formatSpec.Length > 2)
+                        {
+                            var digits = formatSpec.Substring(1, formatSpec.Length - 2);
+                            if (int.TryParse(digits, out int decimalPlaces))
+                            {
+                                var formatted = floatObj.Value.ToString($"F{decimalPlaces}");
+                                return new PyString(formatted);
+                            }
+                        }
+                        else if (formatSpec == "f")
+                        {
+                            return new PyString(floatObj.Value.ToString("F"));
+                        }
+                    }
+                    else if (formatSpec.EndsWith("e"))
+                    {
+                        return new PyString(floatObj.Value.ToString("E"));
+                    }
+                    else if (formatSpec.EndsWith("%"))
+                    {
+                        return new PyString((floatObj.Value * 100).ToString("F") + "%");
+                    }
+                }
+                else if (obj is PyInt intObj)
+                {
+                    if (formatSpec == "d")
+                    {
+                        return new PyString(intObj.Value.ToString());
+                    }
+                    else if (formatSpec == "x")
+                    {
+                        return new PyString(intObj.Value.ToString("x"));
+                    }
+                    else if (formatSpec == "X")
+                    {
+                        return new PyString(intObj.Value.ToString("X"));
+                    }
+                    else if (formatSpec == "o")
+                    {
+                        return new PyString(Convert.ToString(intObj.Value, 8));
+                    }
+                    else if (formatSpec == "b")
+                    {
+                        return new PyString(Convert.ToString(intObj.Value, 2));
+                    }
+                }
+                
+                // 문자열 정렬 지원 (예: >10, <10, ^10)
+                if (formatSpec.Length > 0)
+                {
+                    var align = formatSpec[0];
+                    var remaining = formatSpec.Substring(1);
+                    
+                    if ((align == '<' || align == '>' || align == '^') && int.TryParse(remaining, out int width))
+                    {
+                        var str = obj.ToStr();
+                        switch (align)
+                        {
+                            case '<': return new PyString(str.PadRight(width));
+                            case '>': return new PyString(str.PadLeft(width));
+                            case '^': 
+                                var totalPadding = width - str.Length;
+                                var leftPadding = totalPadding / 2;
+                                var rightPadding = totalPadding - leftPadding;
+                                return new PyString(new string(' ', leftPadding) + str + new string(' ', rightPadding));
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // 포매팅 실패 시 원본 값 반환
+            }
+            
+            return obj;
+        }
+        
+        public override string ToString() => FormatSpec != null ? $"{{{Value}:{FormatSpec}}}" : $"{{{Value}}}";
+    }
 
     // Comprehension expressions
     public class ListComprehension : Expression
@@ -1812,6 +2106,139 @@ namespace SharpPy
             
             return PyNone.Instance;
         }
+    }
+    
+    /// <summary>
+    /// Regular exception handler for except syntax
+    /// </summary>
+    public class ExceptHandler : ASTNode
+    {
+        public override string NodeType => "ExceptHandler";
+        public Expression? Type { get; }
+        public string? Name { get; }
+        public List<Statement> Body { get; }
+        public bool IsStar { get; }  // true for except* handlers (PEP 654)
+        
+        public ExceptHandler(Expression? type, string? name, List<Statement> body, bool isStar = false)
+        {
+            Type = type;
+            Name = name;
+            Body = body;
+            IsStar = isStar;
+        }
+        
+        public bool CanHandle(Exception exception, PyScope scope)
+        {
+            // Handle catch-all except clause (no type specified)
+            if (Type == null)
+            {
+                return true;
+            }
+            
+            try
+            {
+                // Evaluate the exception type expression
+                var expectedExceptionType = Type.Evaluate(scope);
+                
+                // Extract the Python exception from the C# exception
+                PyBaseException pyException;
+                if (exception is PythonException pythonException)
+                {
+                    pyException = pythonException.PyException;
+                }
+                else
+                {
+                    // Convert C# exception to Python exception
+                    pyException = ExceptionSystem.FromCSharpException(exception);
+                }
+                
+                // Check if the Python exception matches the expected type
+                if (expectedExceptionType is PyType expectedType)
+                {
+                    return pyException.GetPyType().IsSubclassOf(expectedType) || 
+                           pyException.GetPyType() == expectedType;
+                }
+                else if (expectedExceptionType is PyString typeName)
+                {
+                    // Handle string-based type names (for builtin exceptions)
+                    return MatchesBuiltinExceptionType(pyException, typeName.Value);
+                }
+                else if (Type is NameExpression nameExpr)
+                {
+                    // Handle bare names like "ValueError" - evaluate from scope
+                    var exceptionTypeObj = scope.GetVariable(nameExpr.Name);
+                    if (exceptionTypeObj is PyBuiltinType builtinType)
+                    {
+                        return MatchesBuiltinExceptionType(pyException, builtinType.Name);
+                    }
+                    else if (exceptionTypeObj is PyType pyType)
+                    {
+                        return pyException.GetPyType().IsSubclassOf(pyType) || 
+                               pyException.GetPyType() == pyType;
+                    }
+                    else
+                    {
+                        // Fallback to name matching
+                        return MatchesBuiltinExceptionType(pyException, nameExpr.Name);
+                    }
+                }
+                
+                return false;
+            }
+            catch
+            {
+                // If type evaluation fails, don't handle the exception
+                return false;
+            }
+        }
+        
+        /// <summary>
+        /// Match builtin exception types by name
+        /// </summary>
+        private bool MatchesBuiltinExceptionType(PyBaseException pyException, string typeName)
+        {
+            var exceptionTypeName = pyException.GetTypeName();
+            
+            // Direct match
+            if (exceptionTypeName == typeName)
+                return true;
+            
+            // Check inheritance hierarchy
+            return typeName switch
+            {
+                "BaseException" => true, // All Python exceptions inherit from BaseException
+                "Exception" => pyException is PyException, // Most exceptions inherit from Exception
+                "ArithmeticError" => pyException is PyArithmeticError or PyZeroDivisionError or PyOverflowError,
+                "LookupError" => pyException is PyLookupError or PyIndexError or PyKeyError,
+                "RuntimeError" => pyException is PyRuntimeError or PyNotImplementedError or PyRecursionError,
+                "ImportError" => pyException is PyImportError or PyModuleNotFoundError,
+                "NameError" => pyException is PyNameError or PyUnboundLocalError,
+                "SyntaxError" => pyException is PySyntaxError or PyIndentationError,
+                _ => false
+            };
+        }
+        
+        public override T Accept<T>(IASTVisitor<T> visitor)
+        {
+            return visitor.VisitNode(this);
+        }
+        
+        public override void Accept(IASTVisitor visitor)
+        {
+            visitor.VisitNode(this);
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            PyObject result = PyNone.Instance;
+            foreach (var stmt in Body)
+            {
+                result = stmt.Evaluate(scope);
+            }
+            return result;
+        }
+        
+        public override string ToString() => $"except {Type?.ToString() ?? ""}:";
     }
     
     /// <summary>

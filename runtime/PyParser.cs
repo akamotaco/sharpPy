@@ -111,6 +111,12 @@ namespace SharpPy
 
         private Statement? ParseStatement()
         {
+            // Check for decorators first
+            if (Check(TokenType.AT))
+            {
+                return ParseDecoratedStatement();
+            }
+            
             // Function definition
             if (Match(TokenType.DEF)) return ParseFunctionDef();
             if (Match(TokenType.ASYNC) && Check(TokenType.DEF)) return ParseAsyncFunctionDef();
@@ -147,7 +153,7 @@ namespace SharpPy
             return ParseExpressionOrAssignment();
         }
 
-        private Statement ParseFunctionDef()
+        private Statement ParseFunctionDef(List<DecoratorExpression>? decorators = null)
         {
             var name = Consume(TokenType.IDENTIFIER, "Expected function name").Lexeme;
             
@@ -173,11 +179,10 @@ namespace SharpPy
             }
             
             Consume(TokenType.COLON, "Expected ':' after function signature");
-            SkipNewlines();
             
             var body = ParseBlockOrSingleStatement();
             
-            return new FunctionDefStatement(name, parameters, body, typeParams);
+            return new FunctionDefStatement(name, parameters, body, typeParams, decorators);
         }
 
         private Statement ParseAsyncFunctionDef()
@@ -208,11 +213,98 @@ namespace SharpPy
             }
             
             Consume(TokenType.COLON, "Expected ':' after function signature");
-            SkipNewlines();
             
             var body = ParseBlockOrSingleStatement();
             
             return new AsyncFunctionDefStatement(name, parameters, body, typeParams);
+        }
+
+        /// <summary>
+        /// 데코레이터가 있는 문장을 파싱
+        /// </summary>
+        private Statement ParseDecoratedStatement()
+        {
+            var decorators = ParseDecorators();
+            
+            // 데코레이터 다음에는 함수나 클래스 정의만 올 수 있음
+            if (Match(TokenType.DEF))
+            {
+                return ParseFunctionDef(decorators);
+            }
+            else if (Match(TokenType.ASYNC) && Check(TokenType.DEF))
+            {
+                Consume(TokenType.DEF, "Expected 'def' after 'async'");
+                return ParseAsyncFunctionDef(); // TODO: async 함수도 데코레이터 지원 필요
+            }
+            else if (Match(TokenType.CLASS))
+            {
+                return ParseClassDef(); // TODO: 클래스도 데코레이터 지원 필요
+            }
+            else
+            {
+                throw new Exception("Decorators can only be applied to functions and classes");
+            }
+        }
+
+        /// <summary>
+        /// 데코레이터 목록 파싱 (@decorator1 @decorator2 ...)
+        /// </summary>
+        private List<DecoratorExpression> ParseDecorators()
+        {
+            var decorators = new List<DecoratorExpression>();
+            
+            while (Check(TokenType.AT))
+            {
+                decorators.Add(ParseSingleDecorator());
+                SkipNewlines(); // 데코레이터 사이의 개행 허용
+            }
+            
+            return decorators;
+        }
+
+        /// <summary>
+        /// 단일 데코레이터 파싱 (@decorator or @decorator(args))
+        /// </summary>
+        private DecoratorExpression ParseSingleDecorator()
+        {
+            Consume(TokenType.AT, "Expected '@'");
+            
+            // 데코레이터 함수 이름 파싱 (dotted name 지원: @module.decorator)
+            var decoratorFunc = ParseDottedName();
+            
+            // 데코레이터에 인수가 있는 경우
+            List<Expression>? arguments = null;
+            if (Match(TokenType.LEFT_PAREN))
+            {
+                arguments = new List<Expression>();
+                if (!Check(TokenType.RIGHT_PAREN))
+                {
+                    do
+                    {
+                        arguments.Add(ParseExpression());
+                    } while (Match(TokenType.COMMA));
+                }
+                Consume(TokenType.RIGHT_PAREN, "Expected ')' after decorator arguments");
+            }
+            
+            return new DecoratorExpression(decoratorFunc, arguments);
+        }
+
+        /// <summary>
+        /// Dotted name 파싱 (module.submodule.name)
+        /// </summary>
+        private Expression ParseDottedName()
+        {
+            var name = Consume(TokenType.IDENTIFIER, "Expected decorator name").Lexeme;
+            Expression expr = new NameExpression(name);
+            
+            while (Match(TokenType.DOT))
+            {
+                var attrName = Consume(TokenType.IDENTIFIER, "Expected attribute name after '.'").Lexeme;
+                expr = new AttributeExpression(expr, attrName);
+            }
+            
+            return expr;
         }
 
         private Statement ParseClassDef()
@@ -242,7 +334,6 @@ namespace SharpPy
             }
             
             Consume(TokenType.COLON, "Expected ':' after class header");
-            SkipNewlines();
             
             var body = ParseBlockOrSingleStatement();
             
@@ -360,11 +451,71 @@ namespace SharpPy
         {
             var statements = new List<Statement>();
             
-            // For now, just return a single pass statement
-            // TODO: Implement proper indentation-based block parsing
-            statements.Add(new PassStatement());
+            // CPython 방식: INDENT/DEDENT 토큰을 사용한 정확한 블록 파싱
+            
+            if (!Check(TokenType.NEWLINE))
+            {
+                // Single statement on the same line
+                var stmt = ParseStatement();
+                if (stmt != null)
+                    statements.Add(stmt);
+            }
+            else
+            {
+                // Block of statements (indented)
+                SkipNewlines();
+                
+                // INDENT 토큰을 기대
+                if (!Match(TokenType.INDENT))
+                {
+                    throw new Exception("Expected an indented block");
+                }
+                
+                // DEDENT 토큰이 나올 때까지 문장들을 파싱
+                while (!IsAtEnd() && !Check(TokenType.DEDENT) && !Check(TokenType.EOF))
+                {
+                    // NEWLINE은 건너뛰기
+                    if (Check(TokenType.NEWLINE))
+                    {
+                        Advance();
+                        continue;
+                    }
+                    
+                    var stmt = ParseStatement();
+                    if (stmt != null)
+                    {
+                        statements.Add(stmt);
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                
+                // DEDENT 토큰 소비
+                if (Check(TokenType.DEDENT))
+                {
+                    Advance();
+                }
+            }
+            
+            // If no statements parsed, add a pass statement
+            if (statements.Count == 0)
+                statements.Add(new PassStatement());
             
             return statements;
+        }
+
+        /// <summary>
+        /// Check if the current token indicates the end of a block
+        /// 이제 DEDENT 토큰을 사용하므로 단순화
+        /// </summary>
+        private bool IsBlockTerminator()
+        {
+            if (IsAtEnd()) return true;
+            
+            // INDENT/DEDENT 토큰을 사용하므로 DEDENT만 체크
+            return Check(TokenType.DEDENT) || Check(TokenType.EOF);
         }
 
         private Statement ParseExpressionOrAssignment()
@@ -690,6 +841,13 @@ namespace SharpPy
                 return new ConstantExpression(new PyString(value));
             }
             
+            // F-String support (PEP 701 enhanced)
+            if (Match(TokenType.F_STRING))
+            {
+                var fstringContent = Previous().Lexeme;
+                return ParseFString(fstringContent);
+            }
+            
             if (Match(TokenType.IDENTIFIER))
             {
                 var identifierName = Previous().Lexeme;
@@ -724,10 +882,8 @@ namespace SharpPy
                     {
                         Advance(); // consume WALRUS
                         var value = ParseExpression();
-                        // For now, treat it as an assignment expression that returns the value
-                        // This is a simplified implementation
                         Consume(TokenType.RIGHT_PAREN, "Expected ')' after walrus expression");
-                        return new BinaryOpExpression(nameExpr, ":=", value);
+                        return new WalrusExpression(nameExpr.Name, value);
                     }
                     throw new Exception("Invalid walrus operator target in parentheses");
                 }
@@ -978,20 +1134,65 @@ namespace SharpPy
                 var exprContent = content.Substring(openBrace + 1, closeBrace - openBrace - 1);
                 if (!string.IsNullOrEmpty(exprContent))
                 {
-                    var exprTokens = new PyLexer(exprContent).Tokenize();
-                    if (exprTokens.Count > 1) // Skip EOF
+                    try
                     {
-                        var exprParser = new PyParser(exprTokens);
-                        try
+                        // 포맷 지정자 분리 (예: "value:.2f" -> "value", ".2f")
+                        string actualExpr = exprContent;
+                        string? formatSpec = null;
+                        
+                        var colonIndex = FindFormatSpecColon(exprContent);
+                        if (colonIndex != -1)
                         {
-                            var expr = exprParser.ParseExpression();
+                            actualExpr = exprContent.Substring(0, colonIndex);
+                            formatSpec = exprContent.Substring(colonIndex + 1);
+                        }
+                        
+                        Expression expr;
+                        
+                        // Check if the expression contains nested f-strings
+                        if (actualExpr.Contains("f'") || actualExpr.Contains("f\""))
+                        {
+                            // Handle nested f-string: recursively parse the expression
+                            var exprTokens = new PyLexer(actualExpr).Tokenize();
+                            if (exprTokens.Count > 1) // Skip EOF
+                            {
+                                var exprParser = new PyParser(exprTokens);
+                                expr = exprParser.ParseExpression();
+                            }
+                            else
+                            {
+                                expr = new ConstantExpression(new PyString(actualExpr));
+                            }
+                        }
+                        else
+                        {
+                            // Regular expression parsing
+                            var exprTokens = new PyLexer(actualExpr).Tokenize();
+                            if (exprTokens.Count > 1) // Skip EOF
+                            {
+                                var exprParser = new PyParser(exprTokens);
+                                expr = exprParser.ParseExpression();
+                            }
+                            else
+                            {
+                                expr = new ConstantExpression(new PyString(actualExpr));
+                            }
+                        }
+                        
+                        // 포맷 지정자가 있으면 FormattedValue 노드 생성
+                        if (formatSpec != null)
+                        {
+                            values.Add(new FormattedValue(expr, formatSpec));
+                        }
+                        else
+                        {
                             values.Add(expr);
                         }
-                        catch (Exception ex)
-                        {
-                            // If parsing fails, treat as string literal
-                            values.Add(new ConstantExpression(new PyString("{" + exprContent + "}")));
-                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // If parsing fails, treat as string literal
+                        values.Add(new ConstantExpression(new PyString("{" + exprContent + "}")));
                     }
                 }
                 
@@ -1002,24 +1203,106 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// Find matching closing brace for f-string expression
+        /// 포맷 지정자를 위한 콜론 찾기 (문자열 리터럴 내부는 제외)
+        /// </summary>
+        private int FindFormatSpecColon(string exprContent)
+        {
+            bool inString = false;
+            char stringChar = '\0';
+            int parenLevel = 0;
+            int bracketLevel = 0;
+            int braceLevel = 0;
+            
+            for (int i = 0; i < exprContent.Length; i++)
+            {
+                char c = exprContent[i];
+                
+                if (!inString)
+                {
+                    if (c == '\'' || c == '"')
+                    {
+                        inString = true;
+                        stringChar = c;
+                        continue;
+                    }
+                    
+                    switch (c)
+                    {
+                        case '(': parenLevel++; break;
+                        case ')': parenLevel--; break;
+                        case '[': bracketLevel++; break;
+                        case ']': bracketLevel--; break;
+                        case '{': braceLevel++; break;
+                        case '}': braceLevel--; break;
+                        case ':':
+                            // 모든 괄호가 닫혀있을 때만 포맷 지정자 콜론으로 인식
+                            if (parenLevel == 0 && bracketLevel == 0 && braceLevel == 0)
+                            {
+                                return i;
+                            }
+                            break;
+                    }
+                }
+                else
+                {
+                    if (c == stringChar && (i == 0 || exprContent[i - 1] != '\\'))
+                    {
+                        inString = false;
+                    }
+                }
+            }
+            
+            return -1; // 포맷 지정자 콜론을 찾지 못함
+        }
+        
+        /// <summary>
+        /// Find matching closing brace for f-string expression with nested f-string support (PEP 701)
         /// </summary>
         private int FindMatchingBrace(string content, int openPos)
         {
             int braceCount = 1;
             int pos = openPos + 1;
+            bool inString = false;
+            char stringDelimiter = '\0';
+            bool inFString = false;
             
             while (pos < content.Length && braceCount > 0)
             {
                 char c = content[pos];
-                if (c == '{')
+                
+                // Handle string literals (including f-strings)
+                if (!inString && (c == '\'' || c == '"'))
                 {
-                    braceCount++;
+                    // Check for f-string
+                    if (pos > 0 && content[pos - 1] == 'f')
+                    {
+                        inFString = true;
+                    }
+                    inString = true;
+                    stringDelimiter = c;
                 }
-                else if (c == '}')
+                else if (inString && c == stringDelimiter)
                 {
-                    braceCount--;
+                    // Check for escape sequence
+                    if (pos > 0 && content[pos - 1] != '\\')
+                    {
+                        inString = false;
+                        inFString = false;
+                        stringDelimiter = '\0';
+                    }
                 }
+                else if (!inString)
+                {
+                    if (c == '{')
+                    {
+                        braceCount++;
+                    }
+                    else if (c == '}')
+                    {
+                        braceCount--;
+                    }
+                }
+                
                 pos++;
             }
             
@@ -1107,41 +1390,58 @@ namespace SharpPy
             var condition = ParseExpression();
             Consume(TokenType.COLON, "Expected ':' after if condition");
             
-            // For simple parsing, just consume remaining tokens until EOF or specific keywords
-            while (!IsAtEnd() && !Check(TokenType.EOF))
+            var body = ParseBlockOrSingleStatement();
+            var orElse = new List<Statement>();
+            
+            // Handle elif and else clauses
+            while (Match(TokenType.ELIF))
             {
-                var token = Peek();
-                if (token.Type == TokenType.IF || token.Type == TokenType.WHILE || 
-                    token.Type == TokenType.FOR || token.Type == TokenType.CLASS || 
-                    token.Type == TokenType.DEF || token.Type == TokenType.TRY ||
-                    token.Type == TokenType.IMPORT || token.Type == TokenType.FROM)
-                {
-                    break;
-                }
-                Advance();
+                var elifCondition = ParseExpression();
+                Consume(TokenType.COLON, "Expected ':' after elif condition");
+                var elifBody = ParseBlockOrSingleStatement();
+                
+                // Convert elif to nested if-else structure (CPython approach)
+                var nestedIf = new IfStatement(elifCondition, elifBody, new List<Statement>());
+                orElse.Add(nestedIf);
             }
             
-            return new ExpressionStatement(condition); // Simplified
+            if (Match(TokenType.ELSE))
+            {
+                Consume(TokenType.COLON, "Expected ':' after else");
+                var elseBody = ParseBlockOrSingleStatement();
+                
+                if (orElse.Count > 0)
+                {
+                    // Add else body to the last elif
+                    var lastElif = (IfStatement)orElse.Last();
+                    orElse[orElse.Count - 1] = new IfStatement(lastElif.Test, lastElif.Body, elseBody);
+                }
+                else
+                {
+                    // Direct else clause
+                    orElse.AddRange(elseBody);
+                }
+            }
+            
+            return new IfStatement(condition, body, orElse);
         }
         private Statement ParseWhileStatement()
         {
             var condition = ParseExpression();
             Consume(TokenType.COLON, "Expected ':' after while condition");
             
-            // Skip body tokens safely
-            while (!IsAtEnd() && !Check(TokenType.EOF))
+            var body = ParseBlockOrSingleStatement();
+            
+            // Check for optional else clause
+            List<Statement>? elseClause = null;
+            if (Check(TokenType.ELSE))
             {
-                var token = Peek();
-                if (token.Type == TokenType.IF || token.Type == TokenType.WHILE || 
-                    token.Type == TokenType.FOR || token.Type == TokenType.CLASS || 
-                    token.Type == TokenType.DEF || token.Type == TokenType.TRY)
-                {
-                    break;
-                }
-                Advance();
+                Advance(); // consume 'else'
+                Consume(TokenType.COLON, "Expected ':' after 'else'");
+                elseClause = ParseBlockOrSingleStatement();
             }
             
-            return new ExpressionStatement(condition); // Simplified
+            return new WhileStatement(condition, body, elseClause);
         }
         private Statement ParseForStatement()
         {
@@ -1150,30 +1450,103 @@ namespace SharpPy
             Consume(TokenType.IN, "Expected 'in' in for statement");
             var iterable = ParseExpression(); // in iterable  
             Consume(TokenType.COLON, "Expected ':' after for clause");
-            SkipNewlines();
             
             var body = ParseBlockOrSingleStatement();
             
-            return new ExpressionStatement(iterable); // Simplified - should be ForStatement in full implementation
+            // Check for optional else clause
+            List<Statement>? elseClause = null;
+            if (Check(TokenType.ELSE))
+            {
+                Advance(); // consume 'else'
+                Consume(TokenType.COLON, "Expected ':' after 'else'");
+                elseClause = ParseBlockOrSingleStatement();
+            }
+            
+            // Extract target name from target expression
+            string targetName = "";
+            if (target is NameExpression nameExpr)
+            {
+                targetName = nameExpr.Name;
+            }
+            else
+            {
+                throw new Exception("For loop target must be a simple variable name");
+            }
+            
+            return new ForStatement(targetName, iterable, body, elseClause);
         }
         private Statement ParseTryStatement()
         {
             Consume(TokenType.COLON, "Expected ':' after try");
             
-            // Skip body tokens safely
-            while (!IsAtEnd() && !Check(TokenType.EOF))
+            // Parse try body
+            var tryBody = ParseBlockOrSingleStatement();
+            
+            // Parse except handlers
+            var handlers = new List<ExceptHandler>();
+            while (Match(TokenType.EXCEPT))
             {
-                var token = Peek();
-                if (token.Type == TokenType.IF || token.Type == TokenType.WHILE || 
-                    token.Type == TokenType.FOR || token.Type == TokenType.CLASS || 
-                    token.Type == TokenType.DEF || token.Type == TokenType.TRY)
-                {
-                    break;
-                }
-                Advance();
+                handlers.Add(ParseExceptHandler());
             }
             
-            return new PassStatement(); // Simplified
+            if (handlers.Count == 0)
+            {
+                throw new Exception("try statement must have at least one except clause");
+            }
+            
+            // Parse optional else clause
+            List<Statement>? elseBody = null;
+            if (Match(TokenType.ELSE))
+            {
+                Consume(TokenType.COLON, "Expected ':' after else");
+                elseBody = ParseBlockOrSingleStatement();
+            }
+            
+            // Parse optional finally clause
+            List<Statement>? finallyBody = null;
+            if (Match(TokenType.FINALLY))
+            {
+                Consume(TokenType.COLON, "Expected ':' after finally");
+                finallyBody = ParseBlockOrSingleStatement();
+            }
+            
+            return new TryStatement(tryBody, handlers, elseBody, finallyBody);
+        }
+        
+        private ExceptHandler ParseExceptHandler()
+        {
+            Expression? exceptionType = null;
+            string? exceptionName = null;
+            bool isStar = false;
+            
+            // Check for except* syntax (PEP 654)
+            if (Check(TokenType.STAR))
+            {
+                Advance(); // consume the *
+                isStar = true;
+            }
+            
+            // Parse exception type (optional)
+            if (!Check(TokenType.COLON))
+            {
+                exceptionType = ParseExpression();
+                
+                // Parse "as name" clause (optional)
+                if (Match(TokenType.AS))
+                {
+                    if (!Check(TokenType.IDENTIFIER))
+                    {
+                        throw new Exception("Expected identifier after 'as'");
+                    }
+                    exceptionName = Advance().Lexeme;
+                }
+            }
+            
+            Consume(TokenType.COLON, "Expected ':' after except clause");
+            
+            var handlerBody = ParseBlockOrSingleStatement();
+            
+            return new ExceptHandler(exceptionType, exceptionName, handlerBody, isStar);
         }
         private Statement ParseWithStatement()
         {
@@ -1209,23 +1582,87 @@ namespace SharpPy
             var subject = ParseExpression(); // match subject
             Consume(TokenType.COLON, "Expected ':' after match subject");
             
-            // For now, just consume remaining tokens until EOF or specific keywords
-            while (!IsAtEnd() && !Check(TokenType.EOF))
+            // match 문도 INDENT/DEDENT 구조를 사용
+            if (!Check(TokenType.NEWLINE))
             {
-                var token = Peek();
-                if (token.Type == TokenType.IF || token.Type == TokenType.WHILE || 
-                    token.Type == TokenType.FOR || token.Type == TokenType.CLASS || 
-                    token.Type == TokenType.DEF || token.Type == TokenType.TRY ||
-                    token.Type == TokenType.MATCH || token.Type == TokenType.IMPORT)
+                throw new Exception("Expected newline after match colon");
+            }
+            
+            Advance(); // consume NEWLINE
+            
+            if (!Match(TokenType.INDENT))
+            {
+                throw new Exception("Expected indented block after match");
+            }
+            
+            var cases = new List<MatchCase>();
+            
+            // Parse case blocks until DEDENT
+            while (!Check(TokenType.DEDENT) && !IsAtEnd())
+            {
+                // Skip any additional newlines
+                if (Check(TokenType.NEWLINE))
                 {
-                    break;
+                    Advance();
+                    continue;
                 }
+                
+                if (!Check(TokenType.CASE))
+                {
+                    throw new Exception("Expected 'case' in match statement");
+                }
+                
+                cases.Add(ParseMatchCase());
+            }
+            
+            // Consume final DEDENT
+            if (Check(TokenType.DEDENT))
+            {
                 Advance();
             }
             
-            return new ExpressionStatement(subject); // Simplified
+            if (cases.Count == 0)
+            {
+                throw new Exception("match statement must have at least one case");
+            }
+            
+            return new MatchStatement(subject, cases);
         }
-        private Statement ParseReturnStatement() => new PassStatement(); // TODO: Implement
+
+        /// <summary>
+        /// Parse a single case block
+        /// </summary>
+        private MatchCase ParseMatchCase()
+        {
+            Consume(TokenType.CASE, "Expected 'case'");
+            
+            // Parse pattern
+            var pattern = ParseExpression();
+            
+            // Parse optional guard (if condition)
+            Expression? guard = null;
+            if (Match(TokenType.IF))
+            {
+                guard = ParseExpression();
+            }
+            
+            Consume(TokenType.COLON, "Expected ':' after case pattern");
+            
+            // Parse case body
+            var body = ParseBlockOrSingleStatement();
+            
+            return new MatchCase(pattern, body, guard);
+        }
+        private Statement ParseReturnStatement()
+        {
+            // return 뒤에 표현식이 있으면 파싱, 없으면 None
+            Expression? value = null;
+            if (!Check(TokenType.NEWLINE) && !IsAtEnd() && !Check(TokenType.EOF))
+            {
+                value = ParseExpression();
+            }
+            return new ReturnStatement(value);
+        }
         private Statement ParseYieldStatement()
         {
             // Check for 'yield from' (CPython style)
@@ -1249,7 +1686,25 @@ namespace SharpPy
         private Statement ParseContinueStatement() => new ContinueStatement();
         private Statement ParsePassStatement() => new PassStatement();
         private Statement ParseAssertStatement() => new PassStatement(); // TODO: Implement
-        private Statement ParseRaiseStatement() => new PassStatement(); // TODO: Implement
+        private Statement ParseRaiseStatement()
+        {
+            Expression? exc = null;
+            Expression? cause = null;
+            
+            // raise 문 뒤에 표현식이 있는지 확인
+            if (!Check(TokenType.NEWLINE) && !Check(TokenType.EOF) && !IsAtEnd())
+            {
+                exc = ParseExpression();
+                
+                // from 절이 있는지 확인 (raise ... from ...)
+                if (Match(TokenType.FROM))
+                {
+                    cause = ParseExpression();
+                }
+            }
+            
+            return new RaiseStatement(exc, cause);
+        }
         private Statement ParseDeleteStatement() => new PassStatement(); // TODO: Implement
         private Statement ParseGlobalStatement() => new PassStatement(); // TODO: Implement
         private Statement ParseNonlocalStatement() => new PassStatement(); // TODO: Implement
@@ -1540,7 +1995,16 @@ namespace SharpPy
                     : precedence + 1;
                 
                 var right = ParseBinaryExpression(nextMinPrec);
-                left = new BinaryOpExpression(left, opToken.Lexeme, right);
+                
+                // Create appropriate expression type based on operator
+                if (IsComparisonOperator(opType))
+                {
+                    left = new CompareExpression(left, opToken.Lexeme, right);
+                }
+                else
+                {
+                    left = new BinaryOpExpression(left, opToken.Lexeme, right);
+                }
             }
             
             return left;
@@ -1549,6 +2013,14 @@ namespace SharpPy
         private int GetPrecedence(TokenType type)
         {
             return OperatorPrecedence.GetValueOrDefault(type, -1);
+        }
+        
+        private bool IsComparisonOperator(TokenType type)
+        {
+            return type == TokenType.EQUAL_EQUAL || type == TokenType.BANG_EQUAL ||
+                   type == TokenType.LESS || type == TokenType.GREATER ||
+                   type == TokenType.LESS_EQUAL || type == TokenType.GREATER_EQUAL ||
+                   type == TokenType.IN || type == TokenType.IS;
         }
         
         private Expression ParseUnaryOrAtom()

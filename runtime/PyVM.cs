@@ -78,6 +78,13 @@ namespace SharpPy
             return ExecuteFrame(frame);
         }
         
+        // 메인 모듈 실행 (특정 스코프 체인 사용)
+        public PyObject ExecuteModule(PyCodeObject codeObject, PyScopeChain scopeChain)
+        {
+            var frame = new PyFrame(codeObject, new PyObject[0], scopeChain);
+            return ExecuteFrame(frame);
+        }
+        
         // 프레임 실행 (바이트코드 해석)
         public PyObject ExecuteFrame(PyFrame frame)
         {
@@ -97,16 +104,33 @@ namespace SharpPy
                         Console.WriteLine($"  {frame.InstructionPointer,3}: {instruction,-25} 스택:[{stackContents}]");
                     }
                     
-                    var result = ExecuteInstruction(frame, instruction);
-                    
-                    // RETURN_VALUE인 경우 함수 종료
-                    if (result != null)
+                    try
                     {
-                        Console.WriteLine($"✅ VM 완료: {result}");
-                        return result;
+                        var result = ExecuteInstruction(frame, instruction);
+                        
+                        // RETURN_VALUE인 경우 함수 종료
+                        if (result != null)
+                        {
+                            Console.WriteLine($"✅ VM 완료: {result}");
+                            return result;
+                        }
+                        
+                        frame.InstructionPointer++;
                     }
-                    
-                    frame.InstructionPointer++;
+                    catch (LoopBreakException)
+                    {
+                        // Break: jump to end of current loop
+                        // For now, find the next loop end by looking for matching FOR_ITER
+                        var loopEnd = FindLoopEnd(frame, frame.InstructionPointer);
+                        frame.InstructionPointer = loopEnd;
+                    }
+                    catch (LoopContinueException)
+                    {
+                        // Continue: jump to beginning of current loop
+                        // For now, find the loop start by looking for matching loop instruction
+                        var loopStart = FindLoopStart(frame, frame.InstructionPointer);
+                        frame.InstructionPointer = loopStart;
+                    }
                 }
                 
                 // 명시적 return이 없으면 None 반환
@@ -134,6 +158,18 @@ namespace SharpPy
                     // 기존 LEGB 시스템 사용!
                     var value = frame.ScopeChain.LookupVariable(name);
                     frame.ValueStack.Push(value);
+                    break;
+                
+                case ByteCodeOp.LOAD_FAST:
+                    var varName = frame.Code.VarNames[instruction.Argument];
+                    if (frame.FastLocals.TryGetValue(varName, out var fastValue))
+                    {
+                        frame.ValueStack.Push(fastValue);
+                    }
+                    else
+                    {
+                        throw PyNameError.Create($"local variable '{varName}' referenced before assignment");
+                    }
                     break;
                     
                 case ByteCodeOp.STORE_NAME:
@@ -173,6 +209,14 @@ namespace SharpPy
                     frame.ValueStack.Push(subResult);
                     break;
                     
+                case ByteCodeOp.BINARY_AND:
+                    var rightAnd = frame.ValueStack.Pop();
+                    var leftAnd = frame.ValueStack.Pop();
+                    // For match statements: implement logical AND for boolean values
+                    var andResult = BinaryOperation(leftAnd, rightAnd, "and");
+                    frame.ValueStack.Push(andResult);
+                    break;
+                    
                 case ByteCodeOp.CALL_FUNCTION:
                     var argCount = instruction.Argument;
                     var args = new PyObject[argCount];
@@ -185,6 +229,27 @@ namespace SharpPy
                     // 기존 PyObject.Call() 시스템 사용!
                     var callResult = function.Call(args);
                     frame.ValueStack.Push(callResult);
+                    break;
+                    
+                case ByteCodeOp.MAKE_FUNCTION:
+                    // SharpPy 방식: 코드 객체를 직접 호출 가능한 함수로 사용
+                    var codeObject = frame.ValueStack.Pop();
+                    
+                    if (codeObject is PyCodeObject pyCode)
+                    {
+                        // C# 특화: PyCodeObject를 직접 함수로 래핑
+                        var functionObject = new PyFunction(pyCode.Name, args =>
+                        {
+                            // 새로운 프레임으로 함수 코드 실행
+                            var functionFrame = new PyFrame(pyCode, args, frame.ScopeChain);
+                            return ExecuteFrame(functionFrame);
+                        });
+                        frame.ValueStack.Push(functionObject);
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException($"MAKE_FUNCTION expected code object, got {codeObject?.GetType()}");
+                    }
                     break;
                     
                 case ByteCodeOp.LOAD_ATTR:
@@ -220,6 +285,30 @@ namespace SharpPy
                     }
                     break;
                     
+                case ByteCodeOp.ROT_TWO:
+                    // Rotate top two stack items (swap them)
+                    if (frame.ValueStack.Count >= 2)
+                    {
+                        var top = frame.ValueStack.Pop();
+                        var second = frame.ValueStack.Pop();
+                        frame.ValueStack.Push(top);
+                        frame.ValueStack.Push(second);
+                    }
+                    break;
+                    
+                case ByteCodeOp.ROT_THREE:
+                    // Rotate top three stack items: (top, second, third) -> (second, third, top)
+                    if (frame.ValueStack.Count >= 3)
+                    {
+                        var top = frame.ValueStack.Pop();
+                        var second = frame.ValueStack.Pop();
+                        var third = frame.ValueStack.Pop();
+                        frame.ValueStack.Push(second);
+                        frame.ValueStack.Push(top);
+                        frame.ValueStack.Push(third);
+                    }
+                    break;
+                    
                 case ByteCodeOp.NOP:
                     // 아무것도 안 함
                     break;
@@ -229,7 +318,7 @@ namespace SharpPy
                     var truthValue = frame.ValueStack.Pop();
                     if (truthValue.PyBoolValue())
                     {
-                        frame.InstructionPointer = instruction.Argument;
+                        frame.InstructionPointer = instruction.Argument - 1; // -1 because main loop will increment
                         return null; // Continue execution from new position
                     }
                     break;
@@ -238,17 +327,18 @@ namespace SharpPy
                     var falseValue = frame.ValueStack.Pop();
                     if (!falseValue.PyBoolValue())
                     {
-                        frame.InstructionPointer = instruction.Argument;
+                        frame.InstructionPointer = instruction.Argument - 1; // -1 because main loop will increment
                         return null; // Continue execution from new position
                     }
                     break;
                     
                 case ByteCodeOp.JUMP_FORWARD:
-                    frame.InstructionPointer = instruction.Argument;
+                    frame.InstructionPointer = instruction.Argument - 1; // -1 because main loop will increment
                     return null; // Continue execution from new position
                     
                 case ByteCodeOp.JUMP_BACKWARD:
-                    frame.InstructionPointer = instruction.Argument;
+                    // JUMP_BACKWARD uses relative offset - jump back by the specified amount
+                    frame.InstructionPointer = frame.InstructionPointer - instruction.Argument - 1; // -1 because main loop will increment
                     return null; // Continue execution from new position
 
                 // CPython-style Container Building Opcodes (Phase 1)
@@ -262,8 +352,8 @@ namespace SharpPy
                     var pyList = new PyList();
                     foreach (var item in listItems)
                     {
-                        // Add items to list - need to find proper method
-                        pyList.Add(item);
+                        // Use Append method instead of Add to avoid + operator
+                        pyList.Append(item);
                     }
                     frame.ValueStack.Push(pyList);
                     break;
@@ -277,6 +367,45 @@ namespace SharpPy
                     }
                     var pyTuple = new PyTuple(tupleItems);
                     frame.ValueStack.Push(pyTuple);
+                    break;
+                    
+                case ByteCodeOp.LOAD_SUBSCR:
+                    // Stack: [object, key] -> [object[key]]
+                    // CPython-style subscript access for list pattern matching
+                    var subscriptKey = frame.ValueStack.Pop();
+                    var subscriptObj = frame.ValueStack.Pop();
+                    
+                    try
+                    {
+                        PyObject subscriptResult;
+                        if (subscriptObj is PyList subscriptList && subscriptKey is PyInt keyIntValue)
+                        {
+                            // List indexing: list[int]
+                            subscriptResult = subscriptList.GetItem(keyIntValue.Value);
+                        }
+                        else if (subscriptObj is PyDict subscriptDict)
+                        {
+                            // Dictionary access: dict[key]
+                            subscriptResult = subscriptDict.GetItem(subscriptKey);
+                        }
+                        else
+                        {
+                            // Generic subscript access (TODO: implement for other types)
+                            throw PyTypeError.Create($"'{subscriptObj.GetTypeName()}' object is not subscriptable");
+                        }
+                        
+                        frame.ValueStack.Push(subscriptResult);
+                    }
+                    catch (Exception ex) when (ex is PyException)
+                    {
+                        // Re-throw Python exceptions
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        // Convert C# exceptions to Python exceptions
+                        throw PyTypeError.Create($"subscript error: {ex.Message}");
+                    }
                     break;
                     
                 case ByteCodeOp.BUILD_SET:
@@ -373,6 +502,52 @@ namespace SharpPy
                     }
                     break;
                     
+                // F-String Support (PEP 701)
+                case ByteCodeOp.FORMAT_VALUE:
+                    var formatOption = instruction.Argument;
+                    var formatValue = frame.ValueStack.Pop();
+                    
+                    PyString formattedString;
+                    
+                    if (formatOption == 4) // 포맷 지정자 있음
+                    {
+                        // 스택에서 포맷 지정자도 가져옴
+                        var formatSpec = frame.ValueStack.Pop();
+                        formattedString = ApplyFormatting(formatValue, formatSpec.ToStr());
+                    }
+                    else
+                    {
+                        // 기본 포맷팅
+                        formattedString = new PyString(formatValue.ToStr());
+                    }
+                    
+                    frame.ValueStack.Push(formattedString);
+                    break;
+                    
+                case ByteCodeOp.BUILD_STRING:
+                    var stringCount = instruction.Argument;
+                    var stringParts = new List<string>();
+                    for (int i = 0; i < stringCount; i++)
+                    {
+                        var part = frame.ValueStack.Pop();
+                        stringParts.Insert(0, part.ToString()); // Reverse order
+                    }
+                    var concatenatedString = new PyString(string.Join("", stringParts));
+                    frame.ValueStack.Push(concatenatedString);
+                    break;
+                    
+                // Loop Control Statements
+                case ByteCodeOp.BREAK_LOOP:
+                    // Break from the current loop by jumping to loop end
+                    // In CPython, this pops the loop block and jumps
+                    // For simplicity, we'll use a special exception mechanism
+                    throw new LoopBreakException();
+                    
+                case ByteCodeOp.CONTINUE_LOOP:
+                    // Continue to the next iteration of the loop
+                    // In CPython, this jumps to the loop beginning
+                    throw new LoopContinueException();
+                    
                 default:
                     throw new NotImplementedException($"OpCode {instruction.OpCode} not implemented");
             }
@@ -383,6 +558,24 @@ namespace SharpPy
         // 이항 연산 (기존 타입 시스템 활용)
         private PyObject BinaryOperation(PyObject left, PyObject right, string op)
         {
+            // Handle boolean operations (for match statements)
+            if (op == "and" || op == "or")
+            {
+                // Convert operands to boolean values
+                var leftBool = left.ToBool();
+                var rightBool = right.ToBool();
+                
+                var result = op switch
+                {
+                    "and" => leftBool && rightBool ? PyBool.True : PyBool.False,
+                    "or" => leftBool || rightBool ? PyBool.True : PyBool.False,
+                    _ => throw PyTypeError.Create($"unsupported operator: {op}")
+                };
+                
+                Console.WriteLine($"    → {left} {op} {right} = {result}");
+                return result;
+            }
+            
             if (left is PyInt leftInt && right is PyInt rightInt)
             {
                 var result = op switch
@@ -404,6 +597,96 @@ namespace SharpPy
         /// <summary>
         /// CPython-style comparison operations
         /// </summary>
+        /// <summary>
+        /// Python 스타일 포매팅을 적용 (VM에서 사용)
+        /// </summary>
+        private PyString ApplyFormatting(PyObject obj, string formatSpec)
+        {
+            try
+            {
+                // 숫자 포매팅 지원
+                if (obj is PyFloat floatObj)
+                {
+                    if (formatSpec.EndsWith("f"))
+                    {
+                        // 소수점 자릿수 지정 (예: .2f)
+                        if (formatSpec.StartsWith(".") && formatSpec.Length > 2)
+                        {
+                            var digits = formatSpec.Substring(1, formatSpec.Length - 2);
+                            if (int.TryParse(digits, out int decimalPlaces))
+                            {
+                                var formatted = floatObj.Value.ToString($"F{decimalPlaces}");
+                                return new PyString(formatted);
+                            }
+                        }
+                        else if (formatSpec == "f")
+                        {
+                            return new PyString(floatObj.Value.ToString("F"));
+                        }
+                    }
+                    else if (formatSpec.EndsWith("e"))
+                    {
+                        return new PyString(floatObj.Value.ToString("E"));
+                    }
+                    else if (formatSpec.EndsWith("%"))
+                    {
+                        return new PyString((floatObj.Value * 100).ToString("F") + "%");
+                    }
+                }
+                else if (obj is PyInt intObj)
+                {
+                    if (formatSpec == "d")
+                    {
+                        return new PyString(intObj.Value.ToString());
+                    }
+                    else if (formatSpec == "x")
+                    {
+                        return new PyString(intObj.Value.ToString("x"));
+                    }
+                    else if (formatSpec == "X")
+                    {
+                        return new PyString(intObj.Value.ToString("X"));
+                    }
+                    else if (formatSpec == "o")
+                    {
+                        return new PyString(Convert.ToString(intObj.Value, 8));
+                    }
+                    else if (formatSpec == "b")
+                    {
+                        return new PyString(Convert.ToString(intObj.Value, 2));
+                    }
+                }
+                
+                // 문자열 정렬 지원 (예: >10, <10, ^10)
+                if (formatSpec.Length > 0)
+                {
+                    var align = formatSpec[0];
+                    var remaining = formatSpec.Substring(1);
+                    
+                    if ((align == '<' || align == '>' || align == '^') && int.TryParse(remaining, out int width))
+                    {
+                        var str = obj.ToStr();
+                        switch (align)
+                        {
+                            case '<': return new PyString(str.PadRight(width));
+                            case '>': return new PyString(str.PadLeft(width));
+                            case '^': 
+                                var totalPadding = width - str.Length;
+                                var leftPadding = totalPadding / 2;
+                                var rightPadding = totalPadding - leftPadding;
+                                return new PyString(new string(' ', leftPadding) + str + new string(' ', rightPadding));
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // 포매팅 실패 시 원본 값 반환
+            }
+            
+            return new PyString(obj.ToStr());
+        }
+        
         private PyObject CompareOperation(PyObject left, PyObject right, int compareOp)
         {
             var operation = (CompareOp)compareOp;
@@ -493,6 +776,80 @@ namespace SharpPy
             NotIn = 7,
             Is = 8,
             IsNot = 9
+        }
+        
+        /// <summary>
+        /// Find the end of the current loop for break statements
+        /// </summary>
+        private int FindLoopEnd(PyFrame frame, int currentPos)
+        {
+            var instructions = frame.Code.Instructions;
+            
+            // For FOR loops, look backwards for FOR_ITER and use its argument
+            for (int i = currentPos - 1; i >= 0; i--)
+            {
+                var instr = instructions[i];
+                if (instr.OpCode == ByteCodeOp.FOR_ITER)
+                {
+                    return instr.Argument;
+                }
+            }
+            
+            // For while loops, we need to find the outermost POP_JUMP_IF_FALSE that exits the loop
+            // Look backwards to find all POP_JUMP_IF_FALSE instructions and take the one with highest jump target
+            int bestJumpTarget = -1;
+            for (int i = currentPos - 1; i >= 0; i--)
+            {
+                var instr = instructions[i];
+                if (instr.OpCode == ByteCodeOp.POP_JUMP_IF_FALSE)
+                {
+                    // Take the POP_JUMP_IF_FALSE with the highest jump target (outermost loop)
+                    if (instr.Argument > bestJumpTarget)
+                    {
+                        bestJumpTarget = instr.Argument;
+                    }
+                }
+            }
+            
+            if (bestJumpTarget != -1)
+            {
+                return bestJumpTarget;
+            }
+            
+            // If we can't find a proper loop end, just continue execution
+            return currentPos + 1;
+        }
+        
+        /// <summary>
+        /// Find the start of the current loop for continue statements
+        /// </summary>
+        private int FindLoopStart(PyFrame frame, int currentPos)
+        {
+            var instructions = frame.Code.Instructions;
+            
+            // For FOR loops, look backwards for FOR_ITER first (priority)
+            for (int i = currentPos - 1; i >= 0; i--)
+            {
+                var instr = instructions[i];
+                if (instr.OpCode == ByteCodeOp.FOR_ITER)
+                {
+                    return i; // Jump back to FOR_ITER
+                }
+            }
+            
+            // For while loops, look for loop condition (COMPARE_OP followed by POP_JUMP_IF_FALSE)
+            for (int i = currentPos - 1; i >= 1; i--)
+            {
+                var instr = instructions[i];
+                if (instr.OpCode == ByteCodeOp.POP_JUMP_IF_FALSE && 
+                    instructions[i-1].OpCode == ByteCodeOp.COMPARE_OP)
+                {
+                    return i - 1; // Jump back to COMPARE_OP
+                }
+            }
+            
+            // If we can't find a proper loop start, just continue execution
+            return currentPos + 1;
         }
     }
 

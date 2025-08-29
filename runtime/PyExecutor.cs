@@ -111,7 +111,6 @@ namespace SharpPy
         /// </summary>
         public static PyObject ExecuteFString(FStringExpression expr, PyScope scope)
         {
-            // 간단한 f-string 처리: C# 문자열 보간 사용
             var parts = new List<string>();
             
             foreach (var value in expr.Values)
@@ -120,10 +119,16 @@ namespace SharpPy
                 {
                     parts.Add(pyStr.Value);
                 }
+                else if (value is FormattedValue formattedValue)
+                {
+                    // FormattedValue는 자체적으로 포맷팅을 처리함
+                    var evaluated = formattedValue.Evaluate(scope);
+                    parts.Add(evaluated.ToStr());
+                }
                 else
                 {
                     var evaluated = value.Evaluate(scope);
-                    parts.Add(evaluated.ToString());
+                    parts.Add(evaluated.ToStr());
                 }
             }
             

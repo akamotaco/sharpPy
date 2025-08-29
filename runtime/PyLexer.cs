@@ -17,12 +17,23 @@ namespace SharpPy
         private int _line;
         private int _column;
         
+        // 들여쓰기 추적을 위한 스택 (CPython 방식)
+        private Stack<int> _indentStack;
+        private bool _atLineStart;
+        private List<PyToken> _pendingTokens;
+        
         public PyLexer(string source)
         {
             _source = source ?? throw new ArgumentNullException(nameof(source));
             _position = 0;
             _line = 1;
             _column = 1;
+            
+            // 들여쓰기 추적 초기화
+            _indentStack = new Stack<int>();
+            _indentStack.Push(0); // 기본 들여쓰기 레벨
+            _atLineStart = true;
+            _pendingTokens = new List<PyToken>();
         }
 
         /// <summary>
@@ -34,11 +45,26 @@ namespace SharpPy
             
             while (!IsAtEnd())
             {
+                // Pending 토큰이 있으면 먼저 처리
+                if (_pendingTokens.Count > 0)
+                {
+                    tokens.Add(_pendingTokens[0]);
+                    _pendingTokens.RemoveAt(0);
+                    continue;
+                }
+                
                 var token = NextToken();
                 if (token != null)
                 {
                     tokens.Add(token);
                 }
+            }
+            
+            // 파일 끝에서 남은 DEDENT 토큰들 생성
+            while (_indentStack.Count > 1)
+            {
+                _indentStack.Pop();
+                tokens.Add(new PyToken(TokenType.DEDENT, "", _line, _column));
             }
             
             // EOF 토큰 추가
@@ -49,6 +75,38 @@ namespace SharpPy
 
         private PyToken? NextToken()
         {
+            // 줄 시작에서 들여쓰기 처리
+            if (_atLineStart)
+            {
+                _atLineStart = false;
+                
+                // 빈 줄이나 주석만 있는 줄은 건너뛰기
+                if (IsAtEnd() || Peek() == '\n' || Peek() == '#')
+                {
+                    if (Peek() == '\n')
+                    {
+                        Advance();
+                        _line++;
+                        _column = 1;
+                        _atLineStart = true;
+                    }
+                    else if (Peek() == '#')
+                    {
+                        SkipLineComment();
+                        if (!IsAtEnd() && Peek() == '\n')
+                        {
+                            Advance();
+                            _line++;
+                            _column = 1;
+                            _atLineStart = true;
+                        }
+                    }
+                    return NextToken(); // 재귀 호출로 다음 토큰 처리
+                }
+                
+                return HandleIndentation();
+            }
+            
             SkipWhitespace();
             
             if (IsAtEnd()) return null;
@@ -137,10 +195,13 @@ namespace SharpPy
                     if (Match('=')) return new PyToken(TokenType.WALRUS, ":=", line, column);
                     return new PyToken(TokenType.COLON, ":", line, column);
 
+                case '@': return new PyToken(TokenType.AT, "@", line, column);
+
                 // Newline
                 case '\n':
                     _line++;
                     _column = 1;
+                    _atLineStart = true;
                     return new PyToken(TokenType.NEWLINE, "\n", line, column);
 
                 // Comments
@@ -618,6 +679,66 @@ namespace SharpPy
             return value.ToString();
         }
         
+        /// <summary>
+        /// 줄 시작에서 들여쓰기를 처리하여 INDENT/DEDENT 토큰 생성
+        /// CPython 방식을 따름
+        /// </summary>
+        private PyToken HandleIndentation()
+        {
+            int indentLevel = 0;
+            var startColumn = _column;
+            
+            // 현재 줄의 들여쓰기 레벨 계산
+            while (!IsAtEnd() && (Peek() == ' ' || Peek() == '\t'))
+            {
+                if (Peek() == ' ')
+                    indentLevel++;
+                else if (Peek() == '\t')
+                    indentLevel += 8; // 탭은 8칸으로 계산
+                Advance();
+            }
+            
+            var currentLevel = _indentStack.Peek();
+            var line = _line;
+            var column = startColumn;
+            
+            if (indentLevel > currentLevel)
+            {
+                // 들여쓰기 증가 - INDENT 토큰 생성
+                _indentStack.Push(indentLevel);
+                return new PyToken(TokenType.INDENT, new string(' ', indentLevel), line, column);
+            }
+            else if (indentLevel < currentLevel)
+            {
+                // 들여쓰기 감소 - DEDENT 토큰들 생성
+                var dedentCount = 0;
+                while (_indentStack.Count > 1 && _indentStack.Peek() > indentLevel)
+                {
+                    _indentStack.Pop();
+                    dedentCount++;
+                }
+                
+                // 첫 번째 DEDENT 토큰을 반환하고 나머지는 pending에 추가
+                if (dedentCount > 0)
+                {
+                    for (int i = 1; i < dedentCount; i++)
+                    {
+                        _pendingTokens.Add(new PyToken(TokenType.DEDENT, "", line, column));
+                    }
+                    return new PyToken(TokenType.DEDENT, "", line, column);
+                }
+                
+                // 들여쓰기 레벨이 스택에 없는 경우 - 에러
+                if (_indentStack.Peek() != indentLevel)
+                {
+                    throw new Exception($"Indentation error: unexpected indent level {indentLevel}");
+                }
+            }
+            
+            // 같은 레벨 - 다음 토큰 처리
+            return NextToken() ?? new PyToken(TokenType.EOF, "", line, column);
+        }
+
         private char ProcessEscapeSequence(char escaped)
         {
             return escaped switch

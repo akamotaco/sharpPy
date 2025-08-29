@@ -23,9 +23,11 @@ namespace SharpPy
         // 기존 시스템과 연동을 위한 도우미 함수들 추가
         private void SetupBuiltinHelpers()
         {
-            // VM에서 사용할 도우미 함수들
-            var makeFunctionHelper = new PyBuiltinFunction("__make_function__");
-            _globalScope.AssignVariable("__make_function__", makeFunctionHelper);
+            // CPython 스타일로 MAKE_FUNCTION 바이트코드 사용으로 변경
+            // __make_function__ 헬퍼는 더 이상 필요없음
+            
+            // var makeFunctionHelper = new PyBuiltinFunction("__make_function__");
+            // _globalScope.AssignVariable("__make_function__", makeFunctionHelper);
         }
         
         // 전체 실행 파이프라인 (기존 시스템과 완전 통합)
@@ -59,7 +61,7 @@ namespace SharpPy
                 Console.WriteLine("\n" + new string('=', 30));
                 Console.WriteLine("4️⃣ VM 실행 (기존 LEGB 시스템 사용)");
                 Console.WriteLine(new string('=', 30));
-                var result = _vm.ExecuteModule(codeObject);
+                var result = _vm.ExecuteModule(codeObject, _globalScope);
                 
                 Console.WriteLine("\n" + new string('=', 60));
                 Console.WriteLine($"🎉 최종 결과: {result}");

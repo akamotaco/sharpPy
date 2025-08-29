@@ -56,6 +56,7 @@ namespace SharpPy
                 "divmod" => CallDivmod(args),
                 "ord" => CallOrd(args),
                 "chr" => CallChr(args),
+                "__build_class__" => CallBuildClass(args),
                 _ => throw PyNotImplementedError.Create($"Built-in function '{Name}' not implemented")
             };
         }
@@ -933,6 +934,25 @@ namespace SharpPy
                 "__call__" => this,
                 _ => throw PyAttributeError.Create($"'builtin_function_or_method' object has no attribute '{name}'")
             };
+        }
+
+        private PyObject CallBuildClass(PyObject[] args)
+        {
+            if (args.Length < 2)
+                throw PyTypeError.Create($"__build_class__() missing required arguments");
+            var func = args[0];
+            var name = args[1];
+            var bases = new PyType[args.Length - 2];
+            for (int i = 2; i < args.Length; i++)
+            {
+                // Convert PyObject to PyType - simplified approach
+                if (args[i] is PyType pyType)
+                    bases[i - 2] = pyType;
+                else
+                    bases[i - 2] = PyType.ObjectType; // Default to object type
+            }
+            var className = name.ToString();
+            return new PyClass(className, bases);
         }
 
         public override string ToString() => $"<built-in function {Name}>";

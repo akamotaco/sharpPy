@@ -14,7 +14,7 @@ namespace SharpPy
         /// <summary>
         /// 다음 값 반환 (Python __next__ 메서드)
         /// </summary>
-        public abstract PyObject Next();
+        public abstract override PyObject Next();
 
         /// <summary>
         /// 자기 자신을 반환 (Python __iter__ 메서드)

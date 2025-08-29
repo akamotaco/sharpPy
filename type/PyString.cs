@@ -395,6 +395,280 @@ namespace SharpPy
 
         #endregion
 
+        #region String Methods
+
+        public override PyObject GetAttribute(string name)
+        {
+            return name switch
+            {
+                "upper" => new PyStringMethod(this, "upper", Upper),
+                "lower" => new PyStringMethod(this, "lower", Lower),
+                "strip" => new PyStringMethod(this, "strip", Strip),
+                "lstrip" => new PyStringMethod(this, "lstrip", LStrip),
+                "rstrip" => new PyStringMethod(this, "rstrip", RStrip),
+                "replace" => new PyStringMethod(this, "replace", Replace),
+                "split" => new PyStringMethod(this, "split", Split),
+                "join" => new PyStringMethod(this, "join", Join),
+                "startswith" => new PyStringMethod(this, "startswith", StartsWith),
+                "endswith" => new PyStringMethod(this, "endswith", EndsWith),
+                "find" => new PyStringMethod(this, "find", Find),
+                "count" => new PyStringMethod(this, "count", Count),
+                _ => base.GetAttribute(name)
+            };
+        }
+
+        private PyObject Upper(PyObject[] args)
+        {
+            if (args.Length != 0)
+                throw PyTypeError.Create($"upper() takes no arguments ({args.Length} given)");
+            return new PyString(Value.ToUpperInvariant());
+        }
+
+        private PyObject Lower(PyObject[] args)
+        {
+            if (args.Length != 0)
+                throw PyTypeError.Create($"lower() takes no arguments ({args.Length} given)");
+            return new PyString(Value.ToLowerInvariant());
+        }
+
+        private PyObject Strip(PyObject[] args)
+        {
+            if (args.Length > 1)
+                throw PyTypeError.Create($"strip() takes at most 1 argument ({args.Length} given)");
+            
+            if (args.Length == 0)
+                return new PyString(Value.Trim());
+            
+            var chars = args[0] switch
+            {
+                PyString str => str.Value.ToCharArray(),
+                _ => throw PyTypeError.Create("strip arg must be None or str")
+            };
+            
+            return new PyString(Value.Trim(chars));
+        }
+
+        private PyObject LStrip(PyObject[] args)
+        {
+            if (args.Length > 1)
+                throw PyTypeError.Create($"lstrip() takes at most 1 argument ({args.Length} given)");
+            
+            if (args.Length == 0)
+                return new PyString(Value.TrimStart());
+            
+            var chars = args[0] switch
+            {
+                PyString str => str.Value.ToCharArray(),
+                _ => throw PyTypeError.Create("lstrip arg must be None or str")
+            };
+            
+            return new PyString(Value.TrimStart(chars));
+        }
+
+        private PyObject RStrip(PyObject[] args)
+        {
+            if (args.Length > 1)
+                throw PyTypeError.Create($"rstrip() takes at most 1 argument ({args.Length} given)");
+            
+            if (args.Length == 0)
+                return new PyString(Value.TrimEnd());
+            
+            var chars = args[0] switch
+            {
+                PyString str => str.Value.ToCharArray(),
+                _ => throw PyTypeError.Create("rstrip arg must be None or str")
+            };
+            
+            return new PyString(Value.TrimEnd(chars));
+        }
+
+        private PyObject Replace(PyObject[] args)
+        {
+            if (args.Length < 2 || args.Length > 3)
+                throw PyTypeError.Create($"replace() takes 2 or 3 arguments ({args.Length} given)");
+            
+            var old = args[0] switch
+            {
+                PyString str => str.Value,
+                _ => throw PyTypeError.Create("replace() old must be str")
+            };
+            
+            var newStr = args[1] switch
+            {
+                PyString str => str.Value,
+                _ => throw PyTypeError.Create("replace() new must be str")
+            };
+            
+            if (args.Length == 3)
+            {
+                var count = args[2] switch
+                {
+                    PyInt i => i.Value,
+                    _ => throw PyTypeError.Create("replace() count must be int")
+                };
+                
+                var result = Value;
+                for (int i = 0; i < count && result.Contains(old); i++)
+                {
+                    var index = result.IndexOf(old);
+                    if (index == -1) break;
+                    result = result.Substring(0, index) + newStr + result.Substring(index + old.Length);
+                }
+                return new PyString(result);
+            }
+            
+            return new PyString(Value.Replace(old, newStr));
+        }
+
+        private PyObject Split(PyObject[] args)
+        {
+            if (args.Length > 2)
+                throw PyTypeError.Create($"split() takes at most 2 arguments ({args.Length} given)");
+            
+            string sep = null;
+            int maxsplit = -1;
+            
+            if (args.Length >= 1 && args[0] is PyString sepStr)
+                sep = sepStr.Value;
+            
+            if (args.Length >= 2 && args[1] is PyInt maxsplitInt)
+                maxsplit = maxsplitInt.Value;
+            
+            return Split(sep, maxsplit);
+        }
+
+        private PyObject Join(PyObject[] args)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"join() takes exactly one argument ({args.Length} given)");
+            
+            var iterable = args[0];
+            var items = new System.Collections.Generic.List<string>();
+            
+            // Simple implementation for lists
+            if (iterable is PyList list)
+            {
+                foreach (var item in list.Items)
+                {
+                    if (item is PyString str)
+                        items.Add(str.Value);
+                    else
+                        throw PyTypeError.Create($"sequence item: expected str instance, {item.GetTypeName()} found");
+                }
+            }
+            else
+            {
+                throw PyTypeError.Create("can only join an iterable");
+            }
+            
+            return new PyString(string.Join(Value, items));
+        }
+
+        private PyObject StartsWith(PyObject[] args)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"startswith() takes exactly one argument ({args.Length} given)");
+            
+            var prefix = args[0] switch
+            {
+                PyString str => str.Value,
+                _ => throw PyTypeError.Create("startswith first arg must be str")
+            };
+            
+            return PyBool.FromBool(Value.StartsWith(prefix));
+        }
+
+        private PyObject EndsWith(PyObject[] args)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"endswith() takes exactly one argument ({args.Length} given)");
+            
+            var suffix = args[0] switch
+            {
+                PyString str => str.Value,
+                _ => throw PyTypeError.Create("endswith first arg must be str")
+            };
+            
+            return PyBool.FromBool(Value.EndsWith(suffix));
+        }
+
+        private PyObject Find(PyObject[] args)
+        {
+            if (args.Length < 1 || args.Length > 3)
+                throw PyTypeError.Create($"find() takes 1 to 3 arguments ({args.Length} given)");
+            
+            var sub = args[0] switch
+            {
+                PyString str => str.Value,
+                _ => throw PyTypeError.Create("find() sub must be str")
+            };
+            
+            int start = 0;
+            int end = Value.Length;
+            
+            if (args.Length >= 2 && args[1] is PyInt startInt)
+                start = Math.Max(0, startInt.Value);
+            
+            if (args.Length >= 3 && args[2] is PyInt endInt)
+                end = Math.Min(Value.Length, endInt.Value);
+            
+            if (start >= end) return new PyInt(-1);
+            
+            var substring = start == 0 && end == Value.Length 
+                ? Value 
+                : Value.Substring(start, end - start);
+                
+            var index = substring.IndexOf(sub);
+            return new PyInt(index == -1 ? -1 : index + start);
+        }
+
+        private PyObject Count(PyObject[] args)
+        {
+            if (args.Length < 1 || args.Length > 3)
+                throw PyTypeError.Create($"count() takes 1 to 3 arguments ({args.Length} given)");
+            
+            var sub = args[0] switch
+            {
+                PyString str => str.Value,
+                _ => throw PyTypeError.Create("count() sub must be str")
+            };
+            
+            int start = 0;
+            int end = Value.Length;
+            
+            if (args.Length >= 2 && args[1] is PyInt startInt)
+                start = Math.Max(0, startInt.Value);
+            
+            if (args.Length >= 3 && args[2] is PyInt endInt)
+                end = Math.Min(Value.Length, endInt.Value);
+            
+            if (start >= end || sub.Length == 0) return new PyInt(0);
+            
+            var substring = start == 0 && end == Value.Length 
+                ? Value 
+                : Value.Substring(start, end - start);
+                
+            return CountOccurrences(substring, sub);
+        }
+
+        private PyObject CountOccurrences(string text, string sub)
+        {
+            if (string.IsNullOrEmpty(sub)) return new PyInt(0);
+            
+            int count = 0;
+            int index = 0;
+            
+            while ((index = text.IndexOf(sub, index)) != -1)
+            {
+                count++;
+                index += sub.Length;
+            }
+            
+            return new PyInt(count);
+        }
+
+        #endregion
+
         #region Evaluate Method (NotImplementedException)
 
         public PyObject Evaluate(PyScope scope)

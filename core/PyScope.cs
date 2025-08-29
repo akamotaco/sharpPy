@@ -87,11 +87,34 @@ public class PyBuiltinsModule : PyObject
         BuiltinDict["False"] = PyBool.False;
         BuiltinDict["None"] = PyNone.Instance;
         
+        // 클래스 생성 함수
+        BuiltinDict["__build_class__"] = new PyBuiltinFunction("__build_class__");
+        
         // 내장 타입들
         BuiltinDict["int"] = new PyBuiltinType("int");
         BuiltinDict["str"] = new PyBuiltinType("str");
         BuiltinDict["bool"] = new PyBuiltinType("bool");
         BuiltinDict["object"] = new PyBuiltinType("object");
+        
+        // Exception Groups (PEP 654)
+        BuiltinDict["BaseExceptionGroup"] = new PyBuiltinType("BaseExceptionGroup");
+        BuiltinDict["ExceptionGroup"] = new PyBuiltinType("ExceptionGroup");
+        
+        // Exception Types
+        BuiltinDict["BaseException"] = new PyBuiltinType("BaseException");
+        BuiltinDict["Exception"] = new PyBuiltinType("Exception");
+        BuiltinDict["ValueError"] = new PyBuiltinType("ValueError");
+        BuiltinDict["TypeError"] = new PyBuiltinType("TypeError");
+        BuiltinDict["AttributeError"] = new PyBuiltinType("AttributeError");
+        BuiltinDict["KeyError"] = new PyBuiltinType("KeyError");
+        BuiltinDict["IndexError"] = new PyBuiltinType("IndexError");
+        BuiltinDict["RuntimeError"] = new PyBuiltinType("RuntimeError");
+        BuiltinDict["ZeroDivisionError"] = new PyBuiltinType("ZeroDivisionError");
+        BuiltinDict["NameError"] = new PyBuiltinType("NameError");
+        
+        // Buffer Protocol (PEP 688)
+        BuiltinDict["buffer"] = new PyBuiltinType("buffer");
+        BuiltinDict["memoryview"] = new PyBuiltinType("memoryview");
         
         Console.WriteLine($"🏗️ Builtin 모듈 초기화: {BuiltinDict.Count}개 내장 객체");
     }
@@ -135,6 +158,82 @@ public class PyBuiltinType : PyObject
     
     public override string GetTypeName() => "type";
     public override string ToString() => $"<class '{Name}'>";
+    
+    public override PyObject Call(params PyObject[] args)
+    {
+        // Handle exception type constructors
+        switch (Name)
+        {
+            case "ValueError":
+                string message = args.Length > 0 ? args[0].ToStr() : "";
+                return new PyValueError(message);
+            case "TypeError":
+                message = args.Length > 0 ? args[0].ToStr() : "";
+                return new PyTypeError(message);
+            case "AttributeError":
+                message = args.Length > 0 ? args[0].ToStr() : "";
+                return new PyAttributeError(message);
+            case "KeyError":
+                message = args.Length > 0 ? args[0].ToStr() : "";
+                return new PyKeyError(message);
+            case "IndexError":
+                message = args.Length > 0 ? args[0].ToStr() : "";
+                return new PyIndexError(message);
+            case "RuntimeError":
+                message = args.Length > 0 ? args[0].ToStr() : "";
+                return new PyRuntimeError(message);
+            case "ZeroDivisionError":
+                message = args.Length > 0 ? args[0].ToStr() : "";
+                return new PyZeroDivisionError(message);
+            case "NameError":
+                message = args.Length > 0 ? args[0].ToStr() : "";
+                return new PyNameError(message);
+            case "BaseException":
+                message = args.Length > 0 ? args[0].ToStr() : "";
+                return new PyBaseException(message);
+            case "Exception":
+                message = args.Length > 0 ? args[0].ToStr() : "";
+                return new PyException(message);
+            
+            // Handle Exception Groups (PEP 654)
+            case "ExceptionGroup":
+                if (args.Length < 2)
+                    throw PyTypeError.Create("ExceptionGroup() missing required arguments");
+                string groupMessage = args[0].ToStr();
+                var exceptions = new List<PyException>();
+                if (args[1] is PyList list)
+                {
+                    foreach (var item in list.Items)
+                    {
+                        if (item is PyException exc)
+                            exceptions.Add(exc);
+                        else
+                            throw PyTypeError.Create("ExceptionGroup requires list of exceptions");
+                    }
+                }
+                return new PyExceptionGroup(groupMessage, exceptions);
+                
+            case "BaseExceptionGroup":
+                if (args.Length < 2)
+                    throw PyTypeError.Create("BaseExceptionGroup() missing required arguments");
+                groupMessage = args[0].ToStr();
+                exceptions = new List<PyException>();
+                if (args[1] is PyList list2)
+                {
+                    foreach (var item in list2.Items)
+                    {
+                        if (item is PyException exc)
+                            exceptions.Add(exc);
+                        else
+                            throw PyTypeError.Create("BaseExceptionGroup requires list of exceptions");
+                    }
+                }
+                return new PyBaseExceptionGroup(groupMessage, exceptions);
+                
+            default:
+                return base.Call(args);
+        }
+    }
 }
 
 // 일반 스코프 (G, E, L만)

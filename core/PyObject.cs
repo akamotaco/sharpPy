@@ -474,6 +474,44 @@ namespace SharpPy
 
         #endregion
 
+        #region Buffer Protocol (PEP 688)
+
+        /// <summary>
+        /// PEP 688: __buffer__ method
+        /// Returns a memoryview object representing this buffer
+        /// </summary>
+        public virtual PyMemoryView GetBuffer(int flags)
+        {
+            throw PyTypeError.Create($"a bytes-like object is required, not '{GetTypeName()}'");
+        }
+
+        /// <summary>
+        /// PEP 688: __release_buffer__ method (optional)
+        /// Releases resources associated with the buffer
+        /// </summary>
+        public virtual void ReleaseBuffer(PyMemoryView buffer)
+        {
+            // Default implementation - no cleanup needed for most objects
+        }
+
+        /// <summary>
+        /// Check if this object supports the buffer protocol
+        /// </summary>
+        public virtual bool SupportsBuffer()
+        {
+            try
+            {
+                GetBuffer(0);
+                return true;
+            }
+            catch (PythonException pe) when (pe.PyException is PyTypeError)
+            {
+                return false;
+            }
+        }
+
+        #endregion
+
         #region Container Protocol
 
         /// <summary>
@@ -482,6 +520,22 @@ namespace SharpPy
         public virtual PyBool Contains(PyObject item)
         {
             throw PyTypeError.Create($"argument of type '{GetTypeName()}' is not iterable");
+        }
+
+        /// <summary>
+        /// 인덱스로 요소 가져오기 (__getitem__)
+        /// </summary>
+        public virtual PyObject GetItem(PyObject index)
+        {
+            throw PyTypeError.Create($"'{GetTypeName()}' object is not subscriptable");
+        }
+
+        /// <summary>
+        /// 인덱스로 요소 설정하기 (__setitem__)
+        /// </summary>
+        public virtual void SetItem(PyObject index, PyObject value)
+        {
+            throw PyTypeError.Create($"'{GetTypeName()}' object does not support item assignment");
         }
 
         #endregion

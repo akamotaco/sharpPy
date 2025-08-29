@@ -66,6 +66,14 @@ namespace SharpPy
         public static readonly PyType NotImplementedErrorType = new PyType("NotImplementedError", new[] { RuntimeErrorType });
         public static readonly PyType RecursionErrorType = new PyType("RecursionError", new[] { RuntimeErrorType });
         
+        // Exception Groups (PEP 654)
+        public static readonly PyType BaseExceptionGroupType = new PyType("BaseExceptionGroup", new[] { BaseExceptionType });
+        public static readonly PyType ExceptionGroupType = new PyType("ExceptionGroup", new[] { BaseExceptionGroupType, ExceptionType });
+        
+        // Buffer Protocol (PEP 688)
+        public static readonly PyType BufferType = new PyType("buffer", new[] { ObjectType });
+        public static readonly PyType MemoryViewType = new PyType("memoryview", new[] { ObjectType });
+        
         public static readonly PyType ImportErrorType = new PyType("ImportError", new[] { ExceptionType });
         public static readonly PyType ModuleNotFoundErrorType = new PyType("ModuleNotFoundError", new[] { ImportErrorType });
         

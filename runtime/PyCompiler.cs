@@ -12,10 +12,21 @@ namespace SharpPy
         
         public PyCodeObject Compile(List<Statement> statements, string name = "<module>")
         {
+            return Compile(statements, name, new List<string>());
+        }
+        
+        public PyCodeObject Compile(List<Statement> statements, string name, List<string> parameters)
+        {
             _instructions = new List<ByteCodeInstruction>();
             _constants = new List<PyObject>();
             _names = new List<string>();
             _varNames = new List<string>();
+            
+            // 함수 매개변수를 _varNames에 추가 (LOAD_FAST/STORE_FAST용)
+            foreach (var param in parameters)
+            {
+                _varNames.Add(param);
+            }
             
             Console.WriteLine($"\n🔧 컴파일: {name}");
             
@@ -28,7 +39,7 @@ namespace SharpPy
             EmitLoadConst(PyNone.Instance);
             EmitInstruction(ByteCodeOp.RETURN_VALUE);
             
-            var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames);
+            var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, parameters.Count);
             Console.WriteLine($"✅ 컴파일 완료: {_instructions.Count}개 명령어");
             return codeObject;
         }
@@ -176,6 +187,16 @@ namespace SharpPy
                     EmitLoadName(name.Name);
                     break;
                     
+                case WalrusExpression walrus:
+                    // Compile value first
+                    CompileExpression(walrus.Value);
+                    // Duplicate value on stack for assignment
+                    EmitInstruction(ByteCodeOp.DUP_TOP);
+                    // Store to variable
+                    EmitStoreName(walrus.Target);
+                    // Value remains on stack as return value
+                    break;
+                    
                 case BinaryOpExpression binOp:
                     CompileExpression(binOp.Left);
                     CompileExpression(binOp.Right);
@@ -267,6 +288,10 @@ namespace SharpPy
                     CompileFString(fstring);
                     break;
                     
+                case FormattedValue formatted:
+                    CompileFormattedValue(formatted);
+                    break;
+                    
                 case StarredExpression starred:
                     CompileExpression(starred.Value);
                     // 별표 처리는 문맥에 따라 다름
@@ -295,17 +320,15 @@ namespace SharpPy
         
         private void CompileFunction(FunctionDefStatement func)
         {
-            // 함수 바디 컴파일
+            // 함수 바디 컴파일 (매개변수 포함)
             var compiler = new PythonCompiler();
-            var funcCode = compiler.Compile(func.Body, func.Name);
+            var funcCode = compiler.Compile(func.Body, func.Name, func.Parameters);
             
             // 함수 코드 객체를 상수로 추가
             EmitLoadConst(funcCode);
             
-            // 기존 PyFunction 시스템과 연동
-            // MAKE_FUNCTION 대신 직접 PyFunction 생성하는 내장함수 사용
-            EmitLoadName("__make_function__");
-            EmitInstruction(ByteCodeOp.CALL_FUNCTION, 1);
+            // CPython 스타일: MAKE_FUNCTION 바이트코드 직접 사용
+            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, 0);
             EmitStoreName(func.Name);
         }
         
@@ -323,8 +346,17 @@ namespace SharpPy
         
         private void EmitLoadName(string name)
         {
-            var index = AddName(name);
-            EmitInstruction(ByteCodeOp.LOAD_NAME, index);
+            // 함수 매개변수(지역 변수)인 경우 LOAD_FAST 사용
+            var varIndex = _varNames.IndexOf(name);
+            if (varIndex >= 0)
+            {
+                EmitInstruction(ByteCodeOp.LOAD_FAST, varIndex);
+            }
+            else
+            {
+                var index = AddName(name);
+                EmitInstruction(ByteCodeOp.LOAD_NAME, index);
+            }
         }
         
         private void EmitStoreName(string name)
@@ -350,6 +382,9 @@ namespace SharpPy
                 "|" => ByteCodeOp.BINARY_OR,              // 비트 OR
                 "^" => ByteCodeOp.BINARY_XOR,             // 비트 XOR
                 "@" => ByteCodeOp.BINARY_MATRIX_MULTIPLY, // 행렬 곱셈
+                // Boolean operators (simplified implementation)
+                "and" => ByteCodeOp.BINARY_AND,          // Logical AND (simplified as bitwise AND)
+                "or" => ByteCodeOp.BINARY_OR,            // Logical OR (simplified as bitwise OR)
                 _ => throw new NotImplementedException($"Binary operator '{op}' not implemented")
             };
             EmitInstruction(opCode);
@@ -438,48 +473,447 @@ namespace SharpPy
         
         // 단순화된 구현 - 실제로는 더 복잡한 로직이 필요
         private void CompileAsyncFunction(AsyncFunctionDefStatement asyncFunc) { /* TODO */ }
-        private void CompileClass(ClassDefStatement cls) { /* TODO */ }
-        private void CompileTypeAlias(TypeAliasStatement typeAlias) { /* TODO */ }
+        private void CompileClass(ClassDefStatement cls)
+        {
+            // Simplified class compilation - just create an empty class for now
+            // TODO: Implement proper class body compilation
+            
+            // Load __build_class__ function first
+            EmitLoadName("__build_class__");
+            
+            // Create class body function (empty for now)
+            // TODO: Compile class body into a function
+            EmitLoadConst(new PyString($"<class_body_{cls.Name}>"));
+            
+            // Load class name
+            EmitLoadConst(new PyString(cls.Name));
+            
+            // Load base classes
+            foreach (var baseExpr in cls.Bases)
+            {
+                CompileExpression(baseExpr);
+            }
+            
+            // Call __build_class__(class_body, name, *bases)
+            EmitInstruction(ByteCodeOp.CALL_FUNCTION, 2 + cls.Bases.Count);
+            
+            // Store the created class
+            EmitStoreName(cls.Name);
+        }
+        private void CompileTypeAlias(TypeAliasStatement typeAlias)
+        {
+            // PEP 695: type X = Y creates a TypeAliasType object
+            // For now, we'll implement basic functionality by evaluating the value expression
+            // and storing it with the alias name
+            
+            // Compile the type expression (right-hand side)
+            CompileExpression(typeAlias.Value);
+            
+            // Store the result with the alias name
+            EmitStoreName(typeAlias.Name);
+        }
         private void CompileImport(ImportStatement import) { /* TODO */ }
         private void CompileImportFrom(ImportFromStatement importFrom) { /* TODO */ }
         /// <summary>
         /// CPython-style if statement compilation - simplified implementation
         /// </summary>
-        private void CompileIf(dynamic ifStmt)
+        private void CompileIf(IfStatement ifStmt)
         {
-            // Simplified if statement compilation - TODO: implement full if/else support
-            throw new NotImplementedException("IfStatement compilation not fully implemented yet");
+            // CPython-style if statement with proper conditional jumps
+            
+            // Compile condition expression
+            CompileExpression(ifStmt.Test);
+            
+            // Jump past the if body if condition is false
+            var jumpIfFalse = _instructions.Count;
+            EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // Address will be patched later
+            
+            // Compile the if body
+            foreach (var stmt in ifStmt.Body)
+            {
+                CompileStatement(stmt);
+            }
+            
+            // If there's an else clause, we need to jump past it after the if body
+            int? jumpAfterIf = null;
+            if (ifStmt.OrElse.Count > 0)
+            {
+                jumpAfterIf = _instructions.Count;
+                EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0); // Address will be patched later
+            }
+            
+            // Patch the false jump to point to the else clause (or end)
+            var elseStart = _instructions.Count;
+            _instructions[jumpIfFalse] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, elseStart);
+            
+            // Compile else clause
+            foreach (var stmt in ifStmt.OrElse)
+            {
+                CompileStatement(stmt);
+            }
+            
+            // Patch the jump after if body to point past the else clause
+            if (jumpAfterIf.HasValue)
+            {
+                var afterElse = _instructions.Count;
+                _instructions[jumpAfterIf.Value] = new ByteCodeInstruction(ByteCodeOp.JUMP_FORWARD, afterElse);
+            }
         }
         
         /// <summary>
         /// CPython-style while loop compilation - simplified implementation
         /// </summary>
-        private void CompileWhile(dynamic whileStmt)
+        private void CompileWhile(WhileStatement whileStmt)
         {
-            // Simplified while loop compilation - TODO: implement full while/else support
-            throw new NotImplementedException("WhileStatement compilation not fully implemented yet");
+            // CPython-style while loop compilation
+            
+            // Mark loop start for JUMP_BACKWARD
+            var loopStart = _instructions.Count;
+            
+            // Compile condition expression
+            CompileExpression(whileStmt.Test);
+            
+            // Jump past the while body if condition is false
+            var jumpIfFalse = _instructions.Count;
+            EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // Address will be patched later
+            
+            // Compile the while body
+            foreach (var stmt in whileStmt.Body)
+            {
+                CompileStatement(stmt);
+            }
+            
+            // Jump back to loop condition
+            // Calculate relative offset for JUMP_BACKWARD (current position - loop start)
+            var currentPos = _instructions.Count;
+            var jumpOffset = currentPos - loopStart;
+            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpOffset);
+            
+            // While completed normally - execute else clause if present
+            var normalCompletionPoint = _instructions.Count;
+            if (whileStmt.ElseClause != null && whileStmt.ElseClause.Count > 0)
+            {
+                foreach (var stmt in whileStmt.ElseClause)
+                {
+                    CompileStatement(stmt);
+                }
+            }
+            
+            // Patch the false jump to point to else clause (normal completion)
+            var loopEnd = _instructions.Count;
+            _instructions[jumpIfFalse] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, normalCompletionPoint);
+            
+            // Note: Break statements need to jump past else clause to loopEnd
         }
         
         /// <summary>
-        /// CPython-style for loop compilation - simplified implementation  
+        /// CPython-style for loop compilation - uses FOR_ITER opcode with proper StopIteration handling
         /// </summary>
-        private void CompileFor(dynamic forStmt)
+        private void CompileFor(ForStatement forStmt)
         {
-            // Simplified for loop compilation - TODO: implement full for/else support
-            throw new NotImplementedException("ForStatement compilation not fully implemented yet");
+            // CPython approach with loop-else support
+            
+            // 1. Get iterator from iterable
+            CompileExpression(forStmt.Iter);  // Push iterable on stack
+            EmitInstruction(ByteCodeOp.GET_ITER); // Convert to iterator
+            
+            // 2. Loop start - FOR_ITER will handle next() and StopIteration
+            var forIterInstruction = _instructions.Count;
+            EmitInstruction(ByteCodeOp.FOR_ITER, 0); // Jump target will be patched later
+            
+            // 3. FOR_ITER pushes the next value on stack, store it in loop variable
+            EmitStoreName(forStmt.Target);
+            
+            // 4. Execute loop body
+            foreach (var stmt in forStmt.Body)
+            {
+                CompileStatement(stmt);
+            }
+            
+            // 5. Jump back to FOR_ITER (not GET_ITER)
+            // VM does: InstructionPointer = InstructionPointer - argument - 1
+            // We want: jumpInstruction - offset - 1 = forIterInstruction  
+            // So: offset = jumpInstruction - forIterInstruction
+            var jumpOffset = _instructions.Count - forIterInstruction;
+            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpOffset);
+            
+            // 6. Loop completed normally - execute else clause if present
+            var normalCompletionPoint = _instructions.Count;
+            if (forStmt.ElseClause != null && forStmt.ElseClause.Count > 0)
+            {
+                foreach (var stmt in forStmt.ElseClause)
+                {
+                    CompileStatement(stmt);
+                }
+            }
+            
+            // 7. Patch FOR_ITER to jump here when StopIteration occurs (skipping else)
+            var loopEnd = _instructions.Count;
+            _instructions[forIterInstruction] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, normalCompletionPoint);
+            
+            // Note: Break statements will need to jump past the else clause to loopEnd
+            // This requires break handling to be aware of loop-else structure
         }
         
         /// <summary>
         /// CPython-style exception handling compilation - simplified implementation
         /// </summary>
-        private void CompileTry(dynamic tryStmt)
+        private void CompileTry(TryStatement tryStmt)
         {
-            // Simplified try statement compilation - TODO: implement full try/except/finally
-            // For now just compile any available body
-            throw new NotImplementedException("TryStatement compilation not fully implemented yet");
+            // For now, implement a simplified version that just executes the try body
+            // TODO: implement proper exception handling with bytecode
+            
+            foreach (var stmt in tryStmt.Body)
+            {
+                CompileStatement(stmt);
+            }
+            
+            // TODO: Implement proper exception handling bytecode:
+            // - SETUP_EXCEPT instruction to set up exception handling
+            // - Jump tables for exception handlers
+            // - EXCEPT_MATCH instruction to match exception types
+            // - POP_EXCEPT to clean up exception state
+            // - SETUP_FINALLY for finally blocks
+            
+            // For now, just handle at runtime via AST evaluation
+            // This allows try/except parsing to work while we implement bytecode generation
         }
         private void CompileWith(WithStatement withStmt) { /* TODO */ }
-        private void CompileMatch(MatchStatement matchStmt) { /* TODO */ }
+        private void CompileMatch(MatchStatement matchStmt)
+        {
+            // CPython approach: Transform match into if-elif chain
+            // This is exactly how CPython handles pattern matching at bytecode level
+            
+            // First, convert match to equivalent if-elif statements
+            var ifStatements = ConvertMatchToIfChain(matchStmt);
+            
+            // Then compile the resulting if chain normally
+            foreach (var stmt in ifStatements)
+            {
+                CompileStatement(stmt);
+            }
+        }
+        
+        /// <summary>
+        /// Convert match statement to equivalent if-elif chain (CPython inspired but adapted for C#)
+        /// CPython uses dedicated opcodes, but we adapt with proper control flow for early exit
+        /// </summary>
+        private List<Statement> ConvertMatchToIfChain(MatchStatement matchStmt)
+        {
+            var statements = new List<Statement>();
+            
+            // Store subject in a temporary variable (CPython approach)
+            var tempVar = "__match_subject__";
+            statements.Add(new AssignStatement(tempVar, matchStmt.Subject));
+            
+            // Add a flag to track if any case has matched (CPython does this internally)
+            var matchedVar = "__match_matched__";
+            statements.Add(new AssignStatement(matchedVar, new ConstantExpression(PyBool.False)));
+            
+            // CPython approach adapted: create proper if-elif chain with early exit
+            for (int i = 0; i < matchStmt.Cases.Count; i++)
+            {
+                var matchCase = matchStmt.Cases[i];
+                Expression condition;
+                
+                // Create condition based on pattern type (CPython inspired)
+                if (matchCase.Pattern is ConstantExpression constantExpr)
+                {
+                    // subject == constant
+                    condition = new CompareExpression(
+                        new NameExpression(tempVar),
+                        "==",
+                        constantExpr
+                    );
+                }
+                else if (matchCase.Pattern is NameExpression nameExpr && nameExpr.Name == "_")
+                {
+                    // Wildcard - always true (CPython: matches everything)
+                    condition = new ConstantExpression(PyBool.True);
+                }
+                else if (matchCase.Pattern is ListExpression listPattern)
+                {
+                    // List pattern: [a, b, c] matches if subject is list with same length and all elements match
+                    // CPython approach: check type, length, then individual elements
+                    
+                    // First check if subject is a list and has correct length
+                    var lengthCheck = new CompareExpression(
+                        new CallExpression(new NameExpression("len"), new List<Expression> { new NameExpression(tempVar) }),
+                        "==",
+                        new ConstantExpression(new PyInt(listPattern.Elements.Count))
+                    );
+                    
+                    condition = lengthCheck;
+                    
+                    // If list is empty, length check is sufficient
+                    if (listPattern.Elements.Count > 0)
+                    {
+                        // CPython approach: support both constant and variable patterns
+                        for (int elemIndex = 0; elemIndex < listPattern.Elements.Count; elemIndex++)
+                        {
+                            if (listPattern.Elements[elemIndex] is ConstantExpression elemConstant)
+                            {
+                                // Constant pattern: subject[elemIndex] == constant
+                                var indexAccess = new SubscriptExpression(new NameExpression(tempVar), new ConstantExpression(new PyInt(elemIndex)));
+                                var elemCheck = new CompareExpression(indexAccess, "==", elemConstant);
+                                condition = new BinaryOpExpression(condition, "and", elemCheck);
+                            }
+                            else if (listPattern.Elements[elemIndex] is NameExpression varExpr && varExpr.Name != "_")
+                            {
+                                // Variable pattern: bind subject[elemIndex] to variable
+                                // CPython approach: variables in patterns are automatically bound
+                                // We'll add the variable assignment after the condition check
+                                // For now, variable patterns always match (just check length)
+                                // The actual variable binding will be handled in the case body
+                            }
+                            else if (listPattern.Elements[elemIndex] is NameExpression wildcardExpr && wildcardExpr.Name == "_")
+                            {
+                                // Wildcard in list: always matches, no binding
+                                // Just continue - length check is sufficient
+                            }
+                            else
+                            {
+                                // Other unsupported patterns
+                                condition = new ConstantExpression(PyBool.False);
+                                break;
+                            }
+                        }
+                    }
+                }
+                else if (matchCase.Pattern is DictExpression dictPattern)
+                {
+                    // Dictionary pattern: {"key": value} matches if subject has the key and value matches
+                    // CPython approach: check if subject is dict, then check each key-value pair
+                    
+                    // Start with True condition (empty dict pattern always matches dict)
+                    condition = new ConstantExpression(PyBool.True);
+                    
+                    // Check each key-value pair in the pattern
+                    foreach (var (key, value) in dictPattern.Items)
+                    {
+                        if (key is ConstantExpression keyConstant)
+                        {
+                            // For now, simplified approach: check if subject[key] exists and matches value
+                            // TODO: Proper implementation should check key existence first
+                            
+                            // If pattern value is a constant, check exact match: subject[key] == value
+                            if (value is ConstantExpression valueConstant)
+                            {
+                                var keyAccess = new SubscriptExpression(new NameExpression(tempVar), keyConstant);
+                                var valueCheck = new CompareExpression(keyAccess, "==", valueConstant);
+                                condition = new BinaryOpExpression(condition, "and", valueCheck);
+                            }
+                            else
+                            {
+                                // TODO: Add support for variable patterns in dict values
+                                // For now, non-constant values are not supported
+                                condition = new ConstantExpression(PyBool.False);
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            // For now, non-constant keys in dict patterns are not supported
+                            condition = new ConstantExpression(PyBool.False);
+                            break;
+                        }
+                    }
+                }
+                else if (matchCase.Pattern is NameExpression namePattern && namePattern.Name != "_")
+                {
+                    // Variable pattern: case var_name - always matches and binds the subject to var_name
+                    // CPython approach: variable patterns always match and bind the subject value
+                    condition = new ConstantExpression(PyBool.True);
+                }
+                else
+                {
+                    // Other patterns - for now, always false
+                    condition = new ConstantExpression(PyBool.False);
+                }
+                
+                // Only check this case if no previous case has matched
+                var notMatchedCondition = new CompareExpression(
+                    new NameExpression(matchedVar),
+                    "==",
+                    new ConstantExpression(PyBool.False)
+                );
+                
+                var fullCondition = new BinaryOpExpression(notMatchedCondition, "and", condition);
+                
+                // If this case matches, execute body and set matched flag
+                var caseStatements = new List<Statement>();
+                
+                // CPython approach: Add variable bindings for patterns before executing body
+                AddVariableBindings(caseStatements, matchCase.Pattern, tempVar);
+                
+                // Add guard condition check after variable binding (CPython approach)
+                if (matchCase.Guard != null)
+                {
+                    // Guard condition must be true for the case to match
+                    // If guard fails, this case doesn't match and we continue to next case
+                    var guardBodyStatements = new List<Statement>();
+                    guardBodyStatements.AddRange(matchCase.Body);
+                    guardBodyStatements.Add(new AssignStatement(matchedVar, new ConstantExpression(PyBool.True)));
+                    
+                    var guardIf = new IfStatement(matchCase.Guard, guardBodyStatements, new List<Statement>());
+                    caseStatements.Add(guardIf);
+                }
+                else
+                {
+                    // No guard - add original case body directly
+                    caseStatements.AddRange(matchCase.Body);
+                    caseStatements.Add(new AssignStatement(matchedVar, new ConstantExpression(PyBool.True)));
+                }
+                
+                var ifStmt = new IfStatement(fullCondition, caseStatements, new List<Statement>());
+                statements.Add(ifStmt);
+            }
+            
+            return statements;
+        }
+        
+        /// <summary>
+        /// Add variable binding statements for pattern matching (CPython inspired)
+        /// </summary>
+        private void AddVariableBindings(List<Statement> statements, Expression pattern, string subjectVar)
+        {
+            if (pattern is ListExpression listPattern)
+            {
+                // Bind variables in list patterns: [x, y, z] -> x = subject[0], y = subject[1], z = subject[2]
+                for (int i = 0; i < listPattern.Elements.Count; i++)
+                {
+                    if (listPattern.Elements[i] is NameExpression nameExpr && nameExpr.Name != "_")
+                    {
+                        // Create assignment: varName = subject[index]
+                        var indexAccess = new SubscriptExpression(new NameExpression(subjectVar), new ConstantExpression(new PyInt(i)));
+                        var assignment = new AssignStatement(nameExpr.Name, indexAccess);
+                        statements.Add(assignment);
+                    }
+                }
+            }
+            else if (pattern is DictExpression dictPattern)
+            {
+                // Bind variables in dictionary patterns: {"key": var} -> var = subject["key"]
+                foreach (var (key, value) in dictPattern.Items)
+                {
+                    if (value is NameExpression nameExpr && nameExpr.Name != "_" && key is ConstantExpression keyConstant)
+                    {
+                        // Create assignment: varName = subject[key]
+                        var keyAccess = new SubscriptExpression(new NameExpression(subjectVar), keyConstant);
+                        var assignment = new AssignStatement(nameExpr.Name, keyAccess);
+                        statements.Add(assignment);
+                    }
+                }
+            }
+            else if (pattern is NameExpression namePattern && namePattern.Name != "_")
+            {
+                // Simple variable pattern: case var_name -> var_name = subject
+                var assignment = new AssignStatement(namePattern.Name, new NameExpression(subjectVar));
+                statements.Add(assignment);
+            }
+            // TODO: Add support for other pattern types
+        }
+        
         private void CompileAssert(AssertStatement assert) { /* TODO */ }
         private void CompileRaise(RaiseStatement raise) { /* TODO */ }
         private void CompileDelete(DeleteStatement delete) { /* TODO */ }
@@ -488,7 +922,62 @@ namespace SharpPy
         private void CompileBoolOp(BoolOpExpression boolOp) { /* TODO */ }
         private void CompileLambda(LambdaExpression lambda) { /* TODO */ }
         private void CompileConditional(ConditionalExpression conditional) { /* TODO */ }
-        private void CompileFString(FStringExpression fstring) { /* TODO */ }
+        private void CompileFString(FStringExpression fstring)
+        {
+            // f-string은 여러 파트로 구성됨: 문자열과 표현식이 번갈아 나타남
+            // 각 파트를 컴파일하고 FORMAT_VALUE로 포매팅한 후 BUILD_STRING으로 합침
+            
+            var values = fstring.Values;
+            if (values == null || values.Count == 0)
+            {
+                // 빈 f-string은 빈 문자열
+                EmitLoadConst(new PyString(""));
+                return;
+            }
+            
+            // 각 value를 컴파일
+            foreach (var value in values)
+            {
+                CompileExpression(value);
+                
+                // 상수 문자열이 아닌 경우 FORMAT_VALUE 적용
+                if (!(value is ConstantExpression constant && constant.Value is PyString))
+                {
+                    EmitInstruction(ByteCodeOp.FORMAT_VALUE);
+                }
+            }
+            
+            // 모든 부분을 문자열로 연결
+            if (values.Count > 1)
+            {
+                EmitInstruction(ByteCodeOp.BUILD_STRING, values.Count);
+            }
+        }
+        
+        /// <summary>
+        /// FormattedValue 컴파일 - 포맷 지정자를 지원하는 f-string 값
+        /// </summary>
+        private void CompileFormattedValue(FormattedValue formatted)
+        {
+            // 1. 값 표현식을 컴파일
+            CompileExpression(formatted.Value);
+            
+            // 2. 포맷 지정자가 있으면 포맷팅 적용
+            if (!string.IsNullOrEmpty(formatted.FormatSpec))
+            {
+                // 포맷 지정자를 상수로 스택에 푸시
+                EmitLoadConst(new PyString(formatted.FormatSpec));
+                
+                // FORMAT_VALUE_WITH_SPEC 명령어 (또는 기본 FORMAT_VALUE)
+                // CPython에서는 FORMAT_VALUE 명령어가 포맷 옵션을 받음
+                EmitInstruction(ByteCodeOp.FORMAT_VALUE, 4); // 4 = format spec 있음
+            }
+            else
+            {
+                // 포맷 지정자 없음 - 기본 FORMAT_VALUE
+                EmitInstruction(ByteCodeOp.FORMAT_VALUE, 0);
+            }
+        }
         
         // Evaluate 메서드 - 나중에 구현
         public PyObject Evaluate(PyScope scope)

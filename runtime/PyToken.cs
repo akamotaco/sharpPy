@@ -36,6 +36,7 @@ namespace SharpPy
         DOT,           // .
         SEMICOLON,     // ;
         COLON,         // :
+        AT,            // @
 
         // Operators
         PLUS,          // +
@@ -79,6 +80,8 @@ namespace SharpPy
 
         // Special
         NEWLINE,
+        INDENT,
+        DEDENT,
         EOF
     }
 
