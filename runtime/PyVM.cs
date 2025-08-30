@@ -550,6 +550,75 @@ namespace SharpPy
                     frame.ValueStack.Push(importedItem);
                     break;
                     
+                // PEP 709 Comprehension Optimization - VM 구현
+                case ByteCodeOp.LIST_APPEND:
+                    // 스택: [..., list, ..., item] → [..., list, ...]
+                    // argument는 list의 위치 (스택 top에서 몇 번째 아래)
+                    var listItem = frame.ValueStack.Pop();
+                    var stackArray = frame.ValueStack.ToArray();
+                    if (instruction.Argument <= stackArray.Length)
+                    {
+                        var targetList = stackArray[instruction.Argument - 1];
+                        if (targetList is PyList targetPyList)
+                        {
+                            targetPyList.Append(listItem);
+                        }
+                        else
+                        {
+                            throw new Exception($"LIST_APPEND: target is not a list, got {targetList.GetType().Name}");
+                        }
+                    }
+                    else
+                    {
+                        throw new Exception("LIST_APPEND: invalid stack position");
+                    }
+                    break;
+                    
+                case ByteCodeOp.SET_ADD:
+                    // 스택: [..., set, ..., item] → [..., set, ...]
+                    var setItem = frame.ValueStack.Pop();
+                    var setStackArray = frame.ValueStack.ToArray();
+                    if (instruction.Argument <= setStackArray.Length)
+                    {
+                        var targetSet = setStackArray[instruction.Argument - 1];
+                        if (targetSet is PySet targetPySet)
+                        {
+                            targetPySet.Add(setItem);
+                        }
+                        else
+                        {
+                            throw new Exception($"SET_ADD: target is not a set, got {targetSet.GetType().Name}");
+                        }
+                    }
+                    else
+                    {
+                        throw new Exception("SET_ADD: invalid stack position");
+                    }
+                    break;
+                    
+                case ByteCodeOp.MAP_ADD:
+                    // 스택: [..., dict, ..., key, value] → [..., dict, ...]
+                    var dictValue = frame.ValueStack.Pop();
+                    var dictKey = frame.ValueStack.Pop();
+                    var dictStackArray = frame.ValueStack.ToArray();
+                    if (instruction.Argument <= dictStackArray.Length)
+                    {
+                        var targetDict = dictStackArray[instruction.Argument - 1];
+                        if (targetDict is PyDict targetPyDict)
+                        {
+                            targetPyDict.InternalDict[dictKey] = dictValue;
+                        }
+                        else
+                        {
+                            throw new Exception($"MAP_ADD: target is not a dict, got {targetDict.GetType().Name}");
+                        }
+                    }
+                    else
+                    {
+                        throw new Exception("MAP_ADD: invalid stack position");
+                    }
+                    break;
+                    
                 default:
                     throw new NotImplementedException($"OpCode {instruction.OpCode} not implemented");
             }
