@@ -377,10 +377,22 @@ namespace SharpPy
                             // Dictionary access: dict[key]
                             subscriptResult = subscriptDict.GetItem(subscriptKey);
                         }
+                        else if (subscriptObj is PyType subscriptType)
+                        {
+                            // Type subscript access: Type[args] (for generics like Unpack[T], Required[T], etc.)
+                            subscriptResult = subscriptType.GetItem(subscriptKey);
+                        }
                         else
                         {
-                            // Generic subscript access (TODO: implement for other types)
-                            throw PyTypeError.Create($"'{subscriptObj.GetTypeName()}' object is not subscriptable");
+                            // Try generic GetItem method
+                            try
+                            {
+                                subscriptResult = subscriptObj.GetItem(subscriptKey);
+                            }
+                            catch (NotImplementedException)
+                            {
+                                throw PyTypeError.Create($"'{subscriptObj.GetTypeName()}' object is not subscriptable");
+                            }
                         }
                         
                         frame.ValueStack.Push(subscriptResult);

@@ -58,6 +58,10 @@ namespace SharpPy
                     EmitStoreName(assign.VariableName);
                     break;
                     
+                case AnnAssignStatement annAssign:
+                    CompileAnnAssign(annAssign);
+                    break;
+                    
                 case AugAssignStatement augAssign:
                     CompileAugAssign(augAssign);
                     break;
@@ -491,6 +495,20 @@ namespace SharpPy
             
             EmitInstruction(opCode);
             EmitStoreName(augAssign.Target);
+        }
+        
+        private void CompileAnnAssign(AnnAssignStatement annAssign)
+        {
+            // Annotated assignment: var: type = value
+            // For now, we'll treat this like a regular assignment if there's a value
+            if (annAssign.Value != null)
+            {
+                CompileExpression(annAssign.Value);
+                EmitStoreName(annAssign.VariableName);
+            }
+            
+            // TODO: Store type annotation in __annotations__ dict for runtime introspection
+            // This would require checking if we're at module/class level and maintaining __annotations__
         }
         
         // 단순화된 구현 - 실제로는 더 복잡한 로직이 필요

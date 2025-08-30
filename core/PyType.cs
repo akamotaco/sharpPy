@@ -295,6 +295,33 @@ namespace SharpPy
             }
         }
 
+        /// <summary>
+        /// PEP 698: 클래스의 모든 속성 이름 반환 (@override 검증용)
+        /// </summary>
+        public virtual IEnumerable<string> GetAttributeNames()
+        {
+            var names = new HashSet<string>();
+            
+            // 기본 속성들
+            names.Add("__name__");
+            names.Add("__bases__");
+            names.Add("__mro__");
+            
+            // MRO를 통해 모든 속성 수집
+            foreach (var mroType in MRO)
+            {
+                if (mroType is PyClass customType)
+                {
+                    foreach (var key in customType.ClassDict.Keys)
+                    {
+                        names.Add(key);
+                    }
+                }
+            }
+            
+            return names;
+        }
+
         #endregion
 
         #region String Representation

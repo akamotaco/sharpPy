@@ -522,6 +522,25 @@ namespace SharpPy
         {
             try
             {
+                // Check for annotated assignment first (name: type or name: type = value)
+                if (Check(TokenType.IDENTIFIER) && CheckNext(TokenType.COLON))
+                {
+                    var name = Advance().Lexeme; // consume identifier
+                    Advance(); // consume colon
+                    var annotation = ParseExpression();
+                    
+                    // Check if there's an assignment as well
+                    if (Match(TokenType.EQUAL))
+                    {
+                        var value = ParseExpression();
+                        return new AnnAssignStatement(name, annotation, value);
+                    }
+                    else
+                    {
+                        return new AnnAssignStatement(name, annotation);
+                    }
+                }
+                
                 var expr = ParseExpression();
                 
                 // Check for assignment

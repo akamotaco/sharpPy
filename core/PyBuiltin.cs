@@ -988,6 +988,8 @@ namespace SharpPy
                     bases[i - 2] = PyType.ObjectType; // Default to object type
             }
             var className = name.ToString();
+            
+            // CPython처럼 단순하게 클래스 생성만 함 (복잡한 검증 제거)
             return new PyClass(className, bases);
         }
 

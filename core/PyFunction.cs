@@ -10,6 +10,7 @@ public class PyFunction : PyObject, IDescriptor
     public Dictionary<string, PyObject> Attributes { get; }
     public PyModule DefiningModule { get; }
     public List<PyObject>? TypeParams { get; set; } // PEP 695 __type_params__
+    public PyFunctionSignature? Signature { get; set; } // PEP 692 **kwargs 타입 정보
 
     public PyFunction(string name, Func<PyObject[], PyObject> implementation = null, PyModule definingModule = null, List<PyObject>? typeParams = null)
     {
@@ -131,6 +132,80 @@ public class PyFunction : PyObject, IDescriptor
 
         public override string ToString() => $"<bound method {Function.Name} of {Instance}>";
     }
+
+#endregion
+
+#region PEP 692: Function Signature Support
+
+/// <summary>
+/// PEP 692: 함수 시그니처 - **kwargs 타입 검증 지원
+/// </summary>
+public class PyFunctionSignature
+{
+    public List<string> Parameters { get; }
+    public Dictionary<string, PyObject> ParameterTypes { get; }
+    public PyUnpackWrapper? KwargsType { get; set; } // **kwargs: Unpack[TypedDict]
+    
+    public PyFunctionSignature()
+    {
+        Parameters = new List<string>();
+        ParameterTypes = new Dictionary<string, PyObject>();
+    }
+    
+    /// <summary>
+    /// **kwargs 타입을 설정 (PEP 692)
+    /// </summary>
+    public void SetKwargsType(PyUnpackWrapper unpackType)
+    {
+        KwargsType = unpackType;
+    }
+    
+    /// <summary>
+    /// 함수 호출 시 kwargs 검증
+    /// </summary>
+    public void ValidateKwargs(PyDict kwargs)
+    {
+        if (KwargsType == null) return; // 타입 검증 없음
+        
+        if (!KwargsType.ValidateKwargs(kwargs))
+        {
+            var typedDict = KwargsType.TypedDict;
+            var missing = typedDict.RequiredKeys.Where(k => !kwargs.InternalDict.ContainsKey(new PyString(k))).ToList();
+            var extra = kwargs.InternalDict.Keys
+                .Select(k => ((PyString)k).Value)
+                .Where(k => !typedDict.RequiredKeys.Contains(k) && !typedDict.OptionalKeys.Contains(k))
+                .ToList();
+            
+            var errors = new List<string>();
+            if (missing.Any())
+                errors.Add($"missing required keys: {string.Join(", ", missing)}");
+            if (extra.Any())
+                errors.Add($"unexpected keys: {string.Join(", ", extra)}");
+                
+            throw PyTypeError.Create($"Invalid kwargs for {typedDict.Name}: {string.Join("; ", errors)}");
+        }
+    }
+}
+
+/// <summary>
+/// PEP 692: **kwargs 검증이 있는 함수 호출 헬퍼
+/// </summary>
+public static class PEP692CallHelper
+{
+    /// <summary>
+    /// **kwargs 타입 검증과 함께 함수 호출
+    /// </summary>
+    public static PyObject CallWithKwargsValidation(PyFunction function, PyObject[] args, PyDict? kwargs = null)
+    {
+        // **kwargs 타입 검증
+        if (function.Signature?.KwargsType != null && kwargs != null)
+        {
+            function.Signature.ValidateKwargs(kwargs);
+        }
+        
+        return function.Call(args);
+    }
+}
 
 #endregion
 }

@@ -8,7 +8,9 @@ public enum ScopeType
     Builtin,    // B - Built-in (특별 관리!)
     Global,     // G - Global (모듈 레벨)
     Enclosing,  // E - Enclosing (중첩 함수의 바깥 스코프)
-    Local       // L - Local (함수 내부)
+    Local,      // L - Local (함수 내부)
+    Module,     // M - Module level (for annotations)
+    Class       // C - Class body (for annotations)
 }
 
 // 특별한 Builtin 모듈 (전역 싱글톤)

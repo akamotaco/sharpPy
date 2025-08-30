@@ -33,6 +33,22 @@ namespace SharpPy
             AddClass("Iterator", () => new PyTypingIteratorType());
             AddClass("Iterable", () => new PyTypingIterableType());
             
+            // PEP 692: TypedDict **kwargs 지원
+            AddClass("TypedDict", () => new PyTypedDictType());
+            AddClass("Unpack", () => new PyUnpackType());
+            AddClass("Required", () => new PyRequiredType());
+            AddClass("NotRequired", () => new PyNotRequiredType());
+            
+            // PEP 698: @override 데코레이터 - CPython 호환 identity 함수
+            AddFunction("override", (args) => {
+                if (args.Length == 1) 
+                {
+                    // CPython과 동일: 함수를 그대로 반환하는 identity 데코레이터
+                    return args[0];
+                }
+                throw PyTypeError.Create("override() takes exactly 1 argument");
+            });
+            
             // 타입 유틸리티 함수들
             AddFunction("get_origin", GetOriginFunction);
             AddFunction("get_args", GetArgsFunction);
@@ -142,9 +158,18 @@ namespace SharpPy
             // bound 제약 확인
             if (Bound != null)
             {
-                // 실제로는 type이 bound의 서브타입인지 확인해야 함
-                // 단순화된 구현
-                return true;
+                // type이 bound의 서브타입인지 확인
+                try
+                {
+                    var boundType = Bound.GetPyType();
+                    var checkType = type.GetPyType();
+                    return checkType.IsSubclassOf(boundType) || checkType == boundType;
+                }
+                catch
+                {
+                    // 타입 비교 실패시 제약 위반으로 처리
+                    return false;
+                }
             }
             
             // constraints 제약 확인
@@ -152,11 +177,51 @@ namespace SharpPy
             {
                 // type이 constraints 중 하나와 일치해야 함
                 return Constraints.Any(constraint => 
-                    type.GetPyType().IsSubclassOf(constraint.GetPyType()));
+                {
+                    try
+                    {
+                        var constraintType = constraint.GetPyType();
+                        var checkType = type.GetPyType();
+                        return checkType.IsSubclassOf(constraintType) || checkType == constraintType;
+                    }
+                    catch
+                    {
+                        return false;
+                    }
+                });
             }
             
             // 제약이 없으면 모든 타입 허용
             return true;
+        }
+        
+        /// <summary>
+        /// CPython 호환: __bound__ 속성 제공
+        /// </summary>
+        public PyObject GetBound()
+        {
+            return Bound ?? PyNone.Instance;
+        }
+        
+        /// <summary>
+        /// CPython 호환: __constraints__ 속성 제공
+        /// </summary>
+        public PyObject GetConstraints()
+        {
+            if (Constraints.Count == 0)
+                return new PyTuple(new PyObject[0]);
+            return new PyTuple(Constraints.ToArray());
+        }
+
+        public override PyObject GetAttribute(string name)
+        {
+            return name switch
+            {
+                "__name__" => new PyString(Name),
+                "__bound__" => GetBound(),
+                "__constraints__" => GetConstraints(),
+                _ => base.GetAttribute(name)
+            };
         }
 
         public override PyType GetPyType() => new PyTypeVarType();
@@ -512,5 +577,207 @@ namespace SharpPy
         }
     }
 
+    #endregion
+    
+    #region PEP 692: TypedDict **kwargs Support
+    
+    /// <summary>
+    /// PEP 692: typing.TypedDict - 구조화된 딕셔너리 타입
+    /// </summary>
+    public class PyTypedDictType : PyType
+    {
+        public PyTypedDictType() : base("TypedDict", new PyType[] { PyType.ObjectType })
+        {
+        }
+        
+        public override PyObject Call(params PyObject[] args)
+        {
+            if (args.Length < 2)
+                throw PyTypeError.Create("TypedDict() missing required arguments");
+                
+            var name = ((PyString)args[0]).Value;
+            var fields = args[1];
+            
+            // 딕셔너리 형태의 필드 정의 처리
+            if (fields is PyDict fieldsDict)
+            {
+                return new PyTypedDict(name, fieldsDict.InternalDict);
+            }
+            
+            throw PyTypeError.Create("TypedDict fields must be a dictionary");
+        }
+    }
+    
+    /// <summary>
+    /// PEP 692: TypedDict 인스턴스
+    /// </summary>
+    public class PyTypedDict : PyType
+    {
+        public Dictionary<PyObject, PyObject> Fields { get; }
+        public HashSet<string> RequiredKeys { get; }
+        public HashSet<string> OptionalKeys { get; }
+        
+        public PyTypedDict(string name, Dictionary<PyObject, PyObject> fields) 
+            : base(name, new PyType[] { PyType.DictType })
+        {
+            Fields = fields;
+            RequiredKeys = new HashSet<string>();
+            OptionalKeys = new HashSet<string>();
+            
+            // 필드 분석
+            foreach (var field in fields)
+            {
+                var keyName = ((PyString)field.Key).Value;
+                var fieldType = field.Value;
+                
+                // Required/NotRequired 처리
+                if (fieldType is PyNotRequiredWrapper)
+                {
+                    OptionalKeys.Add(keyName);
+                }
+                else
+                {
+                    RequiredKeys.Add(keyName);
+                }
+            }
+        }
+        
+        /// <summary>
+        /// TypedDict가 주어진 딕셔너리와 호환되는지 검증
+        /// </summary>
+        public bool IsCompatible(PyDict dict)
+        {
+            // 필수 키가 모두 있는지 확인
+            foreach (var requiredKey in RequiredKeys)
+            {
+                if (!dict.InternalDict.ContainsKey(new PyString(requiredKey)))
+                {
+                    return false;
+                }
+            }
+            
+            // 추가 키가 허용되지 않는 키인지 확인
+            foreach (var key in dict.InternalDict.Keys)
+            {
+                var keyName = ((PyString)key).Value;
+                if (!RequiredKeys.Contains(keyName) && !OptionalKeys.Contains(keyName))
+                {
+                    return false; // 정의되지 않은 키
+                }
+            }
+            
+            return true;
+        }
+        
+        public override string ToString() => $"TypedDict('{Name}', {{{string.Join(", ", Fields.Select(f => $"'{((PyString)f.Key).Value}': {f.Value}"))}}}";
+    }
+    
+    /// <summary>
+    /// PEP 692: typing.Unpack - **kwargs에서 TypedDict 언팩
+    /// </summary>
+    public class PyUnpackType : PyType
+    {
+        public PyUnpackType() : base("Unpack", new PyType[] { PyType.ObjectType })
+        {
+        }
+        
+        public override PyObject GetItem(PyObject key)
+        {
+            // Handle any type for generic subscript
+            return new PyUnpackWrapper(key);
+        }
+    }
+    
+    /// <summary>
+    /// PEP 692: Unpack 래퍼 - **kwargs: Unpack[TypedDict] 표현
+    /// </summary>
+    public class PyUnpackWrapper : PyObject
+    {
+        public PyObject WrappedType { get; }
+        public PyTypedDict? TypedDict => WrappedType as PyTypedDict;
+        
+        public PyUnpackWrapper(PyObject wrappedType)
+        {
+            WrappedType = wrappedType;
+        }
+        
+        public override string GetTypeName() => $"Unpack[{WrappedType.GetTypeName()}]";
+        public override string ToString() => GetTypeName();
+        
+        /// <summary>
+        /// kwargs 딕셔너리가 이 TypedDict와 호환되는지 검증
+        /// </summary>
+        public bool ValidateKwargs(PyDict kwargs)
+        {
+            if (TypedDict != null)
+            {
+                return TypedDict.IsCompatible(kwargs);
+            }
+            return true; // For non-TypedDict types, allow all
+        }
+    }
+    
+    /// <summary>
+    /// PEP 692: typing.Required - 필수 필드 표시
+    /// </summary>
+    public class PyRequiredType : PyType
+    {
+        public PyRequiredType() : base("Required", new PyType[] { PyType.ObjectType })
+        {
+        }
+        
+        public override PyObject GetItem(PyObject key)
+        {
+            return new PyRequiredWrapper(key);
+        }
+    }
+    
+    /// <summary>
+    /// PEP 692: Required 래퍼
+    /// </summary>
+    public class PyRequiredWrapper : PyObject
+    {
+        public PyObject InnerType { get; }
+        
+        public PyRequiredWrapper(PyObject innerType)
+        {
+            InnerType = innerType;
+        }
+        
+        public override string GetTypeName() => $"Required[{InnerType}]";
+        public override string ToString() => GetTypeName();
+    }
+    
+    /// <summary>
+    /// PEP 692: typing.NotRequired - 선택적 필드 표시
+    /// </summary>
+    public class PyNotRequiredType : PyType
+    {
+        public PyNotRequiredType() : base("NotRequired", new PyType[] { PyType.ObjectType })
+        {
+        }
+        
+        public override PyObject GetItem(PyObject key)
+        {
+            return new PyNotRequiredWrapper(key);
+        }
+    }
+    
+    /// <summary>
+    /// PEP 692: NotRequired 래퍼
+    /// </summary>
+    public class PyNotRequiredWrapper : PyObject
+    {
+        public PyObject InnerType { get; }
+        
+        public PyNotRequiredWrapper(PyObject innerType)
+        {
+            InnerType = innerType;
+        }
+        
+        public override string GetTypeName() => $"NotRequired[{InnerType}]";
+        public override string ToString() => GetTypeName();
+    }
+    
     #endregion
 }
