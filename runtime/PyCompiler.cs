@@ -41,7 +41,12 @@ namespace SharpPy
             
             var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, parameters.Count);
             Console.WriteLine($"✅ 컴파일 완료: {_instructions.Count}개 명령어");
-            return codeObject;
+            
+            // 바이트코드 최적화 적용
+            var optimizer = new ByteCodeOptimizer(true);
+            var optimizedCode = optimizer.OptimizeCode(codeObject);
+            
+            return optimizedCode;
         }
         
         private void CompileStatement(Statement statement)

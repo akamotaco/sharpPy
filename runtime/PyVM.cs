@@ -148,6 +148,35 @@ namespace SharpPy
         {
             switch (instruction.OpCode)
             {
+                case ByteCodeOp.NOP:
+                    // 아무것도 하지 않음
+                    break;
+                    
+                case ByteCodeOp.POP_TOP:
+                    frame.ValueStack.Pop();
+                    break;
+                    
+                case ByteCodeOp.DUP_TOP:
+                    var topValue = frame.ValueStack.Peek();
+                    frame.ValueStack.Push(topValue);
+                    break;
+                    
+                case ByteCodeOp.ROT_TWO:
+                    var second = frame.ValueStack.Pop();
+                    var first = frame.ValueStack.Pop();
+                    frame.ValueStack.Push(second);
+                    frame.ValueStack.Push(first);
+                    break;
+                    
+                case ByteCodeOp.ROT_THREE:
+                    var third = frame.ValueStack.Pop();
+                    var sec = frame.ValueStack.Pop();
+                    var fir = frame.ValueStack.Pop();
+                    frame.ValueStack.Push(sec);
+                    frame.ValueStack.Push(third);
+                    frame.ValueStack.Push(fir);
+                    break;
+                    
                 case ByteCodeOp.LOAD_CONST:
                     var constant = frame.Code.Constants[instruction.Argument];
                     frame.ValueStack.Push(constant);
@@ -272,46 +301,6 @@ namespace SharpPy
                     var returnValue = frame.ValueStack.Count > 0 ? frame.ValueStack.Pop() : PyNone.Instance;
                     return returnValue;
                     
-                case ByteCodeOp.POP_TOP:
-                    if (frame.ValueStack.Count > 0)
-                        frame.ValueStack.Pop();
-                    break;
-                    
-                case ByteCodeOp.DUP_TOP:
-                    if (frame.ValueStack.Count > 0)
-                    {
-                        var top = frame.ValueStack.Peek();
-                        frame.ValueStack.Push(top);
-                    }
-                    break;
-                    
-                case ByteCodeOp.ROT_TWO:
-                    // Rotate top two stack items (swap them)
-                    if (frame.ValueStack.Count >= 2)
-                    {
-                        var top = frame.ValueStack.Pop();
-                        var second = frame.ValueStack.Pop();
-                        frame.ValueStack.Push(top);
-                        frame.ValueStack.Push(second);
-                    }
-                    break;
-                    
-                case ByteCodeOp.ROT_THREE:
-                    // Rotate top three stack items: (top, second, third) -> (second, third, top)
-                    if (frame.ValueStack.Count >= 3)
-                    {
-                        var top = frame.ValueStack.Pop();
-                        var second = frame.ValueStack.Pop();
-                        var third = frame.ValueStack.Pop();
-                        frame.ValueStack.Push(second);
-                        frame.ValueStack.Push(top);
-                        frame.ValueStack.Push(third);
-                    }
-                    break;
-                    
-                case ByteCodeOp.NOP:
-                    // 아무것도 안 함
-                    break;
 
                 // CPython-style Control Flow Opcodes (Phase 1 - High Priority)
                 case ByteCodeOp.POP_JUMP_IF_TRUE:
