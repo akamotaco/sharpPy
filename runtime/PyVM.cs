@@ -11,17 +11,28 @@ namespace SharpPy
         public Dictionary<string, PyObject> FastLocals { get; } // 빠른 지역변수 접근
         public int InstructionPointer { get; set; }
         
+        // CPython-style closure support
+        public PyCell[] Cells { get; set; } = new PyCell[0];     // 클로저 셀들 (freevars + cellvars)
+        public PyCell[] Closure { get; set; } = new PyCell[0];   // 부모로부터 받은 클로저 셀들
+        
         // CPython-style exception handling support
         public Stack<int> ExceptionHandlers { get; } = new Stack<int>();
         public PyBaseException? LastException { get; set; }
         
-        public PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope = null)
+        public PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope = null, PyCell[] closure = null)
         {
             Code = code;
             ValueStack = new Stack<PyObject>();
             ScopeChain = new PyScopeChain(); // 새로운 스코프 체인 생성
             FastLocals = new Dictionary<string, PyObject>();
             InstructionPointer = 0;
+            
+            // 클로저 정보 설정
+            Closure = closure ?? new PyCell[0];
+            
+            // TODO: FreeVars와 CellVars 개수에 따라 Cells 배열 초기화
+            // 현재는 기본 구현으로 비워둠 (Phase 2에서 구현)
+            Cells = new PyCell[0];
             
             // 함수 스코프 생성
             ScopeChain.PushScope(ScopeType.Local, code.Name);
@@ -116,6 +127,23 @@ namespace SharpPy
                         }
                         
                         frame.InstructionPointer++;
+                    }
+                    catch (PythonException pyEx)
+                    {
+                        // Handle Python exceptions with proper exception handler routing
+                        var handlerOffset = frame.GetExceptionHandler();
+                        if (handlerOffset.HasValue)
+                        {
+                            // Push the exception onto the stack and jump to handler
+                            frame.ValueStack.Push(pyEx.PyException);
+                            frame.LastException = pyEx.PyException;
+                            frame.InstructionPointer = handlerOffset.Value;
+                        }
+                        else
+                        {
+                            // No handler - re-throw
+                            throw;
+                        }
                     }
                     catch (LoopBreakException)
                     {
@@ -261,18 +289,48 @@ namespace SharpPy
                     break;
                     
                 case ByteCodeOp.MAKE_FUNCTION:
-                    // SharpPy 방식: 코드 객체를 직접 호출 가능한 함수로 사용
+                    // CPython-style function creation with closure support
+                    var flags = instruction.Argument;
                     var codeObject = frame.ValueStack.Pop();
+                    
+                    PyCell[] closure = null;
+                    
+                    // Check for closure flag (8 = MAKE_FUNCTION_CLOSURE)
+                    if ((flags & 8) != 0)
+                    {
+                        var closureTuple = frame.ValueStack.Pop();
+                        if (closureTuple is PyTuple tuple)
+                        {
+                            closure = tuple.Items.Cast<PyCell>().ToArray();
+                            Console.WriteLine($"  → Creating function with closure: {closure.Length} cells");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"  ⚠️ Warning: Expected tuple for closure, got {closureTuple?.GetType()}");
+                            closure = new PyCell[0];
+                        }
+                    }
                     
                     if (codeObject is PyCodeObject pyCode)
                     {
-                        // C# 특화: PyCodeObject를 직접 함수로 래핑
-                        var functionObject = new PyFunction(pyCode.Name, args =>
+                        PyFunction functionObject;
+                        
+                        if (closure != null && closure.Length > 0)
                         {
-                            // 새로운 프레임으로 함수 코드 실행
-                            var functionFrame = new PyFrame(pyCode, args, frame.ScopeChain);
-                            return ExecuteFrame(functionFrame);
-                        });
+                            // Create function with closure
+                            functionObject = PyFunction.CreateClosureFunction(pyCode.Name, pyCode, closure, frame.ScopeChain);
+                        }
+                        else
+                        {
+                            // Create regular function without closure
+                            functionObject = new PyFunction(pyCode.Name, args =>
+                            {
+                                // 새로운 프레임으로 함수 코드 실행
+                                var functionFrame = new PyFrame(pyCode, args, frame.ScopeChain);
+                                return ExecuteFrame(functionFrame);
+                            }, null, null, closure, pyCode);
+                        }
+                        
                         frame.ValueStack.Push(functionObject);
                     }
                     else
@@ -487,6 +545,48 @@ namespace SharpPy
                     frame.PopExceptionHandler();
                     break;
                     
+                case ByteCodeOp.EXCEPT_MATCH:
+                    var exceptionType = frame.ValueStack.Pop();
+                    var exception = frame.ValueStack.Peek(); // Don't pop, keep for handler
+                    var matches = ExceptionMatches(exception, exceptionType);
+                    frame.ValueStack.Push(PyBool.FromBool(matches));
+                    break;
+                    
+                case ByteCodeOp.CHECK_EG_MATCH:
+                    // PEP 654: ExceptionGroup matching
+                    var egType = frame.ValueStack.Pop();
+                    var egException = frame.ValueStack.Pop();
+                    var (matched, remainder) = ExceptionGroupMatches(egException, egType);
+                    frame.ValueStack.Push(matched ?? PyNone.Instance);
+                    frame.ValueStack.Push(remainder ?? PyNone.Instance);
+                    break;
+                    
+                case ByteCodeOp.RAISE_VARARGS:
+                    // instruction.Argument indicates the number of arguments to the raise statement
+                    if (instruction.Argument == 1)
+                    {
+                        // raise exception_instance
+                        var raisedException = frame.ValueStack.Pop();
+                        if (raisedException is PyException pyEx)
+                        {
+                            frame.LastException = pyEx;
+                            throw new PythonException(pyEx);
+                        }
+                        else
+                        {
+                            throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
+                        }
+                    }
+                    else if (instruction.Argument == 0)
+                    {
+                        // bare raise - same as RERAISE
+                        if (frame.LastException != null)
+                            throw new PythonException(frame.LastException);
+                        else
+                            throw new PythonException(new PyRuntimeError("No active exception to re-raise"));
+                    }
+                    break;
+                    
                 case ByteCodeOp.RERAISE:
                     if (frame.LastException != null)
                         throw new PythonException(frame.LastException);
@@ -506,19 +606,20 @@ namespace SharpPy
                 // F-String Support (PEP 701)
                 case ByteCodeOp.FORMAT_VALUE:
                     var formatOption = instruction.Argument;
-                    var formatValue = frame.ValueStack.Pop();
                     
                     PyString formattedString;
                     
                     if (formatOption == 4) // 포맷 지정자 있음
                     {
-                        // 스택에서 포맷 지정자도 가져옴
+                        // 스택 순서: [값, 포맷스펙] -> 포맷스펙을 먼저 pop
                         var formatSpec = frame.ValueStack.Pop();
+                        var formatValue = frame.ValueStack.Pop();
                         formattedString = ApplyFormatting(formatValue, formatSpec.ToStr());
                     }
                     else
                     {
                         // 기본 포맷팅
+                        var formatValue = frame.ValueStack.Pop();
                         formattedString = new PyString(formatValue.ToStr());
                     }
                     
@@ -629,6 +730,139 @@ namespace SharpPy
                     {
                         throw new Exception("MAP_ADD: invalid stack position");
                     }
+                    break;
+
+                // === Closure Support Bytecodes (CPython 호환) ===
+                case ByteCodeOp.LOAD_DEREF:
+                    // 클로저/자유 변수에서 값 로드
+                    // argument는 (freevars + cellvars)에서의 인덱스
+                    var cellIndex = instruction.Argument;
+                    
+                    PyCell cell;
+                    if (cellIndex < frame.Closure.Length)
+                    {
+                        // 부모로부터 받은 클로저 셀
+                        cell = frame.Closure[cellIndex];
+                    }
+                    else
+                    {
+                        // 로컬 셀 (현재 미구현 - Phase 2에서 구현)
+                        var localIndex = cellIndex - frame.Closure.Length;
+                        if (localIndex < frame.Cells.Length)
+                        {
+                            cell = frame.Cells[localIndex];
+                        }
+                        else
+                        {
+                            throw new Exception($"LOAD_DEREF: invalid cell index {cellIndex}");
+                        }
+                    }
+                    
+                    if (cell.HasValue)
+                    {
+                        frame.ValueStack.Push(cell.Value!);
+                    }
+                    else
+                    {
+                        throw PyNameError.Create("local variable referenced before assignment");
+                    }
+                    break;
+                    
+                case ByteCodeOp.STORE_DEREF:
+                    // 클로저/자유 변수에 값 저장
+                    var storeCellIndex = instruction.Argument;
+                    var storeDerefValue = frame.ValueStack.Pop();
+                    
+                    PyCell storeCell;
+                    if (storeCellIndex < frame.Closure.Length)
+                    {
+                        // 부모로부터 받은 클로저 셀
+                        storeCell = frame.Closure[storeCellIndex];
+                    }
+                    else
+                    {
+                        // 로컬 셀 (현재 미구현 - Phase 2에서 구현)
+                        var localStoreIndex = storeCellIndex - frame.Closure.Length;
+                        if (localStoreIndex < frame.Cells.Length)
+                        {
+                            storeCell = frame.Cells[localStoreIndex];
+                        }
+                        else
+                        {
+                            throw new Exception($"STORE_DEREF: invalid cell index {storeCellIndex}");
+                        }
+                    }
+                    
+                    storeCell.SetValue(storeDerefValue);
+                    break;
+                    
+                case ByteCodeOp.DELETE_DEREF:
+                    // 클로저/자유 변수 삭제
+                    var deleteCellIndex = instruction.Argument;
+                    
+                    PyCell deleteCell;
+                    if (deleteCellIndex < frame.Closure.Length)
+                    {
+                        deleteCell = frame.Closure[deleteCellIndex];
+                    }
+                    else
+                    {
+                        var localDeleteIndex = deleteCellIndex - frame.Closure.Length;
+                        if (localDeleteIndex < frame.Cells.Length)
+                        {
+                            deleteCell = frame.Cells[localDeleteIndex];
+                        }
+                        else
+                        {
+                            throw new Exception($"DELETE_DEREF: invalid cell index {deleteCellIndex}");
+                        }
+                    }
+                    
+                    deleteCell.Clear();
+                    break;
+                    
+                case ByteCodeOp.LOAD_CLOSURE:
+                    // 클로저 셀 로드 (함수 생성용)
+                    // 현재는 기본 구현만 제공 (Phase 2에서 완전 구현)
+                    var closureCellIndex = instruction.Argument;
+                    
+                    PyCell closureCell;
+                    if (closureCellIndex < frame.Closure.Length)
+                    {
+                        closureCell = frame.Closure[closureCellIndex];
+                    }
+                    else
+                    {
+                        var localClosureIndex = closureCellIndex - frame.Closure.Length;
+                        if (localClosureIndex < frame.Cells.Length)
+                        {
+                            closureCell = frame.Cells[localClosureIndex];
+                        }
+                        else
+                        {
+                            // 새 셀 생성 (Phase 1 임시 구현)
+                            closureCell = new PyCell();
+                        }
+                    }
+                    
+                    frame.ValueStack.Push(closureCell);
+                    break;
+                    
+                case ByteCodeOp.MAKE_CELL:
+                    // 지역 변수를 셀로 변환
+                    // Phase 2에서 완전 구현 예정
+                    var makeVarName = frame.Code.VarNames[instruction.Argument];
+                    
+                    PyObject? cellValue = null;
+                    if (frame.FastLocals.TryGetValue(makeVarName, out var localValue))
+                    {
+                        cellValue = localValue;
+                        frame.FastLocals.Remove(makeVarName); // 로컬에서 제거
+                    }
+                    
+                    var newCell = new PyCell(cellValue);
+                    // TODO: frame.Cells 배열에 적절한 위치에 저장
+                    // 현재는 기본 구현만 제공
                     break;
                     
                 default:
@@ -933,6 +1167,75 @@ namespace SharpPy
             
             // If we can't find a proper loop start, just continue execution
             return currentPos + 1;
+        }
+        
+        /// <summary>
+        /// Check if exception matches the given type (CPython-compatible)
+        /// </summary>
+        private bool ExceptionMatches(PyObject exception, PyObject exceptionType)
+        {
+            if (exception is PyException pyExc && exceptionType is PyBuiltinType builtinType)
+            {
+                // Get the exception's type name
+                string excTypeName = pyExc.GetType().Name;
+                
+                // Match type names
+                return excTypeName.Replace("Py", "") == builtinType.Name.Replace("Error", "Error");
+            }
+            
+            return false;
+        }
+        
+        /// <summary>
+        /// PEP 654: ExceptionGroup matching - returns (matched, remainder)
+        /// </summary>
+        private (PyObject?, PyObject?) ExceptionGroupMatches(PyObject exception, PyObject exceptionType)
+        {
+            if (exception is PyBaseExceptionGroup group)
+            {
+                var matchedExceptions = new List<PyException>();
+                var remainderExceptions = new List<PyException>();
+                
+                foreach (var exc in group.Exceptions)
+                {
+                    if (ExceptionMatches(exc, exceptionType))
+                    {
+                        matchedExceptions.Add(exc);
+                    }
+                    else
+                    {
+                        remainderExceptions.Add(exc);
+                    }
+                }
+                
+                PyObject? matched = null;
+                if (matchedExceptions.Count > 0)
+                {
+                    if (exception is PyExceptionGroup)
+                        matched = new PyExceptionGroup(group.Message, matchedExceptions);
+                    else
+                        matched = new PyBaseExceptionGroup(group.Message, matchedExceptions);
+                }
+                
+                PyObject? remainder = null;
+                if (remainderExceptions.Count > 0)
+                {
+                    if (exception is PyExceptionGroup)
+                        remainder = new PyExceptionGroup(group.Message, remainderExceptions);
+                    else
+                        remainder = new PyBaseExceptionGroup(group.Message, remainderExceptions);
+                }
+                
+                return (matched, remainder);
+            }
+            
+            // Not an exception group - check if single exception matches
+            if (ExceptionMatches(exception, exceptionType))
+            {
+                return (exception, null);
+            }
+            
+            return (null, exception);
         }
     }
 

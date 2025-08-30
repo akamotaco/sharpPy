@@ -1,6 +1,141 @@
 namespace SharpPy
 {
     #region Compiler Extension (AST → Bytecode)
+    
+    /// <summary>
+    /// CPython-style free variable analyzer for closure detection
+    /// </summary>
+    public class FreeVariableAnalyzer
+    {
+        private readonly HashSet<string> _definedVars = new HashSet<string>();
+        private readonly HashSet<string> _usedVars = new HashSet<string>();
+        private readonly HashSet<string> _parameters = new HashSet<string>();
+        
+        /// <summary>
+        /// Analyze function/lambda for free variables
+        /// </summary>
+        public (List<string> freeVars, List<string> cellVars) AnalyzeScope(Expression body, List<string> parameters)
+        {
+            _definedVars.Clear();
+            _usedVars.Clear();
+            _parameters.Clear();
+            
+            // Parameters are always defined in local scope
+            foreach (var param in parameters)
+            {
+                _parameters.Add(param);
+                _definedVars.Add(param);
+            }
+            
+            // Analyze the body expression
+            AnalyzeExpression(body);
+            
+            // Free variables: used but not defined locally
+            var freeVars = _usedVars.Except(_definedVars).ToList();
+            
+            // Cell variables: defined locally but referenced by nested functions
+            // For Phase 1, we'll return empty list (will be implemented in Phase 2)
+            var cellVars = new List<string>();
+            
+            return (freeVars, cellVars);
+        }
+        
+        private void AnalyzeExpression(Expression expr)
+        {
+            switch (expr)
+            {
+                case NameExpression name:
+                    _usedVars.Add(name.Name);
+                    break;
+                    
+                case BinaryOpExpression binary:
+                    AnalyzeExpression(binary.Left);
+                    AnalyzeExpression(binary.Right);
+                    break;
+                    
+                case UnaryOpExpression unary:
+                    AnalyzeExpression(unary.Operand);
+                    break;
+                    
+                case CallExpression call:
+                    AnalyzeExpression(call.Function);
+                    foreach (var arg in call.Arguments)
+                    {
+                        AnalyzeExpression(arg);
+                    }
+                    break;
+                    
+                case ConditionalExpression cond:
+                    AnalyzeExpression(cond.Test);
+                    AnalyzeExpression(cond.Body);
+                    AnalyzeExpression(cond.OrElse);
+                    break;
+                    
+                case LambdaExpression lambda:
+                    // Nested lambda - analyze its scope
+                    var nestedAnalyzer = new FreeVariableAnalyzer();
+                    var (nestedFreeVars, _) = nestedAnalyzer.AnalyzeScope(lambda.Body, lambda.Args);
+                    
+                    // Nested lambda's free variables are our used variables
+                    foreach (var freeVar in nestedFreeVars)
+                    {
+                        _usedVars.Add(freeVar);
+                    }
+                    break;
+                    
+                case AttributeExpression attr:
+                    AnalyzeExpression(attr.Value);
+                    break;
+                    
+                case SubscriptExpression subscript:
+                    AnalyzeExpression(subscript.Value);
+                    AnalyzeExpression(subscript.Slice);
+                    break;
+                    
+                case ListExpression list:
+                    foreach (var item in list.Elements)
+                    {
+                        AnalyzeExpression(item);
+                    }
+                    break;
+                    
+                case TupleExpression tuple:
+                    foreach (var item in tuple.Elements)
+                    {
+                        AnalyzeExpression(item);
+                    }
+                    break;
+                    
+                case DictExpression dict:
+                    foreach (var (key, value) in dict.Items)
+                    {
+                        AnalyzeExpression(key);
+                        AnalyzeExpression(value);
+                    }
+                    break;
+                    
+                case FStringExpression fstring:
+                    if (fstring.Values != null)
+                    {
+                        foreach (var value in fstring.Values)
+                        {
+                            AnalyzeExpression(value);
+                        }
+                    }
+                    break;
+                    
+                case FormattedValue formatted:
+                    AnalyzeExpression(formatted.Value);
+                    break;
+                    
+                // For ConstantExpression and other leaf expressions, no variables are used
+                case ConstantExpression _:
+                    break;
+                    
+                // TODO: Add more expression types as needed
+            }
+        }
+    }
 
     // AST를 바이트코드로 컴파일 (기존 시스템과 연동)
     public class PythonCompiler
@@ -759,23 +894,140 @@ namespace SharpPy
         /// </summary>
         private void CompileTry(TryStatement tryStmt)
         {
-            // For now, implement a simplified version that just executes the try body
-            // TODO: implement proper exception handling with bytecode
+            // CPython-style exception handling implementation
             
+            // Jump targets for handlers and cleanup
+            var handlerLabels = new List<Label>();
+            var endLabel = CreateLabel("try_end");
+            
+            // Setup exception handling for each handler
+            foreach (var handler in tryStmt.Handlers)
+            {
+                var handlerLabel = CreateLabel("except_handler");
+                handlerLabels.Add(handlerLabel);
+                EmitInstruction(ByteCodeOp.SETUP_EXCEPT, 0); // Will be fixed up when label is marked
+                handlerLabel.References.Add(_instructions.Count - 1);
+            }
+            
+            // Compile try body
             foreach (var stmt in tryStmt.Body)
             {
                 CompileStatement(stmt);
             }
             
-            // TODO: Implement proper exception handling bytecode:
-            // - SETUP_EXCEPT instruction to set up exception handling
-            // - Jump tables for exception handlers
-            // - EXCEPT_MATCH instruction to match exception types
-            // - POP_EXCEPT to clean up exception state
-            // - SETUP_FINALLY for finally blocks
+            // Pop exception handlers and jump to end
+            for (int i = 0; i < tryStmt.Handlers.Count; i++)
+            {
+                EmitInstruction(ByteCodeOp.POP_EXCEPT);
+            }
+            EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
+            endLabel.References.Add(_instructions.Count - 1);
             
-            // For now, just handle at runtime via AST evaluation
-            // This allows try/except parsing to work while we implement bytecode generation
+            // Compile exception handlers
+            for (int i = 0; i < tryStmt.Handlers.Count; i++)
+            {
+                var handler = tryStmt.Handlers[i];
+                var handlerLabel = handlerLabels[i];
+                
+                MarkLabel(handlerLabel);
+                
+                // Exception is on stack - check if it matches handler type
+                if (handler.Type != null)
+                {
+                    // Duplicate exception for matching
+                    EmitInstruction(ByteCodeOp.DUP_TOP);
+                    CompileExpression(handler.Type);
+                    
+                    if (handler.IsStar)
+                    {
+                        // PEP 654: Exception group matching
+                        EmitInstruction(ByteCodeOp.CHECK_EG_MATCH);
+                        // Stack: [matched, remainder]
+                        
+                        // Store matched group if handler has name
+                        if (handler.Name != null)
+                        {
+                            EmitInstruction(ByteCodeOp.STORE_NAME, AddName(handler.Name));
+                        }
+                        else
+                        {
+                            EmitInstruction(ByteCodeOp.POP_TOP); // Discard matched
+                        }
+                        
+                        // Check if there was a match
+                        EmitInstruction(ByteCodeOp.DUP_TOP);
+                        EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(PyNone.Instance));
+                        EmitInstruction(ByteCodeOp.COMPARE_OP, 3); // IS_NOT
+                        
+                        var skipHandlerLabel = CreateLabel("skip_handler");
+                        EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0);
+                        skipHandlerLabel.References.Add(_instructions.Count - 1);
+                        
+                        // Execute handler body
+                        foreach (var stmt in handler.Body)
+                        {
+                            CompileStatement(stmt);
+                        }
+                        
+                        EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
+                        endLabel.References.Add(_instructions.Count - 1);
+                        MarkLabel(skipHandlerLabel);
+                    }
+                    else
+                    {
+                        // Regular exception matching
+                        EmitInstruction(ByteCodeOp.EXCEPT_MATCH);
+                        
+                        var skipHandlerLabel = CreateLabel("skip_handler");
+                        EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0);
+                        skipHandlerLabel.References.Add(_instructions.Count - 1);
+                        
+                        // Store exception if handler has name
+                        if (handler.Name != null)
+                        {
+                            EmitInstruction(ByteCodeOp.STORE_NAME, AddName(handler.Name));
+                        }
+                        else
+                        {
+                            EmitInstruction(ByteCodeOp.POP_TOP); // Discard exception
+                        }
+                        
+                        // Execute handler body
+                        foreach (var stmt in handler.Body)
+                        {
+                            CompileStatement(stmt);
+                        }
+                        
+                        EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
+                        endLabel.References.Add(_instructions.Count - 1);
+                        MarkLabel(skipHandlerLabel);
+                    }
+                }
+                else
+                {
+                    // Bare except - catches everything
+                    if (handler.Name != null)
+                    {
+                        EmitInstruction(ByteCodeOp.STORE_NAME, AddName(handler.Name));
+                    }
+                    else
+                    {
+                        EmitInstruction(ByteCodeOp.POP_TOP); // Discard exception
+                    }
+                    
+                    // Execute handler body
+                    foreach (var stmt in handler.Body)
+                    {
+                        CompileStatement(stmt);
+                    }
+                    
+                    EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
+                    endLabel.References.Add(_instructions.Count - 1);
+                }
+            }
+            
+            // End of try-except
+            MarkLabel(endLabel);
         }
         private void CompileWith(WithStatement withStmt) { /* TODO */ }
         private void CompileMatch(MatchStatement matchStmt)
@@ -1014,12 +1266,109 @@ namespace SharpPy
         }
         
         private void CompileAssert(AssertStatement assert) { /* TODO */ }
-        private void CompileRaise(RaiseStatement raise) { /* TODO */ }
+        private void CompileRaise(RaiseStatement raise)
+        {
+            if (raise.Exc != null)
+            {
+                // raise Exception(...) - compile the exception expression
+                CompileExpression(raise.Exc);
+                EmitInstruction(ByteCodeOp.RAISE_VARARGS, 1);
+            }
+            else
+            {
+                // bare raise - re-raise current exception
+                EmitInstruction(ByteCodeOp.RERAISE);
+            }
+        }
         private void CompileDelete(DeleteStatement delete) { /* TODO */ }
         private void CompileGlobal(GlobalStatement global) { /* TODO */ }
         private void CompileNonlocal(NonlocalStatement nonlocal) { /* TODO */ }
         private void CompileBoolOp(BoolOpExpression boolOp) { /* TODO */ }
-        private void CompileLambda(LambdaExpression lambda) { /* TODO */ }
+        private void CompileLambda(LambdaExpression lambda)
+        {
+            // CPython-style lambda compilation with closure support
+            // Lambda creates an anonymous function object
+            
+            // Create a unique name for the lambda function
+            string lambdaName = $"<lambda_{_lambdaCounter++}>";
+            
+            // Phase 1: Free variable analysis
+            var analyzer = new FreeVariableAnalyzer();
+            var (freeVars, cellVars) = analyzer.AnalyzeScope(lambda.Body, lambda.Args);
+            
+            Console.WriteLine($"\n🔍 Lambda analysis: {lambdaName}");
+            Console.WriteLine($"  Parameters: [{string.Join(", ", lambda.Args)}]");
+            Console.WriteLine($"  Free variables: [{string.Join(", ", freeVars)}]");
+            Console.WriteLine($"  Cell variables: [{string.Join(", ", cellVars)}]");
+            
+            // Compile lambda body in a separate compiler context
+            var lambdaInstructions = new List<ByteCodeInstruction>();
+            var lambdaConstants = new List<PyObject>();
+            var lambdaNames = new List<string>();
+            
+            // Create a temporary compiler for lambda body compilation
+            var tempInstructions = _instructions;
+            var tempConstants = _constants;
+            var tempNames = _names;
+            
+            // Set up lambda compiler context
+            _instructions = lambdaInstructions;
+            _constants = lambdaConstants;
+            _names = lambdaNames;
+            
+            // Add parameter names as local variables
+            foreach (var arg in lambda.Args)
+            {
+                AddName(arg);
+            }
+            
+            // Compile the lambda body expression
+            CompileExpression(lambda.Body);
+            EmitInstruction(ByteCodeOp.RETURN_VALUE);
+            
+            // Restore original compiler context
+            _instructions = tempInstructions;
+            _constants = tempConstants;
+            _names = tempNames;
+            
+            // Create the function code object with closure info
+            var functionCode = new PyCodeObject(
+                lambdaName,
+                lambdaInstructions,
+                lambdaConstants,
+                lambdaNames,
+                lambda.Args, // VarNames = parameter names
+                lambda.Args.Count
+            );
+            // TODO Phase 2: Set FreeVars and CellVars on PyCodeObject
+            
+            // Phase 1: Handle closure creation if there are free variables
+            if (freeVars.Count > 0)
+            {
+                Console.WriteLine($"  → Creating closure with {freeVars.Count} free variables");
+                
+                // Load closure cells for free variables
+                foreach (var freeVar in freeVars)
+                {
+                    // Emit LOAD_CLOSURE for each free variable
+                    // For Phase 1, we'll emit a placeholder (Phase 2 will implement proper cell loading)
+                    EmitInstruction(ByteCodeOp.LOAD_CLOSURE, 0); // TODO: proper cell index
+                }
+                
+                // Build tuple of closure cells
+                EmitInstruction(ByteCodeOp.BUILD_TUPLE, freeVars.Count);
+            }
+            
+            // Load the function code object
+            EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(functionCode));
+            
+            // Create function with or without closure
+            int flags = freeVars.Count > 0 ? 8 : 0; // MAKE_FUNCTION_CLOSURE flag
+            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, flags);
+        }
+        
+        // Lambda counter for unique names
+        private static int _lambdaCounter = 0;
         private void CompileConditional(ConditionalExpression conditional) { /* TODO */ }
         private void CompileFString(FStringExpression fstring)
         {

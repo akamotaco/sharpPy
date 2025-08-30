@@ -11,14 +11,21 @@ public class PyFunction : PyObject, IDescriptor
     public PyModule DefiningModule { get; }
     public List<PyObject>? TypeParams { get; set; } // PEP 695 __type_params__
     public PyFunctionSignature? Signature { get; set; } // PEP 692 **kwargs 타입 정보
+    
+    // Closure support (CPython 호환)
+    public PyCell[] Closure { get; set; } = new PyCell[0];  // 클로저 셀 배열
+    public PyCodeObject? CodeObject { get; set; }           // 함수의 코드 객체
+    public PyScopeChain? ParentScope { get; set; }         // 부모 스코프 (클로저용)
 
-    public PyFunction(string name, Func<PyObject[], PyObject> implementation = null, PyModule definingModule = null, List<PyObject>? typeParams = null)
+    public PyFunction(string name, Func<PyObject[], PyObject> implementation = null, PyModule definingModule = null, List<PyObject>? typeParams = null, PyCell[] closure = null, PyCodeObject codeObject = null)
     {
         Name = name;
         Implementation = implementation ?? DefaultImplementation;
         Attributes = new Dictionary<string, PyObject>();
         DefiningModule = definingModule;
         TypeParams = typeParams;
+        Closure = closure ?? new PyCell[0];
+        CodeObject = codeObject;
         
         // __type_params__ 속성 설정
         if (TypeParams != null && TypeParams.Count > 0)
@@ -29,6 +36,16 @@ public class PyFunction : PyObject, IDescriptor
         else
         {
             Attributes["__type_params__"] = new PyTuple(new PyObject[0]);
+        }
+        
+        // Closure 정보를 속성으로 노출
+        if (Closure.Length > 0)
+        {
+            Attributes["__closure__"] = new PyTuple(Closure.Cast<PyObject>().ToArray());
+        }
+        else
+        {
+            Attributes["__closure__"] = PyNone.Instance;
         }
     }
     
@@ -78,6 +95,8 @@ public class PyFunction : PyObject, IDescriptor
             "__module__" => DefiningModule != null ? new PyString(DefiningModule.Name) : new PyString("__main__"),
             "__doc__" => new PyString($"Function {Name}"),
             "__call__" => this, // 함수 자체가 __call__
+            "__closure__" => Attributes["__closure__"], // 클로저 정보
+            "__code__" => (PyObject)(CodeObject ?? (object)PyNone.Instance), // 코드 객체
             _ => Attributes.TryGetValue(name, out PyObject value) ? value : throw PyAttributeError.Create($"'function' object has no attribute '{name}'")
         };
     }
@@ -88,6 +107,23 @@ public class PyFunction : PyObject, IDescriptor
     }
 
     public override string ToString() => $"<function {Name}>";
+    
+    /// <summary>
+    /// CPython-style closure function creation helper
+    /// </summary>
+    public static PyFunction CreateClosureFunction(string name, PyCodeObject codeObject, PyCell[] closure, PyScopeChain parentScope = null)
+    {
+        // Create implementation that executes code object with closure support
+        Func<PyObject[], PyObject> implementation = args =>
+        {
+            var frame = new PyFrame(codeObject, args, parentScope, closure);
+            return PythonVM.Instance.ExecuteFrame(frame);
+        };
+        
+        var function = new PyFunction(name, implementation, null, null, closure, codeObject);
+        function.ParentScope = parentScope;
+        return function;
+    }
 }
 
     // Python의 method 타입 (바인드된 메서드)

@@ -115,6 +115,7 @@ namespace SharpPy
         LOAD_DEREF = 141,     // 자유 변수 로드
         STORE_DEREF = 142,    // 자유 변수 저장
         DELETE_DEREF = 143,   // 자유 변수 삭제
+        MAKE_CELL = 144,      // 지역 변수를 셀로 변환
         
         // import 문
         IMPORT_NAME = 150,    // 모듈 임포트
@@ -176,6 +177,8 @@ namespace SharpPy
         
         // 추가 예외 처리 opcodes
         POP_EXCEPT = 230,     // 예외 블록 종료
+        EXCEPT_MATCH = 231,   // 예외 타입 매칭
+        CHECK_EG_MATCH = 232, // ExceptionGroup 매칭 (PEP 654)
         
         // 비동기 관련
         GET_AWAITABLE = 240,  // awaitable 객체 획득

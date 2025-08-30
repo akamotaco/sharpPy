@@ -1155,15 +1155,37 @@ namespace SharpPy
                 {
                     try
                     {
-                        // 포맷 지정자 분리 (예: "value:.2f" -> "value", ".2f")
+                        // PEP 701: Debug mode와 포맷 지정자 분리 (예: "value=:.2f" -> "value", "=", ".2f")
                         string actualExpr = exprContent;
                         string? formatSpec = null;
+                        bool debugMode = false;
                         
-                        var colonIndex = FindFormatSpecColon(exprContent);
-                        if (colonIndex != -1)
+                        // Debug mode 검사 (expr= 형태)
+                        if (exprContent.EndsWith("="))
                         {
-                            actualExpr = exprContent.Substring(0, colonIndex);
-                            formatSpec = exprContent.Substring(colonIndex + 1);
+                            debugMode = true;
+                            actualExpr = exprContent.Substring(0, exprContent.Length - 1);
+                        }
+                        else
+                        {
+                            // Debug mode + format spec (expr=:format 형태)
+                            var equalColonIndex = exprContent.IndexOf("=:");
+                            if (equalColonIndex != -1)
+                            {
+                                debugMode = true;
+                                actualExpr = exprContent.Substring(0, equalColonIndex);
+                                formatSpec = exprContent.Substring(equalColonIndex + 2);
+                            }
+                            else
+                            {
+                                // 기존 포맷 지정자 처리 (expr:format 형태)
+                                var colonIndex = FindFormatSpecColon(exprContent);
+                                if (colonIndex != -1)
+                                {
+                                    actualExpr = exprContent.Substring(0, colonIndex);
+                                    formatSpec = exprContent.Substring(colonIndex + 1);
+                                }
+                            }
                         }
                         
                         Expression expr;
@@ -1198,14 +1220,33 @@ namespace SharpPy
                             }
                         }
                         
-                        // 포맷 지정자가 있으면 FormattedValue 노드 생성
-                        if (formatSpec != null)
+                        // Debug mode일 때 특별 처리
+                        if (debugMode)
                         {
-                            values.Add(new FormattedValue(expr, formatSpec));
+                            // "varname=" 부분을 먼저 추가
+                            values.Add(new ConstantExpression(new PyString(actualExpr + "=")));
+                            
+                            // 값 부분 추가 (포맷 지정자 있으면 적용)
+                            if (formatSpec != null)
+                            {
+                                values.Add(new FormattedValue(expr, formatSpec));
+                            }
+                            else
+                            {
+                                values.Add(expr);
+                            }
                         }
                         else
                         {
-                            values.Add(expr);
+                            // 기존 로직: 포맷 지정자가 있으면 FormattedValue 노드 생성
+                            if (formatSpec != null)
+                            {
+                                values.Add(new FormattedValue(expr, formatSpec));
+                            }
+                            else
+                            {
+                                values.Add(expr);
+                            }
                         }
                     }
                     catch (Exception ex)

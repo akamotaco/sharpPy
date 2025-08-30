@@ -74,6 +74,9 @@ namespace SharpPy
         public static readonly PyType BufferType = new PyType("buffer", new[] { ObjectType });
         public static readonly PyType MemoryViewType = new PyType("memoryview", new[] { ObjectType });
         
+        // Closure Support
+        public static readonly PyType CellType = new PyType("cell", new[] { ObjectType });
+        
         public static readonly PyType ImportErrorType = new PyType("ImportError", new[] { ExceptionType });
         public static readonly PyType ModuleNotFoundErrorType = new PyType("ModuleNotFoundError", new[] { ImportErrorType });
         
