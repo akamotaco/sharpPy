@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace SharpPy.Modules
+namespace SharpPy.Modules.Stdlib
 {
     /// <summary>
     /// Python os 모듈 구현 - 파일 시스템 조작 및 시스템 정보

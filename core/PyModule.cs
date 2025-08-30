@@ -152,11 +152,12 @@ public class PyModule : PyObject
             ["functools"] = () => FunctoolsModule.Instance,
             ["collections"] = () => CollectionsModule.Instance,
             ["typing"] = () => TypingModule.Instance,
-            ["os"] = () => SharpPy.Modules.OsModule.CreateOsModule(),
-            ["pathlib"] = () => SharpPy.Modules.PathlibModule.CreatePathlibModule(),
-            ["json"] = () => SharpPy.Modules.JsonModule.CreateJsonModule(),
-            ["re"] = () => SharpPy.Modules.RegexModule.CreateRegexModule(),
-            ["datetime"] = () => SharpPy.Modules.DatetimeModule.CreateDatetimeModule()
+            ["os"] = () => SharpPy.Modules.Stdlib.OsModule.CreateOsModule(),
+            ["pathlib"] = () => SharpPy.Modules.Stdlib.PathlibModule.CreatePathlibModule(),
+            ["json"] = () => SharpPy.Modules.Stdlib.JsonModule.CreateJsonModule(),
+            ["re"] = () => SharpPy.Modules.Stdlib.RegexModule.CreateRegexModule(),
+            ["datetime"] = () => SharpPy.Modules.Stdlib.DatetimeModule.CreateDatetimeModule(),
+            ["urllib"] = () => SharpPy.Modules.Stdlib.UrllibModule.CreateUrllibModule()
         };
 
 

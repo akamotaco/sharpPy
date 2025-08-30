@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 
-namespace SharpPy.Modules
+namespace SharpPy.Modules.Stdlib
 {
     /// <summary>
     /// Python json 모듈 구현 - JSON 직렬화/역직렬화

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 
-namespace SharpPy.Modules
+namespace SharpPy.Modules.Stdlib
 {
     /// <summary>
     /// Python re 모듈 구현 - 정규표현식 지원

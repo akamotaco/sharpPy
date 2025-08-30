@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace SharpPy.Modules
+namespace SharpPy.Modules.Stdlib
 {
     /// <summary>
     /// Python pathlib 모듈 구현 - 현대적 객체지향 경로 처리

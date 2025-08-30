@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 
-namespace SharpPy.Modules
+namespace SharpPy.Modules.Stdlib
 {
     /// <summary>
     /// Python datetime 모듈 구현 - 날짜/시간 처리

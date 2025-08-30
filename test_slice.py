@@ -1,6 +1,0 @@
-lst = [1, 2, 3, 4, 5]
-slice1 = lst[1:4]
-slice2 = lst[:3] 
-slice3 = lst[2:]
-slice4 = lst[::2]
-slice5 = lst[1:4:2]
