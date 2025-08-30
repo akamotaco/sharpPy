@@ -30,9 +30,19 @@ namespace SharpPy
             // 클로저 정보 설정
             Closure = closure ?? new PyCell[0];
             
-            // TODO: FreeVars와 CellVars 개수에 따라 Cells 배열 초기화
-            // 현재는 기본 구현으로 비워둠 (Phase 2에서 구현)
-            Cells = new PyCell[0];
+            // Phase 2: CellVars 개수에 따라 Cells 배열 초기화
+            if (code.CellVars != null && code.CellVars.Count > 0)
+            {
+                Cells = new PyCell[code.CellVars.Count];
+                for (int i = 0; i < Cells.Length; i++)
+                {
+                    Cells[i] = new PyCell(); // 빈 셀로 초기화
+                }
+            }
+            else
+            {
+                Cells = new PyCell[0];
+            }
             
             // 함수 스코프 생성
             ScopeChain.PushScope(ScopeType.Local, code.Name);
@@ -849,20 +859,23 @@ namespace SharpPy
                     break;
                     
                 case ByteCodeOp.MAKE_CELL:
-                    // 지역 변수를 셀로 변환
-                    // Phase 2에서 완전 구현 예정
-                    var makeVarName = frame.Code.VarNames[instruction.Argument];
+                    // Phase 2: 지역 변수를 셀로 변환 (완전 구현)
+                    var paramIndex = instruction.Argument;
+                    var makeVarName = frame.Code.VarNames[paramIndex];
                     
+                    // 매개변수 값을 가져와서 Cell에 저장
                     PyObject? cellValue = null;
                     if (frame.FastLocals.TryGetValue(makeVarName, out var localValue))
                     {
                         cellValue = localValue;
-                        frame.FastLocals.Remove(makeVarName); // 로컬에서 제거
                     }
                     
-                    var newCell = new PyCell(cellValue);
-                    // TODO: frame.Cells 배열에 적절한 위치에 저장
-                    // 현재는 기본 구현만 제공
+                    // CellVars 리스트에서 인덱스 찾기
+                    var makeCellIndex = frame.Code.CellVars.IndexOf(makeVarName);
+                    if (makeCellIndex >= 0 && makeCellIndex < frame.Cells.Length)
+                    {
+                        frame.Cells[makeCellIndex].SetValue(cellValue);
+                    }
                     break;
                     
                 default:

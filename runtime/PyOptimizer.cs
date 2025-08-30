@@ -59,7 +59,9 @@ namespace SharpPy
                 _constants,
                 _names,
                 originalCode.VarNames,
-                originalCode.ArgCount
+                originalCode.ArgCount,
+                originalCode.FreeVars,
+                originalCode.CellVars
             );
         }
 

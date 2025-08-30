@@ -217,9 +217,14 @@ namespace SharpPy
         public List<string> VarNames { get; }         // co_varnames (지역변수명들)
         public int ArgCount { get; }                  // 매개변수 개수
         
+        // CPython 호환 클로저 지원 (Phase 2)
+        public List<string> FreeVars { get; set; } = new List<string>();   // co_freevars - 자유 변수
+        public List<string> CellVars { get; set; } = new List<string>();   // co_cellvars - 셀 변수
+        
         public PyCodeObject(string name, List<ByteCodeInstruction> instructions, 
                         List<PyObject> constants, List<string> names, 
-                        List<string> varNames, int argCount = 0)
+                        List<string> varNames, int argCount = 0,
+                        List<string> freeVars = null, List<string> cellVars = null)
         {
             Name = name;
             Instructions = instructions;
@@ -227,6 +232,8 @@ namespace SharpPy
             Names = names;
             VarNames = varNames;
             ArgCount = argCount;
+            FreeVars = freeVars ?? new List<string>();
+            CellVars = cellVars ?? new List<string>();
         }
         
         public override string GetTypeName() => "code";

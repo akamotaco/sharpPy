@@ -40,6 +40,78 @@ namespace SharpPy
             return (freeVars, cellVars);
         }
         
+        /// <summary>
+        /// Phase 2: Analyze nested function for free variables
+        /// </summary>
+        public (List<string> freeVars, List<string> cellVars) AnalyzeNestedFunction(FunctionDefStatement func, List<string> outerParameters)
+        {
+            _definedVars.Clear();
+            _usedVars.Clear();
+            _parameters.Clear();
+            
+            // Function parameters are defined locally
+            foreach (var param in func.Parameters)
+            {
+                _parameters.Add(param);
+                _definedVars.Add(param);
+            }
+            
+            // Analyze function body
+            foreach (var statement in func.Body)
+            {
+                AnalyzeStatement(statement);
+            }
+            
+            // Free variables: used but not defined locally (excluding globals/builtins)
+            var freeVars = _usedVars.Except(_definedVars)
+                                   .Where(var => outerParameters.Contains(var)) // 외부 함수의 매개변수인 경우만
+                                   .ToList();
+            
+            // Cell variables: analyze nested functions to see what they reference
+            var cellVars = new List<string>();
+            foreach (var statement in func.Body)
+            {
+                if (statement is FunctionDefStatement nestedFunc)
+                {
+                    var nestedAnalyzer = new FreeVariableAnalyzer();
+                    var (nestedFreeVars, _) = nestedAnalyzer.AnalyzeNestedFunction(nestedFunc, func.Parameters);
+                    
+                    // Any of our parameters that nested functions use as free variables become cells
+                    foreach (var nestedFreeVar in nestedFreeVars)
+                    {
+                        if (func.Parameters.Contains(nestedFreeVar) && !cellVars.Contains(nestedFreeVar))
+                        {
+                            cellVars.Add(nestedFreeVar);
+                        }
+                    }
+                }
+            }
+            
+            return (freeVars, cellVars);
+        }
+        
+        private void AnalyzeStatement(Statement stmt)
+        {
+            switch (stmt)
+            {
+                case ExpressionStatement exprStmt:
+                    AnalyzeExpression(exprStmt.Expression);
+                    break;
+                    
+                case ReturnStatement retStmt:
+                    if (retStmt.Value != null)
+                        AnalyzeExpression(retStmt.Value);
+                    break;
+                    
+                case AssignStatement assignStmt:
+                    AnalyzeExpression(assignStmt.Value);
+                    _definedVars.Add(assignStmt.VariableName); // 새로 정의된 변수
+                    break;
+                    
+                // TODO: 다른 statement 타입들 추가 가능
+            }
+        }
+        
         private void AnalyzeExpression(Expression expr)
         {
             switch (expr)
@@ -145,6 +217,10 @@ namespace SharpPy
         private List<string> _names;
         private List<string> _varNames;
         
+        // Phase 2: 클로저 지원
+        private List<string> _cellVars = new List<string>();
+        private List<string> _freeVars = new List<string>();
+        
         public PyCodeObject Compile(List<Statement> statements, string name = "<module>")
         {
             return Compile(statements, name, new List<string>());
@@ -182,6 +258,67 @@ namespace SharpPy
             var optimizedCode = optimizer.OptimizeCode(codeObject);
             
             return optimizedCode;
+        }
+        
+        /// <summary>
+        /// Phase 2: 클로저 정보를 포함한 컴파일
+        /// </summary>
+        public PyCodeObject CompileWithClosure(List<Statement> statements, string name, List<string> parameters,
+                                             List<string> freeVars, List<string> cellVars)
+        {
+            _instructions = new List<ByteCodeInstruction>();
+            _constants = new List<PyObject>();
+            _names = new List<string>();
+            _varNames = new List<string>();
+            
+            // 함수 매개변수를 _varNames에 추가 (LOAD_FAST/STORE_FAST용)
+            foreach (var param in parameters)
+            {
+                _varNames.Add(param);
+            }
+            
+            Console.WriteLine($"\n🔧 컴파일 (클로저): {name}");
+            Console.WriteLine($"  FreeVars: [{string.Join(", ", freeVars)}]");
+            Console.WriteLine($"  CellVars: [{string.Join(", ", cellVars)}]");
+            
+            // Phase 2: Cell 변수들을 위한 MAKE_CELL 명령어 발행
+            foreach (var cellVar in cellVars)
+            {
+                var paramIndex = parameters.IndexOf(cellVar);
+                if (paramIndex >= 0)
+                {
+                    Console.WriteLine($"  → Making cell for parameter: {cellVar}");
+                    EmitInstruction(ByteCodeOp.MAKE_CELL, paramIndex);
+                }
+            }
+            
+            foreach (var statement in statements)
+            {
+                CompileStatement(statement);
+            }
+            
+            // 모듈은 None 반환
+            EmitLoadConst(PyNone.Instance);
+            EmitInstruction(ByteCodeOp.RETURN_VALUE);
+            
+            var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, 
+                                            parameters.Count, freeVars, cellVars);
+            Console.WriteLine($"\u2705 컴파일 완료: {_instructions.Count}개 명령어");
+            
+            // 바이트코드 최적화 적용
+            var optimizer = new ByteCodeOptimizer(true);
+            var optimizedCode = optimizer.OptimizeCode(codeObject);
+            
+            return optimizedCode;
+        }
+        
+        /// <summary>
+        /// Phase 2: 컴파일러에 클로저 정보 설정
+        /// </summary>
+        public void SetupClosureCompilation(List<string> cellVars, List<string> freeVars = null)
+        {
+            _cellVars = cellVars ?? new List<string>();
+            _freeVars = freeVars ?? new List<string>();
         }
         
         private void CompileStatement(Statement statement)
@@ -235,7 +372,7 @@ namespace SharpPy
                     break;
                     
                 case FunctionDefStatement func:
-                    CompileFunction(func);
+                    CompileNestedFunction(func);
                     break;
                     
                 case AsyncFunctionDefStatement asyncFunc:
@@ -481,16 +618,94 @@ namespace SharpPy
         
         private void CompileFunction(FunctionDefStatement func)
         {
-            // 함수 바디 컴파일 (매개변수 포함)
-            var compiler = new PythonCompiler();
-            var funcCode = compiler.Compile(func.Body, func.Name, func.Parameters);
+            // 모든 함수를 CompileNestedFunction으로 바이패스 (Phase 2 수정)
+            CompileNestedFunction(func);
+        }
+        
+        /// <summary>
+        /// Phase 2: 중청 함수 컴파일 (자유 변수 지원)
+        /// </summary>
+        private void CompileNestedFunction(FunctionDefStatement func)
+        {
+            Console.WriteLine($"\n🔍 Compiling nested function: {func.Name}");
             
-            // 함수 코드 객체를 상수로 추가
+            // 1. 자유 변수 분석
+            var analyzer = new FreeVariableAnalyzer();
+            var (freeVars, cellVars) = analyzer.AnalyzeNestedFunction(func, _varNames);
+            
+            Console.WriteLine($"  Free variables: [{string.Join(", ", freeVars)}]");
+            Console.WriteLine($"  Cell variables: [{string.Join(", ", cellVars)}]");
+            
+            // 2. 코드 객체 컴파일 (자유 변수 정보 설정)
+            var compiler = new PythonCompiler();
+            compiler.SetupClosureCompilation(cellVars, freeVars); // 셀 변수와 자유 변수 설정
+            var funcCode = compiler.CompileWithClosure(func.Body, func.Name, func.Parameters, freeVars, cellVars);
+            
+            // 3. 자유 변수가 있는 경우 클로저 생성
+            if (freeVars.Count > 0)
+            {
+                Console.WriteLine($"  → Creating closure for {freeVars.Count} free variables");
+                
+                // 각 자유 변수에 대해 LOAD_CLOSURE 발행
+                foreach (var freeVar in freeVars)
+                {
+                    // 자유 변수가 현재 스코프의 cell 변수인지 확인
+                    var cellIndex = _cellVars.IndexOf(freeVar);
+                    if (cellIndex >= 0)
+                    {
+                        EmitInstruction(ByteCodeOp.LOAD_CLOSURE, cellIndex);
+                        Console.WriteLine($"    → LOAD_CLOSURE for {freeVar} (cell index {cellIndex})");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"    ⚠️ Warning: Free variable {freeVar} not found in current scope cells");
+                        // 빈 셀 생성
+                        EmitInstruction(ByteCodeOp.LOAD_CLOSURE, 0);
+                    }
+                }
+                
+                // 클로저 튜플 생성
+                EmitInstruction(ByteCodeOp.BUILD_TUPLE, freeVars.Count);
+            }
+            
+            // 4. 코드 객체 로드
             EmitLoadConst(funcCode);
             
-            // CPython 스타일: MAKE_FUNCTION 바이트코드 직접 사용
-            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, 0);
+            // 5. 함수 생성 (클로저 플래그 설정)
+            int flags = freeVars.Count > 0 ? 8 : 0; // MAKE_FUNCTION_CLOSURE flag
+            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, flags);
             EmitStoreName(func.Name);
+        }
+        
+        /// <summary>
+        /// 함수 내의 모든 중청 함수를 분석하여 셀이 필요한 변수들을 찾는다
+        /// </summary>
+        private void AnalyzeFunctionClosures(List<Statement> statements, List<string> parameters, 
+                                           HashSet<string> allFreeVars, List<string> cellVars)
+        {
+            foreach (var statement in statements)
+            {
+                if (statement is FunctionDefStatement nestedFunc)
+                {
+                    // 중청 함수 발견 - 자유 변수 분석
+                    var analyzer = new FreeVariableAnalyzer();
+                    var (freeVars, _) = analyzer.AnalyzeNestedFunction(nestedFunc, parameters);
+                    
+                    foreach (var freeVar in freeVars)
+                    {
+                        allFreeVars.Add(freeVar);
+                        
+                        // 이 변수가 현재 함수의 매개변수이거나 지역변수이면 Cell로 만들어야 함
+                        if (parameters.Contains(freeVar) && !cellVars.Contains(freeVar))
+                        {
+                            cellVars.Add(freeVar);
+                        }
+                    }
+                    
+                    // 재귀적으로 중청 함수들도 분석
+                    AnalyzeFunctionClosures(nestedFunc.Body, nestedFunc.Parameters, allFreeVars, cellVars);
+                }
+            }
         }
         
         // 바이트코드 생성 도우미들
@@ -507,17 +722,39 @@ namespace SharpPy
         
         private void EmitLoadName(string name)
         {
-            // 함수 매개변수(지역 변수)인 경우 LOAD_FAST 사용
+            // Phase 2: 클로저 지원 - 자유 변수 처리 개선
+            
+            // 1. 지역 변수(매개변수 포함) 처리
             var varIndex = _varNames.IndexOf(name);
             if (varIndex >= 0)
             {
-                EmitInstruction(ByteCodeOp.LOAD_FAST, varIndex);
+                // 이 변수가 cell로 변환되었는지 확인
+                if (_cellVars.Contains(name))
+                {
+                    // Cell 변수는 LOAD_DEREF로 접근
+                    var cellIndex = _cellVars.IndexOf(name);
+                    EmitInstruction(ByteCodeOp.LOAD_DEREF, cellIndex);
+                    Console.WriteLine($"    → LOAD_DEREF for cell var: {name} (index {cellIndex})");
+                }
+                else
+                {
+                    EmitInstruction(ByteCodeOp.LOAD_FAST, varIndex);
+                }
+                return;
             }
-            else
+            
+            // 2. 자유 변수 처리 (Phase 2)
+            if (_freeVars.Contains(name))
             {
-                var index = AddName(name);
-                EmitInstruction(ByteCodeOp.LOAD_NAME, index);
+                var freeIndex = _freeVars.IndexOf(name);
+                EmitInstruction(ByteCodeOp.LOAD_DEREF, freeIndex);
+                Console.WriteLine($"    → LOAD_DEREF for free var: {name} (index {freeIndex})");
+                return;
             }
+            
+            // 3. 일반 이름 처리 (전역 변수, 내장 함수 등)
+            var index = AddName(name);
+            EmitInstruction(ByteCodeOp.LOAD_NAME, index);
         }
         
         private void EmitStoreName(string name)
