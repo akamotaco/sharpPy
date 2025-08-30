@@ -548,6 +548,19 @@ namespace SharpPy
                     // In CPython, this jumps to the loop beginning
                     throw new LoopContinueException();
                     
+                case ByteCodeOp.IMPORT_NAME:
+                    var moduleName = ((PyString)frame.Code.Constants[instruction.Argument]).Value;
+                    var importedModule = PyImportSystem.Import(moduleName);
+                    frame.ValueStack.Push(importedModule);
+                    break;
+                    
+                case ByteCodeOp.IMPORT_FROM:
+                    var itemName = ((PyString)frame.Code.Constants[instruction.Argument]).Value;
+                    var module = frame.ValueStack.Peek(); // Don't pop yet, needed for multiple imports
+                    var importedItem = module.GetAttribute(itemName);
+                    frame.ValueStack.Push(importedItem);
+                    break;
+                    
                 default:
                     throw new NotImplementedException($"OpCode {instruction.OpCode} not implemented");
             }

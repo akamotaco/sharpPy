@@ -454,6 +454,42 @@ namespace SharpPy
 
     #endregion
 
+    #region OS Exceptions
+
+    /// <summary>
+    /// Python OSError - 운영 체제 관련 에러
+    /// </summary>
+    public class PyOSError : PyException
+    {
+        public PyOSError(string message = "") : base(message) { }
+        
+        public override string GetTypeName() => "OSError";
+        
+        public new static PythonException Create(string message = "")
+        {
+            var pyException = new PyOSError(message);
+            return new PythonException(pyException);
+        }
+    }
+
+    /// <summary>
+    /// Python FileNotFoundError - 파일이나 디렉토리를 찾을 수 없음
+    /// </summary>
+    public class PyFileNotFoundError : PyOSError
+    {
+        public PyFileNotFoundError(string message = "") : base(message) { }
+        
+        public override string GetTypeName() => "FileNotFoundError";
+        
+        public new static PythonException Create(string message = "")
+        {
+            var pyException = new PyFileNotFoundError(message);
+            return new PythonException(pyException);
+        }
+    }
+
+    #endregion
+
     #region Exception Utilities
 
     /// <summary>

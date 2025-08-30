@@ -512,8 +512,67 @@ namespace SharpPy
             // Store the result with the alias name
             EmitStoreName(typeAlias.Name);
         }
-        private void CompileImport(ImportStatement import) { /* TODO */ }
-        private void CompileImportFrom(ImportFromStatement importFrom) { /* TODO */ }
+        private void CompileImport(ImportStatement import)
+        {
+            foreach (var moduleName in import.Names)
+            {
+                // Handle "module as alias" format
+                string actualModule, alias;
+                if (moduleName.Contains(" as "))
+                {
+                    var parts = moduleName.Split(new[] { " as " }, StringSplitOptions.RemoveEmptyEntries);
+                    actualModule = parts[0].Trim();
+                    alias = parts[1].Trim();
+                }
+                else
+                {
+                    actualModule = moduleName;
+                    alias = moduleName;
+                }
+                
+                // Emit IMPORT_NAME bytecode
+                var moduleIndex = AddConstant(new PyString(actualModule));
+                EmitInstruction(ByteCodeOp.IMPORT_NAME, moduleIndex);
+                
+                // Store the imported module in the correct variable name
+                var nameIndex = AddName(alias);
+                EmitInstruction(ByteCodeOp.STORE_NAME, nameIndex);
+            }
+        }
+        private void CompileImportFrom(ImportFromStatement importFrom)
+        {
+            // Load the module first
+            var moduleIndex = AddConstant(new PyString(importFrom.Module));
+            EmitInstruction(ByteCodeOp.IMPORT_NAME, moduleIndex);
+            
+            foreach (var itemName in importFrom.Names)
+            {
+                // Handle "item as alias" format
+                string actualItem, alias;
+                if (itemName.Contains(" as "))
+                {
+                    var parts = itemName.Split(new[] { " as " }, StringSplitOptions.RemoveEmptyEntries);
+                    actualItem = parts[0].Trim();
+                    alias = parts[1].Trim();
+                }
+                else
+                {
+                    actualItem = itemName;
+                    alias = itemName;
+                }
+                
+                // Emit IMPORT_FROM bytecode
+                var itemIndex = AddConstant(new PyString(actualItem));
+                EmitInstruction(ByteCodeOp.IMPORT_FROM, itemIndex);
+                
+                // Store the imported item in the correct variable name
+                var nameIndex = AddName(alias);
+                EmitInstruction(ByteCodeOp.STORE_NAME, nameIndex);
+            }
+            
+            // Pop the module from stack (cleanup)
+            EmitInstruction(ByteCodeOp.POP_TOP);
+        }
         /// <summary>
         /// CPython-style if statement compilation - simplified implementation
         /// </summary>

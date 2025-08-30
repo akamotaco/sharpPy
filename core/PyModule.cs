@@ -150,7 +150,13 @@ public class PyModule : PyObject
             ["sys"] = () => SharpPy.Modules.SysModule.CreateSysModule(),
             ["itertools"] = () => ItertoolsModule.Instance,
             ["functools"] = () => FunctoolsModule.Instance,
-            ["collections"] = () => CollectionsModule.Instance
+            ["collections"] = () => CollectionsModule.Instance,
+            ["typing"] = () => TypingModule.Instance,
+            ["os"] = () => SharpPy.Modules.OsModule.CreateOsModule(),
+            ["pathlib"] = () => SharpPy.Modules.PathlibModule.CreatePathlibModule(),
+            ["json"] = () => SharpPy.Modules.JsonModule.CreateJsonModule(),
+            ["re"] = () => SharpPy.Modules.RegexModule.CreateRegexModule(),
+            ["datetime"] = () => SharpPy.Modules.DatetimeModule.CreateDatetimeModule()
         };
 
 

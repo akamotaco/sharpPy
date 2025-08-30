@@ -1731,7 +1731,7 @@ namespace SharpPy
                 
             } while (Match(TokenType.COMMA));
             
-            return new PassStatement(); // Simplified - could be ImportStatement with modules list
+            return new ImportStatement(modules);
         }
         private Statement ParseFromImportStatement()
         {
@@ -1759,7 +1759,7 @@ namespace SharpPy
                 
             } while (Match(TokenType.COMMA));
             
-            return new PassStatement(); // Simplified - could be FromImportStatement
+            return new ImportFromStatement(moduleName, imports);
         }
 
         /// <summary>
