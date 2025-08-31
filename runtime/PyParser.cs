@@ -1699,8 +1699,8 @@ namespace SharpPy
         }
         private Statement ParseForStatement()
         {
-            // Parse for target (left side of 'in')
-            var target = ParseUnaryOrAtom(); // Use ParseUnaryOrAtom instead of ParseExpression for simple targets
+            // Parse for target (left side of 'in') - support both simple names and tuple unpacking
+            var target = ParseForTarget();
             Consume(TokenType.IN, "Expected 'in' in for statement");
             var iterable = ParseExpression(); // in iterable  
             Consume(TokenType.COLON, "Expected ':' after for clause");
@@ -1716,18 +1716,70 @@ namespace SharpPy
                 elseClause = ParseBlockOrSingleStatement();
             }
             
-            // Extract target name from target expression
-            string targetName = "";
+            // Handle both single variable and tuple unpacking targets
             if (target is NameExpression nameExpr)
             {
-                targetName = nameExpr.Name;
+                // Simple case: for x in items:
+                return new ForStatement(nameExpr.Name, iterable, body, elseClause);
+            }
+            else if (target is TupleExpression tupleExpr)
+            {
+                // Tuple unpacking: for x, y in items:
+                var targetNames = new List<string>();
+                foreach (var element in tupleExpr.Elements)
+                {
+                    if (element is NameExpression elementName)
+                    {
+                        targetNames.Add(elementName.Name);
+                    }
+                    else
+                    {
+                        throw new Exception("For loop tuple unpacking targets must be variable names");
+                    }
+                }
+                return new ForTupleStatement(targetNames, iterable, body, elseClause);
             }
             else
             {
-                throw new Exception("For loop target must be a simple variable name");
+                throw new Exception("For loop target must be a variable name or tuple unpacking");
+            }
+        }
+
+        /// <summary>
+        /// Parse for loop target - supports both simple names and tuple unpacking
+        /// </summary>
+        private Expression ParseForTarget()
+        {
+            // Check if this is a tuple unpacking (comma-separated identifiers)
+            var targets = new List<Expression>();
+            
+            // Parse first target
+            if (!Check(TokenType.IDENTIFIER))
+            {
+                throw new Exception("Expected variable name in for statement target");
             }
             
-            return new ForStatement(targetName, iterable, body, elseClause);
+            targets.Add(new NameExpression(Advance().Lexeme));
+            
+            // Check for additional targets (comma-separated)
+            while (Match(TokenType.COMMA))
+            {
+                if (!Check(TokenType.IDENTIFIER))
+                {
+                    throw new Exception("Expected variable name after comma in for statement target");
+                }
+                targets.Add(new NameExpression(Advance().Lexeme));
+            }
+            
+            // Return single name or tuple
+            if (targets.Count == 1)
+            {
+                return targets[0];
+            }
+            else
+            {
+                return new TupleExpression(targets);
+            }
         }
         private Statement ParseTryStatement()
         {

@@ -299,6 +299,100 @@ namespace SharpPy
 
         #endregion
 
+        #region CPython Compatible Methods (Attribute Access)
+        
+        /// <summary>
+        /// CPython 호환: 딕셔너리 메서드들을 속성으로 접근
+        /// </summary>
+        protected override PyObject PyGetAttribute(string name)
+        {
+            switch (name)
+            {
+                case "keys":
+                    return new PyFunction("keys", args =>
+                    {
+                        if (args.Length != 0)
+                            throw PyTypeError.Create($"keys() takes no arguments ({args.Length} given)");
+                        return Keys();
+                    });
+
+                case "values":
+                    return new PyFunction("values", args =>
+                    {
+                        if (args.Length != 0)
+                            throw PyTypeError.Create($"values() takes no arguments ({args.Length} given)");
+                        return Values();
+                    });
+
+                case "items":
+                    return new PyFunction("items", args =>
+                    {
+                        if (args.Length != 0)
+                            throw PyTypeError.Create($"items() takes no arguments ({args.Length} given)");
+                        return Items();
+                    });
+
+                case "get":
+                    return new PyFunction("get", args =>
+                    {
+                        if (args.Length < 1 || args.Length > 2)
+                            throw PyTypeError.Create($"get() takes from 1 to 2 positional arguments but {args.Length} were given");
+                        var key = args[0];
+                        var defaultValue = args.Length > 1 ? args[1] : PyNone.Instance;
+                        return Get(key, defaultValue);
+                    });
+
+                case "pop":
+                    return new PyFunction("pop", args =>
+                    {
+                        if (args.Length < 1 || args.Length > 2)
+                            throw PyTypeError.Create($"pop() takes from 1 to 2 positional arguments but {args.Length} were given");
+                        var key = args[0];
+                        var defaultValue = args.Length > 1 ? args[1] : null;
+                        return Pop(key, defaultValue);
+                    });
+
+                case "clear":
+                    return new PyFunction("clear", args =>
+                    {
+                        if (args.Length != 0)
+                            throw PyTypeError.Create($"clear() takes no arguments ({args.Length} given)");
+                        Clear();
+                        return PyNone.Instance;
+                    });
+
+                case "copy":
+                    return new PyFunction("copy", args =>
+                    {
+                        if (args.Length != 0)
+                            throw PyTypeError.Create($"copy() takes no arguments ({args.Length} given)");
+                        return Copy();
+                    });
+
+                case "update":
+                    return new PyFunction("update", args =>
+                    {
+                        if (args.Length != 1)
+                            throw PyTypeError.Create($"update() takes exactly one argument ({args.Length} given)");
+                        if (args[0] is PyDict otherDict)
+                        {
+                            Update(otherDict);
+                        }
+                        else
+                        {
+                            throw PyTypeError.Create($"'update() argument must be dict, not '{args[0].GetTypeName()}'");
+                        }
+                        return PyNone.Instance;
+                    });
+
+                default:
+                    // 기본 속성 접근은 부모 클래스에 위임
+                    return base.PyGetAttribute(name);
+            }
+        }
+        
+        #endregion
+
         #region Type Conversion (CPython Compatible)
 
         // === To* Methods: Value Extraction (PyDict → C# basic types) ===

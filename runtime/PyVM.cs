@@ -542,12 +542,27 @@ namespace SharpPy
                     catch (Exception ex) when (ex is PyException)
                     {
                         // Re-throw Python exceptions
+                        Console.WriteLine($"🔍 LOAD_SUBSCR: Re-throwing Python exception: {ex.GetType().Name} - {ex.Message}");
                         throw;
                     }
                     catch (Exception ex)
                     {
-                        // Convert C# exceptions to Python exceptions
-                        throw PyTypeError.Create($"subscript error: {ex.Message}");
+                        // Convert C# exceptions to appropriate Python exceptions (CPython 호환)
+                        if (ex.Message.Contains("key") || ex.Message.Contains("Key"))
+                        {
+                            // Key not found → KeyError (CPython 방식)
+                            throw PyKeyError.Create(ex.Message.Replace("subscript error: ", ""));
+                        }
+                        else if (ex.Message.Contains("index") || ex.Message.Contains("range"))
+                        {
+                            // Index out of range → IndexError (CPython 방식)  
+                            throw PyIndexError.Create(ex.Message.Replace("subscript error: ", ""));
+                        }
+                        else
+                        {
+                            // Other subscript errors → TypeError
+                            throw PyTypeError.Create($"subscript error: {ex.Message}");
+                        }
                     }
                     break;
                     
@@ -1289,11 +1304,15 @@ namespace SharpPy
         {
             if (exception is PyException pyExc && exceptionType is PyBuiltinType builtinType)
             {
-                // Get the exception's type name
+                // CPython-style exception type matching
+                // Get the exception's type name without "Py" prefix
                 string excTypeName = pyExc.GetType().Name;
+                if (excTypeName.StartsWith("Py"))
+                    excTypeName = excTypeName.Substring(2); // Remove "Py" prefix
                 
-                // Match type names
-                return excTypeName.Replace("Py", "") == builtinType.Name.Replace("Error", "Error");
+                // Match with builtin type name
+                Console.WriteLine($"🔍 Exception match: {excTypeName} vs {builtinType.Name}");
+                return excTypeName == builtinType.Name;
             }
             
             return false;

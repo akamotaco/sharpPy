@@ -53,7 +53,7 @@ namespace SharpPy
         /// <summary>
         /// Phase 2: Analyze nested function for free variables
         /// </summary>
-        public (List<string> freeVars, List<string> cellVars) AnalyzeNestedFunction(FunctionDefStatement func, List<string> outerParameters)
+        public (List<string> freeVars, List<string> cellVars) AnalyzeNestedFunction(FunctionDefStatement func, List<string> outerVarNames)
         {
             _definedVars.Clear();
             _usedVars.Clear();
@@ -72,9 +72,10 @@ namespace SharpPy
                 AnalyzeStatement(statement);
             }
             
-            // Free variables: used but not defined locally (excluding globals/builtins)
+            // Free variables: used but not defined locally (CPython 방식)
+            // 외부 스코프의 모든 변수(매개변수 + 지역 변수)가 자유 변수가 될 수 있음
             var freeVars = _usedVars.Except(_definedVars)
-                                   .Where(var => outerParameters.Contains(var)) // 외부 함수의 매개변수인 경우만
+                                   .Where(var => outerVarNames.Contains(var)) // 외부 스코프의 모든 변수
                                    .ToList();
             
             // Cell variables: analyze nested functions to see what they reference
@@ -701,6 +702,10 @@ namespace SharpPy
                     CompileFor(forStmt);
                     break;
                     
+                case ForTupleStatement forTupleStmt:
+                    CompileForTuple(forTupleStmt);
+                    break;
+                    
                 case TryStatement tryStmt:
                     CompileTry(tryStmt);
                     break;
@@ -925,6 +930,7 @@ namespace SharpPy
             
             // 1. 자유 변수 분석
             var analyzer = new FreeVariableAnalyzer();
+            Console.WriteLine($"  DEBUG: Current _varNames: [{string.Join(", ", _varNames)}]");
             var (freeVars, cellVars) = analyzer.AnalyzeNestedFunction(func, _varNames);
             
             Console.WriteLine($"  Free variables: [{string.Join(", ", freeVars)}]");
@@ -1437,6 +1443,57 @@ namespace SharpPy
             
             // Note: Break statements will need to jump past the else clause to loopEnd
             // This requires break handling to be aware of loop-else structure
+        }
+        
+        /// <summary>
+        /// Compile for loop with tuple unpacking (e.g., for key, value in items:)
+        /// </summary>
+        private void CompileForTuple(ForTupleStatement forTupleStmt)
+        {
+            // CPython approach with tuple unpacking support
+            
+            // 1. Get iterator from iterable
+            CompileExpression(forTupleStmt.Iter);  // Push iterable on stack
+            EmitInstruction(ByteCodeOp.GET_ITER); // Convert to iterator
+            
+            // 2. Loop start - FOR_ITER will handle next() and StopIteration
+            var forIterInstruction = _instructions.Count;
+            EmitInstruction(ByteCodeOp.FOR_ITER, 0); // Jump target will be patched later
+            
+            // 3. FOR_ITER pushes the next value on stack, unpack it into target variables
+            // The value is a tuple/list, we need to unpack it
+            EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, forTupleStmt.Targets.Count);
+            
+            // 4. Store each unpacked value in the target variables (in correct order)
+            // UNPACK_SEQUENCE pushes items in reverse order, so we store them in forward order
+            for (int i = 0; i < forTupleStmt.Targets.Count; i++)
+            {
+                EmitStoreName(forTupleStmt.Targets[i]);
+            }
+            
+            // 5. Execute loop body
+            foreach (var stmt in forTupleStmt.Body)
+            {
+                CompileStatement(stmt);
+            }
+            
+            // 6. Jump back to FOR_ITER
+            var jumpOffset = _instructions.Count - forIterInstruction;
+            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpOffset);
+            
+            // 7. Loop completed normally - execute else clause if present
+            var normalCompletionPoint = _instructions.Count;
+            if (forTupleStmt.ElseClause != null && forTupleStmt.ElseClause.Count > 0)
+            {
+                foreach (var stmt in forTupleStmt.ElseClause)
+                {
+                    CompileStatement(stmt);
+                }
+            }
+            
+            // 8. Patch FOR_ITER to jump here when StopIteration occurs
+            var loopEnd = _instructions.Count;
+            _instructions[forIterInstruction] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, normalCompletionPoint);
         }
         
         /// <summary>

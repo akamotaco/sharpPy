@@ -954,6 +954,142 @@ namespace SharpPy
         public override string ToString() => $"for {Target} in {Iter}: ...";
     }
 
+    /// <summary>
+    /// For statement with tuple unpacking (e.g., for key, value in items:)
+    /// </summary>
+    public class ForTupleStatement : Statement
+    {
+        public override string NodeType => "ForTuple";
+        public List<string> Targets { get; }
+        public Expression Iter { get; }
+        public List<Statement> Body { get; }
+        public List<Statement>? ElseClause { get; }
+        
+        public ForTupleStatement(List<string> targets, Expression iter, List<Statement> body, List<Statement>? elseClause = null)
+        {
+            Targets = targets;
+            Iter = iter;
+            Body = body;
+            ElseClause = elseClause;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var iterable = Iter.Evaluate(scope);
+            PyObject result = PyNone.Instance;
+            
+            try
+            {
+                // Handle different iterable types with tuple unpacking
+                if (iterable is PyList list)
+                {
+                    foreach (var item in list.Items)
+                    {
+                        // Unpack the item into target variables
+                        UnpackItem(item, scope);
+                        try
+                        {
+                            foreach (var stmt in Body)
+                            {
+                                result = stmt.Evaluate(scope);
+                            }
+                        }
+                        catch (PyContinueException)
+                        {
+                            continue;
+                        }
+                    }
+                }
+                else if (iterable is PyDict dict)
+                {
+                    // For dict.items() iteration - assume it returns key-value pairs
+                    var items = dict.GetAttribute("items");
+                    if (items is PyFunction itemsMethod)
+                    {
+                        var itemsList = itemsMethod.Call();
+                        if (itemsList is PyList dictItems)
+                        {
+                            foreach (var item in dictItems.Items)
+                            {
+                                UnpackItem(item, scope);
+                                try
+                                {
+                                    foreach (var stmt in Body)
+                                    {
+                                        result = stmt.Evaluate(scope);
+                                    }
+                                }
+                                catch (PyContinueException)
+                                {
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    throw PyTypeError.Create($"'{iterable.GetTypeName()}' object is not iterable");
+                }
+            }
+            catch (PyBreakException)
+            {
+                // break로 루프 탈출
+            }
+            
+            // Execute else clause if loop completed normally (no break)
+            if (ElseClause != null)
+            {
+                foreach (var stmt in ElseClause)
+                {
+                    result = stmt.Evaluate(scope);
+                }
+            }
+            
+            return result;
+        }
+        
+        /// <summary>
+        /// Unpack an item into the target variables
+        /// </summary>
+        private void UnpackItem(PyObject item, PyScope scope)
+        {
+            if (item is PyTuple tuple)
+            {
+                // Unpack tuple elements
+                if (tuple.Items.Length != Targets.Count)
+                {
+                    throw PyValueError.Create($"not enough values to unpack (expected {Targets.Count}, got {tuple.Items.Length})");
+                }
+                
+                for (int i = 0; i < Targets.Count; i++)
+                {
+                    scope.SetVariable(Targets[i], tuple.Items[i]);
+                }
+            }
+            else if (item is PyList itemList)
+            {
+                // Unpack list elements
+                if (itemList.Items.Length != Targets.Count)
+                {
+                    throw PyValueError.Create($"not enough values to unpack (expected {Targets.Count}, got {itemList.Items.Length})");
+                }
+                
+                for (int i = 0; i < Targets.Count; i++)
+                {
+                    scope.SetVariable(Targets[i], itemList.Items[i]);
+                }
+            }
+            else
+            {
+                // Try to iterate over the item
+                throw PyTypeError.Create($"cannot unpack non-sequence {item.GetTypeName()}");
+            }
+        }
+        
+        public override string ToString() => $"for {string.Join(", ", Targets)} in {Iter}: ...";
+    }
+
     public class TryStatement : Statement
     {
         public override string NodeType => "Try";
