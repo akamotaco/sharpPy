@@ -414,6 +414,199 @@ namespace SharpPy
         }
         
         /// <summary>
+        /// CPython 호환: 매개변수 문자열에서 이름과 기본값 분리
+        /// </summary>
+        private (List<string> paramNames, List<PyObject> defaults) ParseFunctionParameters(List<string> parameters)
+        {
+            var paramNames = new List<string>();
+            var defaults = new List<PyObject>();
+            
+            foreach (var param in parameters)
+            {
+                string cleanName = param;
+                PyObject defaultValue = null;
+                
+                // CPython 방식: 매개변수 문자열 파싱
+                if (param.Contains("="))
+                {
+                    // name=value 또는 name:type=value 처리
+                    var equalIndex = param.LastIndexOf('=');
+                    var nameTypePart = param.Substring(0, equalIndex).Trim();
+                    var defaultValueStr = param.Substring(equalIndex + 1).Trim();
+                    
+                    // 타입 주석 제거: name:type -> name  
+                    if (nameTypePart.Contains(":"))
+                    {
+                        cleanName = nameTypePart.Substring(0, nameTypePart.IndexOf(':')).Trim();
+                    }
+                    else
+                    {
+                        cleanName = nameTypePart;
+                    }
+                    
+                    // CPython 호환: 기본값을 정의 시점에서 평가
+                    defaultValue = ParseAndEvaluateDefaultValue(defaultValueStr);
+                }
+                else if (param.Contains(":"))
+                {
+                    // 타입 주석만 있는 경우: name:type
+                    cleanName = param.Substring(0, param.IndexOf(':')).Trim();
+                }
+                else
+                {
+                    // 단순 매개변수 이름
+                    cleanName = param.Trim();
+                }
+                
+                paramNames.Add(cleanName);
+                // CPython 방식: null이 아닌 기본값만 defaults 리스트에 추가
+                if (defaultValue != null)
+                {
+                    defaults.Add(defaultValue);
+                }
+            }
+            
+            return (paramNames, defaults);
+        }
+        
+        /// <summary>
+        /// CPython 호환: 기본값을 정의 시점에서 파싱하고 평가
+        /// </summary>
+        private PyObject ParseAndEvaluateDefaultValue(string defaultValueStr)
+        {
+            // CPython 방식: 리터럴 우선 처리
+            if (int.TryParse(defaultValueStr, out int intValue))
+            {
+                return new PyInt(intValue);
+            }
+            
+            if (double.TryParse(defaultValueStr, out double floatValue))
+            {
+                return new PyFloat(floatValue);
+            }
+            
+            // 불린 리터럴
+            if (defaultValueStr == "True")
+                return PyBool.True;
+            if (defaultValueStr == "False")
+                return PyBool.False;
+            
+            // 문자열 리터럴 처리
+            if ((defaultValueStr.StartsWith("\"") && defaultValueStr.EndsWith("\"")) ||
+                (defaultValueStr.StartsWith("'") && defaultValueStr.EndsWith("'")))
+            {
+                var content = defaultValueStr.Substring(1, defaultValueStr.Length - 2);
+                // 기본적인 이스케이프 처리
+                content = content.Replace("\\n", "\n")
+                              .Replace("\\t", "\t")
+                              .Replace("\\r", "\r")
+                              .Replace("\\'", "'")
+                              .Replace("\\\"", "\"")
+                              .Replace("\\\\", "\\");
+                return new PyString(content);
+            }
+            
+            // None 처리
+            if (defaultValueStr == "None")
+                return PyNone.Instance;
+            
+            // 복합 표현식은 나중에 처리 (현재는 단순 리터럴만)
+            Console.WriteLine($"⚠️ Warning: Complex default value '{defaultValueStr}' not yet supported");
+            return PyNone.Instance;
+        }
+        
+        /// <summary>
+        /// CPython 호환: 클로저와 기본값을 모두 지원하는 컴파일
+        /// </summary>
+        public PyCodeObject CompileWithClosureAndDefaults(List<Statement> statements, string name, List<string> paramNames, List<PyObject> defaults, List<string> freeVars, List<string> cellVars)
+        {
+            _instructions = new List<ByteCodeInstruction>();
+            _constants = new List<PyObject>();
+            _names = new List<string>();
+            _varNames = new List<string>();
+            
+            // 함수 매개변수를 _varNames에 추가 (LOAD_FAST/STORE_FAST용)
+            foreach (var param in paramNames)
+            {
+                _varNames.Add(param);
+            }
+            
+            Console.WriteLine($"\n🔧 컴파일 (클로저+기본값): {name}");
+            Console.WriteLine($"  매개변수: [{string.Join(", ", paramNames)}]");
+            Console.WriteLine($"  기본값: [{string.Join(", ", defaults.Select(d => d?.ToString() ?? "None"))}]");
+            Console.WriteLine($"  FreeVars: [{string.Join(", ", freeVars)}]");
+            Console.WriteLine($"  CellVars: [{string.Join(", ", cellVars)}]");
+            
+            // Phase 2: Cell 변수들을 위한 MAKE_CELL 명령어 발행
+            foreach (var cellVar in cellVars)
+            {
+                var paramIndex = paramNames.IndexOf(cellVar);
+                if (paramIndex >= 0)
+                {
+                    Console.WriteLine($"  → Making cell for parameter: {cellVar}");
+                    EmitInstruction(ByteCodeOp.MAKE_CELL, paramIndex);
+                }
+            }
+            
+            foreach (var statement in statements)
+            {
+                CompileStatement(statement);
+            }
+            
+            // 함수는 None 반환
+            EmitLoadConst(PyNone.Instance);
+            EmitInstruction(ByteCodeOp.RETURN_VALUE);
+            
+            var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, 
+                                            paramNames.Count, freeVars, cellVars, defaults);
+            Console.WriteLine($"✅ 컴파일 완료: {_instructions.Count}개 명령어");
+            
+            // 바이트코드 최적화 적용
+            var optimizer = new ByteCodeOptimizer(true);
+            var optimizedCode = optimizer.OptimizeCode(codeObject);
+            
+            return optimizedCode;
+        }
+        
+        /// <summary>
+        /// CPython 호환: 함수를 매개변수 기본값과 함께 컴파일
+        /// </summary>
+        public PyCodeObject CompileFunction(List<Statement> statements, string name, List<string> paramNames, List<PyObject> defaults)
+        {
+            _instructions = new List<ByteCodeInstruction>();
+            _constants = new List<PyObject>();
+            _names = new List<string>();
+            _varNames = new List<string>();
+            
+            // 함수 매개변수를 _varNames에 추가
+            foreach (var param in paramNames)
+            {
+                _varNames.Add(param);
+            }
+            
+            Console.WriteLine($"\n🔧 컴파일 함수: {name}");
+            Console.WriteLine($"  매개변수: [{string.Join(", ", paramNames)}]");
+            Console.WriteLine($"  기본값: [{string.Join(", ", defaults.Select(d => d?.ToString() ?? "None"))}]");
+            
+            // 함수 본문 컴파일
+            foreach (var statement in statements)
+            {
+                CompileStatement(statement);
+            }
+            
+            // 함수는 None 반환 (return문이 없을 경우)
+            EmitLoadConst(PyNone.Instance);
+            EmitInstruction(ByteCodeOp.RETURN_VALUE);
+            
+            // PyCodeObject 생성 (기본값 포함)
+            var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, 
+                                            paramNames.Count, null, null, defaults);
+            Console.WriteLine($"✅ 함수 컴파일 완료: {_instructions.Count}개 명령어");
+            
+            return codeObject;
+        }
+        
+        /// <summary>
         /// Phase 2: 컴파일러에 클로저 정보 설정
         /// </summary>
         public void SetupClosureCompilation(List<string> cellVars, List<string> freeVars = null)
@@ -737,10 +930,13 @@ namespace SharpPy
             Console.WriteLine($"  Free variables: [{string.Join(", ", freeVars)}]");
             Console.WriteLine($"  Cell variables: [{string.Join(", ", cellVars)}]");
             
-            // 2. 코드 객체 컴파일 (자유 변수 정보 설정)
+            // 2. 매개변수와 기본값 파싱 (FunctionDefStatement에서 수행하던 로직)
+            var (paramNames, defaults) = ParseFunctionParameters(func.Parameters);
+            
+            // 3. 코드 객체 컴파일 (자유 변수 정보와 기본값 포함)
             var compiler = new PythonCompiler();
             compiler.SetupClosureCompilation(cellVars, freeVars); // 셀 변수와 자유 변수 설정
-            var funcCode = compiler.CompileWithClosure(func.Body, func.Name, func.Parameters, freeVars, cellVars);
+            var funcCode = compiler.CompileWithClosureAndDefaults(func.Body, func.Name, paramNames, defaults, freeVars, cellVars);
             
             // 3. 자유 변수가 있는 경우 클로저 생성
             if (freeVars.Count > 0)
@@ -769,11 +965,27 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, freeVars.Count);
             }
             
-            // 4. 코드 객체 로드
+            // 4. 기본값이 있는 경우 기본값 튜플을 스택에 푸시
+            int flags = 0;
+            if (defaults.Count > 0)
+            {
+                foreach (var defaultValue in defaults)
+                {
+                    EmitLoadConst(defaultValue);
+                }
+                EmitInstruction(ByteCodeOp.BUILD_TUPLE, defaults.Count);
+                flags |= 1; // MAKE_FUNCTION_DEFAULTS flag
+            }
+            
+            // 5. 코드 객체 로드
             EmitLoadConst(funcCode);
             
-            // 5. 함수 생성 (클로저 플래그 설정)
-            int flags = freeVars.Count > 0 ? 8 : 0; // MAKE_FUNCTION_CLOSURE flag
+            // 6. 함수 생성 (기본값 + 클로저 플래그 설정)
+            if (freeVars.Count > 0)
+            {
+                flags |= 8; // MAKE_FUNCTION_CLOSURE flag
+            }
+            
             EmitInstruction(ByteCodeOp.MAKE_FUNCTION, flags);
             EmitStoreName(func.Name);
         }

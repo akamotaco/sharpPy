@@ -221,10 +221,14 @@ namespace SharpPy
         public List<string> FreeVars { get; set; } = new List<string>();   // co_freevars - 자유 변수
         public List<string> CellVars { get; set; } = new List<string>();   // co_cellvars - 셀 변수
         
+        // CPython 호환 매개변수 기본값 지원 (Phase 3)
+        public List<PyObject> DefaultValues { get; set; } = new List<PyObject>(); // 매개변수 기본값들 (NULL이면 기본값 없음)
+        
         public PyCodeObject(string name, List<ByteCodeInstruction> instructions, 
                         List<PyObject> constants, List<string> names, 
                         List<string> varNames, int argCount = 0,
-                        List<string> freeVars = null, List<string> cellVars = null)
+                        List<string> freeVars = null, List<string> cellVars = null,
+                        List<PyObject> defaultValues = null)
         {
             Name = name;
             Instructions = instructions;
@@ -234,6 +238,7 @@ namespace SharpPy
             ArgCount = argCount;
             FreeVars = freeVars ?? new List<string>();
             CellVars = cellVars ?? new List<string>();
+            DefaultValues = defaultValues ?? new List<PyObject>();
         }
         
         public override string GetTypeName() => "code";

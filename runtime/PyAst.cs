@@ -413,6 +413,8 @@ namespace SharpPy
         
         public override PyObject Evaluate(PyScope scope)
         {
+            Console.WriteLine($"📋 FunctionDefStatement.Evaluate 실행: {Name}");
+            
             // 제네릭 함수는 PyExecutor를 사용
             if (TypeParams.Any())
             {
@@ -527,9 +529,18 @@ namespace SharpPy
         /// </summary>
         private void BindArgumentsToParameters(List<string> paramNames, List<PyObject> defaults, PyObject[] args, PyScope funcScope)
         {
+            Console.WriteLine($"🔗 [AST] 매개변수 바인딩: {args.Length}개 인수, {paramNames.Count}개 매개변수");
+            Console.WriteLine($"  DefaultValues.Count: {defaults.Count}");
+            for (int j = 0; j < defaults.Count; j++)
+            {
+                Console.WriteLine($"    [{j}]: {defaults[j]?.ToString() ?? "null"}");
+            }
+            
             // CPython처럼 위치 인수 먼저 처리
             for (int i = 0; i < paramNames.Count; i++)
             {
+                Console.WriteLine($"  처리중: 매개변수[{i}] = '{paramNames[i]}'");
+                
                 if (i < args.Length)
                 {
                     // 제공된 위치 인수 사용

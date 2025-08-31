@@ -21,6 +21,8 @@ namespace SharpPy
         
         public PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope = null, PyCell[] closure = null)
         {
+            Console.WriteLine($"🆕 PyFrame 생성: {code.Name}, args={args.Length}개");
+            
             Code = code;
             ValueStack = new Stack<PyObject>();
             ScopeChain = new PyScopeChain(); // 새로운 스코프 체인 생성
@@ -47,12 +49,55 @@ namespace SharpPy
             // 함수 스코프 생성
             ScopeChain.PushScope(ScopeType.Local, code.Name);
             
-            // 함수 인자를 지역 변수로 바인딩
-            for (int i = 0; i < args.Length && i < code.ArgCount; i++)
+            // CPython 호환: 매개변수 바인딩 (기본값 처리 포함)
+            BindArgumentsToParameters(args, code);
+        }
+        
+        /// <summary>
+        /// CPython 호환: 인수를 매개변수에 바인딩 (기본값 처리 포함)
+        /// </summary>
+        private void BindArgumentsToParameters(PyObject[] args, PyCodeObject code)
+        {
+            Console.WriteLine($"🔗 매개변수 바인딩: {args.Length}개 인수, {code.ArgCount}개 매개변수");
+            Console.WriteLine($"  DefaultValues.Count: {code.DefaultValues.Count}");
+            for (int j = 0; j < code.DefaultValues.Count; j++)
+            {
+                Console.WriteLine($"    [{j}]: {code.DefaultValues[j]?.ToString() ?? "null"}");
+            }
+            
+            // CPython처럼 위치 인수 먼저 처리
+            for (int i = 0; i < code.ArgCount; i++)
             {
                 var paramName = code.VarNames[i];
-                FastLocals[paramName] = args[i];
-                ScopeChain.AssignVariable(paramName, args[i]);
+                Console.WriteLine($"  처리중: 매개변수[{i}] = '{paramName}'");
+                
+                if (i < args.Length)
+                {
+                    // 제공된 위치 인수 사용
+                    Console.WriteLine($"  → {paramName} = {args[i]} (위치 인수)");
+                    FastLocals[paramName] = args[i];
+                    ScopeChain.AssignVariable(paramName, args[i]);
+                }
+                else if (i < code.DefaultValues.Count && code.DefaultValues[i] != null)
+                {
+                    // 기본값 사용
+                    var defaultValue = code.DefaultValues[i];
+                    Console.WriteLine($"  → {paramName} = {defaultValue} (기본값)");
+                    FastLocals[paramName] = defaultValue;
+                    ScopeChain.AssignVariable(paramName, defaultValue);
+                }
+                else
+                {
+                    // 필수 매개변수가 누락됨
+                    Console.WriteLine($"  ❌ 조건 실패: i({i}) < DefaultValues.Count({code.DefaultValues.Count}) = {i < code.DefaultValues.Count}, DefaultValues[{i}] != null = {(i < code.DefaultValues.Count ? code.DefaultValues[i] != null : "N/A")}");
+                    throw PyTypeError.Create($"[PyFrame] missing required argument: '{paramName}'");
+                }
+            }
+            
+            // 너무 많은 인수가 제공된 경우 (CPython 호환)
+            if (args.Length > code.ArgCount)
+            {
+                throw PyTypeError.Create($"{code.Name}() takes {code.ArgCount} positional argument{(code.ArgCount != 1 ? "s" : "")} but {args.Length} {(args.Length != 1 ? "were" : "was")} given");
             }
         }
         
@@ -304,6 +349,23 @@ namespace SharpPy
                     var codeObject = frame.ValueStack.Pop();
                     
                     PyCell[] closure = null;
+                    PyTuple defaults = null;
+                    
+                    // Check for default parameters flag (1 = MAKE_FUNCTION_DEFAULTS) - CPython order
+                    if ((flags & 1) != 0)
+                    {
+                        var defaultsTuple = frame.ValueStack.Pop();
+                        if (defaultsTuple is PyTuple defTuple)
+                        {
+                            defaults = defTuple;
+                            Console.WriteLine($"  → Creating function with {defTuple.Items.Length} default parameters");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"  ⚠️ Warning: Expected tuple for defaults, got {defaultsTuple?.GetType()}");
+                            defaults = new PyTuple(new PyObject[0]);
+                        }
+                    }
                     
                     // Check for closure flag (8 = MAKE_FUNCTION_CLOSURE)
                     if ((flags & 8) != 0)
@@ -325,20 +387,32 @@ namespace SharpPy
                     {
                         PyFunction functionObject;
                         
+                        // Create function implementation with proper parameter binding
+                        Func<PyObject[], PyObject> implementation = args =>
+                        {
+                            // Apply CPython-style parameter binding with defaults
+                            var boundArgs = BindFunctionArguments(args, pyCode, defaults);
+                            var functionFrame = new PyFrame(pyCode, boundArgs, frame.ScopeChain);
+                            return ExecuteFrame(functionFrame);
+                        };
+                        
                         if (closure != null && closure.Length > 0)
                         {
                             // Create function with closure
                             functionObject = PyFunction.CreateClosureFunction(pyCode.Name, pyCode, closure, frame.ScopeChain);
+                            // Override implementation to use our parameter binding
+                            functionObject = new PyFunction(pyCode.Name, implementation, null, null, closure, pyCode);
                         }
                         else
                         {
                             // Create regular function without closure
-                            functionObject = new PyFunction(pyCode.Name, args =>
-                            {
-                                // 새로운 프레임으로 함수 코드 실행
-                                var functionFrame = new PyFrame(pyCode, args, frame.ScopeChain);
-                                return ExecuteFrame(functionFrame);
-                            }, null, null, closure, pyCode);
+                            functionObject = new PyFunction(pyCode.Name, implementation, null, null, closure, pyCode);
+                        }
+                        
+                        // Set __defaults__ attribute following CPython
+                        if (defaults != null)
+                        {
+                            functionObject.SetAttribute("__defaults__", defaults);
                         }
                         
                         frame.ValueStack.Push(functionObject);
@@ -1275,6 +1349,59 @@ namespace SharpPy
             }
             
             return (null, exception);
+        }
+        
+        /// <summary>
+        /// CPython-style function argument binding with default parameters
+        /// Used by MAKE_FUNCTION bytecode implementation
+        /// </summary>
+        private PyObject[] BindFunctionArguments(PyObject[] args, PyCodeObject code, PyTuple defaults)
+        {
+            Console.WriteLine($"🔗 함수 호출 매개변수 바인딩: {args.Length}개 인수, {code.ArgCount}개 매개변수");
+            
+            // Calculate required vs provided arguments
+            int defaultCount = defaults?.Items?.Length ?? 0;
+            int requiredArgCount = code.ArgCount - defaultCount;
+            
+            Console.WriteLine($"  필수 매개변수: {requiredArgCount}, 기본값 매개변수: {defaultCount}");
+            
+            // Check if we have enough arguments
+            if (args.Length < requiredArgCount)
+            {
+                throw PyTypeError.Create($"{code.Name}() missing {requiredArgCount - args.Length} required positional argument(s)");
+            }
+            
+            // Check if we have too many arguments
+            if (args.Length > code.ArgCount)
+            {
+                throw PyTypeError.Create($"{code.Name}() takes {code.ArgCount} positional argument(s) but {args.Length} were given");
+            }
+            
+            // Create bound arguments array
+            var boundArgs = new PyObject[code.ArgCount];
+            
+            // Bind provided arguments first
+            for (int i = 0; i < args.Length; i++)
+            {
+                boundArgs[i] = args[i];
+                Console.WriteLine($"  → 매개변수[{i}] = {args[i]} (제공된 인수)");
+            }
+            
+            // Bind default values for missing arguments
+            if (defaults != null && defaults.Items.Length > 0)
+            {
+                for (int i = args.Length; i < code.ArgCount; i++)
+                {
+                    int defaultIndex = i - requiredArgCount;
+                    if (defaultIndex >= 0 && defaultIndex < defaults.Items.Length)
+                    {
+                        boundArgs[i] = defaults.Items[defaultIndex];
+                        Console.WriteLine($"  → 매개변수[{i}] = {defaults.Items[defaultIndex]} (기본값)");
+                    }
+                }
+            }
+            
+            return boundArgs;
         }
     }
 
