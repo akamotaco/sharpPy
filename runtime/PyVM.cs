@@ -343,6 +343,45 @@ namespace SharpPy
                     frame.ValueStack.Push(callResult);
                     break;
                     
+                case ByteCodeOp.CALL_FUNCTION_KW:
+                    var positionalArgCount = instruction.Argument;
+                    
+                    // 키워드 이름 튜플 (스택 맨 위)
+                    var keywordNamesTuple = frame.ValueStack.Pop() as PyTuple;
+                    if (keywordNamesTuple == null)
+                        throw PyTypeError.Create("keyword names must be a tuple");
+                    
+                    var keywordCount = keywordNamesTuple.Items.Length;
+                    
+                    // 키워드 인수 값들 (키워드 개수만큼)
+                    var keywordValues = new PyObject[keywordCount];
+                    for (int i = keywordCount - 1; i >= 0; i--)
+                    {
+                        keywordValues[i] = frame.ValueStack.Pop();
+                    }
+                    
+                    // 위치 인수들
+                    var positionalArgs = new PyObject[positionalArgCount];
+                    for (int i = positionalArgCount - 1; i >= 0; i--)
+                    {
+                        positionalArgs[i] = frame.ValueStack.Pop();
+                    }
+                    
+                    var kwFunction = frame.ValueStack.Pop();
+                    
+                    // 키워드 인수 딕셔너리 생성
+                    var kwargs = new Dictionary<string, PyObject>();
+                    for (int i = 0; i < keywordCount; i++)
+                    {
+                        var keyName = keywordNamesTuple.Items[i].ToStr();
+                        kwargs[keyName] = keywordValues[i];
+                    }
+                    
+                    // 키워드 인수를 지원하는 함수 호출
+                    var kwCallResult = CallFunctionWithKwargs(kwFunction, positionalArgs, kwargs);
+                    frame.ValueStack.Push(kwCallResult);
+                    break;
+                    
                 case ByteCodeOp.MAKE_FUNCTION:
                     // CPython-style function creation with closure support
                     var flags = instruction.Argument;
@@ -1421,6 +1460,157 @@ namespace SharpPy
             }
             
             return boundArgs;
+        }
+        
+        /// <summary>
+        /// 키워드 인수를 지원하는 함수 호출
+        /// </summary>
+        private PyObject CallFunctionWithKwargs(PyObject function, PyObject[] args, Dictionary<string, PyObject> kwargs)
+        {
+            // 간단한 구현: 키워드 인수를 위치 인수로 변환하여 기존 Call 메서드 사용
+            if (function is PyFunction pyFunc)
+            {
+                // 키워드 인수를 포함한 매개변수 바인딩 수행
+                var totalArgs = BindArgumentsWithKwargs(args, kwargs, pyFunc);
+                return pyFunc.Call(totalArgs);
+            }
+            else
+            {
+                // 다른 callable 객체의 경우 기본 Call 메서드 사용 (키워드 인수 무시)
+                return function.Call(args);
+            }
+        }
+        
+        /// <summary>
+        /// 키워드 인수를 포함한 매개변수 바인딩 (간소화 버전)
+        /// </summary>
+        private PyObject[] BindArgumentsWithKwargs(PyObject[] args, Dictionary<string, PyObject> kwargs, PyFunction function)
+        {
+            var code = function.CodeObject;
+            var boundArgs = new PyObject[code.ArgCount];
+            
+            Console.WriteLine($"🔧 키워드 인수 포함 매개변수 바인딩: {args.Length}개 위치인수, {kwargs.Count}개 키워드인수, {code.ArgCount}개 매개변수");
+            Console.WriteLine($"  Flags: 0x{code.Flags:X8}, VarNames count: {code.VarNames.Count}");
+            
+            // CPython 방식: 플래그 기반 **kwargs 탐지
+            bool hasKwargs = (code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0;
+            bool hasVarargs = (code.Flags & PyCodeObject.CO_VARARGS) != 0;
+            
+            int kwargsParamIndex = hasKwargs ? code.ArgCount - 1 : -1;
+            
+            Console.WriteLine($"  hasKwargs: {hasKwargs}, hasVarargs: {hasVarargs}, kwargsIndex: {kwargsParamIndex}");
+            
+            // 실제 필수/선택적 매개변수 개수 계산 (**kwargs 제외)
+            int regularParamCount = hasKwargs ? code.ArgCount : code.ArgCount;
+            
+            // 1. 위치 인수 바인딩
+            for (int i = 0; i < Math.Min(args.Length, regularParamCount); i++)
+            {
+                boundArgs[i] = args[i];
+                string paramName = i < code.VarNames.Count ? code.VarNames[i] : $"arg{i}";
+                Console.WriteLine($"  → 매개변수[{i}] '{paramName}' = {args[i]} (위치인수)");
+            }
+            
+            // 2. 키워드 인수 바인딩 및 **kwargs 수집
+            var extraKwargs = new Dictionary<string, PyObject>();
+            
+            foreach (var kvp in kwargs)
+            {
+                string paramName = kvp.Key;
+                PyObject paramValue = kvp.Value;
+                
+                // 일반 매개변수에서 매칭 찾기
+                int paramIndex = -1;
+                for (int i = 0; i < regularParamCount; i++)
+                {
+                    // CPython 방식: VarNames는 이미 clean한 매개변수 이름만 포함
+                    string cleanParamName = i < code.VarNames.Count ? code.VarNames[i] : "";
+                        
+                    if (cleanParamName == paramName)
+                    {
+                        paramIndex = i;
+                        break;
+                    }
+                }
+                
+                if (paramIndex != -1)
+                {
+                    // 일반 매개변수에 바인딩
+                    if (boundArgs[paramIndex] != null)
+                    {
+                        throw PyTypeError.Create($"'{code.Name}() got multiple values for argument '{paramName}'");
+                    }
+                    
+                    boundArgs[paramIndex] = paramValue;
+                    Console.WriteLine($"  → 매개변수[{paramIndex}] '{paramName}' = {paramValue} (키워드인수)");
+                }
+                else if (kwargsParamIndex >= 0)
+                {
+                    // **kwargs에 수집
+                    extraKwargs[paramName] = paramValue;
+                    Console.WriteLine($"  → **kwargs['{paramName}'] = {paramValue}");
+                }
+                else
+                {
+                    throw PyTypeError.Create($"'{code.Name}() got an unexpected keyword argument '{paramName}'");
+                }
+            }
+            
+            // 3. **kwargs 딕셔너리 생성
+            if (kwargsParamIndex >= 0)
+            {
+                var kwargsDict = new PyDict();
+                foreach (var kvp in extraKwargs)
+                {
+                    kwargsDict.SetItem(new PyString(kvp.Key), kvp.Value);
+                }
+                boundArgs[kwargsParamIndex] = kwargsDict;
+                Console.WriteLine($"  → 매개변수[{kwargsParamIndex}] '**kwargs' = {kwargsDict} (**kwargs 딕셔너리)");
+            }
+            
+            // 4. 기본값 적용 (바인딩되지 않은 매개변수에)
+            var defaults = GetFunctionDefaults(function);
+            int defaultCount = defaults?.Length ?? 0;
+            int requiredArgCount = regularParamCount - defaultCount;
+            
+            Console.WriteLine($"  기본값 매개변수: {defaultCount}개, 필수 매개변수: {requiredArgCount}개");
+            
+            if (defaults != null)
+            {
+                for (int i = requiredArgCount; i < regularParamCount; i++)
+                {
+                    if (boundArgs[i] == null)
+                    {
+                        int defaultIndex = i - requiredArgCount;
+                        if (defaultIndex >= 0 && defaultIndex < defaults.Length)
+                        {
+                            boundArgs[i] = defaults[defaultIndex];
+                            string paramName = i < code.VarNames.Count ? code.VarNames[i] : $"arg{i}";
+                            Console.WriteLine($"  → 매개변수[{i}] '{paramName}' = {defaults[defaultIndex]} (기본값)");
+                        }
+                    }
+                }
+            }
+            
+            // 5. 바인딩되지 않은 필수 매개변수 확인
+            for (int i = 0; i < requiredArgCount; i++)
+            {
+                if (boundArgs[i] == null)
+                {
+                    string paramName = i < code.VarNames.Count ? code.VarNames[i] : $"arg{i}";
+                    throw PyTypeError.Create($"'{code.Name}() missing required argument: '{paramName}'");
+                }
+            }
+            
+            return boundArgs;
+        }
+
+        private PyObject[] GetFunctionDefaults(PyFunction function)
+        {
+            if (function.CodeObject?.DefaultValues == null)
+                return new PyObject[0];
+            
+            return function.CodeObject.DefaultValues.ToArray();
         }
     }
 

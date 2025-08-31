@@ -210,12 +210,17 @@ namespace SharpPy
     // 확장된 PyCodeObject (기존 시스템과 연동)
     public class PyCodeObject : PyObject
     {
+        // CPython 호환 플래그 시스템
+        public const int CO_VARARGS = 0x04;        // *args 매개변수 존재
+        public const int CO_VARKEYWORDS = 0x08;    // **kwargs 매개변수 존재
+        
         public string Name { get; }
         public List<ByteCodeInstruction> Instructions { get; }
         public List<PyObject> Constants { get; }      // co_consts
         public List<string> Names { get; }            // co_names (변수명들)
         public List<string> VarNames { get; }         // co_varnames (지역변수명들)
         public int ArgCount { get; }                  // 매개변수 개수
+        public int Flags { get; }                     // co_flags (CPython 호환)
         
         // CPython 호환 클로저 지원 (Phase 2)
         public List<string> FreeVars { get; set; } = new List<string>();   // co_freevars - 자유 변수
@@ -228,7 +233,7 @@ namespace SharpPy
                         List<PyObject> constants, List<string> names, 
                         List<string> varNames, int argCount = 0,
                         List<string> freeVars = null, List<string> cellVars = null,
-                        List<PyObject> defaultValues = null)
+                        List<PyObject> defaultValues = null, int flags = 0)
         {
             Name = name;
             Instructions = instructions;
@@ -236,6 +241,7 @@ namespace SharpPy
             Names = names;
             VarNames = varNames;
             ArgCount = argCount;
+            Flags = flags;
             FreeVars = freeVars ?? new List<string>();
             CellVars = cellVars ?? new List<string>();
             DefaultValues = defaultValues ?? new List<PyObject>();

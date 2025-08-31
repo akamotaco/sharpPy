@@ -62,7 +62,8 @@ namespace SharpPy
                 originalCode.ArgCount,
                 originalCode.FreeVars,
                 originalCode.CellVars,
-                originalCode.DefaultValues
+                originalCode.DefaultValues,
+                originalCode.Flags
             );
         }
 

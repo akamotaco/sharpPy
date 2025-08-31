@@ -352,7 +352,7 @@ namespace SharpPy
             EmitLoadConst(PyNone.Instance);
             EmitInstruction(ByteCodeOp.RETURN_VALUE);
             
-            var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, parameters.Count);
+            var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, parameters.Count, null, null, null, 0);
             Console.WriteLine($"✅ 컴파일 완료: {_instructions.Count}개 명령어");
             
             // 바이트코드 최적화 적용
@@ -404,7 +404,7 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.RETURN_VALUE);
             
             var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, 
-                                            parameters.Count, freeVars, cellVars);
+                                            parameters.Count, freeVars, cellVars, null, 0);
             Console.WriteLine($"\u2705 컴파일 완료: {_instructions.Count}개 명령어");
             
             // 바이트코드 최적화 적용
@@ -417,10 +417,11 @@ namespace SharpPy
         /// <summary>
         /// CPython 호환: 매개변수 문자열에서 이름과 기본값 분리
         /// </summary>
-        private (List<string> paramNames, List<PyObject> defaults) ParseFunctionParameters(List<string> parameters)
+        private (List<string> paramNames, List<PyObject> defaults, int flags) ParseFunctionParameters(List<string> parameters)
         {
             var paramNames = new List<string>();
             var defaults = new List<PyObject>();
+            int flags = 0;
             
             foreach (var param in parameters)
             {
@@ -459,6 +460,18 @@ namespace SharpPy
                     cleanName = param.Trim();
                 }
                 
+                // CPython 방식: **kwargs 및 *args 플래그 설정
+                if (cleanName.StartsWith("**"))
+                {
+                    flags |= PyCodeObject.CO_VARKEYWORDS;
+                    cleanName = cleanName.Substring(2); // ** 제거
+                }
+                else if (cleanName.StartsWith("*"))
+                {
+                    flags |= PyCodeObject.CO_VARARGS;
+                    cleanName = cleanName.Substring(1); // * 제거
+                }
+                
                 paramNames.Add(cleanName);
                 // CPython 방식: null이 아닌 기본값만 defaults 리스트에 추가
                 if (defaultValue != null)
@@ -467,7 +480,7 @@ namespace SharpPy
                 }
             }
             
-            return (paramNames, defaults);
+            return (paramNames, defaults, flags);
         }
         
         /// <summary>
@@ -519,7 +532,7 @@ namespace SharpPy
         /// <summary>
         /// CPython 호환: 클로저와 기본값을 모두 지원하는 컴파일
         /// </summary>
-        public PyCodeObject CompileWithClosureAndDefaults(List<Statement> statements, string name, List<string> paramNames, List<PyObject> defaults, List<string> freeVars, List<string> cellVars)
+        public PyCodeObject CompileWithClosureAndDefaults(List<Statement> statements, string name, List<string> paramNames, List<PyObject> defaults, List<string> freeVars, List<string> cellVars, int flags = 0)
         {
             _instructions = new List<ByteCodeInstruction>();
             _constants = new List<PyObject>();
@@ -529,7 +542,18 @@ namespace SharpPy
             // 함수 매개변수를 _varNames에 추가 (LOAD_FAST/STORE_FAST용)
             foreach (var param in paramNames)
             {
-                _varNames.Add(param);
+                // **kwargs 매개변수는 변수명에서 ** 제거 (예: **kwargs -> kwargs)
+                string localVarName = param;
+                if (param.StartsWith("**"))
+                {
+                    localVarName = param.Substring(2);
+                }
+                else if (param.StartsWith("*"))
+                {
+                    localVarName = param.Substring(1);
+                }
+                
+                _varNames.Add(localVarName);
             }
             
             Console.WriteLine($"\n🔧 컴파일 (클로저+기본값): {name}");
@@ -559,7 +583,7 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.RETURN_VALUE);
             
             var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, 
-                                            paramNames.Count, freeVars, cellVars, defaults);
+                                            paramNames.Count, freeVars, cellVars, defaults, flags);
             Console.WriteLine($"✅ 컴파일 완료: {_instructions.Count}개 명령어");
             
             // 바이트코드 최적화 적용
@@ -572,7 +596,7 @@ namespace SharpPy
         /// <summary>
         /// CPython 호환: 함수를 매개변수 기본값과 함께 컴파일
         /// </summary>
-        public PyCodeObject CompileFunction(List<Statement> statements, string name, List<string> paramNames, List<PyObject> defaults)
+        public PyCodeObject CompileFunction(List<Statement> statements, string name, List<string> paramNames, List<PyObject> defaults, int flags = 0)
         {
             _instructions = new List<ByteCodeInstruction>();
             _constants = new List<PyObject>();
@@ -601,7 +625,7 @@ namespace SharpPy
             
             // PyCodeObject 생성 (기본값 포함)
             var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, 
-                                            paramNames.Count, null, null, defaults);
+                                            paramNames.Count, null, null, defaults, flags);
             Console.WriteLine($"✅ 함수 컴파일 완료: {_instructions.Count}개 명령어");
             
             return codeObject;
@@ -800,11 +824,37 @@ namespace SharpPy
                     
                 case CallExpression call:
                     CompileExpression(call.Function);
+                    
+                    // 위치 인수 컴파일
                     foreach (var arg in call.Arguments)
                     {
                         CompileExpression(arg);
                     }
-                    EmitInstruction(ByteCodeOp.CALL_FUNCTION, call.Arguments.Count);
+                    
+                    // 키워드 인수가 있는 경우
+                    if (call.Keywords.Count > 0)
+                    {
+                        // 키워드 인수 값들을 스택에 푸시
+                        foreach (var keyword in call.Keywords)
+                        {
+                            CompileExpression(keyword.Value);
+                        }
+                        
+                        // 키워드 이름들을 튜플로 만들어서 스택에 푸시
+                        foreach (var keyword in call.Keywords)
+                        {
+                            EmitLoadConst(new PyString(keyword.Arg ?? ""));
+                        }
+                        EmitInstruction(ByteCodeOp.BUILD_TUPLE, call.Keywords.Count);
+                        
+                        // CALL_FUNCTION_KW 사용 (위치인수개수, 키워드인수개수)
+                        EmitInstruction(ByteCodeOp.CALL_FUNCTION_KW, call.Arguments.Count);
+                    }
+                    else
+                    {
+                        // 키워드 인수가 없는 경우 기존 방식
+                        EmitInstruction(ByteCodeOp.CALL_FUNCTION, call.Arguments.Count);
+                    }
                     break;
                     
                 case AttributeExpression attr:
@@ -937,12 +987,12 @@ namespace SharpPy
             Console.WriteLine($"  Cell variables: [{string.Join(", ", cellVars)}]");
             
             // 2. 매개변수와 기본값 파싱 (FunctionDefStatement에서 수행하던 로직)
-            var (paramNames, defaults) = ParseFunctionParameters(func.Parameters);
+            var (paramNames, defaults, flags) = ParseFunctionParameters(func.Parameters);
             
             // 3. 코드 객체 컴파일 (자유 변수 정보와 기본값 포함)
             var compiler = new PythonCompiler();
             compiler.SetupClosureCompilation(cellVars, freeVars); // 셀 변수와 자유 변수 설정
-            var funcCode = compiler.CompileWithClosureAndDefaults(func.Body, func.Name, paramNames, defaults, freeVars, cellVars);
+            var funcCode = compiler.CompileWithClosureAndDefaults(func.Body, func.Name, paramNames, defaults, freeVars, cellVars, flags);
             
             // 3. 자유 변수가 있는 경우 클로저 생성
             if (freeVars.Count > 0)
@@ -972,7 +1022,7 @@ namespace SharpPy
             }
             
             // 4. 기본값이 있는 경우 기본값 튜플을 스택에 푸시
-            int flags = 0;
+            int makeFunctionFlags = 0;
             if (defaults.Count > 0)
             {
                 foreach (var defaultValue in defaults)
@@ -980,7 +1030,7 @@ namespace SharpPy
                     EmitLoadConst(defaultValue);
                 }
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, defaults.Count);
-                flags |= 1; // MAKE_FUNCTION_DEFAULTS flag
+                makeFunctionFlags |= 1; // MAKE_FUNCTION_DEFAULTS flag
             }
             
             // 5. 코드 객체 로드
@@ -989,10 +1039,10 @@ namespace SharpPy
             // 6. 함수 생성 (기본값 + 클로저 플래그 설정)
             if (freeVars.Count > 0)
             {
-                flags |= 8; // MAKE_FUNCTION_CLOSURE flag
+                makeFunctionFlags |= 8; // MAKE_FUNCTION_CLOSURE flag
             }
             
-            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, flags);
+            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, makeFunctionFlags);
             EmitStoreName(func.Name);
         }
         
