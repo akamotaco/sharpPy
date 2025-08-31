@@ -748,11 +748,15 @@ namespace SharpPy
                     // argument는 (freevars + cellvars)에서의 인덱스
                     var cellIndex = instruction.Argument;
                     
+                    Console.WriteLine($"🔍 LOAD_DEREF cell index {cellIndex}");
+                    Console.WriteLine($"   Frame has {frame.Closure.Length} closure cells and {frame.Cells.Length} local cells");
+                    
                     PyCell cell;
                     if (cellIndex < frame.Closure.Length)
                     {
                         // 부모로부터 받은 클로저 셀
                         cell = frame.Closure[cellIndex];
+                        Console.WriteLine($"   → Using closure cell[{cellIndex}]: {(cell.HasValue ? cell.Value : "empty")}");
                     }
                     else
                     {
@@ -761,6 +765,7 @@ namespace SharpPy
                         if (localIndex < frame.Cells.Length)
                         {
                             cell = frame.Cells[localIndex];
+                            Console.WriteLine($"   → Using local cell[{localIndex}]: {(cell.HasValue ? cell.Value : "empty")}");
                         }
                         else
                         {
@@ -771,9 +776,11 @@ namespace SharpPy
                     if (cell.HasValue)
                     {
                         frame.ValueStack.Push(cell.Value!);
+                        Console.WriteLine($"   ✅ Loaded value: {cell.Value}");
                     }
                     else
                     {
+                        Console.WriteLine($"   ❌ Cell is empty!");
                         throw PyNameError.Create("local variable referenced before assignment");
                     }
                     break;
@@ -836,10 +843,14 @@ namespace SharpPy
                     // 현재는 기본 구현만 제공 (Phase 2에서 완전 구현)
                     var closureCellIndex = instruction.Argument;
                     
+                    Console.WriteLine($"🔐 LOAD_CLOSURE cell index {closureCellIndex}");
+                    Console.WriteLine($"   Frame has {frame.Closure.Length} closure cells and {frame.Cells.Length} local cells");
+                    
                     PyCell closureCell;
                     if (closureCellIndex < frame.Closure.Length)
                     {
                         closureCell = frame.Closure[closureCellIndex];
+                        Console.WriteLine($"   → Using closure cell[{closureCellIndex}]: {(closureCell.HasValue ? closureCell.Value : "empty")}");
                     }
                     else
                     {
@@ -847,11 +858,13 @@ namespace SharpPy
                         if (localClosureIndex < frame.Cells.Length)
                         {
                             closureCell = frame.Cells[localClosureIndex];
+                            Console.WriteLine($"   → Using local cell[{localClosureIndex}]: {(closureCell.HasValue ? closureCell.Value : "empty")}");
                         }
                         else
                         {
                             // 새 셀 생성 (Phase 1 임시 구현)
                             closureCell = new PyCell();
+                            Console.WriteLine($"   ⚠️  Creating new empty cell - local index {localClosureIndex} >= {frame.Cells.Length}");
                         }
                     }
                     
@@ -863,11 +876,19 @@ namespace SharpPy
                     var paramIndex = instruction.Argument;
                     var makeVarName = frame.Code.VarNames[paramIndex];
                     
+                    Console.WriteLine($"🔧 MAKE_CELL for '{makeVarName}' at index {paramIndex}");
+                    Console.WriteLine($"   FastLocals contains '{makeVarName}': {frame.FastLocals.ContainsKey(makeVarName)}");
+                    
                     // 매개변수 값을 가져와서 Cell에 저장
                     PyObject? cellValue = null;
                     if (frame.FastLocals.TryGetValue(makeVarName, out var localValue))
                     {
                         cellValue = localValue;
+                        Console.WriteLine($"   Found value for '{makeVarName}': {cellValue}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"   ⚠️  No value found for '{makeVarName}' in FastLocals");
                     }
                     
                     // CellVars 리스트에서 인덱스 찾기
@@ -875,6 +896,11 @@ namespace SharpPy
                     if (makeCellIndex >= 0 && makeCellIndex < frame.Cells.Length)
                     {
                         frame.Cells[makeCellIndex].SetValue(cellValue);
+                        Console.WriteLine($"   ✅ Set cell[{makeCellIndex}] = {cellValue}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"   ❌ Invalid cell index for '{makeVarName}': {makeCellIndex}");
                     }
                     break;
                     

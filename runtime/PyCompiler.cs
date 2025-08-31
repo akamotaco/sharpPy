@@ -34,8 +34,18 @@ namespace SharpPy
             var freeVars = _usedVars.Except(_definedVars).ToList();
             
             // Cell variables: defined locally but referenced by nested functions
-            // For Phase 1, we'll return empty list (will be implemented in Phase 2)
             var cellVars = new List<string>();
+            
+            // Phase 2: Find variables that need to be cells (referenced by nested lambdas)
+            var cellNeededVars = FindCellNeededVars(body);
+            foreach (var varName in cellNeededVars)
+            {
+                // Only parameters can be cell variables in lambda
+                if (parameters.Contains(varName))
+                {
+                    cellVars.Add(varName);
+                }
+            }
             
             return (freeVars, cellVars);
         }
@@ -201,6 +211,97 @@ namespace SharpPy
                     break;
                     
                 // For ConstantExpression and other leaf expressions, no variables are used
+                case ConstantExpression _:
+                    break;
+                    
+                // TODO: Add more expression types as needed
+            }
+        }
+        
+        /// <summary>
+        /// Find variables that need to be cells (referenced by nested lambdas)
+        /// </summary>
+        private List<string> FindCellNeededVars(Expression body)
+        {
+            var cellNeeded = new List<string>();
+            FindCellNeededVarsRecursive(body, cellNeeded);
+            return cellNeeded;
+        }
+        
+        private void FindCellNeededVarsRecursive(Expression expr, List<string> cellNeeded)
+        {
+            switch (expr)
+            {
+                case LambdaExpression lambda:
+                    // This is a nested lambda - find what variables it uses from outer scope
+                    var nestedAnalyzer = new FreeVariableAnalyzer();
+                    var (nestedFreeVars, _) = nestedAnalyzer.AnalyzeScope(lambda.Body, lambda.Args);
+                    
+                    // Variables used by nested lambda from outer scope need to be cells
+                    foreach (var freeVar in nestedFreeVars)
+                    {
+                        if (!cellNeeded.Contains(freeVar))
+                        {
+                            cellNeeded.Add(freeVar);
+                        }
+                    }
+                    break;
+                    
+                case BinaryOpExpression binary:
+                    FindCellNeededVarsRecursive(binary.Left, cellNeeded);
+                    FindCellNeededVarsRecursive(binary.Right, cellNeeded);
+                    break;
+                    
+                case UnaryOpExpression unary:
+                    FindCellNeededVarsRecursive(unary.Operand, cellNeeded);
+                    break;
+                    
+                case CallExpression call:
+                    FindCellNeededVarsRecursive(call.Function, cellNeeded);
+                    foreach (var arg in call.Arguments)
+                    {
+                        FindCellNeededVarsRecursive(arg, cellNeeded);
+                    }
+                    break;
+                    
+                case ConditionalExpression cond:
+                    FindCellNeededVarsRecursive(cond.Test, cellNeeded);
+                    FindCellNeededVarsRecursive(cond.Body, cellNeeded);
+                    FindCellNeededVarsRecursive(cond.OrElse, cellNeeded);
+                    break;
+                    
+                case AttributeExpression attr:
+                    FindCellNeededVarsRecursive(attr.Value, cellNeeded);
+                    break;
+                    
+                case SubscriptExpression subscript:
+                    FindCellNeededVarsRecursive(subscript.Value, cellNeeded);
+                    FindCellNeededVarsRecursive(subscript.Slice, cellNeeded);
+                    break;
+                    
+                case ListExpression list:
+                    foreach (var element in list.Elements)
+                    {
+                        FindCellNeededVarsRecursive(element, cellNeeded);
+                    }
+                    break;
+                    
+                case FStringExpression fstring:
+                    if (fstring.Values != null)
+                    {
+                        foreach (var value in fstring.Values)
+                        {
+                            FindCellNeededVarsRecursive(value, cellNeeded);
+                        }
+                    }
+                    break;
+                    
+                case FormattedValue formatted:
+                    FindCellNeededVarsRecursive(formatted.Value, cellNeeded);
+                    break;
+                    
+                // Leaf nodes don't need recursion
+                case NameExpression _:
                 case ConstantExpression _:
                     break;
                     
@@ -1553,13 +1654,30 @@ namespace SharpPy
             _constants = lambdaConstants;
             _names = lambdaNames;
             
+            // Set up closure compilation if there are free variables
+            if (freeVars.Count > 0)
+            {
+                SetupClosureCompilation(cellVars, freeVars);
+            }
+            
+            // Phase 2: Cell 변수들을 위한 MAKE_CELL 명령어 발행 (람다 파라미터용)
+            foreach (var cellVar in cellVars)
+            {
+                var paramIndex = lambda.Args.IndexOf(cellVar);
+                if (paramIndex >= 0)
+                {
+                    Console.WriteLine($"  → Making cell for lambda parameter: {cellVar}");
+                    EmitInstruction(ByteCodeOp.MAKE_CELL, paramIndex);
+                }
+            }
+            
             // Add parameter names as local variables
             foreach (var arg in lambda.Args)
             {
                 AddName(arg);
             }
             
-            // Compile the lambda body expression
+            // Compile the lambda body expression with closure awareness
             CompileExpression(lambda.Body);
             EmitInstruction(ByteCodeOp.RETURN_VALUE);
             
@@ -1575,9 +1693,10 @@ namespace SharpPy
                 lambdaConstants,
                 lambdaNames,
                 lambda.Args, // VarNames = parameter names
-                lambda.Args.Count
+                lambda.Args.Count,
+                freeVars, // Set FreeVars for closure support
+                cellVars  // Set CellVars for closure support
             );
-            // TODO Phase 2: Set FreeVars and CellVars on PyCodeObject
             
             // Phase 1: Handle closure creation if there are free variables
             if (freeVars.Count > 0)

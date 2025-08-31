@@ -674,7 +674,7 @@ namespace SharpPy
             if (args.Length != 1)
                 throw PyTypeError.Create($"str expected exactly 1 arguments ({args.Length} given)");
 
-            return new PyString(args[0].ToStr());
+            return args[0].AsString();
         }
 
         private PyObject CallInt(PyObject[] args)
@@ -682,7 +682,7 @@ namespace SharpPy
             if (args.Length != 1)
                 throw PyTypeError.Create($"int expected exactly 1 arguments ({args.Length} given)");
 
-            return new PyInt(args[0].ToInt());
+            return args[0].AsInt();
         }
 
         private PyObject CallFloat(PyObject[] args)
@@ -690,7 +690,7 @@ namespace SharpPy
             if (args.Length != 1)
                 throw PyTypeError.Create($"float expected exactly 1 arguments ({args.Length} given)");
 
-            return new PyFloat(args[0].ToFloat());
+            return args[0].AsFloat();
         }
 
         private PyObject CallBool(PyObject[] args)
@@ -701,7 +701,7 @@ namespace SharpPy
             if (args.Length == 0)
                 return PyBool.False;
 
-            return PyBool.FromBool(args[0].PyBoolValue());
+            return args[0].AsBool();
         }
 
         private PyObject CallList(PyObject[] args)
@@ -712,23 +712,7 @@ namespace SharpPy
             if (args.Length == 0)
                 return new PyList(new PyObject[0]);
 
-            var iterable = args[0];
-            var items = new System.Collections.Generic.List<PyObject>();
-            var iterator = iterable.GetIterator();
-
-            try
-            {
-                while (true)
-                {
-                    items.Add(iterator.Next());
-                }
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                // 정상 종료
-            }
-
-            return new PyList(items.ToArray());
+            return args[0].AsList();
         }
 
         private PyObject CallTuple(PyObject[] args)
@@ -739,23 +723,7 @@ namespace SharpPy
             if (args.Length == 0)
                 return new PyTuple();
 
-            var iterable = args[0];
-            var items = new System.Collections.Generic.List<PyObject>();
-            var iterator = iterable.GetIterator();
-
-            try
-            {
-                while (true)
-                {
-                    items.Add(iterator.Next());
-                }
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                // 정상 종료
-            }
-
-            return new PyTuple(items.ToArray());
+            return args[0].AsTuple();
         }
 
         private PyObject CallDict(PyObject[] args)
@@ -766,32 +734,7 @@ namespace SharpPy
             if (args.Length == 0)
                 return new PyDict();
 
-            // 간단한 구현 - 이터러블에서 키-값 쌍 생성
-            var iterable = args[0];
-            var result = new PyDict();
-            var iterator = iterable.GetIterator();
-
-            try
-            {
-                while (true)
-                {
-                    var item = iterator.Next();
-                    if (item is PyTuple tuple && tuple.Items.Length == 2)
-                    {
-                        result.SetItem(tuple.Items[0], tuple.Items[1]);
-                    }
-                    else
-                    {
-                        throw PyTypeError.Create("dictionary update sequence element must contain exactly 2 elements");
-                    }
-                }
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                // 정상 종료
-            }
-
-            return result;
+            return args[0].AsDict();
         }
 
         private PyObject CallSet(PyObject[] args)

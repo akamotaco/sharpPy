@@ -92,10 +92,7 @@ public class PyBuiltinsModule : PyObject
         // 클래스 생성 함수
         BuiltinDict["__build_class__"] = new PyBuiltinFunction("__build_class__");
         
-        // 내장 타입들
-        BuiltinDict["int"] = new PyBuiltinType("int");
-        BuiltinDict["str"] = new PyBuiltinType("str");
-        BuiltinDict["bool"] = new PyBuiltinType("bool");
+        // 내장 타입들 (타입 객체, 변환 함수와 별개)
         BuiltinDict["object"] = new PyBuiltinType("object");
         
         // Exception Groups (PEP 654)

@@ -314,10 +314,18 @@ namespace SharpPy
 
         #endregion
 
-        #region Type Conversion
+        #region Type Conversion (CPython Compatible)
 
+        // === To* Methods: Value Extraction (PyString → C# basic types) ===
+        
+        /// <summary>
+        /// CPython PyObject_IsTrue 호환: PyString에서 C# bool 값 추출
+        /// </summary>
         public override bool PyBoolValue() => Value.Length > 0;
         
+        /// <summary>
+        /// CPython PyUnicode_AsLong 호환: PyString에서 C# int 값 추출
+        /// </summary>
         public override int ToInt()
         {
             if (int.TryParse(Value.Trim(), out int result))
@@ -325,11 +333,57 @@ namespace SharpPy
             throw PyValueError.Create($"invalid literal for int() with base 10: '{Value}'");
         }
         
+        /// <summary>
+        /// CPython PyUnicode_AsDouble 호환: PyString에서 C# double 값 추출
+        /// </summary>
         public override double ToFloat()
         {
             if (double.TryParse(Value.Trim(), out double result))
                 return result;
             throw PyValueError.Create($"could not convert string to float: '{Value}'");
+        }
+        
+        // === As* Methods: Type Conversion (PyString → PyObject types) ===
+        
+        /// <summary>
+        /// CPython 호환: PyString을 PyString으로 변환 (자기 자신 반환)
+        /// </summary>
+        public override PyString AsString()
+        {
+            return this; // 이미 PyString이므로 자기 자신 반환
+        }
+        
+        /// <summary>
+        /// CPython 호환: PyString을 PyInt로 변환
+        /// </summary>
+        public override PyInt AsInt()
+        {
+            return new PyInt(ToInt());
+        }
+        
+        /// <summary>
+        /// CPython 호환: PyString을 PyFloat로 변환
+        /// </summary>
+        public override PyFloat AsFloat()
+        {
+            return new PyFloat(ToFloat());
+        }
+        
+        /// <summary>
+        /// CPython 호환: PyString을 PyBool로 변환
+        /// </summary>
+        public override PyBool AsBool()
+        {
+            return PyBool.FromBool(Value.Length > 0);
+        }
+        
+        /// <summary>
+        /// CPython 호환: PyString을 PyList로 변환 (각 문자를 PyString 요소로)
+        /// </summary>
+        public override PyList AsList()
+        {
+            var items = Value.Select(c => new PyString(c.ToString()) as PyObject).ToList();
+            return new PyList(items);
         }
 
         #endregion

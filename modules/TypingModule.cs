@@ -39,12 +39,28 @@ namespace SharpPy
             AddClass("Required", () => new PyRequiredType());
             AddClass("NotRequired", () => new PyNotRequiredType());
             
-            // PEP 698: @override 데코레이터 - CPython 호환 identity 함수
+            // PEP 698: @override 데코레이터 - CPython 호환 구현
             AddFunction("override", (args) => {
                 if (args.Length == 1) 
                 {
-                    // CPython과 동일: 함수를 그대로 반환하는 identity 데코레이터
-                    return args[0];
+                    var method = args[0];
+                    
+                    // CPython처럼 __override__ 속성 설정 시도 (best-effort)
+                    if (method is PyFunction pyFunc)
+                    {
+                        try
+                        {
+                            // CPython과 동일: __override__ 속성을 True로 설정
+                            pyFunc.Attributes["__override__"] = PyBool.True;
+                        }
+                        catch
+                        {
+                            // 실패해도 무시 (CPython의 best-effort 방식)
+                        }
+                    }
+                    
+                    // CPython과 동일: method를 그대로 반환하는 identity 함수
+                    return method;
                 }
                 throw PyTypeError.Create("override() takes exactly 1 argument");
             });

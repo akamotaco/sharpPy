@@ -276,11 +276,58 @@ namespace SharpPy
 
         #endregion
 
-        #region Type Conversion
+        #region Type Conversion (CPython Compatible)
 
+        // === To* Methods: Value Extraction (PyBool → C# basic types) ===
+        
+        /// <summary>
+        /// CPython PyLong_AsLong 호환: PyBool에서 C# int 값 추출
+        /// </summary>
         public override int ToInt() => Value ? 1 : 0;
+        
+        /// <summary>
+        /// CPython PyFloat_AsDouble 호환: PyBool에서 C# double 값 추출  
+        /// </summary>
         public override double ToFloat() => Value ? 1.0 : 0.0;
+        
+        /// <summary>
+        /// CPython PyObject_IsTrue 호환: PyBool에서 C# bool 값 추출
+        /// </summary>
         public override bool PyBoolValue() => Value;
+        
+        // === As* Methods: Type Conversion (PyBool → PyObject types) ===
+        
+        /// <summary>
+        /// CPython 호환: PyBool을 PyBool로 변환 (자기 자신 반환)
+        /// </summary>
+        public override PyBool AsBool()
+        {
+            return this; // 이미 PyBool이므로 자기 자신 반환 (싱글톤 패턴)
+        }
+        
+        /// <summary>
+        /// CPython 호환: PyBool을 PyInt로 변환
+        /// </summary>
+        public override PyInt AsInt()
+        {
+            return new PyInt(Value ? 1 : 0);
+        }
+        
+        /// <summary>
+        /// CPython 호환: PyBool을 PyFloat로 변환
+        /// </summary>
+        public override PyFloat AsFloat()
+        {
+            return new PyFloat(Value ? 1.0 : 0.0);
+        }
+        
+        /// <summary>
+        /// CPython 호환: PyBool을 PyString으로 변환
+        /// </summary>
+        public override PyString AsString()
+        {
+            return new PyString(Value ? "True" : "False");
+        }
 
         #endregion
 

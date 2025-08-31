@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 namespace SharpPy
 {
@@ -413,7 +414,19 @@ namespace SharpPy
                         // **kwargs
                         Advance(); // consume **
                         var kwargsParam = Consume(TokenType.IDENTIFIER, "Expected parameter name after **").Lexeme;
-                        parameters.Add("**" + kwargsParam);
+                        
+                        // PEP 692: **kwargs 타입 주석 처리
+                        if (Match(TokenType.COLON))
+                        {
+                            // **kwargs: Unpack[TypedDict] 파싱
+                            var typeAnnotation = ParseExpression();
+                            // 향후 타입 검증을 위해 매개변수에 타입 정보 저장 (현재는 단순 저장)
+                            parameters.Add("**" + kwargsParam + ":" + typeAnnotation?.ToString());
+                        }
+                        else
+                        {
+                            parameters.Add("**" + kwargsParam);
+                        }
                     }
                     else if (Check(TokenType.STAR))
                     {
@@ -424,22 +437,25 @@ namespace SharpPy
                     }
                     else
                     {
-                        // Regular parameter
+                        // Regular parameter (CPython 호환 방식)
                         var param = Consume(TokenType.IDENTIFIER, "Expected parameter name").Lexeme;
-                        parameters.Add(param);
+                        var paramString = param;
                         
-                        // Skip type annotation if present
+                        // Type annotation 처리
                         if (Match(TokenType.COLON))
                         {
-                            // Skip the type annotation
-                            ParseExpression(); // Just consume the type, don't use it yet
+                            var typeAnnotation = ParseExpression();
+                            paramString += ":" + typeAnnotation?.ToString();
                         }
                         
-                        // Skip default value if present  
+                        // Default value 처리 (CPython style)
                         if (Match(TokenType.EQUAL))
                         {
-                            ParseExpression(); // Just consume the default, don't use it yet
+                            var defaultValue = ParseExpression();
+                            paramString += "=" + defaultValue?.ToString();
                         }
+                        
+                        parameters.Add(paramString);
                     }
                 } while (Match(TokenType.COMMA));
             }
@@ -592,6 +608,12 @@ namespace SharpPy
 
         private Expression ParseConditionalExpression()
         {
+            // Lambda expressions have lowest precedence, allow them in lambda bodies
+            if (Check(TokenType.LAMBDA))
+            {
+                return ParseLambdaExpression();
+            }
+            
             // Use new binary expression parser for better precedence handling
             var expr = ParseBinaryExpression();
             
@@ -1146,7 +1168,7 @@ namespace SharpPy
                 var closeBrace = FindMatchingBrace(content, openBrace);
                 if (closeBrace == -1)
                 {
-                    throw new Exception("Unmatched '{' in f-string");
+                    throw new Exception($"f-string: unterminated string (missing closing brace at position {openBrace})");
                 }
                 
                 // Extract and parse expression
@@ -1207,16 +1229,35 @@ namespace SharpPy
                         }
                         else
                         {
-                            // Regular expression parsing
-                            var exprTokens = new PyLexer(actualExpr).Tokenize();
-                            if (exprTokens.Count > 1) // Skip EOF
+                            // Regular expression parsing with PEP 701 multiline support
+                            // Clean up whitespace while preserving meaningful content
+                            var cleanExpr = StripCommentsFromFStringExpression(actualExpr.Trim());
+                            
+                            if (string.IsNullOrEmpty(cleanExpr))
                             {
-                                var exprParser = new PyParser(exprTokens);
-                                expr = exprParser.ParseExpression();
+                                expr = new ConstantExpression(new PyString(""));
                             }
                             else
                             {
-                                expr = new ConstantExpression(new PyString(actualExpr));
+                                try
+                                {
+                                    var exprTokens = new PyLexer(cleanExpr).Tokenize();
+                                    if (exprTokens.Count > 1) // Skip EOF
+                                    {
+                                        var exprParser = new PyParser(exprTokens);
+                                        expr = exprParser.ParseExpression();
+                                    }
+                                    else
+                                    {
+                                        // If tokenization fails, treat as literal string
+                                        expr = new ConstantExpression(new PyString(cleanExpr));
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    // PEP 701: Better error handling for complex expressions
+                                    throw new Exception($"f-string: invalid expression syntax '{cleanExpr}' - {ex.Message}");
+                                }
                             }
                         }
                         
@@ -1316,44 +1357,157 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// Find matching closing brace for f-string expression with nested f-string support (PEP 701)
+        /// Find matching closing brace for f-string expression with PEP 701 nested quote support
         /// </summary>
+        /// <summary>
+        /// PEP 701: Strip comments from f-string expressions while preserving string literals
+        /// </summary>
+        private string StripCommentsFromFStringExpression(string expression)
+        {
+            if (string.IsNullOrEmpty(expression))
+                return expression;
+
+            var result = new StringBuilder();
+            bool inString = false;
+            char stringDelimiter = '\0';
+            bool inTripleQuote = false;
+            int pos = 0;
+            
+            while (pos < expression.Length)
+            {
+                char c = expression[pos];
+                
+                // Handle escape sequences in strings
+                if (inString && c == '\\' && pos + 1 < expression.Length)
+                {
+                    result.Append(c);
+                    result.Append(expression[pos + 1]);
+                    pos += 2;
+                    continue;
+                }
+                
+                // Handle string literals
+                if (!inString)
+                {
+                    // Check for triple quotes
+                    if ((c == '\'' || c == '"') && pos + 2 < expression.Length && 
+                        expression[pos + 1] == c && expression[pos + 2] == c)
+                    {
+                        inString = true;
+                        inTripleQuote = true;
+                        stringDelimiter = c;
+                        result.Append(c);
+                        result.Append(c);
+                        result.Append(c);
+                        pos += 3;
+                        continue;
+                    }
+                    // Check for single/double quotes
+                    else if (c == '\'' || c == '"')
+                    {
+                        inString = true;
+                        inTripleQuote = false;
+                        stringDelimiter = c;
+                        result.Append(c);
+                        pos++;
+                        continue;
+                    }
+                    // Handle comments - strip everything from # to end of line
+                    else if (c == '#')
+                    {
+                        // Find end of line or end of string
+                        int newlinePos = expression.IndexOf('\n', pos);
+                        if (newlinePos == -1)
+                        {
+                            // Comment extends to end of expression
+                            break;
+                        }
+                        else
+                        {
+                            // Skip to character after newline
+                            pos = newlinePos + 1;
+                            result.Append('\n'); // Preserve newline for multiline expressions
+                            continue;
+                        }
+                    }
+                }
+                else // inString == true
+                {
+                    // Check for string end
+                    if (inTripleQuote)
+                    {
+                        if (c == stringDelimiter && pos + 2 < expression.Length &&
+                            expression[pos + 1] == stringDelimiter && expression[pos + 2] == stringDelimiter)
+                        {
+                            inString = false;
+                            inTripleQuote = false;
+                            stringDelimiter = '\0';
+                            result.Append(c);
+                            result.Append(c);
+                            result.Append(c);
+                            pos += 3;
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        if (c == stringDelimiter)
+                        {
+                            inString = false;
+                            stringDelimiter = '\0';
+                        }
+                    }
+                }
+                
+                result.Append(c);
+                pos++;
+            }
+            
+            return result.ToString().Trim();
+        }
+
         private int FindMatchingBrace(string content, int openPos)
         {
             int braceCount = 1;
             int pos = openPos + 1;
             bool inString = false;
             char stringDelimiter = '\0';
-            bool inFString = false;
+            bool inTripleQuote = false;
+            int parenLevel = 0;
+            int bracketLevel = 0;
             
             while (pos < content.Length && braceCount > 0)
             {
                 char c = content[pos];
                 
-                // Handle string literals (including f-strings)
-                if (!inString && (c == '\'' || c == '"'))
+                // Handle escape sequences in strings
+                if (inString && c == '\\' && pos + 1 < content.Length)
                 {
-                    // Check for f-string
-                    if (pos > 0 && content[pos - 1] == 'f')
-                    {
-                        inFString = true;
-                    }
-                    inString = true;
-                    stringDelimiter = c;
+                    pos += 2; // Skip escaped character
+                    continue;
                 }
-                else if (inString && c == stringDelimiter)
+                
+                // Handle string literals with PEP 701 improvements
+                if (!inString)
                 {
-                    // Check for escape sequence
-                    if (pos > 0 && content[pos - 1] != '\\')
+                    // Check for triple quotes
+                    if ((c == '\'' || c == '"') && pos + 2 < content.Length && 
+                        content[pos + 1] == c && content[pos + 2] == c)
                     {
-                        inString = false;
-                        inFString = false;
-                        stringDelimiter = '\0';
+                        inString = true;
+                        inTripleQuote = true;
+                        stringDelimiter = c;
+                        pos += 2; // Skip the next two quote characters
                     }
-                }
-                else if (!inString)
-                {
-                    if (c == '{')
+                    // Check for single/double quotes
+                    else if (c == '\'' || c == '"')
+                    {
+                        inString = true;
+                        inTripleQuote = false;
+                        stringDelimiter = c;
+                    }
+                    // Handle braces, parentheses, brackets outside strings
+                    else if (c == '{')
                     {
                         braceCount++;
                     }
@@ -1361,11 +1515,51 @@ namespace SharpPy
                     {
                         braceCount--;
                     }
+                    else if (c == '(')
+                    {
+                        parenLevel++;
+                    }
+                    else if (c == ')')
+                    {
+                        parenLevel--;
+                    }
+                    else if (c == '[')
+                    {
+                        bracketLevel++;
+                    }
+                    else if (c == ']')
+                    {
+                        bracketLevel--;
+                    }
+                }
+                else // inString == true
+                {
+                    // Check for string end
+                    if (inTripleQuote)
+                    {
+                        if (c == stringDelimiter && pos + 2 < content.Length &&
+                            content[pos + 1] == stringDelimiter && content[pos + 2] == stringDelimiter)
+                        {
+                            inString = false;
+                            inTripleQuote = false;
+                            stringDelimiter = '\0';
+                            pos += 2; // Skip the next two quote characters
+                        }
+                    }
+                    else
+                    {
+                        if (c == stringDelimiter)
+                        {
+                            inString = false;
+                            stringDelimiter = '\0';
+                        }
+                    }
                 }
                 
                 pos++;
             }
             
+            // Return position of closing brace, or -1 if not found
             return braceCount == 0 ? pos - 1 : -1;
         }
 
@@ -1973,7 +2167,7 @@ namespace SharpPy
             Consume(TokenType.COLON, "Expected ':' after lambda parameters");
             
             // Parse lambda body expression
-            var body = ParseOrExpression(); // Use OrExpression to avoid infinite recursion
+            var body = ParseConditionalExpression(); // Allow nested lambdas in body
             
             return new LambdaExpression(args, body);
         }
@@ -2117,11 +2311,10 @@ namespace SharpPy
             {
                 if (Match(TokenType.LEFT_PAREN))
                 {
-                    // Function call
-                    var args = ParseDelimitedList(() => TryParse(ParseExpression), TokenType.COMMA)
-                        .Where(a => a != null).ToList();
+                    // Function call - CPython 호환 키워드 인수 지원
+                    var (args, keywords) = ParseFunctionCallArguments();
                     ConsumeEnhanced(TokenType.RIGHT_PAREN, "after function arguments");
-                    expr = new CallExpression(expr, args);
+                    expr = new CallExpression(expr, args, keywords);
                 }
                 else if (Match(TokenType.LEFT_BRACKET))
                 {
@@ -2143,6 +2336,63 @@ namespace SharpPy
             }
             
             return expr;
+        }
+
+        /// <summary>
+        /// CPython 호환: 키워드 인수를 포함한 함수 호출 인수 파싱
+        /// </summary>
+        private (List<Expression> args, List<KeywordExpression> keywords) ParseFunctionCallArguments()
+        {
+            var args = new List<Expression>();
+            var keywords = new List<KeywordExpression>();
+            
+            if (!Check(TokenType.RIGHT_PAREN))
+            {
+                do
+                {
+                    // **kwargs 처리
+                    if (Match(TokenType.STAR, TokenType.STAR))
+                    {
+                        var expr = ParseExpression();
+                        if (expr != null)
+                        {
+                            keywords.Add(new KeywordExpression(null, expr)); // **kwargs
+                        }
+                    }
+                    // 키워드 인수 체크: name=value
+                    else if (Check(TokenType.IDENTIFIER) && CheckNext(TokenType.EQUAL))
+                    {
+                        var keywordName = Advance().Lexeme;
+                        Consume(TokenType.EQUAL, "Expected '=' after keyword argument name");
+                        var value = ParseExpression();
+                        
+                        if (value != null)
+                        {
+                            keywords.Add(new KeywordExpression(keywordName, value));
+                        }
+                    }
+                    // *args 처리
+                    else if (Match(TokenType.STAR))
+                    {
+                        var expr = ParseExpression();
+                        if (expr != null)
+                        {
+                            args.Add(new StarredExpression(expr));
+                        }
+                    }
+                    else
+                    {
+                        // 일반적인 positional 인수
+                        var arg = ParseExpression();
+                        if (arg != null)
+                        {
+                            args.Add(arg);
+                        }
+                    }
+                } while (Match(TokenType.COMMA));
+            }
+            
+            return (args, keywords);
         }
 
         // Helper methods

@@ -289,19 +289,150 @@ namespace SharpPy
 
         #endregion
 
-        #region Basic Type Conversion
+        #region Basic Type Conversion (CPython Compatible)
 
+        // === To* Methods: PyObject → C# Basic Types (Value Extraction) ===
+        
+        /// <summary>
+        /// CPython PyLong_AsLong 호환: PyObject에서 C# int 값 추출
+        /// </summary>
         public virtual int ToInt()
         {
             throw PyTypeError.Create($"int() argument must be a string, a bytes-like object or a number, not '{GetTypeName()}'");
         }
 
+        /// <summary>
+        /// CPython PyFloat_AsDouble 호환: PyObject에서 C# double 값 추출
+        /// </summary>
         public virtual double ToFloat()
         {
             throw PyTypeError.Create($"float() argument must be a string or a number, not '{GetTypeName()}'");
         }
 
+        /// <summary>
+        /// CPython PyObject_IsTrue 호환: PyObject에서 C# bool 값 추출
+        /// </summary>
         public virtual bool ToBool() => PyBoolValue();
+
+        // === As* Methods: PyObject → PyObject Types (Type Conversion/Casting) ===
+        
+        /// <summary>
+        /// CPython 호환: 현재 PyObject를 PyInt로 변환/캐스팅
+        /// </summary>
+        public virtual PyInt AsInt()
+        {
+            return new PyInt(ToInt());
+        }
+
+        /// <summary>
+        /// CPython 호환: 현재 PyObject를 PyFloat로 변환/캐스팅
+        /// </summary>
+        public virtual PyFloat AsFloat()
+        {
+            return new PyFloat(ToFloat());
+        }
+
+        /// <summary>
+        /// CPython 호환: 현재 PyObject를 PyBool로 변환/캐스팅
+        /// </summary>
+        public virtual PyBool AsBool()
+        {
+            return PyBool.FromBool(ToBool());
+        }
+
+        /// <summary>
+        /// CPython 호환: 현재 PyObject를 PyString으로 변환/캐스팅
+        /// </summary>
+        public virtual PyString AsString()
+        {
+            return new PyString(ToStr());
+        }
+
+        /// <summary>
+        /// CPython 호환: 현재 PyObject를 PyList로 변환/캐스팅
+        /// </summary>
+        public virtual PyList AsList()
+        {
+            // CPython list() 생성자 동작 모방
+            if (this is PyList list)
+                return new PyList(list.Items.ToList()); // 복사본 생성
+            
+            // 이터러블 객체인 경우 변환
+            var items = new List<PyObject>();
+            try
+            {
+                var iter = GetIterator();
+                while (true)
+                {
+                    try
+                    {
+                        items.Add(iter.Next());
+                    }
+                    catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                    {
+                        break;
+                    }
+                }
+                return new PyList(items);
+            }
+            catch
+            {
+                throw PyTypeError.Create($"'{GetTypeName()}' object is not iterable");
+            }
+        }
+
+        /// <summary>
+        /// CPython 호환: 현재 PyObject를 PyDict로 변환/캐스팅
+        /// </summary>
+        public virtual PyDict AsDict()
+        {
+            if (this is PyDict dict)
+            {
+                // PyDict 복사본 생성 (CPython dict() 생성자 동작)
+                var newDict = new PyDict();
+                var items = dict.Items(); // PyList of PyTuple pairs
+                foreach (PyTuple pair in items.Items)
+                {
+                    newDict.SetItem(pair.Items[0], pair.Items[1]);
+                }
+                return newDict;
+            }
+            
+            throw PyTypeError.Create($"cannot convert '{GetTypeName()}' to dict");
+        }
+
+        /// <summary>
+        /// CPython 호환: 현재 PyObject를 PyTuple로 변환/캐스팅
+        /// </summary>
+        public virtual PyTuple AsTuple()
+        {
+            // CPython tuple() 생성자 동작 모방
+            if (this is PyTuple tuple)
+                return tuple; // 튜플은 immutable이므로 동일 객체 반환
+            
+            // 이터러블 객체인 경우 변환
+            var items = new List<PyObject>();
+            try
+            {
+                var iter = GetIterator();
+                while (true)
+                {
+                    try
+                    {
+                        items.Add(iter.Next());
+                    }
+                    catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                    {
+                        break;
+                    }
+                }
+                return new PyTuple(items.ToArray());
+            }
+            catch
+            {
+                throw PyTypeError.Create($"'{GetTypeName()}' object is not iterable");
+            }
+        }
 
         public virtual int Length()
         {

@@ -573,7 +573,9 @@ namespace SharpPy
             
             var value = isTripleQuoted ? 
                 ScanTripleQuotedString(quote, stringType) : 
-                ScanRegularString(quote, stringType);
+                (stringType == TokenType.F_STRING ? 
+                    ScanFString(quote) : 
+                    ScanRegularString(quote, stringType));
                 
             return new PyToken(stringType, value, line, column);
         }
@@ -636,6 +638,108 @@ namespace SharpPy
                 }
             }
             
+            return value.ToString();
+        }
+        
+        /// <summary>
+        /// PEP 701: Scan f-string with nested quote support
+        /// </summary>
+        private string ScanFString(char quote)
+        {
+            var value = new StringBuilder();
+            int braceLevel = 0;
+            bool inNestedString = false;
+            char nestedStringQuote = '\0';
+            
+            while (!IsAtEnd())
+            {
+                char c = Peek();
+                
+                // Handle escape sequences
+                if (c == '\\' && !inNestedString)
+                {
+                    value.Append(Advance()); // Add backslash
+                    if (!IsAtEnd())
+                    {
+                        value.Append(Advance()); // Add escaped character
+                    }
+                    continue;
+                }
+                
+                // Handle f-string end (only when not inside braces or nested strings)
+                if (c == quote && braceLevel == 0 && !inNestedString)
+                {
+                    break; // End of f-string
+                }
+                
+                // Handle braces (f-string expressions)
+                if (!inNestedString)
+                {
+                    if (c == '{')
+                    {
+                        if (PeekNext() == '{') // Escaped brace {{
+                        {
+                            value.Append(Advance()); // Add first {
+                            value.Append(Advance()); // Add second {
+                            continue;
+                        }
+                        else
+                        {
+                            braceLevel++;
+                        }
+                    }
+                    else if (c == '}')
+                    {
+                        if (PeekNext() == '}') // Escaped brace }}
+                        {
+                            value.Append(Advance()); // Add first }
+                            value.Append(Advance()); // Add second }
+                            continue;
+                        }
+                        else
+                        {
+                            braceLevel--;
+                        }
+                    }
+                }
+                
+                // Handle nested strings inside f-string expressions
+                if (braceLevel > 0)
+                {
+                    if (!inNestedString && (c == '"' || c == '\''))
+                    {
+                        // Start of nested string
+                        inNestedString = true;
+                        nestedStringQuote = c;
+                    }
+                    else if (inNestedString && c == nestedStringQuote)
+                    {
+                        // Check for escape
+                        if (value.Length > 0 && value[value.Length - 1] != '\\')
+                        {
+                            // End of nested string
+                            inNestedString = false;
+                            nestedStringQuote = '\0';
+                        }
+                    }
+                }
+                
+                // Handle newlines
+                if (c == '\n')
+                {
+                    _line++;
+                    _column = 1;
+                }
+                
+                value.Append(Advance());
+            }
+            
+            if (IsAtEnd())
+            {
+                throw new Exception("Unterminated f-string literal");
+            }
+            
+            Advance(); // consume closing quote
             return value.ToString();
         }
         

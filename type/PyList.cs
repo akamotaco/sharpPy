@@ -150,10 +150,171 @@ namespace SharpPy
             }
         }
 
+        // CPython 호환: 속성 접근 지원 (list 메서드들)
+        protected override PyObject PyGetAttribute(string name)
+        {
+            switch (name)
+            {
+                case "append":
+                    return new PyFunction("append", args =>
+                    {
+                        if (args.Length != 1)
+                            throw PyTypeError.Create($"append() takes exactly one argument ({args.Length} given)");
+                        Append(args[0]);
+                        return PyNone.Instance;
+                    });
+
+                case "insert":
+                    return new PyFunction("insert", args =>
+                    {
+                        if (args.Length != 2)
+                            throw PyTypeError.Create($"insert() takes exactly two arguments ({args.Length} given)");
+                        var index = args[0].ToInt();
+                        Insert(index, args[1]);
+                        return PyNone.Instance;
+                    });
+
+                case "remove":
+                    return new PyFunction("remove", args =>
+                    {
+                        if (args.Length != 1)
+                            throw PyTypeError.Create($"remove() takes exactly one argument ({args.Length} given)");
+                        Remove(args[0]);
+                        return PyNone.Instance;
+                    });
+
+                case "pop":
+                    return new PyFunction("pop", args =>
+                    {
+                        if (args.Length > 1)
+                            throw PyTypeError.Create($"pop() takes at most one argument ({args.Length} given)");
+                        var index = args.Length == 0 ? -1 : args[0].ToInt();
+                        return Pop(index);
+                    });
+
+                case "clear":
+                    return new PyFunction("clear", args =>
+                    {
+                        if (args.Length != 0)
+                            throw PyTypeError.Create($"clear() takes no arguments ({args.Length} given)");
+                        Clear();
+                        return PyNone.Instance;
+                    });
+
+                case "extend":
+                    return new PyFunction("extend", args =>
+                    {
+                        if (args.Length != 1)
+                            throw PyTypeError.Create($"extend() takes exactly one argument ({args.Length} given)");
+                        Extend(args[0]);
+                        return PyNone.Instance;
+                    });
+
+                case "index":
+                    return new PyFunction("index", args =>
+                    {
+                        if (args.Length != 1)
+                            throw PyTypeError.Create($"index() takes exactly one argument ({args.Length} given)");
+                        var index = Index(args[0]);
+                        return new PyInt(index);
+                    });
+
+                case "count":
+                    return new PyFunction("count", args =>
+                    {
+                        if (args.Length != 1)
+                            throw PyTypeError.Create($"count() takes exactly one argument ({args.Length} given)");
+                        var count = Count(args[0]);
+                        return new PyInt(count);
+                    });
+
+                case "reverse":
+                    return new PyFunction("reverse", args =>
+                    {
+                        if (args.Length != 0)
+                            throw PyTypeError.Create($"reverse() takes no arguments ({args.Length} given)");
+                        Reverse();
+                        return PyNone.Instance;
+                    });
+
+                case "sort":
+                    return new PyFunction("sort", args =>
+                    {
+                        if (args.Length != 0)
+                            throw PyTypeError.Create($"sort() takes no arguments ({args.Length} given)");
+                        Sort();
+                        return PyNone.Instance;
+                    });
+
+                default:
+                    // 기본 속성 접근은 부모 클래스에 위임
+                    return base.PyGetAttribute(name);
+            }
+        }
+
         // 이터레이터 지원
         public override PyObject GetIterator()
         {
             return new PyListIterator(this);
         }
+        
+        #region Type Conversion (CPython Compatible)
+
+        // === To* Methods: Value Extraction (PyList → C# basic types) ===
+        
+        /// <summary>
+        /// CPython PyLong_AsLong 호환: PyList는 일반적으로 int로 변환될 수 없음
+        /// </summary>
+        public override int ToInt()
+        {
+            throw PyTypeError.Create($"int() argument must be a string, a bytes-like object or a number, not 'list'");
+        }
+        
+        /// <summary>
+        /// CPython PyFloat_AsDouble 호환: PyList는 일반적으로 float로 변환될 수 없음
+        /// </summary>
+        public override double ToFloat()
+        {
+            throw PyTypeError.Create($"float() argument must be a string or a number, not 'list'");
+        }
+        
+        
+        // === As* Methods: Type Conversion (PyList → PyObject types) ===
+        
+        /// <summary>
+        /// CPython 호환: PyList를 PyList로 변환 (복사본 생성)
+        /// </summary>
+        public override PyList AsList()
+        {
+            // CPython list() 생성자 동작: 새로운 복사본 생성
+            return new PyList(_items.ToArray());
+        }
+        
+        /// <summary>
+        /// CPython 호환: PyList를 PyTuple로 변환
+        /// </summary>
+        public override PyTuple AsTuple()
+        {
+            // CPython tuple() 생성자 동작: 리스트 요소들로 튜플 생성
+            return new PyTuple(_items.ToArray());
+        }
+        
+        /// <summary>
+        /// CPython 호환: PyList를 PyBool로 변환
+        /// </summary>
+        public override PyBool AsBool()
+        {
+            return PyBool.FromBool(_items.Count > 0);
+        }
+        
+        /// <summary>
+        /// CPython 호환: PyList를 PyString으로 변환 (str() 호출과 동일)
+        /// </summary>
+        public override PyString AsString()
+        {
+            return new PyString(ToRepr()); // CPython에서 str(list)는 repr(list)와 동일
+        }
+
+        #endregion
     }
 }

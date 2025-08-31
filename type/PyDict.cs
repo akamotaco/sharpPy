@@ -298,5 +298,73 @@ namespace SharpPy
         }
 
         #endregion
+
+        #region Type Conversion (CPython Compatible)
+
+        // === To* Methods: Value Extraction (PyDict → C# basic types) ===
+        
+        /// <summary>
+        /// CPython PyLong_AsLong 호환: PyDict는 일반적으로 int로 변환될 수 없음
+        /// </summary>
+        public override int ToInt()
+        {
+            throw PyTypeError.Create($"int() argument must be a string, a bytes-like object or a number, not 'dict'");
+        }
+        
+        /// <summary>
+        /// CPython PyFloat_AsDouble 호환: PyDict는 일반적으로 float로 변환될 수 없음
+        /// </summary>
+        public override double ToFloat()
+        {
+            throw PyTypeError.Create($"float() argument must be a string or a number, not 'dict'");
+        }
+        
+        
+        // === As* Methods: Type Conversion (PyDict → PyObject types) ===
+        
+        /// <summary>
+        /// CPython 호환: PyDict를 PyDict로 변환 (복사본 생성)
+        /// </summary>
+        public override PyDict AsDict()
+        {
+            // CPython dict() 생성자 동작: 새로운 복사본 생성
+            return Copy();
+        }
+        
+        /// <summary>
+        /// CPython 호환: PyDict를 PyList로 변환 (키 목록)
+        /// </summary>
+        public override PyList AsList()
+        {
+            // CPython list(dict) 동작: 딕셔너리의 키들을 리스트로 변환
+            return Keys();
+        }
+        
+        /// <summary>
+        /// CPython 호환: PyDict를 PyTuple로 변환 (키 목록)
+        /// </summary>
+        public override PyTuple AsTuple()
+        {
+            // CPython tuple(dict) 동작: 딕셔너리의 키들을 튜플로 변환
+            return new PyTuple(_items.Keys.ToArray());
+        }
+        
+        /// <summary>
+        /// CPython 호환: PyDict를 PyBool로 변환
+        /// </summary>
+        public override PyBool AsBool()
+        {
+            return PyBool.FromBool(_items.Count > 0);
+        }
+        
+        /// <summary>
+        /// CPython 호환: PyDict를 PyString으로 변환 (str() 호출과 동일)
+        /// </summary>
+        public override PyString AsString()
+        {
+            return new PyString(ToRepr()); // CPython에서 str(dict)는 repr(dict)와 동일
+        }
+
+        #endregion
     }
 }
