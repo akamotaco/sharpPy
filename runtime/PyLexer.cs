@@ -245,7 +245,21 @@ namespace SharpPy
         {
             var line = _line;
             var column = _column - 1;
-            var value = new StringBuilder();
+            var pos = _position - 1; // Current position is at opening quote
+            
+            // Check for triple quotes
+            bool isTripleQuoted = false;
+            if (pos + 2 < _source.Length && 
+                _source[pos + 1] == quote && 
+                _source[pos + 2] == quote)
+            {
+                isTripleQuoted = true;
+                _position += 2; // Skip the two additional opening quotes
+                _column += 2;
+                var value = ScanTripleQuotedString(quote, TokenType.STRING);
+                return new PyToken(TokenType.STRING, value, line, column);
+            }
+            var stringValue = new StringBuilder();
             
             while (!IsAtEnd() && Peek() != quote)
             {
@@ -263,19 +277,19 @@ namespace SharpPy
                         var escaped = Advance();
                         switch (escaped)
                         {
-                            case 'n': value.Append('\n'); break;
-                            case 't': value.Append('\t'); break;
-                            case 'r': value.Append('\r'); break;
-                            case '\\': value.Append('\\'); break;
-                            case '\'': value.Append('\''); break;
-                            case '"': value.Append('"'); break;
-                            default: value.Append(escaped); break;
+                            case 'n': stringValue.Append('\n'); break;
+                            case 't': stringValue.Append('\t'); break;
+                            case 'r': stringValue.Append('\r'); break;
+                            case '\\': stringValue.Append('\\'); break;
+                            case '\'': stringValue.Append('\''); break;
+                            case '"': stringValue.Append('"'); break;
+                            default: stringValue.Append(escaped); break;
                         }
                     }
                 }
                 else
                 {
-                    value.Append(Advance());
+                    stringValue.Append(Advance());
                 }
             }
 
@@ -287,7 +301,7 @@ namespace SharpPy
             // Consume closing quote
             Advance();
 
-            return new PyToken(TokenType.STRING, value.ToString(), line, column);
+            return new PyToken(TokenType.STRING, stringValue.ToString(), line, column);
         }
 
         /// <summary>
@@ -558,18 +572,24 @@ namespace SharpPy
             var quote = _source[pos];
             var stringType = DetermineStringType(prefixes);
             
-            // Handle triple quotes
+            // Handle triple quotes - fixed boundary condition
             bool isTripleQuoted = false;
-            if (pos + 2 < _source.Length && 
+            // Triple quotes detection logic
+            
+            if (pos + 2 <= _source.Length - 1 && 
                 _source[pos + 1] == quote && 
                 _source[pos + 2] == quote)
             {
                 isTripleQuoted = true;
-                _position += 2; // Skip the two extra quotes
-                _column += 2;
+                _position += 3; // Skip all three opening quotes
+                _column += 3;
+                // Found triple quotes
             }
-            
-            Advance(); // consume opening quote
+            else
+            {
+                Advance(); // consume single opening quote
+                // Single quote detected
+            }
             
             var value = isTripleQuoted ? 
                 ScanTripleQuotedString(quote, stringType) : 
@@ -602,59 +622,50 @@ namespace SharpPy
         private string ScanTripleQuotedString(char quote, TokenType stringType)
         {
             var value = new StringBuilder();
-            var startPosition = _position;
-            var maxIterations = 1000; // Reduced for debugging
-            var iterations = 0;
+            const int quoteSize = 3; // We know it's triple quotes
+            int endQuoteSize = 0; // Track matching closing quotes
             
-            Console.WriteLine($"🔍 ScanTripleQuotedString starting at position {_position}, quote='{quote}'");
-            
-            while (!IsAtEnd() && iterations < maxIterations)
+            while (!IsAtEnd())
             {
-                iterations++;
+                char ch = Peek();
                 
-                // Check for closing triple quote
-                if (_position + 2 < _source.Length &&
-                    _source[_position] == quote &&
-                    _source[_position + 1] == quote &&
-                    _source[_position + 2] == quote)
+                if (ch == quote)
                 {
-                    _position += 3;
-                    _column += 3;
-                    return value.ToString(); // Found closing quotes, return immediately
-                }
-                
-                if (Peek() == '\n')
-                {
-                    _line++;
-                    _column = 1;
-                }
-                else
-                {
-                    _column++;
-                }
-                
-                // Handle escapes for non-raw strings
-                if (stringType != TokenType.RAW_STRING && Peek() == '\\')
-                {
-                    Advance(); // consume backslash
-                    if (!IsAtEnd())
+                    endQuoteSize++;
+                    Advance();
+                    
+                    // Check if we have enough closing quotes
+                    if (endQuoteSize == quoteSize)
                     {
-                        value.Append(ProcessEscapeSequence(Advance()));
+                        return value.ToString();
                     }
                 }
                 else
                 {
-                    value.Append(Advance());
+                    // Reset quote counter if we hit a non-quote character
+                    if (endQuoteSize > 0)
+                    {
+                        // Add the quotes we collected so far to the value
+                        for (int i = 0; i < endQuoteSize; i++)
+                        {
+                            value.Append(quote);
+                        }
+                        endQuoteSize = 0;
+                    }
+                    
+                    // Process the current character
+                    ch = Advance();
+                    if (ch == '\n')
+                    {
+                        _line++;
+                        _column = 1;
+                    }
+                    
+                    value.Append(ch);
                 }
             }
             
-            // If we reach here, we didn't find closing triple quotes
-            if (iterations >= maxIterations)
-            {
-                throw new Exception($"Infinite loop detected in triple quoted string at line {_line}, position {startPosition}");
-            }
-            
-            throw new Exception($"Unterminated triple quoted string at line {_line}");
+            throw new Exception($"EOF while scanning triple-quoted string literal");
         }
         
         /// <summary>
