@@ -269,6 +269,7 @@ namespace SharpPy
                     var name = frame.Code.Names[instruction.Argument];
                     // 기존 LEGB 시스템 사용!
                     var value = frame.ScopeChain.LookupVariable(name);
+                    Console.WriteLine($"🔍 LOAD_NAME({name}): loaded {value?.GetType().Name ?? "null"} value = {value}");
                     frame.ValueStack.Push(value);
                     break;
                 
@@ -431,7 +432,10 @@ namespace SharpPy
                         {
                             // Apply CPython-style parameter binding with defaults
                             var boundArgs = BindFunctionArguments(args, pyCode, defaults);
-                            var functionFrame = new PyFrame(pyCode, boundArgs, frame.ScopeChain);
+                            // Create frame with closure support if needed
+                            var functionFrame = closure != null && closure.Length > 0 
+                                ? new PyFrame(pyCode, boundArgs, frame.ScopeChain, closure)
+                                : new PyFrame(pyCode, boundArgs, frame.ScopeChain);
                             return ExecuteFrame(functionFrame);
                         };
                         
@@ -508,7 +512,10 @@ namespace SharpPy
                     
                 case ByteCodeOp.JUMP_BACKWARD:
                     // JUMP_BACKWARD uses relative offset - jump back by the specified amount
-                    frame.InstructionPointer = frame.InstructionPointer - instruction.Argument - 1; // -1 because main loop will increment
+                    // CPython-compatible: jump to the exact instruction specified by the argument
+                    // -1 because main loop will increment InstructionPointer
+                    frame.InstructionPointer = frame.InstructionPointer - instruction.Argument - 1;
+                    Console.WriteLine($"🔄 JUMP_BACKWARD: from {frame.InstructionPointer + instruction.Argument + 1} to {frame.InstructionPointer + 1} (next: {frame.InstructionPointer + 1})");
                     return null; // Continue execution from new position
 
                 // CPython-style Container Building Opcodes (Phase 1)
@@ -635,17 +642,24 @@ namespace SharpPy
                     break;
                     
                 case ByteCodeOp.FOR_ITER:
-                    var iter = frame.ValueStack.Peek(); // Don't pop yet
+                    var iter = frame.ValueStack.Peek(); // Don't pop iterator - keep it on stack
                     try
                     {
                         var nextItem = iter.Next();
-                        frame.ValueStack.Push(nextItem);
+                        frame.ValueStack.Push(nextItem); // Push next item on top of iterator
+                        Console.WriteLine($"🔄 FOR_ITER: got next item {nextItem} from iterator");
                     }
                     catch (PythonException ex) when (ex.PyException is PyStopIteration)
                     {
-                        frame.ValueStack.Pop(); // Remove iterator
-                        frame.InstructionPointer = instruction.Argument; // Jump to end of loop
+                        Console.WriteLine($"🔚 FOR_ITER: StopIteration - loop finished");
+                        frame.ValueStack.Pop(); // Remove iterator from stack
+                        frame.InstructionPointer = instruction.Argument - 1; // Jump to end of loop (-1 because main loop will increment)
                         return null;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"💥 FOR_ITER error: {ex.Message}");
+                        throw;
                     }
                     break;
 
@@ -803,33 +817,64 @@ namespace SharpPy
                     
                 // PEP 709 Comprehension Optimization - VM 구현
                 case ByteCodeOp.LIST_APPEND:
+                    // CPython 호환: LIST_APPEND i
                     // 스택: [..., list, ..., item] → [..., list, ...]
-                    // argument는 list의 위치 (스택 top에서 몇 번째 아래)
+                    // i는 스택 top에서 list까지의 거리 (1-based)
                     var listItem = frame.ValueStack.Pop();
-                    var stackArray = frame.ValueStack.ToArray();
-                    if (instruction.Argument <= stackArray.Length)
+                    
+                    // 스택을 임시 저장
+                    var tempStack = new Stack<PyObject>();
+                    PyObject targetList = null;
+                    
+                    // instruction.Argument - 1 만큼 pop해서 target list 찾기
+                    for (int i = 0; i < instruction.Argument; i++)
                     {
-                        var targetList = stackArray[instruction.Argument - 1];
-                        if (targetList is PyList targetPyList)
+                        if (frame.ValueStack.Count > 0)
                         {
-                            targetPyList.Append(listItem);
+                            var item = frame.ValueStack.Pop();
+                            if (i == instruction.Argument - 1)
+                            {
+                                targetList = item; // 이것이 target list
+                            }
+                            else
+                            {
+                                tempStack.Push(item);
+                            }
                         }
                         else
                         {
-                            throw new Exception($"LIST_APPEND: target is not a list, got {targetList.GetType().Name}");
+                            throw new Exception($"LIST_APPEND: stack underflow");
+                        }
+                    }
+                    
+                    // target list에 아이템 추가
+                    if (targetList is PyList targetPyList)
+                    {
+                        targetPyList.Append(listItem);
+                        
+                        // target list를 다시 스택에 push
+                        frame.ValueStack.Push(targetList);
+                        
+                        // 임시 저장된 아이템들을 다시 스택에 push
+                        while (tempStack.Count > 0)
+                        {
+                            frame.ValueStack.Push(tempStack.Pop());
                         }
                     }
                     else
                     {
-                        throw new Exception("LIST_APPEND: invalid stack position");
+                        throw new Exception($"LIST_APPEND: target is not a list, got {targetList?.GetType().Name ?? "null"}");
                     }
                     break;
                     
                 case ByteCodeOp.SET_ADD:
+                    // CPython 호환: SET_ADD i
                     // 스택: [..., set, ..., item] → [..., set, ...]
                     var setItem = frame.ValueStack.Pop();
                     var setStackArray = frame.ValueStack.ToArray();
-                    if (instruction.Argument <= setStackArray.Length)
+                    Array.Reverse(setStackArray); // CPython 호환 스택 순서
+                    
+                    if (instruction.Argument > 0 && instruction.Argument <= setStackArray.Length)
                     {
                         var targetSet = setStackArray[instruction.Argument - 1];
                         if (targetSet is PySet targetPySet)
@@ -843,16 +888,19 @@ namespace SharpPy
                     }
                     else
                     {
-                        throw new Exception("SET_ADD: invalid stack position");
+                        throw new Exception($"SET_ADD: invalid stack position {instruction.Argument}");
                     }
                     break;
                     
                 case ByteCodeOp.MAP_ADD:
+                    // CPython 호환: MAP_ADD i
                     // 스택: [..., dict, ..., key, value] → [..., dict, ...]
                     var dictValue = frame.ValueStack.Pop();
                     var dictKey = frame.ValueStack.Pop();
                     var dictStackArray = frame.ValueStack.ToArray();
-                    if (instruction.Argument <= dictStackArray.Length)
+                    Array.Reverse(dictStackArray); // CPython 호환 스택 순서
+                    
+                    if (instruction.Argument > 0 && instruction.Argument <= dictStackArray.Length)
                     {
                         var targetDict = dictStackArray[instruction.Argument - 1];
                         if (targetDict is PyDict targetPyDict)
@@ -866,7 +914,7 @@ namespace SharpPy
                     }
                     else
                     {
-                        throw new Exception("MAP_ADD: invalid stack position");
+                        throw new Exception($"MAP_ADD: invalid stack position {instruction.Argument}");
                     }
                     break;
 
@@ -1341,17 +1389,55 @@ namespace SharpPy
         /// </summary>
         private bool ExceptionMatches(PyObject exception, PyObject exceptionType)
         {
-            if (exception is PyException pyExc && exceptionType is PyBuiltinType builtinType)
+            // CPython-style exception matching
+            // exception: actual exception instance (e.g., ValueError("message"))
+            // exceptionType: exception class (e.g., ValueError class)
+            
+            if (exception is PyException pyExc)
             {
-                // CPython-style exception type matching
-                // Get the exception's type name without "Py" prefix
+                // Get the exception's actual type name
                 string excTypeName = pyExc.GetType().Name;
                 if (excTypeName.StartsWith("Py"))
                     excTypeName = excTypeName.Substring(2); // Remove "Py" prefix
                 
-                // Match with builtin type name
-                Console.WriteLine($"🔍 Exception match: {excTypeName} vs {builtinType.Name}");
-                return excTypeName == builtinType.Name;
+                string targetTypeName = "";
+                
+                // Handle different types of exception type objects
+                if (exceptionType is PyBuiltinType builtinType)
+                {
+                    targetTypeName = builtinType.Name;
+                }
+                else if (exceptionType is PyType pyType)
+                {
+                    targetTypeName = pyType.Name;
+                }
+                else
+                {
+                    // Try to get the type name directly from the object
+                    targetTypeName = exceptionType.ToString();
+                    if (targetTypeName.Contains("'") && targetTypeName.Contains("class"))
+                    {
+                        // Extract class name from "<class 'ValueError'>"
+                        var start = targetTypeName.LastIndexOf("'") - targetTypeName.Length + targetTypeName.LastIndexOf("'") + 1;
+                        start = targetTypeName.IndexOf("'") + 1;
+                        var end = targetTypeName.LastIndexOf("'");
+                        if (end > start)
+                            targetTypeName = targetTypeName.Substring(start, end - start);
+                    }
+                }
+                
+                Console.WriteLine($"🔍 Exception match: {excTypeName} vs {targetTypeName}");
+                
+                // Direct type match
+                bool matches = excTypeName.Equals(targetTypeName, StringComparison.OrdinalIgnoreCase);
+                
+                // Also check inheritance (Exception should match all exceptions)
+                if (!matches && targetTypeName == "Exception")
+                {
+                    matches = true; // All exceptions inherit from Exception
+                }
+                
+                return matches;
             }
             
             return false;

@@ -602,10 +602,16 @@ namespace SharpPy
         private string ScanTripleQuotedString(char quote, TokenType stringType)
         {
             var value = new StringBuilder();
-            var quoteString = new string(quote, 3);
+            var startPosition = _position;
+            var maxIterations = 1000; // Reduced for debugging
+            var iterations = 0;
             
-            while (!IsAtEnd())
+            Console.WriteLine($"🔍 ScanTripleQuotedString starting at position {_position}, quote='{quote}'");
+            
+            while (!IsAtEnd() && iterations < maxIterations)
             {
+                iterations++;
+                
                 // Check for closing triple quote
                 if (_position + 2 < _source.Length &&
                     _source[_position] == quote &&
@@ -614,13 +620,17 @@ namespace SharpPy
                 {
                     _position += 3;
                     _column += 3;
-                    break;
+                    return value.ToString(); // Found closing quotes, return immediately
                 }
                 
                 if (Peek() == '\n')
                 {
                     _line++;
                     _column = 1;
+                }
+                else
+                {
+                    _column++;
                 }
                 
                 // Handle escapes for non-raw strings
@@ -638,7 +648,13 @@ namespace SharpPy
                 }
             }
             
-            return value.ToString();
+            // If we reach here, we didn't find closing triple quotes
+            if (iterations >= maxIterations)
+            {
+                throw new Exception($"Infinite loop detected in triple quoted string at line {_line}, position {startPosition}");
+            }
+            
+            throw new Exception($"Unterminated triple quoted string at line {_line}");
         }
         
         /// <summary>

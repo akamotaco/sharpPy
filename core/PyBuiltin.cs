@@ -51,6 +51,7 @@ namespace SharpPy
                 "getattr" => CallGetAttr(args),
                 "setattr" => CallSetAttr(args),
                 "delattr" => CallDelAttr(args),
+                "dir" => CallDir(args),
                 "type" => CallType(args),
                 "id" => CallId(args),
                 "hash" => CallHash(args),
@@ -913,6 +914,78 @@ namespace SharpPy
                 "__call__" => this,
                 _ => throw PyAttributeError.Create($"'builtin_function_or_method' object has no attribute '{name}'")
             };
+        }
+
+        private PyObject CallDir(PyObject[] args)
+        {
+            if (args.Length > 1)
+                throw PyTypeError.Create($"dir expected at most 1 arguments ({args.Length} given)");
+
+            if (args.Length == 0)
+            {
+                // dir() with no arguments - return local variables
+                // For now, return empty list
+                return new PyList();
+            }
+
+            var obj = args[0];
+            var attributes = new List<PyObject>();
+
+            // Get object's __dict__ if available
+            try
+            {
+                var dict = obj.GetAttribute("__dict__");
+                if (dict is PyDict pyDict)
+                {
+                    foreach (var key in pyDict.Keys().Items)
+                    {
+                        attributes.Add(key);
+                    }
+                }
+            }
+            catch
+            {
+                // No __dict__, continue with other attributes
+            }
+
+            // Add common attributes based on object type
+            if (obj is PyString)
+            {
+                attributes.AddRange(new[] { 
+                    new PyString("capitalize"), new PyString("center"), new PyString("count"),
+                    new PyString("endswith"), new PyString("find"), new PyString("format"),
+                    new PyString("join"), new PyString("lower"), new PyString("replace"),
+                    new PyString("split"), new PyString("startswith"), new PyString("strip"),
+                    new PyString("upper")
+                });
+            }
+            else if (obj is PyList)
+            {
+                attributes.AddRange(new[] {
+                    new PyString("append"), new PyString("count"), new PyString("extend"),
+                    new PyString("index"), new PyString("insert"), new PyString("pop"),
+                    new PyString("remove"), new PyString("reverse"), new PyString("sort")
+                });
+            }
+            else if (obj is PyDict)
+            {
+                attributes.AddRange(new[] {
+                    new PyString("clear"), new PyString("copy"), new PyString("get"),
+                    new PyString("items"), new PyString("keys"), new PyString("pop"),
+                    new PyString("update"), new PyString("values")
+                });
+            }
+
+            // Add standard object attributes
+            attributes.AddRange(new[] {
+                new PyString("__class__"), new PyString("__doc__"), 
+                new PyString("__module__"), new PyString("__dict__")
+            });
+
+            // Sort alphabetically (like CPython)
+            attributes.Sort((a, b) => a.ToString().CompareTo(b.ToString()));
+
+            return new PyList(attributes);
         }
 
         private PyObject CallBuildClass(PyObject[] args)

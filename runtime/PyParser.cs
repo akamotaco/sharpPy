@@ -882,6 +882,13 @@ namespace SharpPy
                 return new ConstantExpression(new PyString(value));
             }
             
+            if (Match(TokenType.RAW_STRING))
+            {
+                var value = Previous().Lexeme;
+                // Raw strings don't process escape sequences
+                return new ConstantExpression(new PyString(value));
+            }
+            
             // F-String support (PEP 701 enhanced)
             if (Match(TokenType.F_STRING))
             {
@@ -1002,7 +1009,17 @@ namespace SharpPy
                 
                 while (Match(TokenType.COMMA) && !Check(TokenType.RIGHT_BRACKET))
                 {
+                    // Skip newlines and indentation after comma in multiline lists
+                    SkipNewlines();
+                    while (Match(TokenType.INDENT)) { }
+                    
+                    if (Check(TokenType.RIGHT_BRACKET)) break; // trailing comma
+                    
                     elements.Add(ParseExpression());
+                    
+                    // Skip any trailing whitespace/indentation
+                    SkipNewlines();
+                    while (Match(TokenType.DEDENT)) { }
                 }
                 
                 Consume(TokenType.RIGHT_BRACKET, "Expected ']' after list elements");
@@ -1012,6 +1029,10 @@ namespace SharpPy
 
         private Expression ParseDictExpression()
         {
+            // Skip any leading newlines/indentation in multiline dict/set
+            SkipNewlines();
+            while (Match(TokenType.INDENT)) { }
+            
             // Empty dict/set
             if (Check(TokenType.RIGHT_BRACE))
             {
@@ -1031,6 +1052,8 @@ namespace SharpPy
                 {
                     // This is a dict comprehension: {key: value for ...}
                     var generators = ParseComprehensionGenerators();
+                    while (Match(TokenType.DEDENT)) { }
+                    SkipNewlines();
                     Consume(TokenType.RIGHT_BRACE, "Expected '}' after dict comprehension");
                     return new DictComprehension(firstExpr, firstValue, generators);
                 }
@@ -1042,11 +1065,25 @@ namespace SharpPy
                     
                     while (Match(TokenType.COMMA) && !Check(TokenType.RIGHT_BRACE))
                     {
+                        // Skip newlines and indentation after comma in multiline dictionaries
+                        SkipNewlines();
+                        while (Match(TokenType.INDENT)) { }
+                        
+                        if (Check(TokenType.RIGHT_BRACE)) break; // trailing comma
+                        
                         var key = ParseExpression();
                         Consume(TokenType.COLON, "Expected ':' after dictionary key");
                         var value = ParseExpression();
                         items.Add((key, value));
+                        
+                        // Skip any trailing whitespace/indentation
+                        SkipNewlines();
+                        while (Match(TokenType.DEDENT)) { }
                     }
+                    
+                    // Skip trailing DEDENT before closing brace
+                    while (Match(TokenType.DEDENT)) { }
+                    SkipNewlines();
                     
                     Consume(TokenType.RIGHT_BRACE, "Expected '}' after dictionary items");
                     return new DictExpression(items);
@@ -1059,6 +1096,8 @@ namespace SharpPy
                 {
                     // This is a set comprehension: {expr for ...}
                     var generators = ParseComprehensionGenerators();
+                    while (Match(TokenType.DEDENT)) { }
+                    SkipNewlines();
                     Consume(TokenType.RIGHT_BRACE, "Expected '}' after set comprehension");
                     return new SetComprehension(firstExpr, generators);
                 }
@@ -1070,8 +1109,22 @@ namespace SharpPy
                     
                     while (Match(TokenType.COMMA) && !Check(TokenType.RIGHT_BRACE))
                     {
+                        // Skip newlines and indentation after comma in multiline sets
+                        SkipNewlines();
+                        while (Match(TokenType.INDENT)) { }
+                        
+                        if (Check(TokenType.RIGHT_BRACE)) break; // trailing comma
+                        
                         elements.Add(ParseExpression());
+                        
+                        // Skip any trailing whitespace/indentation
+                        SkipNewlines();
+                        while (Match(TokenType.DEDENT)) { }
                     }
+                    
+                    // Skip trailing DEDENT before closing brace
+                    while (Match(TokenType.DEDENT)) { }
+                    SkipNewlines();
                     
                     Consume(TokenType.RIGHT_BRACE, "Expected '}' after set elements");
                     return new SetExpression(elements);

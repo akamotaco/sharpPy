@@ -1547,24 +1547,18 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// CPython-style exception handling compilation - simplified implementation
+        /// CPython-style exception handling compilation - fixed implementation
         /// </summary>
         private void CompileTry(TryStatement tryStmt)
         {
             // CPython-style exception handling implementation
             
-            // Jump targets for handlers and cleanup
-            var handlerLabels = new List<Label>();
             var endLabel = CreateLabel("try_end");
+            var handlersStartLabel = CreateLabel("handlers_start");
             
-            // Setup exception handling for each handler
-            foreach (var handler in tryStmt.Handlers)
-            {
-                var handlerLabel = CreateLabel("except_handler");
-                handlerLabels.Add(handlerLabel);
-                EmitInstruction(ByteCodeOp.SETUP_EXCEPT, 0); // Will be fixed up when label is marked
-                handlerLabel.References.Add(_instructions.Count - 1);
-            }
+            // Setup single exception handler for all except clauses (CPython style)
+            EmitInstruction(ByteCodeOp.SETUP_EXCEPT, 0);
+            handlersStartLabel.References.Add(_instructions.Count - 1);
             
             // Compile try body
             foreach (var stmt in tryStmt.Body)
@@ -1572,21 +1566,21 @@ namespace SharpPy
                 CompileStatement(stmt);
             }
             
-            // Pop exception handlers and jump to end
-            for (int i = 0; i < tryStmt.Handlers.Count; i++)
-            {
-                EmitInstruction(ByteCodeOp.POP_EXCEPT);
-            }
+            // Pop exception handler and jump to end (no exception case)
+            EmitInstruction(ByteCodeOp.POP_EXCEPT);
             EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
             endLabel.References.Add(_instructions.Count - 1);
             
-            // Compile exception handlers
+            // Mark start of exception handlers (CPython style)
+            MarkLabel(handlersStartLabel);
+            
+            // Compile exception handlers sequentially
             for (int i = 0; i < tryStmt.Handlers.Count; i++)
             {
                 var handler = tryStmt.Handlers[i];
-                var handlerLabel = handlerLabels[i];
-                
-                MarkLabel(handlerLabel);
+                var nextHandlerLabel = (i < tryStmt.Handlers.Count - 1) 
+                    ? CreateLabel($"handler_{i+1}")
+                    : CreateLabel("reraise"); // Last handler - reraise if no match
                 
                 // Exception is on stack - check if it matches handler type
                 if (handler.Type != null)
@@ -1616,9 +1610,9 @@ namespace SharpPy
                         EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(PyNone.Instance));
                         EmitInstruction(ByteCodeOp.COMPARE_OP, 3); // IS_NOT
                         
-                        var skipHandlerLabel = CreateLabel("skip_handler");
+                        // If no match, try next handler
                         EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0);
-                        skipHandlerLabel.References.Add(_instructions.Count - 1);
+                        nextHandlerLabel.References.Add(_instructions.Count - 1);
                         
                         // Execute handler body
                         foreach (var stmt in handler.Body)
@@ -1628,16 +1622,15 @@ namespace SharpPy
                         
                         EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
                         endLabel.References.Add(_instructions.Count - 1);
-                        MarkLabel(skipHandlerLabel);
                     }
                     else
                     {
                         // Regular exception matching
                         EmitInstruction(ByteCodeOp.EXCEPT_MATCH);
                         
-                        var skipHandlerLabel = CreateLabel("skip_handler");
+                        // If no match, try next handler
                         EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0);
-                        skipHandlerLabel.References.Add(_instructions.Count - 1);
+                        nextHandlerLabel.References.Add(_instructions.Count - 1);
                         
                         // Store exception if handler has name
                         if (handler.Name != null)
@@ -1657,12 +1650,11 @@ namespace SharpPy
                         
                         EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
                         endLabel.References.Add(_instructions.Count - 1);
-                        MarkLabel(skipHandlerLabel);
                     }
                 }
                 else
                 {
-                    // Bare except - catches everything
+                    // Bare except - catches everything (no need to check next handler)
                     if (handler.Name != null)
                     {
                         EmitInstruction(ByteCodeOp.STORE_NAME, AddName(handler.Name));
@@ -1681,6 +1673,20 @@ namespace SharpPy
                     EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
                     endLabel.References.Add(_instructions.Count - 1);
                 }
+                
+                // Mark next handler label (for sequential checking)
+                if (i < tryStmt.Handlers.Count - 1)
+                {
+                    MarkLabel(nextHandlerLabel);
+                }
+            }
+            
+            // If no handler matched, reraise the exception
+            if (tryStmt.Handlers.Count > 0)
+            {
+                var reraiseLabel = CreateLabel("reraise");
+                MarkLabel(reraiseLabel);
+                EmitInstruction(ByteCodeOp.RAISE_VARARGS, 0); // Reraise current exception
             }
             
             // End of try-except
@@ -2233,6 +2239,7 @@ namespace SharpPy
         /// <summary>
         /// PEP 709 - List comprehension 바이트코드 인라인 최적화
         /// [expr for var in iterable if condition] → 직접 바이트코드 생성
+        /// CPython 호환 방식: GET_ITER는 한 번만, 루프는 FOR_ITER부터 시작
         /// </summary>
         private void CompileListComprehension(ListComprehension listComp)
         {
@@ -2244,11 +2251,11 @@ namespace SharpPy
             // 현재는 첫 번째 generator만 지원 (단순화)
             var generator = listComp.Generators[0];
             
-            // 2. 이터레이터 준비
+            // 2. 이터레이터 준비 (한 번만)
             CompileExpression(generator.Iter);
             EmitInstruction(ByteCodeOp.GET_ITER);
             
-            // 3. 루프 시작 라벨
+            // 3. 루프 시작 라벨 (FOR_ITER부터, GET_ITER 제외)
             var loopStart = _instructions.Count;
             EmitInstruction(ByteCodeOp.FOR_ITER, 0); // 종료 지점은 나중에 패치
             
@@ -2284,8 +2291,8 @@ namespace SharpPy
                 );
             }
             
-            // 8. 루프 재시작
-            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, _instructions.Count - loopStart + 1);
+            // 8. 루프 재시작 (FOR_ITER로 점프)
+            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, _instructions.Count - loopStart);
             
             // 9. FOR_ITER 종료 지점 패치
             _instructions[loopStart] = new ByteCodeInstruction(
@@ -2299,6 +2306,7 @@ namespace SharpPy
         /// <summary>
         /// PEP 709 - Dict comprehension 바이트코드 인라인 최적화
         /// {key: value for var in iterable if condition} → 직접 바이트코드 생성
+        /// CPython 호환 방식: GET_ITER는 한 번만, 루프는 FOR_ITER부터 시작
         /// </summary>
         private void CompileDictComprehension(DictComprehension dictComp)
         {
@@ -2310,11 +2318,11 @@ namespace SharpPy
             // 현재는 첫 번째 generator만 지원
             var generator = dictComp.Generators[0];
             
-            // 2. 이터레이터 준비
+            // 2. 이터레이터 준비 (한 번만)
             CompileExpression(generator.Iter);
             EmitInstruction(ByteCodeOp.GET_ITER);
             
-            // 3. 루프 시작 라벨
+            // 3. 루프 시작 라벨 (FOR_ITER부터, GET_ITER 제외)
             var loopStart = _instructions.Count;
             EmitInstruction(ByteCodeOp.FOR_ITER, 0);
             
@@ -2351,8 +2359,8 @@ namespace SharpPy
                 );
             }
             
-            // 8. 루프 재시작
-            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, _instructions.Count - loopStart + 1);
+            // 8. 루프 재시작 (FOR_ITER로 점프)
+            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, _instructions.Count - loopStart);
             
             // 9. FOR_ITER 패치
             _instructions[loopStart] = new ByteCodeInstruction(
@@ -2366,6 +2374,7 @@ namespace SharpPy
         /// <summary>
         /// PEP 709 - Set comprehension 바이트코드 인라인 최적화
         /// {expr for var in iterable if condition} → 직접 바이트코드 생성
+        /// CPython 호환 방식: GET_ITER는 한 번만, 루프는 FOR_ITER부터 시작
         /// </summary>
         private void CompileSetComprehension(SetComprehension setComp)
         {
@@ -2377,11 +2386,11 @@ namespace SharpPy
             // 현재는 첫 번째 generator만 지원
             var generator = setComp.Generators[0];
             
-            // 2. 이터레이터 준비
+            // 2. 이터레이터 준비 (한 번만)
             CompileExpression(generator.Iter);
             EmitInstruction(ByteCodeOp.GET_ITER);
             
-            // 3. 루프 시작 라벨
+            // 3. 루프 시작 라벨 (FOR_ITER부터, GET_ITER 제외)
             var loopStart = _instructions.Count;
             EmitInstruction(ByteCodeOp.FOR_ITER, 0);
             
@@ -2417,8 +2426,8 @@ namespace SharpPy
                 );
             }
             
-            // 8. 루프 재시작
-            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, _instructions.Count - loopStart + 1);
+            // 8. 루프 재시작 (FOR_ITER로 점프)
+            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, _instructions.Count - loopStart);
             
             // 9. FOR_ITER 패치
             _instructions[loopStart] = new ByteCodeInstruction(
