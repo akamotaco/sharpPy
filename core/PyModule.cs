@@ -4,6 +4,78 @@ namespace SharpPy
 {
     #region Module and Import System
 
+// PEP 420 네임스페이스 패키지 (PyModule을 상속받아 확장)
+public class PyNamespaceModule : PyModule
+{
+    public List<string> NamespaceDirs { get; }
+    
+    public PyNamespaceModule(string name, List<string> namespaceDirs) : base(name)
+    {
+        NamespaceDirs = new List<string>(namespaceDirs);
+        
+        // __path__ 속성 설정 (PEP 420 요구사항)
+        var pathList = namespaceDirs.Select(dir => new PyString(dir)).ToArray();
+        ModuleDict["__path__"] = new PyList(pathList);
+        
+        // 네임스페이스 패키지 표시
+        ModuleDict["__file__"] = PyNone.Instance; // 네임스페이스 패키지는 __file__이 None
+        ModuleDict["__doc__"] = new PyString($"Namespace package {Name}");
+    }
+    
+    /// <summary>
+    /// 네임스페이스 패키지 내에서 서브모듈 검색
+    /// </summary>
+    public PyModule FindSubmodule(string submoduleName)
+    {
+        foreach (var namespaceDir in NamespaceDirs)
+        {
+            // 서브모듈 파일 검색
+            var submoduleFile = System.IO.Path.Combine(namespaceDir, submoduleName + ".py");
+            if (System.IO.File.Exists(submoduleFile))
+            {
+                var fullName = $"{Name}.{submoduleName}";
+                return PyImportSystem.LoadModuleFromFile(fullName, submoduleFile);
+            }
+            
+            // 서브패키지 검색
+            var subpackageDir = System.IO.Path.Combine(namespaceDir, submoduleName);
+            if (System.IO.Directory.Exists(subpackageDir))
+            {
+                var initFile = System.IO.Path.Combine(subpackageDir, "__init__.py");
+                var fullName = $"{Name}.{submoduleName}";
+                
+                if (System.IO.File.Exists(initFile))
+                {
+                    // 일반 패키지
+                    return PyImportSystem.LoadModuleFromFile(fullName, initFile);
+                }
+                else
+                {
+                    // 중첩된 네임스페이스 패키지
+                    var nestedNamespaceDirs = new List<string> { subpackageDir };
+                    
+                    // 다른 네임스페이스 디렉토리에서도 동일한 서브패키지 검색
+                    foreach (var otherDir in NamespaceDirs.Where(d => d != namespaceDir))
+                    {
+                        var otherSubpackageDir = System.IO.Path.Combine(otherDir, submoduleName);
+                        if (System.IO.Directory.Exists(otherSubpackageDir) && 
+                            !System.IO.File.Exists(System.IO.Path.Combine(otherSubpackageDir, "__init__.py")))
+                        {
+                            nestedNamespaceDirs.Add(otherSubpackageDir);
+                        }
+                    }
+                    
+                    return PyImportSystem.CreateNamespacePackage(fullName, nestedNamespaceDirs);
+                }
+            }
+        }
+        
+        return null;
+    }
+    
+    public override string ToString() => $"<module '{Name}' (namespace)>";
+}
+
 // Python 모듈 객체
 public class PyModule : PyObject
 {
@@ -258,7 +330,13 @@ public class PyModule : PyObject
         {
             if (parentModule == null) return null;
             
-            // 부모 모듈의 경로에서 서브모듈 검색
+            // 네임스페이스 패키지인 경우 특별 처리
+            if (parentModule is PyNamespaceModule namespacePackage)
+            {
+                return namespacePackage.FindSubmodule(submoduleName);
+            }
+            
+            // 일반 패키지의 경우 기존 로직
             var parentDir = System.IO.Path.GetDirectoryName(parentModule.FileName);
             if (string.IsNullOrEmpty(parentDir)) return null;
             
@@ -277,6 +355,13 @@ public class PyModule : PyObject
                 return LoadModuleFromFile(fullName, subpackageInit);
             }
             
+            // PEP 420: 네임스페이스 서브패키지 검색 (__init__.py 없는 디렉토리)
+            if (System.IO.Directory.Exists(subpackageDir) && !System.IO.File.Exists(subpackageInit))
+            {
+                var namespaceDirs = new List<string> { subpackageDir };
+                return CreateNamespacePackage(fullName, namespaceDirs);
+            }
+            
             return null;
         }
 
@@ -285,6 +370,8 @@ public class PyModule : PyObject
         {
             var sysPath = GetSysPath();
             if (sysPath == null) return null;
+
+            List<string> namespaceDirs = new List<string>(); // PEP 420 네임스페이스 패키지용
 
             foreach (var pathObj in sysPath.Items)
             {
@@ -305,6 +392,18 @@ public class PyModule : PyObject
                 {
                     return LoadModuleFromFile(moduleName, initFile);
                 }
+
+                // PEP 420: 네임스페이스 패키지 검색 (__init__.py 없는 디렉토리)
+                if (System.IO.Directory.Exists(packageDir) && !System.IO.File.Exists(initFile))
+                {
+                    namespaceDirs.Add(packageDir);
+                }
+            }
+
+            // PEP 420 네임스페이스 패키지 생성
+            if (namespaceDirs.Count > 0)
+            {
+                return CreateNamespacePackage(moduleName, namespaceDirs);
             }
 
             return null;
@@ -345,7 +444,7 @@ public class PyModule : PyObject
         }
 
         // 파일에서 모듈 로드
-        private static PyModule LoadModuleFromFile(string moduleName, string filePath)
+        public static PyModule LoadModuleFromFile(string moduleName, string filePath)
         {
             try
             {
@@ -367,6 +466,20 @@ public class PyModule : PyObject
                 SysModules.Remove(moduleName);
                 throw PyImportError.Create($"Failed to load module '{moduleName}' from '{filePath}': {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// PEP 420 네임스페이스 패키지 생성
+        /// </summary>
+        public static PyModule CreateNamespacePackage(string moduleName, List<string> namespaceDirs)
+        {
+            var namespaceModule = new PyNamespaceModule(moduleName, namespaceDirs);
+            
+            // sys.modules에 등록
+            SysModules[moduleName] = namespaceModule;
+            
+            Console.WriteLine($"📂 네임스페이스 패키지 '{moduleName}' 생성됨: [{string.Join(", ", namespaceDirs)}]");
+            return namespaceModule;
         }
 
         // from module_name import item1, item2

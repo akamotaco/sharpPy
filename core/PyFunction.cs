@@ -244,7 +244,7 @@ public class PyFunction : PyObject, IDescriptor
         Func<PyObject[], PyObject> implementation = args =>
         {
             var frame = new PyFrame(codeObject, args, parentScope, closure);
-            return PythonVM.Instance.ExecuteFrame(frame);
+            return PyVM.Instance.ExecuteFrame(frame);
         };
         
         var function = new PyFunction(name, implementation, null, null, closure, codeObject);

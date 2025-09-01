@@ -125,14 +125,14 @@ namespace SharpPy
     }
 
     // Python 가상 머신 (기존 객체 시스템과 완전 통합)
-    public class PythonVM
+    public class PyVM
     {
-        public static PythonVM Instance { get; } = new PythonVM();
+        public static PyVM Instance { get; } = new PyVM();
         
         private readonly Stack<PyFrame> _frameStack;
         private readonly PyScopeChain _globalScope;
         
-        private PythonVM()
+        private PyVM()
         {
             _frameStack = new Stack<PyFrame>();
             _globalScope = new PyScopeChain(); // 기존 LEGB 시스템 사용!

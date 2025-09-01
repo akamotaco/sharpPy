@@ -7,14 +7,14 @@ namespace SharpPy
     {
         private readonly SimpleParser _parser;
         private readonly PythonCompiler _compiler;
-        private readonly PythonVM _vm;
+        private readonly PyVM _vm;
         private readonly PyScopeChain _globalScope;
         
         public IntegratedPythonInterpreter()
         {
             _parser = new SimpleParser();
             _compiler = new PythonCompiler();
-            _vm = PythonVM.Instance;
+            _vm = PyVM.Instance;
             _globalScope = new PyScopeChain(); // 기존 LEGB 시스템!
             
             SetupBuiltinHelpers();
