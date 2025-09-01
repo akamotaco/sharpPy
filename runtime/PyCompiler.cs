@@ -1047,6 +1047,31 @@ namespace SharpPy
             }
             
             EmitInstruction(ByteCodeOp.MAKE_FUNCTION, makeFunctionFlags);
+            
+            // 7. 데코레이터 적용 (함수가 생성된 후)
+            if (func.Decorators != null && func.Decorators.Count > 0)
+            {
+                // 데코레이터는 역순으로 적용됩니다 (마지막 데코레이터부터)
+                foreach (var decorator in func.Decorators)
+                {
+                    CompileExpression(decorator.DecoratorFunction); // 데코레이터 함수를 스택에 로드
+                    EmitInstruction(ByteCodeOp.ROT_TWO); // 함수와 데코레이터 순서 바꾸기
+                    
+                    // 데코레이터에 인수가 있는 경우 처리 (@decorator(args))
+                    int argCount = 1; // 기본적으로 함수 1개
+                    if (decorator.Arguments.Count > 0)
+                    {
+                        foreach (var arg in decorator.Arguments)
+                        {
+                            CompileExpression(arg);
+                            argCount++;
+                        }
+                    }
+                    
+                    EmitInstruction(ByteCodeOp.CALL_FUNCTION, argCount); // 데코레이터(함수, args...) 호출
+                }
+            }
+            
             EmitStoreName(func.Name);
         }
         
@@ -1267,13 +1292,19 @@ namespace SharpPy
             // Load __build_class__ function first
             EmitLoadName("__build_class__");
             
-            // Compile class body into a function
+            // Compile class body into a function (with potential free variables)
             var classBodyName = $"<class_body_{cls.Name}>";
             var classBodyCode = CompileClassBody(cls.Body, classBodyName);
             
-            // Load the class body function
+            // For now, don't create closure for class bodies - use simpler approach
+            // Class body should access parent scope variables via normal name lookup
+            int makeFunctionFlags = 0;
+            
+            // Load the class body function code
             EmitLoadConst(classBodyCode);
-            EmitInstruction(ByteCodeOp.MAKE_FUNCTION);
+            
+            // Create function (with or without closure)
+            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, makeFunctionFlags);
             
             // Load class name
             EmitLoadConst(new PyString(cls.Name));
@@ -1298,12 +1329,22 @@ namespace SharpPy
             var savedConstants = _constants;
             var savedNames = _names;
             var savedVarNames = _varNames;
+            var savedCellVars = _cellVars;
+            var savedFreeVars = _freeVars;
             
             // Initialize new compilation state for class body
             _instructions = new List<ByteCodeInstruction>();
             _constants = new List<PyObject>();
             _names = new List<string>();
             _varNames = new List<string>();
+            _cellVars = new List<string>();
+            _freeVars = new List<string>();
+            
+            // For now, disable free variable analysis for class bodies
+            // Class bodies will use normal name lookup instead of closure mechanism
+            // var freeVariableAnalyzer = new ClassBodyFreeVariableAnalyzer();
+            // var classFreeVars = freeVariableAnalyzer.AnalyzeClassBody(body, savedNames);
+            // _freeVars.AddRange(classFreeVars);
             
             try
             {
@@ -1317,13 +1358,16 @@ namespace SharpPy
                 EmitLoadConst(PyNone.Instance);
                 EmitInstruction(ByteCodeOp.RETURN_VALUE);
                 
-                // Create code object for class body
+                // Create code object for class body with free variables
                 var codeObject = new PyCodeObject(
                     className,
                     _instructions.ToList(),
                     _constants.ToList(),
                     _names.ToList(),
-                    _varNames.ToList()
+                    _varNames.ToList(),
+                    argCount: 0,  // Class body has no arguments
+                    freeVars: _freeVars.ToList(),  // Include free variables
+                    cellVars: _cellVars.ToList()
                 );
                 
                 return codeObject;
@@ -1335,8 +1379,110 @@ namespace SharpPy
                 _constants = savedConstants;
                 _names = savedNames;
                 _varNames = savedVarNames;
+                _cellVars = savedCellVars;
+                _freeVars = savedFreeVars;
             }
         }
+        /// <summary>
+        /// 클래스 body에서 사용되는 자유변수를 분석하는 클래스
+        /// </summary>
+        private class ClassBodyFreeVariableAnalyzer
+        {
+            public List<string> AnalyzeClassBody(List<Statement> body, List<string> parentScopeNames)
+            {
+                var usedNames = new HashSet<string>();
+                var definedNames = new HashSet<string>();
+                
+                // 클래스 body에서 정의되는 이름들 수집
+                foreach (var stmt in body)
+                {
+                    CollectDefinedNames(stmt, definedNames);
+                }
+                
+                // 클래스 body에서 사용되는 이름들 수집
+                foreach (var stmt in body)
+                {
+                    CollectUsedNames(stmt, usedNames);
+                }
+                
+                // 사용되지만 클래스 내부에서 정의되지 않은 이름들 = 자유변수
+                var freeVars = new List<string>();
+                foreach (var name in usedNames)
+                {
+                    // 클래스 내부에서 정의되지 않고, 부모 스코프에 존재하는 변수들
+                    if (!definedNames.Contains(name) && parentScopeNames.Contains(name))
+                    {
+                        freeVars.Add(name);
+                    }
+                }
+                
+                return freeVars;
+            }
+            
+            private void CollectDefinedNames(Statement stmt, HashSet<string> definedNames)
+            {
+                switch (stmt)
+                {
+                    case FunctionDefStatement func:
+                        definedNames.Add(func.Name);
+                        break;
+                    case AssignStatement assign:
+                        // AssignStatement uses VariableName, not Target
+                        definedNames.Add(assign.VariableName);
+                        break;
+                    case AssignTargetStatement assignTarget:
+                        if (assignTarget.Target is NameExpression nameExpr2)
+                            definedNames.Add(nameExpr2.Name);
+                        break;
+                    // 다른 정의 구문들도 필요시 추가
+                }
+            }
+            
+            private void CollectUsedNames(Statement stmt, HashSet<string> usedNames)
+            {
+                switch (stmt)
+                {
+                    case FunctionDefStatement func:
+                        // 데코레이터에서 사용되는 이름들
+                        foreach (var decorator in func.Decorators)
+                        {
+                            CollectUsedNamesFromExpression(decorator.DecoratorFunction, usedNames);
+                        }
+                        // 함수 body는 별도 스코프이므로 분석하지 않음
+                        break;
+                    case ExpressionStatement exprStmt:
+                        CollectUsedNamesFromExpression(exprStmt.Expression, usedNames);
+                        break;
+                    case AssignStatement assign:
+                        CollectUsedNamesFromExpression(assign.Value, usedNames);
+                        break;
+                    case AssignTargetStatement assignTarget:
+                        CollectUsedNamesFromExpression(assignTarget.Value, usedNames);
+                        break;
+                    // 다른 구문들도 필요시 추가
+                }
+            }
+            
+            private void CollectUsedNamesFromExpression(Expression expr, HashSet<string> usedNames)
+            {
+                switch (expr)
+                {
+                    case NameExpression nameExpr:
+                        usedNames.Add(nameExpr.Name);
+                        break;
+                    case CallExpression callExpr:
+                        CollectUsedNamesFromExpression(callExpr.Function, usedNames);
+                        foreach (var arg in callExpr.Arguments)
+                            CollectUsedNamesFromExpression(arg, usedNames);
+                        break;
+                    case AttributeExpression attrExpr:
+                        CollectUsedNamesFromExpression(attrExpr.Value, usedNames);
+                        break;
+                    // 다른 표현식들도 필요시 추가
+                }
+            }
+        }
+
         private void CompileTypeAlias(TypeAliasStatement typeAlias)
         {
             // PEP 695: type X[T] = Y creates a TypeAliasType object

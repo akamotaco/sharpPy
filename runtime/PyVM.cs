@@ -156,7 +156,14 @@ namespace SharpPy
         // CPython 3.12: Execute class body and return namespace
         public Dictionary<string, PyObject> ExecuteClassBody(PyCodeObject classBody)
         {
-            var frame = new PyFrame(classBody, new PyObject[0]);
+            // Get the current frame's scope chain to inherit variables like 'override'
+            PyScopeChain parentScope = null;
+            if (_frameStack.Count > 0)
+            {
+                parentScope = _frameStack.Peek().ScopeChain;
+            }
+            
+            var frame = new PyFrame(classBody, new PyObject[0], parentScope);
             var result = ExecuteFrame(frame);
             
             // Extract all local variables from the frame

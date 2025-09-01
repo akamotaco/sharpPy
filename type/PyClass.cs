@@ -26,6 +26,9 @@ namespace SharpPy
             {
                 ClassDict["__type_params__"] = new PyTuple(new PyObject[0]);
             }
+            
+            // PEP 698: @override 데코레이터 - CPython compatible (no runtime validation at class creation)
+            // ValidateOverrideDecorators(); // Disabled for CPython compatibility
         }
 
         public new PyClassInstance CreateInstance(params PyObject[] args)
@@ -116,6 +119,91 @@ namespace SharpPy
         public override void SetAttribute(string name, PyObject value)
         {
             ClassDict[name] = value;
+        }
+
+        /// <summary>
+        /// PEP 698: @override 데코레이터 런타임 검증
+        /// 클래스가 생성될 때 @override가 적용된 메서드들이 실제로 부모 클래스의 메서드를 오버라이드하는지 확인
+        /// </summary>
+        private void ValidateOverrideDecorators()
+        {
+            foreach (var kvp in ClassDict)
+            {
+                string methodName = kvp.Key;
+                PyObject methodValue = kvp.Value;
+
+                // 함수이고 __override__ 속성이 True인 경우만 검증
+                if (methodValue is PyFunction function && HasOverrideAttribute(function))
+                {
+                    // 부모 클래스들에서 이 메서드가 존재하는지 확인
+                    bool foundInBase = false;
+                    
+                    foreach (var baseType in BaseTypes)
+                    {
+                        if (baseType != PyType.ObjectType && HasMethodInBase(baseType, methodName))
+                        {
+                            foundInBase = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!foundInBase)
+                    {
+                        throw PyTypeError.Create($"Method '{methodName}' is marked with @override, but does not override any method in base class");
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 함수가 @override 데코레이터를 가지고 있는지 확인
+        /// </summary>
+        private bool HasOverrideAttribute(PyFunction function)
+        {
+            try
+            {
+                if (function.Attributes.TryGetValue("__override__", out PyObject overrideAttr))
+                {
+                    return overrideAttr.PyBoolValue();
+                }
+            }
+            catch
+            {
+                // 속성 접근 실패시 false 반환
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 기반 클래스에서 특정 메서드가 존재하는지 확인
+        /// </summary>
+        private bool HasMethodInBase(PyType baseType, string methodName)
+        {
+            try
+            {
+                // 직접 속성 확인
+                if (baseType is PyClass baseClass)
+                {
+                    if (baseClass.ClassDict.ContainsKey(methodName))
+                        return true;
+                }
+                
+                // GetAttribute로 시도 (상속 체인을 통해)
+                try
+                {
+                    var attr = baseType.GetAttribute(methodName);
+                    return attr is PyFunction || attr is PyMethod;
+                }
+                catch (Exception)
+                {
+                    // 속성이 없거나 접근 실패시 false
+                    return false;
+                }
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 
