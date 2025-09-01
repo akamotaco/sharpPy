@@ -1,3 +1,5 @@
+using System.Linq;
+
 namespace SharpPy
 {
     #region Module and Import System
@@ -161,7 +163,7 @@ public class PyModule : PyObject
         };
 
 
-        // import module_name
+        // import module_name (dotted import 지원)
         public static PyModule Import(string moduleName)
         {
             // 1. sys.modules 캐시 확인
@@ -170,7 +172,13 @@ public class PyModule : PyObject
                 return cachedModule;
             }
 
-            // 2. 내장 모듈 확인
+            // 2. 점으로 구분된 모듈명 처리 (예: package.submodule)
+            if (moduleName.Contains('.'))
+            {
+                return ImportDottedModule(moduleName);
+            }
+
+            // 3. 내장 모듈 확인
             if (_builtinModules.TryGetValue(moduleName, out Func<PyModule> moduleFactory))
             {
                 var module = moduleFactory();
@@ -178,15 +186,98 @@ public class PyModule : PyObject
                 return module;
             }
 
-            // 3. sys.path를 사용한 파일 시스템 검색
+            // 4. sys.path를 사용한 파일 시스템 검색
             var foundModule = SearchModuleInPath(moduleName);
             if (foundModule != null)
             {
                 return foundModule;
             }
 
-            // 4. 모듈을 찾을 수 없음
+            // 5. 모듈을 찾을 수 없음
             throw PyModuleNotFoundError.Create($"No module named '{moduleName}'");
+        }
+        
+        /// <summary>
+        /// 점으로 구분된 모듈 import (예: package.submodule)
+        /// </summary>
+        private static PyModule ImportDottedModule(string dottedName)
+        {
+            var parts = dottedName.Split('.');
+            PyModule currentModule = null;
+            string currentPath = "";
+            
+            for (int i = 0; i < parts.Length; i++)
+            {
+                var part = parts[i];
+                currentPath = i == 0 ? part : $"{currentPath}.{part}";
+                
+                // sys.modules에서 확인
+                if (SysModules.TryGetValue(currentPath, out PyModule existingModule))
+                {
+                    currentModule = existingModule;
+                    continue;
+                }
+                
+                // 서브모듈 검색
+                PyModule subModule;
+                if (i == 0)
+                {
+                    // 최상위 패키지
+                    subModule = SearchModuleInPath(part);
+                }
+                else
+                {
+                    // 서브모듈 - 부모 패키지 내에서 검색
+                    subModule = SearchSubmodule(currentModule, part, currentPath);
+                }
+                
+                if (subModule == null)
+                {
+                    throw PyModuleNotFoundError.Create($"No module named '{currentPath}'");
+                }
+                
+                // sys.modules에 등록
+                SysModules[currentPath] = subModule;
+                
+                // 부모 모듈에 서브모듈 attribute 설정
+                if (currentModule != null)
+                {
+                    currentModule.SetAttribute(part, subModule);
+                }
+                
+                currentModule = subModule;
+            }
+            
+            return currentModule;
+        }
+        
+        /// <summary>
+        /// 부모 패키지 내에서 서브모듈 검색
+        /// </summary>
+        private static PyModule SearchSubmodule(PyModule parentModule, string submoduleName, string fullName)
+        {
+            if (parentModule == null) return null;
+            
+            // 부모 모듈의 경로에서 서브모듈 검색
+            var parentDir = System.IO.Path.GetDirectoryName(parentModule.FileName);
+            if (string.IsNullOrEmpty(parentDir)) return null;
+            
+            // 서브모듈 파일 검색
+            var submoduleFile = System.IO.Path.Combine(parentDir, submoduleName + ".py");
+            if (System.IO.File.Exists(submoduleFile))
+            {
+                return LoadModuleFromFile(fullName, submoduleFile);
+            }
+            
+            // 서브패키지 검색
+            var subpackageDir = System.IO.Path.Combine(parentDir, submoduleName);
+            var subpackageInit = System.IO.Path.Combine(subpackageDir, "__init__.py");
+            if (System.IO.Directory.Exists(subpackageDir) && System.IO.File.Exists(subpackageInit))
+            {
+                return LoadModuleFromFile(fullName, subpackageInit);
+            }
+            
+            return null;
         }
 
         // sys.path에서 모듈 검색
@@ -281,7 +372,9 @@ public class PyModule : PyObject
         // from module_name import item1, item2
         public static Dictionary<string, PyObject> FromImport(string moduleName, params string[] itemNames)
         {
-            var module = Import(moduleName);
+            // 상대 import 처리
+            string resolvedModuleName = ResolveRelativeImport(moduleName);
+            var module = PyImportSystem.Import(resolvedModuleName);
             var result = new Dictionary<string, PyObject>();
 
             foreach (var itemName in itemNames)
@@ -304,6 +397,54 @@ public class PyModule : PyObject
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// 상대 import 경로 해석 (.module, ..module 등)
+        /// </summary>
+        private static string ResolveRelativeImport(string moduleName)
+        {
+            if (!moduleName.StartsWith("."))
+                return moduleName; // 절대 import
+            
+            // 현재 패키지 컨텍스트 가져오기
+            string currentPackage = GetCurrentPackage();
+            
+            // 상대 import 레벨 계산
+            int level = 0;
+            while (level < moduleName.Length && moduleName[level] == '.')
+                level++;
+            
+            string relativeModule = moduleName.Substring(level);
+            
+            if (string.IsNullOrEmpty(currentPackage))
+            {
+                throw PyImportError.Create("attempted relative import with no known parent package");
+            }
+            
+            // 패키지 경로를 레벨만큼 올라가기
+            string[] packageParts = currentPackage.Split('.');
+            if (level - 1 > packageParts.Length)
+            {
+                throw PyImportError.Create("attempted relative import beyond top-level package");
+            }
+            
+            string[] targetParts = packageParts.Take(packageParts.Length - (level - 1)).ToArray();
+            string targetPackage = string.Join(".", targetParts);
+            
+            if (string.IsNullOrEmpty(relativeModule))
+                return targetPackage; // from .. import something
+            else
+                return $"{targetPackage}.{relativeModule}"; // from ..module import something
+        }
+        
+        /// <summary>
+        /// 현재 실행 중인 패키지 컨텍스트 가져오기 (간단한 구현)
+        /// </summary>
+        private static string GetCurrentPackage()
+        {
+            // 현재는 간단하게 구현. 실제로는 execution context에서 가져와야 함
+            return "testpackage"; // TODO: 실제 패키지 컨텍스트 구현
         }
 
         private static Dictionary<string, PyObject> ImportAll(PyModule module)

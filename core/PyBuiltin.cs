@@ -52,6 +52,7 @@ namespace SharpPy
                 "setattr" => CallSetAttr(args),
                 "delattr" => CallDelAttr(args),
                 "dir" => CallDir(args),
+                "__import__" => CallImport(args),
                 "type" => CallType(args),
                 "id" => CallId(args),
                 "hash" => CallHash(args),
@@ -1007,6 +1008,29 @@ namespace SharpPy
             
             // CPython처럼 단순하게 클래스 생성만 함 (복잡한 검증 제거)
             return new PyClass(className, bases);
+        }
+
+        /// <summary>
+        /// __import__(name, globals=None, locals=None, fromlist=(), level=0)
+        /// 동적 import 기능
+        /// </summary>
+        private PyObject CallImport(PyObject[] args)
+        {
+            if (args.Length < 1 || args.Length > 5)
+                throw PyTypeError.Create($"__import__ expected 1 to 5 arguments ({args.Length} given)");
+
+            var name = args[0].ToString();
+            // globals, locals, fromlist, level 매개변수는 일단 무시하고 기본 동작만 구현
+            
+            try
+            {
+                var module = PyImportSystem.Import(name);
+                return module;
+            }
+            catch (System.Exception ex)
+            {
+                throw PyImportError.Create($"No module named '{name}': {ex.Message}");
+            }
         }
 
         public override string ToString() => $"<built-in function {Name}>";

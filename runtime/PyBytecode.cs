@@ -1,3 +1,5 @@
+using System.Linq;
+
 namespace SharpPy
 {
     
@@ -279,6 +281,16 @@ namespace SharpPy
         }
         
         public override string ToString() => $"<code object {Name}>";
+        
+        /// <summary>
+        /// 제너레이터 함수인지 확인 (yield 또는 yield from 명령어 포함 여부)
+        /// </summary>
+        public bool IsGenerator()
+        {
+            return Instructions.Any(inst => 
+                inst.OpCode == ByteCodeOp.YIELD_VALUE || 
+                inst.OpCode == ByteCodeOp.YIELD_FROM);
+        }
         
         // Evaluate 메서드 - 나중에 구현
         public PyObject Evaluate(PyScope scope)

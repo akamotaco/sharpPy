@@ -19,6 +19,12 @@ namespace SharpPy
         public PyYieldException(PyObject value) { Value = value; }
     }
     
+    public class PyYieldFromException : Exception
+    {
+        public PyObject Iterable { get; }
+        public PyYieldFromException(PyObject iterable) { Iterable = iterable; }
+    }
+    
     public class PyBreakException : Exception { }
     public class PyContinueException : Exception { }
 }

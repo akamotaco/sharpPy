@@ -1084,6 +1084,32 @@ namespace SharpPy
                     }
                     break;
                     
+                // Generator Implementation
+                case ByteCodeOp.YIELD_VALUE:
+                    var yieldValue = frame.ValueStack.Pop();
+                    
+                    // yield는 제너레이터에서만 사용 가능
+                    if (!frame.Code.IsGenerator())
+                    {
+                        throw PySyntaxError.Create("'yield' outside function");
+                    }
+                    
+                    // PyYield 예외를 던져서 값을 yield
+                    throw new PyYieldException(yieldValue);
+                    
+                // Generator Delegation - yield from implementation
+                case ByteCodeOp.YIELD_FROM:
+                    var delegatedIterable = frame.ValueStack.Pop();
+                    
+                    // yield from은 제너레이터에서만 사용 가능
+                    if (!frame.Code.IsGenerator())
+                    {
+                        throw PySyntaxError.Create("'yield from' outside function");
+                    }
+                    
+                    // PyYieldFrom 예외를 던져서 제너레이터 위임 요청
+                    throw new PyYieldFromException(delegatedIterable);
+                    
                 default:
                     throw new NotImplementedException($"OpCode {instruction.OpCode} not implemented");
             }
