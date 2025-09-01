@@ -66,6 +66,14 @@ namespace SharpPy
             }
         }
 
+        /// <summary>
+        /// 제너레이터는 자기 자신이 이터레이터이므로 자신을 반환
+        /// </summary>
+        public override PyObject GetIterator()
+        {
+            return this;
+        }
+
         #endregion
 
         #region Generator-specific Methods

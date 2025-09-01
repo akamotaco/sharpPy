@@ -25,7 +25,8 @@ namespace SharpPy
             
             Code = code;
             ValueStack = new Stack<PyObject>();
-            ScopeChain = new PyScopeChain(); // 새로운 스코프 체인 생성
+            // 부모 스코프 체인이 있으면 상속, 없으면 새로 생성
+            ScopeChain = parentScope ?? new PyScopeChain();
             FastLocals = new Dictionary<string, PyObject>();
             InstructionPointer = 0;
             

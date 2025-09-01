@@ -2074,7 +2074,8 @@ namespace SharpPy
             
             do
             {
-                var moduleName = Consume(TokenType.IDENTIFIER, "Expected module name").Lexeme;
+                // Parse dotted module name (package.submodule.etc)
+                var moduleName = ParseDottedModuleName();
                 
                 // Handle "import module as alias"
                 if (Check(TokenType.AS))
@@ -2092,10 +2093,36 @@ namespace SharpPy
             
             return new ImportStatement(modules);
         }
+        
+        /// <summary>
+        /// Parse dotted module name like "package.submodule.module"
+        /// </summary>
+        private string ParseDottedModuleName()
+        {
+            var parts = new List<string>();
+            
+            // First part must be identifier
+            parts.Add(Consume(TokenType.IDENTIFIER, "Expected module name").Lexeme);
+            
+            // Parse additional dotted parts
+            while (Match(TokenType.DOT))
+            {
+                parts.Add(Consume(TokenType.IDENTIFIER, "Expected identifier after '.'").Lexeme);
+            }
+            
+            return string.Join(".", parts);
+        }
         private Statement ParseFromImportStatement()
         {
             var moduleName = Consume(TokenType.IDENTIFIER, "Expected module name after 'from'").Lexeme;
             Consume(TokenType.IMPORT, "Expected 'import' after module name");
+            
+            // Check for wildcard import: from module import *
+            if (Check(TokenType.STAR))
+            {
+                Advance(); // consume *
+                return new ImportFromStatement(moduleName, new List<string> { "*" });
+            }
             
             // Parse comma-separated import list (CPython style)
             var imports = new List<string>();
