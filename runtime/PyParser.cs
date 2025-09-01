@@ -562,12 +562,17 @@ namespace SharpPy
                 // Check for assignment
                 if (Match(TokenType.EQUAL))
                 {
+                    // CPython 3.12: Support various assignment targets
+                    var value = ParseExpression();
+                    
+                    // Check if it's a simple name assignment (backward compatibility)
                     if (expr is NameExpression nameExpr)
                     {
-                        var value = ParseExpression();
                         return new AssignStatement(nameExpr.Name, value);
                     }
-                    throw new Exception("Invalid assignment target");
+                    
+                    // Use general assignment target for complex targets (attribute, subscript, etc.)
+                    return new AssignTargetStatement(expr, value);
                 }
                 
                 // Check for augmented assignment (CPython style - separate from expression parsing)

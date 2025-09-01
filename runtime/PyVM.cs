@@ -153,6 +153,33 @@ namespace SharpPy
         }
         
         // 프레임 실행 (바이트코드 해석)
+        // CPython 3.12: Execute class body and return namespace
+        public Dictionary<string, PyObject> ExecuteClassBody(PyCodeObject classBody)
+        {
+            var frame = new PyFrame(classBody, new PyObject[0]);
+            var result = ExecuteFrame(frame);
+            
+            // Extract all local variables from the frame
+            var classNamespace = new Dictionary<string, PyObject>();
+            
+            // Method 1: Try FastLocals
+            foreach (var kvp in frame.FastLocals)
+            {
+                classNamespace[kvp.Key] = kvp.Value;
+            }
+            
+            // Method 2: Try ScopeChain current scope
+            if (frame.ScopeChain?.CurrentScope != null)
+            {
+                foreach (var kvp in frame.ScopeChain.CurrentScope.Variables)
+                {
+                    classNamespace[kvp.Key] = kvp.Value;
+                }
+            }
+            
+            return classNamespace;
+        }
+
         public PyObject ExecuteFrame(PyFrame frame)
         {
             _frameStack.Push(frame);

@@ -991,10 +991,19 @@ namespace SharpPy
 
         private PyObject CallBuildClass(PyObject[] args)
         {
+            Console.WriteLine($"=== __build_class__ called with {args.Length} args ===");
             if (args.Length < 2)
                 throw PyTypeError.Create($"__build_class__() missing required arguments");
             var func = args[0];
             var name = args[1];
+            try
+            {
+                Console.WriteLine($"func: {func?.GetType().Name}, name: {name?.ToString()}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error printing func/name: {ex.Message}");
+            }
             var bases = new PyType[args.Length - 2];
             for (int i = 2; i < args.Length; i++)
             {
@@ -1006,8 +1015,49 @@ namespace SharpPy
             }
             var className = name.ToString();
             
-            // CPython처럼 단순하게 클래스 생성만 함 (복잡한 검증 제거)
-            return new PyClass(className, bases);
+            // CPython 3.12: Execute class body to build class namespace  
+            PyClass pyClass = new PyClass(className, bases);
+            
+            // Execute the class body function to populate the class namespace
+            if (func is PyFunction classBodyFunc)
+            {
+                Console.WriteLine($"Found class body function for {className}: {classBodyFunc.Name}");
+                try
+                {
+                    // CPython 3.12: Execute class body with namespace capture
+                    if (classBodyFunc.CodeObject != null)
+                    {
+                        Console.WriteLine($"Executing class body with namespace capture...");
+                        var vm = PyVM.Instance;
+                        var classNamespace = vm.ExecuteClassBody(classBodyFunc.CodeObject);
+                        
+                        Console.WriteLine($"Class body executed for {className}, captured {classNamespace.Count} variables");
+                        
+                        // Copy all variables from class namespace to the class
+                        foreach (var kvp in classNamespace)
+                        {
+                            Console.WriteLine($"  Setting class attribute: {kvp.Key} = {kvp.Value.GetType().Name}");
+                            pyClass.SetAttribute(kvp.Key, kvp.Value);
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("Class body function has no CodeObject, falling back to direct call");
+                        var result = classBodyFunc.Call();
+                        Console.WriteLine($"Class body executed for {className}, result: {result}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error executing class body for {className}: {ex.Message}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Class body function is not PyFunction: {func?.GetType().Name}");
+            }
+            
+            return pyClass;
         }
 
         /// <summary>

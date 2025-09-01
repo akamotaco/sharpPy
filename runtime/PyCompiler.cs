@@ -649,6 +649,10 @@ namespace SharpPy
                     EmitStoreName(assign.VariableName);
                     break;
                     
+                case AssignTargetStatement assignTarget:
+                    CompileAssignTarget(assignTarget);
+                    break;
+                    
                 case AnnAssignStatement annAssign:
                     CompileAnnAssign(annAssign);
                     break;
@@ -1259,15 +1263,17 @@ namespace SharpPy
         private void CompileAsyncFunction(AsyncFunctionDefStatement asyncFunc) { /* TODO */ }
         private void CompileClass(ClassDefStatement cls)
         {
-            // Simplified class compilation - just create an empty class for now
-            // TODO: Implement proper class body compilation
-            
+            // CPython 3.12: Compile class body as a proper function
             // Load __build_class__ function first
             EmitLoadName("__build_class__");
             
-            // Create class body function (empty for now)
-            // TODO: Compile class body into a function
-            EmitLoadConst(new PyString($"<class_body_{cls.Name}>"));
+            // Compile class body into a function
+            var classBodyName = $"<class_body_{cls.Name}>";
+            var classBodyCode = CompileClassBody(cls.Body, classBodyName);
+            
+            // Load the class body function
+            EmitLoadConst(classBodyCode);
+            EmitInstruction(ByteCodeOp.MAKE_FUNCTION);
             
             // Load class name
             EmitLoadConst(new PyString(cls.Name));
@@ -1278,11 +1284,58 @@ namespace SharpPy
                 CompileExpression(baseExpr);
             }
             
-            // Call __build_class__(class_body, name, *bases)
+            // Call __build_class__(class_body_function, name, *bases)
             EmitInstruction(ByteCodeOp.CALL_FUNCTION, 2 + cls.Bases.Count);
             
             // Store the created class
             EmitStoreName(cls.Name);
+        }
+        
+        private PyCodeObject CompileClassBody(List<Statement> body, string className)
+        {
+            // Save current compilation state
+            var savedInstructions = _instructions;
+            var savedConstants = _constants;
+            var savedNames = _names;
+            var savedVarNames = _varNames;
+            
+            // Initialize new compilation state for class body
+            _instructions = new List<ByteCodeInstruction>();
+            _constants = new List<PyObject>();
+            _names = new List<string>();
+            _varNames = new List<string>();
+            
+            try
+            {
+                // Compile class body statements
+                foreach (var stmt in body)
+                {
+                    CompileStatement(stmt);
+                }
+                
+                // Return None at the end
+                EmitLoadConst(PyNone.Instance);
+                EmitInstruction(ByteCodeOp.RETURN_VALUE);
+                
+                // Create code object for class body
+                var codeObject = new PyCodeObject(
+                    className,
+                    _instructions.ToList(),
+                    _constants.ToList(),
+                    _names.ToList(),
+                    _varNames.ToList()
+                );
+                
+                return codeObject;
+            }
+            finally
+            {
+                // Restore compilation state
+                _instructions = savedInstructions;
+                _constants = savedConstants;
+                _names = savedNames;
+                _varNames = savedVarNames;
+            }
         }
         private void CompileTypeAlias(TypeAliasStatement typeAlias)
         {
@@ -2496,6 +2549,41 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.CALL_FUNCTION, 0);
             
             Console.WriteLine("✅ Generator expression 바이트코드 인라인 완료");
+        }
+        
+        // CPython 3.12: Assignment target compilation
+        private void CompileAssignTarget(AssignTargetStatement assignTarget)
+        {
+            // Compile the value first
+            CompileExpression(assignTarget.Value);
+            
+            // Handle different assignment targets
+            switch (assignTarget.Target)
+            {
+                case NameExpression name:
+                    EmitStoreName(name.Name);
+                    break;
+                    
+                case AttributeExpression attr:
+                    CompileExpression(attr.Value);
+                    EmitStoreAttr(attr.Attr);
+                    break;
+                    
+                case SubscriptExpression subscript:
+                    CompileExpression(subscript.Value);
+                    CompileExpression(subscript.Slice);
+                    EmitInstruction(ByteCodeOp.STORE_SUBSCR);
+                    break;
+                    
+                default:
+                    throw new Exception($"Invalid assignment target: {assignTarget.Target.GetType().Name}");
+            }
+        }
+        
+        private void EmitStoreAttr(string attrName)
+        {
+            var index = AddName(attrName);
+            EmitInstruction(ByteCodeOp.STORE_ATTR, index);
         }
         
         #endregion

@@ -199,6 +199,51 @@ namespace SharpPy
         
         public override string ToString() => $"{VariableName} = {Value}";
     }
+    
+    // CPython 3.12: General assignment with expression target
+    public class AssignTargetStatement : Statement
+    {
+        public override string NodeType => "AssignTarget";
+        public Expression Target { get; }
+        public Expression Value { get; }
+        
+        public AssignTargetStatement(Expression target, Expression value)
+        {
+            Target = target;
+            Value = value;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var value = Value.Evaluate(scope);
+            
+            // Handle different assignment targets
+            switch (Target)
+            {
+                case NameExpression name:
+                    scope.SetVariable(name.Name, value);
+                    break;
+                    
+                case AttributeExpression attr:
+                    var obj = attr.Value.Evaluate(scope);
+                    obj.SetAttribute(attr.Attr, value);
+                    break;
+                    
+                case SubscriptExpression subscript:
+                    var target = subscript.Value.Evaluate(scope);
+                    var index = subscript.Slice.Evaluate(scope);
+                    target.SetItem(index, value);
+                    break;
+                    
+                default:
+                    throw new Exception($"Invalid assignment target: {Target.GetType().Name}");
+            }
+            
+            return value;
+        }
+        
+        public override string ToString() => $"{Target} = {Value}";
+    }
 
     // PEP 526: Annotated assignment statement (name: type or name: type = value)
     public class AnnAssignStatement : Statement
