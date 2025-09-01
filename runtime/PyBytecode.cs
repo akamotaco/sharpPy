@@ -22,20 +22,23 @@ namespace SharpPy
         STORE_FAST = 9,       // 지역 변수 저장 (빠름)
         DELETE_FAST = 10,     // 지역 변수 삭제
         
-        // 이항 연산
-        BINARY_ADD = 20,      // 이항 덧셈
-        BINARY_SUBTRACT = 21, // 이항 뺄셈
-        BINARY_MULTIPLY = 22, // 이항 곱셈
-        BINARY_DIVIDE = 23, // 이항 나눗셈 (/)
-        BINARY_FLOOR_DIVIDE = 24, // 바닥 나눗셈 (//)
-        BINARY_MODULO = 25,   // 모듈로 연산 (%)
-        BINARY_POWER = 26,    // 거듭제곱 (**)
-        BINARY_LSHIFT = 27,   // 비트 좌시프트 (<<)
-        BINARY_RSHIFT = 28,   // 비트 우시프트 (>>)
-        BINARY_OR = 29,       // 비트 OR (|)
-        BINARY_XOR = 30,      // 비트 XOR (^)
-        BINARY_AND = 31,      // 비트 AND (&)
-        BINARY_MATRIX_MULTIPLY = 32, // 행렬 곱셈 (@)
+        // 이항 연산 (CPython 3.12+ 스타일 통합)
+        BINARY_OP = 20,       // 통합 이항 연산 (argument로 연산 타입 구분)
+        
+        // Legacy 개별 이항 연산들 (단계적 제거 예정)
+        BINARY_ADD = 21,      // 이항 덧셈 (deprecated - use BINARY_OP)
+        BINARY_SUBTRACT = 22, // 이항 뺄셈 (deprecated - use BINARY_OP)
+        BINARY_MULTIPLY = 23, // 이항 곱셈 (deprecated - use BINARY_OP)
+        BINARY_DIVIDE = 24, // 이항 나눗셈 (/) (deprecated - use BINARY_OP)
+        BINARY_FLOOR_DIVIDE = 25, // 바닥 나눗셈 (//) (deprecated - use BINARY_OP)
+        BINARY_MODULO = 26,   // 모듈로 연산 (%) (deprecated - use BINARY_OP)
+        BINARY_POWER = 27,    // 거듭제곱 (**) (deprecated - use BINARY_OP)
+        BINARY_LSHIFT = 28,   // 비트 좌시프트 (<<) (deprecated - use BINARY_OP)
+        BINARY_RSHIFT = 29,   // 비트 우시프트 (>>) (deprecated - use BINARY_OP)
+        BINARY_OR = 30,       // 비트 OR (|) (deprecated - use BINARY_OP)
+        BINARY_XOR = 31,      // 비트 XOR (^) (deprecated - use BINARY_OP)
+        BINARY_AND = 32,      // 비트 AND (&) (deprecated - use BINARY_OP)
+        BINARY_MATRIX_MULTIPLY = 33, // 행렬 곱셈 (@) (deprecated - use BINARY_OP)
         
         // 비교 연산
         COMPARE_OP = 40,      // 비교 연산 (<, <=, ==, !=, >, >=, in, not in, is, is not)
@@ -189,6 +192,26 @@ namespace SharpPy
         BEFORE_ASYNC_WITH = 243, // async with 전 준비
         
         NOP = 255             // 아무 작업 안 함
+    }
+
+    // CPython 3.12+ BINARY_OP 연산 타입 (argument로 사용)
+    public enum BinaryOpType : byte
+    {
+        // CPython 3.12 호환 순서
+        ADD = 0,                  // +  (덧셈)
+        AND = 1,                  // &  (비트 AND)
+        FLOOR_DIVIDE = 2,         // // (바닥 나눗셈)
+        LSHIFT = 3,               // << (좌시프트)
+        MATRIX_MULTIPLY = 4,      // @  (행렬 곱셈)
+        MULTIPLY = 5,             // *  (곱셈)
+        MODULO = 6,               // %  (모듈로 - Python style)
+        REMAINDER = 6,            // %  (모듈로 - alias for MODULO)
+        OR = 7,                   // |  (비트 OR)
+        POWER = 8,                // ** (거듭제곱)
+        RSHIFT = 9,               // >> (우시프트)
+        SUBTRACT = 10,            // -  (뺄셈)
+        TRUE_DIVIDE = 11,         // /  (나눗셈)
+        XOR = 12                  // ^  (비트 XOR)
     }
 
     // 바이트코드 명령 구조체

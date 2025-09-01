@@ -302,32 +302,41 @@ namespace SharpPy
                     frame.ValueStack.Push(globalValue);
                     break;
                     
+                case ByteCodeOp.BINARY_OP:
+                    // CPython 3.12+ unified binary operation
+                    var operation = (BinaryOpType)instruction.Argument;
+                    var right = frame.ValueStack.Pop();
+                    var left = frame.ValueStack.Pop();
+                    var result = ExecuteBinaryOpType(left, right, operation);
+                    frame.ValueStack.Push(result);
+                    break;
+                    
+                // Deprecated individual binary opcodes (kept for compatibility)
                 case ByteCodeOp.BINARY_ADD:
                     var rightAdd = frame.ValueStack.Pop();
                     var leftAdd = frame.ValueStack.Pop();
-                    var addResult = BinaryOperation(leftAdd, rightAdd, "+");
+                    var addResult = ExecuteBinaryOpType(leftAdd, rightAdd, BinaryOpType.ADD);
                     frame.ValueStack.Push(addResult);
                     break;
                     
                 case ByteCodeOp.BINARY_MULTIPLY:
                     var rightMul = frame.ValueStack.Pop();
                     var leftMul = frame.ValueStack.Pop();
-                    var mulResult = BinaryOperation(leftMul, rightMul, "*");
+                    var mulResult = ExecuteBinaryOpType(leftMul, rightMul, BinaryOpType.MULTIPLY);
                     frame.ValueStack.Push(mulResult);
                     break;
                     
                 case ByteCodeOp.BINARY_SUBTRACT:
                     var rightSub = frame.ValueStack.Pop();
                     var leftSub = frame.ValueStack.Pop();
-                    var subResult = BinaryOperation(leftSub, rightSub, "-");
+                    var subResult = ExecuteBinaryOpType(leftSub, rightSub, BinaryOpType.SUBTRACT);
                     frame.ValueStack.Push(subResult);
                     break;
                     
                 case ByteCodeOp.BINARY_AND:
                     var rightAnd = frame.ValueStack.Pop();
                     var leftAnd = frame.ValueStack.Pop();
-                    // For match statements: implement logical AND for boolean values
-                    var andResult = BinaryOperation(leftAnd, rightAnd, "and");
+                    var andResult = ExecuteBinaryOpType(leftAnd, rightAnd, BinaryOpType.AND);
                     frame.ValueStack.Push(andResult);
                     break;
                     
@@ -643,19 +652,26 @@ namespace SharpPy
                     break;
                     
                 case ByteCodeOp.FOR_ITER:
-                    var iter = frame.ValueStack.Peek(); // Don't pop iterator - keep it on stack
+                    // CPython 3.12 compatible FOR_ITER implementation
+                    var iter = frame.ValueStack.Peek(); // Keep iterator on stack for inspection
                     try
                     {
                         var nextItem = iter.Next();
                         frame.ValueStack.Push(nextItem); // Push next item on top of iterator
                         Console.WriteLine($"🔄 FOR_ITER: got next item {nextItem} from iterator");
+                        // Continue normal execution (don't jump)
                     }
                     catch (PythonException ex) when (ex.PyException is PyStopIteration)
                     {
                         Console.WriteLine($"🔚 FOR_ITER: StopIteration - loop finished");
                         frame.ValueStack.Pop(); // Remove iterator from stack
-                        frame.InstructionPointer = instruction.Argument - 1; // Jump to end of loop (-1 because main loop will increment)
-                        return null;
+                        
+                        // CPython 3.12: Jump forward by delta (relative jump from next instruction)
+                        // Current position + 1 (next instruction) + delta - 1 (main loop will increment)
+                        frame.InstructionPointer += instruction.Argument;
+                        Console.WriteLine($"🔚 FOR_ITER: Jumping to position {frame.InstructionPointer + 1}");
+                        
+                        // DON'T return null - continue execution
                     }
                     catch (Exception ex)
                     {
@@ -823,53 +839,33 @@ namespace SharpPy
                 // PEP 709 Comprehension Optimization - VM 구현
                 case ByteCodeOp.LIST_APPEND:
                     // CPython 호환: LIST_APPEND i
+                    // 스택에서 top 아이템을 pop하고, top에서 i번째 아래 리스트에 append
                     // 스택: [..., list, ..., item] → [..., list, ...]
-                    // i는 스택 top에서 list까지의 거리 (1-based)
-                    var listItem = frame.ValueStack.Pop();
+                    var itemToAppend = frame.ValueStack.Pop();
+                    var stackItems = frame.ValueStack.ToArray();
+                    Array.Reverse(stackItems); // 스택 bottom부터 top 순서로 변경
                     
-                    // 스택을 임시 저장
-                    var tempStack = new Stack<PyObject>();
-                    PyObject targetList = null;
+                    // CPython LIST_APPEND i: 스택에서 아이템을 pop한 후,
+                    // 현재 스택 top에서 i-1번째 아래가 타겟 (0-based)
+                    var targetIndex = instruction.Argument - 1;
                     
-                    // instruction.Argument - 1 만큼 pop해서 target list 찾기
-                    for (int i = 0; i < instruction.Argument; i++)
+                    if (targetIndex < 0 || targetIndex >= stackItems.Length)
                     {
-                        if (frame.ValueStack.Count > 0)
-                        {
-                            var item = frame.ValueStack.Pop();
-                            if (i == instruction.Argument - 1)
-                            {
-                                targetList = item; // 이것이 target list
-                            }
-                            else
-                            {
-                                tempStack.Push(item);
-                            }
-                        }
-                        else
-                        {
-                            throw new Exception($"LIST_APPEND: stack underflow");
-                        }
+                        throw new Exception($"LIST_APPEND: invalid target index {targetIndex}, stack length {stackItems.Length}");
                     }
                     
-                    // target list에 아이템 추가
+                    var targetList = stackItems[targetIndex];
+                    
                     if (targetList is PyList targetPyList)
                     {
-                        targetPyList.Append(listItem);
-                        
-                        // target list를 다시 스택에 push
-                        frame.ValueStack.Push(targetList);
-                        
-                        // 임시 저장된 아이템들을 다시 스택에 push
-                        while (tempStack.Count > 0)
-                        {
-                            frame.ValueStack.Push(tempStack.Pop());
-                        }
+                        targetPyList.Append(itemToAppend);
                     }
                     else
                     {
-                        throw new Exception($"LIST_APPEND: target is not a list, got {targetList?.GetType().Name ?? "null"}");
+                        throw new Exception($"LIST_APPEND: target is not a list, got {targetList?.GetTypeName() ?? "null"}");
                     }
+                    
+                    // 스택은 그대로 유지 (아이템만 제거됨)
                     break;
                     
                 case ByteCodeOp.SET_ADD:
@@ -1119,42 +1115,78 @@ namespace SharpPy
         }
         
         // 이항 연산 (기존 타입 시스템 활용)
-        private PyObject BinaryOperation(PyObject left, PyObject right, string op)
+        // CPython 3.12+ unified binary operation executor
+        private PyObject ExecuteBinaryOpType(PyObject left, PyObject right, BinaryOpType binaryOp)
         {
             // Handle boolean operations (for match statements)
-            if (op == "and" || op == "or")
+            if (binaryOp == BinaryOpType.AND || binaryOp == BinaryOpType.OR)
             {
                 // Convert operands to boolean values
                 var leftBool = left.ToBool();
                 var rightBool = right.ToBool();
                 
-                var result = op switch
+                var result = binaryOp switch
                 {
-                    "and" => leftBool && rightBool ? PyBool.True : PyBool.False,
-                    "or" => leftBool || rightBool ? PyBool.True : PyBool.False,
-                    _ => throw PyTypeError.Create($"unsupported operator: {op}")
+                    BinaryOpType.AND => leftBool && rightBool ? PyBool.True : PyBool.False,
+                    BinaryOpType.OR => leftBool || rightBool ? PyBool.True : PyBool.False,
+                    _ => throw PyTypeError.Create($"unsupported operation: {binaryOp}")
                 };
                 
-                Console.WriteLine($"    → {left} {op} {right} = {result}");
+                Console.WriteLine($"    → {left} {binaryOp} {right} = {result}");
                 return result;
             }
             
-            if (left is PyInt leftInt && right is PyInt rightInt)
+            // Use PyObject's built-in binary operation methods (CPython compatible)
+            try
             {
-                var result = op switch
+                return binaryOp switch
                 {
-                    "+" => new PyInt(leftInt.Value + rightInt.Value),
-                    "-" => new PyInt(leftInt.Value - rightInt.Value),
-                    "*" => new PyInt(leftInt.Value * rightInt.Value),
-                    "/" => new PyInt(leftInt.Value / rightInt.Value),
-                    _ => throw PyTypeError.Create($"unsupported operator: {op}")
+                    BinaryOpType.ADD => left.Add(right),
+                    BinaryOpType.SUBTRACT => left.Subtract(right),
+                    BinaryOpType.MULTIPLY => left.Multiply(right),
+                    BinaryOpType.TRUE_DIVIDE => left.Divide(right),
+                    BinaryOpType.FLOOR_DIVIDE => left.FloorDivide(right),
+                    BinaryOpType.MODULO => left.Modulo(right),
+                    BinaryOpType.POWER => left.Power(right),
+                    BinaryOpType.LSHIFT => left.LeftShift(right),
+                    BinaryOpType.RSHIFT => left.RightShift(right),
+                    BinaryOpType.AND => left.BitwiseAnd(right),
+                    BinaryOpType.OR => left.BitwiseOr(right),
+                    BinaryOpType.XOR => left.BitwiseXor(right),
+                    BinaryOpType.MATRIX_MULTIPLY => throw new NotImplementedException("Matrix multiplication not yet implemented"),
+                    _ => throw PyTypeError.Create($"unsupported binary operation: {binaryOp}")
                 };
-                
-                Console.WriteLine($"    → {left} {op} {right} = {result}");
-                return result;
             }
+            catch (Exception ex) when (!(ex is PythonException))
+            {
+                // Convert C# exceptions to Python exceptions
+                throw PyTypeError.Create($"unsupported operand type(s) for {binaryOp}: '{left.GetTypeName()}' and '{right.GetTypeName()}'");
+            }
+        }
+        
+        // Legacy method for backward compatibility
+        private PyObject BinaryOperation(PyObject left, PyObject right, string op)
+        {
+            var operation = op switch
+            {
+                "+" => BinaryOpType.ADD,
+                "-" => BinaryOpType.SUBTRACT,
+                "*" => BinaryOpType.MULTIPLY,
+                "/" => BinaryOpType.TRUE_DIVIDE,
+                "//" => BinaryOpType.FLOOR_DIVIDE,
+                "%" => BinaryOpType.MODULO,
+                "**" => BinaryOpType.POWER,
+                "<<" => BinaryOpType.LSHIFT,
+                ">>" => BinaryOpType.RSHIFT,
+                "&" => BinaryOpType.AND,
+                "|" => BinaryOpType.OR,
+                "^" => BinaryOpType.XOR,
+                "and" => BinaryOpType.AND,
+                "or" => BinaryOpType.OR,
+                _ => throw PyTypeError.Create($"unsupported operator: {op}")
+            };
             
-            throw PyTypeError.Create($"unsupported operand type(s) for {op}: '{left.GetTypeName()}' and '{right.GetTypeName()}'");
+            return ExecuteBinaryOpType(left, right, operation);
         }
 
         /// <summary>

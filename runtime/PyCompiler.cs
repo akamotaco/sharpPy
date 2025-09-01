@@ -1134,27 +1134,30 @@ namespace SharpPy
         
         private void EmitBinaryOp(string op)
         {
-            var opCode = op switch
+            // CPython 3.12+ BINARY_OP 구조 사용 - 연산 타입을 argument로 전달
+            var operation = op switch
             {
-                "+" => ByteCodeOp.BINARY_ADD,
-                "-" => ByteCodeOp.BINARY_SUBTRACT,
-                "*" => ByteCodeOp.BINARY_MULTIPLY,
-                "/" => ByteCodeOp.BINARY_DIVIDE,     // Python 3.x 에서 / 는 true division
-                "//" => ByteCodeOp.BINARY_FLOOR_DIVIDE,   // 바닥 나눗셈
-                "%" => ByteCodeOp.BINARY_MODULO,          // 모듈로 연산
-                "**" => ByteCodeOp.BINARY_POWER,          // 거듭제곱
-                "<<" => ByteCodeOp.BINARY_LSHIFT,         // 좌시프트
-                ">>" => ByteCodeOp.BINARY_RSHIFT,         // 우시프트
-                "&" => ByteCodeOp.BINARY_AND,             // 비트 AND
-                "|" => ByteCodeOp.BINARY_OR,              // 비트 OR
-                "^" => ByteCodeOp.BINARY_XOR,             // 비트 XOR
-                "@" => ByteCodeOp.BINARY_MATRIX_MULTIPLY, // 행렬 곱셈
+                "+" => BinaryOpType.ADD,                  // 0
+                "&" => BinaryOpType.AND,                  // 1
+                "//" => BinaryOpType.FLOOR_DIVIDE,        // 2
+                "<<" => BinaryOpType.LSHIFT,              // 3
+                "%" => BinaryOpType.MODULO,               // 4
+                "*" => BinaryOpType.MULTIPLY,             // 5
+                "|" => BinaryOpType.OR,                   // 6
+                ">>" => BinaryOpType.RSHIFT,              // 7
+                "**" => BinaryOpType.POWER,               // 8
+                "-" => BinaryOpType.SUBTRACT,             // 9
+                "^" => BinaryOpType.XOR,                  // 10
+                "/" => BinaryOpType.TRUE_DIVIDE,          // 11 - Python 3.x true division
+                "@" => BinaryOpType.MATRIX_MULTIPLY,      // 12 - 행렬 곱셈
                 // Boolean operators (simplified implementation)
-                "and" => ByteCodeOp.BINARY_AND,          // Logical AND (simplified as bitwise AND)
-                "or" => ByteCodeOp.BINARY_OR,            // Logical OR (simplified as bitwise OR)
+                "and" => BinaryOpType.AND,               // Logical AND (simplified as bitwise AND)
+                "or" => BinaryOpType.OR,                 // Logical OR (simplified as bitwise OR)
                 _ => throw new NotImplementedException($"Binary operator '{op}' not implemented")
             };
-            EmitInstruction(opCode);
+            
+            // BINARY_OP OpCode와 operation 타입을 argument로 전달
+            EmitInstruction(ByteCodeOp.BINARY_OP, (int)operation);
         }
         
         private int AddConstant(PyObject value)

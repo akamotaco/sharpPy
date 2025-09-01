@@ -81,12 +81,13 @@ namespace SharpPy
                 // 패턴: LOAD_CONST, LOAD_CONST, BINARY_OP → LOAD_CONST (결과)
                 if (inst1.OpCode == ByteCodeOp.LOAD_CONST &&
                     inst2.OpCode == ByteCodeOp.LOAD_CONST &&
-                    IsBinaryOperation(inst3.OpCode))
+                    IsBinaryOpType(inst3.OpCode))
                 {
                     var result = EvaluateConstantOperation(
                         _constants[inst1.Argument],
                         _constants[inst2.Argument],
-                        inst3.OpCode
+                        inst3.OpCode,
+                        inst3.Argument  // For BINARY_OP, this contains the operation type
                     );
 
                     if (result != null)
@@ -193,20 +194,44 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// 바이너리 연산인지 확인
+        /// 바이너리 연산인지 확인 (CPython 3.12+ BINARY_OP 및 기존 개별 OpCode 지원)
         /// </summary>
-        private bool IsBinaryOperation(ByteCodeOp opCode)
+        private bool IsBinaryOpType(ByteCodeOp opCode)
         {
-            return opCode >= ByteCodeOp.BINARY_ADD && opCode <= ByteCodeOp.BINARY_MATRIX_MULTIPLY;
+            return opCode == ByteCodeOp.BINARY_OP || 
+                   (opCode >= ByteCodeOp.BINARY_ADD && opCode <= ByteCodeOp.BINARY_MATRIX_MULTIPLY);
         }
 
         /// <summary>
-        /// 상수 연산 평가 (컴파일 타임에 계산)
+        /// 상수 연산 평가 (컴파일 타임에 계산) - CPython 3.12+ BINARY_OP 지원
         /// </summary>
-        private PyObject EvaluateConstantOperation(PyObject left, PyObject right, ByteCodeOp operation)
+        private PyObject EvaluateConstantOperation(PyObject left, PyObject right, ByteCodeOp operation, int argument = 0)
         {
             try
             {
+                // Handle unified BINARY_OP (CPython 3.12+)
+                if (operation == ByteCodeOp.BINARY_OP)
+                {
+                    var binaryOp = (BinaryOpType)argument;
+                    return binaryOp switch
+                    {
+                        BinaryOpType.ADD => left.Add(right),
+                        BinaryOpType.SUBTRACT => left.Subtract(right),
+                        BinaryOpType.MULTIPLY => left.Multiply(right),
+                        BinaryOpType.TRUE_DIVIDE => left.Divide(right),
+                        BinaryOpType.FLOOR_DIVIDE => left.FloorDivide(right),
+                        BinaryOpType.MODULO => left.Modulo(right),
+                        BinaryOpType.POWER => left.Power(right),
+                        BinaryOpType.LSHIFT => left.LeftShift(right),
+                        BinaryOpType.RSHIFT => left.RightShift(right),
+                        BinaryOpType.AND => left.BitwiseAnd(right),
+                        BinaryOpType.OR => left.BitwiseOr(right),
+                        BinaryOpType.XOR => left.BitwiseXor(right),
+                        _ => null  // Not optimizable
+                    };
+                }
+                
+                // Handle legacy individual binary opcodes (backward compatibility)
                 return operation switch
                 {
                     ByteCodeOp.BINARY_ADD => left.Add(right),
