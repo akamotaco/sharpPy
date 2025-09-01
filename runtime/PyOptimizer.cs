@@ -178,13 +178,14 @@ namespace SharpPy
                 var inst2 = _instructions[i + 1];
 
                 // 패턴: LOAD_CONST, POP_TOP → NOP (상수 로드 후 즉시 버림)
-                if (inst1.OpCode == ByteCodeOp.LOAD_CONST &&
+                // 임시 비활성화: 라벨 참조 버그로 인해 점프 주소 계산 오류 발생
+                /*if (inst1.OpCode == ByteCodeOp.LOAD_CONST &&
                     inst2.OpCode == ByteCodeOp.POP_TOP)
                 {
                     _instructions[i] = new ByteCodeInstruction(ByteCodeOp.NOP, 0);
                     _instructions[i + 1] = new ByteCodeInstruction(ByteCodeOp.NOP, 0);
                     Console.WriteLine("🔄 Peephole: 불필요한 LOAD_CONST+POP_TOP 제거");
-                }
+                }*/
             }
 
             // NOP 명령어들 완전 제거

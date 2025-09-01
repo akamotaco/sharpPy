@@ -842,14 +842,64 @@ namespace SharpPy.Modules.Stdlib
             var hours = 0;
             var weeks = 0;
 
-            // 순서대로 인자 처리 (키워드 인자는 간단화)
-            if (args.Length > 0 && args[0] is PyInt daysArg) days = daysArg.Value;
-            if (args.Length > 1 && args[1] is PyInt secondsArg) seconds = secondsArg.Value;
-            if (args.Length > 2 && args[2] is PyInt microsecondsArg) microseconds = microsecondsArg.Value;
-            if (args.Length > 3 && args[3] is PyInt millisecondsArg) milliseconds = millisecondsArg.Value;
-            if (args.Length > 4 && args[4] is PyInt minutesArg) minutes = minutesArg.Value;
-            if (args.Length > 5 && args[5] is PyInt hoursArg) hours = hoursArg.Value;
-            if (args.Length > 6 && args[6] is PyInt weeksArg) weeks = weeksArg.Value;
+
+            // CALL_FUNCTION_KW를 위한 키워드 인자 처리
+            if (args.Length > 0 && args[args.Length - 1] is PyTuple kwNames)
+            {
+                // 키워드 인자가 있는 경우
+                var numKwArgs = kwNames.Items.Length;
+                var numPosArgs = args.Length - 1 - numKwArgs;
+                
+                // 위치 인자 처리
+                for (int i = 0; i < numPosArgs && i < 7; i++)
+                {
+                    if (args[i] is PyInt val)
+                    {
+                        switch (i)
+                        {
+                            case 0: days = val.Value; break;
+                            case 1: seconds = val.Value; break;
+                            case 2: microseconds = val.Value; break;
+                            case 3: milliseconds = val.Value; break;
+                            case 4: minutes = val.Value; break;
+                            case 5: hours = val.Value; break;
+                            case 6: weeks = val.Value; break;
+                        }
+                    }
+                }
+                
+                // 키워드 인자 처리
+                for (int i = 0; i < numKwArgs; i++)
+                {
+                    var kwName = ((PyString)kwNames.Items[i]).Value;
+                    var kwValue = args[numPosArgs + i];
+                    
+                    if (kwValue is PyInt intVal)
+                    {
+                        switch (kwName)
+                        {
+                            case "days": days = intVal.Value; break;
+                            case "seconds": seconds = intVal.Value; break;
+                            case "microseconds": microseconds = intVal.Value; break;
+                            case "milliseconds": milliseconds = intVal.Value; break;
+                            case "minutes": minutes = intVal.Value; break;
+                            case "hours": hours = intVal.Value; break;
+                            case "weeks": weeks = intVal.Value; break;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // 순서대로 인자 처리 (위치 인자만 있는 경우)
+                if (args.Length > 0 && args[0] is PyInt daysArg) days = daysArg.Value;
+                if (args.Length > 1 && args[1] is PyInt secondsArg) seconds = secondsArg.Value;
+                if (args.Length > 2 && args[2] is PyInt microsecondsArg) microseconds = microsecondsArg.Value;
+                if (args.Length > 3 && args[3] is PyInt millisecondsArg) milliseconds = millisecondsArg.Value;
+                if (args.Length > 4 && args[4] is PyInt minutesArg) minutes = minutesArg.Value;
+                if (args.Length > 5 && args[5] is PyInt hoursArg) hours = hoursArg.Value;
+                if (args.Length > 6 && args[6] is PyInt weeksArg) weeks = weeksArg.Value;
+            }
 
             return new PyTimeDelta(days, seconds, microseconds, milliseconds, minutes, hours, weeks);
         }

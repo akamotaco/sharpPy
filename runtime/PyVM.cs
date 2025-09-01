@@ -810,6 +810,10 @@ namespace SharpPy
                     
                 case ByteCodeOp.IMPORT_FROM:
                     var itemName = ((PyString)frame.Code.Constants[instruction.Argument]).Value;
+                    if (frame.ValueStack.Count == 0)
+                    {
+                        throw new Exception($"IMPORT_FROM: Stack empty when trying to import '{itemName}'. This may be caused by incorrect bytecode generation.");
+                    }
                     var module = frame.ValueStack.Peek(); // Don't pop yet, needed for multiple imports
                     var importedItem = module.GetAttribute(itemName);
                     frame.ValueStack.Push(importedItem);
@@ -1559,6 +1563,23 @@ namespace SharpPy
                 // 키워드 인수를 포함한 매개변수 바인딩 수행
                 var totalArgs = BindArgumentsWithKwargs(args, kwargs, pyFunc);
                 return pyFunc.Call(totalArgs);
+            }
+            else if (function is PyType pyType)
+            {
+                // PyType 객체의 경우 키워드 인수를 포함해서 전달
+                var totalArgs = new List<PyObject>();
+                totalArgs.AddRange(args);
+                foreach (var kv in kwargs)
+                {
+                    totalArgs.Add(new PyString(kv.Key));
+                    totalArgs.Add(kv.Value);
+                }
+                
+                // 키워드 이름 튜플을 마지막에 추가
+                var kwNames = kwargs.Keys.Select(k => (PyObject)new PyString(k)).ToArray();
+                totalArgs.Add(new PyTuple(kwNames));
+                
+                return pyType.Call(totalArgs.ToArray());
             }
             else
             {
