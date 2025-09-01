@@ -1083,6 +1083,54 @@ namespace SharpPy
             }
         }
 
+        // PEP 695: Support generic type subscripts for builtin types like tuple[T, T], list[T]
+        public override PyObject GetItem(PyObject key)
+        {
+            // Handle generic type subscripts for builtin collection types
+            return Name switch
+            {
+                "tuple" => CreateGenericTuple(key),
+                "list" => CreateGenericList(key),
+                "dict" => CreateGenericDict(key),
+                "set" => CreateGenericSet(key),
+                _ => base.GetItem(key) // Default behavior (throws error)
+            };
+        }
+
+        private PyObject CreateGenericTuple(PyObject key)
+        {
+            var typeArgs = new List<PyObject>();
+            if (key is PyTuple tuple)
+                typeArgs.AddRange(tuple.Items);
+            else
+                typeArgs.Add(key);
+            
+            return new PyGenericType($"tuple[{key}]", PyType.TupleType, typeArgs);
+        }
+
+        private PyObject CreateGenericList(PyObject key)
+        {
+            return PyGenericList.Create(key);
+        }
+
+        private PyObject CreateGenericDict(PyObject key)
+        {
+            if (key is PyTuple tuple && tuple.Items.Length == 2)
+            {
+                return PyGenericDict.Create(tuple.Items[0], tuple.Items[1]);
+            }
+            else
+            {
+                throw PyTypeError.Create("dict requires exactly 2 type arguments");
+            }
+        }
+
+        private PyObject CreateGenericSet(PyObject key)
+        {
+            var typeArgs = new List<PyObject> { key };
+            return new PyGenericType($"set[{key}]", PyType.SetType, typeArgs);
+        }
+
         public override string ToString() => $"<built-in function {Name}>";
     }
 }

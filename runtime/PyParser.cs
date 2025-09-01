@@ -538,29 +538,45 @@ namespace SharpPy
         {
             try
             {
-                // Check for annotated assignment first (name: type or name: type = value)
-                if (Check(TokenType.IDENTIFIER) && CheckNext(TokenType.COLON))
+                var expr = ParseExpression();
+                
+                // CPython 3.12: Check for annotated assignment (target: type = value)
+                if (Match(TokenType.COLON))
                 {
-                    var name = Advance().Lexeme; // consume identifier
-                    Advance(); // consume colon
                     var annotation = ParseExpression();
                     
                     // Check if there's an assignment as well
                     if (Match(TokenType.EQUAL))
                     {
                         var value = ParseExpression();
-                        return new AnnAssignStatement(name, annotation, value);
+                        
+                        // Handle different annotation targets
+                        if (expr is NameExpression nameExpr)
+                        {
+                            return new AnnAssignStatement(nameExpr.Name, annotation, value);
+                        }
+                        else
+                        {
+                            // For complex targets like self.attr, use general assignment
+                            return new AssignTargetStatement(expr, value);
+                        }
                     }
                     else
                     {
-                        return new AnnAssignStatement(name, annotation);
+                        // Type annotation only, no assignment
+                        if (expr is NameExpression nameExpr)
+                        {
+                            return new AnnAssignStatement(nameExpr.Name, annotation);
+                        }
+                        else
+                        {
+                            // Just ignore complex type annotations without assignment for now
+                            return new ExpressionStatement(expr);
+                        }
                     }
                 }
-                
-                var expr = ParseExpression();
-                
-                // Check for assignment
-                if (Match(TokenType.EQUAL))
+                // Check for regular assignment
+                else if (Match(TokenType.EQUAL))
                 {
                     // CPython 3.12: Support various assignment targets
                     var value = ParseExpression();

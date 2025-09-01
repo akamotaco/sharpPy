@@ -33,16 +33,21 @@ namespace SharpPy
             var instance = new PyClassInstance(this);
 
             // __init__ 호출 (있다면)
-            // __init__ 호출
             if (HasMethod("__init__"))
             {
                 var init = instance.GetAttribute("__init__");
-                var allArgs = new PyObject[args.Length + 1];
-                allArgs[0] = instance;
-                Array.Copy(args, 0, allArgs, 1, args.Length);
                 if (init is PyMethod method)
                 {
-                    method.Call(allArgs);
+                    // PyMethod는 이미 self가 바인딩되어 있으므로 args만 전달
+                    method.Call(args);
+                }
+                else if (init is PyFunction function)
+                {
+                    // PyFunction은 self를 수동으로 추가해야 함
+                    var allArgs = new PyObject[args.Length + 1];
+                    allArgs[0] = instance;
+                    Array.Copy(args, 0, allArgs, 1, args.Length);
+                    function.Call(allArgs);
                 }
             }
 
@@ -62,6 +67,24 @@ namespace SharpPy
 
         // 클래스는 항상 호출 가능 (인스턴스 생성)
         public override bool IsCallable() => true;
+
+        // PEP 695: Generic class subscript support (Stack[int])
+        public override PyObject GetItem(PyObject key)
+        {
+            // Create generic type with type arguments
+            var typeArgs = new List<PyObject>();
+            
+            if (key is PyTuple tuple)
+            {
+                typeArgs.AddRange(tuple.Items);
+            }
+            else
+            {
+                typeArgs.Add(key);
+            }
+
+            return new PyGenericType($"{Name}[{key}]", this, typeArgs);
+        }
 
         // 클래스 attribute 접근
         public override PyObject GetAttribute(string name)

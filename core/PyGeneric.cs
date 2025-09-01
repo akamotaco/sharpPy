@@ -28,6 +28,14 @@ namespace SharpPy
             return OriginType.IsSubclassOf(other);
         }
 
+        // Forward calls to origin type (Stack[int]() -> Stack())
+        public override PyObject Call(params PyObject[] args)
+        {
+            return OriginType.Call(args);
+        }
+
+        public override bool IsCallable() => OriginType.IsCallable();
+
         public override string ToString()
         {
             if (TypeArgs.Count > 0)

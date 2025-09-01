@@ -1339,11 +1339,19 @@ namespace SharpPy
         }
         private void CompileTypeAlias(TypeAliasStatement typeAlias)
         {
-            // PEP 695: type X = Y creates a TypeAliasType object
-            // For now, we'll implement basic functionality by evaluating the value expression
-            // and storing it with the alias name
+            // PEP 695: type X[T] = Y creates a TypeAliasType object
+            // For type aliases with type parameters, we need to make the parameters available
+            // This is a simplified implementation - type parameters are bound as variables
             
-            // Compile the type expression (right-hand side)
+            // Bind type parameters to the current scope
+            foreach (var typeParam in typeAlias.TypeParams)
+            {
+                // Create type parameter objects and bind them to variables  
+                EmitLoadConst(new PyString(typeParam)); // Type parameter name as placeholder
+                EmitStoreName(typeParam); // Bind to current scope
+            }
+            
+            // Compile the type expression (right-hand side) with type parameters available
             CompileExpression(typeAlias.Value);
             
             // Store the result with the alias name
