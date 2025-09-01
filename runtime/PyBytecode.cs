@@ -110,10 +110,13 @@ namespace SharpPy
         // 예외 처리
         SETUP_FINALLY = 130,  // finally 블록 설정
         SETUP_EXCEPT = 131,   // except 블록 설정
-        SETUP_WITH = 132,     // with 문 설정
         END_FINALLY = 133,    // finally 블록 종료
         RERAISE = 134,        // 예외 재발생
         RAISE_VARARGS = 135,  // 예외 발생
+        
+        // with 문 관련 (CPython 3.12 호환)
+        BEFORE_WITH = 132,    // with 블록 시작 전 준비 (__exit__ 로드, __enter__ 호출)
+        WITH_EXCEPT_START = 136,  // with 블록에서 예외 발생시 __exit__ 호출
         
         // 스코프 및 클로저
         LOAD_CLOSURE = 140,   // 클로저 변수 로드

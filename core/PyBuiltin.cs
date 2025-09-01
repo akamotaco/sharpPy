@@ -996,6 +996,8 @@ namespace SharpPy
                 throw PyTypeError.Create($"__build_class__() missing required arguments");
             var func = args[0];
             var name = args[1];
+            PyObject? metaclass = null;
+            
             try
             {
                 Console.WriteLine($"func: {func?.GetType().Name}, name: {name?.ToString()}");
@@ -1004,19 +1006,47 @@ namespace SharpPy
             {
                 Console.WriteLine($"Error printing func/name: {ex.Message}");
             }
-            var bases = new PyType[args.Length - 2];
+            
+            // Parse args to separate bases and metaclass
+            var bases = new List<PyType>();
+            bool hasMetaclass = false;
+            
             for (int i = 2; i < args.Length; i++)
             {
-                // Convert PyObject to PyType - simplified approach
-                if (args[i] is PyType pyType)
-                    bases[i - 2] = pyType;
+                // Check if this is the last argument and could be metaclass
+                if (i == args.Length - 1 && args[i] is PyType || args[i] is PyClass)
+                {
+                    // For now, assume the last argument is metaclass if it's a type
+                    // This is a simplified approach - CPython uses keyword arguments
+                    if (args[i] is PyType typeArg && typeArg.Name != "object")
+                    {
+                        metaclass = args[i];
+                        hasMetaclass = true;
+                        Console.WriteLine($"Detected metaclass: {metaclass}");
+                    }
+                    else
+                    {
+                        // Add as base class
+                        if (args[i] is PyType pyType)
+                            bases.Add(pyType);
+                        else
+                            bases.Add(PyType.ObjectType);
+                    }
+                }
                 else
-                    bases[i - 2] = PyType.ObjectType; // Default to object type
+                {
+                    // Add as base class
+                    if (args[i] is PyType pyType)
+                        bases.Add(pyType);
+                    else
+                        bases.Add(PyType.ObjectType);
+                }
             }
+            
             var className = name.ToString();
             
-            // CPython 3.12: Execute class body to build class namespace  
-            PyClass pyClass = new PyClass(className, bases);
+            // CPython 3.12: First execute class body to build class namespace
+            Dictionary<string, PyObject> classNamespace = new Dictionary<string, PyObject>();
             
             // Execute the class body function to populate the class namespace
             if (func is PyFunction classBodyFunc)
@@ -1029,16 +1059,9 @@ namespace SharpPy
                     {
                         Console.WriteLine($"Executing class body with namespace capture...");
                         var vm = PyVM.Instance;
-                        var classNamespace = vm.ExecuteClassBody(classBodyFunc.CodeObject);
+                        classNamespace = vm.ExecuteClassBody(classBodyFunc.CodeObject);
                         
                         Console.WriteLine($"Class body executed for {className}, captured {classNamespace.Count} variables");
-                        
-                        // Copy all variables from class namespace to the class
-                        foreach (var kvp in classNamespace)
-                        {
-                            Console.WriteLine($"  Setting class attribute: {kvp.Key} = {kvp.Value.GetType().Name}");
-                            pyClass.SetAttribute(kvp.Key, kvp.Value);
-                        }
                     }
                     else
                     {
@@ -1055,6 +1078,76 @@ namespace SharpPy
             else
             {
                 Console.WriteLine($"Class body function is not PyFunction: {func?.GetType().Name}");
+            }
+            
+            // Now create class using metaclass if available
+            PyClass pyClass;
+            
+            if (hasMetaclass)
+            {
+                Console.WriteLine($"Creating class with metaclass: {metaclass}");
+                
+                // Try to call the metaclass __new__ method if available
+                try
+                {
+                    var newMethod = metaclass.GetAttribute("__new__");
+                    if (newMethod.IsCallable())
+                    {
+                        Console.WriteLine("Calling metaclass.__new__");
+                        
+                        // Create a PyDict from the class namespace for the metaclass call
+                        var namespaceDict = new PyDict();
+                        foreach (var kvp in classNamespace)
+                        {
+                            namespaceDict.SetItem(new PyString(kvp.Key), kvp.Value);
+                        }
+                        
+                        // Call metaclass.__new__(metaclass, name, bases, namespace)
+                        var metaclassArgs = new PyObject[] { 
+                            metaclass,                           // cls
+                            new PyString(className),            // name
+                            new PyTuple(bases.Cast<PyObject>().ToArray()), // bases
+                            namespaceDict                       // namespace
+                        };
+                        
+                        var result = newMethod.Call(metaclassArgs);
+                        if (result is PyClass createdClass)
+                        {
+                            pyClass = createdClass;
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Metaclass.__new__ returned non-class: {result.GetType().Name}");
+                            pyClass = new PyClass(className, bases.ToArray());
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("Metaclass has no callable __new__ method");
+                        pyClass = new PyClass(className, bases.ToArray());
+                        pyClass.SetAttribute("__metaclass__", metaclass);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error calling metaclass.__new__: {ex.Message}");
+                    pyClass = new PyClass(className, bases.ToArray());
+                    pyClass.SetAttribute("__metaclass__", metaclass);
+                }
+            }
+            else
+            {
+                pyClass = new PyClass(className, bases.ToArray());
+            }
+            
+            // If we didn't use metaclass, copy namespace to class manually
+            if (!hasMetaclass || pyClass.GetAttribute("__metaclass__") != null)
+            {
+                foreach (var kvp in classNamespace)
+                {
+                    Console.WriteLine($"  Setting class attribute: {kvp.Key} = {kvp.Value.GetType().Name}");
+                    pyClass.SetAttribute(kvp.Key, kvp.Value);
+                }
             }
             
             return pyClass;

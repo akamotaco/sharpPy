@@ -746,13 +746,15 @@ namespace SharpPy
         public List<Expression> Bases { get; }
         public List<Statement> Body { get; }
         public List<string> TypeParams { get; } // Python 3.12
+        public Expression? Metaclass { get; } // metaclass= keyword
         
-        public ClassDefStatement(string name, List<Expression> bases, List<Statement> body, List<string>? typeParams = null)
+        public ClassDefStatement(string name, List<Expression> bases, List<Statement> body, List<string>? typeParams = null, Expression? metaclass = null)
         {
             Name = name;
             Bases = bases;
             Body = body;
             TypeParams = typeParams ?? new List<string>();
+            Metaclass = metaclass;
         }
         
         public override PyObject Evaluate(PyScope scope)
@@ -799,7 +801,8 @@ namespace SharpPy
         {
             var typeParamStr = TypeParams.Any() ? $"[{string.Join(", ", TypeParams)}]" : "";
             var baseStr = Bases.Any() ? $"({string.Join(", ", Bases)})" : "";
-            return $"class {Name}{typeParamStr}{baseStr}: ...";
+            var metaclassStr = Metaclass != null ? $", metaclass={Metaclass}" : "";
+            return $"class {Name}{typeParamStr}({string.Join(", ", Bases)}{metaclassStr}): ...";
         }
     }
 

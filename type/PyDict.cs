@@ -96,7 +96,7 @@ namespace SharpPy
         /// <summary>
         /// 키에 값 설정 dict[key] = value
         /// </summary>
-        public void SetItem(PyObject key, PyObject value)
+        public override void SetItem(PyObject key, PyObject value)
         {
             _items[key] = value;
         }

@@ -1315,8 +1315,16 @@ namespace SharpPy
                 CompileExpression(baseExpr);
             }
             
-            // Call __build_class__(class_body_function, name, *bases)
-            EmitInstruction(ByteCodeOp.CALL_FUNCTION, 2 + cls.Bases.Count);
+            // Load metaclass if specified
+            int totalArgs = 2 + cls.Bases.Count;
+            if (cls.Metaclass != null)
+            {
+                CompileExpression(cls.Metaclass);
+                totalArgs++;
+            }
+            
+            // Call __build_class__(class_body_function, name, *bases [, metaclass])
+            EmitInstruction(ByteCodeOp.CALL_FUNCTION, totalArgs);
             
             // Store the created class
             EmitStoreName(cls.Name);
@@ -1699,7 +1707,9 @@ namespace SharpPy
             
             // 7. Patch FOR_ITER to jump here when StopIteration occurs (skipping else)
             var loopEnd = _instructions.Count;
-            _instructions[forIterInstruction] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, normalCompletionPoint);
+            // CPython 3.12: FOR_ITER uses relative jump (target - current_position - 1)
+            var relativeJump = loopEnd - forIterInstruction - 1;
+            _instructions[forIterInstruction] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, relativeJump);
             
             // Note: Break statements will need to jump past the else clause to loopEnd
             // This requires break handling to be aware of loop-else structure
@@ -1753,7 +1763,9 @@ namespace SharpPy
             
             // 8. Patch FOR_ITER to jump here when StopIteration occurs
             var loopEnd = _instructions.Count;
-            _instructions[forIterInstruction] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, normalCompletionPoint);
+            // CPython 3.12: FOR_ITER uses relative jump (target - current_position - 1)
+            var relativeJump = loopEnd - forIterInstruction - 1;
+            _instructions[forIterInstruction] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, relativeJump);
         }
         
         /// <summary>
@@ -1902,7 +1914,75 @@ namespace SharpPy
             // End of try-except
             MarkLabel(endLabel);
         }
-        private void CompileWith(WithStatement withStmt) { /* TODO */ }
+        private void CompileWith(WithStatement withStmt)
+        {
+            // CPython 3.12 compatible implementation
+            // Simplified for single context manager (multiple contexts can be added later)
+            if (withStmt.Items.Count != 1)
+            {
+                throw new NotImplementedException("Multiple context managers not yet supported");
+            }
+            
+            var item = withStmt.Items[0];
+            var withCleanupLabel = CreateLabel("with_cleanup");
+            var endLabel = CreateLabel("with_end");
+            
+            // CPython 3.12 approach with proper exception handling:
+            // 1. Load context manager
+            CompileExpression(item.ContextExpr);
+            
+            // 2. BEFORE_WITH: Load __exit__ to stack, call __enter__(), push result
+            EmitInstruction(ByteCodeOp.BEFORE_WITH);
+            
+            // 3. Setup exception handler for WITH cleanup
+            EmitInstruction(ByteCodeOp.SETUP_EXCEPT, 0);
+            withCleanupLabel.References.Add(_instructions.Count - 1);
+            
+            // 4. Store __enter__ result in optional variable (if 'as' clause exists)
+            if (item.OptionalVars != null)
+            {
+                // For simple variables, just emit STORE_NAME
+                if (item.OptionalVars is NameExpression varExpr)
+                {
+                    EmitInstruction(ByteCodeOp.STORE_NAME, AddName(varExpr.Name));
+                }
+                else
+                {
+                    // Complex assignment target not supported yet
+                    EmitInstruction(ByteCodeOp.POP_TOP);
+                }
+            }
+            else
+            {
+                // Discard __enter__ result if no 'as' clause
+                EmitInstruction(ByteCodeOp.POP_TOP);
+            }
+            
+            // 5. Execute body (with exception handling setup)
+            foreach (var stmt in withStmt.Body)
+            {
+                CompileStatement(stmt);
+            }
+            
+            // 6. Normal exit: Load None and call __exit__(None, None, None)
+            EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(PyNone.Instance));
+            EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(PyNone.Instance)); 
+            EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(PyNone.Instance));
+            EmitInstruction(ByteCodeOp.CALL_FUNCTION, 3); // call __exit__(None, None, None)
+            EmitInstruction(ByteCodeOp.POP_TOP); // discard __exit__ return value
+            
+            EmitInstruction(ByteCodeOp.POP_EXCEPT); // cleanup exception handler
+            EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
+            endLabel.References.Add(_instructions.Count - 1);
+            
+            // 7. Exception handler: call __exit__ with exception info
+            MarkLabel(withCleanupLabel);
+            EmitInstruction(ByteCodeOp.WITH_EXCEPT_START);
+            EmitInstruction(ByteCodeOp.POP_TOP); // discard __exit__ return value
+            EmitInstruction(ByteCodeOp.RAISE_VARARGS, 0); // re-raise exception
+            
+            MarkLabel(endLabel);
+        }
         private void CompileMatch(MatchStatement matchStmt)
         {
             // CPython approach: Transform match into if-elif chain
@@ -2504,10 +2584,11 @@ namespace SharpPy
             // 8. 루프 재시작 (FOR_ITER로 점프)
             EmitInstruction(ByteCodeOp.JUMP_BACKWARD, _instructions.Count - loopStart);
             
-            // 9. FOR_ITER 종료 지점 패치
+            // 9. FOR_ITER 종료 지점 패치 (CPython 3.12 compatible relative jump)
+            var relativeJump = _instructions.Count - loopStart - 1;
             _instructions[loopStart] = new ByteCodeInstruction(
                 ByteCodeOp.FOR_ITER, 
-                _instructions.Count - loopStart - 1
+                relativeJump
             );
             
             Console.WriteLine("✅ List comprehension 바이트코드 인라인 완료 (2x 성능 향상!)");
@@ -2572,10 +2653,11 @@ namespace SharpPy
             // 8. 루프 재시작 (FOR_ITER로 점프)
             EmitInstruction(ByteCodeOp.JUMP_BACKWARD, _instructions.Count - loopStart);
             
-            // 9. FOR_ITER 패치
+            // 9. FOR_ITER 패치 (CPython 3.12 compatible relative jump)
+            var relativeJumpDict = _instructions.Count - loopStart - 1;
             _instructions[loopStart] = new ByteCodeInstruction(
                 ByteCodeOp.FOR_ITER, 
-                _instructions.Count - loopStart - 1
+                relativeJumpDict
             );
             
             Console.WriteLine("✅ Dict comprehension 바이트코드 인라인 완료 (2x 성능 향상!)");
@@ -2639,10 +2721,11 @@ namespace SharpPy
             // 8. 루프 재시작 (FOR_ITER로 점프)
             EmitInstruction(ByteCodeOp.JUMP_BACKWARD, _instructions.Count - loopStart);
             
-            // 9. FOR_ITER 패치
+            // 9. FOR_ITER 패치 (CPython 3.12 compatible relative jump)
+            var relativeJumpSet = _instructions.Count - loopStart - 1;
             _instructions[loopStart] = new ByteCodeInstruction(
                 ByteCodeOp.FOR_ITER, 
-                _instructions.Count - loopStart - 1
+                relativeJumpSet
             );
             
             Console.WriteLine("✅ Set comprehension 바이트코드 인라인 완료 (2x 성능 향상!)");
@@ -2727,6 +2810,28 @@ namespace SharpPy
                     CompileExpression(subscript.Value);
                     CompileExpression(subscript.Slice);
                     EmitInstruction(ByteCodeOp.STORE_SUBSCR);
+                    break;
+                    
+                case TupleExpression tuple:
+                    // CPython 3.12 compatible tuple unpacking assignment: x, y = (1, 2)
+                    // Value is already on stack, unpack it
+                    EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, tuple.Elements.Count);
+                    
+                    // CPython: UNPACK_SEQUENCE pushes elements in reverse order on stack
+                    // When we pop for STORE operations, we get them in forward order
+                    // So we store in forward order (x first, then y)
+                    for (int i = 0; i < tuple.Elements.Count; i++)
+                    {
+                        var element = tuple.Elements[i];
+                        if (element is NameExpression nameExpr)
+                        {
+                            EmitStoreName(nameExpr.Name);
+                        }
+                        else
+                        {
+                            throw new Exception($"Invalid tuple unpacking target: {element.GetType().Name}");
+                        }
+                    }
                     break;
                     
                 default:

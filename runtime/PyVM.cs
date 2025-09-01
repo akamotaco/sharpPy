@@ -455,9 +455,9 @@ namespace SharpPy
                     if ((flags & 8) != 0)
                     {
                         var closureTuple = frame.ValueStack.Pop();
-                        if (closureTuple is PyTuple tuple)
+                        if (closureTuple is PyTuple closureTupleObj)
                         {
-                            closure = tuple.Items.Cast<PyCell>().ToArray();
+                            closure = closureTupleObj.Items.Cast<PyCell>().ToArray();
                             Console.WriteLine($"  → Creating function with closure: {closure.Length} cells");
                         }
                         else
@@ -656,6 +656,30 @@ namespace SharpPy
                     }
                     break;
                     
+                case ByteCodeOp.STORE_SUBSCR:
+                    // Stack: [value, object, key] -> []  
+                    // Implements obj[key] = value
+                    var subscrStoreKey = frame.ValueStack.Pop();      // key (top of stack)
+                    var subscrStoreObj = frame.ValueStack.Pop();      // object 
+                    var subscrStoreValue = frame.ValueStack.Pop();    // value (bottom)
+                    
+                    try
+                    {
+                        subscrStoreObj.SetItem(subscrStoreKey, subscrStoreValue);
+                    }
+                    catch (Exception ex) when (ex is PyException)
+                    {
+                        // Re-throw Python exceptions
+                        Console.WriteLine($"🔍 STORE_SUBSCR: Re-throwing Python exception: {ex.GetType().Name} - {ex.Message}");
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        // Convert C# exceptions to appropriate Python exceptions
+                        throw PyTypeError.Create($"subscript assignment error: {ex.Message}");
+                    }
+                    break;
+                    
                 case ByteCodeOp.BUILD_SET:
                     var setSize = instruction.Argument;
                     var pySet = new PySet();
@@ -748,6 +772,90 @@ namespace SharpPy
                     frame.PopExceptionHandler();
                     break;
                     
+                case ByteCodeOp.BEFORE_WITH:
+                    // CPython 3.12: BEFORE_WITH performs several operations before a with block starts
+                    var contextManager = frame.ValueStack.Pop();
+                    
+                    // 1. Load __exit__ method and push to stack (for later cleanup)
+                    var exitMethod = contextManager.GetAttribute("__exit__");
+                    if (!exitMethod.IsCallable())
+                    {
+                        throw PyAttributeError.Create("__exit__");
+                    }
+                    frame.ValueStack.Push(exitMethod);
+                    
+                    // 2. Call __enter__ method and push result to stack
+                    var enterMethod = contextManager.GetAttribute("__enter__");
+                    if (enterMethod.IsCallable())
+                    {
+                        var enterResult = enterMethod.Call(new PyObject[0]);
+                        frame.ValueStack.Push(enterResult);
+                    }
+                    else
+                    {
+                        throw PyAttributeError.Create("__enter__");
+                    }
+                    break;
+                    
+                case ByteCodeOp.WITH_EXCEPT_START:
+                    // CPython 3.12: Called when exception occurs in with block
+                    // Stack layout: [..., __exit__ method, exception info]
+                    
+                    // In exception handler, we expect exception is already on top of stack
+                    // and __exit__ method was preserved from BEFORE_WITH
+                    if (frame.ValueStack.Count < 2)
+                    {
+                        // Push False to indicate we can't handle the exception
+                        frame.ValueStack.Push(PyBool.False);
+                        break;
+                    }
+                    
+                    // Get the exception - in our simplified case it's the top of stack
+                    var currentException = frame.ValueStack.Peek();
+                    
+                    // Find the __exit__ method - it should be preserved somewhere in stack
+                    // For now, convert stack to array for indexing (this may need adjustment based on actual stack layout)
+                    PyObject exitMethodForExcept = null;
+                    if (frame.ValueStack.Count >= 2)
+                    {
+                        var stackArray = frame.ValueStack.ToArray();
+                        exitMethodForExcept = stackArray[stackArray.Length - 2];
+                    }
+                    
+                    if (exitMethodForExcept?.IsCallable() == true)
+                    {
+                        // Get exception info - CPython style
+                        PyObject excType, excValue, excTb;
+                        
+                        if (currentException is PyException pyExc)
+                        {
+                            excType = pyExc.GetPyType();
+                            excValue = pyExc;
+                            excTb = PyNone.Instance; // traceback not implemented yet
+                        }
+                        else
+                        {
+                            excType = currentException.GetPyType();
+                            excValue = currentException;
+                            excTb = PyNone.Instance;
+                        }
+                        
+                        // Call __exit__(exc_type, exc_value, traceback)
+                        var exitArgs = new PyObject[] { excType, excValue, excTb };
+                        var exitResult = exitMethodForExcept.Call(exitArgs);
+                        
+                        // Push result for caller to check - in CPython this determines exception suppression
+                        frame.ValueStack.Push(exitResult);
+                        
+                        // Note: The caller (compiler) decides whether to suppress based on exitResult
+                    }
+                    else
+                    {
+                        // Push False to indicate we can't handle the exception
+                        frame.ValueStack.Push(PyBool.False);
+                    }
+                    break;
+                    
                 case ByteCodeOp.EXCEPT_MATCH:
                     var exceptionType = frame.ValueStack.Pop();
                     var exception = frame.ValueStack.Peek(); // Don't pop, keep for handler
@@ -795,17 +903,6 @@ namespace SharpPy
                         throw new PythonException(frame.LastException);
                     break;
 
-                // CPython-style Sequence Operations  
-                case ByteCodeOp.UNPACK_SEQUENCE:
-                    var sequence = frame.ValueStack.Pop();
-                    var count = instruction.Argument;
-                    var items = UnpackSequence(sequence, count);
-                    foreach (var item in items.Reverse())
-                    {
-                        frame.ValueStack.Push(item);
-                    }
-                    break;
-                    
                 // F-String Support (PEP 701)
                 case ByteCodeOp.FORMAT_VALUE:
                     var formatOption = instruction.Argument;
@@ -839,6 +936,58 @@ namespace SharpPy
                     }
                     var concatenatedString = new PyString(string.Join("", stringParts));
                     frame.ValueStack.Push(concatenatedString);
+                    break;
+                    
+                case ByteCodeOp.UNPACK_SEQUENCE:
+                    // CPython 3.12 compatible tuple/sequence unpacking
+                    var unpackCount = instruction.Argument;
+                    var sequence = frame.ValueStack.Pop();
+                    
+                    // Unpack the sequence into individual elements
+                    if (sequence is PyTuple tuple)
+                    {
+                        if (tuple.Items.Length != unpackCount)
+                        {
+                            throw PyValueError.Create($"not enough values to unpack (expected {unpackCount}, got {tuple.Items.Length})");
+                        }
+                        
+                        // CPython pushes elements in reverse order (last element pushed first)
+                        // So when popped, they come out in correct order for assignment
+                        for (int i = tuple.Items.Length - 1; i >= 0; i--)
+                        {
+                            frame.ValueStack.Push(tuple.Items[i]);
+                        }
+                    }
+                    else if (sequence is PyList list)
+                    {
+                        if (list.Items.Length != unpackCount)
+                        {
+                            throw PyValueError.Create($"not enough values to unpack (expected {unpackCount}, got {list.Items.Length})");
+                        }
+                        
+                        // CPython pushes elements in reverse order
+                        for (int i = list.Items.Length - 1; i >= 0; i--)
+                        {
+                            frame.ValueStack.Push(list.Items[i]);
+                        }
+                    }
+                    else if (sequence is PyString str)
+                    {
+                        if (str.Value.Length != unpackCount)
+                        {
+                            throw PyValueError.Create($"not enough values to unpack (expected {unpackCount}, got {str.Value.Length})");
+                        }
+                        
+                        // CPython pushes characters in reverse order
+                        for (int i = str.Value.Length - 1; i >= 0; i--)
+                        {
+                            frame.ValueStack.Push(new PyString(str.Value[i].ToString()));
+                        }
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create($"cannot unpack non-sequence {sequence.GetTypeName()}");
+                    }
                     break;
                     
                 // Loop Control Statements
@@ -1338,57 +1487,6 @@ namespace SharpPy
         /// <summary>
         /// CPython-style sequence unpacking
         /// </summary>
-        private PyObject[] UnpackSequence(PyObject sequence, int count)
-        {
-            if (sequence is PyList list)
-            {
-                if (list.Length() != count)
-                    throw PyValueError.Create($"too many values to unpack (expected {count})");
-                return list.Items.Take(count).ToArray();
-            }
-            else if (sequence is PyTuple tuple)
-            {
-                if (tuple.Items.Length != count)
-                    throw PyValueError.Create($"too many values to unpack (expected {count})");
-                return tuple.Items.Take(count).ToArray();
-            }
-            else if (sequence is PyString str)
-            {
-                if (str.Value.Length != count)
-                    throw PyValueError.Create($"too many values to unpack (expected {count})");
-                return str.Value.Select(c => new PyString(c.ToString())).Cast<PyObject>().ToArray();
-            }
-            else
-            {
-                // Try to get iterator and collect items
-                var iterator = sequence.GetIterator();
-                var items = new List<PyObject>();
-                try
-                {
-                    while (items.Count < count)
-                    {
-                        items.Add(iterator.Next());
-                    }
-                    
-                    // Check if there are more items (would indicate too many values)
-                    try
-                    {
-                        iterator.Next();
-                        throw PyValueError.Create($"too many values to unpack (expected {count})");
-                    }
-                    catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                    {
-                        // This is expected - no more items
-                    }
-                }
-                catch (PythonException ex) when (ex.PyException is PyStopIteration && items.Count < count)
-                {
-                    throw PyValueError.Create($"not enough values to unpack (expected {count}, got {items.Count})");
-                }
-                
-                return items.ToArray();
-            }
-        }
 
         /// <summary>
         /// Compare operation enumeration matching CPython

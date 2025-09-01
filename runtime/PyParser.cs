@@ -320,15 +320,27 @@ namespace SharpPy
                 Consume(TokenType.RIGHT_BRACKET, "Expected ']' after type parameters");
             }
             
-            // Base classes
+            // Base classes and metaclass
             var bases = new List<Expression>();
+            Expression? metaclass = null;
+            
             if (Match(TokenType.LEFT_PAREN))
             {
                 if (!Check(TokenType.RIGHT_PAREN))
                 {
                     do
                     {
-                        bases.Add(ParseExpression());
+                        // Check for metaclass= keyword
+                        if (Check(TokenType.IDENTIFIER) && Peek().Lexeme == "metaclass" && PeekNext().Type == TokenType.EQUAL)
+                        {
+                            Advance(); // consume 'metaclass'
+                            Advance(); // consume '='
+                            metaclass = ParseExpression();
+                        }
+                        else
+                        {
+                            bases.Add(ParseExpression());
+                        }
                     } while (Match(TokenType.COMMA));
                 }
                 Consume(TokenType.RIGHT_PAREN, "Expected ')' after base classes");
@@ -338,7 +350,7 @@ namespace SharpPy
             
             var body = ParseBlockOrSingleStatement();
             
-            return new ClassDefStatement(name, bases, body, typeParams);
+            return new ClassDefStatement(name, bases, body, typeParams, metaclass);
         }
 
         private Statement ParseTypeAlias()
@@ -539,6 +551,43 @@ namespace SharpPy
             try
             {
                 var expr = ParseExpression();
+                
+                // CPython 3.12: Check for comma-separated assignment targets (tuple unpacking)
+                // This handles cases like: x, y = (1, 2)
+                if (Check(TokenType.COMMA))
+                {
+                    // Look ahead to see if this is an assignment context
+                    var savedPos = _current;
+                    var targets = new List<Expression> { expr };
+                    
+                    // Collect all comma-separated expressions
+                    while (Match(TokenType.COMMA))
+                    {
+                        targets.Add(ParseExpression());
+                    }
+                    
+                    // Check if this is actually an assignment
+                    if (Check(TokenType.EQUAL))
+                    {
+                        // This is tuple unpacking assignment: x, y = value
+                        Advance(); // consume '='
+                        var value = ParseExpression();
+                        var tupleTarget = new TupleExpression(targets);
+                        return new AssignTargetStatement(tupleTarget, value);
+                    }
+                    else
+                    {
+                        // Not an assignment, backtrack and treat as expression
+                        // This would be a case like: x, y  (standalone tuple expression)
+                        _current = savedPos;
+                        var tupleExpr = new TupleExpression(new List<Expression> { expr });
+                        while (Match(TokenType.COMMA))
+                        {
+                            tupleExpr.Elements.Add(ParseExpression());
+                        }
+                        return new ExpressionStatement(tupleExpr);
+                    }
+                }
                 
                 // CPython 3.12: Check for annotated assignment (target: type = value)
                 if (Match(TokenType.COLON))
@@ -931,6 +980,12 @@ namespace SharpPy
                 
                 // Regular identifier
                 return new NameExpression(identifierName);
+            }
+            
+            // Handle 'type' keyword as identifier in expressions (for metaclass usage)
+            if (Match(TokenType.TYPE))
+            {
+                return new NameExpression("type");
             }
             
             // Parentheses, Tuples, or Generator Expressions
@@ -1930,32 +1985,43 @@ namespace SharpPy
         }
         private Statement ParseWithStatement()
         {
-            var contextExpr = ParseExpression(); // with context_manager
+            var items = new List<WithItem>();
             
-            // Check for "as" clause
+            // Parse first with item: with expr [as var]
+            var contextExpr = ParseExpression();
+            Expression? optionalVars = null;
+            
             if (Check(TokenType.AS))
             {
                 Advance(); // consume AS
-                var target = ParseExpression(); // as target
+                optionalVars = ParseExpression(); // as target
+            }
+            
+            items.Add(new WithItem(contextExpr, optionalVars));
+            
+            // Handle multiple context managers: with a, b as x, c:
+            while (Check(TokenType.COMMA))
+            {
+                Advance(); // consume comma
+                
+                var nextContextExpr = ParseExpression();
+                Expression? nextOptionalVars = null;
+                
+                if (Check(TokenType.AS))
+                {
+                    Advance(); // consume AS
+                    nextOptionalVars = ParseExpression();
+                }
+                
+                items.Add(new WithItem(nextContextExpr, nextOptionalVars));
             }
             
             Consume(TokenType.COLON, "Expected ':' after with statement");
             
-            // Skip body tokens safely
-            while (!IsAtEnd() && !Check(TokenType.EOF))
-            {
-                var token = Peek();
-                if (token.Type == TokenType.IF || token.Type == TokenType.WHILE || 
-                    token.Type == TokenType.FOR || token.Type == TokenType.CLASS || 
-                    token.Type == TokenType.DEF || token.Type == TokenType.TRY ||
-                    token.Type == TokenType.WITH || token.Type == TokenType.MATCH)
-                {
-                    break;
-                }
-                Advance();
-            }
+            // Parse body
+            var body = ParseBlockOrSingleStatement();
             
-            return new ExpressionStatement(contextExpr); // Simplified
+            return new WithStatement(items, body);
         }
         private Statement ParseMatchStatement()
         {
@@ -2588,6 +2654,12 @@ namespace SharpPy
         private PyToken Peek()
         {
             return _tokens[_current];
+        }
+
+        private PyToken PeekNext()
+        {
+            if (_current + 1 >= _tokens.Count) return _tokens[_tokens.Count - 1];
+            return _tokens[_current + 1];
         }
 
         private PyToken Previous()
