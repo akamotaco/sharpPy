@@ -101,6 +101,70 @@ namespace SharpPy
             return (freeVars, cellVars);
         }
         
+        /// <summary>
+        /// Async function 분석 - 일반 함수와 동일한 방식으로 자유 변수 분석
+        /// </summary>
+        public (List<string> freeVars, List<string> cellVars) AnalyzeAsyncFunction(AsyncFunctionDefStatement asyncFunc, List<string> outerVarNames)
+        {
+            _definedVars.Clear();
+            _usedVars.Clear();
+            _parameters.Clear();
+            
+            // Async function parameters are defined locally
+            foreach (var param in asyncFunc.Parameters)
+            {
+                _parameters.Add(param);
+                _definedVars.Add(param);
+            }
+            
+            // Analyze the function body for variable usage
+            foreach (var statement in asyncFunc.Body)
+            {
+                AnalyzeStatement(statement);
+            }
+            
+            // Free variables: variables used but not defined locally, and exist in outer scope
+            var freeVars = _usedVars.Where(var => !_definedVars.Contains(var))
+                                   .Where(var => outerVarNames.Contains(var)) // 외부 스코프의 모든 변수
+                                   .ToList();
+            
+            // Cell variables: analyze nested functions to see what they reference
+            var cellVars = new List<string>();
+            foreach (var statement in asyncFunc.Body)
+            {
+                if (statement is FunctionDefStatement nestedFunc)
+                {
+                    var nestedAnalyzer = new FreeVariableAnalyzer();
+                    var (nestedFreeVars, _) = nestedAnalyzer.AnalyzeNestedFunction(nestedFunc, asyncFunc.Parameters);
+                    
+                    // Any of our parameters that nested functions use as free variables become cells
+                    foreach (var nestedFreeVar in nestedFreeVars)
+                    {
+                        if (asyncFunc.Parameters.Contains(nestedFreeVar) && !cellVars.Contains(nestedFreeVar))
+                        {
+                            cellVars.Add(nestedFreeVar);
+                        }
+                    }
+                }
+                else if (statement is AsyncFunctionDefStatement nestedAsyncFunc)
+                {
+                    var nestedAnalyzer = new FreeVariableAnalyzer();
+                    var (nestedFreeVars, _) = nestedAnalyzer.AnalyzeAsyncFunction(nestedAsyncFunc, asyncFunc.Parameters);
+                    
+                    // Any of our parameters that nested async functions use as free variables become cells
+                    foreach (var nestedFreeVar in nestedFreeVars)
+                    {
+                        if (asyncFunc.Parameters.Contains(nestedFreeVar) && !cellVars.Contains(nestedFreeVar))
+                        {
+                            cellVars.Add(nestedFreeVar);
+                        }
+                    }
+                }
+            }
+            
+            return (freeVars, cellVars);
+        }
+        
         private void AnalyzeStatement(Statement stmt)
         {
             switch (stmt)
@@ -481,6 +545,29 @@ namespace SharpPy
             }
             
             return (paramNames, defaults, flags);
+        }
+        
+        /// <summary>
+        /// Async function 매개변수 파싱 - 일반 함수와 동일한 로직
+        /// </summary>
+        private (List<string> paramNames, List<PyObject> defaults, int flags) ParseAsyncFunctionParameters(List<string> parameters)
+        {
+            return ParseFunctionParameters(parameters); // 동일한 로직 재사용
+        }
+        
+        /// <summary>
+        /// Async function body 컴파일 - CO_COROUTINE 플래그 추가
+        /// </summary>
+        private PyCodeObject CompileAsyncFunctionBody(AsyncFunctionDefStatement asyncFunc, List<string> freeVars, List<string> cellVars)
+        {
+            var (paramNames, defaults, flags) = ParseAsyncFunctionParameters(asyncFunc.Parameters);
+            
+            // CO_COROUTINE 플래그 추가
+            flags |= PyCodeObject.CO_COROUTINE;
+            
+            var compiler = new PythonCompiler();
+            compiler.SetupClosureCompilation(cellVars, freeVars);
+            return compiler.CompileWithClosureAndDefaults(asyncFunc.Body, asyncFunc.Name, paramNames, defaults, freeVars, cellVars, flags);
         }
         
         /// <summary>
@@ -1284,8 +1371,68 @@ namespace SharpPy
             // This would require checking if we're at module/class level and maintaining __annotations__
         }
         
-        // 단순화된 구현 - 실제로는 더 복잡한 로직이 필요
-        private void CompileAsyncFunction(AsyncFunctionDefStatement asyncFunc) { /* TODO */ }
+        /// <summary>
+        /// Async function compilation - similar to CompileNestedFunction but creates async function
+        /// </summary>
+        private void CompileAsyncFunction(AsyncFunctionDefStatement asyncFunc)
+        {
+            Console.WriteLine($"\n🔍 Compiling async function: {asyncFunc.Name}");
+            
+            // 1. 자유 변수 분석 (동일한 방식으로 분석)
+            var analyzer = new FreeVariableAnalyzer();
+            Console.WriteLine($"  DEBUG: Current _varNames: [{string.Join(", ", _varNames)}]");
+            var (freeVars, cellVars) = analyzer.AnalyzeAsyncFunction(asyncFunc, _varNames);
+            
+            Console.WriteLine($"  Free variables: [{string.Join(", ", freeVars)}]");
+            Console.WriteLine($"  Cell variables: [{string.Join(", ", cellVars)}]");
+            
+            // 2. 매개변수와 기본값 파싱
+            var (paramNames, defaults, flags) = ParseAsyncFunctionParameters(asyncFunc.Parameters);
+            
+            // 3. 코드 객체 컴파일 (async 함수 전용)
+            var codeObject = CompileAsyncFunctionBody(asyncFunc, freeVars, cellVars);
+            
+            // 4. 기본값들을 스택에 로드
+            foreach (var defaultValue in defaults)
+            {
+                EmitLoadConst(defaultValue); // 기본값은 이미 PyObject이므로 직접 로드
+            }
+            
+            // 5. 클로저가 있으면 셀 변수들을 스택에 로드
+            if (freeVars.Any())
+            {
+                foreach (var freeVar in freeVars)
+                {
+                    if (_varNames.Contains(freeVar))
+                    {
+                        // Local variable in enclosing scope
+                        EmitInstruction(ByteCodeOp.LOAD_CLOSURE, _varNames.IndexOf(freeVar));
+                    }
+                    else
+                    {
+                        // Could be in enclosing function's free vars
+                        EmitLoadName(freeVar);
+                    }
+                }
+                EmitInstruction(ByteCodeOp.BUILD_TUPLE, freeVars.Count);
+            }
+            
+            // 6. 코드 객체를 상수로 로드 (이름은 이미 코드 객체에 포함됨)
+            EmitLoadConst(codeObject);
+            
+            // 8. MAKE_ASYNC_FUNCTION 명령어 생성 (아직 없으므로 MAKE_FUNCTION으로 대체)
+            var makeFlags = 0;
+            if (defaults.Any()) makeFlags |= 0x01;  // CO_HAS_DEFAULTS
+            if (freeVars.Any()) makeFlags |= 0x08;  // CO_HAS_CLOSURE
+            makeFlags |= 0x10; // CO_ASYNC_FUNCTION (async 함수 플래그)
+            
+            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, makeFlags);
+            
+            // 9. 함수를 변수에 저장
+            EmitStoreName(asyncFunc.Name);
+            
+            Console.WriteLine($"✅ Async function {asyncFunc.Name} compiled successfully");
+        }
         private void CompileClass(ClassDefStatement cls)
         {
             // CPython 3.12: Compile class body as a proper function

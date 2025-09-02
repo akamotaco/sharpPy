@@ -30,6 +30,7 @@ namespace SharpPy
         
         public FrameState State { get; set; } = FrameState.Created;
         public bool IsGenerator { get; set; } = false;
+        public bool IsCoroutine { get; set; } = false;
         
         public PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope = null, PyCell[] closure = null)
         {
@@ -481,11 +482,39 @@ namespace SharpPy
                     
                     if (codeObject is PyCodeObject pyCode)
                     {
-                        PyFunction functionObject;
-                        
-                        // Create function implementation with proper parameter binding
-                        Func<PyObject[], PyObject> implementation = args =>
+                        // CPython 3.12: async def로 정의된 함수인지 확인
+                        if (pyCode.IsCoroutine())
                         {
+                            // Async function: 호출 시 PyCoroutine 객체 반환
+                            var asyncImpl = new Func<PyObject[], PyObject>(args =>
+                            {
+                                var boundArgs = BindFunctionArguments(args, pyCode, defaults);
+                                var asyncFrame = closure != null && closure.Length > 0 
+                                    ? new PyFrame(pyCode, boundArgs, frame.ScopeChain, closure)
+                                    : new PyFrame(pyCode, boundArgs, frame.ScopeChain);
+                                
+                                // Native coroutine 생성
+                                return new SharpPy.Core.PyCoroutine(asyncFrame, this, pyCode.Name);
+                            });
+                            
+                            var asyncFunction = new PyFunction(pyCode.Name, asyncImpl, null, null, closure, pyCode);
+                            
+                            if (defaults != null)
+                            {
+                                asyncFunction.SetAttribute("__defaults__", defaults);
+                            }
+                            
+                            frame.ValueStack.Push(asyncFunction);
+                            Console.WriteLine($"✅ Created async function: {pyCode.Name}");
+                        }
+                        else
+                        {
+                            // Regular function
+                            PyFunction functionObject;
+                            
+                            // Create function implementation with proper parameter binding
+                            Func<PyObject[], PyObject> implementation = args =>
+                            {
                             // Apply CPython-style parameter binding with defaults
                             var boundArgs = BindFunctionArguments(args, pyCode, defaults);
                             // Create frame with closure support if needed
@@ -508,13 +537,14 @@ namespace SharpPy
                             functionObject = new PyFunction(pyCode.Name, implementation, null, null, closure, pyCode);
                         }
                         
-                        // Set __defaults__ attribute following CPython
-                        if (defaults != null)
-                        {
-                            functionObject.SetAttribute("__defaults__", defaults);
+                            // Set __defaults__ attribute following CPython
+                            if (defaults != null)
+                            {
+                                functionObject.SetAttribute("__defaults__", defaults);
+                            }
+                            
+                            frame.ValueStack.Push(functionObject);
                         }
-                        
-                        frame.ValueStack.Push(functionObject);
                     }
                     else
                     {
@@ -542,6 +572,12 @@ namespace SharpPy
                     var returnValue = frame.ValueStack.Count > 0 ? frame.ValueStack.Pop() : PyNone.Instance;
                     return returnValue;
                     
+                case ByteCodeOp.GET_AWAITABLE:
+                    // CPython 3.12 GET_AWAITABLE 구현
+                    var awaitableObj = frame.ValueStack.Pop();
+                    var awaitable = GetAwaitable(awaitableObj);
+                    frame.ValueStack.Push(awaitable);
+                    break;
 
                 // CPython-style Control Flow Opcodes (Phase 1 - High Priority)
                 case ByteCodeOp.POP_JUMP_IF_TRUE:
@@ -1922,6 +1958,52 @@ namespace SharpPy
                 return new PyObject[0];
             
             return function.CodeObject.DefaultValues.ToArray();
+        }
+        
+        /// <summary>
+        /// CPython 3.12 GET_AWAITABLE 구현 - PEP 492 호환
+        /// </summary>
+        private PyObject GetAwaitable(PyObject obj)
+        {
+            // 1. Native coroutine 확인 (PyCoroutine)
+            if (obj is SharpPy.Core.PyCoroutine coroutine)
+            {
+                Console.WriteLine($"✅ GET_AWAITABLE: Native coroutine {coroutine}");
+                return coroutine.GetAwaiter();
+            }
+            
+            // 2. Generator-based coroutine 확인 (__await__ 메서드 존재)
+            try
+            {
+                var awaitMethod = obj.GetAttribute("__await__");
+                if (awaitMethod != null)
+                {
+                    Console.WriteLine($"✅ GET_AWAITABLE: Generator-based coroutine with __await__");
+                    return awaitMethod.Call(new PyObject[0]);
+                }
+            }
+            catch
+            {
+                // __await__ 메서드가 없거나 호출 실패
+            }
+            
+            // 3. Iterator protocol이 있는 객체 확인 (generator도 여기 포함)
+            try
+            {
+                var iterator = obj.GetIterator();
+                if (iterator != null)
+                {
+                    Console.WriteLine($"✅ GET_AWAITABLE: Iterator-based awaitable");
+                    return iterator;
+                }
+            }
+            catch
+            {
+                // Iterator protocol이 없음
+            }
+            
+            // 4. 모든 조건을 만족하지 않으면 TypeError
+            throw PyTypeError.Create($"object {obj.GetTypeName()} can't be used in 'await' expression");
         }
     }
 

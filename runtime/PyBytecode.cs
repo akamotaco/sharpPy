@@ -241,6 +241,8 @@ namespace SharpPy
         // CPython 호환 플래그 시스템
         public const int CO_VARARGS = 0x04;        // *args 매개변수 존재
         public const int CO_VARKEYWORDS = 0x08;    // **kwargs 매개변수 존재
+        public const int CO_GENERATOR = 0x20;      // 제너레이터 함수
+        public const int CO_COROUTINE = 0x80;      // 네이티브 코루틴 (async def)
         
         public string Name { get; }
         public List<ByteCodeInstruction> Instructions { get; }
@@ -316,6 +318,14 @@ namespace SharpPy
             return Instructions.Any(inst => 
                 inst.OpCode == ByteCodeOp.YIELD_VALUE || 
                 inst.OpCode == ByteCodeOp.YIELD_FROM);
+        }
+        
+        /// <summary>
+        /// 코루틴 함수인지 확인 (CO_COROUTINE 플래그 또는 await 명령어 포함 여부)
+        /// </summary>
+        public bool IsCoroutine()
+        {
+            return (Flags & CO_COROUTINE) != 0;
         }
         
         // Evaluate 메서드 - 나중에 구현
