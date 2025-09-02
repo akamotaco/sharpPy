@@ -14,6 +14,7 @@ namespace SharpPy
     {
         private readonly List<PyToken> _tokens;
         private int _current;
+        private bool _inAsyncFunction = false; // CPython 3.12 await context validation
         
         // CPython-style precedence table
         private static readonly Dictionary<TokenType, int> OperatorPrecedence = new()
@@ -215,9 +216,19 @@ namespace SharpPy
             
             Consume(TokenType.COLON, "Expected ':' after function signature");
             
-            var body = ParseBlockOrSingleStatement();
+            // CPython 3.12: async function 내부에서 await 사용 가능
+            var previousAsyncContext = _inAsyncFunction;
+            _inAsyncFunction = true;
             
-            return new AsyncFunctionDefStatement(name, parameters, body, typeParams);
+            try
+            {
+                var body = ParseBlockOrSingleStatement();
+                return new AsyncFunctionDefStatement(name, parameters, body, typeParams);
+            }
+            finally
+            {
+                _inAsyncFunction = previousAsyncContext; // 이전 컨텍스트 복원
+            }
         }
 
         /// <summary>
@@ -859,6 +870,12 @@ namespace SharpPy
             
             if (Match(TokenType.AWAIT))
             {
+                // CPython 3.12: await는 async def 내부에서만 사용 가능
+                if (!_inAsyncFunction)
+                {
+                    throw CreateSyntaxError("'await' outside async function");
+                }
+                
                 var expr = ParseUnaryExpression();
                 return new AwaitExpression(expr);
             }
@@ -2514,6 +2531,11 @@ namespace SharpPy
             
             if (Match(TokenType.AWAIT))
             {
+                // CPython 3.12: await는 async def 내부에서만 사용 가능
+                if (!_inAsyncFunction)
+                {
+                    throw CreateSyntaxError("'await' outside async function");
+                }
                 var expr = ParseUnaryOrAtom();
                 return new AwaitExpression(expr);
             }
