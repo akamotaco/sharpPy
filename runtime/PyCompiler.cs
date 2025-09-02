@@ -382,6 +382,7 @@ namespace SharpPy
         private List<PyObject> _constants;
         private List<string> _names;
         private List<string> _varNames;
+        private bool _isInFunction = false; // Track if we're compiling inside a function
         
         // Phase 2: 클로저 지원
         private List<string> _cellVars = new List<string>();
@@ -625,6 +626,7 @@ namespace SharpPy
             _constants = new List<PyObject>();
             _names = new List<string>();
             _varNames = new List<string>();
+            _isInFunction = true; // We are now compiling inside a function
             
             // 함수 매개변수를 _varNames에 추가 (LOAD_FAST/STORE_FAST용)
             foreach (var param in paramNames)
@@ -677,6 +679,7 @@ namespace SharpPy
             var optimizer = new ByteCodeOptimizer(true);
             var optimizedCode = optimizer.OptimizeCode(codeObject);
             
+            _isInFunction = false; // Reset function context
             return optimizedCode;
         }
         
@@ -689,6 +692,7 @@ namespace SharpPy
             _constants = new List<PyObject>();
             _names = new List<string>();
             _varNames = new List<string>();
+            _isInFunction = true; // We are now compiling inside a function
             
             // 함수 매개변수를 _varNames에 추가
             foreach (var param in paramNames)
@@ -715,6 +719,7 @@ namespace SharpPy
                                             paramNames.Count, null, null, defaults, flags);
             Console.WriteLine($"✅ 함수 컴파일 완료: {_instructions.Count}개 명령어");
             
+            _isInFunction = false; // Reset function context
             return codeObject;
         }
         
@@ -1244,6 +1249,34 @@ namespace SharpPy
         
         private void EmitStoreName(string name)
         {
+            // 함수 내부에서는 지역변수로 등록하고 STORE_FAST 사용
+            if (_isInFunction)
+            {
+                // 셀 변수 처리 (Phase 2)
+                if (_cellVars.Contains(name))
+                {
+                    var cellIndex = _cellVars.IndexOf(name);
+                    EmitInstruction(ByteCodeOp.STORE_DEREF, cellIndex);
+                    Console.WriteLine($"    → STORE_DEREF for cell var: {name} (index {cellIndex})");
+                    return;
+                }
+                
+                // 자유 변수 처리 (Phase 2)
+                if (_freeVars.Contains(name))
+                {
+                    var freeIndex = _freeVars.IndexOf(name);
+                    EmitInstruction(ByteCodeOp.STORE_DEREF, freeIndex);
+                    Console.WriteLine($"    → STORE_DEREF for free var: {name} (index {freeIndex})");
+                    return;
+                }
+                
+                // 지역 변수로 등록하고 STORE_FAST 사용
+                var varIndex = GetOrAddVarName(name);
+                EmitInstruction(ByteCodeOp.STORE_FAST, varIndex);
+                return;
+            }
+            
+            // 모듈 레벨에서는 STORE_NAME 사용
             var index = AddName(name);
             EmitInstruction(ByteCodeOp.STORE_NAME, index);
         }

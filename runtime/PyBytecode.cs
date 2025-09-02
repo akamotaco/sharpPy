@@ -19,8 +19,14 @@ namespace SharpPy
         STORE_GLOBAL = 6,     // 전역 변수 저장
         DELETE_GLOBAL = 7,    // 전역 변수 삭제
         LOAD_FAST = 8,        // 지역 변수 로드 (빠름)
-        STORE_FAST = 9,       // 지역 변수 저장 (빠름)
+        STORE_FAST = 9,       // 지역 변수 저장 (빠름)  
         DELETE_FAST = 10,     // 지역 변수 삭제
+        
+        // CPython 3.12+ Superinstructions (fused operations)
+        LOAD_FAST_LOAD_FAST = 11,    // LOAD_FAST + LOAD_FAST (연속 로드 최적화)
+        LOAD_CONST_LOAD_FAST = 12,   // LOAD_CONST + LOAD_FAST 
+        STORE_FAST_LOAD_FAST = 13,   // STORE_FAST + LOAD_FAST
+        STORE_FAST_STORE_FAST = 14,  // STORE_FAST + STORE_FAST
         
         // 이항 연산 (CPython 3.12+ 스타일 통합)
         BINARY_OP = 20,       // 통합 이항 연산 (argument로 연산 타입 구분)

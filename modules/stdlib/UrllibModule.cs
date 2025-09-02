@@ -56,12 +56,12 @@ namespace SharpPy.Modules.Stdlib
                     case "unquote":
                         return HandleUnquote(args);
                     default:
-                        throw PyException.Create($"Function {_functionName} not implemented");
+                        throw PyNotImplementedError.Create($"Function {_functionName} not implemented");
                 }
             }
             catch (Exception ex)
             {
-                throw PyException.Create($"{_functionName} error: {ex.Message}");
+                throw PyRuntimeError.Create($"{_functionName} error: {ex.Message}");
             }
         }
 
@@ -82,7 +82,7 @@ namespace SharpPy.Modules.Stdlib
             }
             catch (Exception ex)
             {
-                throw PyException.Create($"URL open error: {ex.Message}");
+                throw PyRuntimeError.Create($"URL open error: {ex.Message}");
             }
         }
 

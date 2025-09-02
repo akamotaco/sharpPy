@@ -48,6 +48,9 @@ namespace SharpPy
             // 4. Peephole 패턴 최적화
             ApplyPeepholeOptimizations();
 
+            // 5. CPython 3.12 Superinstructions 생성
+            ApplySuperinstructions();
+
             int optimizedCount = _instructions.Count;
             int saved = originalCount - optimizedCount;
             
@@ -267,6 +270,64 @@ namespace SharpPy
 
             _constants.Add(constant);
             return _constants.Count - 1;
+        }
+
+        /// <summary>
+        /// CPython 3.12 Superinstructions 생성 - 연속된 바이트코드를 하나로 최적화
+        /// </summary>
+        private void ApplySuperinstructions()
+        {
+            Console.WriteLine("🚀 CPython 3.12 Superinstructions 최적화 적용");
+            
+            for (int i = 0; i < _instructions.Count - 1; i++)
+            {
+                var inst1 = _instructions[i];
+                var inst2 = _instructions[i + 1];
+
+                // 패턴 1: LOAD_FAST + LOAD_FAST → LOAD_FAST_LOAD_FAST
+                if (inst1.OpCode == ByteCodeOp.LOAD_FAST && 
+                    inst2.OpCode == ByteCodeOp.LOAD_FAST)
+                {
+                    int combinedArg = inst1.Argument | (inst2.Argument << 16);
+                    _instructions[i] = new ByteCodeInstruction(ByteCodeOp.LOAD_FAST_LOAD_FAST, combinedArg);
+                    _instructions.RemoveAt(i + 1);
+                    Console.WriteLine($"  ✅ LOAD_FAST + LOAD_FAST → LOAD_FAST_LOAD_FAST at {i}");
+                    continue; // 재검사를 위해 i를 증가시키지 않음
+                }
+
+                // 패턴 2: LOAD_CONST + LOAD_FAST → LOAD_CONST_LOAD_FAST
+                if (inst1.OpCode == ByteCodeOp.LOAD_CONST && 
+                    inst2.OpCode == ByteCodeOp.LOAD_FAST)
+                {
+                    int combinedArg = inst1.Argument | (inst2.Argument << 16);
+                    _instructions[i] = new ByteCodeInstruction(ByteCodeOp.LOAD_CONST_LOAD_FAST, combinedArg);
+                    _instructions.RemoveAt(i + 1);
+                    Console.WriteLine($"  ✅ LOAD_CONST + LOAD_FAST → LOAD_CONST_LOAD_FAST at {i}");
+                    continue;
+                }
+
+                // 패턴 3: STORE_FAST + LOAD_FAST → STORE_FAST_LOAD_FAST
+                if (inst1.OpCode == ByteCodeOp.STORE_FAST && 
+                    inst2.OpCode == ByteCodeOp.LOAD_FAST)
+                {
+                    int combinedArg = inst1.Argument | (inst2.Argument << 16);
+                    _instructions[i] = new ByteCodeInstruction(ByteCodeOp.STORE_FAST_LOAD_FAST, combinedArg);
+                    _instructions.RemoveAt(i + 1);
+                    Console.WriteLine($"  ✅ STORE_FAST + LOAD_FAST → STORE_FAST_LOAD_FAST at {i}");
+                    continue;
+                }
+
+                // 패턴 4: STORE_FAST + STORE_FAST → STORE_FAST_STORE_FAST
+                if (inst1.OpCode == ByteCodeOp.STORE_FAST && 
+                    inst2.OpCode == ByteCodeOp.STORE_FAST)
+                {
+                    int combinedArg = inst1.Argument | (inst2.Argument << 16);
+                    _instructions[i] = new ByteCodeInstruction(ByteCodeOp.STORE_FAST_STORE_FAST, combinedArg);
+                    _instructions.RemoveAt(i + 1);
+                    Console.WriteLine($"  ✅ STORE_FAST + STORE_FAST → STORE_FAST_STORE_FAST at {i}");
+                    continue;
+                }
+            }
         }
     }
 }

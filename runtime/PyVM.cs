@@ -322,14 +322,188 @@ namespace SharpPy
                     break;
                 
                 case ByteCodeOp.LOAD_FAST:
-                    var varName = frame.Code.VarNames[instruction.Argument];
-                    if (frame.FastLocals.TryGetValue(varName, out var fastValue))
+                    // CPython 3.12 style: Direct array access optimization for first few locals
+                    var argIndex = instruction.Argument;
+                    if (argIndex < frame.Code.VarNames.Count)
                     {
-                        frame.ValueStack.Push(fastValue);
+                        var varName = frame.Code.VarNames[argIndex];
+                        if (frame.FastLocals.TryGetValue(varName, out var fastValue))
+                        {
+                            frame.ValueStack.Push(fastValue);
+                        }
+                        else
+                        {
+                            throw PyNameError.Create($"local variable '{varName}' referenced before assignment");
+                        }
                     }
                     else
                     {
-                        throw PyNameError.Create($"local variable '{varName}' referenced before assignment");
+                        throw PyRuntimeError.Create($"LOAD_FAST: index {argIndex} out of range");
+                    }
+                    break;
+
+                // CPython 3.12 Superinstructions - 연속된 바이트코드를 하나로 최적화
+                case ByteCodeOp.LOAD_FAST_LOAD_FAST:
+                    // LOAD_FAST arg1; LOAD_FAST arg2 를 하나로 처리
+                    var arg1 = instruction.Argument & 0xFFFF;        // 하위 16비트: 첫번째 인수
+                    var arg2 = (instruction.Argument >> 16) & 0xFFFF; // 상위 16비트: 두번째 인수
+                    
+                    // 첫번째 LOAD_FAST
+                    if (arg1 < frame.Code.VarNames.Count)
+                    {
+                        var varName1 = frame.Code.VarNames[arg1];
+                        if (frame.FastLocals.TryGetValue(varName1, out var fastValue1))
+                        {
+                            frame.ValueStack.Push(fastValue1);
+                        }
+                        else
+                        {
+                            throw PyNameError.Create($"local variable '{varName1}' referenced before assignment");
+                        }
+                    }
+                    else
+                    {
+                        throw PyRuntimeError.Create($"LOAD_FAST_LOAD_FAST: first index {arg1} out of range");
+                    }
+                    
+                    // 두번째 LOAD_FAST  
+                    if (arg2 < frame.Code.VarNames.Count)
+                    {
+                        var varName2 = frame.Code.VarNames[arg2];
+                        if (frame.FastLocals.TryGetValue(varName2, out var fastValue2))
+                        {
+                            frame.ValueStack.Push(fastValue2);
+                        }
+                        else
+                        {
+                            throw PyNameError.Create($"local variable '{varName2}' referenced before assignment");
+                        }
+                    }
+                    else
+                    {
+                        throw PyRuntimeError.Create($"LOAD_FAST_LOAD_FAST: second index {arg2} out of range");
+                    }
+                    break;
+                    
+                case ByteCodeOp.LOAD_CONST_LOAD_FAST:
+                    // LOAD_CONST arg1; LOAD_FAST arg2 를 하나로 처리
+                    var constArg = instruction.Argument & 0xFFFF;        // 하위 16비트: CONST 인수
+                    var fastArg = (instruction.Argument >> 16) & 0xFFFF; // 상위 16비트: FAST 인수
+                    
+                    // LOAD_CONST
+                    if (constArg < frame.Code.Constants.Count)
+                    {
+                        var constantValue = frame.Code.Constants[constArg];
+                        frame.ValueStack.Push(constantValue);
+                    }
+                    else
+                    {
+                        throw PyRuntimeError.Create($"LOAD_CONST_LOAD_FAST: constant index {constArg} out of range");
+                    }
+                    
+                    // LOAD_FAST
+                    if (fastArg < frame.Code.VarNames.Count)
+                    {
+                        var varName = frame.Code.VarNames[fastArg];
+                        if (frame.FastLocals.TryGetValue(varName, out var fastValue))
+                        {
+                            frame.ValueStack.Push(fastValue);
+                        }
+                        else
+                        {
+                            throw PyNameError.Create($"local variable '{varName}' referenced before assignment");
+                        }
+                    }
+                    else
+                    {
+                        throw PyRuntimeError.Create($"LOAD_CONST_LOAD_FAST: fast index {fastArg} out of range");
+                    }
+                    break;
+                    
+                case ByteCodeOp.STORE_FAST_LOAD_FAST:
+                    // STORE_FAST arg1; LOAD_FAST arg2 를 하나로 처리
+                    var storeArg = instruction.Argument & 0xFFFF;        // 하위 16비트: STORE 인수
+                    var loadArg = (instruction.Argument >> 16) & 0xFFFF; // 상위 16비트: LOAD 인수
+                    
+                    // STORE_FAST
+                    if (storeArg < frame.Code.VarNames.Count)
+                    {
+                        var storeVarName = frame.Code.VarNames[storeArg];
+                        var valueToStore = frame.ValueStack.Pop();
+                        frame.FastLocals[storeVarName] = valueToStore;
+                        frame.ScopeChain.AssignVariable(storeVarName, valueToStore);
+                    }
+                    else
+                    {
+                        throw PyRuntimeError.Create($"STORE_FAST_LOAD_FAST: store index {storeArg} out of range");
+                    }
+                    
+                    // LOAD_FAST
+                    if (loadArg < frame.Code.VarNames.Count)
+                    {
+                        var loadVarName = frame.Code.VarNames[loadArg];
+                        if (frame.FastLocals.TryGetValue(loadVarName, out var fastValue))
+                        {
+                            frame.ValueStack.Push(fastValue);
+                        }
+                        else
+                        {
+                            throw PyNameError.Create($"local variable '{loadVarName}' referenced before assignment");
+                        }
+                    }
+                    else
+                    {
+                        throw PyRuntimeError.Create($"STORE_FAST_LOAD_FAST: load index {loadArg} out of range");
+                    }
+                    break;
+                    
+                case ByteCodeOp.STORE_FAST_STORE_FAST:
+                    // STORE_FAST arg1; STORE_FAST arg2 를 하나로 처리 
+                    var store1Arg = instruction.Argument & 0xFFFF;        // 하위 16비트: 첫번째 STORE
+                    var store2Arg = (instruction.Argument >> 16) & 0xFFFF; // 상위 16비트: 두번째 STORE
+                    
+                    // 스택에서 두 값을 순서대로 팝 (STORE는 LIFO)
+                    var value2 = frame.ValueStack.Pop(); // 두번째 STORE_FAST용 값
+                    var value1 = frame.ValueStack.Pop(); // 첫번째 STORE_FAST용 값
+                    
+                    // 첫번째 STORE_FAST
+                    if (store1Arg < frame.Code.VarNames.Count)
+                    {
+                        var varName1 = frame.Code.VarNames[store1Arg];
+                        frame.FastLocals[varName1] = value1;
+                        frame.ScopeChain.AssignVariable(varName1, value1);
+                    }
+                    else
+                    {
+                        throw PyRuntimeError.Create($"STORE_FAST_STORE_FAST: first index {store1Arg} out of range");
+                    }
+                    
+                    // 두번째 STORE_FAST
+                    if (store2Arg < frame.Code.VarNames.Count)
+                    {
+                        var varName2 = frame.Code.VarNames[store2Arg];
+                        frame.FastLocals[varName2] = value2;
+                        frame.ScopeChain.AssignVariable(varName2, value2);
+                    }
+                    else
+                    {
+                        throw PyRuntimeError.Create($"STORE_FAST_STORE_FAST: second index {store2Arg} out of range");
+                    }
+                    break;
+                    
+                case ByteCodeOp.STORE_FAST:
+                    // CPython 3.12 style: Direct array access for fast locals
+                    var storeIndex = instruction.Argument;
+                    if (storeIndex < frame.Code.VarNames.Count)
+                    {
+                        var varName = frame.Code.VarNames[storeIndex];
+                        var storeVal = frame.ValueStack.Pop();
+                        frame.FastLocals[varName] = storeVal;
+                        frame.ScopeChain.AssignVariable(varName, storeVal);
+                    }
+                    else
+                    {
+                        throw PyRuntimeError.Create($"STORE_FAST: index {storeIndex} out of range");
                     }
                     break;
                     
@@ -396,8 +570,24 @@ namespace SharpPy
                     }
                     var function = frame.ValueStack.Pop();
                     
-                    // 기존 PyObject.Call() 시스템 사용!
-                    var callResult = function.Call(args);
+                    // CPython 3.12 style: Fast path for common function types
+                    PyObject callResult;
+                    if (function is PyBuiltinFunction builtinFunc)
+                    {
+                        // Fast path for builtin functions (len, print, etc.)
+                        callResult = builtinFunc.Call(args);
+                    }
+                    else if (function is PyFunction pyFunc)
+                    {
+                        // Fast path for Python functions - inline call optimization
+                        callResult = ExecuteFunctionCall(pyFunc, args, frame.ScopeChain);
+                    }
+                    else
+                    {
+                        // Generic path for other callables
+                        callResult = function.Call(args);
+                    }
+                    
                     frame.ValueStack.Push(callResult);
                     break;
                     
@@ -2087,6 +2277,42 @@ namespace SharpPy
                 return new PyNotImplementedError(exception.Message);
             
             return new PyRuntimeError($"Exception in context manager __exit__: {exception.Message}");
+        }
+        
+        /// <summary>
+        /// CPython 3.12 style: Optimized function call execution
+        /// Fast path for Python function calls without full frame creation overhead
+        /// </summary>
+        private PyObject ExecuteFunctionCall(PyFunction pyFunc, PyObject[] args, PyScopeChain parentScope)
+        {
+            // Only optimize if function has code object
+            if (pyFunc.CodeObject == null)
+            {
+                return pyFunc.Call(args);
+            }
+            
+            var code = pyFunc.CodeObject;
+            
+            // For simple functions with no complex features, use direct execution
+            if (code.CellVars?.Count == 0 && code.FreeVars?.Count == 0 && 
+                !code.IsGenerator() && !code.IsCoroutine())
+            {
+                try
+                {
+                    // Create minimal frame for simple function
+                    var frame = new PyFrame(code, args, parentScope, pyFunc.Closure);
+                    return ExecuteFrame(frame);
+                }
+                catch (PyReturnException retEx)
+                {
+                    return retEx.Value;
+                }
+            }
+            else
+            {
+                // Complex functions fall back to standard path
+                return pyFunc.Call(args);
+            }
         }
     }
 
