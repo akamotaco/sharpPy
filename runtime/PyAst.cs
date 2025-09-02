@@ -1429,6 +1429,28 @@ namespace SharpPy
         public override string ToString() => $"match {Subject}: ...";
     }
 
+    /// <summary>
+    /// CPython 3.12 PEP 634: Or pattern (pattern1 | pattern2)
+    /// </summary>
+    public class OrPattern : Expression
+    {
+        public override string NodeType => "OrPattern";
+        public List<Expression> Patterns { get; }
+        
+        public OrPattern(List<Expression> patterns)
+        {
+            Patterns = patterns;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // Or pattern is only used in match statements, not as regular expression
+            throw new Exception("Or pattern can only be used in match statements");
+        }
+        
+        public override string ToString() => string.Join(" | ", Patterns);
+    }
+
     public class MatchCase : ASTNode
     {
         public override string NodeType => "match_case";

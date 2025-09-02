@@ -95,11 +95,211 @@ namespace SharpPy
                     // Variable binding
                     scope.SetVariable(nameExpr.Name, subject);
                     return true;
+                
+                // CPython 3.12: Sequence patterns [a, b, c] or (a, b, c)
+                case ListExpression listExpr:
+                    return MatchSequencePattern(subject, listExpr.Elements, scope);
+                    
+                case TupleExpression tupleExpr:
+                    return MatchSequencePattern(subject, tupleExpr.Elements, scope);
+                
+                // CPython 3.12: Mapping patterns {"key": value}
+                case DictExpression dictExpr:
+                    return MatchMappingPattern(subject, dictExpr, scope);
+                
+                // CPython 3.12: Class patterns Point(x, y)
+                case CallExpression callExpr:
+                    return MatchClassPattern(subject, callExpr, scope);
+                
+                // CPython 3.12: Or patterns (pattern1 | pattern2)
+                case OrPattern orPattern:
+                    return MatchOrPattern(subject, orPattern, scope);
                     
                 default:
                     // More complex patterns would be implemented here
                     return false;
             }
+        }
+        
+        /// <summary>
+        /// CPython 3.12: Match sequence patterns like [a, b, *rest]
+        /// </summary>
+        private static bool MatchSequencePattern(PyObject subject, List<Expression> patterns, PyScope scope)
+        {
+            // Check if subject is a sequence (list, tuple, etc.)
+            if (!(subject is PyList pyList))
+            {
+                if (subject is PyTuple pyTuple)
+                {
+                    // Convert tuple to list for uniform processing
+                    var tempList = new List<PyObject>(pyTuple.Items);
+                    pyList = new PyList(tempList);
+                }
+                else
+                {
+                    return false; // Not a sequence
+                }
+            }
+            
+            var subjectItems = pyList.Items;
+            
+            // Handle star patterns (*rest)
+            var starIndex = -1;
+            for (int i = 0; i < patterns.Count; i++)
+            {
+                if (patterns[i] is NameExpression nameExpr && nameExpr.Name.StartsWith("*"))
+                {
+                    starIndex = i;
+                    break;
+                }
+            }
+            
+            if (starIndex == -1)
+            {
+                // No star pattern - exact length match
+                if (subjectItems.Count() != patterns.Count)
+                    return false;
+                    
+                for (int i = 0; i < patterns.Count; i++)
+                {
+                    if (!MatchPattern(subjectItems[i], patterns[i], scope))
+                        return false;
+                }
+                return true;
+            }
+            else
+            {
+                // Star pattern present - flexible length match
+                var beforeStar = starIndex;
+                var afterStar = patterns.Count - starIndex - 1;
+                
+                if (subjectItems.Count() < beforeStar + afterStar)
+                    return false;
+                
+                // Match before star
+                for (int i = 0; i < beforeStar; i++)
+                {
+                    if (!MatchPattern(subjectItems[i], patterns[i], scope))
+                        return false;
+                }
+                
+                // Match after star (from end)
+                for (int i = 0; i < afterStar; i++)
+                {
+                    var subjectIdx = subjectItems.Count() - afterStar + i;
+                    var patternIdx = starIndex + 1 + i;
+                    if (!MatchPattern(subjectItems[subjectIdx], patterns[patternIdx], scope))
+                        return false;
+                }
+                
+                // Bind star variable
+                var starPattern = patterns[starIndex] as NameExpression;
+                if (starPattern != null)
+                {
+                    var starName = starPattern.Name.TrimStart('*');
+                    var starItems = new List<PyObject>();
+                    for (int i = beforeStar; i < subjectItems.Count() - afterStar; i++)
+                    {
+                        starItems.Add(subjectItems[i]);
+                    }
+                    scope.SetVariable(starName, new PyList(starItems));
+                }
+                
+                return true;
+            }
+        }
+        
+        /// <summary>
+        /// CPython 3.12: Match mapping patterns like {"key": value}
+        /// </summary>
+        private static bool MatchMappingPattern(PyObject subject, DictExpression dictExpr, PyScope scope)
+        {
+            if (!(subject is PyDict pyDict))
+                return false;
+            
+            // Check all required keys and bind values
+            foreach (var pair in dictExpr.Items)
+            {
+                // Key should be a constant expression
+                if (!(pair.Key is ConstantExpression keyExpr))
+                    return false;
+                
+                var keyObj = keyExpr.Value;
+                if (!pyDict.Contains(keyObj).ToBool())
+                    return false;
+                
+                var valueObj = pyDict.GetItem(keyObj);
+                if (!MatchPattern(valueObj, pair.Value, scope))
+                    return false;
+            }
+            
+            return true;
+        }
+        
+        /// <summary>
+        /// CPython 3.12: Match class patterns like Point(x, y)
+        /// </summary>
+        private static bool MatchClassPattern(PyObject subject, CallExpression callExpr, PyScope scope)
+        {
+            // Get the class name
+            if (!(callExpr.Function is NameExpression classNameExpr))
+                return false;
+                
+            var className = classNameExpr.Name;
+            
+            // Check if subject is an instance of the expected class
+            if (!(subject is PyClass pyClass))
+                return false;
+            
+            // Simple class name matching (could be enhanced with proper type checking)
+            if (!pyClass.GetAttribute("__class__").ToString().Contains(className))
+                return false;
+            
+            // Match positional arguments with object attributes
+            // This is a simplified implementation - CPython 3.12 has more complex logic
+            var args = callExpr.Arguments;
+            for (int i = 0; i < args.Count; i++)
+            {
+                // Try to get attribute by position (simplified)
+                try
+                {
+                    var attrName = $"arg{i}"; // This would need proper attribute name resolution
+                    var attrValue = pyClass.GetAttribute(attrName);
+                    if (!MatchPattern(attrValue, args[i], scope))
+                        return false;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+            
+            return true;
+        }
+        
+        /// <summary>
+        /// CPython 3.12: Match or patterns like (pattern1 | pattern2)
+        /// </summary>
+        private static bool MatchOrPattern(PyObject subject, OrPattern orPattern, PyScope scope)
+        {
+            // Try each pattern in the or pattern
+            // CPython 3.12: First matching pattern wins, no backtracking
+            foreach (var pattern in orPattern.Patterns)
+            {
+                // Create a temporary scope to avoid binding variables if pattern fails
+                var tempScope = new PyScope(ScopeType.Local, scope);
+                
+                if (MatchPattern(subject, pattern, tempScope))
+                {
+                    // If pattern matches, copy bindings to actual scope
+                    foreach (var binding in tempScope.Variables)
+                    {
+                        scope.SetVariable(binding.Key, binding.Value);
+                    }
+                    return true;
+                }
+            }
+            return false;
         }
         
         #endregion

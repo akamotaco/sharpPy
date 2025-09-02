@@ -2171,8 +2171,8 @@ namespace SharpPy
         {
             Consume(TokenType.CASE, "Expected 'case'");
             
-            // Parse pattern
-            var pattern = ParseExpression();
+            // Parse pattern (may include or patterns)
+            var pattern = ParseMatchPattern();
             
             // Parse optional guard (if condition)
             Expression? guard = null;
@@ -2187,6 +2187,29 @@ namespace SharpPy
             var body = ParseBlockOrSingleStatement();
             
             return new MatchCase(pattern, body, guard);
+        }
+        
+        /// <summary>
+        /// CPython 3.12: Parse match patterns including or patterns (pattern1 | pattern2)
+        /// </summary>
+        private Expression ParseMatchPattern()
+        {
+            var patterns = new List<Expression>();
+            patterns.Add(ParseExpression());
+            
+            // Check for or patterns (|)
+            while (Match(TokenType.PIPE))
+            {
+                patterns.Add(ParseExpression());
+            }
+            
+            // If multiple patterns, create OrPattern
+            if (patterns.Count > 1)
+            {
+                return new OrPattern(patterns);
+            }
+            
+            return patterns[0];
         }
         private Statement ParseReturnStatement()
         {
