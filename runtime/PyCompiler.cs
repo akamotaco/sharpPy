@@ -2256,6 +2256,7 @@ namespace SharpPy
             }
         }
         
+        
         /// <summary>
         /// Convert match statement to equivalent if-elif chain (CPython inspired but adapted for C#)
         /// CPython uses dedicated opcodes, but we adapt with proper control flow for early exit
@@ -2387,6 +2388,42 @@ namespace SharpPy
                     // CPython approach: variable patterns always match and bind the subject value
                     condition = new ConstantExpression(PyBool.True);
                 }
+                else if (matchCase.Pattern is OrPattern orPattern)
+                {
+                    // CPython 3.12: Or patterns (pattern1 | pattern2)
+                    // Generate: (subject == pattern1) or (subject == pattern2)
+                    Expression? firstCondition = null;
+                    
+                    foreach (var subPattern in orPattern.Patterns)
+                    {
+                        Expression subCondition;
+                        
+                        if (subPattern is ConstantExpression constExpr)
+                        {
+                            subCondition = new CompareExpression(
+                                new NameExpression(tempVar),
+                                "==",
+                                constExpr
+                            );
+                        }
+                        else
+                        {
+                            // For now, only support constant patterns in OR
+                            subCondition = new ConstantExpression(PyBool.False);
+                        }
+                        
+                        if (firstCondition == null)
+                        {
+                            firstCondition = subCondition;
+                        }
+                        else
+                        {
+                            firstCondition = new BinaryOpExpression(firstCondition, "or", subCondition);
+                        }
+                    }
+                    
+                    condition = firstCondition ?? new ConstantExpression(PyBool.False);
+                }
                 else
                 {
                     // Other patterns - for now, always false
@@ -2472,6 +2509,22 @@ namespace SharpPy
                 // Simple variable pattern: case var_name -> var_name = subject
                 var assignment = new AssignStatement(namePattern.Name, new NameExpression(subjectVar));
                 statements.Add(assignment);
+            }
+            else if (pattern is OrPattern orPattern)
+            {
+                // CPython 3.12: Or patterns - bind variables from the first matching pattern
+                // Note: In practice, the first pattern that matches has already been determined
+                // We only bind variables from patterns that can bind (not constants)
+                foreach (var subPattern in orPattern.Patterns)
+                {
+                    if (subPattern is NameExpression orBindExpr && orBindExpr.Name != "_")
+                    {
+                        // Variable pattern in OR: bind subject to this variable
+                        var assignment = new AssignStatement(orBindExpr.Name, new NameExpression(subjectVar));
+                        statements.Add(assignment);
+                        break; // CPython 3.12: Only bind from first variable pattern in OR
+                    }
+                }
             }
             // TODO: Add support for other pattern types
         }

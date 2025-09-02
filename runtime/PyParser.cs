@@ -1036,6 +1036,15 @@ namespace SharpPy
                 return ParseFString(fstringContent);
             }
             
+            // CPython 3.12: Binary string literals (b'...')
+            if (Match(TokenType.BYTES_STRING))
+            {
+                var bytesLexeme = Previous().Lexeme;
+                // Convert string to byte array (CPython 3.12 compatible)
+                var bytes = System.Text.Encoding.UTF8.GetBytes(bytesLexeme);
+                return new ConstantExpression(new PyBytes(bytes));
+            }
+            
             if (Match(TokenType.IDENTIFIER))
             {
                 var identifierName = Previous().Lexeme;
