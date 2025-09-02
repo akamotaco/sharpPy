@@ -225,6 +225,18 @@ namespace SharpPy
 
         #endregion
 
+        #region Iterator Protocol
+
+        /// <summary>
+        /// Iterator protocol 구현 - Python __iter__ 메서드
+        /// </summary>
+        public override PyIterator GetIterator()
+        {
+            return new PyTupleIterator(this);
+        }
+
+        #endregion
+
         #region Length and Type Checking
 
         public override int Length() => Items.Length;

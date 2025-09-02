@@ -19,6 +19,18 @@ namespace SharpPy
         public Stack<int> ExceptionHandlers { get; } = new Stack<int>();
         public PyBaseException? LastException { get; set; }
         
+        // CPython 3.12 style generator frame state
+        public enum FrameState
+        {
+            Created,     // FRAME_CREATED 
+            Executing,   // FRAME_EXECUTING
+            Suspended,   // FRAME_SUSPENDED
+            Completed    // FRAME_COMPLETED
+        }
+        
+        public FrameState State { get; set; } = FrameState.Created;
+        public bool IsGenerator { get; set; } = false;
+        
         public PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope = null, PyCell[] closure = null)
         {
             Console.WriteLine($"🆕 PyFrame 생성: {code.Name}, args={args.Length}개");
@@ -1274,7 +1286,8 @@ namespace SharpPy
                         throw PySyntaxError.Create("'yield' outside function");
                     }
                     
-                    // PyYield 예외를 던져서 값을 yield
+                    // CPython 3.12 스타일: instruction pointer를 다음으로 이동한 후 yield
+                    frame.InstructionPointer++;
                     throw new PyYieldException(yieldValue);
                     
                 // Generator Delegation - yield from implementation

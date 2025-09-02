@@ -11,8 +11,10 @@ namespace SharpPy
     {
         private readonly PyFrame _frame;
         private readonly PyVM _vm;
-        private PyObject _current;
+        private PyObject _current = PyNone.Instance;
         private bool _finished;
+        private bool _started = false;
+        private int _lastInstructionPointer = 0;
 
         public FrameGeneratorEnumerator(PyFrame frame, PyVM vm)
         {
@@ -29,10 +31,54 @@ namespace SharpPy
             if (_finished)
                 return false;
 
-            // 간단한 구현: 한 번만 실행하고 종료
-            _finished = true;
-            _current = PyNone.Instance;
-            return false;
+            try
+            {
+                // CPython 3.12 방식: frame state 관리
+                if (!_started)
+                {
+                    // 첫 번째 실행: FRAME_CREATED → FRAME_EXECUTING
+                    _frame.InstructionPointer = 0;
+                    _frame.State = PyFrame.FrameState.Executing;
+                    _started = true;
+                }
+                else
+                {
+                    // 재개: FRAME_SUSPENDED → FRAME_EXECUTING
+                    _frame.InstructionPointer = _lastInstructionPointer;
+                    _frame.State = PyFrame.FrameState.Executing;
+                }
+
+                // Frame을 부분적으로 실행 (yield까지 또는 끝까지)
+                var result = _vm.ExecuteFrame(_frame);
+                
+                // 정상 완료된 경우 (return 또는 end of function)
+                _frame.State = PyFrame.FrameState.Completed;
+                _finished = true;
+                _current = result ?? PyNone.Instance;
+                return false;
+            }
+            catch (PyYieldException yieldEx)
+            {
+                // yield 지점에서 중단: FRAME_EXECUTING → FRAME_SUSPENDED
+                _frame.State = PyFrame.FrameState.Suspended;
+                _lastInstructionPointer = _frame.InstructionPointer; 
+                _current = yieldEx.Value ?? PyNone.Instance;
+                return true;
+            }
+            catch (PythonException ex) when (ex.PyException is PyStopIteration)
+            {
+                // generator가 완료된 경우
+                _frame.State = PyFrame.FrameState.Completed;
+                _finished = true;
+                return false;
+            }
+            catch (PythonException ex)
+            {
+                // 다른 Python 예외가 발생한 경우 전파
+                _frame.State = PyFrame.FrameState.Completed;
+                _finished = true;
+                throw;
+            }
         }
 
         public void Reset()

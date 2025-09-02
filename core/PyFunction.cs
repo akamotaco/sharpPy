@@ -74,120 +74,27 @@ public class PyFunction : PyObject, IDescriptor
     }
     
     /// <summary>
-    /// 제너레이터 객체 생성
+    /// 제너레이터 객체 생성 - CPython 3.12 스타일
     /// </summary>
     private PyGenerator CreateGenerator(PyObject[] args)
     {
-        // 제너레이터용 C# IEnumerator 생성
-        var enumerator = GenerateValues(args).GetEnumerator();
+        // CPython 3.12 방식: Frame과 VM을 사용한 실제 제너레이터
+        if (CodeObject == null)
+        {
+            throw new InvalidOperationException("Cannot create generator without code object");
+        }
+        
+        // 제너레이터용 VM 인스턴스 사용
+        var vm = PyVM.Instance;
+        
+        // 제너레이터 실행용 Frame 생성 (한 번만 생성하여 재사용)
+        var frame = new PyFrame(CodeObject, args, null, Closure);
+        frame.IsGenerator = true;  // CPython 3.12: generator frame 표시
+        
+        // CPython 3.12 스타일 FrameGeneratorEnumerator 사용
+        var enumerator = new FrameGeneratorEnumerator(frame, vm);
+        
         return new PyGenerator(enumerator, Name);
-    }
-    
-    /// <summary>
-    /// 제너레이터 값들을 생성하는 IEnumerable (단순화된 구현)
-    /// </summary>
-    private IEnumerable<PyObject> GenerateValues(PyObject[] args)
-    {
-        // 단순화된 구현: 하나의 yield 값만 처리
-        // 실제로는 제너레이터 상태 머신이 필요하지만 일단은 기본 기능만
-        
-        PyYieldException yieldException = null;
-        PyYieldFromException yieldFromException = null;
-        
-        try
-        {
-            // 함수 실행을 시도
-            Implementation(args);
-        }
-        catch (PyYieldException ex)
-        {
-            yieldException = ex;
-        }
-        catch (PyYieldFromException ex)
-        {
-            yieldFromException = ex;
-        }
-        
-        // yield 예외가 있으면 그 값을 반환
-        if (yieldException != null)
-        {
-            yield return yieldException.Value;
-        }
-        
-        // yield from 예외가 있으면 위임 처리
-        if (yieldFromException != null)
-        {
-            foreach (var value in HandleYieldFrom(yieldFromException.Iterable))
-            {
-                yield return value;
-            }
-        }
-    }
-    
-    /// <summary>
-    /// yield from 위임을 처리하는 별도 메서드
-    /// </summary>
-    private IEnumerable<PyObject> HandleYieldFrom(PyObject iterable)
-    {
-        // 제너레이터 위임
-        if (iterable is PyGenerator generator)
-        {
-            while (true)
-            {
-                PyObject nextValue = null;
-                var hasValue = false;
-                
-                try
-                {
-                    nextValue = generator.Next();
-                    hasValue = true;
-                }
-                catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                {
-                    break;
-                }
-                
-                if (hasValue && nextValue != null)
-                {
-                    yield return nextValue;
-                }
-            }
-        }
-        // 일반 이터레이터 위임 (리스트, 튜플 등)
-        else
-        {
-            PyObject iterator = null;
-            try
-            {
-                iterator = iterable.GetIterator();
-            }
-            catch (Exception)
-            {
-                // 반복 불가능한 객체는 무시
-                yield break;
-            }
-            
-            while (true)
-            {
-                PyObject nextValue = null;
-                var hasValue = false;
-                
-                try
-                {
-                    nextValue = iterator.Next();
-                    hasValue = true;
-                }
-                catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                {
-                    break;
-                }
-                
-                if (hasValue && nextValue != null)
-                {
-                    yield return nextValue;
-                }
-            }
-        }
     }
     
     // Function은 항상 호출 가능

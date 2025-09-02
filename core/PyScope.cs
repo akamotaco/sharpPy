@@ -110,6 +110,7 @@ public class PyBuiltinsModule : PyObject
         BuiltinDict["RuntimeError"] = new PyBuiltinType("RuntimeError");
         BuiltinDict["ZeroDivisionError"] = new PyBuiltinType("ZeroDivisionError");
         BuiltinDict["NameError"] = new PyBuiltinType("NameError");
+        BuiltinDict["StopIteration"] = new PyBuiltinType("StopIteration");
         
         // Buffer Protocol (PEP 688)
         BuiltinDict["buffer"] = new PyBuiltinType("buffer");
