@@ -2286,6 +2286,7 @@ namespace SharpPy
             
             // Create labels for control flow
             var endLabel = CreateLabel($"match_end_{_labelCounter++}");
+            var noMatchLabel = CreateLabel($"no_match_{_labelCounter++}");
             var caseLabels = new List<Label>();
             
             // Generate labels for each case
@@ -2299,20 +2300,20 @@ namespace SharpPy
             {
                 var matchCase = matchStmt.Cases[i];
                 var caseLabel = caseLabels[i];
-                var nextLabel = (i + 1 < caseLabels.Count) ? caseLabels[i + 1] : endLabel;
+                var nextLabel = (i + 1 < caseLabels.Count) ? caseLabels[i + 1] : noMatchLabel;
+                
+                Console.WriteLine($"🔍 Compiling case {i}: Pattern={matchCase.Pattern?.GetType().Name} - {matchCase.Pattern}");
                 
                 // Place case label
                 PlaceLabel(caseLabel);
                 
-                // CPython 3.12: Use COPY to duplicate subject for pattern matching
-                EmitInstruction(ByteCodeOp.COPY, 1);
+                // CPython 3.12: Copy subject only if stack has content
+                // Stack should have: [original_subject]
                 
-                // Compile pattern matching
+                // Compile pattern matching - this will handle its own subject duplication
                 if (!CompilePatternMatch(matchCase.Pattern, nextLabel))
                 {
                     // If pattern compilation failed, skip to next case
-                    // Pop the copied subject since we won't use it
-                    EmitInstruction(ByteCodeOp.POP_TOP);
                     EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, nextLabel);
                     continue;
                 }
@@ -2320,8 +2321,13 @@ namespace SharpPy
                 // Check guard condition if present
                 if (matchCase.Guard != null)
                 {
+                    // At this point we have [original_subject] on stack
+                    // Guard should not consume the subject
+                    EmitInstruction(ByteCodeOp.DUP_TOP); // [subject, subject] 
                     CompileExpression(matchCase.Guard);
+                    // Guard uses second subject, leaves first one
                     EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, nextLabel);
+                    // Stack: [original_subject]
                 }
                 
                 // Pattern matched and guard passed - execute case body
@@ -2338,12 +2344,12 @@ namespace SharpPy
                 EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, endLabel);
             }
             
-            // Place end label and clean up remaining subject if no case matched
-            PlaceLabel(endLabel);
+            // Place no match label - clean up subject when no case matched
+            PlaceLabel(noMatchLabel);
+            EmitInstruction(ByteCodeOp.POP_TOP); // Clean up subject
             
-            // If we reach here with the original subject still on stack, 
-            // it means no case matched - pop it
-            EmitInstruction(ByteCodeOp.POP_TOP);
+            // Place end label - control flow joins here after match or no match
+            PlaceLabel(endLabel);
         }
         
         
@@ -2353,14 +2359,18 @@ namespace SharpPy
         /// </summary>
         private bool CompilePatternMatch(Expression pattern, Label failLabel)
         {
+            Console.WriteLine($"🔍 CompilePatternMatch: {pattern?.GetType().Name} - {pattern}");
             switch (pattern)
             {
                 case ConstantExpression constExpr:
                     // CPython 3.12: Direct constant comparison
-                    // TOS is subject, compile constant and compare
+                    // Stack: [subject] -> [subject, constant] -> [subject, result]
+                    EmitInstruction(ByteCodeOp.DUP_TOP); // Duplicate subject for comparison
                     CompileExpression(constExpr);
                     EmitComparison(CompareOp.EQ);
+                    // Stack: [subject, comparison_result]
                     EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+                    // Stack: [subject] (comparison result popped, subject preserved)
                     return true;
                 
                 case NameExpression nameExpr when nameExpr.Name == "_":
@@ -2369,19 +2379,20 @@ namespace SharpPy
                     
                 case NameExpression nameExpr:
                     // Variable binding pattern - always matches, binds subject to variable
+                    // Stack: [subject] -> [] (subject consumed by store)
                     EmitStoreName(nameExpr.Name);
                     return true;
                 
+                case BinaryOpExpression binaryOp when binaryOp.Operator == "|":
+                    // Handle BinaryOpExpression with OR operator as OrPattern
+                    Console.WriteLine($"🔍 BinaryOpExpression OR converted to OrPattern: {binaryOp.Left} | {binaryOp.Right}");
+                    var binaryPatterns = new List<Expression> { binaryOp.Left, binaryOp.Right };
+                    return CompileOrPatternLogic(binaryPatterns, failLabel);
+                    
                 case OrPattern orPattern:
                     // CPython 3.12: Or patterns (PEP 634)
-                    // Key semantics: First matching pattern wins, no backtracking
-                    // All alternative patterns must bind the same variables
-                    
-                    if (orPattern.Patterns.Count == 1)
-                    {
-                        // Single pattern - just delegate
-                        return CompilePatternMatch(orPattern.Patterns[0], failLabel);
-                    }
+                    Console.WriteLine($"🔍 OrPattern detected with {orPattern.Patterns.Count} patterns");
+                    return CompileOrPatternLogic(orPattern.Patterns, failLabel);
                     
                     // For simple constant or patterns like: case 1 | 2 | 3:
                     // Generate: subject == 1 or subject == 2 or subject == 3
@@ -2527,6 +2538,96 @@ namespace SharpPy
                     // Unsupported pattern type for now - fallback to old system
                     return false;
             }
+        }
+        
+        private bool CompileOrPatternLogic(List<Expression> patterns, Label failLabel)
+        {
+            Console.WriteLine($"🔍 CompileOrPatternLogic: {patterns.Count} patterns");
+            for (int i = 0; i < patterns.Count; i++)
+            {
+                Console.WriteLine($"  Pattern {i}: {patterns[i]}");
+            }
+            
+            if (patterns.Count == 1)
+            {
+                // Single pattern - just delegate
+                return CompilePatternMatch(patterns[0], failLabel);
+            }
+            
+            // CPython 3.12: Use multiple comparisons with OR short-circuiting
+            // Stack: [subject] - we need to preserve this throughout
+            var successLabel = CreateLabel("or_match_success");
+            
+            for (int i = 0; i < patterns.Count; i++)
+            {
+                var isLast = (i == patterns.Count - 1);
+                
+                // For each pattern, duplicate the subject for comparison
+                EmitInstruction(ByteCodeOp.DUP_TOP); // [subject, subject]
+                
+                // Handle constants and nested OR expressions
+                if (patterns[i] is ConstantExpression constExpr)
+                {
+                    CompileExpression(constExpr); // [subject, subject, constant]
+                    EmitComparison(CompareOp.EQ);  // [subject, comparison_result]
+                    
+                    // If match, jump to success - this consumes the comparison result
+                    if (!isLast)
+                    {
+                        EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_TRUE, successLabel); // [subject]
+                        // Continue to next pattern if no match
+                    }
+                    else
+                    {
+                        // Last comparison - if false, jump to fail
+                        EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel); // [subject] if true
+                        // Fall through to success if last pattern matches
+                    }
+                }
+                else if (patterns[i] is BinaryOpExpression binaryExpr && binaryExpr.Operator == "|")
+                {
+                    // Nested OR expression - recursively compile it
+                    // We need to pop the duplicate we made and let the nested OR handle subject duplication
+                    EmitInstruction(ByteCodeOp.POP_TOP); // [subject] - remove our duplicate
+                    
+                    // Create nested OR patterns
+                    var nestedPatterns = new List<Expression> { binaryExpr.Left, binaryExpr.Right };
+                    
+                    // Compile nested OR - if it fails, jump to next pattern (or fail if last)
+                    var localFailLabel = isLast ? failLabel : CreateLabel($"nested_fail_{i}");
+                    
+                    if (CompileOrPatternLogic(nestedPatterns, localFailLabel))
+                    {
+                        if (!isLast)
+                        {
+                            // If nested OR succeeded, jump to overall success
+                            EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, successLabel);
+                        }
+                        // If it's the last pattern, just fall through to success
+                    }
+                    else
+                    {
+                        return false; // Compilation failed
+                    }
+                    
+                    if (!isLast)
+                    {
+                        PlaceLabel(localFailLabel);
+                        // Continue with next pattern
+                    }
+                }
+                else
+                {
+                    // For other non-constant patterns, pop the duplicate and fail for now
+                    EmitInstruction(ByteCodeOp.POP_TOP); // [subject]
+                    EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, failLabel);
+                    return false;
+                }
+            }
+            
+            PlaceLabel(successLabel);
+            // Stack should have [subject] here - the successful match consumes comparison result but leaves subject
+            return true;
         }
         
         private void CompileAssert(AssertStatement assert) { /* TODO */ }

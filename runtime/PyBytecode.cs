@@ -178,6 +178,8 @@ namespace SharpPy
         LOAD_FROM_DICT_OR_GLOBALS = 212,
         LOAD_LOCALS = 213,
         LOAD_SUPER_ATTR = 214,
+        BINARY_SLICE = 215,       // CPython 3.12: 슬라이싱 연산 (obj[start:stop])
+        STORE_SLICE = 216,        // CPython 3.12: 슬라이스 할당 (obj[start:stop] = value)
         
         // 캐시 및 최적화
         CACHE = 210,          // 캐시 엔트리

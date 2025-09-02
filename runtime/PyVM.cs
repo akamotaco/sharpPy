@@ -295,9 +295,13 @@ namespace SharpPy
                 case ByteCodeOp.COPY:
                     // CPython 3.12: Copy the Nth element from stack top (1-indexed)
                     var copyIndex = instruction.Argument;
+                    if (frame.ValueStack.Count == 0)
+                    {
+                        throw PyRuntimeError.Create($"COPY: Stack empty when trying to copy index {copyIndex}. This may be caused by incorrect match-case bytecode generation.");
+                    }
                     if (copyIndex <= 0 || copyIndex > frame.ValueStack.Count)
                     {
-                        throw PyRuntimeError.Create($"COPY index {copyIndex} out of range (stack size: {frame.ValueStack.Count})");
+                        throw PyRuntimeError.Create($"COPY index {copyIndex} out of range (stack size: {frame.ValueStack.Count}). Stack contents: [{string.Join(", ", frame.ValueStack.Take(5).Select(x => x.GetType().Name))}]");
                     }
                     var valueToCopy = frame.ValueStack.ElementAt(frame.ValueStack.Count - copyIndex);
                     frame.ValueStack.Push(valueToCopy);
