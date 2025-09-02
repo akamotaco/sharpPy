@@ -1263,13 +1263,116 @@ namespace SharpPy
         
         public override PyObject Evaluate(PyScope scope)
         {
-            // 간단한 with 문 구현 - context manager 생략
+            // CPython 3.12 호환 with statement 구현
             PyObject result = PyNone.Instance;
-            foreach (var stmt in Body)
+            var contextManagers = new List<(PyObject manager, PyObject exitMethod, PyObject? target)>();
+            
+            try
             {
-                result = stmt.Evaluate(scope);
+                // Phase 1: Initialize all context managers and call __enter__
+                foreach (var item in Items)
+                {
+                    var contextManager = item.ContextExpr.Evaluate(scope);
+                    
+                    // Get __exit__ method (must be callable)
+                    var exitMethod = contextManager.GetAttribute("__exit__");
+                    if (!exitMethod.IsCallable())
+                    {
+                        throw PyAttributeError.Create($"'{contextManager.GetTypeName()}' object has no attribute '__exit__'");
+                    }
+                    
+                    // Get __enter__ method (must be callable) 
+                    var enterMethod = contextManager.GetAttribute("__enter__");
+                    if (!enterMethod.IsCallable())
+                    {
+                        throw PyAttributeError.Create($"'{contextManager.GetTypeName()}' object has no attribute '__enter__'");
+                    }
+                    
+                    // Call __enter__()
+                    var enterResult = enterMethod.Call();
+                    
+                    // Bind to target variable if specified (e.g., "as f:")
+                    PyObject? target = null;
+                    if (item.OptionalVars != null)
+                    {
+                        if (item.OptionalVars is NameExpression nameExpr)
+                        {
+                            target = enterResult;
+                            scope.SetVariable(nameExpr.Name, enterResult);
+                        }
+                        else
+                        {
+                            // Handle complex assignment targets (tuples, etc.)
+                            target = item.OptionalVars.Evaluate(scope);
+                            // TODO: Implement tuple unpacking for complex targets
+                        }
+                    }
+                    
+                    contextManagers.Add((contextManager, exitMethod, target));
+                }
+                
+                // Phase 2: Execute the with block body
+                foreach (var stmt in Body)
+                {
+                    result = stmt.Evaluate(scope);
+                }
+                
+                // Phase 3: Normal exit - call __exit__(None, None, None)
+                for (int i = contextManagers.Count - 1; i >= 0; i--)
+                {
+                    var (manager, exitMethod, target) = contextManagers[i];
+                    try
+                    {
+                        exitMethod.Call(PyNone.Instance, PyNone.Instance, PyNone.Instance);
+                    }
+                    catch (Exception exitEx)
+                    {
+                        // If __exit__ raises an exception, it propagates
+                        throw PyRuntimeError.Create($"Exception in __exit__: {exitEx.Message}");
+                    }
+                }
+                
+                return result;
             }
-            return result;
+            catch (PythonException ex)
+            {
+                // Phase 3b: Exception exit - call __exit__(exc_type, exc_value, traceback)
+                bool suppressException = false;
+                
+                for (int i = contextManagers.Count - 1; i >= 0; i--)
+                {
+                    var (manager, exitMethod, target) = contextManagers[i];
+                    try
+                    {
+                        // CPython calls __exit__(exc_type, exc_value, traceback)
+                        // For simplicity, we pass the exception as exc_value
+                        var excType = new PyString(ex.PyException.GetTypeName());
+                        var excValue = ex.PyException;
+                        var traceback = PyNone.Instance; // TODO: implement traceback
+                        
+                        var exitResult = exitMethod.Call(excType, excValue, traceback);
+                        
+                        // If __exit__ returns True, suppress the exception
+                        if (exitResult.PyBoolValue())
+                        {
+                            suppressException = true;
+                        }
+                    }
+                    catch (Exception exitEx)
+                    {
+                        // If __exit__ raises an exception, it replaces the original
+                        throw PyRuntimeError.Create($"Exception in __exit__: {exitEx.Message}");
+                    }
+                }
+                
+                // Re-raise the exception unless suppressed
+                if (!suppressException)
+                {
+                    throw;
+                }
+                
+                return PyNone.Instance;
+            }
         }
         
         public override string ToString() => $"with {string.Join(", ", Items)}: ...";

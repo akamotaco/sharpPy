@@ -55,6 +55,13 @@ namespace SharpPy
         private readonly Dictionary<(int position, string rule), (Expression? result, int newPosition)> _memoCache 
             = new();
 
+        // Infinite loop prevention system
+        private const int MAX_RECURSION_DEPTH = 1000;
+        private const int MAX_PARSING_ITERATIONS = 50000;
+        private int _recursionDepth = 0;
+        private int _parsingIterations = 0;
+        private readonly Dictionary<int, int> _positionVisitCount = new();
+
         public PyParser(List<PyToken> tokens)
         {
             _tokens = tokens ?? throw new ArgumentNullException(nameof(tokens));
@@ -83,6 +90,9 @@ namespace SharpPy
             
             while (!IsAtEnd())
             {
+                // Infinite loop prevention
+                CheckParsingProgress();
+                
                 // Skip newlines at statement level
                 if (Check(TokenType.NEWLINE))
                 {
@@ -113,11 +123,13 @@ namespace SharpPy
 
         private Statement? ParseStatement()
         {
-            // Check for decorators first
-            if (Check(TokenType.AT))
+            return WithRecursionProtection("ParseStatement", () =>
             {
-                return ParseDecoratedStatement();
-            }
+                // Check for decorators first
+                if (Check(TokenType.AT))
+                {
+                    return ParseDecoratedStatement();
+                }
             
             // Function definition
             if (Match(TokenType.DEF)) return ParseFunctionDef();
@@ -151,8 +163,9 @@ namespace SharpPy
             if (Match(TokenType.IMPORT)) return ParseImportStatement();
             if (Match(TokenType.FROM)) return ParseFromImportStatement();
             
-            // Expression statement or assignment
-            return ParseExpressionOrAssignment();
+                // Expression statement or assignment
+                return ParseExpressionOrAssignment();
+            });
         }
 
         private Statement ParseFunctionDef(List<DecoratorExpression>? decorators = null)
@@ -384,43 +397,73 @@ namespace SharpPy
 
         private List<string> ParseTypeParameters()
         {
-            var typeParams = new List<string>();
-            
-            do
+            return WithRecursionProtection("ParseTypeParameters", () =>
             {
-                string param;
+                var typeParams = new List<string>();
+                var paramCount = 0;
+                const int MAX_TYPE_PARAMS = 100; // Safety limit for type parameters
                 
-                // Handle *Ts (TypeVarTuple) and **P (ParamSpec)
-                if (Check(TokenType.STAR_STAR))
+                do
                 {
-                    // **P (ParamSpec)
-                    Advance(); // consume **
-                    param = "**" + Consume(TokenType.IDENTIFIER, "Expected type parameter name after **").Lexeme;
-                }
-                else if (Check(TokenType.STAR))
-                {
-                    // *Ts (TypeVarTuple)
-                    Advance(); // consume *
-                    param = "*" + Consume(TokenType.IDENTIFIER, "Expected type parameter name after *").Lexeme;
-                }
-                else
-                {
-                    // Regular type parameter
-                    param = Consume(TokenType.IDENTIFIER, "Expected type parameter name").Lexeme;
+                    CheckParsingProgress();
                     
-                    // Handle type constraints (T: int)
-                    if (Check(TokenType.COLON))
+                    // Safety check for too many type parameters
+                    if (++paramCount > MAX_TYPE_PARAMS)
                     {
-                        Advance(); // consume :
-                        // Parse constraint type but ignore for now
-                        ParseExpression(); // Just consume the constraint expression
+                        throw new Exception($"🚨 Too many type parameters (max {MAX_TYPE_PARAMS}): possible infinite loop");
                     }
-                }
+                    
+                    string param;
+                    
+                    // Handle *Ts (TypeVarTuple) and **P (ParamSpec)
+                    if (Check(TokenType.STAR_STAR))
+                    {
+                        // **P (ParamSpec) - PEP 612
+                        Advance(); // consume **
+                        var paramName = Consume(TokenType.IDENTIFIER, "Expected type parameter name after **").Lexeme;
+                        param = "**" + paramName;
+                    }
+                    else if (Check(TokenType.STAR))
+                    {
+                        // *Ts (TypeVarTuple) - PEP 646
+                        Advance(); // consume *
+                        var paramName = Consume(TokenType.IDENTIFIER, "Expected type parameter name after *").Lexeme;
+                        param = "*" + paramName;
+                    }
+                    else
+                    {
+                        // Regular type parameter T
+                        param = Consume(TokenType.IDENTIFIER, "Expected type parameter name").Lexeme;
+                        
+                        // Handle type constraints (T: int) - PEP 695
+                        if (Check(TokenType.COLON))
+                        {
+                            Advance(); // consume :
+                            try
+                            {
+                                // Parse constraint type but ignore for now (basic implementation)
+                                var constraint = ParseExpression();
+                                // TODO: Store constraint information for runtime type checking
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"⚠️ Type constraint parsing failed: {ex.Message}");
+                                // Continue parsing without constraint
+                            }
+                        }
+                    }
+                    
+                    // Prevent duplicate type parameters
+                    if (typeParams.Any(p => p.TrimStart('*') == param.TrimStart('*')))
+                    {
+                        throw new Exception($"Duplicate type parameter: {param}");
+                    }
+                    
+                    typeParams.Add(param);
+                } while (Match(TokenType.COMMA) && !IsAtEnd());
                 
-                typeParams.Add(param);
-            } while (Match(TokenType.COMMA));
-            
-            return typeParams;
+                return typeParams;
+            });
         }
 
         private List<string> ParseParameterList()
@@ -490,33 +533,28 @@ namespace SharpPy
         {
             var statements = new List<Statement>();
             
-            // CPython 방식: INDENT/DEDENT 토큰을 사용한 정확한 블록 파싱
+            // CPython 3.12 방식: 정확한 블록 파싱
             
-            if (!Check(TokenType.NEWLINE))
+            // NEWLINE 토큰이 있다면 소비 (블록이 시작됨을 의미)
+            if (Match(TokenType.NEWLINE))
             {
-                // Single statement on the same line
-                var stmt = ParseStatement();
-                if (stmt != null)
-                    statements.Add(stmt);
-            }
-            else
-            {
-                // Block of statements (indented)
-                SkipNewlines();
+                // 블록 구문 - 들여쓰기된 문장들
                 
                 // INDENT 토큰을 기대
-                if (!Match(TokenType.INDENT))
+                if (!Check(TokenType.INDENT))
                 {
-                    throw new Exception("Expected an indented block");
+                    throw new Exception("Expected an indented block after ':'");
                 }
+                
+                // INDENT 토큰 소비
+                Advance();
                 
                 // DEDENT 토큰이 나올 때까지 문장들을 파싱
                 while (!IsAtEnd() && !Check(TokenType.DEDENT) && !Check(TokenType.EOF))
                 {
-                    // NEWLINE은 건너뛰기
-                    if (Check(TokenType.NEWLINE))
+                    // 빈 줄은 건너뛰기
+                    if (Match(TokenType.NEWLINE))
                     {
-                        Advance();
                         continue;
                     }
                     
@@ -524,10 +562,6 @@ namespace SharpPy
                     if (stmt != null)
                     {
                         statements.Add(stmt);
-                    }
-                    else
-                    {
-                        break;
                     }
                 }
                 
@@ -537,10 +571,21 @@ namespace SharpPy
                     Advance();
                 }
             }
+            else
+            {
+                // 한 줄 구문 - 같은 줄에 있는 단일 문장
+                var stmt = ParseStatement();
+                if (stmt != null)
+                {
+                    statements.Add(stmt);
+                }
+            }
             
-            // If no statements parsed, add a pass statement
+            // 빈 블록이면 pass 문 추가 (CPython과 동일)
             if (statements.Count == 0)
+            {
                 statements.Add(new PassStatement());
+            }
             
             return statements;
         }
@@ -559,6 +604,14 @@ namespace SharpPy
 
         private Statement ParseExpressionOrAssignment()
         {
+            // CPython 3.12: 블록 구조 토큰들은 표현식이 아니므로 건너뛰기
+            if (Check(TokenType.INDENT) || Check(TokenType.DEDENT) || 
+                Check(TokenType.EXCEPT) || Check(TokenType.FINALLY) ||
+                Check(TokenType.ELSE) || Check(TokenType.ELIF))
+            {
+                return null;
+            }
+            
             try
             {
                 var expr = ParseExpression();
@@ -1275,22 +1328,34 @@ namespace SharpPy
         /// </summary>
         private Expression ParseFString(string content)
         {
-            var values = new List<Expression>();
-            var currentPos = 0;
-            
-            // Remove outer quotes if present
-            if (content.StartsWith("\"") && content.EndsWith("\""))
+            return WithRecursionProtection("ParseFString", () =>
             {
-                content = content.Substring(1, content.Length - 2);
-            }
-            else if (content.StartsWith("'") && content.EndsWith("'"))
-            {
-                content = content.Substring(1, content.Length - 2);
-            }
-            
-            while (currentPos < content.Length)
-            {
-                var openBrace = content.IndexOf('{', currentPos);
+                var values = new List<Expression>();
+                var currentPos = 0;
+                var iterationCount = 0;
+                const int MAX_FSTRING_PARTS = 1000; // Safety limit for f-string parts
+                
+                // Remove outer quotes if present
+                if (content.StartsWith("\"") && content.EndsWith("\""))
+                {
+                    content = content.Substring(1, content.Length - 2);
+                }
+                else if (content.StartsWith("'") && content.EndsWith("'"))
+                {
+                    content = content.Substring(1, content.Length - 2);
+                }
+                
+                while (currentPos < content.Length)
+                {
+                    CheckParsingProgress();
+                    
+                    // Safety check for f-string complexity
+                    if (++iterationCount > MAX_FSTRING_PARTS)
+                    {
+                        throw new Exception($"🚨 F-string too complex (max {MAX_FSTRING_PARTS} parts): possible infinite loop");
+                    }
+                    
+                    var openBrace = content.IndexOf('{', currentPos);
                 
                 if (openBrace == -1)
                 {
@@ -1445,8 +1510,9 @@ namespace SharpPy
                 
                 currentPos = closeBrace + 1;
             }
-            
-            return new FStringExpression(values);
+                
+                return new FStringExpression(values);
+            });
         }
         
         /// <summary>
@@ -1934,32 +2000,38 @@ namespace SharpPy
             // Parse try body
             var tryBody = ParseBlockOrSingleStatement();
             
+            // CPython 3.12: try 문은 except 절들과 선택적 else 절, 또는 finally 절만 있을 수 있음
+            
             // Parse except handlers
             var handlers = new List<ExceptHandler>();
-            while (Match(TokenType.EXCEPT))
+            while (Check(TokenType.EXCEPT))
             {
+                Advance(); // consume 'except'
                 handlers.Add(ParseExceptHandler());
             }
             
-            if (handlers.Count == 0)
-            {
-                throw new Exception("try statement must have at least one except clause");
-            }
-            
-            // Parse optional else clause
+            // Parse optional else clause (except 절이 있을 때만)
             List<Statement>? elseBody = null;
-            if (Match(TokenType.ELSE))
+            if (handlers.Count > 0 && Check(TokenType.ELSE))
             {
+                Advance(); // consume 'else'
                 Consume(TokenType.COLON, "Expected ':' after else");
                 elseBody = ParseBlockOrSingleStatement();
             }
             
             // Parse optional finally clause
             List<Statement>? finallyBody = null;
-            if (Match(TokenType.FINALLY))
+            if (Check(TokenType.FINALLY))
             {
+                Advance(); // consume 'finally'
                 Consume(TokenType.COLON, "Expected ':' after finally");
                 finallyBody = ParseBlockOrSingleStatement();
+            }
+            
+            // CPython 3.12: try 문은 except 절이 있거나 finally 절이 있어야 함
+            if (handlers.Count == 0 && finallyBody == null)
+            {
+                throw new Exception("'try' statement must have either 'except' or 'finally' clause");
             }
             
             return new TryStatement(tryBody, handlers, elseBody, finallyBody);
@@ -2729,6 +2801,60 @@ namespace SharpPy
         private void SkipNewlines()
         {
             while (Match(TokenType.NEWLINE)) { }
+        }
+
+        // Infinite loop prevention methods
+        private void CheckParsingProgress()
+        {
+            _parsingIterations++;
+            
+            // Check for excessive iterations
+            if (_parsingIterations > MAX_PARSING_ITERATIONS)
+            {
+                throw new Exception($"🚨 Parser infinite loop detected: exceeded {MAX_PARSING_ITERATIONS} iterations");
+            }
+            
+            // Track position visits to detect loops
+            var currentPos = _current;
+            if (_positionVisitCount.ContainsKey(currentPos))
+            {
+                _positionVisitCount[currentPos]++;
+                if (_positionVisitCount[currentPos] > 100) // Same position visited too many times
+                {
+                    throw new Exception($"🚨 Parser stuck at position {currentPos}: token={Peek()?.Type}");
+                }
+            }
+            else
+            {
+                _positionVisitCount[currentPos] = 1;
+            }
+        }
+        
+        private void EnterRecursion(string methodName)
+        {
+            _recursionDepth++;
+            if (_recursionDepth > MAX_RECURSION_DEPTH)
+            {
+                throw new Exception($"🚨 Parser recursion too deep in {methodName}: {_recursionDepth} levels");
+            }
+        }
+        
+        private void ExitRecursion()
+        {
+            _recursionDepth--;
+        }
+        
+        private T WithRecursionProtection<T>(string methodName, Func<T> parseFunc)
+        {
+            try
+            {
+                EnterRecursion(methodName);
+                return parseFunc();
+            }
+            finally
+            {
+                ExitRecursion();
+            }
         }
 
         private void Synchronize()

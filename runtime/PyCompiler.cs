@@ -2064,12 +2064,28 @@ namespace SharpPy
         private void CompileWith(WithStatement withStmt)
         {
             // CPython 3.12 compatible implementation
-            // Simplified for single context manager (multiple contexts can be added later)
-            if (withStmt.Items.Count != 1)
+            // Support both single and multiple context managers
+            if (withStmt.Items.Count == 1)
             {
-                throw new NotImplementedException("Multiple context managers not yet supported");
+                // Single context manager - original implementation
+                CompileSingleWith(withStmt);
             }
-            
+            else if (withStmt.Items.Count > 1)
+            {
+                // Multiple context managers - transform to nested with statements
+                CompileMultipleWith(withStmt);
+            }
+            else
+            {
+                throw PySyntaxError.Create("with statement requires at least one context manager");
+            }
+        }
+        
+        /// <summary>
+        /// Compile single context manager (original implementation)
+        /// </summary>
+        private void CompileSingleWith(WithStatement withStmt)
+        {
             var item = withStmt.Items[0];
             var withCleanupLabel = CreateLabel("with_cleanup");
             var endLabel = CreateLabel("with_end");
@@ -2124,11 +2140,73 @@ namespace SharpPy
             
             // 7. Exception handler: call __exit__ with exception info
             MarkLabel(withCleanupLabel);
+            
+            // CPython 3.12: Push exception info to stack for WITH_EXCEPT_START
+            // Stack layout should be: [__exit__ method, exc_value, exc_type, traceback]
+            // The __exit__ method is already preserved from BEFORE_WITH
+            // Exception info is available from the exception handler
+            
+            // Push exception info (CPython order: traceback, exc_type, exc_value)
+            EmitInstruction(ByteCodeOp.LOAD_CONST, GetOrAddConstant(PyNone.Instance)); // traceback (not implemented yet)
+            
             EmitInstruction(ByteCodeOp.WITH_EXCEPT_START);
-            EmitInstruction(ByteCodeOp.POP_TOP); // discard __exit__ return value
-            EmitInstruction(ByteCodeOp.RAISE_VARARGS, 0); // re-raise exception
+            
+            // Check if exception should be suppressed
+            EmitInstruction(ByteCodeOp.POP_JUMP_IF_TRUE, 0);
+            var suppressLabel = CreateLabel("suppress_exception");
+            suppressLabel.References.Add(_instructions.Count - 1);
+            
+            // Re-raise exception if not suppressed
+            EmitInstruction(ByteCodeOp.RAISE_VARARGS, 0);
+            
+            // Exception suppressed - continue normally
+            MarkLabel(suppressLabel);
+            EmitInstruction(ByteCodeOp.POP_TOP); // clean stack
             
             MarkLabel(endLabel);
+        }
+        
+        /// <summary>
+        /// Compile multiple context managers: with a, b, c: body
+        /// CPython 3.12 approach: Transform to nested with statements recursively
+        /// with a, b: body -> with a: (with b: body)
+        /// </summary>
+        private void CompileMultipleWith(WithStatement withStmt)
+        {
+            // CPython 3.12: Convert "with a, b, c: body" to nested structure
+            // Create nested WithStatement objects and compile recursively
+            
+            if (withStmt.Items.Count < 2)
+            {
+                throw new InvalidOperationException("CompileMultipleWith requires at least 2 context managers");
+            }
+            
+            // Take the first context manager
+            var outerItem = withStmt.Items[0];
+            
+            // Create inner with statement with remaining context managers
+            var remainingItems = withStmt.Items.Skip(1).ToList();
+            WithStatement innerWith;
+            
+            if (remainingItems.Count == 1)
+            {
+                // Base case: create simple with statement for the last context manager
+                innerWith = new WithStatement(remainingItems, withStmt.Body);
+            }
+            else
+            {
+                // Recursive case: create nested with statement
+                innerWith = new WithStatement(remainingItems, withStmt.Body);
+            }
+            
+            // Create outer with statement that wraps the inner one
+            var outerWith = new WithStatement(
+                new List<WithItem> { outerItem },
+                new List<Statement> { innerWith }
+            );
+            
+            // Compile the outer with statement (which will recursively compile inner ones)
+            CompileSingleWith(outerWith);
         }
         private void CompileMatch(MatchStatement matchStmt)
         {

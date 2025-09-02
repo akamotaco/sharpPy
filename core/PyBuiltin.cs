@@ -71,6 +71,7 @@ namespace SharpPy
                 "divmod" => CallDivmod(args),
                 "ord" => CallOrd(args),
                 "chr" => CallChr(args),
+                "open" => CallOpen(args),
                 "__build_class__" => CallBuildClass(args),
                 _ => throw PyNotImplementedError.Create($"Built-in function '{Name}' not implemented")
             };
@@ -1222,6 +1223,20 @@ namespace SharpPy
         {
             var typeArgs = new List<PyObject> { key };
             return new PyGenericType($"set[{key}]", PyType.SetType, typeArgs);
+        }
+
+        private PyObject CallOpen(PyObject[] args)
+        {
+            if (args.Length < 1 || args.Length > 3)
+                throw PyTypeError.Create($"open() takes 1 to 3 arguments ({args.Length} given)");
+
+            // Extract arguments
+            var filename = args[0].ToStr();
+            var mode = args.Length > 1 ? args[1].ToStr() : "r";
+            var encoding = args.Length > 2 ? args[2].ToStr() : "utf-8"; // Ignored for now
+
+            // Create file context manager
+            return new PyFileContextManager(filename, mode);
         }
 
         public override string ToString() => $"<built-in function {Name}>";

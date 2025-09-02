@@ -847,59 +847,124 @@ namespace SharpPy
                     
                 case ByteCodeOp.WITH_EXCEPT_START:
                     // CPython 3.12: Called when exception occurs in with block
-                    // Stack layout: [..., __exit__ method, exception info]
+                    // Current stack when called: [__exit__ method, exception_object, traceback]
+                    // After processing: [suppression_result]
                     
-                    // In exception handler, we expect exception is already on top of stack
-                    // and __exit__ method was preserved from BEFORE_WITH
-                    if (frame.ValueStack.Count < 2)
+                    Console.WriteLine($"🔧 WITH_EXCEPT_START: stack size = {frame.ValueStack.Count}");
+                    
+                    // Enhanced stack validation to prevent infinite loops
+                    if (frame.ValueStack.Count < 1)
                     {
-                        // Push False to indicate we can't handle the exception
+                        Console.WriteLine($"⚠️ WITH_EXCEPT_START: Critical stack underflow, pushing False");
                         frame.ValueStack.Push(PyBool.False);
                         break;
                     }
                     
-                    // Get the exception - in our simplified case it's the top of stack
-                    var currentException = frame.ValueStack.Peek();
+                    // Check if we're in a recursive WITH_EXCEPT_START situation
+                    var stackDepthBefore = frame.ValueStack.Count;
                     
-                    // Find the __exit__ method - it should be preserved somewhere in stack
-                    // For now, convert stack to array for indexing (this may need adjustment based on actual stack layout)
+                    PyObject traceback = PyNone.Instance;
+                    PyObject exceptionObject = PyNone.Instance;
                     PyObject exitMethodForExcept = null;
-                    if (frame.ValueStack.Count >= 2)
+                    
+                    // Safe stack popping with validation
+                    try
                     {
-                        var stackArray = frame.ValueStack.ToArray();
-                        exitMethodForExcept = stackArray[stackArray.Length - 2];
+                        if (frame.ValueStack.Count >= 3)
+                        {
+                            traceback = frame.ValueStack.Pop();  // TOS (usually None)
+                            exceptionObject = frame.ValueStack.Pop(); // The actual exception
+                            exitMethodForExcept = frame.ValueStack.Pop(); // __exit__ method
+                            Console.WriteLine($"🔧 WITH_EXCEPT_START: popped 3 items - traceback={traceback}, exception={exceptionObject?.GetType().Name}, exit_method={exitMethodForExcept?.GetType().Name}");
+                        }
+                        else if (frame.ValueStack.Count >= 2)
+                        {
+                            // Fallback: try to handle with less items
+                            exceptionObject = frame.ValueStack.Pop();
+                            exitMethodForExcept = frame.ValueStack.Pop();
+                            Console.WriteLine($"⚠️ WITH_EXCEPT_START: popped only 2 items");
+                        }
+                        else
+                        {
+                            // Emergency fallback
+                            exitMethodForExcept = frame.ValueStack.Pop();
+                            Console.WriteLine($"⚠️ WITH_EXCEPT_START: popped only 1 item");
+                        }
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        Console.WriteLine($"❌ WITH_EXCEPT_START: Stack pop failed, emergency fallback");
+                        frame.ValueStack.Push(PyBool.False);
+                        break;
                     }
                     
                     if (exitMethodForExcept?.IsCallable() == true)
                     {
-                        // Get exception info - CPython style
-                        PyObject excType, excValue, excTb;
-                        
-                        if (currentException is PyException pyExc)
+                        try
                         {
-                            excType = pyExc.GetPyType();
-                            excValue = pyExc;
-                            excTb = PyNone.Instance; // traceback not implemented yet
+                            // Extract exception type and value from the exception object
+                            PyObject excType, excValue;
+                            
+                            if (exceptionObject is PyException pyExc)
+                            {
+                                excType = pyExc.GetPyType();
+                                excValue = pyExc;
+                            }
+                            else
+                            {
+                                // Fallback for non-PyException objects
+                                excType = exceptionObject.GetPyType();
+                                excValue = exceptionObject;
+                            }
+                            
+                            Console.WriteLine($"🔧 WITH_EXCEPT_START: calling __exit__({excType}, {excValue}, {traceback})");
+                            
+                            // Call __exit__(exc_type, exc_value, traceback) - CPython order
+                            var exitResult = exitMethodForExcept.Call(new PyObject[] { excType, excValue, traceback });
+                            
+                            // Validate result and ensure stack consistency
+                            var stackDepthAfter = frame.ValueStack.Count;
+                            if (stackDepthAfter > stackDepthBefore)
+                            {
+                                Console.WriteLine($"⚠️ WITH_EXCEPT_START: Stack grew unexpectedly ({stackDepthBefore} → {stackDepthAfter}), cleaning up");
+                                // Clean up excess items to prevent stack corruption
+                                while (frame.ValueStack.Count > stackDepthBefore && frame.ValueStack.Count > 0)
+                                {
+                                    frame.ValueStack.Pop();
+                                }
+                            }
+                            
+                            // Push result to indicate exception suppression
+                            // True = suppress exception, False = re-raise exception
+                            frame.ValueStack.Push(exitResult);
+                            Console.WriteLine($"✅ WITH_EXCEPT_START: __exit__ returned {exitResult}");
                         }
-                        else
+                        catch (Exception exitException)
                         {
-                            excType = currentException.GetPyType();
-                            excValue = currentException;
-                            excTb = PyNone.Instance;
+                            Console.WriteLine($"❌ WITH_EXCEPT_START: __exit__ threw exception: {exitException.Message}");
+                            
+                            // Ensure stack is clean before handling the new exception
+                            var currentStackDepth = frame.ValueStack.Count;
+                            if (currentStackDepth > stackDepthBefore)
+                            {
+                                while (frame.ValueStack.Count > stackDepthBefore && frame.ValueStack.Count > 0)
+                                {
+                                    frame.ValueStack.Pop();
+                                }
+                            }
+                            
+                            // Push False to indicate the original exception should be replaced
+                            frame.ValueStack.Push(PyBool.False);
+                            
+                            // Convert and re-throw the new exception
+                            var newPyException = ConvertToPythonException(exitException);
+                            throw new PythonException(newPyException);
                         }
-                        
-                        // Call __exit__(exc_type, exc_value, traceback)
-                        var exitArgs = new PyObject[] { excType, excValue, excTb };
-                        var exitResult = exitMethodForExcept.Call(exitArgs);
-                        
-                        // Push result for caller to check - in CPython this determines exception suppression
-                        frame.ValueStack.Push(exitResult);
-                        
-                        // Note: The caller (compiler) decides whether to suppress based on exitResult
                     }
                     else
                     {
-                        // Push False to indicate we can't handle the exception
+                        Console.WriteLine($"❌ WITH_EXCEPT_START: No valid __exit__ method");
+                        // No valid __exit__ method - cannot suppress exception
                         frame.ValueStack.Push(PyBool.False);
                     }
                     break;
@@ -2004,6 +2069,24 @@ namespace SharpPy
             
             // 4. 모든 조건을 만족하지 않으면 TypeError
             throw PyTypeError.Create($"object {obj.GetTypeName()} can't be used in 'await' expression");
+        }
+
+        /// <summary>
+        /// Convert C# exception to Python exception for context manager __exit__ handling
+        /// </summary>
+        private PyBaseException ConvertToPythonException(Exception exception)
+        {
+            // Convert common .NET exceptions to appropriate Python exceptions
+            if (exception is PythonException pyEx)
+                return pyEx.PyException;
+            if (exception is ArgumentException)
+                return new PyTypeError(exception.Message);
+            if (exception is InvalidOperationException)
+                return new PyRuntimeError(exception.Message);
+            if (exception is NotImplementedException)
+                return new PyNotImplementedError(exception.Message);
+            
+            return new PyRuntimeError($"Exception in context manager __exit__: {exception.Message}");
         }
     }
 
