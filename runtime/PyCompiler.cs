@@ -1242,7 +1242,24 @@ namespace SharpPy
                 return;
             }
             
-            // 3. 일반 이름 처리 (전역 변수, 내장 함수 등)
+            // 3. 모듈 레벨: CPython 3.12 호환성을 위해 LOAD_GLOBAL 사용
+            if (!_isInFunction)
+            {
+                // 내장 함수 우선 처리
+                if (IsBuiltinFunction(name))
+                {
+                    var builtinIndex = AddName(name);
+                    EmitInstruction(ByteCodeOp.LOAD_GLOBAL_BUILTIN, builtinIndex);
+                }
+                else
+                {
+                    var globalIndex = AddName(name);
+                    EmitInstruction(ByteCodeOp.LOAD_GLOBAL, globalIndex);
+                }
+                return;
+            }
+            
+            // 4. 함수 내부에서의 전역 변수/내장 함수 참조
             var index = AddName(name);
             EmitInstruction(ByteCodeOp.LOAD_NAME, index);
         }
@@ -1276,9 +1293,28 @@ namespace SharpPy
                 return;
             }
             
-            // 모듈 레벨에서는 STORE_NAME 사용
+            // 모듈 레벨: CPython 3.12 호환성을 위해 STORE_GLOBAL 사용
             var index = AddName(name);
-            EmitInstruction(ByteCodeOp.STORE_NAME, index);
+            EmitInstruction(ByteCodeOp.STORE_GLOBAL, index);
+        }
+        
+        /// <summary>
+        /// CPython 3.12: 내장 함수 판별 - LOAD_GLOBAL_BUILTIN 최적화용
+        /// </summary>
+        private bool IsBuiltinFunction(string name)
+        {
+            // CPython 3.12 주요 내장 함수들
+            var builtins = new HashSet<string>
+            {
+                "print", "len", "str", "int", "float", "bool", "list", "tuple", "dict", "set",
+                "range", "enumerate", "zip", "map", "filter", "sum", "min", "max", "abs",
+                "round", "sorted", "reversed", "any", "all", "isinstance", "issubclass",
+                "type", "id", "hash", "repr", "format", "input", "open", "iter", "next",
+                "getattr", "setattr", "hasattr", "delattr", "vars", "dir", "globals", "locals",
+                "eval", "exec", "compile", "callable", "chr", "ord", "hex", "oct", "bin"
+            };
+            
+            return builtins.Contains(name);
         }
         
         private void EmitBinaryOp(string op)

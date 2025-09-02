@@ -534,6 +534,20 @@ namespace SharpPy
                     frame.ValueStack.Push(globalValue);
                     break;
                     
+                case ByteCodeOp.STORE_GLOBAL:
+                    var storeGlobalName = frame.Code.Names[instruction.Argument];
+                    var storeGlobalValue = frame.ValueStack.Pop();
+                    frame.ScopeChain.GlobalScope.SetVariable(storeGlobalName, storeGlobalValue);
+                    break;
+                    
+                case ByteCodeOp.LOAD_GLOBAL_BUILTIN:
+                    var builtinName = frame.Code.Names[instruction.Argument];
+                    var builtinValue = frame.ScopeChain.BuiltinModule.GetBuiltin(builtinName);
+                    if (builtinValue == null)
+                        throw PyNameError.Create($"name '{builtinName}' is not defined");
+                    frame.ValueStack.Push(builtinValue);
+                    break;
+                    
                 case ByteCodeOp.BINARY_OP:
                     // CPython 3.12+ unified binary operation
                     var operation = (BinaryOpType)instruction.Argument;
