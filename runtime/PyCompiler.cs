@@ -2243,290 +2243,254 @@ namespace SharpPy
         }
         private void CompileMatch(MatchStatement matchStmt)
         {
-            // CPython approach: Transform match into if-elif chain
-            // This is exactly how CPython handles pattern matching at bytecode level
+            // CPython 3.12: Match statement compilation using dedicated opcodes
             
-            // First, convert match to equivalent if-elif statements
-            var ifStatements = ConvertMatchToIfChain(matchStmt);
+            // Compile and keep the subject on stack
+            CompileExpression(matchStmt.Subject);
             
-            // Then compile the resulting if chain normally
-            foreach (var stmt in ifStatements)
+            // Create labels for control flow
+            var endLabel = CreateLabel($"match_end_{_labelCounter++}");
+            var caseLabels = new List<Label>();
+            
+            // Generate labels for each case
+            for (int i = 0; i < matchStmt.Cases.Count; i++)
             {
-                CompileStatement(stmt);
+                caseLabels.Add(CreateLabel($"case_{i}_{_labelCounter++}"));
             }
-        }
-        
-        
-        /// <summary>
-        /// Convert match statement to equivalent if-elif chain (CPython inspired but adapted for C#)
-        /// CPython uses dedicated opcodes, but we adapt with proper control flow for early exit
-        /// </summary>
-        private List<Statement> ConvertMatchToIfChain(MatchStatement matchStmt)
-        {
-            var statements = new List<Statement>();
             
-            // Store subject in a temporary variable (CPython approach)
-            var tempVar = "__match_subject__";
-            statements.Add(new AssignStatement(tempVar, matchStmt.Subject));
-            
-            // Add a flag to track if any case has matched (CPython does this internally)
-            var matchedVar = "__match_matched__";
-            statements.Add(new AssignStatement(matchedVar, new ConstantExpression(PyBool.False)));
-            
-            // CPython approach adapted: create proper if-elif chain with early exit
+            // Compile each case
             for (int i = 0; i < matchStmt.Cases.Count; i++)
             {
                 var matchCase = matchStmt.Cases[i];
-                Expression condition;
+                var caseLabel = caseLabels[i];
+                var nextLabel = (i + 1 < caseLabels.Count) ? caseLabels[i + 1] : endLabel;
                 
-                // Create condition based on pattern type (CPython inspired)
-                if (matchCase.Pattern is ConstantExpression constantExpr)
+                // Place case label
+                PlaceLabel(caseLabel);
+                
+                // CPython 3.12: Use COPY to duplicate subject for pattern matching
+                EmitInstruction(ByteCodeOp.COPY, 1);
+                
+                // Compile pattern matching
+                if (!CompilePatternMatch(matchCase.Pattern, nextLabel))
                 {
-                    // subject == constant
-                    condition = new CompareExpression(
-                        new NameExpression(tempVar),
-                        "==",
-                        constantExpr
-                    );
+                    // If pattern compilation failed, skip to next case
+                    // Pop the copied subject since we won't use it
+                    EmitInstruction(ByteCodeOp.POP_TOP);
+                    EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, nextLabel);
+                    continue;
                 }
-                else if (matchCase.Pattern is NameExpression nameExpr && nameExpr.Name == "_")
+                
+                // Check guard condition if present
+                if (matchCase.Guard != null)
                 {
-                    // Wildcard - always true (CPython: matches everything)
-                    condition = new ConstantExpression(PyBool.True);
+                    CompileExpression(matchCase.Guard);
+                    EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, nextLabel);
                 }
-                else if (matchCase.Pattern is ListExpression listPattern)
+                
+                // Pattern matched and guard passed - execute case body
+                // Pop the subject since we don't need it anymore for this case
+                EmitInstruction(ByteCodeOp.POP_TOP);
+                
+                // Compile case body
+                foreach (var stmt in matchCase.Body)
                 {
-                    // List pattern: [a, b, c] matches if subject is list with same length and all elements match
-                    // CPython approach: check type, length, then individual elements
+                    CompileStatement(stmt);
+                }
+                
+                // Jump to end after successful case
+                EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, endLabel);
+            }
+            
+            // Place end label and clean up remaining subject if no case matched
+            PlaceLabel(endLabel);
+            
+            // If we reach here with the original subject still on stack, 
+            // it means no case matched - pop it
+            EmitInstruction(ByteCodeOp.POP_TOP);
+        }
+        
+        
+        /// <summary>
+        /// CPython 3.12: Compile pattern matching using proper opcodes
+        /// Returns true if pattern was compiled successfully, false otherwise
+        /// </summary>
+        private bool CompilePatternMatch(Expression pattern, Label failLabel)
+        {
+            switch (pattern)
+            {
+                case ConstantExpression constExpr:
+                    // CPython 3.12: Direct constant comparison
+                    // TOS is subject, compile constant and compare
+                    CompileExpression(constExpr);
+                    EmitComparison(CompareOp.EQ);
+                    EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+                    return true;
+                
+                case NameExpression nameExpr when nameExpr.Name == "_":
+                    // Wildcard pattern - always matches, no binding
+                    return true;
                     
-                    // First check if subject is a list and has correct length
-                    var lengthCheck = new CompareExpression(
-                        new CallExpression(new NameExpression("len"), new List<Expression> { new NameExpression(tempVar) }),
-                        "==",
-                        new ConstantExpression(new PyInt(listPattern.Elements.Count))
-                    );
+                case NameExpression nameExpr:
+                    // Variable binding pattern - always matches, binds subject to variable
+                    EmitStoreName(nameExpr.Name);
+                    return true;
+                
+                case OrPattern orPattern:
+                    // CPython 3.12: Or patterns (PEP 634)
+                    // Key semantics: First matching pattern wins, no backtracking
+                    // All alternative patterns must bind the same variables
                     
-                    condition = lengthCheck;
-                    
-                    // If list is empty, length check is sufficient
-                    if (listPattern.Elements.Count > 0)
+                    if (orPattern.Patterns.Count == 1)
                     {
-                        // CPython approach: support both constant and variable patterns
-                        for (int elemIndex = 0; elemIndex < listPattern.Elements.Count; elemIndex++)
-                        {
-                            if (listPattern.Elements[elemIndex] is ConstantExpression elemConstant)
-                            {
-                                // Constant pattern: subject[elemIndex] == constant
-                                var indexAccess = new SubscriptExpression(new NameExpression(tempVar), new ConstantExpression(new PyInt(elemIndex)));
-                                var elemCheck = new CompareExpression(indexAccess, "==", elemConstant);
-                                condition = new BinaryOpExpression(condition, "and", elemCheck);
-                            }
-                            else if (listPattern.Elements[elemIndex] is NameExpression varExpr && varExpr.Name != "_")
-                            {
-                                // Variable pattern: bind subject[elemIndex] to variable
-                                // CPython approach: variables in patterns are automatically bound
-                                // We'll add the variable assignment after the condition check
-                                // For now, variable patterns always match (just check length)
-                                // The actual variable binding will be handled in the case body
-                            }
-                            else if (listPattern.Elements[elemIndex] is NameExpression wildcardExpr && wildcardExpr.Name == "_")
-                            {
-                                // Wildcard in list: always matches, no binding
-                                // Just continue - length check is sufficient
-                            }
-                            else
-                            {
-                                // Other unsupported patterns
-                                condition = new ConstantExpression(PyBool.False);
-                                break;
-                            }
-                        }
+                        // Single pattern - just delegate
+                        return CompilePatternMatch(orPattern.Patterns[0], failLabel);
                     }
-                }
-                else if (matchCase.Pattern is DictExpression dictPattern)
-                {
-                    // Dictionary pattern: {"key": value} matches if subject has the key and value matches
-                    // CPython approach: check if subject is dict, then check each key-value pair
                     
-                    // Start with True condition (empty dict pattern always matches dict)
-                    condition = new ConstantExpression(PyBool.True);
+                    // For simple constant or patterns like: case 1 | 2 | 3:
+                    // Generate: subject == 1 or subject == 2 or subject == 3
+                    var constantPatterns = new List<ConstantExpression>();
                     
-                    // Check each key-value pair in the pattern
-                    foreach (var (key, value) in dictPattern.Items)
+                    // Check if all patterns are constants using more flexible approach
+                    bool allConstants = true;
+                    foreach (var subPattern in orPattern.Patterns)
                     {
-                        if (key is ConstantExpression keyConstant)
+                        // Try multiple ways to identify constant patterns
+                        if (subPattern is ConstantExpression constPattern)
                         {
-                            // For now, simplified approach: check if subject[key] exists and matches value
-                            // TODO: Proper implementation should check key existence first
-                            
-                            // If pattern value is a constant, check exact match: subject[key] == value
-                            if (value is ConstantExpression valueConstant)
+                            constantPatterns.Add(constPattern);
+                        }
+                        else if (subPattern.GetType().Name.Contains("Constant"))
+                        {
+                            // Type name contains "Constant" - try cast
+                            try 
                             {
-                                var keyAccess = new SubscriptExpression(new NameExpression(tempVar), keyConstant);
-                                var valueCheck = new CompareExpression(keyAccess, "==", valueConstant);
-                                condition = new BinaryOpExpression(condition, "and", valueCheck);
+                                var castPattern = (ConstantExpression)subPattern;
+                                constantPatterns.Add(castPattern);
                             }
-                            else
+                            catch
                             {
-                                // TODO: Add support for variable patterns in dict values
-                                // For now, non-constant values are not supported
-                                condition = new ConstantExpression(PyBool.False);
+                                allConstants = false;
                                 break;
                             }
                         }
                         else
                         {
-                            // For now, non-constant keys in dict patterns are not supported
-                            condition = new ConstantExpression(PyBool.False);
+                            allConstants = false;
                             break;
                         }
                     }
-                }
-                else if (matchCase.Pattern is NameExpression namePattern && namePattern.Name != "_")
-                {
-                    // Variable pattern: case var_name - always matches and binds the subject to var_name
-                    // CPython approach: variable patterns always match and bind the subject value
-                    condition = new ConstantExpression(PyBool.True);
-                }
-                else if (matchCase.Pattern is OrPattern orPattern)
-                {
-                    // CPython 3.12: Or patterns (pattern1 | pattern2)
-                    // Generate: (subject == pattern1) or (subject == pattern2)
-                    Expression? firstCondition = null;
                     
-                    foreach (var subPattern in orPattern.Patterns)
+                    if (allConstants && constantPatterns.Count > 0)
                     {
-                        Expression subCondition;
+                        // CPython 3.12: Use multiple comparisons with OR short-circuiting
+                        // Stack: subject
+                        var successLabel = CreateLabel("or_match_success");
                         
-                        if (subPattern is ConstantExpression constExpr)
+                        for (int i = 0; i < constantPatterns.Count; i++)
                         {
-                            subCondition = new CompareExpression(
-                                new NameExpression(tempVar),
-                                "==",
-                                constExpr
-                            );
-                        }
-                        else
-                        {
-                            // For now, only support constant patterns in OR
-                            subCondition = new ConstantExpression(PyBool.False);
+                            var isLast = (i == constantPatterns.Count - 1);
+                            
+                            // Duplicate subject for comparison (except for last one)
+                            if (!isLast)
+                            {
+                                EmitInstruction(ByteCodeOp.DUP_TOP);
+                            }
+                            
+                            // Compare with constant
+                            CompileExpression(constantPatterns[i]);
+                            EmitComparison(CompareOp.EQ);
+                            
+                            // If match, jump to success
+                            if (!isLast)
+                            {
+                                EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_TRUE, successLabel);
+                            }
+                            else
+                            {
+                                // Last comparison - if false, jump to fail
+                                EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+                            }
                         }
                         
-                        if (firstCondition == null)
+                        PlaceLabel(successLabel);
+                        // Pop subject since pattern matched
+                        EmitInstruction(ByteCodeOp.POP_TOP);
+                        return true;
+                    }
+                    else
+                    {
+                        // Fallback: Handle any number of constant patterns using type inspection
+                        var fallbackConstants = new List<ConstantExpression>();
+                        bool allFallbackConstants = true;
+                        
+                        foreach (var fallbackPattern in orPattern.Patterns)
                         {
-                            firstCondition = subCondition;
+                            if (fallbackPattern.GetType().Name.Contains("Constant"))
+                            {
+                                try
+                                {
+                                    var constPattern = (ConstantExpression)fallbackPattern;
+                                    fallbackConstants.Add(constPattern);
+                                }
+                                catch
+                                {
+                                    allFallbackConstants = false;
+                                    break;
+                                }
+                            }
+                            else
+                            {
+                                allFallbackConstants = false;
+                                break;
+                            }
                         }
-                        else
+                        
+                        if (allFallbackConstants && fallbackConstants.Count > 0)
                         {
-                            firstCondition = new BinaryOpExpression(firstCondition, "or", subCondition);
+                            // CPython 3.12: Generate comparisons for all patterns
+                            var successLabel = CreateLabel("or_match_success");
+                            
+                            for (int i = 0; i < fallbackConstants.Count; i++)
+                            {
+                                var isLast = (i == fallbackConstants.Count - 1);
+                                
+                                // Duplicate subject for comparison (except for last one)
+                                if (!isLast)
+                                {
+                                    EmitInstruction(ByteCodeOp.DUP_TOP);
+                                }
+                                
+                                // Compare with constant
+                                CompileExpression(fallbackConstants[i]);
+                                EmitComparison(CompareOp.EQ);
+                                
+                                // If match, jump to success
+                                if (!isLast)
+                                {
+                                    EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_TRUE, successLabel);
+                                }
+                                else
+                                {
+                                    // Last comparison - if false, jump to fail
+                                    EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+                                }
+                            }
+                            
+                            PlaceLabel(successLabel);
+                            // Pop subject since pattern matched
+                            EmitInstruction(ByteCodeOp.POP_TOP);
+                            return true;
                         }
+                        
+                        // Complex or patterns not yet supported
+                        return false;
                     }
                     
-                    condition = firstCondition ?? new ConstantExpression(PyBool.False);
-                }
-                else
-                {
-                    // Other patterns - for now, always false
-                    condition = new ConstantExpression(PyBool.False);
-                }
-                
-                // Only check this case if no previous case has matched
-                var notMatchedCondition = new CompareExpression(
-                    new NameExpression(matchedVar),
-                    "==",
-                    new ConstantExpression(PyBool.False)
-                );
-                
-                var fullCondition = new BinaryOpExpression(notMatchedCondition, "and", condition);
-                
-                // If this case matches, execute body and set matched flag
-                var caseStatements = new List<Statement>();
-                
-                // CPython approach: Add variable bindings for patterns before executing body
-                AddVariableBindings(caseStatements, matchCase.Pattern, tempVar);
-                
-                // Add guard condition check after variable binding (CPython approach)
-                if (matchCase.Guard != null)
-                {
-                    // Guard condition must be true for the case to match
-                    // If guard fails, this case doesn't match and we continue to next case
-                    var guardBodyStatements = new List<Statement>();
-                    guardBodyStatements.AddRange(matchCase.Body);
-                    guardBodyStatements.Add(new AssignStatement(matchedVar, new ConstantExpression(PyBool.True)));
-                    
-                    var guardIf = new IfStatement(matchCase.Guard, guardBodyStatements, new List<Statement>());
-                    caseStatements.Add(guardIf);
-                }
-                else
-                {
-                    // No guard - add original case body directly
-                    caseStatements.AddRange(matchCase.Body);
-                    caseStatements.Add(new AssignStatement(matchedVar, new ConstantExpression(PyBool.True)));
-                }
-                
-                var ifStmt = new IfStatement(fullCondition, caseStatements, new List<Statement>());
-                statements.Add(ifStmt);
+                default:
+                    // Unsupported pattern type for now - fallback to old system
+                    return false;
             }
-            
-            return statements;
-        }
-        
-        /// <summary>
-        /// Add variable binding statements for pattern matching (CPython inspired)
-        /// </summary>
-        private void AddVariableBindings(List<Statement> statements, Expression pattern, string subjectVar)
-        {
-            if (pattern is ListExpression listPattern)
-            {
-                // Bind variables in list patterns: [x, y, z] -> x = subject[0], y = subject[1], z = subject[2]
-                for (int i = 0; i < listPattern.Elements.Count; i++)
-                {
-                    if (listPattern.Elements[i] is NameExpression nameExpr && nameExpr.Name != "_")
-                    {
-                        // Create assignment: varName = subject[index]
-                        var indexAccess = new SubscriptExpression(new NameExpression(subjectVar), new ConstantExpression(new PyInt(i)));
-                        var assignment = new AssignStatement(nameExpr.Name, indexAccess);
-                        statements.Add(assignment);
-                    }
-                }
-            }
-            else if (pattern is DictExpression dictPattern)
-            {
-                // Bind variables in dictionary patterns: {"key": var} -> var = subject["key"]
-                foreach (var (key, value) in dictPattern.Items)
-                {
-                    if (value is NameExpression nameExpr && nameExpr.Name != "_" && key is ConstantExpression keyConstant)
-                    {
-                        // Create assignment: varName = subject[key]
-                        var keyAccess = new SubscriptExpression(new NameExpression(subjectVar), keyConstant);
-                        var assignment = new AssignStatement(nameExpr.Name, keyAccess);
-                        statements.Add(assignment);
-                    }
-                }
-            }
-            else if (pattern is NameExpression namePattern && namePattern.Name != "_")
-            {
-                // Simple variable pattern: case var_name -> var_name = subject
-                var assignment = new AssignStatement(namePattern.Name, new NameExpression(subjectVar));
-                statements.Add(assignment);
-            }
-            else if (pattern is OrPattern orPattern)
-            {
-                // CPython 3.12: Or patterns - bind variables from the first matching pattern
-                // Note: In practice, the first pattern that matches has already been determined
-                // We only bind variables from patterns that can bind (not constants)
-                foreach (var subPattern in orPattern.Patterns)
-                {
-                    if (subPattern is NameExpression orBindExpr && orBindExpr.Name != "_")
-                    {
-                        // Variable pattern in OR: bind subject to this variable
-                        var assignment = new AssignStatement(orBindExpr.Name, new NameExpression(subjectVar));
-                        statements.Add(assignment);
-                        break; // CPython 3.12: Only bind from first variable pattern in OR
-                    }
-                }
-            }
-            // TODO: Add support for other pattern types
         }
         
         private void CompileAssert(AssertStatement assert) { /* TODO */ }
@@ -2547,7 +2511,53 @@ namespace SharpPy
         private void CompileDelete(DeleteStatement delete) { /* TODO */ }
         private void CompileGlobal(GlobalStatement global) { /* TODO */ }
         private void CompileNonlocal(NonlocalStatement nonlocal) { /* TODO */ }
-        private void CompileBoolOp(BoolOpExpression boolOp) { /* TODO */ }
+        private void CompileBoolOp(BoolOpExpression boolOp)
+        {
+            // CPython 3.12: Boolean operations with short-circuiting
+            // For 'and': use POP_JUMP_IF_FALSE to skip rest if falsy
+            // For 'or': use POP_JUMP_IF_TRUE to skip rest if truthy
+            
+            if (boolOp.Values.Count < 2)
+            {
+                // Single operand, just compile it
+                if (boolOp.Values.Count == 1)
+                {
+                    CompileExpression(boolOp.Values[0]);
+                }
+                return;
+            }
+            
+            var endLabel = CreateLabel($"bool_end_{_labelCounter++}");
+            
+            // Compile all operands except the last with short-circuit logic
+            for (int i = 0; i < boolOp.Values.Count - 1; i++)
+            {
+                CompileExpression(boolOp.Values[i]);
+                
+                // CPython 3.12: DUP_TOP (similar to COPY 1)
+                EmitInstruction(ByteCodeOp.DUP_TOP);
+                
+                if (boolOp.Op == "and")
+                {
+                    // For 'and': if current value is falsy, jump to end (short-circuit)
+                    EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, endLabel);
+                }
+                else if (boolOp.Op == "or")
+                {
+                    // For 'or': if current value is truthy, jump to end (short-circuit)
+                    EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_TRUE, endLabel);
+                }
+                
+                // If we didn't short-circuit, pop the duplicate and continue
+                EmitInstruction(ByteCodeOp.POP_TOP);
+            }
+            
+            // Compile the last operand (no short-circuit needed)
+            CompileExpression(boolOp.Values[boolOp.Values.Count - 1]);
+            
+            // Place end label
+            PlaceLabel(endLabel);
+        }
         private void CompileLambda(LambdaExpression lambda)
         {
             // CPython-style lambda compilation with closure support
@@ -2755,6 +2765,40 @@ namespace SharpPy
                 _instructions[refIndex] = new ByteCodeInstruction(oldInstruction.OpCode, label.Offset);
             }
         }
+        
+        /// <summary>
+        /// CPython 3.12 style: Emit jump instruction to a label
+        /// </summary>
+        private void EmitJumpToLabel(ByteCodeOp jumpOp, Label label)
+        {
+            EmitInstruction(jumpOp, 0);
+            label.References.Add(_instructions.Count - 1);
+        }
+        
+        /// <summary>
+        /// CPython 3.12 style: Place/mark a label (alias for MarkLabel for consistency)
+        /// </summary>
+        private void PlaceLabel(Label label)
+        {
+            MarkLabel(label);
+        }
+        
+        /// <summary>
+        /// CPython 3.12 style: Emit comparison operation
+        /// </summary>
+        private void EmitComparison(CompareOp compareOp)
+        {
+            EmitInstruction(ByteCodeOp.COMPARE_OP, (int)compareOp);
+        }
+        
+        /// <summary>
+        /// CPython 3.12 style aliases for consistency
+        /// </summary>
+        private void EmitLoadConstant(PyObject value) => EmitLoadConst(value);
+        private void EmitLoadVariable(string name) => EmitLoadName(name);
+        private void EmitStoreVariable(string name) => EmitStoreName(name);
+        private void EmitLoadAttribute(string attrName) => EmitLoadAttr(attrName);
+        private void EmitStoreAttribute(string attrName) => EmitStoreAttr(attrName);
         
         
         /// <summary>

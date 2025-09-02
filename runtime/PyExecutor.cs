@@ -10,6 +10,14 @@ namespace SharpPy
     /// </summary>
     public static class PyExecutor
     {
+        #region Pattern Matching Recursion Control - CPython 3.12 Style
+        
+        // CPython 3.12: Track recursion depth for pattern matching
+        private static int _orPatternDepth = 0;
+        private const int MAX_OR_PATTERN_DEPTH = 100;  // CPython style recursion limit
+        
+        #endregion
+        
         #region Walrus Operator (:=) Execution
         
         /// <summary>
@@ -282,24 +290,40 @@ namespace SharpPy
         /// </summary>
         private static bool MatchOrPattern(PyObject subject, OrPattern orPattern, PyScope scope)
         {
-            // Try each pattern in the or pattern
-            // CPython 3.12: First matching pattern wins, no backtracking
-            foreach (var pattern in orPattern.Patterns)
+            // CPython 3.12: Check recursion depth to prevent infinite loops
+            _orPatternDepth++;
+            if (_orPatternDepth > MAX_OR_PATTERN_DEPTH)
             {
-                // Create a temporary scope to avoid binding variables if pattern fails
-                var tempScope = new PyScope(ScopeType.Local, scope);
-                
-                if (MatchPattern(subject, pattern, tempScope))
-                {
-                    // If pattern matches, copy bindings to actual scope
-                    foreach (var binding in tempScope.Variables)
-                    {
-                        scope.SetVariable(binding.Key, binding.Value);
-                    }
-                    return true;
-                }
+                _orPatternDepth--;
+                throw PyRecursionError.Create("maximum recursion depth exceeded in pattern matching");
             }
-            return false;
+            
+            try
+            {
+                // Try each pattern in the or pattern
+                // CPython 3.12: First matching pattern wins, no backtracking
+                foreach (var pattern in orPattern.Patterns)
+                {
+                    // Create a temporary scope to avoid binding variables if pattern fails
+                    var tempScope = new PyScope(ScopeType.Local, scope);
+                    
+                    if (MatchPattern(subject, pattern, tempScope))
+                    {
+                        // If pattern matches, copy bindings to actual scope
+                        foreach (var binding in tempScope.Variables)
+                        {
+                            scope.SetVariable(binding.Key, binding.Value);
+                        }
+                        return true;
+                    }
+                }
+                return false;
+            }
+            finally
+            {
+                // CPython 3.12: Always decrement recursion depth
+                _orPatternDepth--;
+            }
         }
         
         #endregion

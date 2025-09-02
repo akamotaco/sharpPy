@@ -156,6 +156,7 @@ namespace SharpPy
         ROT_THREE = 192,      // 상위 3개 요소 회전
         DUP_TOP = 193,        // 스택 top 복사
         DUP_TOP_TWO = 194,    // 상위 2개 요소 복사
+        COPY = 195,           // CPython 3.12: 스택에서 N번째 요소 복사
         
         // Python 3.12 새로운 옵코드들
         RESUME = 200,         // 코루틴 재개

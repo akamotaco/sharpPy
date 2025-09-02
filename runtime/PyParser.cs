@@ -2203,22 +2203,57 @@ namespace SharpPy
         /// </summary>
         private Expression ParseMatchPattern()
         {
-            var patterns = new List<Expression>();
-            patterns.Add(ParseExpression());
-            
-            // Check for or patterns (|)
-            while (Match(TokenType.PIPE))
+            return WithRecursionProtection("ParseMatchPattern", () =>
             {
+                var patterns = new List<Expression>();
+                var startPos = _current;  // Track token progress to prevent infinite loops
+                
                 patterns.Add(ParseExpression());
-            }
-            
-            // If multiple patterns, create OrPattern
-            if (patterns.Count > 1)
-            {
-                return new OrPattern(patterns);
-            }
-            
-            return patterns[0];
+                
+                // CPython 3.12: or pattern maximum count limit to prevent infinite loops
+                const int MAX_OR_PATTERNS = 1000;
+                
+                // Check for or patterns (|)
+                while (Match(TokenType.PIPE) && patterns.Count < MAX_OR_PATTERNS)
+                {
+                    var prevPos = _current;
+                    
+                    // CPython 3.12: Check for invalid syntax after '|'
+                    if (IsAtEnd() || Check(TokenType.COLON) || Check(TokenType.IF) || Check(TokenType.NEWLINE))
+                    {
+                        throw PyRuntimeError.Create("invalid syntax: expected pattern after '|'");
+                    }
+                    
+                    try
+                    {
+                        patterns.Add(ParseExpression());
+                    }
+                    catch (Exception ex)
+                    {
+                        throw PyRuntimeError.Create($"invalid pattern after '|': {ex.Message}");
+                    }
+                    
+                    // CPython 3.12: Prevent infinite loop - ensure token progress
+                    if (_current == prevPos)
+                    {
+                        throw PyRuntimeError.Create("invalid syntax in or pattern: no progress made");
+                    }
+                }
+                
+                // CPython 3.12: Limit number of or patterns
+                if (patterns.Count >= MAX_OR_PATTERNS)
+                {
+                    throw PyRuntimeError.Create($"too many or patterns (max {MAX_OR_PATTERNS})");
+                }
+                
+                // If multiple patterns, create OrPattern
+                if (patterns.Count > 1)
+                {
+                    return new OrPattern(patterns);
+                }
+                
+                return patterns[0];
+            });
         }
         private Statement ParseReturnStatement()
         {
@@ -2595,6 +2630,12 @@ namespace SharpPy
                 {
                     left = new CompareExpression(left, opToken.Lexeme, right);
                 }
+                else if (IsBooleanOperator(opType))
+                {
+                    // CPython 3.12: Create BoolOpExpression for 'and' and 'or' operations
+                    var values = new List<Expression> { left, right };
+                    left = new BoolOpExpression(opToken.Lexeme, values);
+                }
                 else
                 {
                     left = new BinaryOpExpression(left, opToken.Lexeme, right);
@@ -2615,6 +2656,12 @@ namespace SharpPy
                    type == TokenType.LESS || type == TokenType.GREATER ||
                    type == TokenType.LESS_EQUAL || type == TokenType.GREATER_EQUAL ||
                    type == TokenType.IN || type == TokenType.IS;
+        }
+        
+        private bool IsBooleanOperator(TokenType type)
+        {
+            // CPython 3.12: Boolean logical operators
+            return type == TokenType.AND || type == TokenType.OR;
         }
         
         private Expression ParseUnaryOrAtom()

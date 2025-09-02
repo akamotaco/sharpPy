@@ -292,6 +292,17 @@ namespace SharpPy
                     frame.ValueStack.Push(topValue);
                     break;
                     
+                case ByteCodeOp.COPY:
+                    // CPython 3.12: Copy the Nth element from stack top (1-indexed)
+                    var copyIndex = instruction.Argument;
+                    if (copyIndex <= 0 || copyIndex > frame.ValueStack.Count)
+                    {
+                        throw PyRuntimeError.Create($"COPY index {copyIndex} out of range (stack size: {frame.ValueStack.Count})");
+                    }
+                    var valueToCopy = frame.ValueStack.ElementAt(frame.ValueStack.Count - copyIndex);
+                    frame.ValueStack.Push(valueToCopy);
+                    break;
+                    
                 case ByteCodeOp.ROT_TWO:
                     var second = frame.ValueStack.Pop();
                     var first = frame.ValueStack.Pop();
@@ -756,6 +767,82 @@ namespace SharpPy
                     var setAttrValue = frame.ValueStack.Pop();
                     // 기존 Attribute 시스템 사용!
                     setObj.SetAttribute(setAttrName, setAttrValue);
+                    break;
+                    
+                // CPython 3.12: Pattern matching opcodes
+                case ByteCodeOp.MATCH_MAPPING:
+                    // Check if subject is a mapping type (dict, etc.)
+                    var mappingSubject = frame.ValueStack.Peek(); // Keep subject on stack
+                    var isMapping = (mappingSubject is PyDict) ? PyBool.True : PyBool.False;
+                    frame.ValueStack.Push(isMapping);
+                    break;
+                    
+                case ByteCodeOp.MATCH_SEQUENCE:
+                    // Check if subject is a sequence type (list, tuple, etc.)
+                    var sequenceSubject = frame.ValueStack.Peek(); // Keep subject on stack
+                    var isSequence = (sequenceSubject is PyList || sequenceSubject is PyTuple || sequenceSubject is PyString) 
+                        ? PyBool.True : PyBool.False;
+                    frame.ValueStack.Push(isSequence);
+                    break;
+                    
+                case ByteCodeOp.MATCH_KEYS:
+                    // Match keys in mapping - TOS1 is subject, TOS is keys tuple
+                    var keysToMatch = frame.ValueStack.Pop(); // keys tuple
+                    var dictSubject = frame.ValueStack.Peek(); // Keep subject on stack
+                    if (dictSubject is PyDict dict && keysToMatch is PyTuple keysTuple)
+                    {
+                        var values = new List<PyObject>();
+                        bool allKeysMatch = true;
+                        
+                        foreach (var key in keysTuple.Items)
+                        {
+                            if (dict.Contains(key).ToBool())
+                            {
+                                values.Add(dict.GetItem(key));
+                            }
+                            else
+                            {
+                                allKeysMatch = false;
+                                break;
+                            }
+                        }
+                        
+                        if (allKeysMatch)
+                        {
+                            frame.ValueStack.Push(new PyTuple(values.ToArray()));
+                        }
+                        else
+                        {
+                            frame.ValueStack.Push(PyNone.Instance); // CPython 3.12: None on failure
+                        }
+                    }
+                    else
+                    {
+                        frame.ValueStack.Push(PyNone.Instance);
+                    }
+                    frame.ValueStack.Push(keysToMatch); // Restore keys for next attempt
+                    break;
+                    
+                case ByteCodeOp.MATCH_CLASS:
+                    // Match class pattern - complex implementation following CPython 3.12
+                    var classKwNames = frame.ValueStack.Pop(); // keyword names tuple
+                    var classToMatch = frame.ValueStack.Pop(); // class
+                    var classSubject = frame.ValueStack.Pop(); // subject
+                    
+                    // For now, simplified class matching
+                    // In full implementation, this would check isinstance, extract attributes, etc.
+                    if (classSubject.GetType().Name.Contains(classToMatch.ToString()))
+                    {
+                        // Extract attributes based on positional count in instruction.Argument
+                        var attrs = new List<PyObject>();
+                        // Simplified: just return subject wrapped in tuple
+                        attrs.Add(classSubject);
+                        frame.ValueStack.Push(new PyTuple(attrs.ToArray()));
+                    }
+                    else
+                    {
+                        frame.ValueStack.Push(PyNone.Instance); // CPython 3.12: None on failure
+                    }
                     break;
                     
                 case ByteCodeOp.RETURN_VALUE:
