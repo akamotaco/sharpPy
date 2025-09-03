@@ -15,6 +15,7 @@ namespace SharpPy
         private readonly List<PyToken> _tokens;
         private int _current;
         private bool _inAsyncFunction = false; // CPython 3.12 await context validation
+        private bool _inComprehension = false; // Comprehension parsing context
         
         // CPython-style precedence table
         private static readonly Dictionary<TokenType, int> OperatorPrecedence = new()
@@ -125,6 +126,15 @@ namespace SharpPy
         {
             return WithRecursionProtection("ParseStatement", () =>
             {
+                // CPython 3.12: Handle unexpected INDENT tokens that might be part of expressions
+                if (Check(TokenType.INDENT))
+                {
+                    // This might be an INDENT within a multiline expression, not a block
+                    // Skip it for now and try to continue parsing
+                    Console.WriteLine("⚠️ Warning: Encountered INDENT in statement context - might be multiline expression");
+                    SkipIndentationTokens();
+                }
+                
                 // Check for decorators first
                 if (Check(TokenType.AT))
                 {
@@ -147,7 +157,12 @@ namespace SharpPy
             if (Match(TokenType.FOR)) return ParseForStatement();
             if (Match(TokenType.TRY)) return ParseTryStatement();
             if (Match(TokenType.WITH)) return ParseWithStatement();
-            if (Match(TokenType.MATCH)) return ParseMatchStatement();
+            // CPython 3.12: match is a soft keyword, check context
+            if (IsMatchStatementStart())
+            {
+                Advance(); // consume "match" identifier
+                return ParseMatchStatement();
+            }
             
             // Simple statements
             if (Match(TokenType.RETURN)) return ParseReturnStatement();
@@ -752,7 +767,8 @@ namespace SharpPy
             var expr = ParseBinaryExpression();
             
             // Check for conditional: expr if condition else alternative  
-            if (Check(TokenType.IF))
+            // Skip conditional expression parsing when inside comprehension
+            if (Check(TokenType.IF) && !_inComprehension)
             {
                 Advance(); // consume IF
                 var condition = ParseBinaryExpression();
@@ -1164,9 +1180,9 @@ namespace SharpPy
                 
                 while (Match(TokenType.COMMA) && !Check(TokenType.RIGHT_BRACKET))
                 {
-                    // Skip newlines and indentation after comma in multiline lists
+                    // CPython 3.12: Skip newlines and indentation after comma in multiline lists
                     SkipNewlines();
-                    while (Match(TokenType.INDENT)) { }
+                    SkipIndentationTokens();
                     
                     if (Check(TokenType.RIGHT_BRACKET)) break; // trailing comma
                     
@@ -1174,7 +1190,7 @@ namespace SharpPy
                     
                     // Skip any trailing whitespace/indentation
                     SkipNewlines();
-                    while (Match(TokenType.DEDENT)) { }
+                    SkipDedentationTokens();
                 }
                 
                 Consume(TokenType.RIGHT_BRACKET, "Expected ']' after list elements");
@@ -1184,9 +1200,9 @@ namespace SharpPy
 
         private Expression ParseDictExpression()
         {
-            // Skip any leading newlines/indentation in multiline dict/set
+            // CPython 3.12: Handle indentation in multiline dict/set properly
             SkipNewlines();
-            while (Match(TokenType.INDENT)) { }
+            SkipIndentationTokens();
             
             // Empty dict/set
             if (Check(TokenType.RIGHT_BRACE))
@@ -1220,9 +1236,9 @@ namespace SharpPy
                     
                     while (Match(TokenType.COMMA) && !Check(TokenType.RIGHT_BRACE))
                     {
-                        // Skip newlines and indentation after comma in multiline dictionaries
+                        // CPython 3.12: Skip newlines and indentation after comma in multiline dictionaries
                         SkipNewlines();
-                        while (Match(TokenType.INDENT)) { }
+                        SkipIndentationTokens();
                         
                         if (Check(TokenType.RIGHT_BRACE)) break; // trailing comma
                         
@@ -1233,11 +1249,11 @@ namespace SharpPy
                         
                         // Skip any trailing whitespace/indentation
                         SkipNewlines();
-                        while (Match(TokenType.DEDENT)) { }
+                        SkipDedentationTokens();
                     }
                     
-                    // Skip trailing DEDENT before closing brace
-                    while (Match(TokenType.DEDENT)) { }
+                    // CPython 3.12: Skip trailing DEDENT before closing brace
+                    SkipDedentationTokens();
                     SkipNewlines();
                     
                     Consume(TokenType.RIGHT_BRACE, "Expected '}' after dictionary items");
@@ -1264,9 +1280,9 @@ namespace SharpPy
                     
                     while (Match(TokenType.COMMA) && !Check(TokenType.RIGHT_BRACE))
                     {
-                        // Skip newlines and indentation after comma in multiline sets
+                        // CPython 3.12: Skip newlines and indentation after comma in multiline sets
                         SkipNewlines();
-                        while (Match(TokenType.INDENT)) { }
+                        SkipIndentationTokens();
                         
                         if (Check(TokenType.RIGHT_BRACE)) break; // trailing comma
                         
@@ -1274,11 +1290,11 @@ namespace SharpPy
                         
                         // Skip any trailing whitespace/indentation
                         SkipNewlines();
-                        while (Match(TokenType.DEDENT)) { }
+                        SkipDedentationTokens();
                     }
                     
-                    // Skip trailing DEDENT before closing brace
-                    while (Match(TokenType.DEDENT)) { }
+                    // CPython 3.12: Skip trailing DEDENT before closing brace
+                    SkipDedentationTokens();
                     SkipNewlines();
                     
                     Consume(TokenType.RIGHT_BRACE, "Expected '}' after set elements");
@@ -1311,24 +1327,35 @@ namespace SharpPy
         /// </summary>
         private Comprehension ParseSingleComprehension()
         {
-            Consume(TokenType.FOR, "Expected 'for' in comprehension");
+            var savedInComprehension = _inComprehension;
+            _inComprehension = true;
             
-            // Parse target (can be simple name or tuple/list unpacking)
-            var target = ParseComprehensionTarget();
-            
-            Consume(TokenType.IN, "Expected 'in' after comprehension target");
-            
-            // Parse iterable expression
-            var iter = ParseExpression();
-            
-            // Parse optional if conditions
-            var ifs = new List<Expression>();
-            while (Match(TokenType.IF))
+            try
             {
-                ifs.Add(ParseExpression());
+                Consume(TokenType.FOR, "Expected 'for' in comprehension");
+                
+                // Parse target (can be simple name or tuple/list unpacking)
+                var target = ParseComprehensionTarget();
+                
+                Consume(TokenType.IN, "Expected 'in' after comprehension target");
+                
+                // Parse iterable expression
+                var iter = ParseExpression();
+                
+                // Parse optional if conditions
+                var ifs = new List<Expression>();
+                while (Match(TokenType.IF))
+                {
+                    var condition = ParseExpression();
+                    ifs.Add(condition);
+                }
+                
+                return new Comprehension(target, iter, ifs);
             }
-            
-            return new Comprehension(target, iter, ifs);
+            finally
+            {
+                _inComprehension = savedInComprehension;
+            }
         }
         
         /// <summary>
@@ -2151,7 +2178,8 @@ namespace SharpPy
                     continue;
                 }
                 
-                if (!Check(TokenType.CASE))
+                // CPython 3.12: case is a soft keyword
+                if (!(Check(TokenType.IDENTIFIER) && Peek().Lexeme == "case"))
                 {
                     throw new Exception("Expected 'case' in match statement");
                 }
@@ -2178,7 +2206,12 @@ namespace SharpPy
         /// </summary>
         private MatchCase ParseMatchCase()
         {
-            Consume(TokenType.CASE, "Expected 'case'");
+            // CPython 3.12: case is a soft keyword, consume as identifier
+            if (!(Check(TokenType.IDENTIFIER) && Peek().Lexeme == "case"))
+            {
+                throw new Exception("Expected 'case'");
+            }
+            Advance(); // consume "case" identifier
             
             // Parse pattern (may include or patterns)
             var pattern = ParseMatchPattern();
@@ -2882,6 +2915,42 @@ namespace SharpPy
             while (Match(TokenType.NEWLINE)) { }
         }
 
+        /// <summary>
+        /// CPython 3.12: Safely skip INDENT tokens within expressions to prevent infinite loops
+        /// </summary>
+        private void SkipIndentationTokens()
+        {
+            int safetyCounter = 0;
+            while (Check(TokenType.INDENT) && safetyCounter < 10)
+            {
+                Advance(); // consume INDENT
+                safetyCounter++;
+            }
+            
+            if (safetyCounter >= 10)
+            {
+                Console.WriteLine("⚠️ Warning: Skipped too many INDENT tokens - possible infinite loop prevented");
+            }
+        }
+
+        /// <summary>
+        /// CPython 3.12: Safely skip DEDENT tokens within expressions to prevent infinite loops
+        /// </summary>
+        private void SkipDedentationTokens()
+        {
+            int safetyCounter = 0;
+            while (Check(TokenType.DEDENT) && safetyCounter < 10)
+            {
+                Advance(); // consume DEDENT
+                safetyCounter++;
+            }
+            
+            if (safetyCounter >= 10)
+            {
+                Console.WriteLine("⚠️ Warning: Skipped too many DEDENT tokens - possible infinite loop prevented");
+            }
+        }
+
         // Infinite loop prevention methods
         private void CheckParsingProgress()
         {
@@ -2921,6 +2990,70 @@ namespace SharpPy
         private void ExitRecursion()
         {
             _recursionDepth--;
+        }
+        
+        /// <summary>
+        /// CPython 3.12: Check if current position is the start of a match statement
+        /// Soft keyword "match" should only be treated as keyword in match statement context
+        /// </summary>
+        private bool IsMatchStatementStart()
+        {
+            if (!(Check(TokenType.IDENTIFIER) && Peek().Lexeme == "match"))
+            {
+                return false;
+            }
+            
+            // Save current position for backtracking
+            var savedPosition = _current;
+            try
+            {
+                Advance(); // Skip "match" identifier
+                
+                // Skip potential expressions until we find a colon or fail
+                int parenDepth = 0;
+                int bracketDepth = 0;
+                int braceDepth = 0;
+                
+                while (!IsAtEnd())
+                {
+                    var token = Peek();
+                    
+                    // Track nested structures
+                    if (token.Type == TokenType.LEFT_PAREN) parenDepth++;
+                    else if (token.Type == TokenType.RIGHT_PAREN) parenDepth--;
+                    else if (token.Type == TokenType.LEFT_BRACKET) bracketDepth++;
+                    else if (token.Type == TokenType.RIGHT_BRACKET) bracketDepth--;
+                    else if (token.Type == TokenType.LEFT_BRACE) braceDepth++;
+                    else if (token.Type == TokenType.RIGHT_BRACE) braceDepth--;
+                    
+                    // If we're at top level and find colon, it's a match statement
+                    if (parenDepth == 0 && bracketDepth == 0 && braceDepth == 0)
+                    {
+                        if (token.Type == TokenType.COLON)
+                        {
+                            return true; // match expr: found
+                        }
+                        if (token.Type == TokenType.NEWLINE || token.Type == TokenType.EQUAL)
+                        {
+                            return false; // Not a match statement
+                        }
+                    }
+                    
+                    Advance();
+                    
+                    // Safety check to prevent infinite loops
+                    if (_current - savedPosition > 50)
+                    {
+                        return false; // Too complex, assume it's not a match statement
+                    }
+                }
+                
+                return false;
+            }
+            finally
+            {
+                _current = savedPosition; // Always restore position
+            }
         }
         
         private T WithRecursionProtection<T>(string methodName, Func<T> parseFunc)

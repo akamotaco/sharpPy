@@ -169,32 +169,56 @@ namespace SharpPy
         // CPython 3.12: Execute class body and return namespace
         public Dictionary<string, PyObject> ExecuteClassBody(PyCodeObject classBody)
         {
-            // Get the current frame's scope chain to inherit variables like 'override'
+            // Store the original global scope state to detect new variables
+            Dictionary<string, PyObject> originalGlobals = null;
             PyScopeChain parentScope = null;
+            
             if (_frameStack.Count > 0)
             {
                 parentScope = _frameStack.Peek().ScopeChain;
+                // Capture original global state
+                originalGlobals = new Dictionary<string, PyObject>(parentScope.GlobalScope.Variables);
             }
             
             var frame = new PyFrame(classBody, new PyObject[0], parentScope);
             var result = ExecuteFrame(frame);
             
-            // Extract all local variables from the frame
+            // Extract class namespace - capture variables added during class body execution
             var classNamespace = new Dictionary<string, PyObject>();
             
-            // Method 1: Try FastLocals
+            // Method 1: FastLocals (for STORE_FAST operations)
             foreach (var kvp in frame.FastLocals)
             {
                 classNamespace[kvp.Key] = kvp.Value;
             }
             
-            // Method 2: Try ScopeChain current scope
+            // Method 2: Local scope variables
             if (frame.ScopeChain?.CurrentScope != null)
             {
                 foreach (var kvp in frame.ScopeChain.CurrentScope.Variables)
                 {
                     classNamespace[kvp.Key] = kvp.Value;
                 }
+            }
+            
+            // Method 3: New global variables (added by class body STORE_GLOBAL operations)
+            if (frame.ScopeChain?.GlobalScope != null && originalGlobals != null)
+            {
+                foreach (var kvp in frame.ScopeChain.GlobalScope.Variables)
+                {
+                    // Only include variables that were added during class body execution
+                    if (!originalGlobals.ContainsKey(kvp.Key) || 
+                        !ReferenceEquals(originalGlobals[kvp.Key], kvp.Value))
+                    {
+                        classNamespace[kvp.Key] = kvp.Value;
+                    }
+                }
+            }
+            
+            Console.WriteLine($"📦 ExecuteClassBody captured {classNamespace.Count} variables:");
+            foreach (var kvp in classNamespace)
+            {
+                Console.WriteLine($"  - {kvp.Key}: {kvp.Value?.GetType().Name}");
             }
             
             return classNamespace;
@@ -473,15 +497,13 @@ namespace SharpPy
                     break;
                     
                 case ByteCodeOp.STORE_FAST_STORE_FAST:
-                    // STORE_FAST arg1; STORE_FAST arg2 를 하나로 처리 
+                    // CPython 3.12 compatible: STORE_FAST arg1; STORE_FAST arg2 를 하나로 처리 
                     var store1Arg = instruction.Argument & 0xFFFF;        // 하위 16비트: 첫번째 STORE
                     var store2Arg = (instruction.Argument >> 16) & 0xFFFF; // 상위 16비트: 두번째 STORE
                     
-                    // 스택에서 두 값을 순서대로 팝 (STORE는 LIFO)
-                    var value2 = frame.ValueStack.Pop(); // 두번째 STORE_FAST용 값
-                    var value1 = frame.ValueStack.Pop(); // 첫번째 STORE_FAST용 값
-                    
-                    // 첫번째 STORE_FAST
+                    // CPython 방식: 두 STORE_FAST를 순차적으로 실행 
+                    // 첫 번째 STORE_FAST (스택 top을 첫 번째 변수에)
+                    var value1 = frame.ValueStack.Pop(); // 스택 top -> 첫 번째 변수
                     if (store1Arg < frame.Code.VarNames.Count)
                     {
                         var varName1 = frame.Code.VarNames[store1Arg];
@@ -493,7 +515,8 @@ namespace SharpPy
                         throw PyRuntimeError.Create($"STORE_FAST_STORE_FAST: first index {store1Arg} out of range");
                     }
                     
-                    // 두번째 STORE_FAST
+                    // 두 번째 STORE_FAST (스택 next를 두 번째 변수에)
+                    var value2 = frame.ValueStack.Pop(); // 스택 next -> 두 번째 변수
                     if (store2Arg < frame.Code.VarNames.Count)
                     {
                         var varName2 = frame.Code.VarNames[store2Arg];
@@ -660,42 +683,87 @@ namespace SharpPy
                     break;
                     
                 case ByteCodeOp.MAKE_FUNCTION:
-                    // CPython-style function creation with closure support
+                    // CPython 3.12 compatible function creation with full flags support
                     var flags = instruction.Argument;
                     var codeObject = frame.ValueStack.Pop();
                     
                     PyCell[] closure = null;
                     PyTuple defaults = null;
+                    PyTuple kwDefaults = null;
+                    PyTuple annotations = null;
                     
-                    // Check for default parameters flag (1 = MAKE_FUNCTION_DEFAULTS) - CPython order
-                    if ((flags & 1) != 0)
-                    {
-                        var defaultsTuple = frame.ValueStack.Pop();
-                        if (defaultsTuple is PyTuple defTuple)
-                        {
-                            defaults = defTuple;
-                            Console.WriteLine($"  → Creating function with {defTuple.Items.Length} default parameters");
-                        }
-                        else
-                        {
-                            Console.WriteLine($"  ⚠️ Warning: Expected tuple for defaults, got {defaultsTuple?.GetType()}");
-                            defaults = new PyTuple(new PyObject[0]);
-                        }
-                    }
+                    Console.WriteLine($"🔧 MAKE_FUNCTION with flags: {flags:X} (binary: {Convert.ToString(flags, 2)})");
                     
-                    // Check for closure flag (8 = MAKE_FUNCTION_CLOSURE)
+                    // CPython 3.12 MAKE_FUNCTION flags processing order (bit order matters!):
+                    // 0x01 - HAS_DEFAULTS: function has positional default parameters  
+                    // 0x02 - HAS_KW_DEFAULTS: function has keyword-only default parameters
+                    // 0x04 - HAS_ANNOTATIONS: function has annotations
+                    // 0x08 - HAS_CLOSURE: function uses closure variables
+                    // 0x10 - HAS_QUALNAME: function has qualified name (not used in basic implementation)
+                    
+                    // Process in reverse stack order (last pushed = first popped)
+                    
+                    // Check for closure flag (8 = HAS_CLOSURE) - processed first due to stack order
                     if ((flags & 8) != 0)
                     {
                         var closureTuple = frame.ValueStack.Pop();
                         if (closureTuple is PyTuple closureTupleObj)
                         {
                             closure = closureTupleObj.Items.Cast<PyCell>().ToArray();
-                            Console.WriteLine($"  → Creating function with closure: {closure.Length} cells");
+                            Console.WriteLine($"  → Function has closure: {closure.Length} cells");
                         }
                         else
                         {
                             Console.WriteLine($"  ⚠️ Warning: Expected tuple for closure, got {closureTuple?.GetType()}");
                             closure = new PyCell[0];
+                        }
+                    }
+                    
+                    // Check for annotations flag (4 = HAS_ANNOTATIONS)
+                    if ((flags & 4) != 0)
+                    {
+                        var annotationsTuple = frame.ValueStack.Pop();
+                        if (annotationsTuple is PyTuple annTuple)
+                        {
+                            annotations = annTuple;
+                            Console.WriteLine($"  → Function has annotations: {annTuple.Items.Length} items");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"  ⚠️ Warning: Expected tuple for annotations, got {annotationsTuple?.GetType()}");
+                            annotations = new PyTuple(new PyObject[0]);
+                        }
+                    }
+                    
+                    // Check for keyword-only defaults flag (2 = HAS_KW_DEFAULTS)  
+                    if ((flags & 2) != 0)
+                    {
+                        var kwDefaultsTuple = frame.ValueStack.Pop();
+                        if (kwDefaultsTuple is PyTuple kwDefTuple)
+                        {
+                            kwDefaults = kwDefTuple;
+                            Console.WriteLine($"  → Function has keyword-only defaults: {kwDefTuple.Items.Length} items");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"  ⚠️ Warning: Expected tuple for kw-defaults, got {kwDefaultsTuple?.GetType()}");
+                            kwDefaults = new PyTuple(new PyObject[0]);
+                        }
+                    }
+                    
+                    // Check for positional defaults flag (1 = HAS_DEFAULTS)
+                    if ((flags & 1) != 0)
+                    {
+                        var defaultsTuple = frame.ValueStack.Pop();
+                        if (defaultsTuple is PyTuple defTuple)
+                        {
+                            defaults = defTuple;
+                            Console.WriteLine($"  → Function has positional defaults: {defTuple.Items.Length} parameters");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"  ⚠️ Warning: Expected tuple for defaults, got {defaultsTuple?.GetType()}");
+                            defaults = new PyTuple(new PyObject[0]);
                         }
                     }
                     
@@ -718,9 +786,18 @@ namespace SharpPy
                             
                             var asyncFunction = new PyFunction(pyCode.Name, asyncImpl, null, null, closure, pyCode);
                             
+                            // Set CPython 3.12 compatible function attributes
                             if (defaults != null)
                             {
                                 asyncFunction.SetAttribute("__defaults__", defaults);
+                            }
+                            if (kwDefaults != null)
+                            {
+                                asyncFunction.SetAttribute("__kwdefaults__", kwDefaults);
+                            }
+                            if (annotations != null)
+                            {
+                                asyncFunction.SetAttribute("__annotations__", annotations);
                             }
                             
                             frame.ValueStack.Push(asyncFunction);
@@ -756,10 +833,18 @@ namespace SharpPy
                             functionObject = new PyFunction(pyCode.Name, implementation, null, null, closure, pyCode);
                         }
                         
-                            // Set __defaults__ attribute following CPython
+                            // Set CPython 3.12 compatible function attributes
                             if (defaults != null)
                             {
                                 functionObject.SetAttribute("__defaults__", defaults);
+                            }
+                            if (kwDefaults != null)
+                            {
+                                functionObject.SetAttribute("__kwdefaults__", kwDefaults);
+                            }
+                            if (annotations != null)
+                            {
+                                functionObject.SetAttribute("__annotations__", annotations);
                             }
                             
                             frame.ValueStack.Push(functionObject);

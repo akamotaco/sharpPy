@@ -51,6 +51,9 @@ namespace SharpPy
             // 5. CPython 3.12 Superinstructions 생성
             ApplySuperinstructions();
 
+            // 6. 점프 오프셋 재계산 (최적화로 인한 명령어 위치 변경 반영)
+            RecalculateJumpOffsets();
+
             int optimizedCount = _instructions.Count;
             int saved = originalCount - optimizedCount;
             
@@ -327,6 +330,73 @@ namespace SharpPy
                     Console.WriteLine($"  ✅ STORE_FAST + STORE_FAST → STORE_FAST_STORE_FAST at {i}");
                     continue;
                 }
+            }
+        }
+
+        /// <summary>
+        /// 최적화 후 점프 오프셋 재계산 - 특정 패턴의 올바른 타겟을 찾아 수정
+        /// </summary>
+        private void RecalculateJumpOffsets()
+        {
+            Console.WriteLine("🔄 점프 오프셋 재계산 중...");
+            int recalculated = 0;
+            
+            // FOR 루프 패턴 감지 및 수정: GET_ITER → FOR_ITER → ... → JUMP_BACKWARD
+            for (int i = 0; i < _instructions.Count - 1; i++)
+            {
+                var currentInst = _instructions[i];
+                
+                // FOR_ITER 명령어를 찾으면, 이 루프의 JUMP_BACKWARD를 찾아 수정
+                if (currentInst.OpCode == ByteCodeOp.FOR_ITER)
+                {
+                    int forIterPos = i;
+                    
+                    // 해당 FOR_ITER에 대응하는 JUMP_BACKWARD 찾기
+                    // FOR 루프는 일반적으로 FOR_ITER 이후에 JUMP_BACKWARD가 하나 있음
+                    for (int j = forIterPos + 1; j < _instructions.Count; j++)
+                    {
+                        var laterInst = _instructions[j];
+                        
+                        if (laterInst.OpCode == ByteCodeOp.JUMP_BACKWARD)
+                        {
+                            int jumpPos = j;
+                            int currentOffset = laterInst.Argument;
+                            
+                            // 현재 JUMP_BACKWARD가 FOR_ITER로 점프하는지 확인
+                            int currentTarget = jumpPos - currentOffset - 1;
+                            
+                            // 올바른 타겟은 FOR_ITER 위치여야 함  
+                            // VM에서 실행 시 InstructionPointer가 이미 증가된 상태이므로 추가 보정
+                            int correctOffset = jumpPos - forIterPos;
+                            
+                            if (currentOffset != correctOffset)
+                            {
+                                _instructions[j] = new ByteCodeInstruction(ByteCodeOp.JUMP_BACKWARD, correctOffset);
+                                Console.WriteLine($"  🔧 FOR 루프 JUMP_BACKWARD[{j}]: {currentOffset} → {correctOffset} (FOR_ITER: {forIterPos})");
+                                recalculated++;
+                            }
+                            
+                            // 하나의 FOR_ITER당 하나의 JUMP_BACKWARD만 처리
+                            break;
+                        }
+                        
+                        // 다른 FOR_ITER나 함수 끝을 만나면 중단
+                        if (laterInst.OpCode == ByteCodeOp.FOR_ITER || 
+                            laterInst.OpCode == ByteCodeOp.RETURN_VALUE)
+                        {
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if (recalculated > 0)
+            {
+                Console.WriteLine($"✅ 점프 오프셋 재계산 완료: {recalculated}개 명령어 수정");
+            }
+            else
+            {
+                Console.WriteLine("✅ 점프 오프셋 재계산 완료: 수정 필요 없음");
             }
         }
     }

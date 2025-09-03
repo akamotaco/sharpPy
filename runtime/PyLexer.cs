@@ -22,6 +22,10 @@ namespace SharpPy
         private bool _atLineStart;
         private List<PyToken> _pendingTokens;
         
+        // CPython 3.12: Bracket stack for implicit line joining
+        private Stack<char> _bracketStack;
+        private bool IsInImplicitContinuation => _bracketStack.Count > 0;
+        
         public PyLexer(string source)
         {
             _source = source ?? throw new ArgumentNullException(nameof(source));
@@ -34,6 +38,9 @@ namespace SharpPy
             _indentStack.Push(0); // 기본 들여쓰기 레벨
             _atLineStart = true;
             _pendingTokens = new List<PyToken>();
+            
+            // CPython 3.12: Bracket stack 초기화
+            _bracketStack = new Stack<char>();
         }
 
         /// <summary>
@@ -118,13 +125,28 @@ namespace SharpPy
 
             switch (c)
             {
-                // Single character tokens
-                case '(': return new PyToken(TokenType.LEFT_PAREN, "(", line, column);
-                case ')': return new PyToken(TokenType.RIGHT_PAREN, ")", line, column);
-                case '[': return new PyToken(TokenType.LEFT_BRACKET, "[", line, column);
-                case ']': return new PyToken(TokenType.RIGHT_BRACKET, "]", line, column);
-                case '{': return new PyToken(TokenType.LEFT_BRACE, "{", line, column);
-                case '}': return new PyToken(TokenType.RIGHT_BRACE, "}", line, column);
+                // Single character tokens - CPython 3.12: bracket stack management
+                case '(':
+                    _bracketStack.Push('(');
+                    return new PyToken(TokenType.LEFT_PAREN, "(", line, column);
+                case ')':
+                    if (_bracketStack.Count > 0 && _bracketStack.Peek() == '(')
+                        _bracketStack.Pop();
+                    return new PyToken(TokenType.RIGHT_PAREN, ")", line, column);
+                case '[':
+                    _bracketStack.Push('[');
+                    return new PyToken(TokenType.LEFT_BRACKET, "[", line, column);
+                case ']':
+                    if (_bracketStack.Count > 0 && _bracketStack.Peek() == '[')
+                        _bracketStack.Pop();
+                    return new PyToken(TokenType.RIGHT_BRACKET, "]", line, column);
+                case '{':
+                    _bracketStack.Push('{');
+                    return new PyToken(TokenType.LEFT_BRACE, "{", line, column);
+                case '}':
+                    if (_bracketStack.Count > 0 && _bracketStack.Peek() == '{')
+                        _bracketStack.Pop();
+                    return new PyToken(TokenType.RIGHT_BRACE, "}", line, column);
                 case ',': return new PyToken(TokenType.COMMA, ",", line, column);
                 case '.': return new PyToken(TokenType.DOT, ".", line, column);
                 case ';': return new PyToken(TokenType.SEMICOLON, ";", line, column);
@@ -197,11 +219,18 @@ namespace SharpPy
 
                 case '@': return new PyToken(TokenType.AT, "@", line, column);
 
-                // Newline
+                // Newline - CPython 3.12: suppress NEWLINE tokens in implicit continuation
                 case '\n':
                     _line++;
                     _column = 1;
                     _atLineStart = true;
+                    
+                    // CPython 3.12: No NEWLINE token between implicit continuation lines
+                    if (IsInImplicitContinuation)
+                    {
+                        return NextToken() ?? new PyToken(TokenType.EOF, "", line, column); // Skip NEWLINE and continue to next token
+                    }
+                    
                     return new PyToken(TokenType.NEWLINE, "\n", line, column);
 
                 // Comments
@@ -450,7 +479,7 @@ namespace SharpPy
                 "async" => TokenType.ASYNC,
                 "await" => TokenType.AWAIT,
                 "break" => TokenType.BREAK,
-                "case" => TokenType.CASE,
+                // "case" => TokenType.CASE,  // Soft keyword - treated as identifier
                 "class" => TokenType.CLASS,
                 "continue" => TokenType.CONTINUE,
                 "def" => TokenType.DEF,
@@ -468,7 +497,7 @@ namespace SharpPy
                 "in" => TokenType.IN,
                 "is" => TokenType.IS,
                 "lambda" => TokenType.LAMBDA,
-                "match" => TokenType.MATCH,
+                // "match" => TokenType.MATCH,  // Soft keyword - treated as identifier
                 "None" => TokenType.NONE,
                 "nonlocal" => TokenType.NONLOCAL,
                 "not" => TokenType.NOT,
@@ -812,10 +841,17 @@ namespace SharpPy
         
         /// <summary>
         /// 줄 시작에서 들여쓰기를 처리하여 INDENT/DEDENT 토큰 생성
-        /// CPython 방식을 따름
+        /// CPython 3.12: implicit continuation 중에는 들여쓰기 무시
         /// </summary>
         private PyToken HandleIndentation()
         {
+            // CPython 3.12: 괄호 내부에서는 들여쓰기 토큰 생성하지 않음
+            if (IsInImplicitContinuation)
+            {
+                SkipWhitespace();
+                return NextToken() ?? new PyToken(TokenType.EOF, "", _line, _column); // 들여쓰기를 건너뛰고 다음 토큰으로
+            }
+            
             int indentLevel = 0;
             var startColumn = _column;
             

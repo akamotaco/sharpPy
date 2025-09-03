@@ -383,6 +383,8 @@ namespace SharpPy
         private List<string> _names;
         private List<string> _varNames;
         private bool _isInFunction = false; // Track if we're compiling inside a function
+        private string _currentFunctionName = null; // Track current function name for module level detection
+        private bool _isInComprehension = false; // Track if we're compiling inside a comprehension
         
         // Phase 2: 클로저 지원
         private List<string> _cellVars = new List<string>();
@@ -627,6 +629,7 @@ namespace SharpPy
             _names = new List<string>();
             _varNames = new List<string>();
             _isInFunction = true; // We are now compiling inside a function
+            _currentFunctionName = name; // Track function name for module level detection
             
             // 함수 매개변수를 _varNames에 추가 (LOAD_FAST/STORE_FAST용)
             foreach (var param in paramNames)
@@ -680,6 +683,7 @@ namespace SharpPy
             var optimizedCode = optimizer.OptimizeCode(codeObject);
             
             _isInFunction = false; // Reset function context
+            _currentFunctionName = null; // Reset function name
             return optimizedCode;
         }
         
@@ -693,6 +697,7 @@ namespace SharpPy
             _names = new List<string>();
             _varNames = new List<string>();
             _isInFunction = true; // We are now compiling inside a function
+            _currentFunctionName = name; // Track function name for module level detection
             
             // 함수 매개변수를 _varNames에 추가
             foreach (var param in paramNames)
@@ -720,6 +725,7 @@ namespace SharpPy
             Console.WriteLine($"✅ 함수 컴파일 완료: {_instructions.Count}개 명령어");
             
             _isInFunction = false; // Reset function context
+            _currentFunctionName = null; // Reset function name
             return codeObject;
         }
         
@@ -1259,9 +1265,19 @@ namespace SharpPy
                 return;
             }
             
-            // 4. 함수 내부에서의 전역 변수/내장 함수 참조
-            var index = AddName(name);
-            EmitInstruction(ByteCodeOp.LOAD_NAME, index);
+            // 4. 함수 내부에서의 전역 변수/내장 함수 참조 - CPython 3.12 호환성
+            // 내장 함수 우선 처리
+            if (IsBuiltinFunction(name))
+            {
+                var builtinIndex = AddName(name);
+                EmitInstruction(ByteCodeOp.LOAD_GLOBAL_BUILTIN, builtinIndex);
+            }
+            else
+            {
+                // 일반 전역 변수
+                var globalIndex = AddName(name);
+                EmitInstruction(ByteCodeOp.LOAD_GLOBAL, globalIndex);
+            }
         }
         
         private void EmitStoreName(string name)
@@ -1750,8 +1766,16 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.IMPORT_NAME, moduleIndex);
                 
                 // Store the imported module in the correct variable name
+                // CPython 3.12: Use STORE_GLOBAL for module level imports
                 var nameIndex = AddName(alias);
-                EmitInstruction(ByteCodeOp.STORE_NAME, nameIndex);
+                if (IsModuleLevel())
+                {
+                    EmitInstruction(ByteCodeOp.STORE_GLOBAL, nameIndex);
+                }
+                else
+                {
+                    EmitInstruction(ByteCodeOp.STORE_NAME, nameIndex);
+                }
             }
         }
         private void CompileImportFrom(ImportFromStatement importFrom)
@@ -1781,8 +1805,16 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.IMPORT_FROM, itemIndex);
                 
                 // Store the imported item in the correct variable name
+                // CPython 3.12: Use STORE_GLOBAL for module level imports
                 var nameIndex = AddName(alias);
-                EmitInstruction(ByteCodeOp.STORE_NAME, nameIndex);
+                if (IsModuleLevel())
+                {
+                    EmitInstruction(ByteCodeOp.STORE_GLOBAL, nameIndex);
+                }
+                else
+                {
+                    EmitInstruction(ByteCodeOp.STORE_NAME, nameIndex);
+                }
             }
             
             // Pop the module from stack (cleanup)
@@ -1858,9 +1890,9 @@ namespace SharpPy
             }
             
             // Jump back to loop condition
-            // Calculate relative offset for JUMP_BACKWARD (current position - loop start)
+            // VM calculation: current_position - argument - 1 = target_position
             var currentPos = _instructions.Count;
-            var jumpOffset = currentPos - loopStart;
+            var jumpOffset = currentPos - loopStart - 1;
             EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpOffset);
             
             // While completed normally - execute else clause if present
@@ -1905,10 +1937,10 @@ namespace SharpPy
             }
             
             // 5. Jump back to FOR_ITER (not GET_ITER)
-            // VM does: InstructionPointer = InstructionPointer - argument - 1
-            // We want: jumpInstruction - offset - 1 = forIterInstruction  
-            // So: offset = jumpInstruction - forIterInstruction
-            var jumpOffset = _instructions.Count - forIterInstruction;
+            // VM calculation: current_position - argument - 1 = target_position
+            // So: argument = current_position - target_position - 1
+            var currentPosition = _instructions.Count; // Position where JUMP_BACKWARD will be placed
+            var jumpOffset = currentPosition - forIterInstruction - 1;
             EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpOffset);
             
             // 6. Loop completed normally - execute else clause if present
@@ -1964,7 +1996,10 @@ namespace SharpPy
             }
             
             // 6. Jump back to FOR_ITER
-            var jumpOffset = _instructions.Count - forIterInstruction;
+            // VM calculation: current_position - argument - 1 = target_position
+            // So: argument = current_position - target_position - 1
+            var currentPosition = _instructions.Count; // Position where JUMP_BACKWARD will be placed
+            var jumpOffset = currentPosition - forIterInstruction - 1;
             EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpOffset);
             
             // 7. Loop completed normally - execute else clause if present
@@ -2697,8 +2732,8 @@ namespace SharpPy
         }
         private void CompileLambda(LambdaExpression lambda)
         {
-            // CPython-style lambda compilation with closure support
-            // Lambda creates an anonymous function object
+            // CPython 3.12 compatible lambda compilation
+            // Lambda creates an anonymous function object with proper parameter scope
             
             // Create a unique name for the lambda function
             string lambdaName = $"<lambda_{_lambdaCounter++}>";
@@ -2717,15 +2752,24 @@ namespace SharpPy
             var lambdaConstants = new List<PyObject>();
             var lambdaNames = new List<string>();
             
-            // Create a temporary compiler for lambda body compilation
+            // Save current compiler state
             var tempInstructions = _instructions;
             var tempConstants = _constants;
             var tempNames = _names;
+            var tempVarNames = _varNames; // Save current VarNames
             
             // Set up lambda compiler context
             _instructions = lambdaInstructions;
             _constants = lambdaConstants;
             _names = lambdaNames;
+            _varNames = new List<string>(); // Fresh VarNames for lambda
+            
+            // CPython 3.12: Parameters must be first in VarNames for LOAD_FAST to work
+            foreach (var arg in lambda.Args)
+            {
+                _varNames.Add(arg);
+                Console.WriteLine($"  → Added parameter '{arg}' as FAST variable at index {_varNames.Count - 1}");
+            }
             
             // Set up closure compilation if there are free variables
             if (freeVars.Count > 0)
@@ -2744,13 +2788,7 @@ namespace SharpPy
                 }
             }
             
-            // Add parameter names as local variables
-            foreach (var arg in lambda.Args)
-            {
-                AddName(arg);
-            }
-            
-            // Compile the lambda body expression with closure awareness
+            // Compile the lambda body expression - parameters will now be recognized as FAST variables
             CompileExpression(lambda.Body);
             EmitInstruction(ByteCodeOp.RETURN_VALUE);
             
@@ -2758,20 +2796,35 @@ namespace SharpPy
             _instructions = tempInstructions;
             _constants = tempConstants;
             _names = tempNames;
+            _varNames = tempVarNames; // Restore original VarNames
             
-            // Create the function code object with closure info
+            // CPython 3.12: Create function code object with correct VarNames order
+            // VarNames = parameters first, then any local variables used in lambda body
+            var lambdaVarNames = new List<string>(lambda.Args);
+            
+            // Add any additional local variables that were used (beyond parameters)
+            foreach (var name in lambdaNames)
+            {
+                if (!lambdaVarNames.Contains(name))
+                {
+                    lambdaVarNames.Add(name);
+                }
+            }
+            
             var functionCode = new PyCodeObject(
                 lambdaName,
                 lambdaInstructions,
                 lambdaConstants,
                 lambdaNames,
-                lambda.Args, // VarNames = parameter names
+                lambdaVarNames, // VarNames with parameters first
                 lambda.Args.Count,
                 freeVars, // Set FreeVars for closure support
                 cellVars  // Set CellVars for closure support
             );
             
-            // Phase 1: Handle closure creation if there are free variables
+            Console.WriteLine($"  → Lambda code object created: {lambdaVarNames.Count} variables, {lambda.Args.Count} parameters");
+            
+            // Handle closure creation if there are free variables
             if (freeVars.Count > 0)
             {
                 Console.WriteLine($"  → Creating closure with {freeVars.Count} free variables");
@@ -3025,65 +3078,141 @@ namespace SharpPy
         /// </summary>
         private void CompileListComprehension(ListComprehension listComp)
         {
-            Console.WriteLine("🚀 PEP 709: List comprehension 바이트코드 인라인 컴파일");
+            Console.WriteLine("🚀 PEP 709: List comprehension 바이트코드 인라인 컴파일 (중첩 Generator 지원)");
+            
+            // CPython 3.12: 컴프리헨션 컨텍스트 시작
+            var savedIsInComprehension = _isInComprehension;
+            _isInComprehension = true;
             
             // 1. 빈 리스트 생성
             EmitInstruction(ByteCodeOp.BUILD_LIST, 0);
             
-            // 현재는 첫 번째 generator만 지원 (단순화)
-            var generator = listComp.Generators[0];
+            // 2. 임시 변수 저장을 위한 리스트 - 컴프리헨션 스코프 isolation
+            var comprehensionVars = new List<string>();
             
-            // 2. 이터레이터 준비 (한 번만)
+            // 3. 중첩된 루프 컴파일 - CPython 3.12 방식
+            CompileNestedGenerators(listComp.Generators, 0, comprehensionVars, () =>
+            {
+                // 모든 generator 루프가 완료된 후 실행되는 내부 블록
+                CompileExpression(listComp.Element);
+                EmitInstruction(ByteCodeOp.LIST_APPEND, 1); // 리스트는 항상 스택의 맨 아래(1)에 위치
+            });
+            
+            // CPython 3.12: 컴프리헨션 컨텍스트 종료
+            _isInComprehension = savedIsInComprehension;
+            
+            Console.WriteLine($"✅ List comprehension 바이트코드 인라인 완료 ({listComp.Generators.Count}개 중첩 generator)");
+        }
+        
+        /// <summary>
+        /// CPython 3.12 호환 중첩 Generator 컴파일
+        /// 재귀적으로 각 generator에 대해 FOR_ITER 루프를 생성
+        /// </summary>
+        private void CompileNestedGenerators(List<Comprehension> generators, int currentIndex, 
+                                           List<string> comprehensionVars, Action innerBlock)
+        {
+            if (currentIndex >= generators.Count)
+            {
+                // 모든 generator 처리 완료 - 내부 블록 실행
+                innerBlock();
+                return;
+            }
+            
+            var generator = generators[currentIndex];
+            Console.WriteLine($"  🔄 Generator [{currentIndex}]: {generator.Target} in {generator.Iter}");
+            
+            // 이터레이터 준비
             CompileExpression(generator.Iter);
             EmitInstruction(ByteCodeOp.GET_ITER);
             
-            // 3. 루프 시작 라벨 (FOR_ITER부터, GET_ITER 제외)
+            // 루프 시작 라벨
             var loopStart = _instructions.Count;
-            EmitInstruction(ByteCodeOp.FOR_ITER, 0); // 종료 지점은 나중에 패치
+            EmitInstruction(ByteCodeOp.FOR_ITER, 0); // 패치 대상
             
-            // 4. 루프 변수 저장 (Target은 NameExpression이라 가정)
+            // 루프 변수 저장 - 컴프리헨션 변수로 관리
             if (generator.Target is NameExpression nameExpr)
             {
-                EmitStoreName(nameExpr.Name);
+                // CPython 3.12: 컴프리헨션 변수는 임시 스코프에 저장
+                EmitStoreComprehensionVar(nameExpr.Name, comprehensionVars);
             }
             else
             {
                 throw new NotImplementedException("Complex target patterns not yet supported");
             }
             
-            // 5. 조건 검사 (if문이 있는 경우)
+            // 조건 검사 (if문이 있는 경우)
             List<int> conditionJumps = new List<int>();
             foreach (var condition in generator.Ifs)
             {
                 CompileExpression(condition);
                 conditionJumps.Add(_instructions.Count);
-                EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // 조건이 거짓이면 건너뛰기
+                EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // 조건이 거짓이면 루프 재시작으로 점프
             }
             
-            // 6. 표현식 계산 및 리스트에 추가
-            CompileExpression(listComp.Element);
-            EmitInstruction(ByteCodeOp.LIST_APPEND, 1); // 리스트가 스택에서 1번째 위치
+            // 다음 generator 재귀 호출
+            CompileNestedGenerators(generators, currentIndex + 1, comprehensionVars, innerBlock);
             
-            // 7. 조건 점프 대상 패치
+            // 다음 generator 재귀 호출 후 JUMP_BACKWARD 위치 계산
+            var jumpBackPosition = _instructions.Count;
+            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackPosition - loopStart - 1);
+            
+            // 조건 점프 대상 패치 - 조건이 거짓이면 FOR_ITER로 점프하여 다음 iteration
             foreach (var jumpIndex in conditionJumps)
             {
                 _instructions[jumpIndex] = new ByteCodeInstruction(
                     ByteCodeOp.POP_JUMP_IF_FALSE, 
-                    _instructions.Count
+                    loopStart  // FOR_ITER 위치로 점프 (29번이어야 함)
                 );
             }
             
-            // 8. 루프 재시작 (FOR_ITER로 점프)
-            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, _instructions.Count - loopStart);
-            
-            // 9. FOR_ITER 종료 지점 패치 (CPython 3.12 compatible relative jump)
-            var relativeJump = _instructions.Count - loopStart - 1;
+            // FOR_ITER 종료 지점 패치 - 루프 종료 시 다음 명령어로 점프
+            // CPython 3.12 호환: VM에서 현재 위치 + offset + 1 (메인 루프 증가)이므로 offset을 -2 조정
+            var relativeJump = _instructions.Count - loopStart - 2;
             _instructions[loopStart] = new ByteCodeInstruction(
                 ByteCodeOp.FOR_ITER, 
                 relativeJump
             );
+            Console.WriteLine($"    → FOR_ITER 패치: loop start {loopStart}, jump offset {relativeJump}, target {_instructions.Count}");
+        }
+        
+        /// <summary>
+        /// CPython 3.12 호환 컴프리헨션 변수 저장
+        /// 컴프리헨션 내부 변수는 격리된 스코프에서 관리
+        /// </summary>
+        private void EmitStoreComprehensionVar(string name, List<string> comprehensionVars)
+        {
+            // 컴프리헨션 변수 목록에 추가 (중복 제거)
+            if (!comprehensionVars.Contains(name))
+            {
+                comprehensionVars.Add(name);
+            }
             
-            Console.WriteLine("✅ List comprehension 바이트코드 인라인 완료 (2x 성능 향상!)");
+            // CPython 3.12 호환: 컴프리헨션 변수는 항상 STORE_FAST로 처리
+            // 모듈 레벨에서도 컴프리헨션은 별도의 지역 스코프를 가짐
+            var varIndex = GetOrAddVarName(name);
+            EmitInstruction(ByteCodeOp.STORE_FAST, varIndex);
+            Console.WriteLine($"    → 컴프리헨션 변수 저장: {name} (STORE_FAST index {varIndex})");
+        }
+        
+        /// <summary>
+        /// 컴프리헨션 변수 로드 (CPython 3.12 호환)
+        /// </summary>
+        private void EmitLoadComprehensionVar(string name, List<string> comprehensionVars)
+        {
+            if (comprehensionVars.Contains(name))
+            {
+                // 컴프리헨션 변수: LOAD_FAST 사용
+                var varIndex = _varNames.IndexOf(name);
+                if (varIndex >= 0)
+                {
+                    EmitInstruction(ByteCodeOp.LOAD_FAST, varIndex);
+                    Console.WriteLine($"    → 컴프리헨션 변수 로드: {name} (LOAD_FAST index {varIndex})");
+                    return;
+                }
+            }
+            
+            // 일반 변수: 기존 로직 사용
+            EmitLoadName(name);
         }
         
         /// <summary>
@@ -3093,66 +3222,31 @@ namespace SharpPy
         /// </summary>
         private void CompileDictComprehension(DictComprehension dictComp)
         {
-            Console.WriteLine("🚀 PEP 709: Dict comprehension 바이트코드 인라인 컴파일");
+            Console.WriteLine("🚀 PEP 709: Dict comprehension 바이트코드 인라인 컴파일 (중첩 Generator 지원)");
+            
+            // CPython 3.12: 컴프리헨션 컨텍스트 시작
+            var savedIsInComprehension = _isInComprehension;
+            _isInComprehension = true;
             
             // 1. 빈 딕셔너리 생성
             EmitInstruction(ByteCodeOp.BUILD_MAP, 0);
             
-            // 현재는 첫 번째 generator만 지원
-            var generator = dictComp.Generators[0];
+            // 2. 임시 변수 저장을 위한 리스트 - 컴프리헨션 스코프 isolation
+            var comprehensionVars = new List<string>();
             
-            // 2. 이터레이터 준비 (한 번만)
-            CompileExpression(generator.Iter);
-            EmitInstruction(ByteCodeOp.GET_ITER);
-            
-            // 3. 루프 시작 라벨 (FOR_ITER부터, GET_ITER 제외)
-            var loopStart = _instructions.Count;
-            EmitInstruction(ByteCodeOp.FOR_ITER, 0);
-            
-            // 4. 루프 변수 저장
-            if (generator.Target is NameExpression nameExpr)
+            // 3. 중첩된 루프 컴파일 - CPython 3.12 방식
+            CompileNestedGenerators(dictComp.Generators, 0, comprehensionVars, () =>
             {
-                EmitStoreName(nameExpr.Name);
-            }
-            else
-            {
-                throw new NotImplementedException("Complex target patterns not yet supported");
-            }
+                // 모든 generator 루프가 완료된 후 실행되는 내부 블록
+                CompileExpression(dictComp.Key);
+                CompileExpression(dictComp.Value);
+                EmitInstruction(ByteCodeOp.MAP_ADD, 1); // 딕셔너리는 항상 스택의 맨 아래(1)에 위치
+            });
             
-            // 5. 조건 검사
-            List<int> conditionJumps = new List<int>();
-            foreach (var condition in generator.Ifs)
-            {
-                CompileExpression(condition);
-                conditionJumps.Add(_instructions.Count);
-                EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0);
-            }
+            // CPython 3.12: 컴프리헨션 컨텍스트 종료
+            _isInComprehension = savedIsInComprehension;
             
-            // 6. 키와 값 계산 및 딕셔너리에 추가
-            CompileExpression(dictComp.Key);
-            CompileExpression(dictComp.Value);
-            EmitInstruction(ByteCodeOp.MAP_ADD, 1); // 딕셔너리가 스택에서 1번째 위치
-            
-            // 7. 조건 점프 패치
-            foreach (var jumpIndex in conditionJumps)
-            {
-                _instructions[jumpIndex] = new ByteCodeInstruction(
-                    ByteCodeOp.POP_JUMP_IF_FALSE, 
-                    _instructions.Count
-                );
-            }
-            
-            // 8. 루프 재시작 (FOR_ITER로 점프)
-            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, _instructions.Count - loopStart);
-            
-            // 9. FOR_ITER 패치 (CPython 3.12 compatible relative jump)
-            var relativeJumpDict = _instructions.Count - loopStart - 1;
-            _instructions[loopStart] = new ByteCodeInstruction(
-                ByteCodeOp.FOR_ITER, 
-                relativeJumpDict
-            );
-            
-            Console.WriteLine("✅ Dict comprehension 바이트코드 인라인 완료 (2x 성능 향상!)");
+            Console.WriteLine($"✅ Dict comprehension 바이트코드 인라인 완료 ({dictComp.Generators.Count}개 중첩 generator)");
         }
         
         /// <summary>
@@ -3162,65 +3256,30 @@ namespace SharpPy
         /// </summary>
         private void CompileSetComprehension(SetComprehension setComp)
         {
-            Console.WriteLine("🚀 PEP 709: Set comprehension 바이트코드 인라인 컴파일");
+            Console.WriteLine("🚀 PEP 709: Set comprehension 바이트코드 인라인 컴파일 (중첩 Generator 지원)");
+            
+            // CPython 3.12: 컴프리헨션 컨텍스트 시작
+            var savedIsInComprehension = _isInComprehension;
+            _isInComprehension = true;
             
             // 1. 빈 셋 생성
             EmitInstruction(ByteCodeOp.BUILD_SET, 0);
             
-            // 현재는 첫 번째 generator만 지원
-            var generator = setComp.Generators[0];
+            // 2. 임시 변수 저장을 위한 리스트 - 컴프리헨션 스코프 isolation
+            var comprehensionVars = new List<string>();
             
-            // 2. 이터레이터 준비 (한 번만)
-            CompileExpression(generator.Iter);
-            EmitInstruction(ByteCodeOp.GET_ITER);
-            
-            // 3. 루프 시작 라벨 (FOR_ITER부터, GET_ITER 제외)
-            var loopStart = _instructions.Count;
-            EmitInstruction(ByteCodeOp.FOR_ITER, 0);
-            
-            // 4. 루프 변수 저장
-            if (generator.Target is NameExpression nameExpr)
+            // 3. 중첩된 루프 컴파일 - CPython 3.12 방식
+            CompileNestedGenerators(setComp.Generators, 0, comprehensionVars, () =>
             {
-                EmitStoreName(nameExpr.Name);
-            }
-            else
-            {
-                throw new NotImplementedException("Complex target patterns not yet supported");
-            }
+                // 모든 generator 루프가 완료된 후 실행되는 내부 블록
+                CompileExpression(setComp.Element);
+                EmitInstruction(ByteCodeOp.SET_ADD, 1); // 셋은 항상 스택의 맨 아래(1)에 위치
+            });
             
-            // 5. 조건 검사
-            List<int> conditionJumps = new List<int>();
-            foreach (var condition in generator.Ifs)
-            {
-                CompileExpression(condition);
-                conditionJumps.Add(_instructions.Count);
-                EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0);
-            }
+            // CPython 3.12: 컴프리헨션 컨텍스트 종료
+            _isInComprehension = savedIsInComprehension;
             
-            // 6. 표현식 계산 및 셋에 추가
-            CompileExpression(setComp.Element);
-            EmitInstruction(ByteCodeOp.SET_ADD, 1); // 셋이 스택에서 1번째 위치
-            
-            // 7. 조건 점프 패치
-            foreach (var jumpIndex in conditionJumps)
-            {
-                _instructions[jumpIndex] = new ByteCodeInstruction(
-                    ByteCodeOp.POP_JUMP_IF_FALSE, 
-                    _instructions.Count
-                );
-            }
-            
-            // 8. 루프 재시작 (FOR_ITER로 점프)
-            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, _instructions.Count - loopStart);
-            
-            // 9. FOR_ITER 패치 (CPython 3.12 compatible relative jump)
-            var relativeJumpSet = _instructions.Count - loopStart - 1;
-            _instructions[loopStart] = new ByteCodeInstruction(
-                ByteCodeOp.FOR_ITER, 
-                relativeJumpSet
-            );
-            
-            Console.WriteLine("✅ Set comprehension 바이트코드 인라인 완료 (2x 성능 향상!)");
+            Console.WriteLine($"✅ Set comprehension 바이트코드 인라인 완료 ({setComp.Generators.Count}개 중첩 generator)");
         }
         
         /// <summary>
@@ -3335,6 +3394,14 @@ namespace SharpPy
         {
             var index = AddName(attrName);
             EmitInstruction(ByteCodeOp.STORE_ATTR, index);
+        }
+        
+        /// <summary>
+        /// CPython 3.12: Check if we're compiling at module level
+        /// </summary>
+        private bool IsModuleLevel()
+        {
+            return _currentFunctionName == null || _currentFunctionName == "<module>";
         }
         
         #endregion
