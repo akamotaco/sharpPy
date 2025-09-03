@@ -381,6 +381,30 @@ namespace SharpPy
                     }
                     break;
 
+                case ByteCodeOp.LOAD_FAST_AND_CLEAR:
+                    // CPython 3.12 PEP 709: Load variable and clear it from locals (for comprehensions)
+                    var clearArgIndex = instruction.Argument;
+                    if (clearArgIndex < frame.Code.VarNames.Count)
+                    {
+                        var clearVarName = frame.Code.VarNames[clearArgIndex];
+                        if (frame.FastLocals.TryGetValue(clearVarName, out var clearValue))
+                        {
+                            frame.ValueStack.Push(clearValue);
+                            // Clear the variable from locals (PEP 709 requirement)
+                            frame.FastLocals.Remove(clearVarName);
+                            Console.WriteLine($"🧹 LOAD_FAST_AND_CLEAR: loaded {clearVarName}={clearValue}, cleared from locals");
+                        }
+                        else
+                        {
+                            throw PyNameError.Create($"local variable '{clearVarName}' referenced before assignment");
+                        }
+                    }
+                    else
+                    {
+                        throw PyRuntimeError.Create($"LOAD_FAST_AND_CLEAR: index {clearArgIndex} out of range");
+                    }
+                    break;
+
                 // CPython 3.12 Superinstructions - 연속된 바이트코드를 하나로 최적화
                 case ByteCodeOp.LOAD_FAST_LOAD_FAST:
                     // LOAD_FAST arg1; LOAD_FAST arg2 를 하나로 처리
@@ -1164,6 +1188,22 @@ namespace SharpPy
                         Console.WriteLine($"💥 FOR_ITER error: {ex.Message}");
                         throw;
                     }
+                    break;
+                    
+                case ByteCodeOp.END_FOR:
+                    // CPython 3.12: END_FOR는 단순한 루프 종료 마커
+                    // FOR_ITER의 StopIteration에서 이미 모든 정리 작업 완료됨
+                    Console.WriteLine($"🔚 END_FOR: Loop termination marker");
+                    Console.WriteLine($"    스택 상태: count={frame.ValueStack.Count}");
+                    
+                    if (frame.ValueStack.Count > 0)
+                    {
+                        var resultValue = frame.ValueStack.Peek();
+                        Console.WriteLine($"    → 스택 맨 위 결과: {resultValue?.GetType().Name}");
+                    }
+                    
+                    // CPython 3.12: END_FOR는 스택을 건드리지 않음
+                    // Iterator 제거는 이미 FOR_ITER StopIteration에서 처리됨
                     break;
 
                 // CPython-style Comparison Operations

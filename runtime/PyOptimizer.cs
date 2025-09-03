@@ -376,7 +376,58 @@ namespace SharpPy
                                 recalculated++;
                             }
                             
-                            // 하나의 FOR_ITER당 하나의 JUMP_BACKWARD만 처리
+                            // 중첩 루프를 위해 모든 JUMP_BACKWARD 처리 (하나만 처리하지 말고 계속)
+                            // break; // 제거: 중첩 루프에서 여러 JUMP_BACKWARD가 있을 수 있음
+                        }
+                        
+                        // 다른 FOR_ITER나 함수 끝을 만나면 중단
+                        if (laterInst.OpCode == ByteCodeOp.FOR_ITER || 
+                            laterInst.OpCode == ByteCodeOp.RETURN_VALUE)
+                        {
+                            break;
+                        }
+                    }
+                    
+                    // 동일한 FOR 루프의 POP_JUMP_IF_FALSE 조건부 점프 재계산
+                    for (int j = forIterPos + 1; j < _instructions.Count; j++)
+                    {
+                        var laterInst = _instructions[j];
+                        
+                        if (laterInst.OpCode == ByteCodeOp.POP_JUMP_IF_FALSE)
+                        {
+                            int jumpPos = j;
+                            int currentTarget = laterInst.Argument;
+                            
+                            // 조건부 점프 타겟 재계산 - 더 관대한 조건으로 수정
+                            bool shouldPointToForIter = false;
+                            
+                            // 1. 기존 조건: FOR_ITER + 1을 가리키는 경우
+                            if (currentTarget == forIterPos + 1)
+                            {
+                                shouldPointToForIter = true;
+                            }
+                            // 2. FOR_ITER 근처를 가리키는 경우 (최적화로 인한 위치 변경)
+                            else if (currentTarget >= forIterPos - 3 && currentTarget <= forIterPos + 5)
+                            {
+                                shouldPointToForIter = true;
+                            }
+                            // 3. 자기 자신 근처를 가리켜 무한 루프를 만드는 경우
+                            else if (currentTarget >= jumpPos - 5 && currentTarget <= jumpPos + 2)
+                            {
+                                shouldPointToForIter = true;
+                            }
+                            
+                            if (shouldPointToForIter)
+                            {
+                                _instructions[j] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, forIterPos);
+                                Console.WriteLine($"  🔧 조건부 점프 POP_JUMP_IF_FALSE[{j}]: {currentTarget} → {forIterPos} (FOR_ITER)");
+                                recalculated++;
+                            }
+                        }
+                        
+                        // JUMP_BACKWARD까지만 처리 (해당 FOR 루프 완료)
+                        if (laterInst.OpCode == ByteCodeOp.JUMP_BACKWARD)
+                        {
                             break;
                         }
                         
@@ -390,6 +441,54 @@ namespace SharpPy
                 }
             }
             
+            // CPython 3.12 방식: FOR_ITER → END_FOR 구조 점프 오프셋 재계산
+            // Superinstructions로 인해 명령어 위치가 변경되므로 FOR_ITER 오프셋도 업데이트 필요
+            
+            Console.WriteLine("🔄 FOR_ITER → END_FOR 점프 오프셋 재계산 중...");
+            for (int i = 0; i < _instructions.Count; i++)
+            {
+                var instruction = _instructions[i];
+                if (instruction.OpCode == ByteCodeOp.FOR_ITER)
+                {
+                    // FOR_ITER에서 대응하는 END_FOR 찾기
+                    int targetEndFor = FindMatchingEndFor(i);
+                    if (targetEndFor >= 0)
+                    {
+                        int newOffset = targetEndFor - i - 1;
+                        if (newOffset != instruction.Argument)
+                        {
+                            _instructions[i] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, newOffset);
+                            Console.WriteLine($"  🔧 FOR_ITER[{i}]: 오프셋 {instruction.Argument} → {newOffset} (END_FOR at {targetEndFor})");
+                            recalculated++;
+                        }
+                    }
+                }
+            }
+
+            // 중첩 루프 JUMP_BACKWARD 재계산 추가
+            Console.WriteLine("🔄 중첩 루프 JUMP_BACKWARD → FOR_ITER 점프 오프셋 재계산 중...");
+            for (int i = 0; i < _instructions.Count; i++)
+            {
+                var instruction = _instructions[i];
+                if (instruction.OpCode == ByteCodeOp.JUMP_BACKWARD)
+                {
+                    // JUMP_BACKWARD에서 올바른 FOR_ITER 타겟 찾기
+                    int targetForIter = FindMatchingForIter(i);
+                    if (targetForIter >= 0)
+                    {
+                        int currentOffset = instruction.Argument;
+                        int correctOffset = i - targetForIter;
+                        
+                        if (currentOffset != correctOffset)
+                        {
+                            _instructions[i] = new ByteCodeInstruction(ByteCodeOp.JUMP_BACKWARD, correctOffset);
+                            Console.WriteLine($"  🔧 중첩 JUMP_BACKWARD[{i}]: 오프셋 {currentOffset} → {correctOffset} (FOR_ITER at {targetForIter})");
+                            recalculated++;
+                        }
+                    }
+                }
+            }
+            
             if (recalculated > 0)
             {
                 Console.WriteLine($"✅ 점프 오프셋 재계산 완료: {recalculated}개 명령어 수정");
@@ -398,6 +497,70 @@ namespace SharpPy
             {
                 Console.WriteLine("✅ 점프 오프셋 재계산 완료: 수정 필요 없음");
             }
+        }
+        
+        /// <summary>
+        /// 주어진 FOR_ITER 명령어에 대응하는 END_FOR 위치 찾기
+        /// CPython 3.12 FOR_ITER → END_FOR 구조에서 매칭되는 END_FOR 찾기
+        /// </summary>
+        private int FindMatchingEndFor(int forIterPos)
+        {
+            // FOR_ITER에서 시작해서 대응하는 END_FOR 찾기
+            // 중첩된 루프를 고려해야 함
+            int nestedLevel = 0;
+            
+            for (int i = forIterPos + 1; i < _instructions.Count; i++)
+            {
+                var instruction = _instructions[i];
+                
+                if (instruction.OpCode == ByteCodeOp.FOR_ITER)
+                {
+                    nestedLevel++;
+                }
+                else if (instruction.OpCode == ByteCodeOp.END_FOR)
+                {
+                    if (nestedLevel == 0)
+                    {
+                        // 이것이 매칭되는 END_FOR
+                        return i;
+                    }
+                    nestedLevel--;
+                }
+            }
+            
+            return -1; // 매칭되는 END_FOR을 찾지 못함
+        }
+        
+        /// <summary>
+        /// 주어진 JUMP_BACKWARD 명령어에 대응하는 FOR_ITER 위치 찾기
+        /// 중첩 루프에서 JUMP_BACKWARD가 어떤 FOR_ITER로 돌아가야 하는지 계산
+        /// </summary>
+        private int FindMatchingForIter(int jumpBackPos)
+        {
+            // JUMP_BACKWARD에서 뒤쪽으로 가면서 매칭되는 FOR_ITER 찾기
+            // 중첩된 루프를 고려해야 함
+            int nestedLevel = 0;
+            
+            for (int i = jumpBackPos - 1; i >= 0; i--)
+            {
+                var instruction = _instructions[i];
+                
+                if (instruction.OpCode == ByteCodeOp.END_FOR)
+                {
+                    nestedLevel++;
+                }
+                else if (instruction.OpCode == ByteCodeOp.FOR_ITER)
+                {
+                    if (nestedLevel == 0)
+                    {
+                        // 이것이 매칭되는 FOR_ITER
+                        return i;
+                    }
+                    nestedLevel--;
+                }
+            }
+            
+            return -1; // 매칭되는 FOR_ITER을 찾지 못함
         }
     }
 }

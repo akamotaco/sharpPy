@@ -1943,8 +1943,11 @@ namespace SharpPy
             var jumpOffset = currentPosition - forIterInstruction - 1;
             EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpOffset);
             
-            // 6. Loop completed normally - execute else clause if present
-            var normalCompletionPoint = _instructions.Count;
+            // 6. CPython 3.12 방식: END_FOR 추가 (통합 구조)
+            var endForPosition = _instructions.Count;
+            EmitInstruction(ByteCodeOp.END_FOR, 0);
+            
+            // 7. Loop completed normally - execute else clause if present
             if (forStmt.ElseClause != null && forStmt.ElseClause.Count > 0)
             {
                 foreach (var stmt in forStmt.ElseClause)
@@ -1953,11 +1956,10 @@ namespace SharpPy
                 }
             }
             
-            // 7. Patch FOR_ITER to jump here when StopIteration occurs (skipping else)
-            var loopEnd = _instructions.Count;
-            // CPython 3.12: FOR_ITER uses relative jump (target - current_position - 1)
-            var relativeJump = loopEnd - forIterInstruction - 1;
+            // 8. Patch FOR_ITER to jump to END_FOR (CPython 3.12 통합 방식)
+            var relativeJump = endForPosition - forIterInstruction - 1;
             _instructions[forIterInstruction] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, relativeJump);
+            Console.WriteLine($"    → FOR_ITER 패치 (일반 루프): loop start {forIterInstruction}, jump offset {relativeJump}, END_FOR at {endForPosition}");
             
             // Note: Break statements will need to jump past the else clause to loopEnd
             // This requires break handling to be aware of loop-else structure
@@ -2002,8 +2004,11 @@ namespace SharpPy
             var jumpOffset = currentPosition - forIterInstruction - 1;
             EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpOffset);
             
-            // 7. Loop completed normally - execute else clause if present
-            var normalCompletionPoint = _instructions.Count;
+            // 7. CPython 3.12 방식: END_FOR 추가 (통합 구조)
+            var endForPosition = _instructions.Count;
+            EmitInstruction(ByteCodeOp.END_FOR, 0);
+            
+            // 8. Loop completed normally - execute else clause if present
             if (forTupleStmt.ElseClause != null && forTupleStmt.ElseClause.Count > 0)
             {
                 foreach (var stmt in forTupleStmt.ElseClause)
@@ -2012,11 +2017,10 @@ namespace SharpPy
                 }
             }
             
-            // 8. Patch FOR_ITER to jump here when StopIteration occurs
-            var loopEnd = _instructions.Count;
-            // CPython 3.12: FOR_ITER uses relative jump (target - current_position - 1)
-            var relativeJump = loopEnd - forIterInstruction - 1;
+            // 9. Patch FOR_ITER to jump to END_FOR (CPython 3.12 통합 방식)
+            var relativeJump = endForPosition - forIterInstruction - 1;
             _instructions[forIterInstruction] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, relativeJump);
+            Console.WriteLine($"    → FOR_ITER 패치 (튜플 루프): loop start {forIterInstruction}, jump offset {relativeJump}, END_FOR at {endForPosition}");
         }
         
         /// <summary>
@@ -3161,18 +3165,50 @@ namespace SharpPy
             {
                 _instructions[jumpIndex] = new ByteCodeInstruction(
                     ByteCodeOp.POP_JUMP_IF_FALSE, 
-                    loopStart  // FOR_ITER 위치로 점프 (29번이어야 함)
+                    loopStart  // FOR_ITER 위치로 점프
                 );
             }
             
-            // FOR_ITER 종료 지점 패치 - 루프 종료 시 다음 명령어로 점프
-            // CPython 3.12 호환: VM에서 현재 위치 + offset + 1 (메인 루프 증가)이므로 offset을 -2 조정
-            var relativeJump = _instructions.Count - loopStart - 2;
+            // CPython 3.12 방식: FOR_ITER → END_FOR 점프 구조
+            // END_FOR에서 루프 종료 시 정리 작업 수행
+            
+            Console.WriteLine($"🔧 FOR_ITER 패치 전 상태:");
+            Console.WriteLine($"    Generator[{currentIndex}]: {generator.Target} in {generator.Iter}");
+            Console.WriteLine($"    현재 바이트코드 길이: {_instructions.Count}");
+            Console.WriteLine($"    FOR_ITER 위치: {loopStart}");
+            
+            // END_FOR 명령어 추가 (CPython 3.12 패턴)
+            int endForPosition = _instructions.Count;
+            EmitInstruction(ByteCodeOp.END_FOR, 0);
+            Console.WriteLine($"    END_FOR 추가 위치: {endForPosition}");
+            
+            // CPython 3.12와 동일한 오프셋 계산
+            // FOR_ITER 실행 시: InstructionPointer += argument, 그 후 메인 루프 +1
+            // 따라서 END_FOR에 도달하려면: endForPosition - loopStart - 1
+            var relativeJump = endForPosition - loopStart - 1;
+            var originalInstruction = _instructions[loopStart];
             _instructions[loopStart] = new ByteCodeInstruction(
                 ByteCodeOp.FOR_ITER, 
                 relativeJump
             );
-            Console.WriteLine($"    → FOR_ITER 패치: loop start {loopStart}, jump offset {relativeJump}, target {_instructions.Count}");
+            Console.WriteLine($"🔧 FOR_ITER 패치 완료:");
+            Console.WriteLine($"    위치 {loopStart}: 원래 인수 {originalInstruction.Argument} → 새 인수 {relativeJump}");
+            Console.WriteLine($"    점프 계산: END_FOR({endForPosition}) - FOR_ITER({loopStart}) - 1 = {relativeJump}");
+            Console.WriteLine($"    VM 실행 시 점프될 위치: {loopStart + 1 + relativeJump}");
+            
+            // Dict comprehension의 경우 STORE_GLOBAL이 건너뛰어지는 문제 디버깅
+            if (_isInComprehension)
+            {
+                Console.WriteLine($"📋 Comprehension 컨텍스트에서 FOR_ITER 패치:");
+                Console.WriteLine($"    다음 명령어들 위치 예상:");
+                for (int i = endForPosition + 1; i < Math.Min(endForPosition + 5, _instructions.Count); i++)
+                {
+                    if (i < _instructions.Count)
+                    {
+                        Console.WriteLine($"    위치 {i}: {_instructions[i].OpCode} {_instructions[i].Argument}");
+                    }
+                }
+            }
         }
         
         /// <summary>
@@ -3223,30 +3259,44 @@ namespace SharpPy
         private void CompileDictComprehension(DictComprehension dictComp)
         {
             Console.WriteLine("🚀 PEP 709: Dict comprehension 바이트코드 인라인 컴파일 (중첩 Generator 지원)");
+            Console.WriteLine($"📊 Dict comprehension 시작 위치: {_instructions.Count}");
             
             // CPython 3.12: 컴프리헨션 컨텍스트 시작
             var savedIsInComprehension = _isInComprehension;
             _isInComprehension = true;
             
             // 1. 빈 딕셔너리 생성
+            var buildMapPosition = _instructions.Count;
             EmitInstruction(ByteCodeOp.BUILD_MAP, 0);
+            Console.WriteLine($"🔧 BUILD_MAP 위치: {buildMapPosition}");
             
             // 2. 임시 변수 저장을 위한 리스트 - 컴프리헨션 스코프 isolation
             var comprehensionVars = new List<string>();
             
             // 3. 중첩된 루프 컴파일 - CPython 3.12 방식
+            Console.WriteLine($"🔄 CompileNestedGenerators 호출 전 위치: {_instructions.Count}");
             CompileNestedGenerators(dictComp.Generators, 0, comprehensionVars, () =>
             {
                 // 모든 generator 루프가 완료된 후 실행되는 내부 블록
+                var innerBlockStart = _instructions.Count;
+                Console.WriteLine($"🎯 Dict comprehension 내부 블록 시작: {innerBlockStart}");
+                
                 CompileExpression(dictComp.Key);
                 CompileExpression(dictComp.Value);
+                
+                var mapAddPosition = _instructions.Count;
                 EmitInstruction(ByteCodeOp.MAP_ADD, 1); // 딕셔너리는 항상 스택의 맨 아래(1)에 위치
+                Console.WriteLine($"🗝️ MAP_ADD 위치: {mapAddPosition}");
             });
+            
+            var afterNestedGenerators = _instructions.Count;
+            Console.WriteLine($"🔄 CompileNestedGenerators 완료 후 위치: {afterNestedGenerators}");
             
             // CPython 3.12: 컴프리헨션 컨텍스트 종료
             _isInComprehension = savedIsInComprehension;
             
             Console.WriteLine($"✅ Dict comprehension 바이트코드 인라인 완료 ({dictComp.Generators.Count}개 중첩 generator)");
+            Console.WriteLine($"📊 Dict comprehension 최종 위치: {_instructions.Count}");
         }
         
         /// <summary>
