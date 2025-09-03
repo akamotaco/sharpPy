@@ -1698,6 +1698,33 @@ namespace SharpPy
                     
                     // PyYieldFrom 예외를 던져서 제너레이터 위임 요청
                     throw new PyYieldFromException(delegatedIterable);
+
+                // CPython 3.12 슬라이싱 연산 지원
+                case ByteCodeOp.BINARY_SLICE:
+                    // Stack: TOS = stop, TOS1 = start, TOS2 = container
+                    // Result: container[start:stop]
+                    var sliceStop = frame.ValueStack.Pop();
+                    var sliceStart = frame.ValueStack.Pop();
+                    var sliceContainer = frame.ValueStack.Pop();
+                    
+                    // PySlice 객체 생성하여 실제 슬라이싱 수행
+                    var slice = new PySlice(sliceStart, sliceStop);
+                    var sliceResult = sliceContainer.GetItem(slice);
+                    frame.ValueStack.Push(sliceResult);
+                    break;
+                    
+                case ByteCodeOp.STORE_SLICE:
+                    // Stack: TOS = value, TOS1 = stop, TOS2 = start, TOS3 = container  
+                    // Result: container[start:stop] = value
+                    var sliceValue = frame.ValueStack.Pop();
+                    var sliceStoreStop = frame.ValueStack.Pop();
+                    var sliceStoreStart = frame.ValueStack.Pop();
+                    var sliceStoreContainer = frame.ValueStack.Pop();
+                    
+                    // PySlice 객체 생성하여 실제 슬라이스 할당 수행
+                    var storeSlice = new PySlice(sliceStoreStart, sliceStoreStop);
+                    sliceStoreContainer.SetItem(storeSlice, sliceValue);
+                    break;
                     
                 default:
                     throw new NotImplementedException($"OpCode {instruction.OpCode} not implemented");

@@ -91,7 +91,7 @@ namespace SharpPy
                     default:
                         throw PyValueError.Create($"invalid mode: '{_mode}'");
                 }
-                
+
                 return this; // Return self as per CPython
             }
             catch (Exception ex)
@@ -135,7 +135,7 @@ namespace SharpPy
         {
             if (_closed || _reader == null)
                 throw PyValueError.Create("I/O operation on closed file.");
-                
+
             try
             {
                 var content = _reader.ReadToEnd();
@@ -151,7 +151,7 @@ namespace SharpPy
         {
             if (_closed || _writer == null)
                 throw PyValueError.Create("I/O operation on closed file.");
-                
+
             try
             {
                 var content = text.ToStr();
@@ -211,14 +211,14 @@ namespace SharpPy
         public override PyObject Exit(PyObject excType, PyObject excValue, PyObject traceback)
         {
             Console.WriteLine($"Exiting context: {_name}");
-            
+
             // Return True to suppress ValueError, False otherwise
             if (excValue is PyValueError)
             {
                 Console.WriteLine($"Suppressing ValueError in context: {_name}");
                 return PyBool.True;
             }
-            
+
             return PyBool.False;
         }
     }

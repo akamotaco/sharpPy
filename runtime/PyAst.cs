@@ -466,7 +466,8 @@ namespace SharpPy
         {
             Console.WriteLine($"📋 FunctionDefStatement.Evaluate 실행: {Name}");
             
-            // 제네릭 함수는 PyExecutor를 사용
+            // 제네릭 함수도 일반 함수처럼 실행 (임시 해결책)
+            // TODO: 적절한 제네릭 타입 시스템 구현
             if (TypeParams.Any())
             {
                 return PyExecutor.ExecuteGenericFunction(this, scope);
@@ -759,7 +760,8 @@ namespace SharpPy
         
         public override PyObject Evaluate(PyScope scope)
         {
-            // 제네릭 클래스는 PyExecutor를 사용
+            // 제네릭 클래스도 일반 클래스처럼 실행 (임시 해결책)
+            // TODO: 적절한 제네릭 타입 시스템 구현
             if (TypeParams.Any())
             {
                 return PyExecutor.ExecuteGenericClass(this, scope);

@@ -413,15 +413,78 @@ namespace SharpPy
         /// </summary>
         public static PyObject ExecuteGenericFunction(FunctionDefStatement funcDef, PyScope scope)
         {
-            // Type parameters를 C# 제네릭 정보로 변환
+            Console.WriteLine($"🔧 Executing generic function: {funcDef.Name}[{string.Join(", ", funcDef.TypeParams)}]");
+            
+            // 1. 제네릭 타입 정보 생성
             var typeInfo = new GenericTypeInfo(funcDef.TypeParams);
             
-            // 제네릭 함수를 PyFunction으로 생성 (간단한 구현)
-            var genericFunc = new PyGenericFunction(funcDef.Name, args => PyNone.Instance, typeInfo);
+            // 2. 매개변수와 기본값 파싱
+            var (paramNames, defaults) = ParseParametersAndDefaults(funcDef.Parameters, scope);
+            
+            // 3. 함수 본체를 바이트코드로 컴파일
+            var compiler = new PythonCompiler();
+            var bytecode = compiler.Compile(funcDef.Body, funcDef.Name, paramNames);
+            
+            // 4. 제네릭 함수 생성 - 실제 호출 가능한 구현
+            var genericFunc = new PyGenericFunction(funcDef.Name, args =>
+            {
+                // 제네릭 함수 호출 시 타입 파라미터는 추론 또는 기본값 사용
+                var functionScope = new PyScope(ScopeType.Local, scope, funcDef.Name);
+                
+                // 타입 파라미터를 함수 스코프에 추가 (임시로 문자열로 저장)
+                foreach (var typeParam in funcDef.TypeParams)
+                {
+                    functionScope.SetVariable(typeParam, new PyString(typeParam));
+                }
+                
+                // 함수 실행
+                var vm = PyVM.Instance;
+                var scopeChain = new PyScopeChain();
+                scopeChain.PushScope(ScopeType.Local, funcDef.Name, scope);
+                return vm.ExecuteModule(bytecode, scopeChain);
+            }, typeInfo);
+            
+            // 5. 함수를 스코프에 등록
             scope.SetVariable(funcDef.Name, genericFunc);
             
-            Console.WriteLine($"📝 Generic function defined: {funcDef.Name}[{string.Join(", ", funcDef.TypeParams)}]");
+            Console.WriteLine($"✅ Generic function complete: {funcDef.Name}[{string.Join(", ", funcDef.TypeParams)}]");
             return genericFunc;
+        }
+        
+        /// <summary>
+        /// 매개변수와 기본값을 분리하는 헬퍼 메서드
+        /// </summary>
+        private static (List<string> paramNames, List<PyObject> defaults) ParseParametersAndDefaults(
+            List<string> parameters, PyScope scope)
+        {
+            var paramNames = new List<string>();
+            var defaults = new List<PyObject>();
+            
+            foreach (var param in parameters)
+            {
+                if (param.Contains('='))
+                {
+                    var parts = param.Split('=', 2);
+                    paramNames.Add(parts[0].Trim());
+                    
+                    // 기본값 파싱 (간단한 구현)
+                    var defaultValue = parts[1].Trim();
+                    if (defaultValue == "None")
+                        defaults.Add(PyNone.Instance);
+                    else if (int.TryParse(defaultValue, out int intVal))
+                        defaults.Add(new PyInt(intVal));
+                    else if (defaultValue.StartsWith('"') && defaultValue.EndsWith('"'))
+                        defaults.Add(new PyString(defaultValue.Trim('"')));
+                    else
+                        defaults.Add(PyNone.Instance);
+                }
+                else
+                {
+                    paramNames.Add(param);
+                }
+            }
+            
+            return (paramNames, defaults);
         }
         
         /// <summary>
@@ -429,11 +492,79 @@ namespace SharpPy
         /// </summary>
         public static PyObject ExecuteGenericClass(ClassDefStatement classDef, PyScope scope)
         {
+            Console.WriteLine($"🔧 Executing generic class: {classDef.Name}[{string.Join(", ", classDef.TypeParams)}]");
+            
+            // 1. 상속 클래스 평가
+            var baseTypes = new List<PyType>();
+            foreach (var baseExpr in classDef.Bases)
+            {
+                var baseObj = baseExpr.Evaluate(scope);
+                if (baseObj is PyType baseType)
+                {
+                    baseTypes.Add(baseType);
+                }
+                else
+                {
+                    throw PyTypeError.Create($"Base class must be a type, not {baseObj.GetTypeName()}");
+                }
+            }
+            
+            // 2. 메타클래스 처리
+            PyType? metaclass = null;
+            if (classDef.Metaclass != null)
+            {
+                var metaclassObj = classDef.Metaclass.Evaluate(scope);
+                if (metaclassObj is PyType metaType)
+                {
+                    metaclass = metaType;
+                }
+            }
+            
+            // 3. 제네릭 타입 정보 생성
             var typeInfo = new GenericTypeInfo(classDef.TypeParams);
-            var genericClass = new PyGenericClass(classDef.Name, new PyType[0], typeInfo);
+            
+            // 4. 클래스 네임스페이스 생성 및 본체 실행
+            var classNamespace = new Dictionary<string, PyObject>();
+            var classScope = new PyScope(ScopeType.Class, scope, classDef.Name);
+            
+            // 5. 타입 파라미터를 클래스 스코프에 추가
+            foreach (var typeParam in classDef.TypeParams)
+            {
+                // 타입 파라미터를 문자열로 저장 (실제 타입은 인스턴스화 시 결정)
+                classScope.SetVariable(typeParam, new PyString(typeParam));
+            }
+            
+            // 6. 클래스 본체 실행
+            foreach (var stmt in classDef.Body)
+            {
+                var result = stmt.Evaluate(classScope);
+                
+                // 함수 정의는 클래스 네임스페이스에 추가
+                if (stmt is FunctionDefStatement funcDef)
+                {
+                    classNamespace[funcDef.Name] = result;
+                }
+                else if (stmt is AssignStatement assignStmt)
+                {
+                    // 클래스 변수 할당 처리
+                    var value = assignStmt.Value.Evaluate(classScope);
+                    classNamespace[assignStmt.VariableName] = value;
+                }
+            }
+            
+            // 7. PyGenericClass 생성
+            var genericClass = new PyGenericClass(classDef.Name, baseTypes.ToArray(), typeInfo);
+            
+            // 8. 네임스페이스를 클래스에 설정
+            foreach (var kvp in classNamespace)
+            {
+                genericClass.SetAttribute(kvp.Key, kvp.Value);
+            }
+            
+            // 9. 클래스를 스코프에 등록
             scope.SetVariable(classDef.Name, genericClass);
             
-            Console.WriteLine($"📝 Generic class defined: {classDef.Name}[{string.Join(", ", classDef.TypeParams)}]");
+            Console.WriteLine($"✅ Generic class complete: {classDef.Name} with {classNamespace.Count} members");
             return genericClass;
         }
         
