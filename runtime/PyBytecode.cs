@@ -3,6 +3,29 @@ using System.Linq;
 namespace SharpPy
 {
     
+#region Exception Table System (CPython 3.12)
+
+    // CPython 3.12 Exception Table Entry
+    public class ExceptionTableEntry 
+    {
+        public int StartOffset { get; set; }      // 보호 구간 시작
+        public int EndOffset { get; set; }        // 보호 구간 끝
+        public int HandlerOffset { get; set; }    // 핸들러 시작 위치
+        public int Depth { get; set; }            // 스택 depth 
+        public bool Lasti { get; set; }           // last instruction 플래그
+        
+        public ExceptionTableEntry(int start, int end, int handler, int depth, bool lasti = true)
+        {
+            StartOffset = start;
+            EndOffset = end;
+            HandlerOffset = handler;
+            Depth = depth;
+            Lasti = lasti;
+        }
+    }
+
+#endregion
+    
 #region Bytecode System Extension
 
     // 바이트코드 명령어들 (Python 3.12 기준)
@@ -120,6 +143,8 @@ namespace SharpPy
         END_FINALLY = 133,    // finally 블록 종료
         RERAISE = 134,        // 예외 재발생
         RAISE_VARARGS = 135,  // 예외 발생
+        PUSH_EXC_INFO = 137,  // CPython 3.12: 예외 정보를 스택에 푸시 (exc_type, exc_value, exc_traceback, lasti)
+        POP_EXCEPT = 138,     // CPython 3.12: 예외 핸들러 정리
         
         // with 문 관련 (CPython 3.12 호환)
         BEFORE_WITH = 132,    // with 블록 시작 전 준비 (__exit__ 로드, __enter__ 호출)
@@ -193,8 +218,7 @@ namespace SharpPy
         BUILD_CONST_KEY_MAP = 222, // 상수 키 맵 생성
         LOAD_ASSERTION_ERROR = 223, // AssertionError 로드
         
-        // 추가 예외 처리 opcodes
-        POP_EXCEPT = 230,     // 예외 블록 종료
+        // 추가 예외 처리 opcodes  
         EXCEPT_MATCH = 231,   // 예외 타입 매칭
         CHECK_EG_MATCH = 232, // ExceptionGroup 매칭 (PEP 654)
         
@@ -268,6 +292,9 @@ namespace SharpPy
         
         // CPython 호환 매개변수 기본값 지원 (Phase 3)
         public List<PyObject> DefaultValues { get; set; } = new List<PyObject>(); // 매개변수 기본값들 (NULL이면 기본값 없음)
+        
+        // CPython 3.12 Exception Table 지원
+        public List<ExceptionTableEntry> ExceptionTable { get; set; } = new List<ExceptionTableEntry>();
         
         public PyCodeObject(string name, List<ByteCodeInstruction> instructions, 
                         List<PyObject> constants, List<string> names, 

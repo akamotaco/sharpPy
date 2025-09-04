@@ -50,17 +50,20 @@ namespace SharpPy
                 Console.WriteLine("2️⃣ 컴파일: AST → 바이트코드");
                 Console.WriteLine(new string('=', 30));
                 var codeObject = _compiler.Compile(statements);
+                Console.WriteLine($"🔍 컴파일 직후 Exception Table entries: {codeObject.ExceptionTable.Count}");
                 
                 // 3단계: 디스어셈블리
                 Console.WriteLine("\n" + new string('=', 30));
                 Console.WriteLine("3️⃣ 바이트코드 확인");
                 Console.WriteLine(new string('=', 30));
                 codeObject.Disassemble();
+                Console.WriteLine($"🔍 디스어셈블리 후 Exception Table entries: {codeObject.ExceptionTable.Count}");
                 
                 // 4단계: VM 실행 (기존 시스템들과 연동)
                 Console.WriteLine("\n" + new string('=', 30));
                 Console.WriteLine("4️⃣ VM 실행 (기존 LEGB 시스템 사용)");
                 Console.WriteLine(new string('=', 30));
+                Console.WriteLine($"🔍 VM 실행 직전 Exception Table entries: {codeObject.ExceptionTable.Count}");
                 var result = _vm.ExecuteModule(codeObject, _globalScope);
                 
                 Console.WriteLine("\n" + new string('=', 60));

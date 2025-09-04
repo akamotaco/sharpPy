@@ -378,6 +378,7 @@ namespace SharpPy
     // AST를 바이트코드로 컴파일 (기존 시스템과 연동)
     public class PythonCompiler
     {
+        private readonly bool _enable_optimizer = true;
         private List<ByteCodeInstruction> _instructions;
         private List<PyObject> _constants;
         private List<string> _names;
@@ -389,6 +390,7 @@ namespace SharpPy
         // Phase 2: 클로저 지원
         private List<string> _cellVars = new List<string>();
         private List<string> _freeVars = new List<string>();
+        private List<ExceptionTableEntry> _exceptionTable = new List<ExceptionTableEntry>(); // CPython 3.12 Exception Table
         
         public PyCodeObject Compile(List<Statement> statements, string name = "<module>")
         {
@@ -401,6 +403,7 @@ namespace SharpPy
             _constants = new List<PyObject>();
             _names = new List<string>();
             _varNames = new List<string>();
+            _exceptionTable = new List<ExceptionTableEntry>(); // Reset Exception Table
             
             // 함수 매개변수를 _varNames에 추가 (LOAD_FAST/STORE_FAST용)
             foreach (var param in parameters)
@@ -420,10 +423,21 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.RETURN_VALUE);
             
             var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, parameters.Count, null, null, null, 0);
+            
+            // Add Exception Table entries (CPython 3.12 compatible)
+            if (_exceptionTable.Count > 0)
+            {
+                codeObject.ExceptionTable.AddRange(_exceptionTable);
+                Console.WriteLine($"📋 Exception Table: {_exceptionTable.Count}개 엔트리 추가됨");
+            }
+            else
+            {
+                Console.WriteLine($"📋 Exception Table: 비어있음 (CPython 3.12 compatible)");
+            }
             Console.WriteLine($"✅ 컴파일 완료: {_instructions.Count}개 명령어");
             
             // 바이트코드 최적화 적용
-            var optimizer = new ByteCodeOptimizer(true);
+            var optimizer = new ByteCodeOptimizer(_enable_optimizer);
             var optimizedCode = optimizer.OptimizeCode(codeObject);
             
             return optimizedCode;
@@ -439,6 +453,7 @@ namespace SharpPy
             _constants = new List<PyObject>();
             _names = new List<string>();
             _varNames = new List<string>();
+            _exceptionTable = new List<ExceptionTableEntry>(); // Reset Exception Table
             
             // 함수 매개변수를 _varNames에 추가 (LOAD_FAST/STORE_FAST용)
             foreach (var param in parameters)
@@ -472,10 +487,13 @@ namespace SharpPy
             
             var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, 
                                             parameters.Count, freeVars, cellVars, null, 0);
+            
+            // Add Exception Table entries (CPython 3.12)
+            codeObject.ExceptionTable.AddRange(_exceptionTable);
             Console.WriteLine($"\u2705 컴파일 완료: {_instructions.Count}개 명령어");
             
             // 바이트코드 최적화 적용
-            var optimizer = new ByteCodeOptimizer(true);
+            var optimizer = new ByteCodeOptimizer(_enable_optimizer);
             var optimizedCode = optimizer.OptimizeCode(codeObject);
             
             return optimizedCode;
@@ -628,6 +646,7 @@ namespace SharpPy
             _constants = new List<PyObject>();
             _names = new List<string>();
             _varNames = new List<string>();
+            _exceptionTable = new List<ExceptionTableEntry>(); // Reset Exception Table
             _isInFunction = true; // We are now compiling inside a function
             _currentFunctionName = name; // Track function name for module level detection
             
@@ -676,10 +695,21 @@ namespace SharpPy
             
             var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, 
                                             paramNames.Count, freeVars, cellVars, defaults, flags);
+            
+            // Add Exception Table entries (CPython 3.12 compatible)
+            if (_exceptionTable.Count > 0)
+            {
+                codeObject.ExceptionTable.AddRange(_exceptionTable);
+                Console.WriteLine($"📋 Exception Table: {_exceptionTable.Count}개 엔트리 추가됨");
+            }
+            else
+            {
+                Console.WriteLine($"📋 Exception Table: 비어있음 (CPython 3.12 compatible)");
+            }
             Console.WriteLine($"✅ 컴파일 완료: {_instructions.Count}개 명령어");
             
             // 바이트코드 최적화 적용
-            var optimizer = new ByteCodeOptimizer(true);
+            var optimizer = new ByteCodeOptimizer(_enable_optimizer);
             var optimizedCode = optimizer.OptimizeCode(codeObject);
             
             _isInFunction = false; // Reset function context
@@ -696,6 +726,7 @@ namespace SharpPy
             _constants = new List<PyObject>();
             _names = new List<string>();
             _varNames = new List<string>();
+            _exceptionTable = new List<ExceptionTableEntry>(); // Reset Exception Table
             _isInFunction = true; // We are now compiling inside a function
             _currentFunctionName = name; // Track function name for module level detection
             
@@ -722,6 +753,9 @@ namespace SharpPy
             // PyCodeObject 생성 (기본값 포함)
             var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, 
                                             paramNames.Count, null, null, defaults, flags);
+            
+            // Add Exception Table entries (CPython 3.12)
+            codeObject.ExceptionTable.AddRange(_exceptionTable);
             Console.WriteLine($"✅ 함수 컴파일 완료: {_instructions.Count}개 명령어");
             
             _isInFunction = false; // Reset function context
@@ -1579,6 +1613,7 @@ namespace SharpPy
             _varNames = new List<string>();
             _cellVars = new List<string>();
             _freeVars = new List<string>();
+            _exceptionTable = new List<ExceptionTableEntry>(); // Reset Exception Table
             
             // For now, disable free variable analysis for class bodies
             // Class bodies will use normal name lookup instead of closure mechanism
@@ -1889,11 +1924,11 @@ namespace SharpPy
                 CompileStatement(stmt);
             }
             
-            // Jump back to loop condition
-            // VM calculation: current_position - argument - 1 = target_position
-            var currentPos = _instructions.Count;
-            var jumpOffset = currentPos - loopStart - 1;
-            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpOffset);
+            // Jump back to loop condition - CPython 3.12 style relative offset
+            // JUMP_BACKWARD argument = number of instructions to jump backward
+            int currentPos = _instructions.Count;
+            int relativeOffset = currentPos - loopStart;
+            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, relativeOffset);
             
             // While completed normally - execute else clause if present
             var normalCompletionPoint = _instructions.Count;
@@ -1936,12 +1971,11 @@ namespace SharpPy
                 CompileStatement(stmt);
             }
             
-            // 5. Jump back to FOR_ITER (not GET_ITER)
-            // VM calculation: current_position - argument - 1 = target_position
-            // So: argument = current_position - target_position - 1
-            var currentPosition = _instructions.Count; // Position where JUMP_BACKWARD will be placed
-            var jumpOffset = currentPosition - forIterInstruction - 1;
-            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpOffset);
+            // 5. Jump back to FOR_ITER (not GET_ITER) - CPython 3.12 style relative offset
+            // JUMP_BACKWARD argument = number of instructions to jump backward
+            int currentPos = _instructions.Count;
+            int relativeOffset = currentPos - forIterInstruction;
+            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, relativeOffset);
             
             // 6. CPython 3.12 방식: END_FOR 추가 (통합 구조)
             var endForPosition = _instructions.Count;
@@ -1997,12 +2031,11 @@ namespace SharpPy
                 CompileStatement(stmt);
             }
             
-            // 6. Jump back to FOR_ITER
-            // VM calculation: current_position - argument - 1 = target_position
-            // So: argument = current_position - target_position - 1
-            var currentPosition = _instructions.Count; // Position where JUMP_BACKWARD will be placed
-            var jumpOffset = currentPosition - forIterInstruction - 1;
-            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpOffset);
+            // 6. Jump back to FOR_ITER - CPython 3.12 style relative offset
+            // JUMP_BACKWARD argument = number of instructions to jump backward
+            int currentPos = _instructions.Count;
+            int relativeOffset = currentPos - forIterInstruction;
+            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, relativeOffset);
             
             // 7. CPython 3.12 방식: END_FOR 추가 (통합 구조)
             var endForPosition = _instructions.Count;
@@ -2075,7 +2108,7 @@ namespace SharpPy
                         // Store matched group if handler has name
                         if (handler.Name != null)
                         {
-                            EmitInstruction(ByteCodeOp.STORE_NAME, AddName(handler.Name));
+                            EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(handler.Name));
                         }
                         else
                         {
@@ -2195,8 +2228,6 @@ namespace SharpPy
         private void CompileSingleWith(WithStatement withStmt)
         {
             var item = withStmt.Items[0];
-            var withCleanupLabel = CreateLabel("with_cleanup");
-            var endLabel = CreateLabel("with_end");
             
             // CPython 3.12 approach with proper exception handling:
             // 1. Load context manager
@@ -2205,11 +2236,7 @@ namespace SharpPy
             // 2. BEFORE_WITH: Load __exit__ to stack, call __enter__(), push result
             EmitInstruction(ByteCodeOp.BEFORE_WITH);
             
-            // 3. Setup exception handler for WITH cleanup
-            EmitInstruction(ByteCodeOp.SETUP_EXCEPT, 0);
-            withCleanupLabel.References.Add(_instructions.Count - 1);
-            
-            // 4. Store __enter__ result in optional variable (if 'as' clause exists)
+            // 3. CPython 3.12: Handle __enter__ result immediately after BEFORE_WITH
             if (item.OptionalVars != null)
             {
                 // For simple variables, just emit STORE_NAME
@@ -2225,41 +2252,52 @@ namespace SharpPy
             }
             else
             {
-                // Discard __enter__ result if no 'as' clause
+                // Discard __enter__ result if no 'as' clause - CPython 3.12 does this immediately
                 EmitInstruction(ByteCodeOp.POP_TOP);
             }
             
-            // 5. Execute body (with exception handling setup)
+            // 4. Setup Exception Table entry (CPython 3.12 compatible)
+            var withCleanupLabel = CreateLabel("with_cleanup");
+            var bodyStartOffset = _instructions.Count;
+            
+            // 5. Execute body
             foreach (var stmt in withStmt.Body)
             {
                 CompileStatement(stmt);
             }
             
-            // 6. Normal exit: Load None and call __exit__(None, None, None)
+            var bodyEndOffset = _instructions.Count;
+            
+            // 6. Register Exception Table entry (CPython 3.12 style)
+            var handlerOffset = _instructions.Count + 7; // handler starts after normal path
+            var entry = new ExceptionTableEntry(
+                start: bodyStartOffset,
+                end: bodyEndOffset, 
+                handler: handlerOffset,
+                depth: 1,
+                lasti: true
+            );
+            _exceptionTable.Add(entry);
+            
+            Console.WriteLine($"🔧 Exception Table Entry Created:");
+            Console.WriteLine($"   Start: {bodyStartOffset}, End: {bodyEndOffset}");
+            Console.WriteLine($"   Handler: {handlerOffset}, Depth: 1");
+            
+            // 7. Normal exit: call __exit__(None, None, None) - no POP_EXCEPT needed
             EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(PyNone.Instance));
             EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(PyNone.Instance)); 
             EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(PyNone.Instance));
             EmitInstruction(ByteCodeOp.CALL_FUNCTION, 3); // call __exit__(None, None, None)
             EmitInstruction(ByteCodeOp.POP_TOP); // discard __exit__ return value
             
-            EmitInstruction(ByteCodeOp.POP_EXCEPT); // cleanup exception handler
+            var endLabel = CreateLabel("with_end");
             EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
             endLabel.References.Add(_instructions.Count - 1);
             
-            // 7. Exception handler: call __exit__ with exception info
+            // 7. Exception handler (CPython 3.12: PUSH_EXC_INFO → WITH_EXCEPT_START)
             MarkLabel(withCleanupLabel);
-            
-            // CPython 3.12: Push exception info to stack for WITH_EXCEPT_START
-            // Stack layout should be: [__exit__ method, exc_value, exc_type, traceback]
-            // The __exit__ method is already preserved from BEFORE_WITH
-            // Exception info is available from the exception handler
-            
-            // Push exception info (CPython order: traceback, exc_type, exc_value)
-            EmitInstruction(ByteCodeOp.LOAD_CONST, GetOrAddConstant(PyNone.Instance)); // traceback (not implemented yet)
-            
+            EmitInstruction(ByteCodeOp.PUSH_EXC_INFO);
             EmitInstruction(ByteCodeOp.WITH_EXCEPT_START);
-            
-            // Check if exception should be suppressed
             EmitInstruction(ByteCodeOp.POP_JUMP_IF_TRUE, 0);
             var suppressLabel = CreateLabel("suppress_exception");
             suppressLabel.References.Add(_instructions.Count - 1);
@@ -2267,11 +2305,14 @@ namespace SharpPy
             // Re-raise exception if not suppressed
             EmitInstruction(ByteCodeOp.RAISE_VARARGS, 0);
             
-            // Exception suppressed - continue normally
+            // Exception suppressed - continue normally (CPython 3.12 compatible)
             MarkLabel(suppressLabel);
-            EmitInstruction(ByteCodeOp.POP_TOP); // clean stack
+            EmitInstruction(ByteCodeOp.POP_TOP);     // First cleanup - remove True from WITH_EXCEPT_START
             
             MarkLabel(endLabel);
+            
+            // CPython 3.12 uses Exception Table instead of SETUP_EXCEPT
+            // SharpPy's existing exception handling should work correctly
         }
         
         /// <summary>
@@ -3156,9 +3197,11 @@ namespace SharpPy
             // 다음 generator 재귀 호출
             CompileNestedGenerators(generators, currentIndex + 1, comprehensionVars, innerBlock);
             
-            // 다음 generator 재귀 호출 후 JUMP_BACKWARD 위치 계산
-            var jumpBackPosition = _instructions.Count;
-            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackPosition - loopStart - 1);
+            // 다음 generator 재귀 호출 후 JUMP_BACKWARD - CPython 3.12 style relative offset
+            // JUMP_BACKWARD argument = number of instructions to jump backward
+            int currentPos = _instructions.Count;
+            int relativeOffset = currentPos - loopStart;
+            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, relativeOffset);
             
             // 조건 점프 대상 패치 - 조건이 거짓이면 FOR_ITER로 점프하여 다음 iteration
             foreach (var jumpIndex in conditionJumps)

@@ -18,6 +18,7 @@ namespace SharpPy
         // CPython-style exception handling support
         public Stack<int> ExceptionHandlers { get; } = new Stack<int>();
         public PyBaseException? LastException { get; set; }
+        public PyBaseException? CurrentException { get; set; } // Current exception for PUSH_EXC_INFO
         
         // CPython 3.12 style generator frame state
         public enum FrameState
@@ -131,7 +132,60 @@ namespace SharpPy
         
         public int? GetExceptionHandler()
         {
-            return ExceptionHandlers.Count > 0 ? ExceptionHandlers.Peek() : null;
+            Console.WriteLine($"🔍 GetExceptionHandler called - IP: {InstructionPointer}");
+            Console.WriteLine($"   Frame: {ToString()}");
+            Console.WriteLine($"   Code Name: {Code.Name}");
+            Console.WriteLine($"   Exception Table entries: {Code.ExceptionTable.Count}");
+            if (Code.ExceptionTable.Count > 0)
+            {
+                Console.WriteLine($"   Exception Table details:");
+                for (int i = 0; i < Code.ExceptionTable.Count; i++)
+                {
+                    var entry = Code.ExceptionTable[i];
+                    Console.WriteLine($"     [{i}] Start: {entry.StartOffset}, End: {entry.EndOffset}, Handler: {entry.HandlerOffset}");
+                }
+            }
+            Console.WriteLine($"   Legacy handlers: {ExceptionHandlers.Count}");
+            
+            // CPython 3.12: Use Exception Table instead of SETUP_EXCEPT stack
+            if (Code.ExceptionTable.Count > 0)
+            {
+                var result = GetExceptionHandlerFromTable();
+                Console.WriteLine($"   Exception Table result: {result}");
+                return result;
+            }
+            
+            // Fallback to legacy SETUP_EXCEPT stack for compatibility
+            var legacyResult = ExceptionHandlers.Count > 0 ? (int?)ExceptionHandlers.Peek() : null;
+            Console.WriteLine($"   Legacy handler result: {legacyResult}");
+            return legacyResult;
+        }
+        
+        // CPython 3.12 Exception Table lookup
+        private int? GetExceptionHandlerFromTable()
+        {
+            var currentOffset = InstructionPointer;
+            Console.WriteLine($"🔍 Searching Exception Table for offset {currentOffset}:");
+            
+            // Search Exception Table for a handler covering current instruction
+            foreach (var entry in Code.ExceptionTable)
+            {
+                Console.WriteLine($"   Entry: Start={entry.StartOffset}, End={entry.EndOffset}, Handler={entry.HandlerOffset}");
+                Console.WriteLine($"   Check: {currentOffset} >= {entry.StartOffset} && {currentOffset} < {entry.EndOffset}");
+                
+                if (currentOffset >= entry.StartOffset && currentOffset < entry.EndOffset)
+                {
+                    Console.WriteLine($"✅ Exception Table: MATCH! Handler at {entry.HandlerOffset} for instruction {currentOffset}");
+                    return entry.HandlerOffset;
+                }
+                else
+                {
+                    Console.WriteLine($"❌ No match for this entry");
+                }
+            }
+            
+            Console.WriteLine($"❌ Exception Table: No handler found for instruction {currentOffset}");
+            return null;
         }
         
         public override string ToString() => $"<frame for {Code.Name}>";
@@ -154,6 +208,17 @@ namespace SharpPy
         // 메인 모듈 실행
         public PyObject ExecuteModule(PyCodeObject codeObject)
         {
+            Console.WriteLine($"🚀 ExecuteModule: Starting execution of {codeObject.Name}");
+            Console.WriteLine($"   Exception Table entries: {codeObject.ExceptionTable.Count}");
+            if (codeObject.ExceptionTable.Count > 0)
+            {
+                for (int i = 0; i < codeObject.ExceptionTable.Count; i++)
+                {
+                    var entry = codeObject.ExceptionTable[i];
+                    Console.WriteLine($"     [{i}] Start: {entry.StartOffset}, End: {entry.EndOffset}, Handler: {entry.HandlerOffset}");
+                }
+            }
+            
             var frame = new PyFrame(codeObject, new PyObject[0], _globalScope);
             return ExecuteFrame(frame);
         }
@@ -161,7 +226,20 @@ namespace SharpPy
         // 메인 모듈 실행 (특정 스코프 체인 사용)
         public PyObject ExecuteModule(PyCodeObject codeObject, PyScopeChain scopeChain)
         {
+            Console.WriteLine($"🚀 ExecuteModule (with scopeChain): Starting execution of {codeObject.Name}");
+            Console.WriteLine($"   Exception Table entries: {codeObject.ExceptionTable.Count}");
+            if (codeObject.ExceptionTable.Count > 0)
+            {
+                for (int i = 0; i < codeObject.ExceptionTable.Count; i++)
+                {
+                    var entry = codeObject.ExceptionTable[i];
+                    Console.WriteLine($"     [{i}] Start: {entry.StartOffset}, End: {entry.EndOffset}, Handler: {entry.HandlerOffset}");
+                }
+            }
+            
+            Console.WriteLine($"🔍 PyFrame 생성 직전 codeObject.ExceptionTable.Count: {codeObject.ExceptionTable.Count}");
             var frame = new PyFrame(codeObject, new PyObject[0], scopeChain);
+            Console.WriteLine($"🔍 PyFrame 생성 후 frame.Code.ExceptionTable.Count: {frame.Code.ExceptionTable.Count}");
             return ExecuteFrame(frame);
         }
         
@@ -230,10 +308,31 @@ namespace SharpPy
             
             Console.WriteLine($"\n🚀 VM 실행: {frame}");
             
+            // 🛡️ 무한루프 방지 안전장치
+            var startTime = DateTime.UtcNow;
+            var maxInstructions = 1000000; // 최대 100만 명령어
+            var maxTimeSeconds = 30; // 최대 30초
+            var instructionCount = 0;
+            
             try
             {
                 while (frame.InstructionPointer < frame.Code.Instructions.Count)
                 {
+                    // 🛡️ 안전장치 검사
+                    instructionCount++;
+                    if (instructionCount % 10000 == 0) // 1만 명령어마다 검사
+                    {
+                        var elapsed = DateTime.UtcNow - startTime;
+                        if (elapsed.TotalSeconds > maxTimeSeconds)
+                        {
+                            throw new PythonException(new PyRuntimeError($"Execution timeout after {elapsed.TotalSeconds:F1} seconds"));
+                        }
+                        if (instructionCount > maxInstructions)
+                        {
+                            throw new PythonException(new PyRuntimeError($"Instruction limit exceeded: {instructionCount} instructions"));
+                        }
+                    }
+                    
                     var instruction = frame.Code.Instructions[frame.InstructionPointer];
                     
                     if (frame.ValueStack.Count <= 10) // 스택이 너무 크지 않을 때만 출력
@@ -264,6 +363,7 @@ namespace SharpPy
                             // Push the exception onto the stack and jump to handler
                             frame.ValueStack.Push(pyEx.PyException);
                             frame.LastException = pyEx.PyException;
+                            frame.CurrentException = pyEx.PyException; // Set for PUSH_EXC_INFO
                             frame.InstructionPointer = handlerOffset.Value;
                         }
                         else
@@ -1007,11 +1107,14 @@ namespace SharpPy
                     return null; // Continue execution from new position
                     
                 case ByteCodeOp.JUMP_BACKWARD:
-                    // JUMP_BACKWARD uses relative offset - jump back by the specified amount
-                    // CPython-compatible: jump to the exact instruction specified by the argument
-                    // -1 because main loop will increment InstructionPointer
-                    frame.InstructionPointer = frame.InstructionPointer - instruction.Argument - 1;
-                    Console.WriteLine($"🔄 JUMP_BACKWARD: from {frame.InstructionPointer + instruction.Argument + 1} to {frame.InstructionPointer + 1} (next: {frame.InstructionPointer + 1})");
+                    // CPython 3.12 compatible: JUMP_BACKWARD uses relative offset
+                    // instruction.Argument contains the number of instructions to jump backward
+                    // CPython: JUMPBY(-oparg) means current position - oparg instructions
+                    int currentInstrPos = frame.InstructionPointer;
+                    int jumpBackCount = instruction.Argument;  // Number of instructions to jump back
+                    int targetInstrPos = currentInstrPos - jumpBackCount;
+                    Console.WriteLine($"🔄 JUMP_BACKWARD: from instr {currentInstrPos} back {jumpBackCount} instrs to instr {targetInstrPos} (CPython 3.12 relative)");
+                    frame.InstructionPointer = targetInstrPos - 1; // -1 because main loop will increment
                     return null; // Continue execution from new position
 
                 // CPython-style Container Building Opcodes (Phase 1)
@@ -1265,116 +1368,114 @@ namespace SharpPy
                     }
                     break;
                     
+                case ByteCodeOp.PUSH_EXC_INFO:
+                    // CPython 3.12: Push exception info to stack for with/except handling
+                    // Stack: [...] -> [..., exc_type, exc_value, exc_traceback, lasti]
+                    Console.WriteLine($"🔧 PUSH_EXC_INFO: Pushing current exception info to stack");
+                    
+                    // Get current exception from the frame's exception handler
+                    var currentException = frame.CurrentException;
+                    
+                    if (currentException != null)
+                    {
+                        // Push exception info in CPython 3.12 order
+                        frame.ValueStack.Push(currentException.GetPyType());    // exc_type
+                        frame.ValueStack.Push(currentException);                 // exc_value  
+                        frame.ValueStack.Push(PyNone.Instance);                 // exc_traceback (simplified)
+                        frame.ValueStack.Push(new PyInt(frame.InstructionPointer)); // lasti
+                        
+                        Console.WriteLine($"🔧 PUSH_EXC_INFO: Pushed {currentException.GetType().Name} exception info");
+                    }
+                    else
+                    {
+                        // No current exception - push None values
+                        frame.ValueStack.Push(PyNone.Instance);  // exc_type
+                        frame.ValueStack.Push(PyNone.Instance);  // exc_value
+                        frame.ValueStack.Push(PyNone.Instance);  // exc_traceback
+                        frame.ValueStack.Push(new PyInt(frame.InstructionPointer)); // lasti
+                        
+                        Console.WriteLine($"🔧 PUSH_EXC_INFO: No current exception, pushed None values");
+                    }
+                    break;
+                    
+                    
                 case ByteCodeOp.WITH_EXCEPT_START:
-                    // CPython 3.12: Called when exception occurs in with block
-                    // Current stack when called: [__exit__ method, exception_object, traceback]
-                    // After processing: [suppression_result]
+                    // CPython 3.12: WITH_EXCEPT_START proper implementation
+                    // Stack after PUSH_EXC_INFO: [..., __exit__, ..., exc_type, exc_value, exc_traceback, lasti]
+                    // CPython 3.12: __exit__ is at position 4 from TOS
                     
                     Console.WriteLine($"🔧 WITH_EXCEPT_START: stack size = {frame.ValueStack.Count}");
                     
-                    // Enhanced stack validation to prevent infinite loops
-                    if (frame.ValueStack.Count < 1)
+                    // Debug: Print current stack contents from top to bottom
+                    var debugStack = new List<PyObject>(frame.ValueStack);
+                    debugStack.Reverse(); // Now from top to bottom
+                    for (int i = 0; i < debugStack.Count; i++)
                     {
-                        Console.WriteLine($"⚠️ WITH_EXCEPT_START: Critical stack underflow, pushing False");
+                        Console.WriteLine($"🔍 Stack[{i}]: {debugStack[i]}");
+                    }
+                    
+                    if (frame.ValueStack.Count < 5)  // Need at least __exit__ + 4 exception items
+                    {
+                        Console.WriteLine($"❌ WITH_EXCEPT_START: Insufficient stack - need at least 5 items");
                         frame.ValueStack.Push(PyBool.False);
                         break;
                     }
                     
-                    // Check if we're in a recursive WITH_EXCEPT_START situation
-                    var stackDepthBefore = frame.ValueStack.Count;
+                    // Pop exception info that was pushed by PUSH_EXC_INFO (4 items)
+                    var lasti = frame.ValueStack.Pop();          // lasti (TOS)
+                    var excTraceback = frame.ValueStack.Pop();   // exc_traceback
+                    var excValue = frame.ValueStack.Pop();       // exc_value
+                    var excType = frame.ValueStack.Pop();        // exc_type
                     
-                    PyObject traceback = PyNone.Instance;
-                    PyObject exceptionObject = PyNone.Instance;
-                    PyObject exitMethodForExcept = null;
+                    Console.WriteLine($"🔧 WITH_EXCEPT_START: Popped PUSH_EXC_INFO items - lasti={lasti}, traceback={excTraceback}, value={excValue}, type={excType}");
                     
-                    // Safe stack popping with validation
-                    try
+                    // CPython 3.12: After popping PUSH_EXC_INFO items, we need to find __exit__ method
+                    PyObject? contextExitMethod = null;
+                    
+                    // Stack now contains: [..., __exit__, exception, ...] 
+                    // We need to skip over the exception object and get to __exit__ method
+                    if (frame.ValueStack.Count >= 2)
                     {
-                        if (frame.ValueStack.Count >= 3)
+                        // Pop the exception object that was pushed by the exception handler
+                        var exceptionObj = frame.ValueStack.Pop();
+                        Console.WriteLine($"🔧 WITH_EXCEPT_START: Popped exception object: {exceptionObj?.GetType().Name}");
+                        
+                        // Now __exit__ method should be at TOS
+                        contextExitMethod = frame.ValueStack.Pop();
+                        if (contextExitMethod != null && contextExitMethod.IsCallable())
                         {
-                            traceback = frame.ValueStack.Pop();  // TOS (usually None)
-                            exceptionObject = frame.ValueStack.Pop(); // The actual exception
-                            exitMethodForExcept = frame.ValueStack.Pop(); // __exit__ method
-                            Console.WriteLine($"🔧 WITH_EXCEPT_START: popped 3 items - traceback={traceback}, exception={exceptionObject?.GetType().Name}, exit_method={exitMethodForExcept?.GetType().Name}");
-                        }
-                        else if (frame.ValueStack.Count >= 2)
-                        {
-                            // Fallback: try to handle with less items
-                            exceptionObject = frame.ValueStack.Pop();
-                            exitMethodForExcept = frame.ValueStack.Pop();
-                            Console.WriteLine($"⚠️ WITH_EXCEPT_START: popped only 2 items");
+                            Console.WriteLine($"🔧 WITH_EXCEPT_START: Found __exit__ method: {contextExitMethod.GetType().Name}");
                         }
                         else
                         {
-                            // Emergency fallback
-                            exitMethodForExcept = frame.ValueStack.Pop();
-                            Console.WriteLine($"⚠️ WITH_EXCEPT_START: popped only 1 item");
+                            Console.WriteLine($"❌ WITH_EXCEPT_START: Item is not callable: {contextExitMethod?.GetType().Name}");
+                            contextExitMethod = null;
                         }
                     }
-                    catch (InvalidOperationException)
+                    else
                     {
-                        Console.WriteLine($"❌ WITH_EXCEPT_START: Stack pop failed, emergency fallback");
-                        frame.ValueStack.Push(PyBool.False);
-                        break;
+                        Console.WriteLine($"❌ WITH_EXCEPT_START: Insufficient stack items, need at least 2");
+                        contextExitMethod = null;
                     }
                     
-                    if (exitMethodForExcept?.IsCallable() == true)
+                    bool suppressException = false;
+                    
+                    if (contextExitMethod?.IsCallable() == true)
                     {
                         try
                         {
-                            // Extract exception type and value from the exception object
-                            PyObject excType, excValue;
+                            // Call __exit__(exc_type, exc_value, exc_traceback) - CPython 3.12 order
+                            var exitResult = contextExitMethod.Call(new PyObject[] { excType, excValue, excTraceback });
                             
-                            if (exceptionObject is PyException pyExc)
-                            {
-                                excType = pyExc.GetPyType();
-                                excValue = pyExc;
-                            }
-                            else
-                            {
-                                // Fallback for non-PyException objects
-                                excType = exceptionObject.GetPyType();
-                                excValue = exceptionObject;
-                            }
+                            // Convert result to boolean using SharpPy's AsBool()
+                            suppressException = exitResult.AsBool() == PyBool.True;
                             
-                            Console.WriteLine($"🔧 WITH_EXCEPT_START: calling __exit__({excType}, {excValue}, {traceback})");
-                            
-                            // Call __exit__(exc_type, exc_value, traceback) - CPython order
-                            var exitResult = exitMethodForExcept.Call(new PyObject[] { excType, excValue, traceback });
-                            
-                            // Validate result and ensure stack consistency
-                            var stackDepthAfter = frame.ValueStack.Count;
-                            if (stackDepthAfter > stackDepthBefore)
-                            {
-                                Console.WriteLine($"⚠️ WITH_EXCEPT_START: Stack grew unexpectedly ({stackDepthBefore} → {stackDepthAfter}), cleaning up");
-                                // Clean up excess items to prevent stack corruption
-                                while (frame.ValueStack.Count > stackDepthBefore && frame.ValueStack.Count > 0)
-                                {
-                                    frame.ValueStack.Pop();
-                                }
-                            }
-                            
-                            // Push result to indicate exception suppression
-                            // True = suppress exception, False = re-raise exception
-                            frame.ValueStack.Push(exitResult);
-                            Console.WriteLine($"✅ WITH_EXCEPT_START: __exit__ returned {exitResult}");
+                            Console.WriteLine($"✅ WITH_EXCEPT_START: __exit__ returned {exitResult} (suppress={suppressException})");
                         }
                         catch (Exception exitException)
                         {
                             Console.WriteLine($"❌ WITH_EXCEPT_START: __exit__ threw exception: {exitException.Message}");
-                            
-                            // Ensure stack is clean before handling the new exception
-                            var currentStackDepth = frame.ValueStack.Count;
-                            if (currentStackDepth > stackDepthBefore)
-                            {
-                                while (frame.ValueStack.Count > stackDepthBefore && frame.ValueStack.Count > 0)
-                                {
-                                    frame.ValueStack.Pop();
-                                }
-                            }
-                            
-                            // Push False to indicate the original exception should be replaced
-                            frame.ValueStack.Push(PyBool.False);
+                            suppressException = false;
                             
                             // Convert and re-throw the new exception
                             var newPyException = ConvertToPythonException(exitException);
@@ -1383,10 +1484,25 @@ namespace SharpPy
                     }
                     else
                     {
-                        Console.WriteLine($"❌ WITH_EXCEPT_START: No valid __exit__ method");
-                        // No valid __exit__ method - cannot suppress exception
+                        Console.WriteLine($"❌ WITH_EXCEPT_START: No valid __exit__ method found");
+                        suppressException = false;
+                    }
+                    
+                    // CPython 3.12 compatible: Push multiple items for stack cleanup
+                    if (suppressException)
+                    {
+                        // Exception suppressed: Push items for the multiple POP operations
+                        frame.ValueStack.Push(PyBool.True);       // For POP_JUMP_IF_TRUE test
+                        frame.ValueStack.Push(PyNone.Instance);   // For 1st POP_TOP
+                        frame.ValueStack.Push(PyNone.Instance);   // For 2nd POP_TOP  
+                        frame.ValueStack.Push(PyNone.Instance);   // For 3rd POP_TOP
+                    }
+                    else
+                    {
+                        // Exception not suppressed: Just push boolean result
                         frame.ValueStack.Push(PyBool.False);
                     }
+                    Console.WriteLine($"🔧 WITH_EXCEPT_START: Final result = {suppressException}");
                     break;
                     
                 case ByteCodeOp.EXCEPT_MATCH:
@@ -1398,9 +1514,28 @@ namespace SharpPy
                     
                 case ByteCodeOp.CHECK_EG_MATCH:
                     // PEP 654: ExceptionGroup matching
+                    // Stack before: [exception_group, exception_type]
+                    // Stack after: [matched_group, remainder_group]
+                    
+                    Console.WriteLine($"🔧 CHECK_EG_MATCH: stack size = {frame.ValueStack.Count}");
+                    
+                    if (frame.ValueStack.Count < 2)
+                    {
+                        Console.WriteLine($"❌ CHECK_EG_MATCH: Not enough items on stack");
+                        frame.ValueStack.Push(PyNone.Instance);
+                        frame.ValueStack.Push(PyNone.Instance);
+                        break;
+                    }
+                    
                     var egType = frame.ValueStack.Pop();
                     var egException = frame.ValueStack.Pop();
+                    
+                    Console.WriteLine($"🔧 CHECK_EG_MATCH: exception={egException?.GetType().Name}, type={egType?.GetType().Name}");
+                    
                     var (matched, remainder) = ExceptionGroupMatches(egException, egType);
+                    
+                    Console.WriteLine($"🔧 CHECK_EG_MATCH: matched={matched?.GetType().Name}, remainder={remainder?.GetType().Name}");
+                    
                     frame.ValueStack.Push(matched ?? PyNone.Instance);
                     frame.ValueStack.Push(remainder ?? PyNone.Instance);
                     break;
@@ -1851,6 +1986,20 @@ namespace SharpPy
                     sliceStoreContainer.SetItem(storeSlice, sliceValue);
                     break;
                     
+                case ByteCodeOp.CALL_INTRINSIC_1:
+                    var intrinsicArg1 = frame.ValueStack.Pop();
+                    var intrinsicResult1 = ExecuteIntrinsicFunction1(instruction.Argument, intrinsicArg1);
+                    frame.ValueStack.Push(intrinsicResult1);
+                    break;
+                    
+                case ByteCodeOp.CALL_INTRINSIC_2:
+                    // CPython 3.12: CALL_INTRINSIC_2 for exception handling
+                    var arg2_2 = frame.ValueStack.Pop();
+                    var arg2_1 = frame.ValueStack.Pop();
+                    var result2 = ExecuteIntrinsicFunction2(instruction.Argument, arg2_1, arg2_2);
+                    frame.ValueStack.Push(result2);
+                    break;
+                    
                 default:
                     throw new NotImplementedException($"OpCode {instruction.OpCode} not implemented");
             }
@@ -2200,23 +2349,98 @@ namespace SharpPy
         }
         
         /// <summary>
+        /// Execute intrinsic function with 1 argument (CPython 3.12)
+        /// </summary>
+        private PyObject ExecuteIntrinsicFunction1(int functionId, PyObject arg)
+        {
+            // CPython 3.12 intrinsic function IDs
+            // 0: PRINT, 1: IMPORT_STAR, 2: STOPITERATION_ERROR, etc.
+            switch (functionId)
+            {
+                case 0: // PRINT
+                    Console.WriteLine(arg.ToString());
+                    return PyNone.Instance;
+                case 6: // TYPEVAR
+                    return arg; // For now, just return the arg
+                case 7: // PARAMSPEC  
+                    return arg;
+                case 8: // TYPEVARTUPLE
+                    return arg;
+                default:
+                    throw new NotImplementedException($"Intrinsic function {functionId} not implemented");
+            }
+        }
+        
+        /// <summary>
+        /// Execute intrinsic function with 2 arguments (CPython 3.12)
+        /// </summary>
+        private PyObject ExecuteIntrinsicFunction2(int functionId, PyObject arg1, PyObject arg2)
+        {
+            // CPython 3.12 intrinsic function IDs for 2-argument functions
+            switch (functionId)
+            {
+                case 1: // INTRINSIC_PREP_RERAISE_STAR - Exception Groups cleanup
+                    return PrepReraiseStarExceptions(arg1, arg2);
+                default:
+                    throw new NotImplementedException($"Intrinsic function 2-arg {functionId} not implemented");
+            }
+        }
+        
+        /// <summary>
+        /// CPython 3.12: INTRINSIC_PREP_RERAISE_STAR - prepare exceptions for reraise in except* handlers
+        /// </summary>
+        private PyObject PrepReraiseStarExceptions(PyObject exceptionList, PyObject handledException)
+        {
+            // If there are no remaining exceptions, return None
+            if (exceptionList is PyList list)
+            {
+                if (list.Length() == 0)
+                {
+                    return PyNone.Instance;
+                }
+                
+                // If there's only one exception in the list, return it directly
+                if (list.Length() == 1)
+                {
+                    return list.Items[0];
+                }
+                
+                // If there are multiple exceptions, create an ExceptionGroup
+                if (list.Length() > 1)
+                {
+                    var exceptions = list.Items.Cast<PyException>().ToList();
+                    return new PyExceptionGroup("unhandled exceptions", exceptions);
+                }
+            }
+            
+            return PyNone.Instance;
+        }
+
+        /// <summary>
         /// PEP 654: ExceptionGroup matching - returns (matched, remainder)
         /// </summary>
         private (PyObject?, PyObject?) ExceptionGroupMatches(PyObject exception, PyObject exceptionType)
         {
+            Console.WriteLine($"🔍 ExceptionGroupMatches: exception={exception?.GetType().Name}, type={exceptionType?.GetType().Name}");
+            
             if (exception is PyBaseExceptionGroup group)
             {
+                Console.WriteLine($"🔍 Processing ExceptionGroup with {group.Exceptions.Count} exceptions");
+                
                 var matchedExceptions = new List<PyException>();
                 var remainderExceptions = new List<PyException>();
                 
                 foreach (var exc in group.Exceptions)
                 {
+                    Console.WriteLine($"🔍 Checking exception: {exc.GetType().Name} vs {exceptionType?.GetType().Name}");
                     if (ExceptionMatches(exc, exceptionType))
                     {
+                        Console.WriteLine($"✅ Match found: {exc.GetType().Name}");
                         matchedExceptions.Add(exc);
                     }
                     else
                     {
+                        Console.WriteLine($"❌ No match: {exc.GetType().Name}");
                         remainderExceptions.Add(exc);
                     }
                 }
@@ -2228,6 +2452,7 @@ namespace SharpPy
                         matched = new PyExceptionGroup(group.Message, matchedExceptions);
                     else
                         matched = new PyBaseExceptionGroup(group.Message, matchedExceptions);
+                    Console.WriteLine($"📦 Created matched group with {matchedExceptions.Count} exceptions");
                 }
                 
                 PyObject? remainder = null;
@@ -2237,6 +2462,7 @@ namespace SharpPy
                         remainder = new PyExceptionGroup(group.Message, remainderExceptions);
                     else
                         remainder = new PyBaseExceptionGroup(group.Message, remainderExceptions);
+                    Console.WriteLine($"📦 Created remainder group with {remainderExceptions.Count} exceptions");
                 }
                 
                 return (matched, remainder);

@@ -59,7 +59,7 @@ namespace SharpPy
             
             Console.WriteLine($"✅ 최적화 완료: {originalCount} → {optimizedCount} ({saved} 명령어 절약, {(float)saved/originalCount*100:F1}% 개선)");
 
-            return new PyCodeObject(
+            var optimizedCode = new PyCodeObject(
                 originalCode.Name,
                 _instructions,
                 _constants,
@@ -71,6 +71,12 @@ namespace SharpPy
                 originalCode.DefaultValues,
                 originalCode.Flags
             );
+            
+            // CPython 3.12: Exception Table 복사 (최적화 후에도 보존)
+            optimizedCode.ExceptionTable.AddRange(originalCode.ExceptionTable);
+            Console.WriteLine($"🔍 Exception Table 복사: {originalCode.ExceptionTable.Count}개 엔트리 → 최적화된 코드");
+            
+            return optimizedCode;
         }
 
         /// <summary>
@@ -366,7 +372,7 @@ namespace SharpPy
                             int currentTarget = jumpPos - currentOffset - 1;
                             
                             // 올바른 타겟은 FOR_ITER 위치여야 함  
-                            // VM에서 실행 시 InstructionPointer가 이미 증가된 상태이므로 추가 보정
+                            // CPython 3.12 방식: 상대 오프셋 계산
                             int correctOffset = jumpPos - forIterPos;
                             
                             if (currentOffset != correctOffset)

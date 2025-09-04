@@ -222,6 +222,7 @@ public class PyModule : PyObject
             ["math"] = () => SharpPy.Modules.MathModule.CreateMathModule(),
             ["random"] = () => SharpPy.Modules.RandomModule.CreateRandomModule(),
             ["sys"] = () => SharpPy.Modules.SysModule.CreateSysModule(),
+            ["time"] = () => new TimeModule(),
             ["itertools"] = () => ItertoolsModule.Instance,
             ["functools"] = () => FunctoolsModule.Instance,
             ["collections"] = () => CollectionsModule.Instance,
