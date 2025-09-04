@@ -2295,7 +2295,8 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(PyNone.Instance));
             EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(PyNone.Instance)); 
             EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(PyNone.Instance));
-            EmitInstruction(ByteCodeOp.CALL_FUNCTION, 3); // call __exit__(None, None, None)
+            // CPython 3.12: __exit__ 메서드 호출 (상수화)
+            EmitInstruction(ByteCodeOp.CALL_FUNCTION, StackEffectAnalyzer.WithStatementStack.EXIT_METHOD_ARGS_COUNT);
             EmitInstruction(ByteCodeOp.POP_TOP); // discard __exit__ return value
             
             var endLabel = CreateLabel("with_end");
@@ -2315,7 +2316,10 @@ namespace SharpPy
             
             // Exception suppressed - continue normally (CPython 3.12 compatible)
             MarkLabel(suppressLabel);
-            EmitInstruction(ByteCodeOp.POP_TOP);     // First cleanup - remove True from WITH_EXCEPT_START
+            EmitInstruction(ByteCodeOp.POP_TOP);     // First cleanup - remove suppress boolean from WITH_EXCEPT_START
+            EmitInstruction(ByteCodeOp.POP_EXCEPT);  // CPython 3.12: Remove exception info (4 items: exc_type, exc_value, exc_tb, lasti)
+            EmitInstruction(ByteCodeOp.POP_TOP);     // Additional cleanup - remove exception object
+            EmitInstruction(ByteCodeOp.POP_TOP);     // Additional cleanup - depends on with nesting depth
             
             MarkLabel(endLabel);
             
@@ -2897,8 +2901,8 @@ namespace SharpPy
             // Load the function code object
             EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(functionCode));
             
-            // Create function with or without closure
-            int flags = freeVars.Count > 0 ? 8 : 0; // MAKE_FUNCTION_CLOSURE flag
+            // CPython 3.12: MAKE_FUNCTION 플래그 동적 계산
+            int flags = freeVars.Count > 0 ? StackEffectAnalyzer.MakeFunctionFlags.CLOSURE : 0;
             EmitInstruction(ByteCodeOp.MAKE_FUNCTION, flags);
         }
         

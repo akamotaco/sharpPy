@@ -574,4 +574,273 @@ namespace SharpPy
     }
 
     #endregion
+
+    // CPython 3.12: 스택 효과 분석 시스템
+    public static class StackEffectAnalyzer
+    {
+        // 각 바이트코드의 스택 효과 (pop_count, push_count)
+        private static readonly Dictionary<ByteCodeOp, (int pop, int push)> _fixedStackEffects = new()
+        {
+            // 기본 연산들
+            { ByteCodeOp.POP_TOP, (1, 0) },
+            { ByteCodeOp.ROT_TWO, (2, 2) },
+            { ByteCodeOp.ROT_THREE, (3, 3) },
+            { ByteCodeOp.DUP_TOP, (1, 2) },
+            { ByteCodeOp.DUP_TOP_TWO, (2, 4) },
+            
+            // 산술 연산
+            { ByteCodeOp.BINARY_ADD, (2, 1) },
+            { ByteCodeOp.BINARY_SUBTRACT, (2, 1) },
+            { ByteCodeOp.BINARY_MULTIPLY, (2, 1) },
+            { ByteCodeOp.BINARY_DIVIDE, (2, 1) },
+            { ByteCodeOp.BINARY_FLOOR_DIVIDE, (2, 1) },
+            { ByteCodeOp.BINARY_MODULO, (2, 1) },
+            { ByteCodeOp.BINARY_POWER, (2, 1) },
+            { ByteCodeOp.UNARY_POSITIVE, (1, 1) },
+            { ByteCodeOp.UNARY_NEGATIVE, (1, 1) },
+            { ByteCodeOp.UNARY_NOT, (1, 1) },
+            { ByteCodeOp.UNARY_INVERT, (1, 1) },
+            
+            // 비교 연산
+            { ByteCodeOp.COMPARE_OP, (2, 1) },
+            
+            // 로드/저장
+            { ByteCodeOp.LOAD_CONST, (0, 1) },
+            { ByteCodeOp.LOAD_NAME, (0, 1) },
+            { ByteCodeOp.LOAD_GLOBAL, (0, 1) },
+            { ByteCodeOp.LOAD_FAST, (0, 1) },
+            { ByteCodeOp.STORE_NAME, (1, 0) },
+            { ByteCodeOp.STORE_GLOBAL, (1, 0) },
+            { ByteCodeOp.STORE_FAST, (1, 0) },
+            
+            // 속성 조작
+            { ByteCodeOp.LOAD_ATTR, (1, 1) },
+            { ByteCodeOp.STORE_ATTR, (2, 0) },
+            { ByteCodeOp.DELETE_ATTR, (1, 0) },
+            
+            // 인덱싱
+            { ByteCodeOp.LOAD_SUBSCR, (2, 1) },
+            { ByteCodeOp.STORE_SUBSCR, (3, 0) },
+            { ByteCodeOp.DELETE_SUBSCR, (2, 0) },
+            
+            // 반환/yield
+            { ByteCodeOp.RETURN_VALUE, (1, 0) },
+            { ByteCodeOp.YIELD_VALUE, (1, 1) },
+            
+            // 점프 (스택에 영향 없음)
+            { ByteCodeOp.JUMP_FORWARD, (0, 0) },
+            { ByteCodeOp.JUMP_BACKWARD, (0, 0) },
+            { ByteCodeOp.POP_JUMP_IF_TRUE, (1, 0) },
+            { ByteCodeOp.POP_JUMP_IF_FALSE, (1, 0) },
+            { ByteCodeOp.JUMP_IF_TRUE_OR_POP, (0, 0) }, // 조건부
+            { ByteCodeOp.JUMP_IF_FALSE_OR_POP, (0, 0) }, // 조건부
+            
+            // CPython 3.12: with 문  
+            { ByteCodeOp.BEFORE_WITH, (1, 2) }, // context_manager -> __exit__, result
+            // CPython 3.12 호환: WITH_EXCEPT_START는 __exit__만 pop하고 boolean push
+            // PUSH_EXC_INFO 항목들은 그대로 두고 나중에 POP_EXCEPT에서 처리
+            { ByteCodeOp.WITH_EXCEPT_START, (1, 1) }, // __exit__ -> suppress_boolean
+            
+            // CPython 3.12: 예외 처리
+            { ByteCodeOp.PUSH_EXC_INFO, (1, 4) }, // exception -> exc_type, exc_value, exc_tb, lasti
+            { ByteCodeOp.POP_EXCEPT, (4, 0) }, // exc_type, exc_value, exc_tb, lasti -> (nothing)
+            
+            // 이터레이션
+            { ByteCodeOp.GET_ITER, (1, 1) },
+            { ByteCodeOp.FOR_ITER, (1, 2) }, // iter -> iter, value (성공시) 또는 iter -> (실패시)
+            
+            // CPython 3.12 새로운 호출 시스템
+            { ByteCodeOp.PUSH_NULL, (0, 1) },
+            { ByteCodeOp.RESUME, (0, 0) },
+            
+            // CPython 3.12: 예외 그룹 처리
+            { ByteCodeOp.CHECK_EG_MATCH, (2, 2) }, // exception_group, match_type -> matched, remainder
+        };
+
+        // 인수에 따라 달라지는 스택 효과
+        public static (int pop, int push) GetStackEffect(ByteCodeOp op, int arg = 0)
+        {
+            // 고정 스택 효과가 있는 경우
+            if (_fixedStackEffects.TryGetValue(op, out var effect))
+                return effect;
+
+            // 인수에 따라 달라지는 경우들
+            return op switch
+            {
+                // 컨테이너 생성
+                ByteCodeOp.BUILD_TUPLE => (arg, 1),
+                ByteCodeOp.BUILD_LIST => (arg, 1),
+                ByteCodeOp.BUILD_SET => (arg, 1),
+                ByteCodeOp.BUILD_MAP => (2 * arg, 1), // key-value 쌍들
+                ByteCodeOp.BUILD_SLICE => (arg switch { 2 => 2, 3 => 3, _ => 2 }, 1),
+                
+                // 언패킹
+                ByteCodeOp.UNPACK_SEQUENCE => (1, arg),
+                ByteCodeOp.UNPACK_EX => (1, (arg & 0xFF) + (arg >> 8) + 1),
+                
+                // 함수 생성 및 호출
+                ByteCodeOp.MAKE_FUNCTION => (1 + GetMakeFunctionExtraArgs(arg), 1),
+                ByteCodeOp.CALL_FUNCTION => (1 + arg, 1), // func + args -> result
+                ByteCodeOp.CALL_FUNCTION_KW => (2 + arg, 1), // func + args + kwargs -> result
+                ByteCodeOp.CALL_FUNCTION_EX => ((arg & 1) != 0 ? 3 : 2, 1), // func + args + (kwargs?) -> result
+                
+                // CPython 3.12: 새로운 CALL
+                ByteCodeOp.CALL => (1 + arg, 1), // func + args -> result
+                
+                // 컴프리헨션
+                ByteCodeOp.LIST_APPEND => (1, 0), // arg는 리스트 위치 (상대적)
+                ByteCodeOp.SET_ADD => (1, 0),
+                ByteCodeOp.MAP_ADD => (2, 0), // key, value
+                
+                // 예외 발생
+                ByteCodeOp.RAISE_VARARGS => (arg, 0),
+                
+                // 복사
+                ByteCodeOp.COPY => (0, 1), // N번째 요소 복사 (arg = N)
+                
+                _ => (0, 0) // 알 수 없는 경우 안전한 기본값
+            };
+        }
+
+        // MAKE_FUNCTION의 추가 인수 개수 계산
+        private static int GetMakeFunctionExtraArgs(int flags)
+        {
+            int extra = 0;
+            if ((flags & 0x01) != 0) extra++; // defaults
+            if ((flags & 0x02) != 0) extra++; // kwdefaults  
+            if ((flags & 0x04) != 0) extra++; // annotations
+            if ((flags & 0x08) != 0) extra++; // closure
+            return extra;
+        }
+
+        // 특정 명령어의 최소 스택 요구사항 계산
+        public static int GetMinStackRequirement(ByteCodeOp op, int arg = 0)
+        {
+            var (pop, _) = GetStackEffect(op, arg);
+            return pop;
+        }
+
+        // 명령어 시퀀스의 스택 효과 분석
+        public static int AnalyzeStackSequence(List<ByteCodeInstruction> instructions, int startIndex, int count)
+        {
+            int netEffect = 0;
+            int minStackRequired = 0;
+            int currentStack = 0;
+
+            for (int i = 0; i < count && startIndex + i < instructions.Count; i++)
+            {
+                var instruction = instructions[startIndex + i];
+                var (pop, push) = GetStackEffect(instruction.OpCode, instruction.Argument);
+                
+                // 이 명령어 실행 전에 필요한 스택 크기 확인
+                if (currentStack < pop)
+                    minStackRequired = Math.Max(minStackRequired, pop - currentStack);
+                
+                currentStack -= pop;
+                currentStack += push;
+                netEffect = currentStack;
+            }
+
+            return netEffect;
+        }
+
+        // CPython 3.12 호환: WITH_EXCEPT_START 스택 요구사항
+        public static class WithStatementStack
+        {
+            public const int BEFORE_WITH_MIN_STACK = 1;      // context manager
+            public const int BEFORE_WITH_RESULT_STACK = 2;   // __exit__, result
+            
+            public const int WITH_EXCEPT_START_MIN_STACK = 6; // [...prev_stack, __exit__, exc, exc_type, exc_value, exc_tb, lasti] - __exit__만 pop
+            public const int WITH_EXCEPT_START_RESULT_STACK = 1; // suppress boolean
+            
+            public const int PUSH_EXC_INFO_MIN_STACK = 1;    // exception
+            public const int PUSH_EXC_INFO_RESULT_STACK = 4; // exc_type, exc_value, exc_tb, lasti
+            
+            public const int POP_EXCEPT_MIN_STACK = 4;       // exc_type, exc_value, exc_tb, lasti
+            public const int POP_EXCEPT_RESULT_STACK = 0;    // (nothing)
+            
+            // CPython 3.12 호환: with문 정리 시 __exit__ 호출 인수 개수
+            public const int EXIT_METHOD_ARGS_COUNT = 3;     // __exit__(exc_type, exc_value, exc_tb)
+        }
+
+        // CPython 3.12 호환: MAKE_FUNCTION 플래그 상수
+        public static class MakeFunctionFlags
+        {
+            public const int DEFAULTS = 0x01;        // 기본값 있음
+            public const int KWDEFAULTS = 0x02;      // 키워드 기본값 있음
+            public const int ANNOTATIONS = 0x04;     // 타입 어노테이션 있음
+            public const int CLOSURE = 0x08;         // 클로저 있음
+        }
+    }
+
+    // CPython 3.12: 점프 명령어 통합 관리 시스템
+    public static class JumpInstructionManager
+    {
+        // 점프 명령어 타입 분류
+        public enum JumpType
+        {
+            Forward,        // 앞으로 점프
+            Backward,       // 뒤로 점프  
+            Conditional,    // 조건부 점프
+            Absolute        // 절대 점프
+        }
+
+        // 점프 명령어 분류
+        private static readonly Dictionary<ByteCodeOp, JumpType> _jumpTypes = new()
+        {
+            { ByteCodeOp.JUMP_FORWARD, JumpType.Forward },
+            { ByteCodeOp.JUMP_BACKWARD, JumpType.Backward },
+            { ByteCodeOp.POP_JUMP_IF_TRUE, JumpType.Conditional },
+            { ByteCodeOp.POP_JUMP_IF_FALSE, JumpType.Conditional },
+            { ByteCodeOp.JUMP_IF_TRUE_OR_POP, JumpType.Conditional },
+            { ByteCodeOp.JUMP_IF_FALSE_OR_POP, JumpType.Conditional },
+        };
+
+        // CPython 3.12 호환: 점프 오프셋 계산 (하드코딩 제거)
+        public static int CalculateJumpOffset(ByteCodeOp jumpOp, int currentIP, int targetOffset, bool hasMainLoopIncrement = true)
+        {
+            if (!_jumpTypes.ContainsKey(jumpOp))
+                return targetOffset; // 점프 명령어가 아닌 경우
+
+            var jumpType = _jumpTypes[jumpOp];
+            int adjustedOffset = targetOffset;
+
+            // CPython 3.12: 메인 루프가 IP를 자동 증가시키는 경우 보정
+            if (hasMainLoopIncrement)
+            {
+                switch (jumpType)
+                {
+                    case JumpType.Forward:
+                    case JumpType.Conditional:
+                    case JumpType.Absolute:
+                        // 절대 오프셋은 -1 보정 필요 (메인 루프에서 +1 될 예정)
+                        adjustedOffset = targetOffset - 1;
+                        break;
+                    case JumpType.Backward:
+                        // 상대 오프셋은 보정 없음
+                        adjustedOffset = targetOffset;
+                        break;
+                }
+            }
+            else
+            {
+                // 메인 루프 자동 증가 없는 경우 그대로 사용
+                adjustedOffset = targetOffset;
+            }
+
+            return adjustedOffset;
+        }
+
+        // 점프 명령어인지 확인
+        public static bool IsJumpInstruction(ByteCodeOp op)
+        {
+            return _jumpTypes.ContainsKey(op);
+        }
+
+        // 점프 타입 반환
+        public static JumpType GetJumpType(ByteCodeOp op)
+        {
+            return _jumpTypes.TryGetValue(op, out var type) ? type : JumpType.Absolute;
+        }
+    }
 }

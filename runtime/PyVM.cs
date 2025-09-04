@@ -1088,7 +1088,9 @@ namespace SharpPy
                     var truthValue = frame.ValueStack.Pop();
                     if (truthValue.PyBoolValue())
                     {
-                        frame.InstructionPointer = instruction.Argument - 1; // -1 because main loop will increment
+                        // CPython 3.12: 동적 점프 오프셋 계산
+                        frame.InstructionPointer = JumpInstructionManager.CalculateJumpOffset(
+                            ByteCodeOp.POP_JUMP_IF_TRUE, frame.InstructionPointer, instruction.Argument);
                         return null; // Continue execution from new position
                     }
                     break;
@@ -1097,13 +1099,17 @@ namespace SharpPy
                     var falseValue = frame.ValueStack.Pop();
                     if (!falseValue.PyBoolValue())
                     {
-                        frame.InstructionPointer = instruction.Argument - 1; // -1 because main loop will increment
+                        // CPython 3.12: 동적 점프 오프셋 계산
+                        frame.InstructionPointer = JumpInstructionManager.CalculateJumpOffset(
+                            ByteCodeOp.POP_JUMP_IF_FALSE, frame.InstructionPointer, instruction.Argument);
                         return null; // Continue execution from new position
                     }
                     break;
                     
                 case ByteCodeOp.JUMP_FORWARD:
-                    frame.InstructionPointer = instruction.Argument - 1; // -1 because main loop will increment
+                    // CPython 3.12: 동적 점프 오프셋 계산
+                    frame.InstructionPointer = JumpInstructionManager.CalculateJumpOffset(
+                        ByteCodeOp.JUMP_FORWARD, frame.InstructionPointer, instruction.Argument);
                     return null; // Continue execution from new position
                     
                 case ByteCodeOp.JUMP_BACKWARD:
@@ -1114,7 +1120,9 @@ namespace SharpPy
                     int jumpBackCount = instruction.Argument;  // Number of instructions to jump back
                     int targetInstrPos = currentInstrPos - jumpBackCount;
                     Console.WriteLine($"🔄 JUMP_BACKWARD: from instr {currentInstrPos} back {jumpBackCount} instrs to instr {targetInstrPos} (CPython 3.12 relative)");
-                    frame.InstructionPointer = targetInstrPos - 1; // -1 because main loop will increment
+                    // CPython 3.12: 동적 점프 오프셋 계산
+                    frame.InstructionPointer = JumpInstructionManager.CalculateJumpOffset(
+                        ByteCodeOp.JUMP_BACKWARD, frame.InstructionPointer, targetInstrPos);
                     return null; // Continue execution from new position
 
                 // CPython-style Container Building Opcodes (Phase 1)
@@ -1340,7 +1348,43 @@ namespace SharpPy
                     break;
                     
                 case ByteCodeOp.POP_EXCEPT:
-                    frame.PopExceptionHandler();
+                    // CPython 3.12: POP_EXCEPT removes exception info from stack
+                    // Stack before: [..., exc_type, exc_value, exc_tb, lasti]
+                    // Stack after: [...]
+                    Console.WriteLine($"🔧 POP_EXCEPT: stack size = {frame.ValueStack.Count}");
+                    
+                    // CPython 3.12: Dynamic stack validation - need at least 1 PyExceptionInfo object
+                    if (frame.ValueStack.Count == 0)
+                    {
+                        Console.WriteLine($"❌ POP_EXCEPT: Empty stack - need PyExceptionInfo object");
+                        break;
+                    }
+                    
+                    // CPython 3.12: Pop the single PyExceptionInfo object (Stack effect: -1)
+                    // PUSH_EXC_INFO pushed: PyExceptionInfo (composite object)
+                    // So we pop: PyExceptionInfo
+                    
+                    var poppedExceptionInfo = frame.ValueStack.Pop();  // PyExceptionInfo object
+                    
+                    Console.WriteLine($"🔧 POP_EXCEPT: Removed PyExceptionInfo from stack");
+                    
+                    if (poppedExceptionInfo is PyExceptionInfo exceptionInfo)
+                    {
+                        Console.WriteLine($"   exc_type={exceptionInfo.ExcType}, exc_value={exceptionInfo.ExcValue}");
+                        Console.WriteLine($"   exc_traceback={exceptionInfo.ExcTraceback}, lasti={exceptionInfo.Lasti}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"   Unexpected object: {poppedExceptionInfo?.GetType().Name}");
+                    }
+                    Console.WriteLine($"🔍 POP_EXCEPT 완료 후 스택 크기: {frame.ValueStack.Count}");
+                    
+                    // Also handle legacy exception handlers if needed
+                    if (frame.ExceptionHandlers.Count > 0)
+                    {
+                        frame.PopExceptionHandler();
+                        Console.WriteLine($"🔧 POP_EXCEPT: Also popped legacy exception handler");
+                    }
                     break;
                     
                 case ByteCodeOp.BEFORE_WITH:
@@ -1369,33 +1413,42 @@ namespace SharpPy
                     break;
                     
                 case ByteCodeOp.PUSH_EXC_INFO:
-                    // CPython 3.12: Push exception info to stack for with/except handling
-                    // Stack: [...] -> [..., exc_type, exc_value, exc_traceback, lasti]
+                    // CPython 3.12: Push exception info as single composite object (Stack effect: +1)
+                    // Stack: [...] -> [..., PyExceptionInfo]
                     Console.WriteLine($"🔧 PUSH_EXC_INFO: Pushing current exception info to stack");
                     
                     // Get current exception from the frame's exception handler
                     var currentException = frame.CurrentException;
                     
+                    PyExceptionInfo pushExceptionInfo;
                     if (currentException != null)
                     {
-                        // Push exception info in CPython 3.12 order
-                        frame.ValueStack.Push(currentException.GetPyType());    // exc_type
-                        frame.ValueStack.Push(currentException);                 // exc_value  
-                        frame.ValueStack.Push(PyNone.Instance);                 // exc_traceback (simplified)
-                        frame.ValueStack.Push(new PyInt(frame.InstructionPointer)); // lasti
+                        // Create composite exception info object
+                        pushExceptionInfo = new PyExceptionInfo(
+                            currentException.GetPyType(),           // exc_type
+                            currentException,                       // exc_value  
+                            PyNone.Instance,                       // exc_traceback (simplified)
+                            new PyInt(frame.InstructionPointer)    // lasti
+                        );
                         
-                        Console.WriteLine($"🔧 PUSH_EXC_INFO: Pushed {currentException.GetType().Name} exception info");
+                        Console.WriteLine($"🔧 PUSH_EXC_INFO: Created exception info for {currentException.GetType().Name}");
                     }
                     else
                     {
-                        // No current exception - push None values
-                        frame.ValueStack.Push(PyNone.Instance);  // exc_type
-                        frame.ValueStack.Push(PyNone.Instance);  // exc_value
-                        frame.ValueStack.Push(PyNone.Instance);  // exc_traceback
-                        frame.ValueStack.Push(new PyInt(frame.InstructionPointer)); // lasti
+                        // No current exception - create with None values
+                        pushExceptionInfo = new PyExceptionInfo(
+                            PyNone.Instance,                       // exc_type
+                            PyNone.Instance,                       // exc_value
+                            PyNone.Instance,                       // exc_traceback
+                            new PyInt(frame.InstructionPointer)    // lasti
+                        );
                         
-                        Console.WriteLine($"🔧 PUSH_EXC_INFO: No current exception, pushed None values");
+                        Console.WriteLine($"🔧 PUSH_EXC_INFO: Created exception info with None values");
                     }
+                    
+                    // Push single composite object (CPython 3.12 compatible stack effect +1)
+                    frame.ValueStack.Push(pushExceptionInfo);
+                    Console.WriteLine($"🔧 PUSH_EXC_INFO: Pushed composite exception info, stack size = {frame.ValueStack.Count}");
                     break;
                     
                     
@@ -1414,31 +1467,66 @@ namespace SharpPy
                         Console.WriteLine($"🔍 Stack[{i}]: {debugStack[i]}");
                     }
                     
-                    if (frame.ValueStack.Count < 6)  // Need __exit__, exception + 4 PUSH_EXC_INFO items
+                    // CPython 3.12: Dynamic stack validation - check for required objects by type
+                    if (frame.ValueStack.Count == 0)
                     {
-                        Console.WriteLine($"❌ WITH_EXCEPT_START: Insufficient stack - need at least 6 items, got {frame.ValueStack.Count}");
+                        Console.WriteLine($"❌ WITH_EXCEPT_START: Empty stack");
                         frame.ValueStack.Push(PyBool.False);
                         break;
                     }
                     
-                    // CPython 3.12: Pop PUSH_EXC_INFO items first (4 items from TOS)
-                    var lasti = frame.ValueStack.Pop();          // lasti (TOS)
-                    var excTraceback = frame.ValueStack.Pop();   // exc_traceback
-                    var excValue = frame.ValueStack.Pop();       // exc_value
-                    var excType = frame.ValueStack.Pop();        // exc_type
+                    // CPython 3.12: Stack layout after PUSH_EXC_INFO: [..., __exit__, exception, PyExceptionInfo] 
+                    // Get PyExceptionInfo (TOS) - should be at top of stack
+                    var exceptionInfoObj = frame.ValueStack.Pop();
                     
-                    Console.WriteLine($"🔧 WITH_EXCEPT_START: Popped PUSH_EXC_INFO items");
-                    Console.WriteLine($"   lasti={lasti}, traceback={excTraceback}");
-                    Console.WriteLine($"   value={excValue}, type={excType}");
+                    // Dynamic validation: Check if TOS is PyExceptionInfo
+                    if (!(exceptionInfoObj is PyExceptionInfo))
+                    {
+                        Console.WriteLine($"❌ WITH_EXCEPT_START: Expected PyExceptionInfo at TOS, got {exceptionInfoObj?.GetType().Name}");
+                        frame.ValueStack.Push(exceptionInfoObj); // Restore stack
+                        frame.ValueStack.Push(PyBool.False);
+                        break;
+                    }
                     
-                    // CPython 3.12: Stack now has [..., __exit__, exception]
-                    // Pop exception object (pushed by exception handler)
-                    var exceptionObj = frame.ValueStack.Pop();
-                    Console.WriteLine($"🔧 WITH_EXCEPT_START: Popped exception object: {exceptionObj}");
+                    // Check if we have enough items for context exit method
+                    if (frame.ValueStack.Count == 0)
+                    {
+                        Console.WriteLine($"❌ WITH_EXCEPT_START: No context exit method on stack");
+                        frame.ValueStack.Push(exceptionInfoObj); // Restore stack
+                        frame.ValueStack.Push(PyBool.False);
+                        break;
+                    }
                     
-                    // CPython 3.12: Pop __exit__ method (should be at TOS now)
-                    var contextExitMethod = frame.ValueStack.Pop();
-                    Console.WriteLine($"🔧 WITH_EXCEPT_START: Popped __exit__ method: {contextExitMethod}");
+                    // Skip exception object and get __exit__ method
+                    var exceptionObj = frame.ValueStack.Pop(); // Skip exception
+                    
+                    if (frame.ValueStack.Count == 0)
+                    {
+                        Console.WriteLine($"❌ WITH_EXCEPT_START: No context exit method on stack");
+                        frame.ValueStack.Push(exceptionObj);     // Restore stack
+                        frame.ValueStack.Push(exceptionInfoObj);
+                        frame.ValueStack.Push(PyBool.False);
+                        break;
+                    }
+                    
+                    var contextExitMethod = frame.ValueStack.Pop(); // __exit__ method
+                    
+                    Console.WriteLine($"🔧 WITH_EXCEPT_START: Found __exit__ method: {contextExitMethod}");
+                    
+                    // Already validated above, safe to cast
+                    var withExceptionInfo = (PyExceptionInfo)exceptionInfoObj;
+                    
+                    Console.WriteLine($"🔧 WITH_EXCEPT_START: Reading exception info from PyExceptionInfo");
+                    Console.WriteLine($"   exc_type={withExceptionInfo.ExcType}, exc_value={withExceptionInfo.ExcValue}");
+                    Console.WriteLine($"   exc_traceback={withExceptionInfo.ExcTraceback}, lasti={withExceptionInfo.Lasti}");
+                    
+                    // Push items back for POP_TOP and POP_EXCEPT cleanup
+                    // CPython 3.12: Need 4 items for the 4 POP operations (28: POP_TOP, 29: POP_EXCEPT, 30: POP_TOP, 31: POP_TOP)
+                    // Order: Items pushed in reverse order of POP operations
+                    frame.ValueStack.Push(PyNone.Instance);            // For POP_TOP (31) - bottom
+                    frame.ValueStack.Push(PyNone.Instance);            // For POP_TOP (30)
+                    frame.ValueStack.Push(withExceptionInfo);          // For POP_EXCEPT (29)  
+                    frame.ValueStack.Push(contextExitMethod);          // For POP_TOP (28) - top
                     
                     bool suppressException = false;
                     
@@ -1447,7 +1535,11 @@ namespace SharpPy
                         try
                         {
                             // CPython 3.12: Call __exit__(exc_type, exc_value, exc_traceback)
-                            var exitResult = contextExitMethod.Call(new PyObject[] { excType, excValue, excTraceback });
+                            var exitResult = contextExitMethod.Call(new PyObject[] { 
+                                withExceptionInfo.ExcType, 
+                                withExceptionInfo.ExcValue, 
+                                withExceptionInfo.ExcTraceback 
+                            });
                             
                             // Convert result to boolean
                             suppressException = exitResult.AsBool() == PyBool.True;
@@ -1472,6 +1564,14 @@ namespace SharpPy
                     
                     // CPython 3.12: Push boolean result for POP_JUMP_IF_TRUE
                     frame.ValueStack.Push(PyBool.FromBool(suppressException));
+                    
+                    // DEBUG: 스택 상태 확인
+                    Console.WriteLine($"🔍 WITH_EXCEPT_START 완료 후 스택 크기: {frame.ValueStack.Count}");
+                    for (int i = 0; i < Math.Min(frame.ValueStack.Count, 5); i++)
+                    {
+                        var debugItem = frame.ValueStack.ToArray()[frame.ValueStack.Count - 1 - i];
+                        Console.WriteLine($"  Stack[{frame.ValueStack.Count - 1 - i}]: {debugItem}");
+                    }
                     Console.WriteLine($"🔧 WITH_EXCEPT_START: Pushed result = {suppressException}");
                     break;
                     
@@ -1489,9 +1589,11 @@ namespace SharpPy
                     
                     Console.WriteLine($"🔧 CHECK_EG_MATCH: stack size = {frame.ValueStack.Count}");
                     
-                    if (frame.ValueStack.Count < 2)
+                    // CPython 3.12: CHECK_EG_MATCH 동적 스택 검증
+                    var checkEgMatchRequiredStack = StackEffectAnalyzer.GetMinStackRequirement(ByteCodeOp.CHECK_EG_MATCH, instruction.Argument);
+                    if (frame.ValueStack.Count < checkEgMatchRequiredStack)
                     {
-                        Console.WriteLine($"❌ CHECK_EG_MATCH: Not enough items on stack");
+                        Console.WriteLine($"❌ CHECK_EG_MATCH: Not enough items on stack (need {checkEgMatchRequiredStack}, got {frame.ValueStack.Count})");
                         frame.ValueStack.Push(PyNone.Instance);
                         frame.ValueStack.Push(PyNone.Instance);
                         break;
