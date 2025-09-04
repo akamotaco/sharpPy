@@ -1400,9 +1400,9 @@ namespace SharpPy
                     
                     
                 case ByteCodeOp.WITH_EXCEPT_START:
-                    // CPython 3.12: WITH_EXCEPT_START proper implementation
-                    // Stack after PUSH_EXC_INFO: [..., __exit__, ..., exc_type, exc_value, exc_traceback, lasti]
-                    // CPython 3.12: __exit__ is at position 4 from TOS
+                    // CPython 3.12: WITH_EXCEPT_START implementation
+                    // Stack: [..., __exit__, exception, exc_type, exc_value, exc_traceback, lasti]
+                    // Goal: Call __exit__(exc_type, exc_value, exc_traceback) and push result
                     
                     Console.WriteLine($"🔧 WITH_EXCEPT_START: stack size = {frame.ValueStack.Count}");
                     
@@ -1414,49 +1414,31 @@ namespace SharpPy
                         Console.WriteLine($"🔍 Stack[{i}]: {debugStack[i]}");
                     }
                     
-                    if (frame.ValueStack.Count < 5)  // Need at least __exit__ + 4 exception items
+                    if (frame.ValueStack.Count < 6)  // Need __exit__, exception + 4 PUSH_EXC_INFO items
                     {
-                        Console.WriteLine($"❌ WITH_EXCEPT_START: Insufficient stack - need at least 5 items");
+                        Console.WriteLine($"❌ WITH_EXCEPT_START: Insufficient stack - need at least 6 items, got {frame.ValueStack.Count}");
                         frame.ValueStack.Push(PyBool.False);
                         break;
                     }
                     
-                    // Pop exception info that was pushed by PUSH_EXC_INFO (4 items)
+                    // CPython 3.12: Pop PUSH_EXC_INFO items first (4 items from TOS)
                     var lasti = frame.ValueStack.Pop();          // lasti (TOS)
                     var excTraceback = frame.ValueStack.Pop();   // exc_traceback
                     var excValue = frame.ValueStack.Pop();       // exc_value
                     var excType = frame.ValueStack.Pop();        // exc_type
                     
-                    Console.WriteLine($"🔧 WITH_EXCEPT_START: Popped PUSH_EXC_INFO items - lasti={lasti}, traceback={excTraceback}, value={excValue}, type={excType}");
+                    Console.WriteLine($"🔧 WITH_EXCEPT_START: Popped PUSH_EXC_INFO items");
+                    Console.WriteLine($"   lasti={lasti}, traceback={excTraceback}");
+                    Console.WriteLine($"   value={excValue}, type={excType}");
                     
-                    // CPython 3.12: After popping PUSH_EXC_INFO items, we need to find __exit__ method
-                    PyObject? contextExitMethod = null;
+                    // CPython 3.12: Stack now has [..., __exit__, exception]
+                    // Pop exception object (pushed by exception handler)
+                    var exceptionObj = frame.ValueStack.Pop();
+                    Console.WriteLine($"🔧 WITH_EXCEPT_START: Popped exception object: {exceptionObj}");
                     
-                    // Stack now contains: [..., __exit__, exception, ...] 
-                    // We need to skip over the exception object and get to __exit__ method
-                    if (frame.ValueStack.Count >= 2)
-                    {
-                        // Pop the exception object that was pushed by the exception handler
-                        var exceptionObj = frame.ValueStack.Pop();
-                        Console.WriteLine($"🔧 WITH_EXCEPT_START: Popped exception object: {exceptionObj?.GetType().Name}");
-                        
-                        // Now __exit__ method should be at TOS
-                        contextExitMethod = frame.ValueStack.Pop();
-                        if (contextExitMethod != null && contextExitMethod.IsCallable())
-                        {
-                            Console.WriteLine($"🔧 WITH_EXCEPT_START: Found __exit__ method: {contextExitMethod.GetType().Name}");
-                        }
-                        else
-                        {
-                            Console.WriteLine($"❌ WITH_EXCEPT_START: Item is not callable: {contextExitMethod?.GetType().Name}");
-                            contextExitMethod = null;
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine($"❌ WITH_EXCEPT_START: Insufficient stack items, need at least 2");
-                        contextExitMethod = null;
-                    }
+                    // CPython 3.12: Pop __exit__ method (should be at TOS now)
+                    var contextExitMethod = frame.ValueStack.Pop();
+                    Console.WriteLine($"🔧 WITH_EXCEPT_START: Popped __exit__ method: {contextExitMethod}");
                     
                     bool suppressException = false;
                     
@@ -1464,10 +1446,10 @@ namespace SharpPy
                     {
                         try
                         {
-                            // Call __exit__(exc_type, exc_value, exc_traceback) - CPython 3.12 order
+                            // CPython 3.12: Call __exit__(exc_type, exc_value, exc_traceback)
                             var exitResult = contextExitMethod.Call(new PyObject[] { excType, excValue, excTraceback });
                             
-                            // Convert result to boolean using SharpPy's AsBool()
+                            // Convert result to boolean
                             suppressException = exitResult.AsBool() == PyBool.True;
                             
                             Console.WriteLine($"✅ WITH_EXCEPT_START: __exit__ returned {exitResult} (suppress={suppressException})");
@@ -1477,32 +1459,20 @@ namespace SharpPy
                             Console.WriteLine($"❌ WITH_EXCEPT_START: __exit__ threw exception: {exitException.Message}");
                             suppressException = false;
                             
-                            // Convert and re-throw the new exception
+                            // Re-throw the new exception
                             var newPyException = ConvertToPythonException(exitException);
                             throw new PythonException(newPyException);
                         }
                     }
                     else
                     {
-                        Console.WriteLine($"❌ WITH_EXCEPT_START: No valid __exit__ method found");
+                        Console.WriteLine($"❌ WITH_EXCEPT_START: Not callable: {contextExitMethod?.GetType().Name}");
                         suppressException = false;
                     }
                     
-                    // CPython 3.12 compatible: Push multiple items for stack cleanup
-                    if (suppressException)
-                    {
-                        // Exception suppressed: Push items for the multiple POP operations
-                        frame.ValueStack.Push(PyBool.True);       // For POP_JUMP_IF_TRUE test
-                        frame.ValueStack.Push(PyNone.Instance);   // For 1st POP_TOP
-                        frame.ValueStack.Push(PyNone.Instance);   // For 2nd POP_TOP  
-                        frame.ValueStack.Push(PyNone.Instance);   // For 3rd POP_TOP
-                    }
-                    else
-                    {
-                        // Exception not suppressed: Just push boolean result
-                        frame.ValueStack.Push(PyBool.False);
-                    }
-                    Console.WriteLine($"🔧 WITH_EXCEPT_START: Final result = {suppressException}");
+                    // CPython 3.12: Push boolean result for POP_JUMP_IF_TRUE
+                    frame.ValueStack.Push(PyBool.FromBool(suppressException));
+                    Console.WriteLine($"🔧 WITH_EXCEPT_START: Pushed result = {suppressException}");
                     break;
                     
                 case ByteCodeOp.EXCEPT_MATCH:

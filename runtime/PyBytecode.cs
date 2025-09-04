@@ -10,9 +10,12 @@ namespace SharpPy
     {
         public int StartOffset { get; set; }      // 보호 구간 시작
         public int EndOffset { get; set; }        // 보호 구간 끝
-        public int HandlerOffset { get; set; }    // 핸들러 시작 위치
+        public int HandlerOffset { get; set; }    // 핸들러 시작 위치 (해석된 값)
         public int Depth { get; set; }            // 스택 depth 
         public bool Lasti { get; set; }           // last instruction 플래그
+        
+        // 라벨 기반 생성자 (컴파일 시점)
+        public string? HandlerLabelName { get; set; }  // 핸들러 라벨 이름 (해석 전)
         
         public ExceptionTableEntry(int start, int end, int handler, int depth, bool lasti = true)
         {
@@ -22,6 +25,19 @@ namespace SharpPy
             Depth = depth;
             Lasti = lasti;
         }
+        
+        // 라벨 기반 생성자 (CPython 3.12 호환)
+        public ExceptionTableEntry(int start, int end, string handlerLabel, int depth, bool lasti = true)
+        {
+            StartOffset = start;
+            EndOffset = end;
+            HandlerLabelName = handlerLabel;
+            HandlerOffset = -1; // 아직 해석되지 않음
+            Depth = depth;
+            Lasti = lasti;
+        }
+        
+        public bool IsResolved => HandlerOffset >= 0;
     }
 
 #endregion

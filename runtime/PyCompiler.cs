@@ -1,3 +1,5 @@
+using System.Linq;
+
 namespace SharpPy
 {
     #region Compiler Extension (AST → Bytecode)
@@ -424,11 +426,14 @@ namespace SharpPy
             
             var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, parameters.Count, null, null, null, 0);
             
+            // Resolve Exception Table labels to offsets (CPython 3.12 compatible)
+            ResolveExceptionTable();
+            
             // Add Exception Table entries (CPython 3.12 compatible)
             if (_exceptionTable.Count > 0)
             {
                 codeObject.ExceptionTable.AddRange(_exceptionTable);
-                Console.WriteLine($"📋 Exception Table: {_exceptionTable.Count}개 엔트리 추가됨");
+                Console.WriteLine($"📋 Exception Table: {_exceptionTable.Count}개 엔트리 추가됨 (라벨 해석 완료)");
             }
             else
             {
@@ -696,11 +701,14 @@ namespace SharpPy
             var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, 
                                             paramNames.Count, freeVars, cellVars, defaults, flags);
             
+            // Resolve Exception Table labels to offsets (CPython 3.12 compatible)
+            ResolveExceptionTable();
+            
             // Add Exception Table entries (CPython 3.12 compatible)
             if (_exceptionTable.Count > 0)
             {
                 codeObject.ExceptionTable.AddRange(_exceptionTable);
-                Console.WriteLine($"📋 Exception Table: {_exceptionTable.Count}개 엔트리 추가됨");
+                Console.WriteLine($"📋 Exception Table: {_exceptionTable.Count}개 엔트리 추가됨 (라벨 해석 완료)");
             }
             else
             {
@@ -2268,20 +2276,20 @@ namespace SharpPy
             
             var bodyEndOffset = _instructions.Count;
             
-            // 6. Register Exception Table entry (CPython 3.12 style)
-            var handlerOffset = _instructions.Count + 7; // handler starts after normal path
+            // 6. Register Exception Table entry (CPython 3.12 style - Label based)
+            // Handler should point to PUSH_EXC_INFO label (withCleanupLabel)
             var entry = new ExceptionTableEntry(
                 start: bodyStartOffset,
                 end: bodyEndOffset, 
-                handler: handlerOffset,
+                handlerLabel: withCleanupLabel.Name,
                 depth: 1,
                 lasti: true
             );
             _exceptionTable.Add(entry);
             
-            Console.WriteLine($"🔧 Exception Table Entry Created:");
+            Console.WriteLine($"🔧 Exception Table Entry Created (Label-based):");
             Console.WriteLine($"   Start: {bodyStartOffset}, End: {bodyEndOffset}");
-            Console.WriteLine($"   Handler: {handlerOffset}, Depth: 1");
+            Console.WriteLine($"   Handler Label: {withCleanupLabel.Name}, Depth: 1");
             
             // 7. Normal exit: call __exit__(None, None, None) - no POP_EXCEPT needed
             EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(PyNone.Instance));
@@ -3016,6 +3024,36 @@ namespace SharpPy
         private void PlaceLabel(Label label)
         {
             MarkLabel(label);
+        }
+        
+        /// <summary>
+        /// CPython 3.12 style: Resolve Exception Table labels to actual offsets
+        /// </summary>
+        private void ResolveExceptionTable()
+        {
+            Console.WriteLine($"🔧 Exception Table 해석: {_exceptionTable.Count}개 엔트리");
+            
+            for (int i = 0; i < _exceptionTable.Count; i++)
+            {
+                var entry = _exceptionTable[i];
+                if (!string.IsNullOrEmpty(entry.HandlerLabelName))
+                {
+                    // 라벨로부터 실제 오프셋 찾기
+                    if (_labels.TryGetValue(entry.HandlerLabelName, out var label) && label.IsMarked)
+                    {
+                        entry.HandlerOffset = label.Offset;
+                        Console.WriteLine($"   ✅ 라벨 '{entry.HandlerLabelName}' → 오프셋 {entry.HandlerOffset}");
+                    }
+                    else
+                    {
+                        throw new Exception($"Exception Table: 라벨 '{entry.HandlerLabelName}'을 찾을 수 없음 또는 미배치");
+                    }
+                }
+                else if (entry.HandlerOffset < 0)
+                {
+                    throw new Exception($"Exception Table: 엔트리 {i}의 핸들러가 해석되지 않음");
+                }
+            }
         }
         
         /// <summary>
