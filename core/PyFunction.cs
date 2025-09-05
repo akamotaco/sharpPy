@@ -177,7 +177,20 @@ public class PyFunction : PyObject, IDescriptor
 
         public override PyObject Call(params PyObject[] args)
         {
-            // self를 첫 번째 인자로 추가
+            // CPython 3.12 context manager 호환성: __exit__ method 특별 처리
+            if (Function.Name == "__exit__" && args.Length == 2)
+            {
+                // CALL 2로 2개 인수를 받았지만, __exit__는 4개 매개변수 필요
+                // CPython에서는 스택에 3개 None이 있고 CALL 2는 특별 처리됨
+                var contextArgs = new PyObject[4];
+                contextArgs[0] = Instance; // self
+                contextArgs[1] = args[0];  // exc_type (None)
+                contextArgs[2] = args[1];  // exc_val (None)
+                contextArgs[3] = PyNone.Instance; // exc_tb (None) - 암시적으로 추가
+                return Function.Call(contextArgs);
+            }
+            
+            // 일반적인 bound method 처리
             var newArgs = new PyObject[args.Length + 1];
             newArgs[0] = Instance;
             Array.Copy(args, 0, newArgs, 1, args.Length);

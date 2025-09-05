@@ -56,6 +56,8 @@ namespace SharpPy
                 "type" => CallType(args),
                 "id" => CallId(args),
                 "hash" => CallHash(args),
+                "super" => CallSuper(args),
+                "type.__new__" => CallTypeNew(args),
                 "str" => CallStr(args),
                 "int" => CallInt(args),
                 "float" => CallFloat(args),
@@ -1142,7 +1144,8 @@ namespace SharpPy
             }
             
             // If we didn't use metaclass, copy namespace to class manually
-            if (!hasMetaclass || pyClass.GetAttribute("__metaclass__") != null)
+            // When using metaclass, the attributes are already set by type.__new__
+            if (!hasMetaclass)
             {
                 foreach (var kvp in classNamespace)
                 {
@@ -1239,6 +1242,140 @@ namespace SharpPy
             return new PyFileContextManager(filename, mode);
         }
 
+        /// <summary>
+        /// super() builtin function implementation
+        /// Returns a proxy object that delegates method calls to parent or sibling class
+        /// </summary>
+        private PyObject CallSuper(PyObject[] args)
+        {
+            if (args.Length == 0)
+            {
+                // super() with no arguments - requires introspection (advanced feature)
+                throw PyTypeError.Create("super(): __class__ cell not found");
+            }
+            else if (args.Length == 2)
+            {
+                // super(type, obj) - standard form
+                var type = args[0];
+                var obj = args[1];
+                
+                if (!(type is PyType pyType))
+                {
+                    throw PyTypeError.Create("super() argument 1 must be type");
+                }
+                
+                // Create a super proxy object
+                return new PySuperProxy(pyType, obj);
+            }
+            else
+            {
+                throw PyTypeError.Create($"super expected at most 2 arguments ({args.Length} given)");
+            }
+        }
+
+        /// <summary>
+        /// type.__new__ builtin method implementation
+        /// Creates a new type instance (class creation)
+        /// </summary>
+        private PyObject CallTypeNew(PyObject[] args)
+        {
+            if (args.Length < 4)
+            {
+                throw PyTypeError.Create($"type.__new__() takes exactly 4 arguments ({args.Length} given)");
+            }
+            
+            var cls = args[0];        // The metaclass (e.g., MyMeta)
+            var name = args[1];       // Class name (e.g., "MyClass")  
+            var bases = args[2];      // Base classes tuple (e.g., ())
+            var attrs = args[3];      // Class attributes dict (e.g., {"method": <function>})
+            
+            // Convert arguments to proper types
+            if (!(name is PyString nameStr))
+            {
+                throw PyTypeError.Create("type.__new__() argument 2 must be string");
+            }
+            
+            if (!(bases is PyTuple basesTuple))
+            {
+                throw PyTypeError.Create("type.__new__() argument 3 must be tuple");
+            }
+            
+            if (!(attrs is PyDict attrsDict))
+            {
+                throw PyTypeError.Create("type.__new__() argument 4 must be dict");
+            }
+            
+            // Create the new class using the standard class creation mechanism
+            var baseTypes = new List<PyType>();
+            foreach (var baseObj in basesTuple.Items)
+            {
+                if (baseObj is PyType baseType)
+                {
+                    baseTypes.Add(baseType);
+                }
+                else
+                {
+                    throw PyTypeError.Create("bases must be types");
+                }
+            }
+            
+            // Create new class
+            var newClass = new PyClass(nameStr.Value, baseTypes.ToArray());
+            
+            // Set class attributes from the attrs dict
+            var items = attrsDict.Items();
+            for (int i = 0; i < items.Items.Length; i++)
+            {
+                if (items.Items[i] is PyTuple kvp && kvp.Items.Length == 2)
+                {
+                    if (kvp.Items[0] is PyString keyStr)
+                    {
+                        newClass.SetAttribute(keyStr.Value, kvp.Items[1]);
+                    }
+                }
+            }
+            
+            return newClass;
+        }
+
         public override string ToString() => $"<built-in function {Name}>";
+    }
+    
+    /// <summary>
+    /// Super proxy object that handles method resolution
+    /// </summary>
+    public class PySuperProxy : PyObject
+    {
+        public PyType Type { get; }
+        public PyObject Object { get; }
+        
+        public PySuperProxy(PyType type, PyObject obj)
+        {
+            Type = type;
+            Object = obj;
+        }
+        
+        public override PyObject GetAttribute(string name)
+        {
+            // Look up the attribute in the parent class
+            if (Type.BaseTypes.Length > 0)
+            {
+                var baseType = Type.BaseTypes[0]; // First base class
+                var attr = baseType.GetAttribute(name);
+                if (attr != null)
+                {
+                    // If it's a method, bind it to the object
+                    if (attr is PyFunction function)
+                    {
+                        return new PyMethod(Object, function);
+                    }
+                    return attr;
+                }
+            }
+            
+            throw PyAttributeError.Create($"'super' object has no attribute '{name}'");
+        }
+        
+        public override string ToString() => $"<super: {Type.Name}, {Object}>";
     }
 }

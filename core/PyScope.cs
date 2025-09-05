@@ -66,16 +66,18 @@ public class PyBuiltinsModule : PyObject
         BuiltinDict["type"] = new PyBuiltinFunction("type");
         BuiltinDict["id"] = new PyBuiltinFunction("id");
         BuiltinDict["hash"] = new PyBuiltinFunction("hash");
+        BuiltinDict["super"] = new PyBuiltinFunction("super");
         
-        // 타입 변환 함수들
-        BuiltinDict["str"] = new PyBuiltinFunction("str");
-        BuiltinDict["int"] = new PyBuiltinFunction("int");
-        BuiltinDict["float"] = new PyBuiltinFunction("float");
-        BuiltinDict["bool"] = new PyBuiltinFunction("bool");
-        BuiltinDict["list"] = new PyBuiltinFunction("list");
-        BuiltinDict["tuple"] = new PyBuiltinFunction("tuple");
-        BuiltinDict["dict"] = new PyBuiltinFunction("dict");
-        BuiltinDict["set"] = new PyBuiltinFunction("set");
+        // CPython 3.12 호환성: 타입들을 PyType으로 등록 (isinstance 지원)
+        BuiltinDict["str"] = PyType.StrType;
+        BuiltinDict["bytes"] = PyType.BytesType;
+        BuiltinDict["int"] = PyType.IntType;
+        BuiltinDict["float"] = PyType.FloatType;
+        BuiltinDict["bool"] = PyType.BoolType;
+        BuiltinDict["list"] = PyType.ListType;
+        BuiltinDict["tuple"] = PyType.TupleType;
+        BuiltinDict["dict"] = PyType.DictType;
+        BuiltinDict["set"] = PyType.SetType;
         
         // 수학 및 기타 함수들
         BuiltinDict["round"] = new PyBuiltinFunction("round");

@@ -136,6 +136,46 @@ namespace SharpPy
             
             return new PyString(Value[index].ToString());
         }
+        
+        /// <summary>
+        /// PyObject.GetItem 오버라이드 - 인덱싱 및 슬라이싱 지원
+        /// </summary>
+        public override PyObject GetItem(PyObject index)
+        {
+            if (index is PyInt pyInt)
+            {
+                return GetItem(pyInt.Value);
+            }
+            else if (index is PySlice slice)
+            {
+                // 슬라이싱 처리
+                var (start, stop, step) = slice.Indices(Value.Length);
+                
+                var chars = new List<char>();
+                if (step > 0)
+                {
+                    for (int i = start; i < stop; i += step)
+                    {
+                        if (i >= 0 && i < Value.Length)
+                            chars.Add(Value[i]);
+                    }
+                }
+                else if (step < 0)
+                {
+                    for (int i = start; i > stop; i += step)
+                    {
+                        if (i >= 0 && i < Value.Length)
+                            chars.Add(Value[i]);
+                    }
+                }
+                
+                return new PyString(new string(chars.ToArray()));
+            }
+            else
+            {
+                throw PyTypeError.Create($"string indices must be integers or slices, not {index.GetTypeName()}");
+            }
+        }
 
         /// <summary>
         /// 슬라이싱 str[start:end]

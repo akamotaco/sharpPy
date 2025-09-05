@@ -20,6 +20,7 @@ namespace SharpPy
         }
 
         public override string GetTypeName() => "list";
+        public override PyType GetPyType() => PyType.ListType;
         public override string ToString() => $"[{string.Join(", ", _items.Select(i => i.ToString()))}]";
         public override string ToRepr() => $"[{string.Join(", ", _items.Select(i => i.ToRepr()))}]";
         public override int Length() => _items.Count;
@@ -33,6 +34,44 @@ namespace SharpPy
                 throw PyIndexError.Create("list index out of range");
             return _items[index];
         }
+        
+        // PyObject.GetItem 오버라이드 - 슬라이싱 및 인덱싱 지원
+        public override PyObject GetItem(PyObject index)
+        {
+            if (index is PyInt pyInt)
+            {
+                return GetItem(pyInt.Value);
+            }
+            else if (index is PySlice slice)
+            {
+                // 슬라이싱 처리
+                var (start, stop, step) = slice.Indices(_items.Count);
+                
+                var result = new List<PyObject>();
+                if (step > 0)
+                {
+                    for (int i = start; i < stop; i += step)
+                    {
+                        if (i >= 0 && i < _items.Count)
+                            result.Add(_items[i]);
+                    }
+                }
+                else if (step < 0)
+                {
+                    for (int i = start; i > stop; i += step)
+                    {
+                        if (i >= 0 && i < _items.Count)
+                            result.Add(_items[i]);
+                    }
+                }
+                
+                return new PyList(result);
+            }
+            else
+            {
+                throw PyTypeError.Create($"list indices must be integers or slices, not {index.GetTypeName()}");
+            }
+        }
 
         public void SetItem(int index, PyObject value)
         {
@@ -40,6 +79,49 @@ namespace SharpPy
             if (index < 0 || index >= _items.Count)
                 throw PyIndexError.Create("list assignment index out of range");
             _items[index] = value;
+        }
+
+        public override void SetItem(PyObject index, PyObject value)
+        {
+            if (index is PyInt intIndex)
+            {
+                SetItem(intIndex.Value, value);
+            }
+            else if (index is PySlice slice)
+            {
+                // Handle slice assignment: list[start:stop] = values
+                if (!(value is PyList valueList))
+                {
+                    throw PyTypeError.Create("can only assign a list to a slice");
+                }
+                
+                var (start, stop, step) = slice.Indices(_items.Count);
+                
+                if (step == 1)
+                {
+                    // Simple slice assignment: replace items[start:stop] with valueList
+                    _items.RemoveRange(start, stop - start);
+                    _items.InsertRange(start, valueList.Items);
+                }
+                else
+                {
+                    // Extended slice assignment: must have same number of items
+                    var sliceIndices = slice.GetIndices(_items.Count);
+                    if (sliceIndices.Length != valueList.Items.Length)
+                    {
+                        throw PyValueError.Create($"attempt to assign sequence of size {valueList.Items.Length} to extended slice of size {sliceIndices.Length}");
+                    }
+                    
+                    for (int i = 0; i < sliceIndices.Length; i++)
+                    {
+                        _items[sliceIndices[i]] = valueList.Items[i];
+                    }
+                }
+            }
+            else
+            {
+                throw PyTypeError.Create($"list indices must be integers or slices, not {index.GetTypeName()}");
+            }
         }
 
         // 리스트 조작 메서드들

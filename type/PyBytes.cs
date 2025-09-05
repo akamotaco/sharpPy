@@ -13,7 +13,36 @@ namespace SharpPy
         }
 
         public override string GetTypeName() => "bytes";
-        public override string ToString() => $"b'{string.Join("", Value.Select(b => (char)b))}'";
+        public override PyType GetPyType() => PyType.BytesType;
+        
+        public override string ToString() => ToRepr();
+        
+        public override string ToRepr()
+        {
+            var sb = new System.Text.StringBuilder("b'");
+            foreach (byte b in Value)
+            {
+                if (b >= 32 && b < 127 && b != '\\' && b != '\'')
+                {
+                    sb.Append((char)b);
+                }
+                else
+                {
+                    switch (b)
+                    {
+                        case (byte)'\\': sb.Append("\\\\"); break;
+                        case (byte)'\'': sb.Append("\\'"); break;
+                        case (byte)'\n': sb.Append("\\n"); break;
+                        case (byte)'\r': sb.Append("\\r"); break;
+                        case (byte)'\t': sb.Append("\\t"); break;
+                        default: sb.Append($"\\x{b:x2}"); break;
+                    }
+                }
+            }
+            sb.Append('\'');
+            return sb.ToString();
+        }
+        
         public override int Length() => Value.Length;
         public override bool PyBoolValue() => Value.Length > 0;
 

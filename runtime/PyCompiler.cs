@@ -415,6 +415,9 @@ namespace SharpPy
             
             Console.WriteLine($"\n🔧 컴파일: {name}");
             
+            // Python 3.12: 모든 코드는 RESUME으로 시작
+            EmitInstruction(ByteCodeOp.RESUME, 0);
+            
             foreach (var statement in statements)
             {
                 CompileStatement(statement);
@@ -631,6 +634,15 @@ namespace SharpPy
                               .Replace("\\\"", "\"")
                               .Replace("\\\\", "\\");
                 return new PyString(content);
+            }
+            
+            // 인용부호 없는 문자열 (파서에서 따옴표가 제거된 경우)
+            // 간단한 식별자/리터럴일 가능성이 있는 문자열은 그대로 문자열로 처리
+            if (!defaultValueStr.Contains(" ") && !defaultValueStr.Contains("(") && 
+                !defaultValueStr.Contains("[") && !defaultValueStr.Contains("{") &&
+                defaultValueStr.All(c => char.IsLetterOrDigit(c) || c == '_'))
+            {
+                return new PyString(defaultValueStr);
             }
             
             // None 처리
@@ -969,6 +981,12 @@ namespace SharpPy
                 case CallExpression call:
                     CompileExpression(call.Function);
                     
+                    // Python 3.12: 함수 로드 후 PUSH_NULL (키워드 인수가 없는 경우만)
+                    if (call.Keywords.Count == 0)
+                    {
+                        EmitInstruction(ByteCodeOp.PUSH_NULL);
+                    }
+                    
                     // 위치 인수 컴파일
                     foreach (var arg in call.Arguments)
                     {
@@ -996,8 +1014,8 @@ namespace SharpPy
                     }
                     else
                     {
-                        // 키워드 인수가 없는 경우 기존 방식
-                        EmitInstruction(ByteCodeOp.CALL_FUNCTION, call.Arguments.Count);
+                        // 키워드 인수가 없는 경우 Python 3.12 방식
+                        EmitInstruction(ByteCodeOp.CALL, call.Arguments.Count);
                     }
                     break;
                     
@@ -1008,8 +1026,30 @@ namespace SharpPy
                     
                 case SubscriptExpression subscript:
                     CompileExpression(subscript.Value);
-                    CompileExpression(subscript.Slice);
-                    EmitInstruction(ByteCodeOp.LOAD_SUBSCR);
+                    
+                    // CPython 3.12: SliceExpression은 BINARY_SLICE 사용
+                    if (subscript.Slice is SliceExpression sliceExpr)
+                    {
+                        // Start 값 로드 (None이면 0)
+                        if (sliceExpr.Start != null)
+                            CompileExpression(sliceExpr.Start);
+                        else
+                            EmitLoadConst(PyNone.Instance);
+                            
+                        // Stop 값 로드 (None이면 len)
+                        if (sliceExpr.Stop != null)
+                            CompileExpression(sliceExpr.Stop);
+                        else
+                            EmitLoadConst(PyNone.Instance);
+                            
+                        EmitInstruction(ByteCodeOp.BINARY_SLICE);
+                    }
+                    else
+                    {
+                        // 일반 인덱싱
+                        CompileExpression(subscript.Slice);
+                        EmitInstruction(ByteCodeOp.LOAD_SUBSCR);
+                    }
                     break;
                     
                 case ListExpression list:
@@ -1104,6 +1144,10 @@ namespace SharpPy
                     CompileGeneratorExpression(genExp);
                     break;
                     
+                case SliceExpression sliceExp:
+                    CompileSliceExpression(sliceExp);
+                    break;
+                    
                 default:
                     throw new NotImplementedException($"Expression {expression.GetType().Name} not implemented");
             }
@@ -1177,28 +1221,39 @@ namespace SharpPy
                 makeFunctionFlags |= 1; // MAKE_FUNCTION_DEFAULTS flag
             }
             
-            // 5. 코드 객체 로드
-            EmitLoadConst(funcCode);
-            
-            // 6. 함수 생성 (기본값 + 클로저 플래그 설정)
+            // 5. 함수 생성 (기본값 + 클로저 플래그 설정)
             if (freeVars.Count > 0)
             {
                 makeFunctionFlags |= 8; // MAKE_FUNCTION_CLOSURE flag
             }
             
-            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, makeFunctionFlags);
-            
-            // 7. 데코레이터 적용 (함수가 생성된 후)
+            // 6. 데코레이터 적용 (CPython 3.12 호환) - 올바른 스택 순서
             if (func.Decorators != null && func.Decorators.Count > 0)
             {
                 // 데코레이터는 역순으로 적용됩니다 (마지막 데코레이터부터)
                 foreach (var decorator in func.Decorators)
                 {
-                    CompileExpression(decorator.DecoratorFunction); // 데코레이터 함수를 스택에 로드
-                    EmitInstruction(ByteCodeOp.ROT_TWO); // 함수와 데코레이터 순서 바꾸기
+                    CompileExpression(decorator.DecoratorFunction); // 데코레이터를 먼저 스택에 로드
+                }
+            }
+            
+            // 7. 코드 객체 로드 (데코레이터 다음)
+            EmitLoadConst(funcCode);
+            
+            // 8. 함수 생성 (스택: [decorator] [code] -> [decorator] [function])
+            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, makeFunctionFlags);
+            
+            // 9. 데코레이터 호출 (CPython 3.12 정확한 패턴)
+            if (func.Decorators != null && func.Decorators.Count > 0)
+            {
+                // 데코레이터는 역순으로 적용됩니다 (마지막 데코레이터부터)
+                foreach (var decorator in func.Decorators)
+                {
+                    // 현재 스택: [decorator, function]
+                    // CPython 3.12: CALL 0 → decorator(function) 호출
                     
-                    // 데코레이터에 인수가 있는 경우 처리 (@decorator(args))
-                    int argCount = 1; // 기본적으로 함수 1개
+                    // 데코레이터에 추가 인수가 있는 경우 처리 (@decorator(args))
+                    int argCount = 0; // CPython 3.12 방식: function은 암시적 첫 인수
                     if (decorator.Arguments.Count > 0)
                     {
                         foreach (var arg in decorator.Arguments)
@@ -1208,7 +1263,8 @@ namespace SharpPy
                         }
                     }
                     
-                    EmitInstruction(ByteCodeOp.CALL_FUNCTION, argCount); // 데코레이터(함수, args...) 호출
+                    // CPython 3.12 정확한 CALL: 스택의 [decorator, function] → decorator(function)
+                    EmitInstruction(ByteCodeOp.CALL, argCount);
                 }
             }
             
@@ -1290,7 +1346,8 @@ namespace SharpPy
                 return;
             }
             
-            // 3. 모듈 레벨: CPython 3.12 호환성을 위해 LOAD_GLOBAL 사용
+            // 3. 모듈 레벨: CPython 3.12 호환성을 위해 LOAD_NAME 사용
+            // 이렇게 해야 STORE_NAME으로 저장된 변수(예: 예외 변수)를 찾을 수 있음
             if (!_isInFunction)
             {
                 // 내장 함수 우선 처리
@@ -1301,8 +1358,9 @@ namespace SharpPy
                 }
                 else
                 {
-                    var globalIndex = AddName(name);
-                    EmitInstruction(ByteCodeOp.LOAD_GLOBAL, globalIndex);
+                    // CPython 3.12: 모듈 레벨에서도 LOAD_NAME 사용
+                    var nameIndex = AddName(name);
+                    EmitInstruction(ByteCodeOp.LOAD_NAME, nameIndex);
                 }
                 return;
             }
@@ -1565,6 +1623,8 @@ namespace SharpPy
             // CPython 3.12: Compile class body as a proper function
             // Load __build_class__ function first
             EmitLoadName("__build_class__");
+            // Python 3.12: 함수 로드 후 PUSH_NULL
+            EmitInstruction(ByteCodeOp.PUSH_NULL);
             
             // Compile class body into a function (with potential free variables)
             var classBodyName = $"<class_body_{cls.Name}>";
@@ -1598,7 +1658,7 @@ namespace SharpPy
             }
             
             // Call __build_class__(class_body_function, name, *bases [, metaclass])
-            EmitInstruction(ByteCodeOp.CALL_FUNCTION, totalArgs);
+            EmitInstruction(ByteCodeOp.CALL, totalArgs);
             
             // Store the created class
             EmitStoreName(cls.Name);
@@ -2295,8 +2355,8 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(PyNone.Instance));
             EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(PyNone.Instance)); 
             EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(PyNone.Instance));
-            // CPython 3.12: __exit__ 메서드 호출 (상수화)
-            EmitInstruction(ByteCodeOp.CALL_FUNCTION, StackEffectAnalyzer.WithStatementStack.EXIT_METHOD_ARGS_COUNT);
+            // CPython 3.12: __exit__(exc_type, exc_val, exc_tb) - CALL 2 (CPython과 동일)
+            EmitInstruction(ByteCodeOp.CALL, 2);
             EmitInstruction(ByteCodeOp.POP_TOP); // discard __exit__ return value
             
             var endLabel = CreateLabel("with_end");
@@ -2423,8 +2483,7 @@ namespace SharpPy
                 }
                 
                 // Pattern matched and guard passed - execute case body
-                // Pop the subject since we don't need it anymore for this case
-                EmitInstruction(ByteCodeOp.POP_TOP);
+                // CPython-style: subject elements are already consumed by pattern matching
                 
                 // Compile case body
                 foreach (var stmt in matchCase.Body)
@@ -2626,10 +2685,142 @@ namespace SharpPy
                         return false;
                     }
                     
+                case SequencePattern sequencePattern:
+                    // CPython 3.12: Sequence pattern matching [1, 2, *rest]
+                    Console.WriteLine($"🔍 SequencePattern: {sequencePattern.Patterns.Count} patterns");
+                    return CompileSequencePattern(sequencePattern, failLabel);
+                    
+                case MappingPattern mappingPattern:
+                    // CPython 3.12: Dictionary pattern matching {"key": value}
+                    Console.WriteLine($"🔍 MappingPattern: {mappingPattern.Patterns.Count} patterns");
+                    return CompileMappingPattern(mappingPattern, failLabel);
+                    
                 default:
                     // Unsupported pattern type for now - fallback to old system
                     return false;
             }
+        }
+        
+        /// <summary>
+        /// Compile sequence pattern matching like [1, 2, *rest]
+        /// </summary>
+        private bool CompileSequencePattern(SequencePattern pattern, Label failLabel)
+        {
+            var patterns = pattern.Patterns;
+            
+            // Check if pattern has star expressions
+            bool hasStarPattern = patterns.Any(p => p is StarPattern);
+            int starIndex = -1;
+            int countBefore = 0, countAfter = 0;
+            
+            if (hasStarPattern)
+            {
+                starIndex = patterns.FindIndex(p => p is StarPattern);
+                countBefore = starIndex;
+                countAfter = patterns.Count - starIndex - 1;
+            }
+            
+            // Stack: [subject] (the list/sequence to match)
+            
+            // 1. Check if subject is a sequence (CPython MATCH_SEQUENCE)
+            EmitInstruction(ByteCodeOp.MATCH_SEQUENCE);
+            EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+            
+            // 2. Check length constraints
+            EmitInstruction(ByteCodeOp.GET_LEN);
+            
+            if (hasStarPattern)
+            {
+                // For star patterns: len >= (before + after)
+                EmitLoadConst(new PyInt(countBefore + countAfter));
+                EmitComparison(CompareOp.GE);
+                EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+            }
+            else
+            {
+                // For exact patterns: len == pattern_count
+                EmitLoadConst(new PyInt(patterns.Count));
+                EmitComparison(CompareOp.EQ);
+                EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+            }
+            
+            // 3. Unpack and match elements
+            if (hasStarPattern)
+            {
+                // Use UNPACK_EX for star patterns
+                int arg = countBefore | (countAfter << 8);
+                EmitInstruction(ByteCodeOp.UNPACK_EX, arg);
+                
+                // CPython order: First store star pattern, then match before elements, then after elements
+                // Stack after UNPACK_EX: [before_elements..., star_list, after_elements...]
+                // CPython immediately stores star pattern first
+                
+                // 1. Store star pattern first (as CPython does)
+                if (starIndex >= 0 && patterns[starIndex] is StarPattern starPat)
+                {
+                    EmitStoreName(starPat.Name);
+                }
+                
+                // 2. Match before elements (now on top of stack, in forward order)
+                for (int i = 0; i < countBefore; i++)
+                {
+                    var p = patterns[i];
+                    
+                    if (p is ConstantExpression constExpr)
+                    {
+                        CompileExpression(constExpr);
+                        EmitComparison(CompareOp.EQ);
+                        EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+                    }
+                    else if (p is NameExpression nameExpr)
+                    {
+                        EmitStoreName(nameExpr.Name);
+                    }
+                }
+                
+                // 3. Match after elements (remaining on stack, in forward order)
+                for (int i = 0; i < countAfter; i++)
+                {
+                    var patternIdx = starIndex + 1 + i;  // patterns after star
+                    var p = patterns[patternIdx];
+                    
+                    if (p is ConstantExpression constExpr)
+                    {
+                        CompileExpression(constExpr);
+                        EmitComparison(CompareOp.EQ);
+                        EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+                    }
+                    else if (p is NameExpression nameExpr)
+                    {
+                        EmitStoreName(nameExpr.Name);
+                    }
+                }
+            }
+            else
+            {
+                // Use regular UNPACK_SEQUENCE for non-star patterns
+                EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, patterns.Count);
+                
+                // Match each pattern (CPython-compatible order)
+                // UNPACK_SEQUENCE pushes elements, then we match in forward order
+                for (int i = 0; i < patterns.Count; i++)
+                {
+                    var p = patterns[i];
+                    if (p is ConstantExpression constExpr)
+                    {
+                        // CPython directly compares without DUP_TOP
+                        CompileExpression(constExpr);
+                        EmitComparison(CompareOp.EQ);
+                        EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+                    }
+                    else if (p is NameExpression nameExpr)
+                    {
+                        EmitStoreName(nameExpr.Name);
+                    }
+                }
+            }
+            
+            return true;
         }
         
         private bool CompileOrPatternLogic(List<Expression> patterns, Label failLabel)
@@ -2719,6 +2910,83 @@ namespace SharpPy
             
             PlaceLabel(successLabel);
             // Stack should have [subject] here - the successful match consumes comparison result but leaves subject
+            return true;
+        }
+        
+        /// <summary>
+        /// CPython 3.12: Compile dictionary pattern matching {"key": value}
+        /// </summary>
+        private bool CompileMappingPattern(MappingPattern pattern, Label failLabel)
+        {
+            // CPython 3.12: Dictionary pattern matching with MATCH_MAPPING, MATCH_KEYS
+            // Example: case {"key": value}: 
+            // Generates:
+            //   MATCH_MAPPING      - check if subject is mapping
+            //   GET_LEN            - get mapping length  
+            //   LOAD_CONST >= 1    - check minimum key count
+            //   COMPARE_OP >=      - compare lengths
+            //   POP_JUMP_IF_FALSE fail
+            //   LOAD_CONST ('key',) - tuple of required keys
+            //   MATCH_KEYS         - check if keys exist, return values
+            //   UNPACK_SEQUENCE    - unpack matched values
+            //   STORE_NAME value   - bind to variables
+            
+            // Stack: [subject]
+            
+            // Step 1: Check if subject is a mapping (dict-like)
+            EmitInstruction(ByteCodeOp.MATCH_MAPPING);
+            EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+            // Stack: [subject] (MATCH_MAPPING leaves subject on stack)
+            
+            // Step 2: Check minimum length (number of required keys)
+            EmitInstruction(ByteCodeOp.GET_LEN);
+            CompileExpression(new ConstantExpression(new PyInt(pattern.Patterns.Count)));
+            EmitComparison(CompareOp.GE); // >= required count
+            EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+            // Stack: [subject]
+            
+            // Step 3: Create tuple of required keys and match them
+            var keysList = pattern.Patterns.Keys.ToList();
+            foreach (var key in keysList)
+            {
+                CompileExpression(new ConstantExpression(new PyString(key)));
+            }
+            EmitInstruction(ByteCodeOp.BUILD_TUPLE, keysList.Count);
+            // Stack: [subject, keys_tuple]
+            
+            EmitInstruction(ByteCodeOp.MATCH_KEYS);
+            // Stack: [subject, values_tuple_or_None]
+            
+            // Step 4: Check if keys matched (MATCH_KEYS returns None if no match)
+            EmitInstruction(ByteCodeOp.COPY, 1); // Copy result for None check
+            EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_NONE, failLabel);
+            // Stack: [subject, values_tuple]
+            
+            // Step 5: Unpack values and bind to pattern variables
+            EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, keysList.Count);
+            // Stack: [subject, value1, value2, ...]
+            
+            // Step 6: Store values to variables (in reverse order due to stack)
+            for (int i = keysList.Count - 1; i >= 0; i--)
+            {
+                var key = keysList[i];
+                var valuePattern = pattern.Patterns[key];
+                
+                if (valuePattern is NameExpression nameExpr)
+                {
+                    EmitStoreName(nameExpr.Name);
+                }
+                else
+                {
+                    // Complex patterns in dict values not yet supported
+                    return false;
+                }
+            }
+            // Stack: [subject]
+            
+            // Step 7: Clean up - remove subject since pattern matched
+            EmitInstruction(ByteCodeOp.POP_TOP); // Remove subject
+            
             return true;
         }
         
@@ -3469,7 +3737,9 @@ namespace SharpPy
             // 제너레이터 함수 객체 생성
             EmitLoadConst(genCode);
             EmitInstruction(ByteCodeOp.MAKE_FUNCTION, 0);
-            EmitInstruction(ByteCodeOp.CALL_FUNCTION, 0);
+            // Python 3.12: 함수 생성 후 PUSH_NULL + CALL
+            EmitInstruction(ByteCodeOp.PUSH_NULL);
+            EmitInstruction(ByteCodeOp.CALL, 0);
             
             Console.WriteLine("✅ Generator expression 바이트코드 인라인 완료");
         }
@@ -3509,19 +3779,50 @@ namespace SharpPy
                     for (int i = 0; i < tuple.Elements.Count; i++)
                     {
                         var element = tuple.Elements[i];
-                        if (element is NameExpression nameExpr)
-                        {
-                            EmitStoreName(nameExpr.Name);
-                        }
-                        else
-                        {
-                            throw new Exception($"Invalid tuple unpacking target: {element.GetType().Name}");
-                        }
+                        CompileAssignmentTarget(element);
                     }
                     break;
                     
                 default:
                     throw new Exception($"Invalid assignment target: {assignTarget.Target.GetType().Name}");
+            }
+        }
+        
+        /// <summary>
+        /// Compiles an assignment target expression (used recursively for nested tuple unpacking)
+        /// Assumes the value is already on the stack
+        /// </summary>
+        private void CompileAssignmentTarget(Expression target)
+        {
+            switch (target)
+            {
+                case NameExpression name:
+                    EmitStoreName(name.Name);
+                    break;
+                    
+                case AttributeExpression attr:
+                    CompileExpression(attr.Value);
+                    EmitStoreAttr(attr.Attr);
+                    break;
+                    
+                case SubscriptExpression subscript:
+                    CompileExpression(subscript.Value);
+                    CompileExpression(subscript.Slice);
+                    EmitInstruction(ByteCodeOp.STORE_SUBSCR);
+                    break;
+                    
+                case TupleExpression tuple:
+                    // Nested tuple unpacking: (a, (b, c)) = (1, (2, 3))
+                    EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, tuple.Elements.Count);
+                    for (int i = 0; i < tuple.Elements.Count; i++)
+                    {
+                        var element = tuple.Elements[i];
+                        CompileAssignmentTarget(element);
+                    }
+                    break;
+                    
+                default:
+                    throw new Exception($"Invalid assignment target expression: {target.GetType().Name}");
             }
         }
         
@@ -3537,6 +3838,41 @@ namespace SharpPy
         private bool IsModuleLevel()
         {
             return _currentFunctionName == null || _currentFunctionName == "<module>";
+        }
+        
+        /// <summary>
+        /// Compile slice expression [start:stop] or [start:stop:step]
+        /// CPython 3.12: Uses BINARY_SLICE for simple slicing
+        /// </summary>
+        private void CompileSliceExpression(SliceExpression sliceExp)
+        {
+            // SliceExpression은 실제로는 SubscriptExpression의 일부로 컴파일됨
+            // 하지만 여기서는 직접 슬라이스 객체를 만들어야 할 수도 있음
+            
+            // Start 값 로드 (None이면 None)
+            if (sliceExp.Start != null)
+                CompileExpression(sliceExp.Start);
+            else
+                EmitLoadConst(PyNone.Instance);
+                
+            // Stop 값 로드 (None이면 None) 
+            if (sliceExp.Stop != null)
+                CompileExpression(sliceExp.Stop);
+            else
+                EmitLoadConst(PyNone.Instance);
+                
+            // Step 값 로드 (기본값은 None)
+            if (sliceExp.Step != null)
+            {
+                CompileExpression(sliceExp.Step);
+                // BUILD_SLICE 3 (start, stop, step)
+                EmitInstruction(ByteCodeOp.BUILD_SLICE, 3);
+            }
+            else
+            {
+                // BUILD_SLICE 2 (start, stop)
+                EmitInstruction(ByteCodeOp.BUILD_SLICE, 2);
+            }
         }
         
         #endregion

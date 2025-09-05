@@ -110,10 +110,9 @@ namespace SharpPy
         INPLACE_AND = 61,     // &=
         INPLACE_MATRIX_MULTIPLY = 62, // @=
         
-        // 함수 및 호출
-        CALL_FUNCTION = 70,   // 함수 호출
-        CALL_FUNCTION_KW = 71, // 키워드 인수로 함수 호출
-        CALL_FUNCTION_EX = 72, // *args, **kwargs 확장된 함수 호출
+        // 함수 및 호출 (Python 3.12 호환)
+        CALL_FUNCTION_KW = 71, // 키워드 인수로 함수 호출 (legacy - 단계적 제거 예정)
+        CALL_FUNCTION_EX = 72, // *args, **kwargs 확장된 함수 호출 (legacy - 단계적 제거 예정)
         MAKE_FUNCTION = 73,   // 함수 객체 생성
         
         // 제어 흐름
@@ -186,6 +185,8 @@ namespace SharpPy
         MATCH_SEQUENCE = 171, // 시퀀스 패턴 매치
         MATCH_KEYS = 172,     // 키 패턴 매치
         MATCH_CLASS = 173,    // 클래스 패턴 매치
+        GET_LEN = 174,        // 객체 길이 가져오기
+        POP_JUMP_IF_NONE = 175, // None이면 점프 (스택에서 제거)
         
         // 컴프리헨션
         LIST_APPEND = 180,    // 리스트에 요소 추가 (컴프리헨션용)
@@ -680,9 +681,8 @@ namespace SharpPy
                 
                 // 함수 생성 및 호출
                 ByteCodeOp.MAKE_FUNCTION => (1 + GetMakeFunctionExtraArgs(arg), 1),
-                ByteCodeOp.CALL_FUNCTION => (1 + arg, 1), // func + args -> result
-                ByteCodeOp.CALL_FUNCTION_KW => (2 + arg, 1), // func + args + kwargs -> result
-                ByteCodeOp.CALL_FUNCTION_EX => ((arg & 1) != 0 ? 3 : 2, 1), // func + args + (kwargs?) -> result
+                ByteCodeOp.CALL_FUNCTION_KW => (2 + arg, 1), // func + args + kwargs -> result (legacy)
+                ByteCodeOp.CALL_FUNCTION_EX => ((arg & 1) != 0 ? 3 : 2, 1), // func + args + (kwargs?) -> result (legacy)
                 
                 // CPython 3.12: 새로운 CALL
                 ByteCodeOp.CALL => (1 + arg, 1), // func + args -> result

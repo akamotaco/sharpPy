@@ -650,7 +650,22 @@ namespace SharpPy
                     {
                         // This is tuple unpacking assignment: x, y = value
                         Advance(); // consume '='
-                        var value = ParseExpression();
+                        
+                        // Parse the right-hand side - could be a single value or comma-separated tuple
+                        var firstValue = ParseExpression();
+                        var value = firstValue;
+                        
+                        // Check if there are more comma-separated values on the right side
+                        if (Check(TokenType.COMMA))
+                        {
+                            var rightValues = new List<Expression> { firstValue };
+                            while (Match(TokenType.COMMA))
+                            {
+                                rightValues.Add(ParseExpression());
+                            }
+                            value = new TupleExpression(rightValues);
+                        }
+                        
                         var tupleTarget = new TupleExpression(targets);
                         return new AssignTargetStatement(tupleTarget, value);
                     }
@@ -2241,7 +2256,7 @@ namespace SharpPy
                 var patterns = new List<Expression>();
                 var startPos = _current;  // Track token progress to prevent infinite loops
                 
-                patterns.Add(ParseExpression());
+                patterns.Add(ParseSingleMatchPattern());
                 
                 // CPython 3.12: or pattern maximum count limit to prevent infinite loops
                 const int MAX_OR_PATTERNS = 1000;
@@ -2259,7 +2274,7 @@ namespace SharpPy
                     
                     try
                     {
-                        patterns.Add(ParseExpression());
+                        patterns.Add(ParseSingleMatchPattern());
                     }
                     catch (Exception ex)
                     {
@@ -2288,6 +2303,98 @@ namespace SharpPy
                 return patterns[0];
             });
         }
+        
+        /// <summary>
+        /// Parse a single match pattern (supports star expressions)
+        /// </summary>
+        private Expression ParseSingleMatchPattern()
+        {
+            // Handle sequence patterns like [1, 2, *rest]
+            if (Check(TokenType.LEFT_BRACKET))
+            {
+                return ParseSequencePattern();
+            }
+            
+            // Handle mapping patterns like {"key": value}
+            if (Check(TokenType.LEFT_BRACE))
+            {
+                return ParseMappingPattern();
+            }
+            
+            // Handle star pattern in isolation
+            if (Check(TokenType.STAR))
+            {
+                Advance(); // consume STAR
+                var name = Consume(TokenType.IDENTIFIER, "Expected identifier after * in pattern");
+                return new StarPattern(name.Lexeme);
+            }
+            
+            // Regular expression pattern
+            return ParseExpression();
+        }
+        
+        /// <summary>
+        /// Parse sequence pattern like [1, 2, *rest, 4]
+        /// </summary>
+        private Expression ParseSequencePattern()
+        {
+            Consume(TokenType.LEFT_BRACKET, "Expected '['");
+            
+            var patterns = new List<Expression>();
+            bool hasStarPattern = false;
+            
+            if (!Check(TokenType.RIGHT_BRACKET))
+            {
+                do
+                {
+                    if (Check(TokenType.STAR))
+                    {
+                        if (hasStarPattern)
+                        {
+                            throw new Exception("multiple starred patterns in sequence pattern");
+                        }
+                        hasStarPattern = true;
+                        
+                        Advance(); // consume STAR
+                        var name = Consume(TokenType.IDENTIFIER, "Expected identifier after * in pattern");
+                        patterns.Add(new StarPattern(name.Lexeme));
+                    }
+                    else
+                    {
+                        patterns.Add(ParseSingleMatchPattern());
+                    }
+                } while (Match(TokenType.COMMA) && !Check(TokenType.RIGHT_BRACKET));
+            }
+            
+            Consume(TokenType.RIGHT_BRACKET, "Expected ']'");
+            return new SequencePattern(patterns);
+        }
+        
+        /// <summary>
+        /// Parse mapping pattern like {"key": value, "other": other_value}
+        /// </summary>
+        private Expression ParseMappingPattern()
+        {
+            Consume(TokenType.LEFT_BRACE, "Expected '{'");
+            
+            var patterns = new Dictionary<string, Expression>();
+            
+            if (!Check(TokenType.RIGHT_BRACE))
+            {
+                do
+                {
+                    // Parse string key
+                    var key = Consume(TokenType.STRING, "Expected string key in mapping pattern").Lexeme;
+                    Consume(TokenType.COLON, "Expected ':' after key in mapping pattern");
+                    var valuePattern = ParseSingleMatchPattern();
+                    patterns[key] = valuePattern;
+                } while (Match(TokenType.COMMA) && !Check(TokenType.RIGHT_BRACE));
+            }
+            
+            Consume(TokenType.RIGHT_BRACE, "Expected '}'");
+            return new MappingPattern(patterns);
+        }
+        
         private Statement ParseReturnStatement()
         {
             // return 뒤에 표현식이 있으면 파싱, 없으면 None

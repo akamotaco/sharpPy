@@ -21,6 +21,7 @@ namespace SharpPy
         
         // 컬렉션 타입들
         public static readonly PyType StrType = new PyType("str", new[] { ObjectType });
+        public static readonly PyType BytesType = new PyType("bytes", new[] { ObjectType });
         public static readonly PyType ListType = new PyType("list", new[] { ObjectType });
         public static readonly PyType TupleType = new PyType("tuple", new[] { ObjectType });
         public static readonly PyType DictType = new PyType("dict", new[] { ObjectType });
@@ -262,8 +263,9 @@ namespace SharpPy
         // 인스턴스 생성 (기본 구현)
         public virtual PyObject CreateInstance(params PyObject[] args)
         {
-            // 내장 타입은 직접 인스턴스 생성 불가
-            throw PyTypeError.Create($"Cannot create instance of built-in type '{Name}'");
+            // 내장 타입들에 대한 특별 처리 (타입 변환) - PyBuiltinFunction 위임
+            var builtinFunc = new PyBuiltinFunction(Name);
+            return builtinFunc.Call(args);
         }
 
         // Special method lookup (MRO 기반)
@@ -293,6 +295,9 @@ namespace SharpPy
                     return new PyTuple(BaseTypes.Cast<PyObject>().ToArray());
                 case "__mro__":
                     return new PyTuple(MRO.Cast<PyObject>().ToArray());
+                case "__new__":
+                    // Return the built-in type.__new__ method
+                    return new PyBuiltinFunction("type.__new__");
                 default:
                     return base.GetAttribute(name);
             }

@@ -3052,6 +3052,119 @@ namespace SharpPy
     }
 
     #endregion
+    
+    #region Additional Match Pattern Classes
+    
+    /// <summary>
+    /// Star pattern in match case: *rest
+    /// </summary>
+    public class StarPattern : Expression
+    {
+        public override string NodeType => "StarPattern";
+        public string Name { get; }
+        
+        public StarPattern(string name)
+        {
+            Name = name;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // Star patterns are handled during pattern matching compilation
+            return new PyString($"*{Name}");
+        }
+        
+        public override T Accept<T>(IASTVisitor<T> visitor)
+        {
+            return visitor.VisitExpression(this);
+        }
+        
+        public override void Accept(IASTVisitor visitor)
+        {
+            visitor.VisitExpression(this);
+        }
+        
+        public override string ToString() => $"*{Name}";
+    }
+    
+    /// <summary>
+    /// Sequence pattern in match case: [1, 2, *rest]
+    /// </summary>
+    public class SequencePattern : Expression
+    {
+        public override string NodeType => "SequencePattern";
+        public List<Expression> Patterns { get; }
+        
+        public SequencePattern(List<Expression> patterns)
+        {
+            Patterns = patterns;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // Sequence patterns are handled during pattern matching compilation
+            var items = Patterns.Select(p => p.Evaluate(scope)).ToArray();
+            return new PyList(items);
+        }
+        
+        public override T Accept<T>(IASTVisitor<T> visitor)
+        {
+            return visitor.VisitExpression(this);
+        }
+        
+        public override void Accept(IASTVisitor visitor)
+        {
+            visitor.VisitExpression(this);
+        }
+        
+        public override string ToString()
+        {
+            return $"[{string.Join(", ", Patterns)}]";
+        }
+    }
+    
+    /// <summary>
+    /// Mapping pattern in match case: {"key": value}
+    /// </summary>
+    public class MappingPattern : Expression
+    {
+        public override string NodeType => "MappingPattern";
+        public Dictionary<string, Expression> Patterns { get; }
+        
+        public MappingPattern(Dictionary<string, Expression> patterns)
+        {
+            Patterns = patterns;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // Mapping patterns are handled during pattern matching compilation
+            var dict = new PyDict();
+            foreach (var kvp in Patterns)
+            {
+                dict.SetItem(new PyString(kvp.Key), kvp.Value.Evaluate(scope));
+            }
+            return dict;
+        }
+        
+        public override T Accept<T>(IASTVisitor<T> visitor)
+        {
+            return visitor.VisitExpression(this);
+        }
+        
+        public override void Accept(IASTVisitor visitor)
+        {
+            visitor.VisitExpression(this);
+        }
+        
+        public override string ToString()
+        {
+            var pairs = Patterns.Select(kvp => $"\"{kvp.Key}\": {kvp.Value}");
+            return $"{{{string.Join(", ", pairs)}}}";
+        }
+    }
+    
+    #endregion
 
     #endregion
 }

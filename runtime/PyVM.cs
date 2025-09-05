@@ -19,6 +19,7 @@ namespace SharpPy
         public Stack<int> ExceptionHandlers { get; } = new Stack<int>();
         public PyBaseException? LastException { get; set; }
         public PyBaseException? CurrentException { get; set; } // Current exception for PUSH_EXC_INFO
+        public int ExceptionHandlerCallCount { get; set; } = 0; // Prevent infinite loops
         
         // CPython 3.12 style generator frame state
         public enum FrameState
@@ -93,19 +94,32 @@ namespace SharpPy
                     FastLocals[paramName] = args[i];
                     ScopeChain.AssignVariable(paramName, args[i]);
                 }
-                else if (i < code.DefaultValues.Count && code.DefaultValues[i] != null)
-                {
-                    // 기본값 사용
-                    var defaultValue = code.DefaultValues[i];
-                    Console.WriteLine($"  → {paramName} = {defaultValue} (기본값)");
-                    FastLocals[paramName] = defaultValue;
-                    ScopeChain.AssignVariable(paramName, defaultValue);
-                }
                 else
                 {
-                    // 필수 매개변수가 누락됨
-                    Console.WriteLine($"  ❌ 조건 실패: i({i}) < DefaultValues.Count({code.DefaultValues.Count}) = {i < code.DefaultValues.Count}, DefaultValues[{i}] != null = {(i < code.DefaultValues.Count ? code.DefaultValues[i] != null : "N/A")}");
-                    throw PyTypeError.Create($"[PyFrame] missing required argument: '{paramName}'");
+                    // Check if this parameter has a default value
+                    // Default values are stored for the last N parameters where N = DefaultValues.Count
+                    int numRequiredParams = code.ArgCount - code.DefaultValues.Count;
+                    if (i >= numRequiredParams && i - numRequiredParams < code.DefaultValues.Count)
+                    {
+                        var defaultValue = code.DefaultValues[i - numRequiredParams];
+                        if (defaultValue != null)
+                        {
+                            Console.WriteLine($"  → {paramName} = {defaultValue} (기본값, index {i - numRequiredParams})");
+                            FastLocals[paramName] = defaultValue;
+                            ScopeChain.AssignVariable(paramName, defaultValue);
+                        }
+                        else
+                        {
+                            Console.WriteLine($"  ❌ Default value at index {i - numRequiredParams} is null");
+                            throw PyTypeError.Create($"[PyFrame] missing required argument: '{paramName}'");
+                        }
+                    }
+                    else
+                    {
+                        // 필수 매개변수가 누락됨
+                        Console.WriteLine($"  ❌ No default available: param {i}, required={numRequiredParams}, defaults={code.DefaultValues.Count}");
+                        throw PyTypeError.Create($"[PyFrame] missing required argument: '{paramName}'");
+                    }
                 }
             }
             
@@ -132,7 +146,15 @@ namespace SharpPy
         
         public int? GetExceptionHandler()
         {
-            Console.WriteLine($"🔍 GetExceptionHandler called - IP: {InstructionPointer}");
+            // Prevent infinite loop in exception handling
+            ExceptionHandlerCallCount++;
+            if (ExceptionHandlerCallCount > 100)
+            {
+                Console.WriteLine($"❌ GetExceptionHandler: Infinite loop detected, stopping at call #{ExceptionHandlerCallCount}");
+                return null; // Break the cycle
+            }
+            
+            Console.WriteLine($"🔍 GetExceptionHandler called #{ExceptionHandlerCallCount} - IP: {InstructionPointer}");
             Console.WriteLine($"   Frame: {ToString()}");
             Console.WriteLine($"   Code Name: {Code.Name}");
             Console.WriteLine($"   Exception Table entries: {Code.ExceptionTable.Count}");
@@ -737,34 +759,72 @@ namespace SharpPy
                     frame.ValueStack.Push(andResult);
                     break;
                     
-                case ByteCodeOp.CALL_FUNCTION:
-                    var argCount = instruction.Argument;
-                    var args = new PyObject[argCount];
-                    for (int i = argCount - 1; i >= 0; i--)
-                    {
-                        args[i] = frame.ValueStack.Pop();
-                    }
-                    var function = frame.ValueStack.Pop();
+                // CALL_FUNCTION은 Python 3.12에서 제거됨 - PUSH_NULL + CALL 사용
                     
-                    // CPython 3.12 style: Fast path for common function types
-                    PyObject callResult;
-                    if (function is PyBuiltinFunction builtinFunc)
+                // Python 3.12 새로운 호출 시스템
+                case ByteCodeOp.PUSH_NULL:
+                    // NULL을 스택에 푸시 - Python 3.12에서 함수 호출 전에 사용
+                    frame.ValueStack.Push(PyNone.Instance); // NULL 대신 None 사용
+                    break;
+                    
+                case ByteCodeOp.CALL:
+                    // CPython 3.12 정확한 CALL 동작
+                    var callArgCount = instruction.Argument;
+                    var callArgs = new PyObject[callArgCount];
+                    
+                    // 명시적 인수들을 스택에서 팝 (역순으로)
+                    for (int i = callArgCount - 1; i >= 0; i--)
                     {
-                        // Fast path for builtin functions (len, print, etc.)
-                        callResult = builtinFunc.Call(args);
+                        callArgs[i] = frame.ValueStack.Pop();
                     }
-                    else if (function is PyFunction pyFunc)
+                    
+                    // 다음 요소 확인 (NULL 또는 첫 번째 암시적 인수)
+                    var nextElement = frame.ValueStack.Pop();
+                    
+                    // 함수 객체 팝 (callable)
+                    var callableFunc = frame.ValueStack.Pop();
+                    
+                    // CPython 3.12 호출 방식 결정
+                    PyObject newCallResult;
+                    PyObject[] finalArgs;
+                    
+                    if (nextElement == null || nextElement.Equals(PyNone.Instance))
                     {
-                        // Fast path for Python functions - inline call optimization
-                        callResult = ExecuteFunctionCall(pyFunc, args, frame.ScopeChain);
+                        // PUSH_NULL 패턴: 일반 함수 호출
+                        finalArgs = callArgs;
                     }
                     else
                     {
-                        // Generic path for other callables
-                        callResult = function.Call(args);
+                        // 데코레이터 패턴: nextElement가 첫 번째 암시적 인수
+                        finalArgs = new PyObject[callArgs.Length + 1];
+                        finalArgs[0] = nextElement;
+                        Array.Copy(callArgs, 0, finalArgs, 1, callArgs.Length);
                     }
                     
-                    frame.ValueStack.Push(callResult);
+                    // 함수 호출 실행
+                    if (callableFunc is PyBuiltinFunction builtin)
+                    {
+                        newCallResult = builtin.Call(finalArgs);
+                    }
+                    else if (callableFunc is PyMethod method)
+                    {
+                        newCallResult = method.Call(finalArgs);
+                    }
+                    else if (callableFunc is PyFunction func)
+                    {
+                        newCallResult = ExecuteFunctionCall(func, finalArgs, frame.ScopeChain);
+                    }
+                    else
+                    {
+                        newCallResult = callableFunc.Call(finalArgs);
+                    }
+                    
+                    frame.ValueStack.Push(newCallResult);
+                    break;
+                    
+                case ByteCodeOp.RESUME:
+                    // Python 3.12: 모든 코드 시작점에 있는 명령어
+                    // 실제로는 아무것도 하지 않음 (단순 마커)
                     break;
                     
                 case ByteCodeOp.CALL_FUNCTION_KW:
@@ -1012,6 +1072,49 @@ namespace SharpPy
                     frame.ValueStack.Push(isSequence);
                     break;
                     
+                case ByteCodeOp.GET_LEN:
+                    // Get length of object on top of stack
+                    var lenSubject = frame.ValueStack.Peek(); // Keep subject on stack
+                    PyObject length;
+                    if (lenSubject is PyList list)
+                    {
+                        length = new PyInt(list.Items.Length);
+                    }
+                    else if (lenSubject is PyTuple tupleDup)
+                    {
+                        length = new PyInt(tupleDup.Items.Length);
+                    }
+                    else if (lenSubject is PyString str)
+                    {
+                        length = new PyInt(str.Value.Length);
+                    }
+                    else if (lenSubject is PyDict dictDup)
+                    {
+                        length = new PyInt(dictDup.Keys().Items.Length);
+                    }
+                    else
+                    {
+                        // Try to call __len__ method
+                        try
+                        {
+                            var lenMethod = lenSubject.GetAttribute("__len__");
+                            if (lenMethod is PyFunction func)
+                            {
+                                length = func.Call(new PyObject[0]);
+                            }
+                            else
+                            {
+                                throw new Exception($"'{lenSubject.GetTypeName()}' object has no len()");
+                            }
+                        }
+                        catch
+                        {
+                            throw PyTypeError.Create($"object of type '{lenSubject.GetTypeName()}' has no len()");
+                        }
+                    }
+                    frame.ValueStack.Push(length);
+                    break;
+                    
                 case ByteCodeOp.MATCH_KEYS:
                     // Match keys in mapping - TOS1 is subject, TOS is keys tuple
                     var keysToMatch = frame.ValueStack.Pop(); // keys tuple
@@ -1048,6 +1151,15 @@ namespace SharpPy
                         frame.ValueStack.Push(PyNone.Instance);
                     }
                     frame.ValueStack.Push(keysToMatch); // Restore keys for next attempt
+                    break;
+                    
+                case ByteCodeOp.POP_JUMP_IF_NONE:
+                    // Pop top value and jump if it's None
+                    var valueToCheck = frame.ValueStack.Pop();
+                    if (valueToCheck == null || valueToCheck.Equals(PyNone.Instance))
+                    {
+                        frame.InstructionPointer = instruction.Argument;
+                    }
                     break;
                     
                 case ByteCodeOp.MATCH_CLASS:
@@ -1120,9 +1232,8 @@ namespace SharpPy
                     int jumpBackCount = instruction.Argument;  // Number of instructions to jump back
                     int targetInstrPos = currentInstrPos - jumpBackCount;
                     Console.WriteLine($"🔄 JUMP_BACKWARD: from instr {currentInstrPos} back {jumpBackCount} instrs to instr {targetInstrPos} (CPython 3.12 relative)");
-                    // CPython 3.12: 동적 점프 오프셋 계산
-                    frame.InstructionPointer = JumpInstructionManager.CalculateJumpOffset(
-                        ByteCodeOp.JUMP_BACKWARD, frame.InstructionPointer, targetInstrPos);
+                    // Direct jump to target position (subtract 1 because main loop will increment)
+                    frame.InstructionPointer = targetInstrPos - 1;
                     return null; // Continue execution from new position
 
                 // CPython-style Container Building Opcodes (Phase 1)
@@ -1151,6 +1262,32 @@ namespace SharpPy
                     }
                     var pyTuple = new PyTuple(tupleItems);
                     frame.ValueStack.Push(pyTuple);
+                    break;
+                    
+                case ByteCodeOp.BUILD_SLICE:
+                    // Build slice object - argument is 2 or 3
+                    var sliceArgCount = instruction.Argument;
+                    if (sliceArgCount == 2)
+                    {
+                        // Stack: [start, stop] -> [slice(start, stop)]
+                        var buildSliceStop = frame.ValueStack.Pop();
+                        var buildSliceStart = frame.ValueStack.Pop();
+                        var buildSliceObj = new PySlice(buildSliceStart, buildSliceStop);
+                        frame.ValueStack.Push(buildSliceObj);
+                    }
+                    else if (sliceArgCount == 3)
+                    {
+                        // Stack: [start, stop, step] -> [slice(start, stop, step)]
+                        var buildSliceStep = frame.ValueStack.Pop();
+                        var buildSliceStop = frame.ValueStack.Pop();
+                        var buildSliceStart = frame.ValueStack.Pop();
+                        var buildSliceObj = new PySlice(buildSliceStart, buildSliceStop, buildSliceStep);
+                        frame.ValueStack.Push(buildSliceObj);
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException($"BUILD_SLICE with {sliceArgCount} arguments not supported");
+                    }
                     break;
                     
                 case ByteCodeOp.LOAD_SUBSCR:
@@ -1698,17 +1835,17 @@ namespace SharpPy
                             frame.ValueStack.Push(tuple.Items[i]);
                         }
                     }
-                    else if (sequence is PyList list)
+                    else if (sequence is PyList listDup)
                     {
-                        if (list.Items.Length != unpackCount)
+                        if (listDup.Items.Length != unpackCount)
                         {
-                            throw PyValueError.Create($"not enough values to unpack (expected {unpackCount}, got {list.Items.Length})");
+                            throw PyValueError.Create($"not enough values to unpack (expected {unpackCount}, got {listDup.Items.Length})");
                         }
                         
                         // CPython pushes elements in reverse order
-                        for (int i = list.Items.Length - 1; i >= 0; i--)
+                        for (int i = listDup.Items.Length - 1; i >= 0; i--)
                         {
-                            frame.ValueStack.Push(list.Items[i]);
+                            frame.ValueStack.Push(listDup.Items[i]);
                         }
                     }
                     else if (sequence is PyString str)
@@ -1727,6 +1864,84 @@ namespace SharpPy
                     else
                     {
                         throw PyTypeError.Create($"cannot unpack non-sequence {sequence.GetTypeName()}");
+                    }
+                    break;
+                    
+                case ByteCodeOp.UNPACK_EX:
+                    // CPython 3.12: Extended unpacking with star expressions (*args)
+                    // Argument encodes: lower 8 bits = count before star, upper 8 bits = count after star
+                    var countBefore = instruction.Argument & 0xFF;
+                    var countAfter = (instruction.Argument >> 8) & 0xFF;
+                    
+                    var unpackExSequence = frame.ValueStack.Pop();
+                    
+                    if (unpackExSequence is PyList unpackExList)
+                    {
+                        var items = unpackExList.Items;
+                        if (items.Length < countBefore + countAfter)
+                        {
+                            throw PyValueError.Create($"not enough values to unpack (expected at least {countBefore + countAfter}, got {items.Length})");
+                        }
+                        
+                        // CPython UNPACK_EX pushes in order: [before_elements..., star_list, after_elements...]
+                        // For [1, 2, 3, 4, 5] with pattern [a, b, *rest]: pushes [2, 1, [3, 4, 5]]
+                        // Note: before elements are pushed in reverse order for stack-based comparison
+                        
+                        // Extract before elements (in reverse order for correct stack comparison)
+                        for (int i = countBefore - 1; i >= 0; i--)
+                        {
+                            frame.ValueStack.Push(items[i]);
+                        }
+                        
+                        // Extract star elements (middle part)
+                        var starCount = items.Length - countBefore - countAfter;
+                        var starItems = new PyObject[starCount];
+                        for (int i = 0; i < starCount; i++)
+                        {
+                            starItems[i] = items[countBefore + i];
+                        }
+                        frame.ValueStack.Push(new PyList(starItems));
+                        
+                        // Extract after elements (in forward order)
+                        for (int i = 0; i < countAfter; i++)
+                        {
+                            frame.ValueStack.Push(items[items.Length - countAfter + i]);
+                        }
+                    }
+                    else if (unpackExSequence is PyTuple unpackExTuple)
+                    {
+                        var items = unpackExTuple.Items;
+                        if (items.Length < countBefore + countAfter)
+                        {
+                            throw PyValueError.Create($"not enough values to unpack (expected at least {countBefore + countAfter}, got {items.Length})");
+                        }
+                        
+                        // CPython UNPACK_EX pushes in order: [before_elements..., star_list, after_elements...]
+                        
+                        // Extract before elements (in forward order)
+                        for (int i = 0; i < countBefore; i++)
+                        {
+                            frame.ValueStack.Push(items[i]);
+                        }
+                        
+                        // Extract star elements (middle part) as list
+                        var starCount = items.Length - countBefore - countAfter;
+                        var starItems = new PyObject[starCount];
+                        for (int i = 0; i < starCount; i++)
+                        {
+                            starItems[i] = items[countBefore + i];
+                        }
+                        frame.ValueStack.Push(new PyList(starItems));
+                        
+                        // Extract after elements (in forward order)
+                        for (int i = 0; i < countAfter; i++)
+                        {
+                            frame.ValueStack.Push(items[items.Length - countAfter + i]);
+                        }
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create($"cannot unpack non-sequence {unpackExSequence.GetTypeName()}");
                     }
                     break;
                     
@@ -2838,6 +3053,42 @@ namespace SharpPy
         /// CPython 3.12 style: Optimized function call execution
         /// Fast path for Python function calls without full frame creation overhead
         /// </summary>
+        // Bound method 호출을 위한 오버로드
+        private PyObject ExecuteFunctionCall(PyFunction pyFunc, PyObject[] args, PyScopeChain parentScope, PyObject self)
+        {
+            // Bound method이므로 self를 첫 번째 인수로 추가
+            var argsWithSelf = new PyObject[args.Length + 1];
+            argsWithSelf[0] = self;
+            Array.Copy(args, 0, argsWithSelf, 1, args.Length);
+            
+            // Only optimize if function has code object
+            if (pyFunc.CodeObject == null)
+            {
+                return pyFunc.Call(argsWithSelf);
+            }
+            
+            var code = pyFunc.CodeObject;
+            
+            // For simple functions with no complex features, use direct execution
+            if (code.CellVars?.Count == 0 && code.FreeVars?.Count == 0 && 
+                !code.IsGenerator() && !code.IsCoroutine())
+            {
+                try
+                {
+                    // Create minimal frame for simple function
+                    var frame = new PyFrame(code, argsWithSelf, parentScope, pyFunc.Closure);
+                    return ExecuteFrame(frame);
+                }
+                catch (PyReturnException retEx)
+                {
+                    return retEx.Value;
+                }
+            }
+            
+            // Fallback to full call for complex functions
+            return pyFunc.Call(argsWithSelf);
+        }
+        
         private PyObject ExecuteFunctionCall(PyFunction pyFunc, PyObject[] args, PyScopeChain parentScope)
         {
             // Only optimize if function has code object
