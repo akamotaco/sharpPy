@@ -31,6 +31,8 @@ namespace SharpPy
             { TokenType.GREATER_EQUAL, 3 }, // >=
             { TokenType.IN, 3 },           // in ✅ Added
             { TokenType.IS, 3 },           // is ✅ Added
+            { TokenType.NOT_IN, 3 },       // not in ✅ CPython 3.12
+            { TokenType.IS_NOT, 3 },       // is not ✅ CPython 3.12
             // Bitwise operators
             { TokenType.PIPE, 4 },         // |
             { TokenType.CARET, 5 },        // ^
@@ -819,44 +821,77 @@ namespace SharpPy
 
         private Expression ParseAndExpression()
         {
-            var expr = ParseNotExpression();
+            var expr = ParseComparisonExpression();
             
             while (Match(TokenType.AND))
             {
                 var op = Previous().Lexeme;
-                var right = ParseNotExpression();
+                var right = ParseComparisonExpression();
                 expr = new BinaryOpExpression(expr, op, right);
             }
             
             return expr;
         }
 
-        private Expression ParseNotExpression()
-        {
-            if (Match(TokenType.NOT))
-            {
-                var op = Previous().Lexeme;
-                var expr = ParseNotExpression();
-                return new UnaryOpExpression(op, expr);
-            }
-            
-            return ParseComparisonExpression();
-        }
 
+        /// <summary>
+        /// CPython Grammar-based comparison parsing
+        /// Based on: comparison: bitwise_or compare_op_bitwise_or_pair*
+        /// compare_op includes: notin_bitwise_or: 'not' 'in' bitwise_or
+        /// </summary>
         private Expression ParseComparisonExpression()
         {
-            var expr = ParseBitwiseOrExpression();
+            // Parse left operand first - same as CPython's bitwise_or
+            var expr = ParseUnaryExpression();
             
-            while (Match(TokenType.EQUAL_EQUAL, TokenType.BANG_EQUAL, TokenType.LESS, 
-                         TokenType.LESS_EQUAL, TokenType.GREATER, TokenType.GREATER_EQUAL,
-                         TokenType.IN, TokenType.IS))
+            // CPython 3.12 Grammar: comparison: expr (comp_op expr)*
+            // Handle compound operators with PEG-style pattern matching
+            while (true)
             {
-                var op = Previous().Lexeme;
-                var right = ParseBitwiseOrExpression();
+                string op = TryMatchComparisonOperator();
+                if (op == null) break;
+                
+                var right = ParseUnaryExpression();
                 expr = new CompareExpression(expr, op, right);
             }
             
             return expr;
+        }
+        
+        /// <summary>
+        /// CPython PEG-style compound operator matching
+        /// Follows exact Grammar/python.gram patterns
+        /// </summary>
+        private string TryMatchComparisonOperator()
+        {
+            // CPython Grammar order: compound operators first
+            // notin_bitwise_or: 'not' 'in' bitwise_or
+            if (IsCurrentNotInOperator())
+            {
+                Advance(); // consume 'not'
+                Advance(); // consume 'in'  
+                return "not in";
+            }
+            
+            // isnot_bitwise_or: 'is' 'not' bitwise_or
+            if (IsCurrentIsNotOperator())
+            {
+                Advance(); // consume 'is'
+                Advance(); // consume 'not'
+                return "is not";
+            }
+            
+            // Single token operators
+            if (Match(TokenType.EQUAL_EQUAL)) return "==";
+            if (Match(TokenType.BANG_EQUAL)) return "!=";
+            if (Match(TokenType.LESS_EQUAL)) return "<=";
+            if (Match(TokenType.GREATER_EQUAL)) return ">=";
+            if (Match(TokenType.LESS)) return "<";
+            if (Match(TokenType.GREATER)) return ">";
+            if (Match(TokenType.IN)) return "in";
+            if (Match(TokenType.IS)) return "is";
+            
+            return null; // No comparison operator found
         }
 
         private Expression ParseBitwiseOrExpression()
@@ -945,7 +980,7 @@ namespace SharpPy
 
         private Expression ParseUnaryExpression()
         {
-            if (Match(TokenType.PLUS, TokenType.MINUS, TokenType.TILDE))
+            if (Match(TokenType.PLUS, TokenType.MINUS, TokenType.TILDE, TokenType.NOT))
             {
                 var op = Previous().Lexeme;
                 var expr = ParseUnaryExpression();
@@ -964,7 +999,7 @@ namespace SharpPy
                 return new AwaitExpression(expr);
             }
             
-            return ParsePowerExpression();
+            return ParseBitwiseOrExpression();
         }
 
         private Expression ParsePowerExpression()
@@ -2754,6 +2789,7 @@ namespace SharpPy
             
             while (!IsAtEnd() && GetPrecedence(Peek().Type) >= minPrecedence)
             {
+                
                 var opToken = Advance();
                 var opType = opToken.Type;
                 var precedence = GetPrecedence(opType);
@@ -2795,7 +2831,8 @@ namespace SharpPy
             return type == TokenType.EQUAL_EQUAL || type == TokenType.BANG_EQUAL ||
                    type == TokenType.LESS || type == TokenType.GREATER ||
                    type == TokenType.LESS_EQUAL || type == TokenType.GREATER_EQUAL ||
-                   type == TokenType.IN || type == TokenType.IS;
+                   type == TokenType.IN || type == TokenType.IS ||
+                   type == TokenType.NOT_IN || type == TokenType.IS_NOT; // CPython 3.12
         }
         
         private bool IsBooleanOperator(TokenType type)
@@ -2951,6 +2988,47 @@ namespace SharpPy
         {
             if (_current + 1 >= _tokens.Count) return false;
             return _tokens[_current + 1].Type == type;
+        }
+        
+        /// <summary>
+        /// CPython-style compound operator detection with proper lookahead
+        /// Based on CPython's Grammar/python.gram PEG parser approach
+        /// </summary>
+        private bool IsNotInCompoundOperator(int startPos)
+        {
+            if (startPos >= _tokens.Count - 1) return false;
+            
+            if (_tokens[startPos].Type != TokenType.NOT) return false;
+            
+            // CPython approach: check immediate next token for 'in'
+            int nextPos = startPos + 1;
+            
+            // In CPython, whitespace is handled at tokenizer level
+            // Here we check the direct next token
+            if (nextPos >= _tokens.Count) return false;
+            
+            return _tokens[nextPos].Type == TokenType.IN;
+        }
+        
+        /// <summary>
+        /// Check if current position has 'not in' compound operator
+        /// CPython Grammar: notin_bitwise_or: 'not' 'in' bitwise_or
+        /// </summary>
+        private bool IsCurrentNotInOperator()
+        {
+            return IsNotInCompoundOperator(_current);
+        }
+        
+        /// <summary>
+        /// Similar check for 'is not' compound operator
+        /// CPython Grammar: isnot_bitwise_or: 'is' 'not' bitwise_or  
+        /// </summary>
+        private bool IsCurrentIsNotOperator()
+        {
+            if (_current >= _tokens.Count - 1) return false;
+            
+            return _tokens[_current].Type == TokenType.IS && 
+                   _tokens[_current + 1].Type == TokenType.NOT;
         }
 
         private PyToken Advance()

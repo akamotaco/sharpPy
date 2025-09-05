@@ -77,7 +77,8 @@ namespace SharpPy
             // EOF 토큰 추가
             tokens.Add(new PyToken(TokenType.EOF, "", _line, _column));
             
-            return tokens;
+            // CPython 3.12: 복합 연산자 후처리 (not in, is not)
+            return PostProcessCompoundOperators(tokens);
         }
 
         private PyToken? NextToken()
@@ -513,6 +514,46 @@ namespace SharpPy
                 "yield" => TokenType.YIELD,
                 _ => TokenType.IDENTIFIER
             };
+        }
+
+        /// <summary>
+        /// CPython 3.12: 토큰 시퀀스를 후처리하여 복합 연산자 생성
+        /// NOT + IN → NOT_IN, IS + NOT → IS_NOT
+        /// </summary>
+        private List<PyToken> PostProcessCompoundOperators(List<PyToken> tokens)
+        {
+            var result = new List<PyToken>();
+            
+            for (int i = 0; i < tokens.Count; i++)
+            {
+                var current = tokens[i];
+                
+                // CPython 3.12: 'not in' 복합 연산자 처리
+                if (current.Type == TokenType.NOT && 
+                    i + 1 < tokens.Count && 
+                    tokens[i + 1].Type == TokenType.IN)
+                {
+                    // NOT + IN → NOT_IN 복합 토큰 생성
+                    result.Add(new PyToken(TokenType.NOT_IN, "not in", current.Line, current.Column));
+                    i++; // IN 토큰 건너뛰기
+                }
+                // CPython 3.12: 'is not' 복합 연산자 처리
+                else if (current.Type == TokenType.IS && 
+                         i + 1 < tokens.Count && 
+                         tokens[i + 1].Type == TokenType.NOT)
+                {
+                    // IS + NOT → IS_NOT 복합 토큰 생성
+                    result.Add(new PyToken(TokenType.IS_NOT, "is not", current.Line, current.Column));
+                    i++; // NOT 토큰 건너뛰기
+                }
+                else
+                {
+                    // 일반 토큰은 그대로 추가
+                    result.Add(current);
+                }
+            }
+            
+            return result;
         }
 
         // Helper methods

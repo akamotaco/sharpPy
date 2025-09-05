@@ -1462,6 +1462,13 @@ namespace SharpPy
                     frame.ValueStack.Push(compareResult);
                     break;
 
+                case ByteCodeOp.CONTAINS_OP:
+                    var containsRight = frame.ValueStack.Pop();
+                    var containsLeft = frame.ValueStack.Pop();
+                    var containsResult = ContainsOperation(containsLeft, containsRight, instruction.Argument);
+                    frame.ValueStack.Push(containsResult);
+                    break;
+
                 // CPython-style Unary Operations
                 case ByteCodeOp.UNARY_POSITIVE:
                     var posValue = frame.ValueStack.Pop();
@@ -2473,11 +2480,20 @@ namespace SharpPy
                 CompareOp.LtE => left.RichCompare(right, PyObject.CompareOp.LE),
                 CompareOp.Gt => left.RichCompare(right, PyObject.CompareOp.GT),
                 CompareOp.GtE => left.RichCompare(right, PyObject.CompareOp.GE),
-                CompareOp.In => ((PyBool)right.Contains(left)),
-                CompareOp.NotIn => ((PyBool)right.Contains(left)).Not(),
                 CompareOp.Is => ReferenceEquals(left, right) ? PyBool.True : PyBool.False,
                 CompareOp.IsNot => ReferenceEquals(left, right) ? PyBool.False : PyBool.True,
                 _ => throw new NotImplementedException($"Compare operation {operation} not implemented")
+            };
+        }
+
+        private PyObject ContainsOperation(PyObject left, PyObject right, int containsOp)
+        {
+            var operation = (ContainsOp)containsOp;
+            return operation switch
+            {
+                ContainsOp.In => ((PyBool)right.Contains(left)),
+                ContainsOp.NotIn => ((PyBool)right.Contains(left)).Not(),
+                _ => throw new NotImplementedException($"Contains operation {operation} not implemented")
             };
         }
 
@@ -2496,10 +2512,14 @@ namespace SharpPy
             NotEq = 3,
             Gt = 4,
             GtE = 5,
-            In = 6,
-            NotIn = 7,
-            Is = 8,
-            IsNot = 9
+            Is = 6,
+            IsNot = 7
+        }
+        
+        private enum ContainsOp : int
+        {
+            In = 0,
+            NotIn = 1
         }
         
         /// <summary>

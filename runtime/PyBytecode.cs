@@ -87,13 +87,14 @@ namespace SharpPy
         BINARY_MATRIX_MULTIPLY = 33, // 행렬 곱셈 (@) (deprecated - use BINARY_OP)
         
         // 비교 연산
-        COMPARE_OP = 40,      // 비교 연산 (<, <=, ==, !=, >, >=, in, not in, is, is not)
+        COMPARE_OP = 40,      // 비교 연산 (<, <=, ==, !=, >, >=, is, is not)
+        CONTAINS_OP = 41,     // CPython 3.12: 멤버십 테스트 (in, not in)
         
         // 일항 연산
-        UNARY_POSITIVE = 41,  // +x
-        UNARY_NEGATIVE = 42,  // -x
-        UNARY_NOT = 43,       // not x
-        UNARY_INVERT = 44,    // ~x
+        UNARY_POSITIVE = 42,  // +x
+        UNARY_NEGATIVE = 43,  // -x
+        UNARY_NOT = 44,       // not x
+        UNARY_INVERT = 45,    // ~x
         
         // 복합 할당 연산
         INPLACE_ADD = 50,     // +=
@@ -472,11 +473,16 @@ namespace SharpPy
         NE = 3,        // !=
         GT = 4,        // >
         GE = 5,        // >=
-        IN = 6,        // in
-        NOT_IN = 7,    // not in
-        IS = 8,        // is
-        IS_NOT = 9,    // is not
-        EXC_MATCH = 10 // exception match
+        IS = 6,        // is (renumbered from 8)
+        IS_NOT = 7,    // is not (renumbered from 9)
+        EXC_MATCH = 8  // exception match (renumbered from 10)
+    }
+
+    // CPython 3.12: 멤버십 테스트 연산자 열거형
+    public enum ContainsOp : byte
+    {
+        IN = 0,        // in
+        NOT_IN = 1     // not in
     }
     
     // 바이트코드 비역어거 도구
@@ -532,9 +538,15 @@ namespace SharpPy
                     break;
                     
                 case ByteCodeOp.COMPARE_OP:
-                    var compareOps = new[] { "<", "<=", "==", "!=", ">", ">=", "in", "not in", "is", "is not", "exception match" };
+                    var compareOps = new[] { "<", "<=", "==", "!=", ">", ">=", "is", "is not", "exception match" };
                     if (inst.Argument < compareOps.Length)
                         return $"({compareOps[inst.Argument]})";
+                    break;
+                    
+                case ByteCodeOp.CONTAINS_OP:
+                    var containsOps = new[] { "in", "not in" };
+                    if (inst.Argument < containsOps.Length)
+                        return $"({containsOps[inst.Argument]})";
                     break;
                     
                 case ByteCodeOp.CALL_INTRINSIC_1:
@@ -604,6 +616,7 @@ namespace SharpPy
             
             // 비교 연산
             { ByteCodeOp.COMPARE_OP, (2, 1) },
+            { ByteCodeOp.CONTAINS_OP, (2, 1) },
             
             // 로드/저장
             { ByteCodeOp.LOAD_CONST, (0, 1) },

@@ -1491,6 +1491,20 @@ namespace SharpPy
         
         private void EmitCompareOp(string op)
         {
+            // Handle membership test operations with CONTAINS_OP
+            if (op == "in" || op == "not in")
+            {
+                var containsOp = op switch
+                {
+                    "in" => 0,     // IN
+                    "not in" => 1, // NOT_IN
+                    _ => throw new NotImplementedException($"Contains operator '{op}' not implemented")
+                };
+                EmitInstruction(ByteCodeOp.CONTAINS_OP, containsOp);
+                return;
+            }
+            
+            // Handle regular comparison operations with COMPARE_OP
             var compareOp = op switch
             {
                 "<" => 0,  // LT
@@ -1499,10 +1513,8 @@ namespace SharpPy
                 "!=" => 3, // NE
                 ">" => 4,  // GT
                 ">=" => 5, // GE
-                "in" => 6, // IN
-                "not in" => 7, // NOT_IN
-                "is" => 8, // IS
-                "is not" => 9, // IS_NOT
+                "is" => 6, // IS (renumbered)
+                "is not" => 7, // IS_NOT (renumbered)
                 _ => throw new NotImplementedException($"Compare operator '{op}' not implemented")
             };
             EmitInstruction(ByteCodeOp.COMPARE_OP, compareOp);
@@ -2485,6 +2497,13 @@ namespace SharpPy
                 // Pattern matched and guard passed - execute case body
                 // CPython-style: subject elements are already consumed by pattern matching
                 
+                // CPython 3.12: Some patterns consume subject, others leave values on stack
+                // Only clean up subject for patterns that don't unpack values
+                if (ShouldCleanupSubjectAfterMatch(matchCase.Pattern))
+                {
+                    EmitInstruction(ByteCodeOp.POP_TOP); // Clean up subject after successful match
+                }
+                
                 // Compile case body
                 foreach (var stmt in matchCase.Body)
                 {
@@ -2837,20 +2856,29 @@ namespace SharpPy
                 return CompilePatternMatch(patterns[0], failLabel);
             }
             
+            // Flatten nested OR patterns to handle ((1 | 2) | 3) properly
+            var flattenedPatterns = new List<Expression>();
+            FlattenOrPatterns(patterns, flattenedPatterns);
+            
+            Console.WriteLine($"🔍 Flattened to {flattenedPatterns.Count} patterns:");
+            for (int i = 0; i < flattenedPatterns.Count; i++)
+            {
+                Console.WriteLine($"  Flattened Pattern {i}: {flattenedPatterns[i]}");
+            }
+            
             // CPython 3.12: Use multiple comparisons with OR short-circuiting
             // Stack: [subject] - we need to preserve this throughout
             var successLabel = CreateLabel("or_match_success");
             
-            for (int i = 0; i < patterns.Count; i++)
+            for (int i = 0; i < flattenedPatterns.Count; i++)
             {
-                var isLast = (i == patterns.Count - 1);
+                var isLast = (i == flattenedPatterns.Count - 1);
+                var pattern = flattenedPatterns[i];
                 
-                // For each pattern, duplicate the subject for comparison
-                EmitInstruction(ByteCodeOp.DUP_TOP); // [subject, subject]
-                
-                // Handle constants and nested OR expressions
-                if (patterns[i] is ConstantExpression constExpr)
+                if (pattern is ConstantExpression constExpr)
                 {
+                    // For each pattern, duplicate the subject for comparison
+                    EmitInstruction(ByteCodeOp.DUP_TOP); // [subject, subject]
                     CompileExpression(constExpr); // [subject, subject, constant]
                     EmitComparison(CompareOp.EQ);  // [subject, comparison_result]
                     
@@ -2867,42 +2895,9 @@ namespace SharpPy
                         // Fall through to success if last pattern matches
                     }
                 }
-                else if (patterns[i] is BinaryOpExpression binaryExpr && binaryExpr.Operator == "|")
-                {
-                    // Nested OR expression - recursively compile it
-                    // We need to pop the duplicate we made and let the nested OR handle subject duplication
-                    EmitInstruction(ByteCodeOp.POP_TOP); // [subject] - remove our duplicate
-                    
-                    // Create nested OR patterns
-                    var nestedPatterns = new List<Expression> { binaryExpr.Left, binaryExpr.Right };
-                    
-                    // Compile nested OR - if it fails, jump to next pattern (or fail if last)
-                    var localFailLabel = isLast ? failLabel : CreateLabel($"nested_fail_{i}");
-                    
-                    if (CompileOrPatternLogic(nestedPatterns, localFailLabel))
-                    {
-                        if (!isLast)
-                        {
-                            // If nested OR succeeded, jump to overall success
-                            EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, successLabel);
-                        }
-                        // If it's the last pattern, just fall through to success
-                    }
-                    else
-                    {
-                        return false; // Compilation failed
-                    }
-                    
-                    if (!isLast)
-                    {
-                        PlaceLabel(localFailLabel);
-                        // Continue with next pattern
-                    }
-                }
                 else
                 {
-                    // For other non-constant patterns, pop the duplicate and fail for now
-                    EmitInstruction(ByteCodeOp.POP_TOP); // [subject]
+                    // For other non-constant patterns, fail immediately 
                     EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, failLabel);
                     return false;
                 }
@@ -2911,6 +2906,43 @@ namespace SharpPy
             PlaceLabel(successLabel);
             // Stack should have [subject] here - the successful match consumes comparison result but leaves subject
             return true;
+        }
+        
+        private void FlattenOrPatterns(List<Expression> patterns, List<Expression> result)
+        {
+            foreach (var pattern in patterns)
+            {
+                if (pattern is BinaryOpExpression binaryExpr && binaryExpr.Operator == "|")
+                {
+                    // Recursively flatten nested OR patterns
+                    var nestedPatterns = new List<Expression> { binaryExpr.Left, binaryExpr.Right };
+                    FlattenOrPatterns(nestedPatterns, result);
+                }
+                else
+                {
+                    result.Add(pattern);
+                }
+            }
+        }
+        
+        private bool ShouldCleanupSubjectAfterMatch(Expression pattern)
+        {
+            // Patterns that unpack values (sequence, mapping) should not cleanup subject
+            // as the unpacked values remain on stack for variable binding
+            switch (pattern)
+            {
+                case SequencePattern _:
+                case MappingPattern _:
+                    return false; // These patterns leave unpacked values on stack
+                    
+                case BinaryOpExpression binaryExpr when binaryExpr.Operator == "|":
+                    return true; // OR patterns should cleanup subject
+                    
+                case ConstantExpression _:
+                case NameExpression _:
+                default:
+                    return true; // Simple patterns should cleanup subject
+            }
         }
         
         /// <summary>
@@ -3176,7 +3208,55 @@ namespace SharpPy
         
         // Lambda counter for unique names
         private static int _lambdaCounter = 0;
-        private void CompileConditional(ConditionalExpression conditional) { /* TODO */ }
+        private void CompileConditional(ConditionalExpression conditional) 
+        {
+            // CPython 3.12 조건부 표현식: A if B else C
+            // CPython은 조건부 표현식에서 코드 중복 방식을 사용함
+            // 조건을 평가한 후 각 분기에서 전체 표현식 컨텍스트를 중복 실행
+            
+            var elseLabel = CreateLabel("conditional_else");
+            
+            // 1. 조건(B) 평가
+            CompileExpression(conditional.Test);
+            
+            // 2. 조건이 False면 else 부분으로 점프
+            EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0);
+            elseLabel.References.Add(_instructions.Count - 1);
+            
+            // 3. True 분기: Body 값만 로드 (CPython 3.12 호환성)
+            CompileExpression(conditional.Body);
+            
+            // 4. else 라벨 없이 직접 계속 (CPython처럼 중복 없음)
+            // CPython은 여기서 JUMP하지 않고 다음 명령어로 계속감
+            // 하지만 우리는 expression context에서 동작해야 하므로 
+            // 최소한의 점프 사용
+            if (IsInComplexExpression())
+            {
+                var endLabel = CreateLabel("conditional_end");
+                EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
+                endLabel.References.Add(_instructions.Count - 1);
+                
+                // 5. False 분기
+                MarkLabel(elseLabel);
+                CompileExpression(conditional.OrElse);
+                
+                MarkLabel(endLabel);
+            }
+            else
+            {
+                // 단순 표현식의 경우 CPython의 코드 중복 패턴 모방
+                // 실제로는 분기 없이 값만 스택에 남김
+                MarkLabel(elseLabel);
+                CompileExpression(conditional.OrElse);
+            }
+        }
+        
+        private bool IsInComplexExpression()
+        {
+            // 복잡한 표현식 컨텍스트인지 확인하는 간단한 휴리스틱
+            // 실제 구현에서는 더 정교한 컨텍스트 추적이 필요
+            return true; // 일단 모든 경우를 복잡한 표현식으로 처리
+        }
         private void CompileFString(FStringExpression fstring)
         {
             // f-string은 여러 파트로 구성됨: 문자열과 표현식이 번갈아 나타남

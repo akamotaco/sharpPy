@@ -85,7 +85,7 @@ namespace SharpPy
         /// <summary>
         /// 키로 값 접근 dict[key]
         /// </summary>
-        public PyObject GetItem(PyObject key)
+        public override PyObject GetItem(PyObject key)
         {
             if (_items.TryGetValue(key, out PyObject value))
                 return value;
@@ -113,7 +113,7 @@ namespace SharpPy
         /// <summary>
         /// 키 포함 여부 확인 (in 연산자)
         /// </summary>
-        public PyBool Contains(PyObject key)
+        public override PyBool Contains(PyObject key)
         {
             return PyBool.FromBool(_items.ContainsKey(key));
         }

@@ -24,6 +24,10 @@ namespace SharpPy
         DEF, DEL, ELIF, ELSE, EXCEPT, FALSE, FINALLY, FOR, FROM,
         GLOBAL, IF, IMPORT, IN, IS, LAMBDA, MATCH, NONE, NONLOCAL,
         NOT, OR, PASS, RAISE, RETURN, TRUE, TRY, TYPE, WHILE, WITH, YIELD,
+        
+        // CPython 3.12: Compound operators
+        NOT_IN,     // not in
+        IS_NOT,     // is not
 
         // Single character tokens
         LEFT_PAREN,    // (
