@@ -2450,7 +2450,10 @@ namespace SharpPy
             
             // 4. Setup Exception Table entry (CPython 3.12 compatible)
             var withCleanupLabel = CreateLabel("with_cleanup");
-            var bodyStartOffset = _instructions.Count;
+            
+            // CPython 3.12: Exception Table은 POP_TOP 이후부터 body 끝까지
+            // 실제로 보호받는 코드는 with body만 해당
+            var bodyStartOffset = _instructions.Count; // POP_TOP 이후 위치 = with body 시작
             
             // 5. Execute body
             foreach (var stmt in withStmt.Body)
@@ -2458,10 +2461,10 @@ namespace SharpPy
                 CompileStatement(stmt);
             }
             
-            var bodyEndOffset = _instructions.Count;
+            var bodyEndOffset = _instructions.Count; // body 끝 위치
             
-            // 6. Register Exception Table entry (CPython 3.12 style - Label based)
-            // Handler should point to PUSH_EXC_INFO label (withCleanupLabel)
+            // 6. Register Exception Table entry (CPython 3.12 style - Label based)  
+            // CPython 3.12: 실제 보호받는 코드 범위는 with body만 해당
             var entry = new ExceptionTableEntry(
                 start: bodyStartOffset,
                 end: bodyEndOffset, 
@@ -2476,9 +2479,11 @@ namespace SharpPy
             Console.WriteLine($"   Handler Label: {withCleanupLabel.Name}, Depth: 1");
             
             // 7. Normal exit: call __exit__(None, None, None) - no POP_EXCEPT needed
-            EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(PyNone.Instance));
-            EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(PyNone.Instance)); 
-            EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(PyNone.Instance));
+            // CPython 3.12: 동일한 None 상수를 재사용 (상수 풀 효율성)
+            var noneConstIndex = AddConstant(PyNone.Instance);
+            EmitInstruction(ByteCodeOp.LOAD_CONST, noneConstIndex);
+            EmitInstruction(ByteCodeOp.LOAD_CONST, noneConstIndex); 
+            EmitInstruction(ByteCodeOp.LOAD_CONST, noneConstIndex);
             // CPython 3.12: __exit__(exc_type, exc_val, exc_tb) - CALL 2 (CPython과 동일)
             EmitInstruction(ByteCodeOp.CALL, 2);
             EmitInstruction(ByteCodeOp.POP_TOP); // discard __exit__ return value

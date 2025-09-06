@@ -1462,25 +1462,37 @@ namespace SharpPy
                     // CPython 3.12: BEFORE_WITH performs several operations before a with block starts
                     var contextManager = frame.ValueStack.Pop();
                     
+                    Console.WriteLine($"🔧 BEFORE_WITH: Processing context manager: {contextManager}");
+                    
                     // 1. Load __exit__ method and push to stack (for later cleanup)
                     var exitMethod = contextManager.GetAttribute("__exit__");
                     if (!exitMethod.IsCallable())
                     {
                         throw PyAttributeError.Create("__exit__");
                     }
-                    frame.ValueStack.Push(exitMethod);
                     
-                    // 2. Call __enter__ method and push result to stack
+                    Console.WriteLine($"🔧 BEFORE_WITH: Found __exit__ method: {exitMethod}");
+                    
+                    // 2. Call __enter__ method and get result
                     var enterMethod = contextManager.GetAttribute("__enter__");
+                    PyObject enterResult;
                     if (enterMethod.IsCallable())
                     {
-                        var enterResult = enterMethod.Call(new PyObject[0]);
-                        frame.ValueStack.Push(enterResult);
+                        enterResult = enterMethod.Call(new PyObject[0]);
+                        Console.WriteLine($"🔧 BEFORE_WITH: __enter__ returned: {enterResult}");
                     }
                     else
                     {
                         throw PyAttributeError.Create("__enter__");
                     }
+                    
+                    // CPython 3.12 stack layout: [..., __exit__, __enter_result__]
+                    // This matches the expected layout for normal completion and exception handling
+                    frame.ValueStack.Push(exitMethod);
+                    frame.ValueStack.Push(enterResult);
+                    
+                    Console.WriteLine($"🔧 BEFORE_WITH: Stack after setup - size: {frame.ValueStack.Count}");
+                    Console.WriteLine($"   TOS: {frame.ValueStack.Peek()} (enter result)");
                     break;
                     
                 case ByteCodeOp.PUSH_EXC_INFO:
