@@ -42,6 +42,7 @@ namespace SharpPy
         // 기타 핵심 타입들
         public static readonly PyType ModuleType = new PyType("module", new[] { ObjectType });
         public static readonly PyType NoneType = new PyType("NoneType", new[] { ObjectType });
+        public static readonly PyType GenericAliasType = new PyType("GenericAlias", new[] { ObjectType });
 
         // 예외 타입 계층 (PyException.cs와 연동)
         public static readonly PyType BaseExceptionType = new PyType("BaseException", new[] { ObjectType });
@@ -328,6 +329,27 @@ namespace SharpPy
             }
             
             return names;
+        }
+
+        #endregion
+
+        #region Generic Type Support
+
+        /// <summary>
+        /// CPython 3.12 compatible generic type subscripting: list[int], tuple[str, int], etc.
+        /// </summary>
+        public override PyObject GetItem(PyObject key)
+        {
+            // For built-in generic types like list, tuple, dict, etc.
+            if (Name == "list" || Name == "tuple" || Name == "dict" || Name == "set" || Name == "frozenset")
+            {
+                // Create a generic alias representation - for now just return the type itself
+                // In a full implementation, this would return types.GenericAlias(this, key)
+                return new PyGenericAlias(this, key);
+            }
+            
+            // Not a generic type
+            throw PyTypeError.Create($"'{Name}' object is not subscriptable");
         }
 
         #endregion

@@ -721,6 +721,26 @@ namespace SharpPy
                     frame.ValueStack.Push(builtinValue);
                     break;
                     
+                case ByteCodeOp.SETUP_ANNOTATIONS:
+                    // CPython 3.12: Initialize __annotations__ dictionary if not exists
+                    var annotationsName = "__annotations__";
+                    var globalScope = frame.ScopeChain.GlobalScope;
+                    
+                    // Check if __annotations__ already exists
+                    var existingAnnotations = globalScope.GetVariable(annotationsName);
+                    if (existingAnnotations == null)
+                    {
+                        // __annotations__ doesn't exist, create it
+                        globalScope.SetVariable(annotationsName, new PyDict());
+                    }
+                    else if (existingAnnotations is not PyDict)
+                    {
+                        // Replace with empty dict if it's not a dict
+                        globalScope.SetVariable(annotationsName, new PyDict());
+                    }
+                    // If it exists and is already a dict, do nothing
+                    break;
+                    
                 case ByteCodeOp.BINARY_OP:
                     // CPython 3.12+ unified binary operation
                     var operation = (BinaryOpType)instruction.Argument;
@@ -1377,6 +1397,45 @@ namespace SharpPy
                     {
                         // Convert C# exceptions to appropriate Python exceptions
                         throw PyTypeError.Create($"subscript assignment error: {ex.Message}");
+                    }
+                    break;
+                    
+                case ByteCodeOp.BINARY_SUBSCR:
+                    // CPython 3.12: Stack: [container, key] -> [container[key]]
+                    // Used for generic type subscript: list[int], tuple[T, T]
+                    var binarySubscrKey = frame.ValueStack.Pop();
+                    var binarySubscrContainer = frame.ValueStack.Pop();
+                    
+                    try
+                    {
+                        PyObject binarySubscrResult;
+                        
+                        // CPython 3.12: Generic type subscript support
+                        if (binarySubscrContainer is PyType genericType)
+                        {
+                            // Type[args] subscription: list[int], tuple[T, T]
+                            binarySubscrResult = genericType.GetItem(binarySubscrKey);
+                        }
+                        else if (binarySubscrContainer is PyObject containerObj)
+                        {
+                            // Regular subscript operation: dict[key], list[index]
+                            binarySubscrResult = containerObj.GetItem(binarySubscrKey);
+                        }
+                        else
+                        {
+                            throw PyTypeError.Create($"'{binarySubscrContainer.GetTypeName()}' object is not subscriptable");
+                        }
+                        
+                        frame.ValueStack.Push(binarySubscrResult);
+                    }
+                    catch (Exception ex) when (ex is PyException)
+                    {
+                        // Re-throw Python exceptions
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        throw PyTypeError.Create($"subscript error: {ex.Message}");
                     }
                     break;
                     

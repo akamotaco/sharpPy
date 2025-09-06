@@ -225,6 +225,10 @@ namespace SharpPy
         BINARY_SLICE = 215,       // CPython 3.12: 슬라이싱 연산 (obj[start:stop])
         STORE_SLICE = 216,        // CPython 3.12: 슬라이스 할당 (obj[start:stop] = value)
         
+        // CPython 3.12: Type annotations 지원
+        SETUP_ANNOTATIONS = 217,  // __annotations__ 딕셔너리 초기화
+        BINARY_SUBSCR = 218,      // Generic type subscript (list[int], tuple[T, T])
+        
         // 캐시 및 최적화
         CACHE = 210,          // 캐시 엔트리
         LOAD_METHOD = 211,    // 메서드 로드 (최적화됨)

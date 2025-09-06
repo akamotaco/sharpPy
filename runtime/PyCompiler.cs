@@ -1046,9 +1046,9 @@ namespace SharpPy
                     }
                     else
                     {
-                        // 일반 인덱싱
+                        // 일반 인덱싱 - CPython 3.12 uses BINARY_SUBSCR
                         CompileExpression(subscript.Slice);
-                        EmitInstruction(ByteCodeOp.LOAD_SUBSCR);
+                        EmitInstruction(ByteCodeOp.BINARY_SUBSCR);
                     }
                     break;
                     
@@ -1556,16 +1556,30 @@ namespace SharpPy
         
         private void CompileAnnAssign(AnnAssignStatement annAssign)
         {
-            // Annotated assignment: var: type = value
-            // For now, we'll treat this like a regular assignment if there's a value
+            // CPython 3.12 compatible annotated assignment: var: type = value
+            
+            // 1. First emit SETUP_ANNOTATIONS to ensure __annotations__ dict exists
+            EmitInstruction(ByteCodeOp.SETUP_ANNOTATIONS);
+            
+            // 2. Handle the value assignment if present
             if (annAssign.Value != null)
             {
                 CompileExpression(annAssign.Value);
                 EmitStoreName(annAssign.VariableName);
             }
             
-            // TODO: Store type annotation in __annotations__ dict for runtime introspection
-            // This would require checking if we're at module/class level and maintaining __annotations__
+            // 3. Store type annotation in __annotations__ dict (CPython 3.12 pattern)
+            // Compile the annotation expression (e.g., list[int] becomes LOAD_NAME list, LOAD_NAME int, BINARY_SUBSCR)
+            CompileExpression(annAssign.Annotation);
+            
+            // Load __annotations__ dict
+            EmitLoadName("__annotations__");
+            
+            // Load variable name as string key
+            EmitLoadConst(new PyString(annAssign.VariableName));
+            
+            // Store annotation: __annotations__[var_name] = annotation
+            EmitInstruction(ByteCodeOp.STORE_SUBSCR);
         }
         
         /// <summary>
