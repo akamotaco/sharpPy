@@ -89,7 +89,10 @@ namespace SharpPy
         {
             var statements = new List<Statement>();
             
-            Console.WriteLine($"\n📝 파싱: {_tokens.Count}개 토큰");
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine($"\n📝 파싱: {_tokens.Count}개 토큰");
+            }
             
             while (!IsAtEnd())
             {
@@ -109,18 +112,27 @@ namespace SharpPy
                     if (statement != null)
                     {
                         statements.Add(statement);
-                        Console.WriteLine($"  → {statement}");
+                        if (!SharpPyConfig.DisassemblyOnlyMode)
+                        {
+                            Console.WriteLine($"  → {statement}");
+                        }
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"  ❌ 파싱 에러: {ex.Message}");
+                    if (!SharpPyConfig.DisassemblyOnlyMode)
+                    {
+                        Console.WriteLine($"  ❌ 파싱 에러: {ex.Message}");
+                    }
                     // Skip to next statement
                     Synchronize();
                 }
             }
             
-            Console.WriteLine($"✅ 파싱 완료: {statements.Count}개 문장");
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine($"✅ 파싱 완료: {statements.Count}개 문장");
+            }
             return statements;
         }
 
@@ -133,7 +145,10 @@ namespace SharpPy
                 {
                     // This might be an INDENT within a multiline expression, not a block
                     // Skip it for now and try to continue parsing
-                    Console.WriteLine("⚠️ Warning: Encountered INDENT in statement context - might be multiline expression");
+                    if (!SharpPyConfig.DisassemblyOnlyMode)
+                    {
+                        Console.WriteLine("⚠️ Warning: Encountered INDENT in statement context - might be multiline expression");
+                    }
                     SkipIndentationTokens();
                 }
                 
@@ -464,7 +479,10 @@ namespace SharpPy
                             }
                             catch (Exception ex)
                             {
-                                Console.WriteLine($"⚠️ Type constraint parsing failed: {ex.Message}");
+                                if (!SharpPyConfig.DisassemblyOnlyMode)
+                                {
+                                    Console.WriteLine($"⚠️ Type constraint parsing failed: {ex.Message}");
+                                }
                                 // Continue parsing without constraint
                             }
                         }
@@ -3114,7 +3132,10 @@ namespace SharpPy
             
             if (safetyCounter >= 10)
             {
-                Console.WriteLine("⚠️ Warning: Skipped too many INDENT tokens - possible infinite loop prevented");
+                if (!SharpPyConfig.DisassemblyOnlyMode)
+                {
+                    Console.WriteLine("⚠️ Warning: Skipped too many INDENT tokens - possible infinite loop prevented");
+                }
             }
         }
 
@@ -3132,7 +3153,10 @@ namespace SharpPy
             
             if (safetyCounter >= 10)
             {
-                Console.WriteLine("⚠️ Warning: Skipped too many DEDENT tokens - possible infinite loop prevented");
+                if (!SharpPyConfig.DisassemblyOnlyMode)
+                {
+                    Console.WriteLine("⚠️ Warning: Skipped too many DEDENT tokens - possible infinite loop prevented");
+                }
             }
         }
 

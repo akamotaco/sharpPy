@@ -389,6 +389,12 @@ namespace SharpPy
         private string _currentFunctionName = null; // Track current function name for module level detection
         private bool _isInComprehension = false; // Track if we're compiling inside a comprehension
         
+        // Source location tracking for bytecode generation
+        private int _currentLineNumber = -1;     // Current line number being compiled
+        private int _currentColumnOffset = -1;   // Current column offset being compiled
+        private string? _currentFileName = null;  // Current source file name
+        private List<string>? _sourceLines = null; // Source code lines for error reporting
+        
         // Phase 2: 클로저 지원
         private List<string> _cellVars = new List<string>();
         private List<string> _freeVars = new List<string>();
@@ -399,7 +405,7 @@ namespace SharpPy
             return Compile(statements, name, new List<string>());
         }
         
-        public PyCodeObject Compile(List<Statement> statements, string name, List<string> parameters)
+        public PyCodeObject Compile(List<Statement> statements, string name, List<string> parameters, string? fileName = null)
         {
             _instructions = new List<ByteCodeInstruction>();
             _constants = new List<PyObject>();
@@ -407,15 +413,37 @@ namespace SharpPy
             _varNames = new List<string>();
             _exceptionTable = new List<ExceptionTableEntry>(); // Reset Exception Table
             
+            // Set current file name for source location tracking
+            _currentFileName = fileName;
+            
+            // Load source lines for error reporting if fileName is provided
+            _sourceLines = null;
+            if (!string.IsNullOrEmpty(fileName) && File.Exists(fileName))
+            {
+                try
+                {
+                    _sourceLines = File.ReadAllLines(fileName).ToList();
+                }
+                catch (Exception ex)
+                {
+                    // If we can't read the file, just continue without source lines
+                    Console.WriteLine($"Warning: Could not read source file {fileName}: {ex.Message}");
+                }
+            }
+            
             // 함수 매개변수를 _varNames에 추가 (LOAD_FAST/STORE_FAST용)
             foreach (var param in parameters)
             {
                 _varNames.Add(param);
             }
             
-            Console.WriteLine($"\n🔧 컴파일: {name}");
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine($"\n🔧 컴파일: {name}");
+            }
             
-            // Python 3.12: 모든 코드는 RESUME으로 시작
+            // Python 3.12: 모든 코드는 RESUME으로 시작 (line 0)
+            _currentLineNumber = 0;
             EmitInstruction(ByteCodeOp.RESUME, 0);
             
             foreach (var statement in statements)
@@ -427,7 +455,7 @@ namespace SharpPy
             EmitLoadConst(PyNone.Instance);
             EmitInstruction(ByteCodeOp.RETURN_VALUE);
             
-            var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, parameters.Count, null, null, null, 0);
+            var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, parameters.Count, null, null, null, 0, _currentFileName, _sourceLines);
             
             // Resolve Exception Table labels to offsets (CPython 3.12 compatible)
             ResolveExceptionTable();
@@ -436,13 +464,25 @@ namespace SharpPy
             if (_exceptionTable.Count > 0)
             {
                 codeObject.ExceptionTable.AddRange(_exceptionTable);
-                Console.WriteLine($"📋 Exception Table: {_exceptionTable.Count}개 엔트리 추가됨 (라벨 해석 완료)");
+                if (!SharpPyConfig.DisassemblyOnlyMode)
+                {
+                    Console.WriteLine($"📋 Exception Table: {_exceptionTable.Count}개 엔트리 추가됨 (라벨 해석 완료)");
+                }
             }
             else
             {
-                Console.WriteLine($"📋 Exception Table: 비어있음 (CPython 3.12 compatible)");
+                if (!SharpPyConfig.DisassemblyOnlyMode)
+                {
+                    Console.WriteLine($"📋 Exception Table: 비어있음 (CPython 3.12 compatible)");
+                }
             }
-            Console.WriteLine($"✅ 컴파일 완료: {_instructions.Count}개 명령어");
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine($"✅ 컴파일 완료: {_instructions.Count}개 명령어");
+            }
+            }
             
             // 바이트코드 최적화 적용
             var optimizer = new ByteCodeOptimizer(_enable_optimizer);
@@ -469,9 +509,18 @@ namespace SharpPy
                 _varNames.Add(param);
             }
             
-            Console.WriteLine($"\n🔧 컴파일 (클로저): {name}");
-            Console.WriteLine($"  FreeVars: [{string.Join(", ", freeVars)}]");
-            Console.WriteLine($"  CellVars: [{string.Join(", ", cellVars)}]");
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine($"\n🔧 컴파일 (클로저): {name}");
+            }
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine($"  FreeVars: [{string.Join(", ", freeVars)}]");
+            }
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine($"  CellVars: [{string.Join(", ", cellVars)}]");
+            }
             
             // Phase 2: Cell 변수들을 위한 MAKE_CELL 명령어 발행
             foreach (var cellVar in cellVars)
@@ -479,7 +528,10 @@ namespace SharpPy
                 var paramIndex = parameters.IndexOf(cellVar);
                 if (paramIndex >= 0)
                 {
-                    Console.WriteLine($"  → Making cell for parameter: {cellVar}");
+                    if (!SharpPyConfig.DisassemblyOnlyMode)
+                    {
+                        Console.WriteLine($"  → Making cell for parameter: {cellVar}");
+                    }
                     EmitInstruction(ByteCodeOp.MAKE_CELL, paramIndex);
                 }
             }
@@ -494,11 +546,14 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.RETURN_VALUE);
             
             var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, 
-                                            parameters.Count, freeVars, cellVars, null, 0);
+                                            parameters.Count, freeVars, cellVars, null, 0, _currentFileName, _sourceLines);
             
             // Add Exception Table entries (CPython 3.12)
             codeObject.ExceptionTable.AddRange(_exceptionTable);
-            Console.WriteLine($"\u2705 컴파일 완료: {_instructions.Count}개 명령어");
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine($"\u2705 컴파일 완료: {_instructions.Count}개 명령어");
+            }
             
             // 바이트코드 최적화 적용
             var optimizer = new ByteCodeOptimizer(_enable_optimizer);
@@ -650,7 +705,10 @@ namespace SharpPy
                 return PyNone.Instance;
             
             // 복합 표현식은 나중에 처리 (현재는 단순 리터럴만)
-            Console.WriteLine($"⚠️ Warning: Complex default value '{defaultValueStr}' not yet supported");
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine($"⚠️ Warning: Complex default value '{defaultValueStr}' not yet supported");
+            }
             return PyNone.Instance;
         }
         
@@ -687,8 +745,14 @@ namespace SharpPy
             Console.WriteLine($"\n🔧 컴파일 (클로저+기본값): {name}");
             Console.WriteLine($"  매개변수: [{string.Join(", ", paramNames)}]");
             Console.WriteLine($"  기본값: [{string.Join(", ", defaults.Select(d => d?.ToString() ?? "None"))}]");
-            Console.WriteLine($"  FreeVars: [{string.Join(", ", freeVars)}]");
-            Console.WriteLine($"  CellVars: [{string.Join(", ", cellVars)}]");
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine($"  FreeVars: [{string.Join(", ", freeVars)}]");
+            }
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine($"  CellVars: [{string.Join(", ", cellVars)}]");
+            }
             
             // Phase 2: Cell 변수들을 위한 MAKE_CELL 명령어 발행
             foreach (var cellVar in cellVars)
@@ -696,7 +760,10 @@ namespace SharpPy
                 var paramIndex = paramNames.IndexOf(cellVar);
                 if (paramIndex >= 0)
                 {
-                    Console.WriteLine($"  → Making cell for parameter: {cellVar}");
+                    if (!SharpPyConfig.DisassemblyOnlyMode)
+                    {
+                        Console.WriteLine($"  → Making cell for parameter: {cellVar}");
+                    }
                     EmitInstruction(ByteCodeOp.MAKE_CELL, paramIndex);
                 }
             }
@@ -711,7 +778,7 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.RETURN_VALUE);
             
             var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, 
-                                            paramNames.Count, freeVars, cellVars, defaults, flags);
+                                            paramNames.Count, freeVars, cellVars, defaults, flags, _currentFileName, _sourceLines);
             
             // Resolve Exception Table labels to offsets (CPython 3.12 compatible)
             ResolveExceptionTable();
@@ -720,13 +787,25 @@ namespace SharpPy
             if (_exceptionTable.Count > 0)
             {
                 codeObject.ExceptionTable.AddRange(_exceptionTable);
-                Console.WriteLine($"📋 Exception Table: {_exceptionTable.Count}개 엔트리 추가됨 (라벨 해석 완료)");
+                if (!SharpPyConfig.DisassemblyOnlyMode)
+                {
+                    Console.WriteLine($"📋 Exception Table: {_exceptionTable.Count}개 엔트리 추가됨 (라벨 해석 완료)");
+                }
             }
             else
             {
-                Console.WriteLine($"📋 Exception Table: 비어있음 (CPython 3.12 compatible)");
+                if (!SharpPyConfig.DisassemblyOnlyMode)
+                {
+                    Console.WriteLine($"📋 Exception Table: 비어있음 (CPython 3.12 compatible)");
+                }
             }
-            Console.WriteLine($"✅ 컴파일 완료: {_instructions.Count}개 명령어");
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine($"✅ 컴파일 완료: {_instructions.Count}개 명령어");
+            }
+            }
             
             // 바이트코드 최적화 적용
             var optimizer = new ByteCodeOptimizer(_enable_optimizer);
@@ -772,11 +851,14 @@ namespace SharpPy
             
             // PyCodeObject 생성 (기본값 포함)
             var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, 
-                                            paramNames.Count, null, null, defaults, flags);
+                                            paramNames.Count, null, null, defaults, flags, _currentFileName, _sourceLines);
             
             // Add Exception Table entries (CPython 3.12)
             codeObject.ExceptionTable.AddRange(_exceptionTable);
-            Console.WriteLine($"✅ 함수 컴파일 완료: {_instructions.Count}개 명령어");
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine($"✅ 함수 컴파일 완료: {_instructions.Count}개 명령어");
+            }
             
             _isInFunction = false; // Reset function context
             _currentFunctionName = null; // Reset function name
@@ -794,6 +876,9 @@ namespace SharpPy
         
         private void CompileStatement(Statement statement)
         {
+            // Update current source location
+            UpdateSourceLocation(statement);
+            
             switch (statement)
             {
                 case AssignStatement assign:
@@ -940,6 +1025,9 @@ namespace SharpPy
         
         private void CompileExpression(Expression expression)
         {
+            // Update current source location
+            UpdateSourceLocation(expression);
+            
             switch (expression)
             {
                 case ConstantExpression constant:
@@ -982,13 +1070,13 @@ namespace SharpPy
                     break;
                     
                 case CallExpression call:
-                    CompileExpression(call.Function);
-                    
-                    // Python 3.12: 함수 로드 후 PUSH_NULL (키워드 인수가 없는 경우만)
+                    // CPython 3.12: PUSH_NULL을 먼저 (키워드 인수가 없는 경우만)
                     if (call.Keywords.Count == 0)
                     {
                         EmitInstruction(ByteCodeOp.PUSH_NULL);
                     }
+                    
+                    CompileExpression(call.Function);
                     
                     // 위치 인수 컴파일
                     foreach (var arg in call.Arguments)
@@ -1307,9 +1395,17 @@ namespace SharpPy
         }
         
         // 바이트코드 생성 도우미들
+        private void UpdateSourceLocation(ASTNode node)
+        {
+            if (node.LineNo >= 0)
+                _currentLineNumber = node.LineNo;
+            if (node.ColOffset >= 0)
+                _currentColumnOffset = node.ColOffset;
+        }
+        
         private void EmitInstruction(ByteCodeOp opCode, int argument = 0)
         {
-            _instructions.Add(new ByteCodeInstruction(opCode, argument));
+            _instructions.Add(new ByteCodeInstruction(opCode, argument, _currentLineNumber, _currentColumnOffset, _currentFileName));
         }
         
         private void EmitLoadConst(PyObject value)
@@ -1350,22 +1446,12 @@ namespace SharpPy
                 return;
             }
             
-            // 3. 모듈 레벨: CPython 3.12 호환성을 위해 LOAD_NAME 사용
-            // 이렇게 해야 STORE_NAME으로 저장된 변수(예: 예외 변수)를 찾을 수 있음
+            // 3. 모듈 레벨: CPython 3.12 완전 호환성을 위해 항상 LOAD_NAME 사용
+            // CPython 3.12는 모듈 레벨에서 print 등 내장 함수도 LOAD_NAME으로 접근
             if (!_isInFunction)
             {
-                // 내장 함수 우선 처리
-                if (IsBuiltinFunction(name))
-                {
-                    var builtinIndex = AddName(name);
-                    EmitInstruction(ByteCodeOp.LOAD_GLOBAL, builtinIndex);
-                }
-                else
-                {
-                    // CPython 3.12: 모듈 레벨에서도 LOAD_NAME 사용
-                    var nameIndex = AddName(name);
-                    EmitInstruction(ByteCodeOp.LOAD_NAME, nameIndex);
-                }
+                var nameIndex = AddName(name);
+                EmitInstruction(ByteCodeOp.LOAD_NAME, nameIndex);
                 return;
             }
             
@@ -1651,10 +1737,9 @@ namespace SharpPy
         private void CompileClass(ClassDefStatement cls)
         {
             // CPython 3.12: Compile class body as a proper function
-            // Load __build_class__ function first
-            EmitLoadName("__build_class__");
-            // Python 3.12: 함수 로드 후 PUSH_NULL
+            // PUSH_NULL 먼저, 그 다음 __build_class__ function 로드
             EmitInstruction(ByteCodeOp.PUSH_NULL);
+            EmitLoadName("__build_class__");
             
             // Compile class body into a function (with potential free variables)
             var classBodyName = $"<class_body_{cls.Name}>";
@@ -1740,7 +1825,11 @@ namespace SharpPy
                     _varNames.ToList(),
                     argCount: 0,  // Class body has no arguments
                     freeVars: _freeVars.ToList(),  // Include free variables
-                    cellVars: _cellVars.ToList()
+                    cellVars: _cellVars.ToList(),
+                    defaultValues: null,
+                    flags: 0,
+                    fileName: _currentFileName,
+                    sourceLines: _sourceLines
                 );
                 
                 return codeObject;
@@ -2167,8 +2256,8 @@ namespace SharpPy
             // CPython 3.12: Add NOP instruction before try body (exact CPython pattern)
             EmitInstruction(ByteCodeOp.NOP);
             
-            // Exception Table start offset is after NOP
-            var tryStartOffset = _instructions.Count;
+            // Exception Table start offset is after NOP - 바이트 오프셋 계산
+            var tryStartOffset = _instructions.Count * 2;
             
             // CPython 3.12: Direct compilation of try body (no SETUP_EXCEPT)
             foreach (var stmt in tryStmt.Body)
@@ -2176,23 +2265,15 @@ namespace SharpPy
                 CompileStatement(stmt);
             }
             
-            var tryEndOffset = _instructions.Count - 1;
+            var tryEndOffset = _instructions.Count * 2;
             
-            // CPython 3.12: Normal path 
-            if (IsModuleLevel())
-            {
-                // At module level, return None directly like CPython 3.12
-                EmitInstruction(ByteCodeOp.RETURN_CONST, AddConstant(PyNone.Instance));
-            }
-            else
-            {
-                // In functions, jump to end
-                EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
-                endLabel.References.Add(_instructions.Count - 1);
-            }
+            // CPython 3.12: Normal path - always jump to end (don't return early!)
+            // This allows code after try-except to execute
+            EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
+            endLabel.References.Add(_instructions.Count - 1);
             
-            // Exception handler start (where PUSH_EXC_INFO will jump to)
-            var handlersStartOffset = _instructions.Count;
+            // Exception handler start (where PUSH_EXC_INFO will jump to) - 바이트 오프셋
+            var handlersStartOffset = _instructions.Count * 2;
             var handlersStartLabel = CreateLabel("handlers_start");
             MarkLabel(handlersStartLabel);
             
@@ -2236,8 +2317,8 @@ namespace SharpPy
                     }
                     else
                     {
-                        // Regular exception matching
-                        EmitInstruction(ByteCodeOp.IS_OP, 1); // CPython 3.12: IS_OP for exception matching
+                        // Regular exception matching - CPython 3.12 uses CHECK_EXC_MATCH
+                        EmitInstruction(ByteCodeOp.CHECK_EXC_MATCH);
                         
                         EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0);
                         nextHandlerLabel.References.Add(_instructions.Count - 1);
@@ -2274,18 +2355,10 @@ namespace SharpPy
                 // CPython 3.12: POP_EXCEPT after handler execution
                 EmitInstruction(ByteCodeOp.POP_EXCEPT);
                 
-                // CPython 3.12: Exception handler completion path
-                if (IsModuleLevel())
-                {
-                    // At module level, return None directly like CPython 3.12
-                    EmitInstruction(ByteCodeOp.RETURN_CONST, AddConstant(PyNone.Instance));
-                }
-                else
-                {
-                    // In functions, jump to end
-                    EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
-                    endLabel.References.Add(_instructions.Count - 1);
-                }
+                // CPython 3.12: Exception handler completion path - always jump to end
+                // This allows code after try-except to execute
+                EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
+                endLabel.References.Add(_instructions.Count - 1);
                 
                 // Mark next handler if not last
                 if (i < tryStmt.Handlers.Count - 1)
@@ -2319,6 +2392,7 @@ namespace SharpPy
             Console.WriteLine($"🔧 Exception Table Entry Created:");
             Console.WriteLine($"   Try: {tryStartOffset} to {tryEndOffset}");
             Console.WriteLine($"   Handler: {handlersStartOffset}, Depth: 0");
+            Console.WriteLine($"🔍 Debug: NOP at ~{_instructions.Count-1}, try body starts at {tryStartOffset}");
         }
         private void CompileWith(WithStatement withStmt)
         {
@@ -3214,7 +3288,11 @@ namespace SharpPy
                 lambdaVarNames, // VarNames with parameters first
                 lambda.Args.Count,
                 freeVars, // Set FreeVars for closure support
-                cellVars  // Set CellVars for closure support
+                cellVars, // Set CellVars for closure support
+                defaultValues: null,
+                flags: 0,
+                fileName: _currentFileName,
+                sourceLines: _sourceLines
             );
             
             Console.WriteLine($"  → Lambda code object created: {lambdaVarNames.Count} variables, {lambda.Args.Count} parameters");
@@ -3421,7 +3499,10 @@ namespace SharpPy
         /// </summary>
         private void ResolveExceptionTable()
         {
-            Console.WriteLine($"🔧 Exception Table 해석: {_exceptionTable.Count}개 엔트리");
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine($"🔧 Exception Table 해석: {_exceptionTable.Count}개 엔트리");
+            }
             
             for (int i = 0; i < _exceptionTable.Count; i++)
             {

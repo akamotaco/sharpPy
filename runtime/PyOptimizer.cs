@@ -28,7 +28,10 @@ namespace SharpPy
             if (!_optimizationEnabled)
                 return originalCode;
 
-            Console.WriteLine("\n🔧 바이트코드 최적화 시작");
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine("\n🔧 바이트코드 최적화 시작");
+            }
             
             _instructions = new List<ByteCodeInstruction>(originalCode.Instructions);
             _constants = new List<PyObject>(originalCode.Constants);
@@ -57,7 +60,10 @@ namespace SharpPy
             int optimizedCount = _instructions.Count;
             int saved = originalCount - optimizedCount;
             
-            Console.WriteLine($"✅ 최적화 완료: {originalCount} → {optimizedCount} ({saved} 명령어 절약, {(float)saved/originalCount*100:F1}% 개선)");
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine($"✅ 최적화 완료: {originalCount} → {optimizedCount} ({saved} 명령어 절약, {(float)saved/originalCount*100:F1}% 개선)");
+            }
 
             var optimizedCode = new PyCodeObject(
                 originalCode.Name,
@@ -74,7 +80,10 @@ namespace SharpPy
             
             // CPython 3.12: Exception Table 복사 (최적화 후에도 보존)
             optimizedCode.ExceptionTable.AddRange(originalCode.ExceptionTable);
-            Console.WriteLine($"🔍 Exception Table 복사: {originalCode.ExceptionTable.Count}개 엔트리 → 최적화된 코드");
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine($"🔍 Exception Table 복사: {originalCode.ExceptionTable.Count}개 엔트리 → 최적화된 코드");
+            }
             
             return optimizedCode;
         }
@@ -197,7 +206,10 @@ namespace SharpPy
                     // RETURN_CONST 명령어로 치환 (상수 인덱스 유지)
                     _instructions[i] = new ByteCodeInstruction(ByteCodeOp.RETURN_CONST, inst1.Argument);
                     _instructions[i + 1] = new ByteCodeInstruction(ByteCodeOp.NOP, 0); // 제거될 NOP로 마킹
-                    Console.WriteLine($"🔄 Peephole: LOAD_CONST+RETURN_VALUE → RETURN_CONST (const {inst1.Argument})");
+                    if (!SharpPyConfig.DisassemblyOnlyMode)
+                    {
+                        Console.WriteLine($"🔄 Peephole: LOAD_CONST+RETURN_VALUE → RETURN_CONST (const {inst1.Argument})");
+                    }
                     continue;
                 }
 
@@ -249,7 +261,10 @@ namespace SharpPy
             
             if (indicesToRemove.Count > 0)
             {
-                Console.WriteLine($"🔄 최적화 NOP 제거: {indicesToRemove.Count}개 (try-except NOP 보존됨)");
+                if (!SharpPyConfig.DisassemblyOnlyMode)
+                {
+                    Console.WriteLine($"🔄 최적화 NOP 제거: {indicesToRemove.Count}개 (try-except NOP 보존됨)");
+                }
             }
         }
 
@@ -267,7 +282,20 @@ namespace SharpPy
             
             var nextInst = _instructions[index + 1];
             
-            // 패턴 1: NOP → LOAD_CONST → STORE_NAME (일반적인 try body 시작)
+            // 패턴 1: NOP → PUSH_NULL → LOAD_NAME (CPython 3.12 try body 패턴)  
+            if (nextInst.OpCode == ByteCodeOp.PUSH_NULL)
+            {
+                if (index + 2 < _instructions.Count)
+                {
+                    var secondNext = _instructions[index + 2];
+                    if (secondNext.OpCode == ByteCodeOp.LOAD_NAME)
+                    {
+                        return true; // try 블록 패턴 매치
+                    }
+                }
+            }
+            
+            // 패턴 1.1: NOP → LOAD_CONST → STORE_NAME (기존 패턴도 보존)
             if (nextInst.OpCode == ByteCodeOp.LOAD_CONST)
             {
                 if (index + 2 < _instructions.Count)
@@ -360,7 +388,10 @@ namespace SharpPy
         /// </summary>
         private void ApplySuperinstructions()
         {
-            Console.WriteLine("🚀 CPython 3.12 Superinstructions 최적화 적용");
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine("🚀 CPython 3.12 Superinstructions 최적화 적용");
+            }
             
             for (int i = 0; i < _instructions.Count - 1; i++)
             {
@@ -378,7 +409,10 @@ namespace SharpPy
         /// </summary>
         private void RecalculateJumpOffsets()
         {
-            Console.WriteLine("🔄 점프 오프셋 재계산 중...");
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine("🔄 점프 오프셋 재계산 중...");
+            }
             int recalculated = 0;
             
             // FOR 루프 패턴 감지 및 수정: GET_ITER → FOR_ITER → ... → JUMP_BACKWARD
@@ -484,7 +518,10 @@ namespace SharpPy
             // CPython 3.12 방식: FOR_ITER → END_FOR 구조 점프 오프셋 재계산
             // Superinstructions로 인해 명령어 위치가 변경되므로 FOR_ITER 오프셋도 업데이트 필요
             
-            Console.WriteLine("🔄 FOR_ITER → END_FOR 점프 오프셋 재계산 중...");
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine("🔄 FOR_ITER → END_FOR 점프 오프셋 재계산 중...");
+            }
             for (int i = 0; i < _instructions.Count; i++)
             {
                 var instruction = _instructions[i];
@@ -506,7 +543,10 @@ namespace SharpPy
             }
 
             // 중첩 루프 JUMP_BACKWARD 재계산 추가
-            Console.WriteLine("🔄 중첩 루프 JUMP_BACKWARD → FOR_ITER 점프 오프셋 재계산 중...");
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine("🔄 중첩 루프 JUMP_BACKWARD → FOR_ITER 점프 오프셋 재계산 중...");
+            }
             for (int i = 0; i < _instructions.Count; i++)
             {
                 var instruction = _instructions[i];
@@ -531,11 +571,17 @@ namespace SharpPy
             
             if (recalculated > 0)
             {
-                Console.WriteLine($"✅ 점프 오프셋 재계산 완료: {recalculated}개 명령어 수정");
+                if (!SharpPyConfig.DisassemblyOnlyMode)
+                {
+                    Console.WriteLine($"✅ 점프 오프셋 재계산 완료: {recalculated}개 명령어 수정");
+                }
             }
             else
             {
-                Console.WriteLine("✅ 점프 오프셋 재계산 완료: 수정 필요 없음");
+                if (!SharpPyConfig.DisassemblyOnlyMode)
+                {
+                    Console.WriteLine("✅ 점프 오프셋 재계산 완료: 수정 필요 없음");
+                }
             }
         }
         

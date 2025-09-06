@@ -282,11 +282,17 @@ namespace SharpPy
     {
         public ByteCodeOp OpCode { get; }
         public int Argument { get; }
+        public int LineNumber { get; }      // Source line number (1-based)
+        public int ColumnOffset { get; }    // Source column offset (0-based)
+        public string? FileName { get; }    // Source file name
         
-        public ByteCodeInstruction(ByteCodeOp opCode, int argument = 0)
+        public ByteCodeInstruction(ByteCodeOp opCode, int argument = 0, int lineNumber = -1, int columnOffset = -1, string? fileName = null)
         {
             OpCode = opCode;
             Argument = argument;
+            LineNumber = lineNumber;
+            ColumnOffset = columnOffset;
+            FileName = fileName;
         }
         
         public override string ToString()
@@ -311,6 +317,10 @@ namespace SharpPy
         public List<string> VarNames { get; }         // co_varnames (지역변수명들)
         public int ArgCount { get; }                  // 매개변수 개수
         public int Flags { get; }                     // co_flags (CPython 호환)
+        public string? FileName { get; }              // co_filename (CPython 호환)
+        
+        // CPython 스타일 에러 보고를 위한 소스 라인 정보
+        public List<string>? SourceLines { get; }     // 원본 소스 코드 라인들 (에러 표시용)
         
         // CPython 호환 클로저 지원 (Phase 2)
         public List<string> FreeVars { get; set; } = new List<string>();   // co_freevars - 자유 변수
@@ -326,7 +336,8 @@ namespace SharpPy
                         List<PyObject> constants, List<string> names, 
                         List<string> varNames, int argCount = 0,
                         List<string> freeVars = null, List<string> cellVars = null,
-                        List<PyObject> defaultValues = null, int flags = 0)
+                        List<PyObject> defaultValues = null, int flags = 0, string fileName = null,
+                        List<string> sourceLines = null)
         {
             Name = name;
             Instructions = instructions;
@@ -335,6 +346,8 @@ namespace SharpPy
             VarNames = varNames;
             ArgCount = argCount;
             Flags = flags;
+            FileName = fileName;
+            SourceLines = sourceLines;
             FreeVars = freeVars ?? new List<string>();
             CellVars = cellVars ?? new List<string>();
             DefaultValues = defaultValues ?? new List<PyObject>();
@@ -666,6 +679,22 @@ namespace SharpPy
             // CPython 3.12: 예외 그룹 처리
             { ByteCodeOp.CHECK_EG_MATCH, (2, 2) }, // exception_group, match_type -> matched, remainder
         };
+
+        // CPython 3.12 정확한 명령어 바이트 크기 (2-byte word addressing)
+        public static int GetInstructionSize(ByteCodeOp op, int arg = 0)
+        {
+            // CPython 3.12에서 대부분의 명령어는 2바이트
+            // 단, 일부 명령어는 더 많은 바이트를 차지함
+            
+            return op switch
+            {
+                // CPython 3.12: CALL 명령어는 8바이트 차지 (extended instruction)
+                ByteCodeOp.CALL => 8,
+                
+                // 대부분의 일반 명령어는 2바이트
+                _ => 2
+            };
+        }
 
         // 인수에 따라 달라지는 스택 효과
         public static (int pop, int push) GetStackEffect(ByteCodeOp op, int arg = 0)

@@ -442,14 +442,64 @@ namespace SharpPy
     public class PythonException : System.Exception
     {
         public PyBaseException PyException { get; }
+        
+        // CPython-style error location information
+        public string? FileName { get; set; }
+        public int LineNumber { get; set; } = -1;
+        public int ColumnOffset { get; set; } = -1;
+        public List<string>? SourceLines { get; set; } // Source code lines for context display
 
         public PythonException(PyBaseException pyException) 
             : base(pyException.ToStr())
         {
             PyException = pyException;
         }
+        
+        public PythonException(PyBaseException pyException, string? fileName, int lineNumber, int columnOffset = -1)
+            : base(pyException.ToStr())
+        {
+            PyException = pyException;
+            FileName = fileName;
+            LineNumber = lineNumber;
+            ColumnOffset = columnOffset;
+        }
 
-        public override string ToString() => PyException.ToRepr();
+        public override string ToString()
+        {
+            var baseStr = PyException.ToRepr();
+            
+            // CPython-style location information with source context
+            if (!string.IsNullOrEmpty(FileName) && LineNumber > 0)
+            {
+                var result = new System.Text.StringBuilder();
+                result.AppendLine("Traceback (most recent call last):");
+                
+                // File location info
+                var locationStr = $"  File \"{FileName}\", line {LineNumber}, in <module>";
+                result.AppendLine(locationStr);
+                
+                // Source code context (if available)
+                if (SourceLines != null && LineNumber > 0 && LineNumber <= SourceLines.Count)
+                {
+                    var sourceLine = SourceLines[LineNumber - 1]; // Convert to 0-based index
+                    result.AppendLine($"    {sourceLine}");
+                    
+                    // Add position marker if column offset is available
+                    if (ColumnOffset >= 0 && ColumnOffset < sourceLine.Length)
+                    {
+                        var spaces = new string(' ', 4 + ColumnOffset); // 4 spaces for indentation + column offset
+                        result.AppendLine($"{spaces}^");
+                    }
+                }
+                
+                // Exception type and message
+                result.Append($"{PyException.GetTypeName()}: {PyException.ToStr()}");
+                
+                return result.ToString();
+            }
+            
+            return baseStr;
+        }
     }
 
     #endregion
