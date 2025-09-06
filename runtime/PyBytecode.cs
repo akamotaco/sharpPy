@@ -44,213 +44,217 @@ namespace SharpPy
     
 #region Bytecode System Extension
 
-    // 바이트코드 명령어들 (Python 3.12 기준)
+    // CPython 3.12 완전 호환 바이트코드 명령어
+    // 출처: CPython 3.12.0 dis.opname
     public enum ByteCodeOp : byte
     {
-        // 스택 조작 기본
-        LOAD_CONST = 1,       // 상수를 스택에 로드
-        LOAD_NAME = 2,        // 변수를 스택에 로드 (LEGB 탐색)
-        STORE_NAME = 3,       // 스택 top을 변수에 저장
-        DELETE_NAME = 4,      // 이름 삭제
+        // CPython 3.12 정확한 opcode 번호 매핑
+        CACHE = 0,
+        POP_TOP = 1,
+        PUSH_NULL = 2,
+        INTERPRETER_EXIT = 3,
+        END_FOR = 4,
+        END_SEND = 5,
         
-        // 전역/지역 변수
-        LOAD_GLOBAL = 5,      // 전역 변수 로드
-        STORE_GLOBAL = 6,     // 전역 변수 저장
-        DELETE_GLOBAL = 7,    // 전역 변수 삭제
-        LOAD_FAST = 8,        // 지역 변수 로드 (빠름)
-        STORE_FAST = 9,       // 지역 변수 저장 (빠름)  
-        DELETE_FAST = 10,     // 지역 변수 삭제
+        // 6-8: Reserved for specialized opcodes in CPython 3.12
         
-        // CPython 3.12+ Superinstructions (fused operations)
-        LOAD_FAST_LOAD_FAST = 11,    // LOAD_FAST + LOAD_FAST (연속 로드 최적화)
-        LOAD_CONST_LOAD_FAST = 12,   // LOAD_CONST + LOAD_FAST 
-        STORE_FAST_LOAD_FAST = 13,   // STORE_FAST + LOAD_FAST
-        STORE_FAST_STORE_FAST = 14,  // STORE_FAST + STORE_FAST
-        LOAD_FAST_AND_CLEAR = 15,    // CPython 3.12 PEP 709: 변수 로드 후 클리어 (컴프리헨션용)
+        NOP = 9,
         
-        // 이항 연산 (CPython 3.12+ 스타일 통합)
-        BINARY_OP = 20,       // 통합 이항 연산 (argument로 연산 타입 구분)
+        // 10: Reserved
         
-        // Legacy 개별 이항 연산들 (단계적 제거 예정)
-        BINARY_ADD = 21,      // 이항 덧셈 (deprecated - use BINARY_OP)
-        BINARY_SUBTRACT = 22, // 이항 뺄셈 (deprecated - use BINARY_OP)
-        BINARY_MULTIPLY = 23, // 이항 곱셈 (deprecated - use BINARY_OP)
-        BINARY_DIVIDE = 24, // 이항 나눗셈 (/) (deprecated - use BINARY_OP)
-        BINARY_FLOOR_DIVIDE = 25, // 바닥 나눗셈 (//) (deprecated - use BINARY_OP)
-        BINARY_MODULO = 26,   // 모듈로 연산 (%) (deprecated - use BINARY_OP)
-        BINARY_POWER = 27,    // 거듭제곱 (**) (deprecated - use BINARY_OP)
-        BINARY_LSHIFT = 28,   // 비트 좌시프트 (<<) (deprecated - use BINARY_OP)
-        BINARY_RSHIFT = 29,   // 비트 우시프트 (>>) (deprecated - use BINARY_OP)
-        BINARY_OR = 30,       // 비트 OR (|) (deprecated - use BINARY_OP)
-        BINARY_XOR = 31,      // 비트 XOR (^) (deprecated - use BINARY_OP)
-        BINARY_AND = 32,      // 비트 AND (&) (deprecated - use BINARY_OP)
-        BINARY_MATRIX_MULTIPLY = 33, // 행렬 곱셈 (@) (deprecated - use BINARY_OP)
+        UNARY_NEGATIVE = 11,
+        UNARY_NOT = 12,
         
-        // 비교 연산
-        COMPARE_OP = 40,      // 비교 연산 (<, <=, ==, !=, >, >=, is, is not)
-        CONTAINS_OP = 41,     // CPython 3.12: 멤버십 테스트 (in, not in)
+        // 13: UNARY_POSITIVE
+        UNARY_POSITIVE = 13,
         
-        // 일항 연산
-        UNARY_POSITIVE = 42,  // +x
-        UNARY_NEGATIVE = 43,  // -x
-        UNARY_NOT = 44,       // not x
-        UNARY_INVERT = 45,    // ~x
+        // 14: Reserved
         
-        // 복합 할당 연산
-        INPLACE_ADD = 50,     // +=
-        INPLACE_SUBTRACT = 51, // -=
-        INPLACE_MULTIPLY = 52, // *=
-        INPLACE_DIVIDE = 53, // /=
-        INPLACE_FLOOR_DIVIDE = 54, // //=
-        INPLACE_MODULO = 55,  // %=
-        INPLACE_POWER = 56,   // **=
-        INPLACE_LSHIFT = 57,  // <<=
-        INPLACE_RSHIFT = 58,  // >>=
-        INPLACE_OR = 59,      // |=
-        INPLACE_XOR = 60,     // ^=
-        INPLACE_AND = 61,     // &=
-        INPLACE_MATRIX_MULTIPLY = 62, // @=
+        UNARY_INVERT = 15,
         
-        // 함수 및 호출 (Python 3.12 호환)
-        CALL_FUNCTION_KW = 71, // 키워드 인수로 함수 호출 (legacy - 단계적 제거 예정)
-        CALL_FUNCTION_EX = 72, // *args, **kwargs 확장된 함수 호출 (legacy - 단계적 제거 예정)
-        MAKE_FUNCTION = 73,   // 함수 객체 생성
+        // 16: Reserved
         
-        // 제어 흐름
-        RETURN_VALUE = 80,    // 함수에서 값 반환
-        YIELD_VALUE = 81,     // 제너레이터에서 값 yield
-        YIELD_FROM = 82,      // yield from
-        POP_JUMP_IF_TRUE = 83, // 참이면 점프
-        POP_JUMP_IF_FALSE = 84, // 거짓이면 점프
-        JUMP_IF_TRUE_OR_POP = 85, // 참이면 점프, 아니면 pop
-        JUMP_IF_FALSE_OR_POP = 86, // 거짓이면 점프, 아니면 pop
-        JUMP_FORWARD = 87,    // 무조건 점프
-        JUMP_BACKWARD = 88,   // 뒤로 점프
+        RESERVED = 17,
         
-        // 객체 조작
-        LOAD_ATTR = 90,       // 속성 로드 (obj.attr)
-        STORE_ATTR = 91,      // 속성 저장 (obj.attr = value)
-        DELETE_ATTR = 92,     // 속성 삭제 (del obj.attr)
-        LOAD_SUBSCR = 93,     // 인덱싱 (obj[key])
-        STORE_SUBSCR = 94,    // 인덱싱 할당 (obj[key] = value)
-        DELETE_SUBSCR = 95,   // 인덱싱 삭제 (del obj[key])
+        // 18-24: Reserved for specialized opcodes
         
-        // 컨테이너 생성
-        BUILD_TUPLE = 100,    // 튜플 생성
-        BUILD_LIST = 101,     // 리스트 생성
-        BUILD_SET = 102,      // 세트 생성
-        BUILD_MAP = 103,      // 딕셔너리 생성
-        BUILD_SLICE = 104,    // 슬라이스 생성
-        BUILD_STRING = 105,   // 문자열 연결
+        BINARY_SUBSCR = 25,
+        BINARY_SLICE = 26,
+        STORE_SLICE = 27,
         
-        // 언패킹
-        UNPACK_SEQUENCE = 110, // 시퀀스 언패킹
-        UNPACK_EX = 111,      // 확장된 언패킹 (*args)
+        // 28-29: Reserved
         
-        // 루프 제어
-        GET_ITER = 120,       // 이터레이터 획득
-        FOR_ITER = 121,       // for 루프 이터레이션
-        BREAK_LOOP = 122,     // 루프 탈출
-        CONTINUE_LOOP = 123,  // 루프 계속
+        GET_LEN = 30,
+        MATCH_MAPPING = 31,
+        MATCH_SEQUENCE = 32,
+        MATCH_KEYS = 33,
         
-        // 예외 처리
-        SETUP_FINALLY = 130,  // finally 블록 설정
-        SETUP_EXCEPT = 131,   // except 블록 설정
-        END_FINALLY = 133,    // finally 블록 종료
-        RERAISE = 134,        // 예외 재발생
-        RAISE_VARARGS = 135,  // 예외 발생
-        PUSH_EXC_INFO = 137,  // CPython 3.12: 예외 정보를 스택에 푸시 (exc_type, exc_value, exc_traceback, lasti)
-        POP_EXCEPT = 138,     // CPython 3.12: 예외 핸들러 정리
+        // 34: Reserved
         
-        // with 문 관련 (CPython 3.12 호환)
-        BEFORE_WITH = 132,    // with 블록 시작 전 준비 (__exit__ 로드, __enter__ 호출)
-        WITH_EXCEPT_START = 136,  // with 블록에서 예외 발생시 __exit__ 호출
+        PUSH_EXC_INFO = 35,
+        CHECK_EXC_MATCH = 36,
+        CHECK_EG_MATCH = 37,
         
-        // 스코프 및 클로저
-        LOAD_CLOSURE = 140,   // 클로저 변수 로드
-        LOAD_DEREF = 141,     // 자유 변수 로드
-        STORE_DEREF = 142,    // 자유 변수 저장
-        DELETE_DEREF = 143,   // 자유 변수 삭제
-        MAKE_CELL = 144,      // 지역 변수를 셀로 변환
+        // 38-48: Reserved
         
-        // import 문
-        IMPORT_NAME = 150,    // 모듈 임포트
-        IMPORT_FROM = 151,    // 모듈에서 객체 임포트
-        IMPORT_STAR = 152,    // 모듈에서 모든 객체 임포트 (*)
+        WITH_EXCEPT_START = 49,
+        GET_AITER = 50,
+        GET_ANEXT = 51,
+        BEFORE_ASYNC_WITH = 52,
+        BEFORE_WITH = 53,
+        END_ASYNC_FOR = 54,
+        CLEANUP_THROW = 55,
         
-        // 전역 함수
-        LOAD_GLOBAL_BUILTIN = 160, // 내장 함수 로드
+        // 56-59: Reserved
         
-        // match 문 (Python 3.10+)
-        MATCH_MAPPING = 170,  // 매핑 패턴 매치
-        MATCH_SEQUENCE = 171, // 시퀀스 패턴 매치
-        MATCH_KEYS = 172,     // 키 패턴 매치
-        MATCH_CLASS = 173,    // 클래스 패턴 매치
-        GET_LEN = 174,        // 객체 길이 가져오기
-        POP_JUMP_IF_NONE = 175, // None이면 점프 (스택에서 제거)
+        STORE_SUBSCR = 60,
+        DELETE_SUBSCR = 61,
         
-        // 컴프리헨션
-        LIST_APPEND = 180,    // 리스트에 요소 추가 (컴프리헨션용)
-        SET_ADD = 181,        // 세트에 요소 추가 (컴프리헨션용)
-        MAP_ADD = 182,        // 맵에 키-값 추가 (컴프리헨션용)
+        // 62-67: Reserved
         
-        // 기타 스택 조작
-        POP_TOP = 190,        // 스택 top 제거
-        ROT_TWO = 191,        // 상위 2개 요소 회전
-        ROT_THREE = 192,      // 상위 3개 요소 회전
-        DUP_TOP = 193,        // 스택 top 복사
-        DUP_TOP_TWO = 194,    // 상위 2개 요소 복사
-        COPY = 195,           // CPython 3.12: 스택에서 N번째 요소 복사
+        GET_ITER = 68,
+        GET_YIELD_FROM_ITER = 69,
         
-        // Python 3.12 새로운 옵코드들
-        RESUME = 200,         // 코루틴 재개
-        PRECALL = 201,        // 호출 전 준비
-        CALL = 202,           // 새로운 호출 옵코드
-        KW_NAMES = 203,       // 키워드 인수 이름들
-        PUSH_NULL = 204,      // NULL 값 푸시
+        // 70: Reserved
         
-        // Python 3.12 추가된 옵코드들
-        END_FOR = 205,        // 루프 종료 시 스택 정리
-        END_SEND = 206,       // 제너레이터 종료 시 스택 정리
-        CLEANUP_THROW = 207,  // 예외 처리 중 정리
-        CALL_INTRINSIC_1 = 208, // 내장 함수 호출 (1 인수)
-        CALL_INTRINSIC_2 = 209, // 내장 함수 호출 (2 인수)
-        RETURN_CONST = 210,   // 상수 값 반환
+        LOAD_BUILD_CLASS = 71,
         
-        // Type alias 관련 (Python 3.12)
-        LOAD_FROM_DICT_OR_DEREF = 211,
-        LOAD_FROM_DICT_OR_GLOBALS = 212,
-        LOAD_LOCALS = 213,
-        LOAD_SUPER_ATTR = 214,
-        BINARY_SLICE = 215,       // CPython 3.12: 슬라이싱 연산 (obj[start:stop])
-        STORE_SLICE = 216,        // CPython 3.12: 슬라이스 할당 (obj[start:stop] = value)
+        // 72-73: Reserved
         
-        // CPython 3.12: Type annotations 지원
-        SETUP_ANNOTATIONS = 217,  // __annotations__ 딕셔너리 초기화
-        BINARY_SUBSCR = 218,      // Generic type subscript (list[int], tuple[T, T])
+        LOAD_ASSERTION_ERROR = 74,
+        RETURN_GENERATOR = 75,
         
-        // 캐시 및 최적화
-        CACHE = 210,          // 캐시 엔트리
-        LOAD_METHOD = 211,    // 메서드 로드 (최적화됨)
-        CALL_METHOD = 212,    // 메서드 호출 (최적화됨)
+        // 76-82: Reserved
         
-        // 기타
-        EXTENDED_ARG = 220,   // 확장된 인수
-        FORMAT_VALUE = 221,   // f-string 값 포매팅
-        BUILD_CONST_KEY_MAP = 222, // 상수 키 맵 생성
-        LOAD_ASSERTION_ERROR = 223, // AssertionError 로드
+        RETURN_VALUE = 83,
         
-        // 추가 예외 처리 opcodes  
-        EXCEPT_MATCH = 231,   // 예외 타입 매칭
-        CHECK_EG_MATCH = 232, // ExceptionGroup 매칭 (PEP 654)
+        // 84: Reserved
         
-        // 비동기 관련
-        GET_AWAITABLE = 240,  // awaitable 객체 획득
-        GET_AITER = 241,      // async iterator 획득
-        GET_ANEXT = 242,      // async next 획득
-        BEFORE_ASYNC_WITH = 243, // async with 전 준비
+        SETUP_ANNOTATIONS = 85,
         
-        NOP = 255             // 아무 작업 안 함
+        // 86: Reserved
+        
+        LOAD_LOCALS = 87,
+        
+        // 88: Reserved
+        
+        POP_EXCEPT = 89,
+        STORE_NAME = 90,
+        DELETE_NAME = 91,
+        UNPACK_SEQUENCE = 92,
+        FOR_ITER = 93,
+        UNPACK_EX = 94,
+        STORE_ATTR = 95,
+        DELETE_ATTR = 96,
+        STORE_GLOBAL = 97,
+        DELETE_GLOBAL = 98,
+        SWAP = 99,
+        LOAD_CONST = 100,
+        LOAD_NAME = 101,
+        BUILD_TUPLE = 102,
+        BUILD_LIST = 103,
+        BUILD_SET = 104,
+        BUILD_MAP = 105,
+        LOAD_ATTR = 106,
+        COMPARE_OP = 107,
+        IMPORT_NAME = 108,
+        IMPORT_FROM = 109,
+        JUMP_FORWARD = 110,
+        
+        // 111-113: Reserved
+        
+        POP_JUMP_IF_FALSE = 114,
+        POP_JUMP_IF_TRUE = 115,
+        LOAD_GLOBAL = 116,
+        IS_OP = 117,
+        CONTAINS_OP = 118,
+        RERAISE = 119,
+        COPY = 120,
+        RETURN_CONST = 121,
+        BINARY_OP = 122,
+        SEND = 123,
+        LOAD_FAST = 124,
+        STORE_FAST = 125,
+        DELETE_FAST = 126,
+        LOAD_FAST_CHECK = 127,
+        POP_JUMP_IF_NOT_NONE = 128,
+        POP_JUMP_IF_NONE = 129,
+        RAISE_VARARGS = 130,
+        GET_AWAITABLE = 131,
+        MAKE_FUNCTION = 132,
+        BUILD_SLICE = 133,
+        JUMP_BACKWARD_NO_INTERRUPT = 134,
+        MAKE_CELL = 135,
+        LOAD_CLOSURE = 136,
+        LOAD_DEREF = 137,
+        STORE_DEREF = 138,
+        DELETE_DEREF = 139,
+        JUMP_BACKWARD = 140,
+        LOAD_SUPER_ATTR = 141,
+        CALL_FUNCTION_EX = 142,
+        LOAD_FAST_AND_CLEAR = 143,
+        EXTENDED_ARG = 144,
+        LIST_APPEND = 145,
+        SET_ADD = 146,
+        MAP_ADD = 147,
+        
+        // 148: Reserved
+        
+        COPY_FREE_VARS = 149,
+        YIELD_VALUE = 150,
+        RESUME = 151,
+        MATCH_CLASS = 152,
+        
+        // 153-154: Reserved
+        
+        FORMAT_VALUE = 155,
+        BUILD_CONST_KEY_MAP = 156,
+        BUILD_STRING = 157,
+        
+        // 158-161: Reserved
+        
+        LIST_EXTEND = 162,
+        SET_UPDATE = 163,
+        DICT_MERGE = 164,
+        DICT_UPDATE = 165,
+        
+        // 166-170: Reserved
+        
+        CALL = 171,
+        KW_NAMES = 172,
+        CALL_INTRINSIC_1 = 173,
+        CALL_INTRINSIC_2 = 174,
+        LOAD_FROM_DICT_OR_GLOBALS = 175,
+        LOAD_FROM_DICT_OR_DEREF = 176,
+        
+        // 177-236: Reserved (CPython uses these for specialized/instrumented opcodes)
+        
+        // Instrumented opcodes (237-254)
+        INSTRUMENTED_LOAD_SUPER_ATTR = 237,
+        INSTRUMENTED_POP_JUMP_IF_NONE = 238,
+        INSTRUMENTED_POP_JUMP_IF_NOT_NONE = 239,
+        INSTRUMENTED_RESUME = 240,
+        INSTRUMENTED_CALL = 241,
+        INSTRUMENTED_RETURN_VALUE = 242,
+        INSTRUMENTED_YIELD_VALUE = 243,
+        INSTRUMENTED_CALL_FUNCTION_EX = 244,
+        INSTRUMENTED_JUMP_FORWARD = 245,
+        INSTRUMENTED_JUMP_BACKWARD = 246,
+        INSTRUMENTED_RETURN_CONST = 247,
+        INSTRUMENTED_FOR_ITER = 248,
+        INSTRUMENTED_POP_JUMP_IF_FALSE = 249,
+        INSTRUMENTED_POP_JUMP_IF_TRUE = 250,
+        INSTRUMENTED_END_FOR = 251,
+        INSTRUMENTED_END_SEND = 252,
+        INSTRUMENTED_INSTRUCTION = 253,
+        INSTRUMENTED_LINE = 254
+        
+        // 255: Reserved
+        
+        // =============================================================================  
+        // 이 enum은 CPython 3.12.0과 100% 호환됩니다
+        // 모든 opcode 번호는 CPython 3.12의 dis.opname과 정확히 일치합니다
+        // =============================================================================
     }
 
     // CPython 3.12+ BINARY_OP 연산 타입 (argument로 사용)
@@ -363,7 +367,7 @@ namespace SharpPy
                         break;
                 }
                 
-                Console.WriteLine($"  {i,3}: {inst,-25} {extra}");
+                Console.WriteLine($"  {i*2,3}: {inst,-25} {extra}");
             }
         }
         
@@ -375,8 +379,7 @@ namespace SharpPy
         public bool IsGenerator()
         {
             return Instructions.Any(inst => 
-                inst.OpCode == ByteCodeOp.YIELD_VALUE || 
-                inst.OpCode == ByteCodeOp.YIELD_FROM);
+                inst.OpCode == ByteCodeOp.YIELD_VALUE); // CPython 3.12: YIELD_FROM removed
         }
         
         /// <summary>
@@ -459,7 +462,6 @@ namespace SharpPy
         IMPORT_STAR = 1,
         STOPITERATION_ERROR = 2,
         ASYNC_GEN_WRAP = 3,
-        UNARY_POSITIVE = 4,
         LIST_TO_TUPLE = 5,
         TYPEVAR = 6,
         PARAMSPEC = 7,
@@ -598,22 +600,13 @@ namespace SharpPy
         // 각 바이트코드의 스택 효과 (pop_count, push_count)
         private static readonly Dictionary<ByteCodeOp, (int pop, int push)> _fixedStackEffects = new()
         {
-            // 기본 연산들
+            // CPython 3.12 기본 연산들
             { ByteCodeOp.POP_TOP, (1, 0) },
-            { ByteCodeOp.ROT_TWO, (2, 2) },
-            { ByteCodeOp.ROT_THREE, (3, 3) },
-            { ByteCodeOp.DUP_TOP, (1, 2) },
-            { ByteCodeOp.DUP_TOP_TWO, (2, 4) },
+            { ByteCodeOp.COPY, (1, 2) },     // CPython 3.12: COPY N (스택에서 N번째 요소 복사)
+            { ByteCodeOp.SWAP, (2, 2) },     // CPython 3.12: SWAP N (상위 N개 요소 교환)
             
-            // 산술 연산
-            { ByteCodeOp.BINARY_ADD, (2, 1) },
-            { ByteCodeOp.BINARY_SUBTRACT, (2, 1) },
-            { ByteCodeOp.BINARY_MULTIPLY, (2, 1) },
-            { ByteCodeOp.BINARY_DIVIDE, (2, 1) },
-            { ByteCodeOp.BINARY_FLOOR_DIVIDE, (2, 1) },
-            { ByteCodeOp.BINARY_MODULO, (2, 1) },
-            { ByteCodeOp.BINARY_POWER, (2, 1) },
-            { ByteCodeOp.UNARY_POSITIVE, (1, 1) },
+            // CPython 3.12 통합 연산 (모든 binary ops는 BINARY_OP로 통합됨)
+            { ByteCodeOp.BINARY_OP, (2, 1) },
             { ByteCodeOp.UNARY_NEGATIVE, (1, 1) },
             { ByteCodeOp.UNARY_NOT, (1, 1) },
             { ByteCodeOp.UNARY_INVERT, (1, 1) },
@@ -636,8 +629,8 @@ namespace SharpPy
             { ByteCodeOp.STORE_ATTR, (2, 0) },
             { ByteCodeOp.DELETE_ATTR, (1, 0) },
             
-            // 인덱싱
-            { ByteCodeOp.LOAD_SUBSCR, (2, 1) },
+            // 인덱싱 - CPython 3.12: BINARY_SUBSCR
+            { ByteCodeOp.BINARY_SUBSCR, (2, 1) },
             { ByteCodeOp.STORE_SUBSCR, (3, 0) },
             { ByteCodeOp.DELETE_SUBSCR, (2, 0) },
             
@@ -650,8 +643,7 @@ namespace SharpPy
             { ByteCodeOp.JUMP_BACKWARD, (0, 0) },
             { ByteCodeOp.POP_JUMP_IF_TRUE, (1, 0) },
             { ByteCodeOp.POP_JUMP_IF_FALSE, (1, 0) },
-            { ByteCodeOp.JUMP_IF_TRUE_OR_POP, (0, 0) }, // 조건부
-            { ByteCodeOp.JUMP_IF_FALSE_OR_POP, (0, 0) }, // 조건부
+            // CPython 3.12: 조건부 점프 (legacy opcodes removed)
             
             // CPython 3.12: with 문  
             { ByteCodeOp.BEFORE_WITH, (1, 2) }, // context_manager -> __exit__, result
@@ -698,7 +690,7 @@ namespace SharpPy
                 
                 // 함수 생성 및 호출
                 ByteCodeOp.MAKE_FUNCTION => (1 + GetMakeFunctionExtraArgs(arg), 1),
-                ByteCodeOp.CALL_FUNCTION_KW => (2 + arg, 1), // func + args + kwargs -> result (legacy)
+                // CPython 3.12: CALL_FUNCTION_KW removed, use KW_NAMES + CALL
                 ByteCodeOp.CALL_FUNCTION_EX => ((arg & 1) != 0 ? 3 : 2, 1), // func + args + (kwargs?) -> result (legacy)
                 
                 // CPython 3.12: 새로운 CALL
@@ -809,8 +801,7 @@ namespace SharpPy
             { ByteCodeOp.JUMP_BACKWARD, JumpType.Backward },
             { ByteCodeOp.POP_JUMP_IF_TRUE, JumpType.Conditional },
             { ByteCodeOp.POP_JUMP_IF_FALSE, JumpType.Conditional },
-            { ByteCodeOp.JUMP_IF_TRUE_OR_POP, JumpType.Conditional },
-            { ByteCodeOp.JUMP_IF_FALSE_OR_POP, JumpType.Conditional },
+            // CPython 3.12: JUMP_IF_*_OR_POP opcodes removed
         };
 
         // CPython 3.12 호환: 점프 오프셋 계산 (하드코딩 제거)

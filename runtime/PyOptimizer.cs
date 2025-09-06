@@ -128,22 +128,22 @@ namespace SharpPy
                 var inst1 = _instructions[i];
                 var inst2 = _instructions[i + 1];
 
-                // 패턴: LOAD_NAME x, LOAD_NAME x → LOAD_NAME x, DUP_TOP
+                // 패턴: LOAD_NAME x, LOAD_NAME x → LOAD_NAME x, COPY
                 if (inst1.OpCode == ByteCodeOp.LOAD_NAME &&
                     inst2.OpCode == ByteCodeOp.LOAD_NAME &&
                     inst1.Argument == inst2.Argument)
                 {
-                    _instructions[i + 1] = new ByteCodeInstruction(ByteCodeOp.DUP_TOP, 0);
-                    Console.WriteLine($"🔄 중복 로드 제거: LOAD_NAME({_names[inst1.Argument]}) 중복 → DUP_TOP");
+                    _instructions[i + 1] = new ByteCodeInstruction(ByteCodeOp.COPY, 1);
+                    Console.WriteLine($"🔄 중복 로드 제거: LOAD_NAME({_names[inst1.Argument]}) 중복 → COPY");
                 }
 
-                // 패턴: LOAD_CONST x, LOAD_CONST x → LOAD_CONST x, DUP_TOP
+                // 패턴: LOAD_CONST x, LOAD_CONST x → LOAD_CONST x, COPY
                 if (inst1.OpCode == ByteCodeOp.LOAD_CONST &&
                     inst2.OpCode == ByteCodeOp.LOAD_CONST &&
                     inst1.Argument == inst2.Argument)
                 {
-                    _instructions[i + 1] = new ByteCodeInstruction(ByteCodeOp.DUP_TOP, 0);
-                    Console.WriteLine($"🔄 중복 상수 로드 제거: LOAD_CONST 중복 → DUP_TOP");
+                    _instructions[i + 1] = new ByteCodeInstruction(ByteCodeOp.COPY, 1);
+                    Console.WriteLine($"🔄 중복 상수 로드 제거: LOAD_CONST 중복 → COPY");
                 }
             }
         }
@@ -190,6 +190,17 @@ namespace SharpPy
                 var inst1 = _instructions[i];
                 var inst2 = _instructions[i + 1];
 
+                // CPython 3.12: LOAD_CONST + RETURN_VALUE → RETURN_CONST 최적화
+                if (inst1.OpCode == ByteCodeOp.LOAD_CONST &&
+                    inst2.OpCode == ByteCodeOp.RETURN_VALUE)
+                {
+                    // RETURN_CONST 명령어로 치환 (상수 인덱스 유지)
+                    _instructions[i] = new ByteCodeInstruction(ByteCodeOp.RETURN_CONST, inst1.Argument);
+                    _instructions[i + 1] = new ByteCodeInstruction(ByteCodeOp.NOP, 0); // 제거될 NOP로 마킹
+                    Console.WriteLine($"🔄 Peephole: LOAD_CONST+RETURN_VALUE → RETURN_CONST (const {inst1.Argument})");
+                    continue;
+                }
+
                 // 패턴: LOAD_CONST, POP_TOP → NOP (상수 로드 후 즉시 버림)
                 // 임시 비활성화: 라벨 참조 버그로 인해 점프 주소 계산 오류 발생
                 /*if (inst1.OpCode == ByteCodeOp.LOAD_CONST &&
@@ -201,8 +212,82 @@ namespace SharpPy
                 }*/
             }
 
-            // NOP 명령어들 완전 제거
-            _instructions.RemoveAll(inst => inst.OpCode == ByteCodeOp.NOP);
+            // NOP 명령어들 완전 제거 (단, try-except의 필요한 NOP은 보존)
+            RemoveNonEssentialNOPs();
+        }
+
+        /// <summary>
+        /// CPython 3.12 호환: 최적화로 생성된 NOP만 제거, try-except NOP은 보존
+        /// </summary>
+        private void RemoveNonEssentialNOPs()
+        {
+            // CPython 3.12 패턴: try-except의 NOP은 절대 제거되지 않음
+            // 오직 최적화 과정에서 생성된 NOP(RETURN_CONST 최적화 등)만 제거
+            
+            var indicesToRemove = new List<int>();
+            
+            for (int i = 0; i < _instructions.Count; i++)
+            {
+                if (_instructions[i].OpCode == ByteCodeOp.NOP)
+                {
+                    // CPython 3.12 호환: try 블록의 NOP 패턴 감지
+                    bool isTryBlockNOP = IsTryBlockNOP(i);
+                    
+                    if (!isTryBlockNOP)
+                    {
+                        // 최적화로 생성된 NOP만 제거
+                        indicesToRemove.Add(i);
+                    }
+                }
+            }
+            
+            // 역순으로 제거 (인덱스 변경 방지)
+            for (int i = indicesToRemove.Count - 1; i >= 0; i--)
+            {
+                _instructions.RemoveAt(indicesToRemove[i]);
+            }
+            
+            if (indicesToRemove.Count > 0)
+            {
+                Console.WriteLine($"🔄 최적화 NOP 제거: {indicesToRemove.Count}개 (try-except NOP 보존됨)");
+            }
+        }
+
+        /// <summary>
+        /// try 블록의 필수 NOP인지 확인 (CPython 3.12 패턴 매칭)
+        /// </summary>
+        private bool IsTryBlockNOP(int index)
+        {
+            // CPython 3.12 패턴: try 블록 NOP의 특징
+            // 1. RESUME 다음에 위치하는 경우가 많음
+            // 2. 다음 명령어들이 try body 패턴 (LOAD_CONST, STORE_NAME 등)
+            // 3. Exception Table에 참조되는 범위 근처
+            
+            if (index + 1 >= _instructions.Count) return false;
+            
+            var nextInst = _instructions[index + 1];
+            
+            // 패턴 1: NOP → LOAD_CONST → STORE_NAME (일반적인 try body 시작)
+            if (nextInst.OpCode == ByteCodeOp.LOAD_CONST)
+            {
+                if (index + 2 < _instructions.Count)
+                {
+                    var secondNext = _instructions[index + 2];
+                    if (secondNext.OpCode == ByteCodeOp.STORE_NAME || 
+                        secondNext.OpCode == ByteCodeOp.STORE_GLOBAL)
+                    {
+                        return true; // try 블록 패턴 매치
+                    }
+                }
+            }
+            
+            // 패턴 2: RESUME → NOP (모듈 레벨 try 블록)
+            if (index > 0 && _instructions[index - 1].OpCode == ByteCodeOp.RESUME)
+            {
+                return true;
+            }
+            
+            return false; // 최적화로 생성된 NOP
         }
 
         /// <summary>
@@ -210,8 +295,7 @@ namespace SharpPy
         /// </summary>
         private bool IsBinaryOpType(ByteCodeOp opCode)
         {
-            return opCode == ByteCodeOp.BINARY_OP || 
-                   (opCode >= ByteCodeOp.BINARY_ADD && opCode <= ByteCodeOp.BINARY_MATRIX_MULTIPLY);
+            return opCode == ByteCodeOp.BINARY_OP; // CPython 3.12: Only BINARY_OP exists
         }
 
         /// <summary>
@@ -243,18 +327,8 @@ namespace SharpPy
                     };
                 }
                 
-                // Handle legacy individual binary opcodes (backward compatibility)
-                return operation switch
-                {
-                    ByteCodeOp.BINARY_ADD => left.Add(right),
-                    ByteCodeOp.BINARY_SUBTRACT => left.Subtract(right),
-                    ByteCodeOp.BINARY_MULTIPLY => left.Multiply(right),
-                    ByteCodeOp.BINARY_DIVIDE => left.Divide(right),
-                    ByteCodeOp.BINARY_FLOOR_DIVIDE => left.FloorDivide(right),
-                    ByteCodeOp.BINARY_MODULO => left.Modulo(right),
-                    ByteCodeOp.BINARY_POWER => left.Power(right),
-                    _ => null
-                };
+                // CPython 3.12: Legacy binary opcodes removed
+                return null;
             }
             catch (Exception)
             {
@@ -293,49 +367,9 @@ namespace SharpPy
                 var inst1 = _instructions[i];
                 var inst2 = _instructions[i + 1];
 
-                // 패턴 1: LOAD_FAST + LOAD_FAST → LOAD_FAST_LOAD_FAST
-                if (inst1.OpCode == ByteCodeOp.LOAD_FAST && 
-                    inst2.OpCode == ByteCodeOp.LOAD_FAST)
-                {
-                    int combinedArg = inst1.Argument | (inst2.Argument << 16);
-                    _instructions[i] = new ByteCodeInstruction(ByteCodeOp.LOAD_FAST_LOAD_FAST, combinedArg);
-                    _instructions.RemoveAt(i + 1);
-                    Console.WriteLine($"  ✅ LOAD_FAST + LOAD_FAST → LOAD_FAST_LOAD_FAST at {i}");
-                    continue; // 재검사를 위해 i를 증가시키지 않음
-                }
+                // CPython 3.12: No super-instructions, use individual opcodes
 
-                // 패턴 2: LOAD_CONST + LOAD_FAST → LOAD_CONST_LOAD_FAST
-                if (inst1.OpCode == ByteCodeOp.LOAD_CONST && 
-                    inst2.OpCode == ByteCodeOp.LOAD_FAST)
-                {
-                    int combinedArg = inst1.Argument | (inst2.Argument << 16);
-                    _instructions[i] = new ByteCodeInstruction(ByteCodeOp.LOAD_CONST_LOAD_FAST, combinedArg);
-                    _instructions.RemoveAt(i + 1);
-                    Console.WriteLine($"  ✅ LOAD_CONST + LOAD_FAST → LOAD_CONST_LOAD_FAST at {i}");
-                    continue;
-                }
-
-                // 패턴 3: STORE_FAST + LOAD_FAST → STORE_FAST_LOAD_FAST
-                if (inst1.OpCode == ByteCodeOp.STORE_FAST && 
-                    inst2.OpCode == ByteCodeOp.LOAD_FAST)
-                {
-                    int combinedArg = inst1.Argument | (inst2.Argument << 16);
-                    _instructions[i] = new ByteCodeInstruction(ByteCodeOp.STORE_FAST_LOAD_FAST, combinedArg);
-                    _instructions.RemoveAt(i + 1);
-                    Console.WriteLine($"  ✅ STORE_FAST + LOAD_FAST → STORE_FAST_LOAD_FAST at {i}");
-                    continue;
-                }
-
-                // 패턴 4: STORE_FAST + STORE_FAST → STORE_FAST_STORE_FAST
-                if (inst1.OpCode == ByteCodeOp.STORE_FAST && 
-                    inst2.OpCode == ByteCodeOp.STORE_FAST)
-                {
-                    int combinedArg = inst1.Argument | (inst2.Argument << 16);
-                    _instructions[i] = new ByteCodeInstruction(ByteCodeOp.STORE_FAST_STORE_FAST, combinedArg);
-                    _instructions.RemoveAt(i + 1);
-                    Console.WriteLine($"  ✅ STORE_FAST + STORE_FAST → STORE_FAST_STORE_FAST at {i}");
-                    continue;
-                }
+                // CPython 3.12: Super-instructions removed for pure compatibility
             }
         }
 

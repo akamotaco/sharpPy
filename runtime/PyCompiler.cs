@@ -815,7 +815,7 @@ namespace SharpPy
                     
                 case WalrusStatement walrus:
                     CompileExpression(walrus.Value);
-                    EmitInstruction(ByteCodeOp.DUP_TOP);  // 값 복사
+                    EmitInstruction(ByteCodeOp.COPY, 1);  // 값 복사
                     EmitStoreName(walrus.Target);         // 저장
                     break;
                     
@@ -843,7 +843,8 @@ namespace SharpPy
                 case YieldFromStatement yieldFrom:
                     CompileExpression(yieldFrom.Value);
                     EmitInstruction(ByteCodeOp.GET_ITER);
-                    EmitInstruction(ByteCodeOp.YIELD_FROM);
+                    // CPython 3.12: YIELD_FROM removed, use yield loop pattern
+                    EmitInstruction(ByteCodeOp.YIELD_VALUE);
                     break;
                     
                 case FunctionDefStatement func:
@@ -899,11 +900,13 @@ namespace SharpPy
                     break;
                     
                 case BreakStatement:
-                    EmitInstruction(ByteCodeOp.BREAK_LOOP);
+                    // CPython 3.12: BREAK_LOOP removed, use JUMP_FORWARD to loop end
+                    EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0); // Will be patched
                     break;
                     
                 case ContinueStatement:
-                    EmitInstruction(ByteCodeOp.CONTINUE_LOOP);
+                    // CPython 3.12: CONTINUE_LOOP removed, use JUMP_BACKWARD to loop start  
+                    EmitInstruction(ByteCodeOp.JUMP_BACKWARD, 0); // Will be patched
                     break;
                     
                 case PassStatement:
@@ -951,7 +954,7 @@ namespace SharpPy
                     // Compile value first
                     CompileExpression(walrus.Value);
                     // Duplicate value on stack for assignment
-                    EmitInstruction(ByteCodeOp.DUP_TOP);
+                    EmitInstruction(ByteCodeOp.COPY, 1);
                     // Store to variable
                     EmitStoreName(walrus.Target);
                     // Value remains on stack as return value
@@ -1009,8 +1012,9 @@ namespace SharpPy
                         }
                         EmitInstruction(ByteCodeOp.BUILD_TUPLE, call.Keywords.Count);
                         
-                        // CALL_FUNCTION_KW 사용 (위치인수개수, 키워드인수개수)
-                        EmitInstruction(ByteCodeOp.CALL_FUNCTION_KW, call.Arguments.Count);
+                        // CPython 3.12: KW_NAMES + CALL pattern
+                        EmitInstruction(ByteCodeOp.KW_NAMES, 0); // Keyword names tuple index
+                        EmitInstruction(ByteCodeOp.CALL, call.Arguments.Count);
                     }
                     else
                     {
@@ -1354,7 +1358,7 @@ namespace SharpPy
                 if (IsBuiltinFunction(name))
                 {
                     var builtinIndex = AddName(name);
-                    EmitInstruction(ByteCodeOp.LOAD_GLOBAL_BUILTIN, builtinIndex);
+                    EmitInstruction(ByteCodeOp.LOAD_GLOBAL, builtinIndex);
                 }
                 else
                 {
@@ -1370,7 +1374,7 @@ namespace SharpPy
             if (IsBuiltinFunction(name))
             {
                 var builtinIndex = AddName(name);
-                EmitInstruction(ByteCodeOp.LOAD_GLOBAL_BUILTIN, builtinIndex);
+                EmitInstruction(ByteCodeOp.LOAD_GLOBAL, builtinIndex);
             }
             else
             {
@@ -1409,13 +1413,13 @@ namespace SharpPy
                 return;
             }
             
-            // 모듈 레벨: CPython 3.12 호환성을 위해 STORE_GLOBAL 사용
+            // 모듈 레벨: CPython 3.12 호환성을 위해 STORE_NAME 사용
             var index = AddName(name);
-            EmitInstruction(ByteCodeOp.STORE_GLOBAL, index);
+            EmitInstruction(ByteCodeOp.STORE_NAME, index);
         }
         
         /// <summary>
-        /// CPython 3.12: 내장 함수 판별 - LOAD_GLOBAL_BUILTIN 최적화용
+        /// CPython 3.12: 내장 함수 판별 - LOAD_GLOBAL 최적화용
         /// </summary>
         private bool IsBuiltinFunction(string name)
         {
@@ -1532,25 +1536,25 @@ namespace SharpPy
             EmitLoadName(augAssign.Target);
             CompileExpression(augAssign.Value);
             
-            var opCode = augAssign.Op switch
+            var binaryOpType = augAssign.Op switch
             {
-                "+=" => ByteCodeOp.INPLACE_ADD,
-                "-=" => ByteCodeOp.INPLACE_SUBTRACT,
-                "*=" => ByteCodeOp.INPLACE_MULTIPLY,
-                "/=" => ByteCodeOp.INPLACE_DIVIDE,
-                "//=" => ByteCodeOp.INPLACE_FLOOR_DIVIDE,
-                "%=" => ByteCodeOp.INPLACE_MODULO,
-                "**=" => ByteCodeOp.INPLACE_POWER,
-                "&=" => ByteCodeOp.INPLACE_AND,
-                "|=" => ByteCodeOp.INPLACE_OR,
-                "^=" => ByteCodeOp.INPLACE_XOR,
-                "<<=" => ByteCodeOp.INPLACE_LSHIFT,
-                ">>=" => ByteCodeOp.INPLACE_RSHIFT,
-                "@=" => ByteCodeOp.INPLACE_MATRIX_MULTIPLY,
+                "+=" => BinaryOpType.ADD,
+                "-=" => BinaryOpType.SUBTRACT,
+                "*=" => BinaryOpType.MULTIPLY,
+                "/=" => BinaryOpType.TRUE_DIVIDE,
+                "//=" => BinaryOpType.FLOOR_DIVIDE,
+                "%=" => BinaryOpType.MODULO,
+                "**=" => BinaryOpType.POWER,
+                "&=" => BinaryOpType.AND,
+                "|=" => BinaryOpType.OR,
+                "^=" => BinaryOpType.XOR,
+                "<<=" => BinaryOpType.LSHIFT,
+                ">>=" => BinaryOpType.RSHIFT,
+                "@=" => BinaryOpType.MATRIX_MULTIPLY,
                 _ => throw new NotImplementedException($"Augment assign operator '{augAssign.Op}' not implemented")
             };
             
-            EmitInstruction(opCode);
+            EmitInstruction(ByteCodeOp.BINARY_OP, (int)binaryOpType);
             EmitStoreName(augAssign.Target);
         }
         
@@ -2151,32 +2155,49 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// CPython-style exception handling compilation - fixed implementation
+        /// CPython 3.12 Exception Table based try-except compilation
         /// </summary>
         private void CompileTry(TryStatement tryStmt)
         {
-            // CPython-style exception handling implementation
+            // CPython 3.12: No SETUP_EXCEPT, use Exception Table instead
+            Console.WriteLine($"🔧 Compiling try-except (CPython 3.12 style)");
             
             var endLabel = CreateLabel("try_end");
-            var handlersStartLabel = CreateLabel("handlers_start");
             
-            // Setup single exception handler for all except clauses (CPython style)
-            EmitInstruction(ByteCodeOp.SETUP_EXCEPT, 0);
-            handlersStartLabel.References.Add(_instructions.Count - 1);
+            // CPython 3.12: Add NOP instruction before try body (exact CPython pattern)
+            EmitInstruction(ByteCodeOp.NOP);
             
-            // Compile try body
+            // Exception Table start offset is after NOP
+            var tryStartOffset = _instructions.Count;
+            
+            // CPython 3.12: Direct compilation of try body (no SETUP_EXCEPT)
             foreach (var stmt in tryStmt.Body)
             {
                 CompileStatement(stmt);
             }
             
-            // Pop exception handler and jump to end (no exception case)
-            EmitInstruction(ByteCodeOp.POP_EXCEPT);
-            EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
-            endLabel.References.Add(_instructions.Count - 1);
+            var tryEndOffset = _instructions.Count - 1;
             
-            // Mark start of exception handlers (CPython style)
+            // CPython 3.12: Normal path 
+            if (IsModuleLevel())
+            {
+                // At module level, return None directly like CPython 3.12
+                EmitInstruction(ByteCodeOp.RETURN_CONST, AddConstant(PyNone.Instance));
+            }
+            else
+            {
+                // In functions, jump to end
+                EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
+                endLabel.References.Add(_instructions.Count - 1);
+            }
+            
+            // Exception handler start (where PUSH_EXC_INFO will jump to)
+            var handlersStartOffset = _instructions.Count;
+            var handlersStartLabel = CreateLabel("handlers_start");
             MarkLabel(handlersStartLabel);
+            
+            // CPython 3.12: Exception path starts with PUSH_EXC_INFO
+            EmitInstruction(ByteCodeOp.PUSH_EXC_INFO);
             
             // Compile exception handlers sequentially
             for (int i = 0; i < tryStmt.Handlers.Count; i++)
@@ -2184,117 +2205,120 @@ namespace SharpPy
                 var handler = tryStmt.Handlers[i];
                 var nextHandlerLabel = (i < tryStmt.Handlers.Count - 1) 
                     ? CreateLabel($"handler_{i+1}")
-                    : CreateLabel("reraise"); // Last handler - reraise if no match
+                    : CreateLabel("reraise");
                 
-                // Exception is on stack - check if it matches handler type
                 if (handler.Type != null)
                 {
-                    // Duplicate exception for matching
-                    EmitInstruction(ByteCodeOp.DUP_TOP);
+                    // Type-specific handler
+                    EmitInstruction(ByteCodeOp.COPY, 1);
                     CompileExpression(handler.Type);
                     
                     if (handler.IsStar)
                     {
                         // PEP 654: Exception group matching
                         EmitInstruction(ByteCodeOp.CHECK_EG_MATCH);
-                        // Stack: [matched, remainder]
                         
-                        // Store matched group if handler has name
-                        if (handler.Name != null)
-                        {
-                            EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(handler.Name));
-                        }
-                        else
-                        {
-                            EmitInstruction(ByteCodeOp.POP_TOP); // Discard matched
-                        }
-                        
-                        // Check if there was a match
-                        EmitInstruction(ByteCodeOp.DUP_TOP);
-                        EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(PyNone.Instance));
-                        EmitInstruction(ByteCodeOp.COMPARE_OP, 3); // IS_NOT
-                        
-                        // If no match, try next handler
-                        EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0);
-                        nextHandlerLabel.References.Add(_instructions.Count - 1);
-                        
-                        // Execute handler body
-                        foreach (var stmt in handler.Body)
-                        {
-                            CompileStatement(stmt);
-                        }
-                        
-                        EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
-                        endLabel.References.Add(_instructions.Count - 1);
-                    }
-                    else
-                    {
-                        // Regular exception matching
-                        EmitInstruction(ByteCodeOp.EXCEPT_MATCH);
-                        
-                        // If no match, try next handler
-                        EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0);
-                        nextHandlerLabel.References.Add(_instructions.Count - 1);
-                        
-                        // Store exception if handler has name
                         if (handler.Name != null)
                         {
                             EmitInstruction(ByteCodeOp.STORE_NAME, AddName(handler.Name));
                         }
                         else
                         {
-                            EmitInstruction(ByteCodeOp.POP_TOP); // Discard exception
+                            EmitInstruction(ByteCodeOp.POP_TOP);
                         }
                         
-                        // Execute handler body
-                        foreach (var stmt in handler.Body)
+                        EmitInstruction(ByteCodeOp.COPY, 1);
+                        EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(PyNone.Instance));
+                        EmitInstruction(ByteCodeOp.COMPARE_OP, 3); // IS_NOT
+                        
+                        EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0);
+                        nextHandlerLabel.References.Add(_instructions.Count - 1);
+                    }
+                    else
+                    {
+                        // Regular exception matching
+                        EmitInstruction(ByteCodeOp.IS_OP, 1); // CPython 3.12: IS_OP for exception matching
+                        
+                        EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0);
+                        nextHandlerLabel.References.Add(_instructions.Count - 1);
+                        
+                        if (handler.Name != null)
                         {
-                            CompileStatement(stmt);
+                            EmitInstruction(ByteCodeOp.STORE_NAME, AddName(handler.Name));
                         }
-                        
-                        EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
-                        endLabel.References.Add(_instructions.Count - 1);
+                        else
+                        {
+                            EmitInstruction(ByteCodeOp.POP_TOP);
+                        }
                     }
                 }
                 else
                 {
-                    // Bare except - catches everything (no need to check next handler)
+                    // Bare except - catches everything
                     if (handler.Name != null)
                     {
                         EmitInstruction(ByteCodeOp.STORE_NAME, AddName(handler.Name));
                     }
                     else
                     {
-                        EmitInstruction(ByteCodeOp.POP_TOP); // Discard exception
+                        EmitInstruction(ByteCodeOp.POP_TOP);
                     }
-                    
-                    // Execute handler body
-                    foreach (var stmt in handler.Body)
-                    {
-                        CompileStatement(stmt);
-                    }
-                    
+                }
+                
+                // Execute handler body
+                foreach (var stmt in handler.Body)
+                {
+                    CompileStatement(stmt);
+                }
+                
+                // CPython 3.12: POP_EXCEPT after handler execution
+                EmitInstruction(ByteCodeOp.POP_EXCEPT);
+                
+                // CPython 3.12: Exception handler completion path
+                if (IsModuleLevel())
+                {
+                    // At module level, return None directly like CPython 3.12
+                    EmitInstruction(ByteCodeOp.RETURN_CONST, AddConstant(PyNone.Instance));
+                }
+                else
+                {
+                    // In functions, jump to end
                     EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
                     endLabel.References.Add(_instructions.Count - 1);
                 }
                 
-                // Mark next handler label (for sequential checking)
+                // Mark next handler if not last
                 if (i < tryStmt.Handlers.Count - 1)
                 {
                     MarkLabel(nextHandlerLabel);
                 }
             }
             
-            // If no handler matched, reraise the exception
+            // Reraise if no handler matched
             if (tryStmt.Handlers.Count > 0)
             {
                 var reraiseLabel = CreateLabel("reraise");
                 MarkLabel(reraiseLabel);
-                EmitInstruction(ByteCodeOp.RAISE_VARARGS, 0); // Reraise current exception
+                EmitInstruction(ByteCodeOp.RERAISE, 1);
             }
             
             // End of try-except
             MarkLabel(endLabel);
+            
+            // CPython 3.12: Create Exception Table entry
+            var exceptionEntry = new ExceptionTableEntry(
+                start: tryStartOffset,
+                end: tryEndOffset,
+                handler: handlersStartOffset,
+                depth: 0,  // Stack depth when exception occurs
+                lasti: true
+            );
+            
+            _exceptionTable.Add(exceptionEntry);
+            
+            Console.WriteLine($"🔧 Exception Table Entry Created:");
+            Console.WriteLine($"   Try: {tryStartOffset} to {tryEndOffset}");
+            Console.WriteLine($"   Handler: {handlersStartOffset}, Depth: 0");
         }
         private void CompileWith(WithStatement withStmt)
         {
@@ -2501,7 +2525,7 @@ namespace SharpPy
                 {
                     // At this point we have [original_subject] on stack
                     // Guard should not consume the subject
-                    EmitInstruction(ByteCodeOp.DUP_TOP); // [subject, subject] 
+                    EmitInstruction(ByteCodeOp.COPY, 1); // [subject, subject] 
                     CompileExpression(matchCase.Guard);
                     // Guard uses second subject, leaves first one
                     EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, nextLabel);
@@ -2549,7 +2573,7 @@ namespace SharpPy
                 case ConstantExpression constExpr:
                     // CPython 3.12: Direct constant comparison
                     // Stack: [subject] -> [subject, constant] -> [subject, result]
-                    EmitInstruction(ByteCodeOp.DUP_TOP); // Duplicate subject for comparison
+                    EmitInstruction(ByteCodeOp.COPY, 1); // Duplicate subject for comparison
                     CompileExpression(constExpr);
                     EmitComparison(CompareOp.EQ);
                     // Stack: [subject, comparison_result]
@@ -2625,7 +2649,7 @@ namespace SharpPy
                             // Duplicate subject for comparison (except for last one)
                             if (!isLast)
                             {
-                                EmitInstruction(ByteCodeOp.DUP_TOP);
+                                EmitInstruction(ByteCodeOp.COPY, 1);
                             }
                             
                             // Compare with constant
@@ -2689,7 +2713,7 @@ namespace SharpPy
                                 // Duplicate subject for comparison (except for last one)
                                 if (!isLast)
                                 {
-                                    EmitInstruction(ByteCodeOp.DUP_TOP);
+                                    EmitInstruction(ByteCodeOp.COPY, 1);
                                 }
                                 
                                 // Compare with constant
@@ -2892,7 +2916,7 @@ namespace SharpPy
                 if (pattern is ConstantExpression constExpr)
                 {
                     // For each pattern, duplicate the subject for comparison
-                    EmitInstruction(ByteCodeOp.DUP_TOP); // [subject, subject]
+                    EmitInstruction(ByteCodeOp.COPY, 1); // [subject, subject]
                     CompileExpression(constExpr); // [subject, subject, constant]
                     EmitComparison(CompareOp.EQ);  // [subject, comparison_result]
                     
@@ -3078,7 +3102,7 @@ namespace SharpPy
                 CompileExpression(boolOp.Values[i]);
                 
                 // CPython 3.12: DUP_TOP (similar to COPY 1)
-                EmitInstruction(ByteCodeOp.DUP_TOP);
+                EmitInstruction(ByteCodeOp.COPY, 1);
                 
                 if (boolOp.Op == "and")
                 {
