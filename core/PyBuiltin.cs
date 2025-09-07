@@ -1250,8 +1250,44 @@ namespace SharpPy
         {
             if (args.Length == 0)
             {
-                // super() with no arguments - requires introspection (advanced feature)
-                throw PyTypeError.Create("super(): __class__ cell not found");
+                // super() with no arguments - try to use __class__ cell variable
+                // This is a simplified implementation - in CPython, this requires frame introspection
+                Console.WriteLine("🔍 super() called with no arguments, attempting __class__ cell lookup");
+                
+                // CPython 3.12: Look for __class__ cell variable in current frame
+                var currentFrame = PyVM.CurrentFrame;
+                if (currentFrame != null)
+                {
+                    // Check if __class__ cell variable exists in current frame's code object
+                    var classIndex = currentFrame.Code.CellVars.IndexOf("__class__");
+                    if (classIndex >= 0)
+                    {
+                        Console.WriteLine($"🔍 Found __class__ cell variable at index {classIndex}");
+                        
+                        // Try to get the __class__ value from cell variables
+                        // In CPython 3.12, cell variables are stored separately from the value stack
+                        if (currentFrame.Cells != null && classIndex < currentFrame.Cells.Length)
+                        {
+                            var classCell = currentFrame.Cells[classIndex];
+                            if (classCell != null && classCell.Value != null)
+                            {
+                                Console.WriteLine($"🔍 Retrieved __class__ from cell: {classCell.Value}");
+                                // TODO: Implement proper zero-argument super() with __class__ and __self__
+                                // For now, return a placeholder that indicates we found the cell
+                                return new PyString($"super() found __class__: {classCell.Value}");
+                            }
+                        }
+                        
+                        Console.WriteLine($"🔍 __class__ cell variable found but not initialized");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"🔍 No __class__ cell variable found in current frame");
+                        Console.WriteLine($"   CellVars: [{string.Join(", ", currentFrame.Code.CellVars)}]");
+                    }
+                }
+                
+                throw PyTypeError.Create("super(): __class__ cell not found - zero-argument super() requires compile-time __class__ cell generation");
             }
             else if (args.Length == 2)
             {

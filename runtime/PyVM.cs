@@ -645,7 +645,9 @@ namespace SharpPy
                         }
                         else
                         {
-                            throw PyNameError.Create($"local variable '{clearVarName}' referenced before assignment");
+                            // CPython 3.12: Load NULL if variable doesn't exist (for comprehensions)
+                            frame.ValueStack.Push(PyNone.Instance);
+                            Console.WriteLine($"🧹 LOAD_FAST_AND_CLEAR: {clearVarName} not found, loaded NULL (None)");
                         }
                     }
                     else
@@ -2288,29 +2290,18 @@ namespace SharpPy
                     break;
                     
                 case ByteCodeOp.MAKE_CELL:
-                    // CPython 3.12: MAKE_CELL uses unified indexing (VarNames + CellVars)
-                    var makeCellIndex = instruction.Argument;
-                    
-                    // Convert unified index to CellVars index
-                    int cellVarIndex;
-                    if (makeCellIndex < frame.Code.VarNames.Count)
-                    {
-                        throw new InvalidOperationException($"MAKE_CELL index {makeCellIndex} points to VarNames, not CellVars");
-                    }
-                    else
-                    {
-                        cellVarIndex = makeCellIndex - frame.Code.VarNames.Count;
-                    }
+                    // CPython 3.12: MAKE_CELL uses direct CellVars indexing (no longer VarNames offset)
+                    var cellVarIndex = instruction.Argument;
                     
                     // Bounds checking for CellVars
                     if (cellVarIndex >= frame.Code.CellVars.Count)
                     {
-                        throw new IndexOutOfRangeException($"Cell index {cellVarIndex} out of range. CellVars count: {frame.Code.CellVars.Count}, CellVars: [{string.Join(", ", frame.Code.CellVars)}], unified index: {makeCellIndex}, VarNames count: {frame.Code.VarNames.Count}");
+                        throw new IndexOutOfRangeException($"MAKE_CELL: Cell index {cellVarIndex} out of range. CellVars count: {frame.Code.CellVars.Count}, CellVars: [{string.Join(", ", frame.Code.CellVars)}]");
                     }
                     
                     var cellVarName = frame.Code.CellVars[cellVarIndex];
                     
-                    Console.WriteLine($"🔧 MAKE_CELL for '{cellVarName}' at unified index {makeCellIndex} (cell index {cellVarIndex})");
+                    Console.WriteLine($"🔧 MAKE_CELL for '{cellVarName}' at cell index {cellVarIndex}");
                     Console.WriteLine($"   CellVars: [{string.Join(", ", frame.Code.CellVars)}]");
                     Console.WriteLine($"   FastLocals contains '{cellVarName}': {frame.FastLocals.ContainsKey(cellVarName)}");
                     

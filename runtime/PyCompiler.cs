@@ -2036,10 +2036,10 @@ namespace SharpPy
                 }
                 
                 // Emit MAKE_CELL instructions
-                // CPython 3.12 uses unified indexing: VarNames.Count + CellVars index
+                // CPython 3.12 uses direct CellVars indexing: 0, 1, 2...
                 for (int i = 0; i < _cellVars.Count; i++)
                 {
-                    EmitInstruction(ByteCodeOp.MAKE_CELL, _varNames.Count + i);
+                    EmitInstruction(ByteCodeOp.MAKE_CELL, i);
                 }
                 
                 // 2. RESUME instruction
@@ -2138,8 +2138,8 @@ namespace SharpPy
                 _cellVars.Add("__class__");
                 
                 // Generate MAKE_CELL instruction for __class__ cell variable
-                // CPython 3.12: __class__ cell variable uses index based on cellVars position
-                var cellVarIndex = _cellVars.Count - 1; // __class__ is the first (and only) cell variable
+                // CPython 3.12: __class__ cell variable uses index 0 (first cellVar)
+                var cellVarIndex = 0; // __class__ is always the first (index 0) cell variable
                 Console.WriteLine($"🔧 Generating MAKE_CELL for __class__ at cell index {cellVarIndex}");
                 EmitInstruction(ByteCodeOp.MAKE_CELL, cellVarIndex);
             }
@@ -4213,35 +4213,149 @@ namespace SharpPy
         
         /// <summary>
         /// PEP 709 - List comprehension 바이트코드 인라인 최적화
-        /// [expr for var in iterable if condition] → 직접 바이트코드 생성
-        /// CPython 호환 방식: GET_ITER는 한 번만, 루프는 FOR_ITER부터 시작
+        /// CPython 3.12 호환: LOAD_FAST_AND_CLEAR + SWAP + Exception Table 패턴
         /// </summary>
         private void CompileListComprehension(ListComprehension listComp)
         {
-            Console.WriteLine("🚀 PEP 709: List comprehension 바이트코드 인라인 컴파일 (중첩 Generator 지원)");
+            Console.WriteLine("🚀 PEP 709: List comprehension 바이트코드 인라인 컴파일 (CPython 3.12 호환)");
             
             // CPython 3.12: 컴프리헨션 컨텍스트 시작
             var savedIsInComprehension = _isInComprehension;
             _isInComprehension = true;
             
-            // 1. 빈 리스트 생성
-            EmitInstruction(ByteCodeOp.BUILD_LIST, 0);
-            
-            // 2. 임시 변수 저장을 위한 리스트 - 컴프리헨션 스코프 isolation
+            // CPython 3.12 패턴: 컴프리헨션 변수 사전 할당 및 정리
             var comprehensionVars = new List<string>();
-            
-            // 3. 중첩된 루프 컴파일 - CPython 3.12 방식
-            CompileNestedGenerators(listComp.Generators, 0, comprehensionVars, () =>
+            foreach (var gen in listComp.Generators)
             {
-                // 모든 generator 루프가 완료된 후 실행되는 내부 블록
+                if (gen.Target is NameExpression nameExpr)
+                {
+                    comprehensionVars.Add(nameExpr.Name);
+                }
+            }
+            
+            // 1. First compile the iterator source (CPython 3.12 pattern)
+            var firstGenerator = listComp.Generators[0];
+            CompileExpression(firstGenerator.Iter);
+            EmitInstruction(ByteCodeOp.GET_ITER);
+            
+            // 2. LOAD_FAST_AND_CLEAR: 컴프리헨션 변수 초기화 (CPython 3.12 패턴)  
+            if (comprehensionVars.Count > 0)
+            {
+                EmitInstruction(ByteCodeOp.LOAD_FAST_AND_CLEAR, GetOrAddVarName(comprehensionVars[0]));
+            }
+            
+            // 3. SWAP + BUILD_LIST + SWAP 패턴
+            EmitInstruction(ByteCodeOp.SWAP, 2);
+            EmitInstruction(ByteCodeOp.BUILD_LIST, 0);
+            EmitInstruction(ByteCodeOp.SWAP, 2);
+            
+            // 4. 중첩된 루프 컴파일 - CPython 3.12 방식 (첫 번째 generator는 이미 처리됨)
+            var exceptionTableStart = _instructions.Count;
+            // 첫 번째 generator는 이미 처리했으므로 FOR_ITER부터 시작
+            var loopStart = _instructions.Count;
+            EmitInstruction(ByteCodeOp.FOR_ITER, 0); // 패치 대상
+            
+            // 첫 번째 generator의 타겟 변수 저장
+            if (firstGenerator.Target is NameExpression firstNameExpr)
+            {
+                EmitStoreComprehensionVar(firstNameExpr.Name, comprehensionVars);
+            }
+            
+            // 첫 번째 generator의 조건 검사
+            List<int> conditionJumps = new List<int>();
+            foreach (var condition in firstGenerator.Ifs)
+            {
+                CompileExpression(condition);
+                conditionJumps.Add(_instructions.Count);
+                EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0);
+            }
+            
+            // 나머지 generator들 처리 (있다면)
+            if (listComp.Generators.Count > 1)
+            {
+                CompileNestedGenerators(listComp.Generators, 1, comprehensionVars, () =>
+                {
+                    CompileExpression(listComp.Element);
+                    EmitInstruction(ByteCodeOp.LIST_APPEND, 2);
+                });
+            }
+            else
+            {
+                // 단일 generator인 경우 직접 처리
                 CompileExpression(listComp.Element);
-                EmitInstruction(ByteCodeOp.LIST_APPEND, 1); // 리스트는 항상 스택의 맨 아래(1)에 위치
-            });
+                EmitInstruction(ByteCodeOp.LIST_APPEND, 2);
+            }
+            
+            // JUMP_BACKWARD 
+            int currentPos = _instructions.Count;
+            int relativeOffset = currentPos - loopStart;
+            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, relativeOffset);
+            
+            // END_FOR 라벨 (FOR_ITER 패치용)
+            var endFor = _instructions.Count;
+            EmitInstruction(ByteCodeOp.END_FOR);
+            
+            // FOR_ITER 패치 - CPython 3.12 방식
+            var relativeJump = endFor - loopStart - 1;
+            _instructions[loopStart] = new ByteCodeInstruction(
+                ByteCodeOp.FOR_ITER, 
+                relativeJump
+            );
+            
+            // 조건 점프들 패치 (루프 재시작으로)
+            foreach (var jumpPos in conditionJumps)
+            {
+                _instructions[jumpPos] = new ByteCodeInstruction(
+                    ByteCodeOp.POP_JUMP_IF_FALSE, 
+                    loopStart  // FOR_ITER 위치로 점프
+                );
+            }
+            
+            // 5. 정상 완료 시 스택 정리 - CPython 3.12 패턴
+            var exceptionTableEnd = _instructions.Count;
+            EmitInstruction(ByteCodeOp.SWAP, 2);
+            if (comprehensionVars.Count > 0)
+            {
+                EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(comprehensionVars[0]));
+            }
+            
+            // Jump over exception handler
+            var jumpOverHandler = _instructions.Count;
+            EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0); // 패치 예정
+            
+            // 6. Exception handler 시작
+            var handlerStart = _instructions.Count;
+            EmitInstruction(ByteCodeOp.SWAP, 2);
+            EmitInstruction(ByteCodeOp.POP_TOP);
+            EmitInstruction(ByteCodeOp.SWAP, 2);
+            if (comprehensionVars.Count > 0)
+            {
+                EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(comprehensionVars[0]));
+            }
+            EmitInstruction(ByteCodeOp.RERAISE, 0);
+            
+            // 7. Exception handler 끝 - 정상 흐름 계속
+            var handlerEnd = _instructions.Count;
+            
+            // JUMP_FORWARD 패치
+            _instructions[jumpOverHandler] = new ByteCodeInstruction(
+                ByteCodeOp.JUMP_FORWARD, 
+                handlerEnd - jumpOverHandler - 1
+            );
+            
+            // 8. CPython 3.12: Exception Table 추가 (컴프리헨션 정리용)
+            var exceptionEntry = new ExceptionTableEntry(
+                start: exceptionTableStart,
+                end: exceptionTableEnd,
+                handler: handlerStart,
+                depth: 2
+            );
+            _exceptionTable.Add(exceptionEntry);
             
             // CPython 3.12: 컴프리헨션 컨텍스트 종료
             _isInComprehension = savedIsInComprehension;
             
-            Console.WriteLine($"✅ List comprehension 바이트코드 인라인 완료 ({listComp.Generators.Count}개 중첩 generator)");
+            Console.WriteLine($"✅ List comprehension 바이트코드 CPython 3.12 호환 완료 ({listComp.Generators.Count}개 중첩 generator)");
         }
         
         /// <summary>
