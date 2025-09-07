@@ -1635,17 +1635,28 @@ namespace SharpPy
                 return;
             }
             
+            // Handle identity comparison operations with IS_OP (CPython 3.12)
+            if (op == "is")
+            {
+                EmitInstruction(ByteCodeOp.IS_OP, 0); // 0 = is
+                return;
+            }
+            else if (op == "is not")
+            {
+                EmitInstruction(ByteCodeOp.IS_OP, 1); // 1 = is not
+                return;
+            }
+
             // Handle regular comparison operations with COMPARE_OP
+            // Use CPython 3.12 actual bytecode values
             var compareOp = op switch
             {
-                "<" => 0,  // LT
-                "<=" => 1, // LE
-                "==" => 2, // EQ
-                "!=" => 3, // NE
-                ">" => 4,  // GT
-                ">=" => 5, // GE
-                "is" => 6, // IS (renumbered)
-                "is not" => 7, // IS_NOT (renumbered)
+                "<" => (int)CompareOp.LT,   // 2
+                "<=" => (int)CompareOp.LE,  // 26
+                "==" => (int)CompareOp.EQ,  // 40
+                "!=" => (int)CompareOp.NE,  // 55
+                ">" => (int)CompareOp.GT,   // 68
+                ">=" => (int)CompareOp.GE,  // 92
                 _ => throw new NotImplementedException($"Compare operator '{op}' not implemented")
             };
             EmitInstruction(ByteCodeOp.COMPARE_OP, compareOp);
@@ -1881,9 +1892,10 @@ namespace SharpPy
                 }
                 
                 // Emit MAKE_CELL instructions
+                // CPython 3.12 uses unified indexing: VarNames.Count + CellVars index
                 for (int i = 0; i < _cellVars.Count; i++)
                 {
-                    EmitInstruction(ByteCodeOp.MAKE_CELL, i);
+                    EmitInstruction(ByteCodeOp.MAKE_CELL, _varNames.Count + i);
                 }
                 
                 // 2. RESUME instruction

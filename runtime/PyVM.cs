@@ -2225,18 +2225,29 @@ namespace SharpPy
                     break;
                     
                 case ByteCodeOp.MAKE_CELL:
-                    // CPython 3.12: MAKE_CELL uses CellVars indices, not VarNames
+                    // CPython 3.12: MAKE_CELL uses unified indexing (VarNames + CellVars)
                     var makeCellIndex = instruction.Argument;
                     
-                    // Bounds checking for CellVars
-                    if (makeCellIndex >= frame.Code.CellVars.Count)
+                    // Convert unified index to CellVars index
+                    int cellVarIndex;
+                    if (makeCellIndex < frame.Code.VarNames.Count)
                     {
-                        throw new IndexOutOfRangeException($"Cell index {makeCellIndex} out of range. CellVars count: {frame.Code.CellVars.Count}, CellVars: [{string.Join(", ", frame.Code.CellVars)}]");
+                        throw new InvalidOperationException($"MAKE_CELL index {makeCellIndex} points to VarNames, not CellVars");
+                    }
+                    else
+                    {
+                        cellVarIndex = makeCellIndex - frame.Code.VarNames.Count;
                     }
                     
-                    var cellVarName = frame.Code.CellVars[makeCellIndex];
+                    // Bounds checking for CellVars
+                    if (cellVarIndex >= frame.Code.CellVars.Count)
+                    {
+                        throw new IndexOutOfRangeException($"Cell index {cellVarIndex} out of range. CellVars count: {frame.Code.CellVars.Count}, CellVars: [{string.Join(", ", frame.Code.CellVars)}], unified index: {makeCellIndex}, VarNames count: {frame.Code.VarNames.Count}");
+                    }
                     
-                    Console.WriteLine($"🔧 MAKE_CELL for '{cellVarName}' at cell index {makeCellIndex}");
+                    var cellVarName = frame.Code.CellVars[cellVarIndex];
+                    
+                    Console.WriteLine($"🔧 MAKE_CELL for '{cellVarName}' at unified index {makeCellIndex} (cell index {cellVarIndex})");
                     Console.WriteLine($"   CellVars: [{string.Join(", ", frame.Code.CellVars)}]");
                     Console.WriteLine($"   FastLocals contains '{cellVarName}': {frame.FastLocals.ContainsKey(cellVarName)}");
                     
@@ -2512,8 +2523,23 @@ namespace SharpPy
         
         private PyObject CompareOperation(PyObject left, PyObject right, int compareOp)
         {
-            // CPython 3.12 바이트코드의 실제 compare operation 값 사용
-            var operation = (CompareOp)compareOp;
+            // CPython 3.12는 두 가지 방식을 사용:
+            // 1. 인덱스 기반 (dis.cmp_op): 0=<, 1=<=, 2==, 3!=, 4=>, 5=>=
+            // 2. 바이트코드 값 기반: 2=<, 26=<=, 40==, 55!=, 68=>, 92=>=
+            
+            // 인덱스 기반 값들을 바이트코드 값으로 변환
+            var actualOp = compareOp switch
+            {
+                0 => (int)CompareOp.LT,  // < 
+                1 => (int)CompareOp.LE,  // <=
+                2 => (int)CompareOp.EQ,  // ==
+                3 => (int)CompareOp.NE,  // !=
+                4 => (int)CompareOp.GT,  // >
+                5 => (int)CompareOp.GE,  // >=
+                _ => compareOp  // 이미 바이트코드 값인 경우
+            };
+            
+            var operation = (CompareOp)actualOp;
             return operation switch
             {
                 CompareOp.EQ => left.RichCompare(right, PyObject.CompareOp.EQ),    // 40
