@@ -1319,44 +1319,44 @@ namespace SharpPy
                 makeFunctionFlags |= 8; // MAKE_FUNCTION_CLOSURE flag
             }
             
-            // 6. 데코레이터 적용 (CPython 3.12 호환) - 올바른 스택 순서
+            // 6. 데코레이터 적용 (CPython 3.12 호환) - 역순으로 적용 먼저
             if (func.Decorators != null && func.Decorators.Count > 0)
             {
-                // 데코레이터는 역순으로 적용됩니다 (마지막 데코레이터부터)
-                foreach (var decorator in func.Decorators)
+                // 데코레이터는 역순으로 적용됩니다 (안쪽부터 바깥쪽으로)
+                for (int i = func.Decorators.Count - 1; i >= 0; i--)
                 {
-                    CompileExpression(decorator.DecoratorFunction); // 데코레이터를 먼저 스택에 로드
-                }
-            }
-            
-            // 7. 코드 객체 로드 (데코레이터 다음)
-            EmitLoadConst(funcCode);
-            
-            // 8. 함수 생성 (스택: [decorator] [code] -> [decorator] [function])
-            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, makeFunctionFlags);
-            
-            // 9. 데코레이터 호출 (CPython 3.12 정확한 패턴)
-            if (func.Decorators != null && func.Decorators.Count > 0)
-            {
-                // 데코레이터는 역순으로 적용됩니다 (마지막 데코레이터부터)
-                foreach (var decorator in func.Decorators)
-                {
-                    // 현재 스택: [decorator, function]
-                    // CPython 3.12: CALL 0 → decorator(function) 호출
+                    var decorator = func.Decorators[i];
+                    
+                    // CPython pattern: Load decorator first
+                    CompileExpression(decorator.DecoratorFunction);
                     
                     // 데코레이터에 추가 인수가 있는 경우 처리 (@decorator(args))
-                    int argCount = 0; // CPython 3.12 방식: function은 암시적 첫 인수
+                    // Note: These go on the stack after the decorator but before function
                     if (decorator.Arguments.Count > 0)
                     {
                         foreach (var arg in decorator.Arguments)
                         {
                             CompileExpression(arg);
-                            argCount++;
                         }
                     }
+                }
+            }
+            
+            // 7. Load function code and create function
+            EmitLoadConst(funcCode);
+            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, makeFunctionFlags);
+            
+            // 8. Call decorators (they're already on the stack)
+            if (func.Decorators != null && func.Decorators.Count > 0)
+            {
+                for (int i = func.Decorators.Count - 1; i >= 0; i--)
+                {
+                    var decorator = func.Decorators[i];
+                    int argCount = decorator.Arguments.Count; // function is implicit
                     
-                    // CPython 3.12 정확한 CALL: 스택의 [decorator, function] → decorator(function)
+                    // CPython 3.12: CALL calls decorator with function as implicit argument
                     EmitInstruction(ByteCodeOp.CALL, argCount);
+                    // Stack after: [decorated_function]
                 }
             }
             
@@ -2251,7 +2251,8 @@ namespace SharpPy
             // CPython 3.12: No SETUP_EXCEPT, use Exception Table instead
             Console.WriteLine($"🔧 Compiling try-except (CPython 3.12 style)");
             
-            var endLabel = CreateLabel("try_end");
+            // Create label for continuation after entire try-except construct
+            var continueLabel = CreateLabel("continue_after_try");
             
             // CPython 3.12: Add NOP instruction before try body (exact CPython pattern)
             EmitInstruction(ByteCodeOp.NOP);
@@ -2266,11 +2267,6 @@ namespace SharpPy
             }
             
             var tryEndOffset = _instructions.Count * 2;
-            
-            // CPython 3.12: Normal path - always jump to end (don't return early!)
-            // This allows code after try-except to execute
-            EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
-            endLabel.References.Add(_instructions.Count - 1);
             
             // Exception handler start (where PUSH_EXC_INFO will jump to) - 바이트 오프셋
             var handlersStartOffset = _instructions.Count * 2;
@@ -2355,10 +2351,17 @@ namespace SharpPy
                 // CPython 3.12: POP_EXCEPT after handler execution
                 EmitInstruction(ByteCodeOp.POP_EXCEPT);
                 
-                // CPython 3.12: Exception handler completion path - always jump to end
-                // This allows code after try-except to execute
-                EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
-                endLabel.References.Add(_instructions.Count - 1);
+                // CPython 3.12: Exception handler completion - offset-based jump direction
+                // Jump BACKWARD if target is before handler, FORWARD if target is after handler
+                var currentHandlerOffset = _instructions.Count * 2; // Current byte offset
+                if (continueLabel.Offset < currentHandlerOffset)
+                {
+                    EmitJumpToLabel(ByteCodeOp.JUMP_BACKWARD, continueLabel);
+                }
+                else
+                {
+                    EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, continueLabel);
+                }
                 
                 // Mark next handler if not last
                 if (i < tryStmt.Handlers.Count - 1)
@@ -2375,8 +2378,8 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.RERAISE, 1);
             }
             
-            // End of try-except
-            MarkLabel(endLabel);
+            // Mark continuation point - this is where normal execution continues after try-except
+            MarkLabel(continueLabel);
             
             // CPython 3.12: Create Exception Table entry
             var exceptionEntry = new ExceptionTableEntry(
@@ -3478,7 +3481,20 @@ namespace SharpPy
             foreach (var refIndex in label.References)
             {
                 var oldInstruction = _instructions[refIndex];
-                _instructions[refIndex] = new ByteCodeInstruction(oldInstruction.OpCode, label.Offset);
+                int argument;
+                
+                // JUMP_FORWARD requires relative offset from instruction following the jump
+                if (oldInstruction.OpCode == ByteCodeOp.JUMP_FORWARD)
+                {
+                    argument = label.Offset - refIndex - 1;
+                }
+                else
+                {
+                    // Other jump instructions (JUMP_BACKWARD, POP_JUMP_IF_*, etc.) use absolute offsets
+                    argument = label.Offset;
+                }
+                
+                _instructions[refIndex] = new ByteCodeInstruction(oldInstruction.OpCode, argument);
             }
         }
         
@@ -4043,6 +4059,7 @@ namespace SharpPy
         {
             return _currentFunctionName == null || _currentFunctionName == "<module>";
         }
+        
         
         /// <summary>
         /// Compile slice expression [start:stop] or [start:stop:step]

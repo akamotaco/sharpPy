@@ -759,36 +759,39 @@ namespace SharpPy
                     // CPython 3.12 호출 방식 결정
                     PyObject newCallResult;
                     PyObject[] finalArgs;
+                    PyObject actualCallable;
                     
                     if (nextElement == null || nextElement.Equals(PyNone.Instance))
                     {
                         // PUSH_NULL 패턴: 일반 함수 호출
+                        actualCallable = callableFunc;
                         finalArgs = callArgs;
                     }
                     else
                     {
-                        // 데코레이터 패턴: nextElement가 첫 번째 암시적 인수
+                        // 데코레이터 패턴: nextElement is the decorator, callableFunc is the implicit first argument
+                        actualCallable = nextElement;
                         finalArgs = new PyObject[callArgs.Length + 1];
-                        finalArgs[0] = nextElement;
+                        finalArgs[0] = callableFunc;  // The function being decorated
                         Array.Copy(callArgs, 0, finalArgs, 1, callArgs.Length);
                     }
                     
                     // 함수 호출 실행
-                    if (callableFunc is PyBuiltinFunction builtin)
+                    if (actualCallable is PyBuiltinFunction builtin)
                     {
                         newCallResult = builtin.Call(finalArgs);
                     }
-                    else if (callableFunc is PyMethod method)
+                    else if (actualCallable is PyMethod method)
                     {
                         newCallResult = method.Call(finalArgs);
                     }
-                    else if (callableFunc is PyFunction func)
+                    else if (actualCallable is PyFunction func)
                     {
                         newCallResult = ExecuteFunctionCall(func, finalArgs, frame.ScopeChain);
                     }
                     else
                     {
-                        newCallResult = callableFunc.Call(finalArgs);
+                        newCallResult = actualCallable.Call(finalArgs);
                     }
                     
                     frame.ValueStack.Push(newCallResult);
@@ -1159,9 +1162,16 @@ namespace SharpPy
                     break;
                     
                 case ByteCodeOp.JUMP_FORWARD:
-                    // CPython 3.12: 동적 점프 오프셋 계산
-                    frame.InstructionPointer = JumpInstructionManager.CalculateJumpOffset(
-                        ByteCodeOp.JUMP_FORWARD, frame.InstructionPointer, instruction.Argument);
+                    // CPython 3.12: JUMP_FORWARD는 현재 위치 + argument로 점프
+                    // argument는 바이트 오프셋이 아닌 instruction 오프셋
+                    int currentPos = frame.InstructionPointer;
+                    int jumpOffset = instruction.Argument;
+                    int targetPos = currentPos + jumpOffset;
+                    
+                    Console.WriteLine($"🔄 JUMP_FORWARD: from instr {currentPos} forward {jumpOffset} to instr {targetPos}");
+                    
+                    // 메인 루프에서 +1이 되므로 -1 보정
+                    frame.InstructionPointer = targetPos - 1;
                     return null; // Continue execution from new position
                     
                 case ByteCodeOp.JUMP_BACKWARD:
