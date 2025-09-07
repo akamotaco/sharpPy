@@ -1247,17 +1247,17 @@ namespace SharpPy
                 // Python 3.12 Type Parameters
                 case TypeVarExpression typeVar:
                     EmitLoadConst(new PyString(typeVar.Name));
-                    EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.TYPEVAR);
+                    EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_TYPEVAR);
                     break;
                     
                 case ParamSpecExpression paramSpec:
                     EmitLoadConst(new PyString(paramSpec.Name));
-                    EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.PARAMSPEC);
+                    EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_PARAMSPEC);
                     break;
                     
                 case TypeVarTupleExpression typeVarTuple:
                     EmitLoadConst(new PyString(typeVarTuple.Name));
-                    EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.TYPEVARTUPLE);
+                    EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_TYPEVARTUPLE);
                     break;
                     
                 // PEP 709 Comprehension Optimization - Bytecode inlining
@@ -1566,22 +1566,22 @@ namespace SharpPy
         
         private void EmitBinaryOp(string op)
         {
-            // CPython 3.12+ BINARY_OP 구조 사용 - 연산 타입을 argument로 전달
+            // CPython 3.12 정확한 BINARY_OP 구조 - 새로운 순서로 업데이트됨
             var operation = op switch
             {
-                "+" => BinaryOpType.ADD,                  // 0
-                "&" => BinaryOpType.AND,                  // 1
-                "//" => BinaryOpType.FLOOR_DIVIDE,        // 2
-                "<<" => BinaryOpType.LSHIFT,              // 3
-                "%" => BinaryOpType.MODULO,               // 4
-                "*" => BinaryOpType.MULTIPLY,             // 5
-                "|" => BinaryOpType.OR,                   // 6
-                ">>" => BinaryOpType.RSHIFT,              // 7
-                "**" => BinaryOpType.POWER,               // 8
-                "-" => BinaryOpType.SUBTRACT,             // 9
-                "^" => BinaryOpType.XOR,                  // 10
-                "/" => BinaryOpType.TRUE_DIVIDE,          // 11 - Python 3.x true division
-                "@" => BinaryOpType.MATRIX_MULTIPLY,      // 12 - 행렬 곱셈
+                "+" => BinaryOpType.ADD,                  // 0 ✅ 변경 없음
+                "-" => BinaryOpType.SUBTRACT,             // 1 (was 9)
+                "*" => BinaryOpType.MULTIPLY,             // 2 (was 5)
+                "/" => BinaryOpType.TRUE_DIVIDE,          // 3 (was 11)
+                "//" => BinaryOpType.FLOOR_DIVIDE,        // 4 (was 2)
+                "%" => BinaryOpType.MODULO,               // 5 (was 4)
+                "**" => BinaryOpType.POWER,               // 6 (was 8)
+                "<<" => BinaryOpType.LSHIFT,              // 7 (was 3)
+                ">>" => BinaryOpType.RSHIFT,              // 8 (was 7)
+                "|" => BinaryOpType.OR,                   // 9 (was 6)
+                "^" => BinaryOpType.XOR,                  // 10 (was 10)
+                "&" => BinaryOpType.AND,                  // 11 (was 1)
+                "@" => BinaryOpType.MATRIX_MULTIPLY,      // 12 (was 12)
                 // Boolean operators (simplified implementation)
                 "and" => BinaryOpType.AND,               // Logical AND (simplified as bitwise AND)
                 "or" => BinaryOpType.OR,                 // Logical OR (simplified as bitwise OR)
@@ -1663,21 +1663,22 @@ namespace SharpPy
             EmitLoadName(augAssign.Target);
             CompileExpression(augAssign.Value);
             
+            // CPython 3.12 정확한 순서로 업데이트됨 - 동일한 BinaryOpType 사용
             var binaryOpType = augAssign.Op switch
             {
-                "+=" => BinaryOpType.ADD,
-                "-=" => BinaryOpType.SUBTRACT,
-                "*=" => BinaryOpType.MULTIPLY,
-                "/=" => BinaryOpType.TRUE_DIVIDE,
-                "//=" => BinaryOpType.FLOOR_DIVIDE,
-                "%=" => BinaryOpType.MODULO,
-                "**=" => BinaryOpType.POWER,
-                "&=" => BinaryOpType.AND,
-                "|=" => BinaryOpType.OR,
-                "^=" => BinaryOpType.XOR,
-                "<<=" => BinaryOpType.LSHIFT,
-                ">>=" => BinaryOpType.RSHIFT,
-                "@=" => BinaryOpType.MATRIX_MULTIPLY,
+                "+=" => BinaryOpType.ADD,           // 0 ✅ 변경 없음  
+                "-=" => BinaryOpType.SUBTRACT,      // 1 (순서 변경됨)
+                "*=" => BinaryOpType.MULTIPLY,      // 2 (순서 변경됨)
+                "/=" => BinaryOpType.TRUE_DIVIDE,   // 3 (순서 변경됨)
+                "//=" => BinaryOpType.FLOOR_DIVIDE, // 4 (순서 변경됨)
+                "%=" => BinaryOpType.MODULO,        // 5 (순서 변경됨)
+                "**=" => BinaryOpType.POWER,        // 6 (순서 변경됨)
+                "<<=" => BinaryOpType.LSHIFT,       // 7 (순서 변경됨)
+                ">>=" => BinaryOpType.RSHIFT,       // 8 (순서 변경됨)
+                "|=" => BinaryOpType.OR,            // 9 (순서 변경됨)
+                "^=" => BinaryOpType.XOR,           // 10 (순서 변경됨)
+                "&=" => BinaryOpType.AND,           // 11 (순서 변경됨)
+                "@=" => BinaryOpType.MATRIX_MULTIPLY, // 12 (순서 변경됨)
                 _ => throw new NotImplementedException($"Augment assign operator '{augAssign.Op}' not implemented")
             };
             
@@ -1777,24 +1778,47 @@ namespace SharpPy
         }
         private void CompileClass(ClassDefStatement cls)
         {
-            // CPython 3.12: Compile class body as a proper function
+            // PEP 695: Generic class with type parameters requires special handling
+            if (cls.TypeParams.Count > 0)
+            {
+                CompileGenericClass(cls);
+            }
+            else
+            {
+                CompileRegularClass(cls);
+            }
+        }
+        
+        private void CompileGenericClass(ClassDefStatement cls)
+        {
+            // CPython 3.12: PEP 695 generic class compilation  
+            // For now, create a simplified generic parameters function
+            EmitInstruction(ByteCodeOp.PUSH_NULL);
+            
+            // Generate simplified Generic Parameters function code
+            var genericParamsCode = CompileSimplifiedGenericParametersFunction(cls.TypeParams, cls.Name, cls.Body);
+            EmitLoadConst(genericParamsCode);
+            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, 0);
+            EmitInstruction(ByteCodeOp.CALL, 0);
+            
+            // The result is the class with type parameters bound
+            EmitStoreName(cls.Name);
+        }
+        
+        private void CompileRegularClass(ClassDefStatement cls)
+        {
+            // CPython 3.12: Regular class compilation (no type parameters)
             // PUSH_NULL 먼저, 그 다음 __build_class__ function 로드
             EmitInstruction(ByteCodeOp.PUSH_NULL);
             EmitLoadName("__build_class__");
             
-            // Compile class body into a function (with potential free variables)
+            // Compile class body into a function
             var classBodyName = $"<class_body_{cls.Name}>";
             var classBodyCode = CompileClassBody(cls.Body, classBodyName);
             
-            // For now, don't create closure for class bodies - use simpler approach
-            // Class body should access parent scope variables via normal name lookup
-            int makeFunctionFlags = 0;
-            
             // Load the class body function code
             EmitLoadConst(classBodyCode);
-            
-            // Create function (with or without closure)
-            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, makeFunctionFlags);
+            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, 0);
             
             // Load class name
             EmitLoadConst(new PyString(cls.Name));
@@ -1818,6 +1842,118 @@ namespace SharpPy
             
             // Store the created class
             EmitStoreName(cls.Name);
+        }
+        
+        /// <summary>
+        /// Compile simplified Generic Parameters function for PEP 695
+        /// This creates a basic working version first
+        /// </summary>
+        private PyCodeObject CompileSimplifiedGenericParametersFunction(List<string> typeParams, string className, List<Statement> classBody)
+        {
+            // Save current compilation state
+            var savedInstructions = _instructions;
+            var savedConstants = _constants;
+            var savedNames = _names;
+            var savedVarNames = _varNames;
+            var savedCellVars = _cellVars;
+            var savedFreeVars = _freeVars;
+            
+            // Initialize new compilation state for generic parameters function
+            _instructions = new List<ByteCodeInstruction>();
+            _constants = new List<PyObject>();
+            _names = new List<string>();
+            _varNames = new List<string>();
+            _cellVars = new List<string>();
+            _freeVars = new List<string>();
+            
+            try
+            {
+                // CPython 3.12 PEP 695: Proper Generic Parameters function setup
+                
+                // 1. Set up VarNames for STORE_FAST/LOAD_FAST operations 
+                _varNames.Add(".generic_base");  // CPython 3.12 standard: ['.generic_base']
+                
+                // 2. Set up CellVars for MAKE_CELL operations (CPython 3.12 order)
+                _cellVars.Add(".type_params");  // Index 1 in MAKE_CELL
+                foreach (var typeParam in typeParams)
+                {
+                    _cellVars.Add(typeParam);    // Index 2+ in MAKE_CELL
+                }
+                
+                // Emit MAKE_CELL instructions
+                for (int i = 0; i < _cellVars.Count; i++)
+                {
+                    EmitInstruction(ByteCodeOp.MAKE_CELL, i);
+                }
+                
+                // 2. RESUME instruction
+                EmitInstruction(ByteCodeOp.RESUME, 0);
+                
+                // 3. Create type parameters and store in cells
+                foreach (var typeParam in typeParams)
+                {
+                    EmitLoadConst(new PyString(typeParam));
+                    EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_TYPEVAR);
+                    EmitInstruction(ByteCodeOp.COPY, 1);
+                    EmitStoreDeref(typeParam);
+                }
+                
+                // 4. Build type parameters tuple and store
+                EmitInstruction(ByteCodeOp.BUILD_TUPLE, typeParams.Count);
+                EmitStoreDeref(".type_params");
+                
+                // 5. Create regular class with __build_class__
+                EmitInstruction(ByteCodeOp.PUSH_NULL);
+                EmitLoadName("__build_class__");
+                
+                // 6. Load closure for class body (type parameters)
+                EmitLoadDeref(".type_params");
+                EmitLoadDeref(typeParams[0]); // Load first type parameter (e.g., 'T')
+                EmitInstruction(ByteCodeOp.BUILD_TUPLE, 2);
+                
+                // 7. Compile class body with closure
+                var classBodyCode = CompileClassBody(classBody, $"<class_body_{className}>");
+                EmitLoadConst(classBodyCode);
+                EmitInstruction(ByteCodeOp.MAKE_FUNCTION, 8); // 8 = closure flag
+                
+                // 8. Load class name  
+                EmitLoadConst(new PyString(className));
+                
+                // 9. Create generic base using INTRINSIC_SUBSCRIPT_GENERIC
+                EmitLoadDeref(".type_params");
+                EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_SUBSCRIPT_GENERIC);
+                EmitStoreFast(".generic_base");  // STORE_FAST 0 (.generic_base)
+                
+                // 10. Load generic base and call __build_class__
+                EmitLoadFast(".generic_base");   // LOAD_FAST 0 (.generic_base)
+                EmitInstruction(ByteCodeOp.CALL, 3);  // __build_class__(function, name, generic_base)
+                
+                // 11. Return the created class
+                EmitInstruction(ByteCodeOp.RETURN_VALUE);
+                
+                // Build the code object
+                var functionName = $"<generic parameters of {className}>";
+                return new PyCodeObject(
+                    functionName, 
+                    _instructions, 
+                    _constants, 
+                    _names, 
+                    _varNames, 
+                    0,  // argCount
+                    _cellVars,
+                    _freeVars
+                );
+            }
+            finally
+            {
+                // Restore compilation state
+                _instructions = savedInstructions;
+                _constants = savedConstants;
+                _names = savedNames;
+                _varNames = savedVarNames;
+                _cellVars = savedCellVars;
+                _freeVars = savedFreeVars;
+            }
         }
         
         private PyCodeObject CompileClassBody(List<Statement> body, string className)
@@ -3178,8 +3314,10 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, keysList.Count);
             // Stack: [subject, value1, value2, ...]
             
-            // Step 6: Store values to variables (in reverse order due to stack)
-            for (int i = keysList.Count - 1; i >= 0; i--)
+            // Step 6: Store values to variables (in correct order - same as keys order)
+            // CPython 3.12: UNPACK_SEQUENCE puts values on stack in same order as keys tuple
+            // First key gets first value, second key gets second value, etc.
+            for (int i = 0; i < keysList.Count; i++)
             {
                 var key = keysList[i];
                 var valuePattern = pattern.Patterns[key];
@@ -4125,6 +4263,64 @@ namespace SharpPy
         {
             var index = AddName(attrName);
             EmitInstruction(ByteCodeOp.STORE_ATTR, index);
+        }
+        
+        /// <summary>
+        /// Emit STORE_DEREF for cell variables (PEP 695)
+        /// </summary>
+        private void EmitStoreDeref(string varName)
+        {
+            var index = _cellVars.IndexOf(varName);
+            if (index == -1)
+                throw new Exception($"Variable '{varName}' not found in cell variables");
+            EmitInstruction(ByteCodeOp.STORE_DEREF, index);
+        }
+        
+        /// <summary>
+        /// Emit LOAD_DEREF for cell variables (PEP 695)
+        /// </summary>
+        private void EmitLoadDeref(string varName)
+        {
+            var index = _cellVars.IndexOf(varName);
+            if (index == -1)
+                throw new Exception($"Variable '{varName}' not found in cell variables");
+            EmitInstruction(ByteCodeOp.LOAD_DEREF, index);
+        }
+        
+        /// <summary>
+        /// Emit LOAD_CLOSURE for creating closure tuples (PEP 695)
+        /// </summary>
+        private void EmitLoadClosure(string varName)
+        {
+            var index = _cellVars.IndexOf(varName);
+            if (index == -1)
+                throw new Exception($"Variable '{varName}' not found in cell variables");
+            EmitInstruction(ByteCodeOp.LOAD_CLOSURE, index);
+        }
+        
+        /// <summary>
+        /// Emit STORE_FAST for local variables
+        /// </summary>
+        private void EmitStoreFast(string varName)
+        {
+            var index = _varNames.IndexOf(varName);
+            if (index == -1)
+            {
+                _varNames.Add(varName);
+                index = _varNames.Count - 1;
+            }
+            EmitInstruction(ByteCodeOp.STORE_FAST, index);
+        }
+        
+        /// <summary>
+        /// Emit LOAD_FAST for local variables
+        /// </summary>
+        private void EmitLoadFast(string varName)
+        {
+            var index = _varNames.IndexOf(varName);
+            if (index == -1)
+                throw new Exception($"Variable '{varName}' not found in local variables");
+            EmitInstruction(ByteCodeOp.LOAD_FAST, index);
         }
         
         /// <summary>
