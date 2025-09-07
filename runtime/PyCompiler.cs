@@ -2131,7 +2131,20 @@ namespace SharpPy
             _freeVars = new List<string>();
             _exceptionTable = new List<ExceptionTableEntry>(); // Reset Exception Table
             
-            // For now, disable free variable analysis for class bodies
+            // Check if class body contains super() calls and add __class__ cell variable if needed
+            if (ContainsSuperCalls(body))
+            {
+                Console.WriteLine($"🔍 Detected super() calls in class {className}, adding __class__ cell variable");
+                _cellVars.Add("__class__");
+                
+                // Generate MAKE_CELL instruction for __class__ cell variable
+                // CPython 3.12: __class__ cell variable uses index based on cellVars position
+                var cellVarIndex = _cellVars.Count - 1; // __class__ is the first (and only) cell variable
+                Console.WriteLine($"🔧 Generating MAKE_CELL for __class__ at cell index {cellVarIndex}");
+                EmitInstruction(ByteCodeOp.MAKE_CELL, cellVarIndex);
+            }
+            
+            // For now, disable free variable analysis for class bodies  
             // Class bodies will use normal name lookup instead of closure mechanism
             // var freeVariableAnalyzer = new ClassBodyFreeVariableAnalyzer();
             // var classFreeVars = freeVariableAnalyzer.AnalyzeClassBody(body, savedNames);
@@ -2178,6 +2191,85 @@ namespace SharpPy
                 _freeVars = savedFreeVars;
             }
         }
+        
+        /// <summary>
+        /// Check if class body contains super() calls (without arguments)
+        /// </summary>
+        private bool ContainsSuperCalls(List<Statement> statements)
+        {
+            foreach (var stmt in statements)
+            {
+                if (ContainsSuperCallsInStatement(stmt))
+                    return true;
+            }
+            return false;
+        }
+        
+        /// <summary>
+        /// Recursively check if a statement contains super() calls
+        /// </summary>
+        private bool ContainsSuperCallsInStatement(Statement stmt)
+        {
+            switch (stmt)
+            {
+                case FunctionDefStatement func:
+                    // Check method bodies for super() calls
+                    return ContainsSuperCalls(func.Body);
+                    
+                case IfStatement ifStmt:
+                    bool result = ContainsSuperCallsInExpression(ifStmt.Test);
+                    result |= ContainsSuperCalls(ifStmt.Body);
+                    if (ifStmt.OrElse != null && ifStmt.OrElse.Count > 0)
+                        result |= ContainsSuperCalls(ifStmt.OrElse);
+                    return result;
+                    
+                case ExpressionStatement exprStmt:
+                    return ContainsSuperCallsInExpression(exprStmt.Expression);
+                    
+                case AssignStatement assignStmt:
+                    return ContainsSuperCallsInExpression(assignStmt.Value);
+                    
+                default:
+                    return false;
+            }
+        }
+        
+        /// <summary>
+        /// Check if an expression contains super() calls
+        /// </summary>
+        private bool ContainsSuperCallsInExpression(Expression expr)
+        {
+            switch (expr)
+            {
+                case CallExpression call:
+                    // Check if this is a super() call
+                    if (call.Function is NameExpression name && name.Name == "super" && call.Arguments.Count == 0)
+                    {
+                        return true;
+                    }
+                    // Recursively check arguments
+                    foreach (var arg in call.Arguments)
+                    {
+                        if (ContainsSuperCallsInExpression(arg))
+                            return true;
+                    }
+                    return ContainsSuperCallsInExpression(call.Function);
+                    
+                case NameExpression:
+                    return false;
+                    
+                case AttributeExpression attr:
+                    return ContainsSuperCallsInExpression(attr.Value);
+                    
+                case BinaryOpExpression binary:
+                    return ContainsSuperCallsInExpression(binary.Left) || 
+                           ContainsSuperCallsInExpression(binary.Right);
+                    
+                default:
+                    return false;
+            }
+        }
+        
         /// <summary>
         /// 클래스 body에서 사용되는 자유변수를 분석하는 클래스
         /// </summary>

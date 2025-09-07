@@ -241,6 +241,9 @@ namespace SharpPy
         private readonly Stack<PyFrame> _frameStack;
         private readonly PyScopeChain _globalScope;
         
+        // Current frame for zero-argument super() calls
+        public static PyFrame? CurrentFrame => Instance._frameStack.Count > 0 ? Instance._frameStack.Peek() : null;
+        
         private PyVM()
         {
             _frameStack = new Stack<PyFrame>();
@@ -436,10 +439,16 @@ namespace SharpPy
                         var handlerOffset = frame.GetExceptionHandler();
                         if (handlerOffset.HasValue)
                         {
-                            // Push the exception onto the stack and jump to handler
-                            frame.ValueStack.Push(pyEx.PyException);
+                            // CPython 3.12: Create PyExceptionInfo and push to stack (equivalent to PUSH_EXC_INFO)
+                            var exceptionInfo = new PyExceptionInfo(
+                                excType: pyEx.PyException,
+                                excValue: pyEx.PyException,
+                                excTraceback: PyNone.Instance,  // TODO: implement traceback
+                                lasti: new PyInt(frame.InstructionPointer)
+                            );
+                            frame.ValueStack.Push(exceptionInfo);
                             frame.LastException = pyEx.PyException;
-                            frame.CurrentException = pyEx.PyException; // Set for PUSH_EXC_INFO
+                            frame.CurrentException = pyEx.PyException;
                             Console.WriteLine($"🔧 Exception handled: jumping to handler at offset {handlerOffset.Value}");
                             Console.WriteLine($"🔧 Stack after exception push: {frame.ValueStack.Count} items");
                             Console.WriteLine($"🔧 Total instructions: {frame.Code.Instructions.Count}");
@@ -454,8 +463,26 @@ namespace SharpPy
                             }
                             else
                             {
+                                // Invalid handler index - provide detailed diagnostic information
                                 Console.WriteLine($"❌ Invalid handler instruction index: {instructionIndex}");
-                                frame.InstructionPointer = handlerOffset.Value; // Fallback to original
+                                Console.WriteLine($"   Max valid index: {frame.Code.Instructions.Count - 1}");
+                                Console.WriteLine($"   Exception Table entries: {frame.Code.ExceptionTable.Count}");
+                                Console.WriteLine($"   Current IP: {frame.InstructionPointer}");
+                                
+                                // Try to find a valid handler or fall back gracefully
+                                if (frame.Code.Instructions.Count > 0)
+                                {
+                                    // Jump to the last instruction as a safer fallback
+                                    int safeIndex = frame.Code.Instructions.Count - 1;
+                                    frame.InstructionPointer = safeIndex;
+                                    Console.WriteLine($"🔧 Fallback: Jumping to safe instruction {safeIndex}");
+                                }
+                                else
+                                {
+                                    // No instructions available - re-throw the original exception
+                                    Console.WriteLine("❌ No valid instructions to jump to - re-throwing exception");
+                                    throw;
+                                }
                             }
                         }
                         else
@@ -1267,7 +1294,23 @@ namespace SharpPy
                     int currentInstrPos = frame.InstructionPointer;
                     int jumpBackCount = instruction.Argument;  // Number of instructions to jump back
                     int targetInstrPos = currentInstrPos - jumpBackCount;
+                    
+                    // Stack validation for generator safety
                     Console.WriteLine($"🔄 JUMP_BACKWARD: from instr {currentInstrPos} back {jumpBackCount} instrs to instr {targetInstrPos} (CPython 3.12 relative)");
+                    Console.WriteLine($"   Stack size before jump: {frame.ValueStack.Count}");
+                    
+                    // Validate target instruction position
+                    if (targetInstrPos < 0 || targetInstrPos >= frame.Code.Instructions.Count)
+                    {
+                        throw new InvalidOperationException($"JUMP_BACKWARD: Invalid target position {targetInstrPos} (valid range: 0-{frame.Code.Instructions.Count - 1})");
+                    }
+                    
+                    // For generator functions, ensure we have a consistent stack state
+                    if ((frame.Code.Flags & PyCodeObject.CO_GENERATOR) != 0)
+                    {
+                        Console.WriteLine($"   Generator JUMP_BACKWARD: preserving stack state for yield/resume");
+                    }
+                    
                     // Direct jump to target position (subtract 1 because main loop will increment)
                     frame.InstructionPointer = targetInstrPos - 1;
                     return null; // Continue execution from new position

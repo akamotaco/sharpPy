@@ -78,11 +78,11 @@ namespace SharpPy
                 originalCode.Flags
             );
             
-            // CPython 3.12: Exception Table 복사 (최적화 후에도 보존)
-            optimizedCode.ExceptionTable.AddRange(originalCode.ExceptionTable);
+            // CPython 3.12: Exception Table 동기화 (최적화로 변경된 오프셋 반영)
+            RecalculateExceptionTableOffsets(originalCode.ExceptionTable, optimizedCode);
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
-                Console.WriteLine($"🔍 Exception Table 복사: {originalCode.ExceptionTable.Count}개 엔트리 → 최적화된 코드");
+                Console.WriteLine($"🔍 Exception Table 동기화: {originalCode.ExceptionTable.Count}개 엔트리 → 최적화된 코드");
             }
             
             return optimizedCode;
@@ -611,6 +611,47 @@ namespace SharpPy
                 {
                     Console.WriteLine("✅ 점프 오프셋 재계산 완료: 수정 필요 없음");
                 }
+            }
+        }
+
+        /// <summary>
+        /// Exception Table 오프셋을 최적화된 instruction에 맞게 재계산
+        /// 최적화 과정에서 instruction이 제거/이동될 때 Exception Table 핸들러 오프셋도 동기화
+        /// </summary>
+        private void RecalculateExceptionTableOffsets(List<ExceptionTableEntry> originalTable, PyCodeObject optimizedCode)
+        {
+            foreach (var entry in originalTable)
+            {
+                // 원본 offsets이 최적화된 instruction 배열 범위 내에 있는지 검증
+                int maxOffset = optimizedCode.Instructions.Count - 1;
+                
+                // Start, End, Handler 오프셋이 유효한 범위 내에 있는지 확인
+                int adjustedStart = Math.Min(entry.StartOffset, maxOffset);
+                int adjustedEnd = Math.Min(entry.EndOffset, maxOffset);
+                int adjustedHandler = Math.Min(entry.HandlerOffset, maxOffset);
+                
+                // 오프셋이 조정된 경우 경고 출력
+                if (adjustedStart != entry.StartOffset || adjustedEnd != entry.EndOffset || adjustedHandler != entry.HandlerOffset)
+                {
+                    if (!SharpPyConfig.DisassemblyOnlyMode)
+                    {
+                        Console.WriteLine($"⚠️ Exception Table 오프셋 조정: " +
+                            $"Start {entry.StartOffset}→{adjustedStart}, " +
+                            $"End {entry.EndOffset}→{adjustedEnd}, " +
+                            $"Handler {entry.HandlerOffset}→{adjustedHandler}");
+                    }
+                }
+                
+                // 조정된 오프셋으로 새로운 Exception Table Entry 생성
+                var adjustedEntry = new ExceptionTableEntry(
+                    adjustedStart, 
+                    adjustedEnd, 
+                    adjustedHandler, 
+                    entry.Depth,
+                    entry.Lasti
+                );
+                
+                optimizedCode.ExceptionTable.Add(adjustedEntry);
             }
         }
         

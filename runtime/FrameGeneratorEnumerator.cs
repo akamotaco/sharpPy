@@ -15,6 +15,7 @@ namespace SharpPy
         private bool _finished;
         private bool _started = false;
         private int _lastInstructionPointer = 0;
+        private Stack<PyObject> _savedStack = null;
 
         public FrameGeneratorEnumerator(PyFrame frame, PyVM vm)
         {
@@ -40,12 +41,30 @@ namespace SharpPy
                     _frame.InstructionPointer = 0;
                     _frame.State = PyFrame.FrameState.Executing;
                     _started = true;
+                    Console.WriteLine("🔄 Generator: First execution, starting from instruction 0");
                 }
                 else
                 {
-                    // 재개: FRAME_SUSPENDED → FRAME_EXECUTING
+                    // 재개: FRAME_SUSPENDED → FRAME_EXECUTING with stack restoration
                     _frame.InstructionPointer = _lastInstructionPointer;
                     _frame.State = PyFrame.FrameState.Executing;
+                    
+                    // Restore stack state from previous yield
+                    if (_savedStack != null)
+                    {
+                        _frame.ValueStack.Clear();
+                        // Restore stack in reverse order to maintain original stack order
+                        var tempStack = new Stack<PyObject>();
+                        foreach (var item in _savedStack)
+                        {
+                            tempStack.Push(item);
+                        }
+                        foreach (var item in tempStack)
+                        {
+                            _frame.ValueStack.Push(item);
+                        }
+                        Console.WriteLine($"🔄 Generator: Resumed with stack size {_frame.ValueStack.Count} at instruction {_lastInstructionPointer}");
+                    }
                 }
 
                 // Frame을 부분적으로 실행 (yield까지 또는 끝까지)
@@ -59,9 +78,18 @@ namespace SharpPy
             }
             catch (PyYieldException yieldEx)
             {
-                // yield 지점에서 중단: FRAME_EXECUTING → FRAME_SUSPENDED
+                // yield 지점에서 중단: FRAME_EXECUTING → FRAME_SUSPENDED with stack preservation
                 _frame.State = PyFrame.FrameState.Suspended;
-                _lastInstructionPointer = _frame.InstructionPointer; 
+                _lastInstructionPointer = _frame.InstructionPointer;
+                
+                // Save current stack state for restoration on resume
+                _savedStack = new Stack<PyObject>();
+                foreach (var item in _frame.ValueStack)
+                {
+                    _savedStack.Push(item);
+                }
+                
+                Console.WriteLine($"🔄 Generator: Yielded {yieldEx.Value} at instruction {_lastInstructionPointer}, saved stack size {_savedStack.Count}");
                 _current = yieldEx.Value ?? PyNone.Instance;
                 return true;
             }
