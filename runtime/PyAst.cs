@@ -3056,6 +3056,40 @@ namespace SharpPy
     #region Additional Match Pattern Classes
     
     /// <summary>
+    /// CPython 3.12 PEP 634: As pattern (pattern as name)
+    /// </summary>
+    public class AsPattern : Expression
+    {
+        public override string NodeType => "AsPattern";
+        public Expression Pattern { get; }
+        public string Name { get; }
+        
+        public AsPattern(Expression pattern, string name)
+        {
+            Pattern = pattern;
+            Name = name;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // As patterns are handled during pattern matching compilation
+            return new PyString($"{Pattern} as {Name}");
+        }
+        
+        public override T Accept<T>(IASTVisitor<T> visitor)
+        {
+            return visitor.VisitExpression(this);
+        }
+        
+        public override void Accept(IASTVisitor visitor)
+        {
+            visitor.VisitExpression(this);
+        }
+        
+        public override string ToString() => $"{Pattern} as {Name}";
+    }
+    
+    /// <summary>
     /// Star pattern in match case: *rest
     /// </summary>
     public class StarPattern : Expression

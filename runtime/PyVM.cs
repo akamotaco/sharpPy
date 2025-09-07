@@ -710,6 +710,24 @@ namespace SharpPy
                     frame.ScopeChain.AssignVariable(storeName, storeValue);
                     break;
                     
+                case ByteCodeOp.DELETE_NAME:
+                    var deleteName = frame.Code.Names[instruction.Argument];
+                    // 변수 삭제: 현재 스코프에서 먼저 찾기
+                    if (frame.ScopeChain.CurrentScope?.Variables.Remove(deleteName) == true)
+                    {
+                        // 현재 스코프에서 삭제됨
+                        break;
+                    }
+                    // 전역 스코프에서 찾기
+                    if (frame.ScopeChain.GlobalScope?.Variables.Remove(deleteName) == true)
+                    {
+                        // 전역 스코프에서 삭제됨
+                        break;
+                    }
+                    // 변수가 없으면 NameError
+                    throw PyNameError.Create($"name '{deleteName}' is not defined");
+                    break;
+                    
                 case ByteCodeOp.LOAD_GLOBAL:
                     var globalName = frame.Code.Names[instruction.Argument];
                     var globalValue = frame.ScopeChain.GlobalScope.GetVariable(globalName) ?? 
@@ -717,6 +735,14 @@ namespace SharpPy
                     if (globalValue == null)
                         throw PyNameError.Create($"name '{globalName}' is not defined");
                     frame.ValueStack.Push(globalValue);
+                    break;
+                    
+                case ByteCodeOp.LOAD_ASSERTION_ERROR:
+                    // CPython 3.12: Load AssertionError class for assert statements
+                    var assertionError = frame.ScopeChain.BuiltinModule.GetBuiltin("AssertionError");
+                    if (assertionError == null)
+                        throw PyNameError.Create("name 'AssertionError' is not defined");
+                    frame.ValueStack.Push(assertionError);
                     break;
                     
                 case ByteCodeOp.IS_OP:
@@ -1846,12 +1872,27 @@ namespace SharpPy
                     // instruction.Argument indicates the number of arguments to the raise statement
                     if (instruction.Argument == 1)
                     {
-                        // raise exception_instance
+                        // raise exception_instance or exception_class
                         var raisedException = frame.ValueStack.Pop();
                         if (raisedException is PyException pyEx)
                         {
+                            // Already an exception instance
                             frame.LastException = pyEx;
                             throw new PythonException(pyEx);
+                        }
+                        else if (raisedException is PyBuiltinType builtinType)
+                        {
+                            // Exception class - instantiate it
+                            var builtinException = builtinType.Call();
+                            if (builtinException is PyException pyExInstance)
+                            {
+                                frame.LastException = pyExInstance;
+                                throw new PythonException(pyExInstance);
+                            }
+                            else
+                            {
+                                throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
+                            }
                         }
                         else
                         {

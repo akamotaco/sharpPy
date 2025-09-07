@@ -504,6 +504,26 @@ namespace SharpPy
 
     #endregion
 
+    #region AssertionError
+
+    /// <summary>
+    /// Python AssertionError - assertion failed
+    /// </summary>
+    public class PyAssertionError : PyException
+    {
+        public PyAssertionError(string message = "") : base(message) { }
+        
+        public override string GetTypeName() => "AssertionError";
+        
+        public new static PythonException Create(string message = "")
+        {
+            var pyException = new PyAssertionError(message);
+            return new PythonException(pyException);
+        }
+    }
+
+    #endregion
+
     #region OS Exceptions
 
     /// <summary>

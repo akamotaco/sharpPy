@@ -2360,13 +2360,25 @@ namespace SharpPy
                     throw PyRuntimeError.Create($"too many or patterns (max {MAX_OR_PATTERNS})");
                 }
                 
-                // If multiple patterns, create OrPattern
+                // Create pattern from parsed patterns
+                Expression basePattern;
                 if (patterns.Count > 1)
                 {
-                    return new OrPattern(patterns);
+                    basePattern = new OrPattern(patterns);
+                }
+                else
+                {
+                    basePattern = patterns[0];
                 }
                 
-                return patterns[0];
+                // CPython 3.12: Check for 'as' pattern (pattern as name)
+                if (Match(TokenType.AS))
+                {
+                    var name = Consume(TokenType.IDENTIFIER, "Expected identifier after 'as' in pattern").Lexeme;
+                    return new AsPattern(basePattern, name);
+                }
+                
+                return basePattern;
             });
         }
         
@@ -2493,7 +2505,19 @@ namespace SharpPy
         private Statement ParseBreakStatement() => new BreakStatement();
         private Statement ParseContinueStatement() => new ContinueStatement();
         private Statement ParsePassStatement() => new PassStatement();
-        private Statement ParseAssertStatement() => new PassStatement(); // TODO: Implement
+        private Statement ParseAssertStatement()
+        {
+            // CPython 3.12: assert test [, msg]
+            var test = ParseExpression();
+            
+            Expression? msg = null;
+            if (Match(TokenType.COMMA))
+            {
+                msg = ParseExpression();
+            }
+            
+            return new AssertStatement(test, msg);
+        }
         private Statement ParseRaiseStatement()
         {
             Expression? exc = null;
@@ -2513,9 +2537,44 @@ namespace SharpPy
             
             return new RaiseStatement(exc, cause);
         }
-        private Statement ParseDeleteStatement() => new PassStatement(); // TODO: Implement
-        private Statement ParseGlobalStatement() => new PassStatement(); // TODO: Implement
-        private Statement ParseNonlocalStatement() => new PassStatement(); // TODO: Implement
+        private Statement ParseDeleteStatement()
+        {
+            // CPython 3.12: del target1, target2, ...
+            var targets = new List<Expression>();
+            
+            do
+            {
+                targets.Add(ParsePrimaryExpression());
+            } while (Match(TokenType.COMMA));
+            
+            return new DeleteStatement(targets);
+        }
+        private Statement ParseGlobalStatement()
+        {
+            // CPython 3.12: global name1, name2, ...
+            var names = new List<string>();
+            
+            do
+            {
+                var name = Consume(TokenType.IDENTIFIER, "Expected variable name after 'global'").Lexeme;
+                names.Add(name);
+            } while (Match(TokenType.COMMA));
+            
+            return new GlobalStatement(names);
+        }
+        private Statement ParseNonlocalStatement()
+        {
+            // CPython 3.12: nonlocal name1, name2, ...
+            var names = new List<string>();
+            
+            do
+            {
+                var name = Consume(TokenType.IDENTIFIER, "Expected variable name after 'nonlocal'").Lexeme;
+                names.Add(name);
+            } while (Match(TokenType.COMMA));
+            
+            return new NonlocalStatement(names);
+        }
         private Statement ParseImportStatement()
         {
             // Parse comma-separated module list (CPython style)

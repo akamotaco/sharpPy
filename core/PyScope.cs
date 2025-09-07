@@ -113,6 +113,7 @@ public class PyBuiltinsModule : PyObject
         BuiltinDict["ZeroDivisionError"] = new PyBuiltinType("ZeroDivisionError");
         BuiltinDict["NameError"] = new PyBuiltinType("NameError");
         BuiltinDict["StopIteration"] = new PyBuiltinType("StopIteration");
+        BuiltinDict["AssertionError"] = new PyBuiltinType("AssertionError");
         
         // Buffer Protocol (PEP 688)
         BuiltinDict["buffer"] = new PyBuiltinType("buffer");
@@ -190,6 +191,9 @@ public class PyBuiltinType : PyObject
             case "NameError":
                 message = args.Length > 0 ? args[0].ToStr() : "";
                 return new PyNameError(message);
+            case "AssertionError":
+                message = args.Length > 0 ? args[0].ToStr() : "";
+                return new PyAssertionError(message);
             case "BaseException":
                 message = args.Length > 0 ? args[0].ToStr() : "";
                 return new PyBaseException(message);

@@ -185,6 +185,16 @@ namespace SharpPy
                     _definedVars.Add(assignStmt.VariableName); // 새로 정의된 변수
                     break;
                     
+                case NonlocalStatement nonlocalStmt:
+                    // CPython 3.12: nonlocal 변수는 외부 스코프에서 참조함
+                    // 로컬에서 정의되지 않았지만 사용될 수 있음을 표시
+                    foreach (var name in nonlocalStmt.Names)
+                    {
+                        _usedVars.Add(name); // nonlocal 변수는 외부에서 가져옴
+                        // _definedVars에는 추가하지 않음 (외부 스코프에 정의되어 있음)
+                    }
+                    break;
+                    
                 // TODO: 다른 statement 타입들 추가 가능
             }
         }
@@ -399,6 +409,10 @@ namespace SharpPy
         private List<string> _cellVars = new List<string>();
         private List<string> _freeVars = new List<string>();
         private List<ExceptionTableEntry> _exceptionTable = new List<ExceptionTableEntry>(); // CPython 3.12 Exception Table
+        
+        // CPython 3.12 호환: Nonlocal/Global 변수 추적
+        private HashSet<string> _nonlocalVars = new HashSet<string>();
+        private HashSet<string> _globalVars = new HashSet<string>();
         
         public PyCodeObject Compile(List<Statement> statements, string name = "<module>")
         {
@@ -1315,6 +1329,23 @@ namespace SharpPy
             Console.WriteLine($"  Free variables: [{string.Join(", ", freeVars)}]");
             Console.WriteLine($"  Cell variables: [{string.Join(", ", cellVars)}]");
             
+            // CPython 3.12: 내부 함수의 nonlocal 선언을 고려한 추가 cell 분석
+            var additionalCellVars = new List<string>(cellVars);
+            var allFreeVars = new HashSet<string>();
+            
+            // 함수 본문에서 지역 변수들을 먼저 수집
+            var localVarNames = new List<string>(func.Parameters);
+            CollectLocalVariables(func.Body, localVarNames);
+            
+            Console.WriteLine($"  Local variables found: [{string.Join(", ", localVarNames)}]");
+            
+            // 내부 함수들의 nonlocal 선언을 기반으로 cell 변수 추가 분석
+            AnalyzeFunctionClosures(func.Body, localVarNames, allFreeVars, additionalCellVars);
+            
+            // 업데이트된 cell 변수들 사용
+            cellVars = additionalCellVars;
+            Console.WriteLine($"  Updated Cell variables: [{string.Join(", ", cellVars)}]");
+            
             // 2. 매개변수와 기본값 파싱 (FunctionDefStatement에서 수행하던 로직)
             var (paramNames, defaults, flags) = ParseFunctionParameters(func.Parameters);
             
@@ -1414,6 +1445,7 @@ namespace SharpPy
         
         /// <summary>
         /// 함수 내의 모든 중청 함수를 분석하여 셀이 필요한 변수들을 찾는다
+        /// CPython 3.12 호환: nonlocal 변수도 고려
         /// </summary>
         private void AnalyzeFunctionClosures(List<Statement> statements, List<string> parameters, 
                                            HashSet<string> allFreeVars, List<string> cellVars)
@@ -1431,14 +1463,91 @@ namespace SharpPy
                         allFreeVars.Add(freeVar);
                         
                         // 이 변수가 현재 함수의 매개변수이거나 지역변수이면 Cell로 만들어야 함
-                        if (parameters.Contains(freeVar) && !cellVars.Contains(freeVar))
+                        if ((parameters.Contains(freeVar) || _varNames.Contains(freeVar)) && !cellVars.Contains(freeVar))
                         {
                             cellVars.Add(freeVar);
+                            Console.WriteLine($"🔍 Variable '{freeVar}' needs cell (referenced by nested function '{nestedFunc.Name}')");
+                        }
+                    }
+                    
+                    // CPython 3.12: 중첩 함수의 nonlocal 선언도 확인
+                    var nonlocalVars = AnalyzeNonlocalDeclarations(nestedFunc.Body);
+                    Console.WriteLine($"🔍 Found nonlocal vars in '{nestedFunc.Name}': [{string.Join(", ", nonlocalVars)}]");
+                    Console.WriteLine($"🔍 Current parameters: [{string.Join(", ", parameters)}]");
+                    Console.WriteLine($"🔍 Current _varNames: [{string.Join(", ", _varNames)}]");
+                    
+                    foreach (var nonlocalVar in nonlocalVars)
+                    {
+                        // nonlocal 변수가 현재 함수의 지역변수나 매개변수라면 cell로 만들어야 함
+                        if ((parameters.Contains(nonlocalVar) || _varNames.Contains(nonlocalVar)) && !cellVars.Contains(nonlocalVar))
+                        {
+                            cellVars.Add(nonlocalVar);
+                            Console.WriteLine($"🔗 Variable '{nonlocalVar}' needs cell (nonlocal in nested function '{nestedFunc.Name}')");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"⚠️ Nonlocal variable '{nonlocalVar}' not found in current scope");
                         }
                     }
                     
                     // 재귀적으로 중청 함수들도 분석
                     AnalyzeFunctionClosures(nestedFunc.Body, nestedFunc.Parameters, allFreeVars, cellVars);
+                }
+            }
+        }
+        
+        /// <summary>
+        /// 함수 본문에서 nonlocal 선언된 변수들을 찾는다
+        /// </summary>
+        private HashSet<string> AnalyzeNonlocalDeclarations(List<Statement> statements)
+        {
+            var nonlocalVars = new HashSet<string>();
+            
+            foreach (var statement in statements)
+            {
+                if (statement is NonlocalStatement nonlocal)
+                {
+                    foreach (var name in nonlocal.Names)
+                    {
+                        nonlocalVars.Add(name);
+                    }
+                }
+                // 중첩된 블록도 확인 (if, while, for 등)
+                // 여기서는 간단히 FunctionDef만 확인
+                else if (statement is FunctionDefStatement nestedFunc)
+                {
+                    var nestedNonlocals = AnalyzeNonlocalDeclarations(nestedFunc.Body);
+                    foreach (var nonlocalVar in nestedNonlocals)
+                    {
+                        nonlocalVars.Add(nonlocalVar);
+                    }
+                }
+            }
+            
+            return nonlocalVars;
+        }
+        
+        /// <summary>
+        /// 함수 본문에서 지역 변수 이름들을 수집한다 (할당문 기반)
+        /// </summary>
+        private void CollectLocalVariables(List<Statement> statements, List<string> localVars)
+        {
+            foreach (var statement in statements)
+            {
+                switch (statement)
+                {
+                    case AssignStatement assign:
+                        if (!localVars.Contains(assign.VariableName))
+                        {
+                            localVars.Add(assign.VariableName);
+                        }
+                        break;
+                        
+                    case FunctionDefStatement nestedFunc:
+                        // 재귀적으로 중첩 함수도 확인 (하지만 별도 스코프이므로 현재 함수에는 추가하지 않음)
+                        break;
+                        
+                    // TODO: 다른 statement 타입들에서 변수 할당 확인 가능
                 }
             }
         }
@@ -1467,7 +1576,30 @@ namespace SharpPy
         {
             // Phase 2: 클로저 지원 - 자유 변수 처리 개선
             
-            // 1. 지역 변수(매개변수 포함) 처리
+            // 0. CPython 3.12: global 변수를 먼저 체크
+            if (_globalVars.Contains(name))
+            {
+                var globalIndex = AddName(name);
+                EmitInstruction(ByteCodeOp.LOAD_GLOBAL, globalIndex);
+                Console.WriteLine($"    → LOAD_GLOBAL for global var: {name} (global index {globalIndex})");
+                return;
+            }
+            
+            // 1. CPython 3.12: nonlocal 변수를 체크
+            if (_nonlocalVars.Contains(name))
+            {
+                // nonlocal 변수를 _freeVars에 추가 (부모 스코프에서 가져옴)
+                if (!_freeVars.Contains(name))
+                {
+                    _freeVars.Add(name);
+                }
+                var freeIndex = _freeVars.IndexOf(name);
+                EmitInstruction(ByteCodeOp.LOAD_DEREF, freeIndex);
+                Console.WriteLine($"    → LOAD_DEREF for nonlocal var: {name} (free index {freeIndex})");
+                return;
+            }
+            
+            // 2. 지역 변수(매개변수 포함) 처리
             var varIndex = _varNames.IndexOf(name);
             if (varIndex >= 0)
             {
@@ -1524,6 +1656,29 @@ namespace SharpPy
             // 함수 내부에서는 지역변수로 등록하고 STORE_FAST 사용
             if (_isInFunction)
             {
+                // CPython 3.12: global 변수는 STORE_GLOBAL 사용
+                if (_globalVars.Contains(name))
+                {
+                    var globalIndex = AddName(name);
+                    EmitInstruction(ByteCodeOp.STORE_GLOBAL, globalIndex);
+                    Console.WriteLine($"    → STORE_GLOBAL for global var: {name} (global index {globalIndex})");
+                    return;
+                }
+                
+                // CPython 3.12: nonlocal 변수는 STORE_DEREF 사용
+                if (_nonlocalVars.Contains(name))
+                {
+                    // nonlocal 변수를 _freeVars에 추가 (부모 스코프에서 가져옴)
+                    if (!_freeVars.Contains(name))
+                    {
+                        _freeVars.Add(name);
+                    }
+                    var freeIndex = _freeVars.IndexOf(name);
+                    EmitInstruction(ByteCodeOp.STORE_DEREF, freeIndex);
+                    Console.WriteLine($"    → STORE_DEREF for nonlocal var: {name} (free index {freeIndex})");
+                    return;
+                }
+                
                 // 셀 변수 처리 (Phase 2)
                 if (_cellVars.Contains(name))
                 {
@@ -1551,6 +1706,47 @@ namespace SharpPy
             // 모듈 레벨: CPython 3.12 호환성을 위해 STORE_NAME 사용
             var index = AddName(name);
             EmitInstruction(ByteCodeOp.STORE_NAME, index);
+        }
+        
+        private void EmitDeleteName(string name)
+        {
+            // 함수 내부에서의 변수 삭제
+            if (_isInFunction)
+            {
+                // CPython 3.12: global 변수는 DELETE_GLOBAL 사용
+                if (_globalVars.Contains(name))
+                {
+                    var globalIndex = AddName(name);
+                    EmitInstruction(ByteCodeOp.DELETE_GLOBAL, globalIndex);
+                    Console.WriteLine($"    → DELETE_GLOBAL for global var: {name} (global index {globalIndex})");
+                    return;
+                }
+                
+                // CPython 3.12: nonlocal 변수는 DELETE_DEREF 사용
+                if (_nonlocalVars.Contains(name))
+                {
+                    var freeIndex = _freeVars.IndexOf(name);
+                    if (freeIndex >= 0)
+                    {
+                        EmitInstruction(ByteCodeOp.DELETE_DEREF, freeIndex);
+                        Console.WriteLine($"    → DELETE_DEREF for nonlocal var: {name} (free index {freeIndex})");
+                        return;
+                    }
+                }
+                
+                // 지역 변수: DELETE_FAST 사용
+                var varIndex = _varNames.IndexOf(name);
+                if (varIndex >= 0)
+                {
+                    EmitInstruction(ByteCodeOp.DELETE_FAST, varIndex);
+                    Console.WriteLine($"    → DELETE_FAST for local var: {name} (var index {varIndex})");
+                    return;
+                }
+            }
+            
+            // 모듈 레벨: DELETE_NAME 사용
+            var index = AddName(name);
+            EmitInstruction(ByteCodeOp.DELETE_NAME, index);
         }
         
         /// <summary>
@@ -3118,6 +3314,24 @@ namespace SharpPy
                     // Stack: [subject] -> [] (subject consumed by store)
                     EmitStoreName(nameExpr.Name);
                     return true;
+                    
+                case AsPattern asPattern:
+                    // CPython 3.12: As pattern (pattern as name)
+                    Console.WriteLine($"🔍 AsPattern: {asPattern.Pattern} as {asPattern.Name}");
+                    
+                    // Stack: [subject] -> [subject] (preserve for variable binding)
+                    EmitInstruction(ByteCodeOp.COPY, 1); // Copy subject for variable binding
+                    
+                    // Compile the inner pattern, which will consume one copy of subject
+                    if (!CompilePatternMatch(asPattern.Pattern, failLabel))
+                    {
+                        return false;
+                    }
+                    
+                    // Stack: [subject] - bind the subject to the 'as' variable
+                    EmitStoreName(asPattern.Name);
+                    
+                    return true;
                 
                 case BinaryOpExpression binaryOp when binaryOp.Operator == "|":
                     // Handle BinaryOpExpression with OR operator as OrPattern
@@ -3692,7 +3906,36 @@ namespace SharpPy
             return true;
         }
         
-        private void CompileAssert(AssertStatement assert) { /* TODO */ }
+        private void CompileAssert(AssertStatement assert)
+        {
+            // CPython 3.12: assert test [, msg]
+            // Pattern: test → POP_JUMP_IF_TRUE → LOAD_ASSERTION_ERROR [→ msg → CALL 0] → RAISE_VARARGS 1
+            
+            // Compile test expression
+            CompileExpression(assert.Test);
+            
+            // Create label for end of assert (when test is true)
+            var endLabel = CreateLabel($"assert_end_{_labelCounter++}");
+            
+            // If test is true, skip the assertion error
+            EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_TRUE, endLabel);
+            
+            // Load AssertionError class
+            EmitInstruction(ByteCodeOp.LOAD_ASSERTION_ERROR);
+            
+            if (assert.Msg != null)
+            {
+                // assert test, msg: AssertionError(msg)
+                CompileExpression(assert.Msg);
+                EmitInstruction(ByteCodeOp.CALL, 1);
+            }
+            
+            // Raise the AssertionError
+            EmitInstruction(ByteCodeOp.RAISE_VARARGS, 1);
+            
+            // Mark end of assert
+            MarkLabel(endLabel);
+        }
         private void CompileRaise(RaiseStatement raise)
         {
             if (raise.Exc != null)
@@ -3707,9 +3950,56 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.RERAISE);
             }
         }
-        private void CompileDelete(DeleteStatement delete) { /* TODO */ }
-        private void CompileGlobal(GlobalStatement global) { /* TODO */ }
-        private void CompileNonlocal(NonlocalStatement nonlocal) { /* TODO */ }
+        private void CompileDelete(DeleteStatement delete)
+        {
+            // CPython 3.12: del target1, target2, ...
+            foreach (var target in delete.Targets)
+            {
+                if (target is NameExpression nameExpr)
+                {
+                    // Delete variable: DELETE_NAME, DELETE_FAST, DELETE_GLOBAL, DELETE_DEREF
+                    EmitDeleteName(nameExpr.Name);
+                }
+                else if (target is AttributeExpression attrExpr)
+                {
+                    // Delete attribute: obj.attr -> DELETE_ATTR
+                    CompileExpression(attrExpr.Value);
+                    var attrIndex = AddName(attrExpr.Attr);
+                    EmitInstruction(ByteCodeOp.DELETE_ATTR, attrIndex);
+                }
+                else if (target is SubscriptExpression subscrExpr)
+                {
+                    // Delete item: obj[key] -> DELETE_SUBSCR
+                    CompileExpression(subscrExpr.Value);
+                    CompileExpression(subscrExpr.Slice);
+                    EmitInstruction(ByteCodeOp.DELETE_SUBSCR);
+                }
+                else
+                {
+                    throw new PythonException(new PySyntaxError($"can't delete {target.GetType().Name}"));
+                }
+            }
+        }
+        private void CompileGlobal(GlobalStatement global)
+        {
+            // CPython 3.12: global 선언은 컴파일 타임에 스코프 분석에 영향을 줌
+            // 런타임 바이트코드는 생성하지 않음
+            foreach (var name in global.Names)
+            {
+                _globalVars.Add(name);
+                Console.WriteLine($"🌍 Global variable declared: {name}");
+            }
+        }
+        private void CompileNonlocal(NonlocalStatement nonlocal)
+        {
+            // CPython 3.12: nonlocal 선언은 컴파일 타임에 스코프 분석에 영향을 줌
+            // 런타임 바이트코드는 생성하지 않음
+            foreach (var name in nonlocal.Names)
+            {
+                _nonlocalVars.Add(name);
+                Console.WriteLine($"🔗 Nonlocal variable declared: {name}");
+            }
+        }
         private void CompileBoolOp(BoolOpExpression boolOp)
         {
             // CPython 3.12: Boolean operations with short-circuiting
