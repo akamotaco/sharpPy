@@ -2512,18 +2512,18 @@ namespace SharpPy
         
         private PyObject CompareOperation(PyObject left, PyObject right, int compareOp)
         {
+            // CPython 3.12 바이트코드의 실제 compare operation 값 사용
             var operation = (CompareOp)compareOp;
             return operation switch
             {
-                CompareOp.Eq => left.RichCompare(right, PyObject.CompareOp.EQ),
-                CompareOp.NotEq => left.RichCompare(right, PyObject.CompareOp.NE),
-                CompareOp.Lt => left.RichCompare(right, PyObject.CompareOp.LT),
-                CompareOp.LtE => left.RichCompare(right, PyObject.CompareOp.LE),
-                CompareOp.Gt => left.RichCompare(right, PyObject.CompareOp.GT),
-                CompareOp.GtE => left.RichCompare(right, PyObject.CompareOp.GE),
-                CompareOp.Is => ReferenceEquals(left, right) ? PyBool.True : PyBool.False,
-                CompareOp.IsNot => ReferenceEquals(left, right) ? PyBool.False : PyBool.True,
-                _ => throw new NotImplementedException($"Compare operation {operation} not implemented")
+                CompareOp.EQ => left.RichCompare(right, PyObject.CompareOp.EQ),    // 40
+                CompareOp.NE => left.RichCompare(right, PyObject.CompareOp.NE),    // 55
+                CompareOp.LT => left.RichCompare(right, PyObject.CompareOp.LT),    // 2
+                CompareOp.LE => left.RichCompare(right, PyObject.CompareOp.LE),    // 26
+                CompareOp.GT => left.RichCompare(right, PyObject.CompareOp.GT),    // 68
+                CompareOp.GE => left.RichCompare(right, PyObject.CompareOp.GE),    // 92
+                CompareOp.EXC_MATCH => left.RichCompare(right, PyObject.CompareOp.EQ), // 8 - exception match
+                _ => throw new NotImplementedException($"Compare operation {compareOp} not implemented")
             };
         }
 
@@ -2545,17 +2545,7 @@ namespace SharpPy
         /// <summary>
         /// Compare operation enumeration matching CPython
         /// </summary>
-        private enum CompareOp : int
-        {
-            Lt = 0,
-            LtE = 1, 
-            Eq = 2,
-            NotEq = 3,
-            Gt = 4,
-            GtE = 5,
-            Is = 6,
-            IsNot = 7
-        }
+        // CompareOp enum은 PyBytecode.CompareOp를 사용하도록 변경됨
         
         private enum ContainsOp : int
         {

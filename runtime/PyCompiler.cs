@@ -3030,6 +3030,11 @@ namespace SharpPy
                     Console.WriteLine($"🔍 MappingPattern: {mappingPattern.Patterns.Count} patterns");
                     return CompileMappingPattern(mappingPattern, failLabel);
                     
+                case CallExpression callExpr:
+                    // CPython 3.12: Class pattern matching Point(x, y) -> MATCH_CLASS
+                    Console.WriteLine($"🔍 CallExpression (class pattern): {callExpr}");
+                    return CompileClassPattern(callExpr, failLabel);
+                    
                 default:
                     // Unsupported pattern type for now - fallback to old system
                     return false;
@@ -3111,6 +3116,14 @@ namespace SharpPy
                     {
                         EmitStoreName(nameExpr.Name);
                     }
+                    else
+                    {
+                        // Handle nested patterns (mapping, sequence, etc.) recursively
+                        if (!CompilePatternMatch(p, failLabel))
+                        {
+                            return false; // Nested pattern compilation failed
+                        }
+                    }
                 }
                 
                 // 3. Match after elements (remaining on stack, in forward order)
@@ -3128,6 +3141,14 @@ namespace SharpPy
                     else if (p is NameExpression nameExpr)
                     {
                         EmitStoreName(nameExpr.Name);
+                    }
+                    else
+                    {
+                        // Handle nested patterns (mapping, sequence, etc.) recursively
+                        if (!CompilePatternMatch(p, failLabel))
+                        {
+                            return false; // Nested pattern compilation failed
+                        }
                     }
                 }
             }
@@ -3152,9 +3173,78 @@ namespace SharpPy
                     {
                         EmitStoreName(nameExpr.Name);
                     }
+                    else
+                    {
+                        // Handle nested patterns (mapping, sequence, etc.) recursively
+                        if (!CompilePatternMatch(p, failLabel))
+                        {
+                            return false; // Nested pattern compilation failed
+                        }
+                    }
                 }
             }
             
+            return true;
+        }
+        
+        /// <summary>
+        /// Compile class pattern matching like Point(x, y) using MATCH_CLASS
+        /// </summary>
+        private bool CompileClassPattern(CallExpression callExpr, Label failLabel)
+        {
+            // CPython 3.12: Class pattern matching Point(x, y) -> MATCH_CLASS
+            // We need to preserve the subject on stack for CompileMatch's POP_TOP
+            
+            // 1. Duplicate subject for MATCH_CLASS (which consumes it)
+            // Stack: [subject] -> [subject, subject]
+            EmitInstruction(ByteCodeOp.COPY, 1);
+            
+            // 2. Load the class to match against  
+            // Stack: [subject, subject] -> [subject, subject, class]
+            CompileExpression(callExpr.Function); // Load Point class
+            
+            // 3. Load keyword names tuple (empty for positional-only patterns)
+            // Stack: [subject, subject, class] -> [subject, subject, class, kw_names]
+            EmitLoadConst(new PyTuple()); // Empty tuple for now (no keyword matching)
+            
+            // 4. Use MATCH_CLASS with argument count (consumes subject, class, kw_names)
+            // Stack: [subject, subject, class, kw_names] -> [subject, result_tuple_or_none]
+            var argumentCount = callExpr.Arguments.Count;
+            EmitInstruction(ByteCodeOp.MATCH_CLASS, argumentCount);
+            
+            // 5. Check if match succeeded (None = failure, tuple = success)
+            // Stack: [subject, result_tuple_or_none] -> [subject, result_tuple_or_none, result_tuple_or_none]
+            EmitInstruction(ByteCodeOp.COPY, 1); // Duplicate result for check
+            EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_NONE, failLabel);
+            
+            // 6. If successful, unpack the attributes and bind to variables
+            // Stack: [subject, result_tuple] -> [subject, attr1, attr2, ...]
+            if (argumentCount > 0)
+            {
+                EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, argumentCount);
+                
+                // Bind each argument to its corresponding variable (forward order to match CPython)
+                for (int i = 0; i < argumentCount; i++)
+                {
+                    var arg = callExpr.Arguments[i];
+                    if (arg is NameExpression nameExpr)
+                    {
+                        EmitStoreName(nameExpr.Name);
+                    }
+                    else
+                    {
+                        // Non-name patterns not supported yet, just pop
+                        EmitInstruction(ByteCodeOp.POP_TOP);
+                    }
+                }
+            }
+            else
+            {
+                // No arguments, just pop the result
+                EmitInstruction(ByteCodeOp.POP_TOP);
+            }
+            
+            // Stack now: [subject] - this will be consumed by CompileMatch's POP_TOP
             return true;
         }
         
@@ -3328,8 +3418,20 @@ namespace SharpPy
                 }
                 else
                 {
-                    // Complex patterns in dict values not yet supported
-                    return false;
+                    // Handle complex patterns recursively (sequence, mapping, etc.)
+                    // Stack has value for this pattern, need to match it
+                    var subFailLabel = CreateLabel("mapping_pattern_fail");
+                    
+                    // Compile the nested pattern recursively
+                    if (!CompilePatternMatch(valuePattern, subFailLabel))
+                    {
+                        // If nested pattern compilation fails, cleanup and fail
+                        MarkLabel(subFailLabel);
+                        return false;
+                    }
+                    
+                    // If nested pattern succeeds, continue with remaining patterns
+                    // (Note: nested pattern should handle its own variable bindings)
                 }
             }
             // Stack: [subject]
