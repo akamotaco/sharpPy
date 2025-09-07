@@ -474,14 +474,38 @@ namespace SharpPy
                     }
                     
                     // 동일한 FOR 루프의 POP_JUMP_IF_FALSE 조건부 점프 재계산
+                    // 단, MATCH 패턴에서 사용되는 POP_JUMP_IF_FALSE는 제외 (다음 케이스로 점프해야 함)
+                    int foundCount = 0;
                     for (int j = forIterPos + 1; j < _instructions.Count; j++)
                     {
                         var laterInst = _instructions[j];
                         
+                        // Removed debug output for cleaner execution
+                        
                         if (laterInst.OpCode == ByteCodeOp.POP_JUMP_IF_FALSE)
                         {
+                            foundCount++;
                             int jumpPos = j;
                             int currentTarget = laterInst.Argument;
+                            
+                            // Pattern matching 감지: COPY 1 + [LOAD_CONST] + COMPARE_OP + POP_JUMP_IF_FALSE 패턴
+                            bool isPatternMatching = false;
+                            if (j >= 3)
+                            {
+                                var prevInst = _instructions[j - 1];        // Should be COMPARE_OP
+                                var prev3Inst = _instructions[j - 3];       // Should be COPY 1
+                                if (prev3Inst.OpCode == ByteCodeOp.COPY && prev3Inst.Argument == 1 &&
+                                    prevInst.OpCode == ByteCodeOp.COMPARE_OP)
+                                {
+                                    isPatternMatching = true;
+                                }
+                            }
+                            
+                            // Pattern matching의 POP_JUMP_IF_FALSE는 수정하지 않음 (다음 케이스로 점프)
+                            if (isPatternMatching)
+                            {
+                                continue;
+                            }
                             
                             // 조건부 점프 타겟 재계산 - 더 관대한 조건으로 수정
                             bool shouldPointToForIter = false;

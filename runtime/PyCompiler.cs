@@ -390,7 +390,14 @@ namespace SharpPy
     // AST를 바이트코드로 컴파일 (기존 시스템과 연동)
     public class PythonCompiler
     {
-        private readonly bool _enable_optimizer = true;
+        /// <summary>
+        /// CPython 3.12: Each bytecode instruction uses 2 bytes
+        /// All jump offsets are calculated in 2-byte units for compatibility
+        /// This ensures SharpPy generates identical bytecode to CPython 3.12
+        /// </summary>
+        private const int CPYTHON_INSTRUCTION_SIZE = 2;
+        
+        private readonly bool _enable_optimizer = true;   // CPython 3.12 compatibility with 2-byte addressing
         private List<ByteCodeInstruction> _instructions;
         private List<PyObject> _constants;
         private List<string> _names;
@@ -2900,7 +2907,7 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.NOP);
             
             // Exception Table start offset is after NOP - 바이트 오프셋 계산
-            var tryStartOffset = _instructions.Count * 2;
+            var tryStartOffset = _instructions.Count * CPYTHON_INSTRUCTION_SIZE;
             
             // CPython 3.12: Direct compilation of try body (no SETUP_EXCEPT)
             foreach (var stmt in tryStmt.Body)
@@ -2908,10 +2915,10 @@ namespace SharpPy
                 CompileStatement(stmt);
             }
             
-            var tryEndOffset = _instructions.Count * 2;
+            var tryEndOffset = _instructions.Count * CPYTHON_INSTRUCTION_SIZE;
             
             // Exception handler start (where PUSH_EXC_INFO will jump to) - 바이트 오프셋
-            var handlersStartOffset = _instructions.Count * 2;
+            var handlersStartOffset = _instructions.Count * CPYTHON_INSTRUCTION_SIZE;
             var handlersStartLabel = CreateLabel("handlers_start");
             MarkLabel(handlersStartLabel);
             
@@ -2995,7 +3002,7 @@ namespace SharpPy
                 
                 // CPython 3.12: Exception handler completion - offset-based jump direction
                 // Jump BACKWARD if target is before handler, FORWARD if target is after handler
-                var currentHandlerOffset = _instructions.Count * 2; // Current byte offset
+                var currentHandlerOffset = _instructions.Count * CPYTHON_INSTRUCTION_SIZE; // Current byte offset
                 if (continueLabel.Offset < currentHandlerOffset)
                 {
                     EmitJumpToLabel(ByteCodeOp.JUMP_BACKWARD, continueLabel);
@@ -3205,7 +3212,7 @@ namespace SharpPy
         }
         private void CompileMatch(MatchStatement matchStmt)
         {
-            // CPython 3.12: Match statement compilation using dedicated opcodes
+            // CPython 3.12: Match statement compilation - exact pattern placement
             
             // Compile and keep the subject on stack
             CompileExpression(matchStmt.Subject);
@@ -3213,70 +3220,79 @@ namespace SharpPy
             // Create labels for control flow
             var endLabel = CreateLabel($"match_end_{_labelCounter++}");
             var noMatchLabel = CreateLabel($"no_match_{_labelCounter++}");
-            var caseLabels = new List<Label>();
             
-            // Generate labels for each case
+            // Console.WriteLine($"🔍 CompileMatch: Starting with {matchStmt.Cases.Count} cases");
+            
+            // CPython 3.12: Sequential pattern tests with proper label placement
+            var bodyLabels = new List<Label>();
+            var nextPatternLabels = new List<Label>();
+            
+            // Pre-create body labels and next pattern labels
             for (int i = 0; i < matchStmt.Cases.Count; i++)
             {
-                caseLabels.Add(CreateLabel($"case_{i}_{_labelCounter++}"));
+                bodyLabels.Add(CreateLabel($"body_{i}_{_labelCounter++}"));
+                // Each pattern (except last) needs a "next pattern" label
+                if (i + 1 < matchStmt.Cases.Count)
+                {
+                    nextPatternLabels.Add(CreateLabel($"next_pattern_{i+1}_{_labelCounter++}"));
+                }
             }
             
-            // Compile each case
+            // Compile pattern tests sequentially
             for (int i = 0; i < matchStmt.Cases.Count; i++)
             {
                 var matchCase = matchStmt.Cases[i];
-                var caseLabel = caseLabels[i];
-                var nextLabel = (i + 1 < caseLabels.Count) ? caseLabels[i + 1] : noMatchLabel;
+                // Console.WriteLine($"🔍 Compiling case {i}: Pattern={matchCase.Pattern?.GetType().Name} - {matchCase.Pattern}");
                 
-                Console.WriteLine($"🔍 Compiling case {i}: Pattern={matchCase.Pattern?.GetType().Name} - {matchCase.Pattern}");
-                
-                // Place case label
-                PlaceLabel(caseLabel);
-                
-                // CPython 3.12: Copy subject only if stack has content
-                // Stack should have: [original_subject]
-                
-                // Compile pattern matching - this will handle its own subject duplication
-                if (!CompilePatternMatch(matchCase.Pattern, nextLabel))
+                // Place the "next pattern" label if this is not the first case
+                if (i > 0)
                 {
-                    // If pattern compilation failed, skip to next case
-                    EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, nextLabel);
+                    PlaceLabel(nextPatternLabels[i-1]);
+                    // Console.WriteLine($"🔍 Placed label {nextPatternLabels[i-1].Name} at instruction {_instructions.Count}");
+                }
+                
+                // Determine failure jump target
+                Label failLabel = (i + 1 < matchStmt.Cases.Count) ? nextPatternLabels[i] : noMatchLabel;
+                // Console.WriteLine($"🔍 Case {i}: Fail jump target = {failLabel.Name}");
+                
+                // Compile pattern matching
+                if (!CompilePatternMatch(matchCase.Pattern, failLabel))
+                {
+                    EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, failLabel);
                     continue;
                 }
                 
                 // Check guard condition if present
                 if (matchCase.Guard != null)
                 {
-                    // At this point we have [original_subject] on stack
-                    // Guard should not consume the subject
-                    EmitInstruction(ByteCodeOp.COPY, 1); // [subject, subject] 
+                    EmitInstruction(ByteCodeOp.COPY, 1);
                     CompileExpression(matchCase.Guard);
-                    // Guard uses second subject, leaves first one
-                    EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, nextLabel);
-                    // Stack: [original_subject]
+                    EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
                 }
                 
-                // Pattern matched and guard passed - execute case body
-                // CPython-style: subject elements are already consumed by pattern matching
-                
-                // CPython 3.12: Some patterns consume subject, others leave values on stack
-                // Only clean up subject for patterns that don't unpack values
+                // Pattern matched - clean up and jump to body
                 if (ShouldCleanupSubjectAfterMatch(matchCase.Pattern))
                 {
-                    EmitInstruction(ByteCodeOp.POP_TOP); // Clean up subject after successful match
+                    EmitInstruction(ByteCodeOp.POP_TOP);
                 }
+                EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, bodyLabels[i]);
+            }
+            
+            // Compile all case bodies
+            for (int i = 0; i < matchStmt.Cases.Count; i++)
+            {
+                var matchCase = matchStmt.Cases[i];
+                PlaceLabel(bodyLabels[i]);
                 
-                // Compile case body
                 foreach (var stmt in matchCase.Body)
                 {
                     CompileStatement(stmt);
                 }
                 
-                // Jump to end after successful case
                 EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, endLabel);
             }
             
-            // Place no match label - clean up subject when no case matched
+            // Place no match label - clean up subject when no case matched  
             PlaceLabel(noMatchLabel);
             EmitInstruction(ByteCodeOp.POP_TOP); // Clean up subject
             
@@ -4316,11 +4332,13 @@ namespace SharpPy
         private void MarkLabel(Label label)
         {
             label.Offset = _instructions.Count;
+            // Console.WriteLine($"🔍 MarkLabel: {label.Name} → offset {label.Offset}, {label.References.Count} references");
             
             // Update all references to this label
             foreach (var refIndex in label.References)
             {
                 var oldInstruction = _instructions[refIndex];
+                // Console.WriteLine($"🔍 Updating ref {refIndex}: {oldInstruction.OpCode} from arg {oldInstruction.Argument}");
                 int argument;
                 
                 // CPython 3.12 compatible jump addressing
@@ -4333,9 +4351,9 @@ namespace SharpPy
                 else if (oldInstruction.OpCode == ByteCodeOp.POP_JUMP_IF_FALSE || 
                          oldInstruction.OpCode == ByteCodeOp.POP_JUMP_IF_TRUE)
                 {
-                    // CPython 3.12: POP_JUMP_IF_* use absolute instruction indices
-                    // Convert to byte offset (instruction_index * 2) as per CPython 3.12
-                    argument = label.Offset * 2;
+                    // CPython 3.12: POP_JUMP_IF_* use relative offset from next instruction
+                    // Formula: target_instruction - (current_instruction + 1)
+                    argument = label.Offset - (refIndex + 1);
                 }
                 else if (oldInstruction.OpCode == ByteCodeOp.JUMP_BACKWARD)
                 {
@@ -4349,6 +4367,7 @@ namespace SharpPy
                     argument = label.Offset;
                 }
                 
+                // Console.WriteLine($"🔍 Updated to arg {argument} (offset {label.Offset} - {refIndex} - 1 = {label.Offset - (refIndex + 1)})");
                 _instructions[refIndex] = new ByteCodeInstruction(oldInstruction.OpCode, argument);
             }
         }
