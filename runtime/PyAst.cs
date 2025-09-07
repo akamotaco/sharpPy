@@ -1465,6 +1465,7 @@ namespace SharpPy
             Pattern = pattern;
             Guard = guard;
             Body = body;
+            // Console.WriteLine($"🔍 MatchCase created: Pattern={pattern?.GetType().Name}, Guard={guard?.GetType().Name} ({guard})");
         }
         
         public override T Accept<T>(IASTVisitor<T> visitor)

@@ -16,6 +16,7 @@ namespace SharpPy
         private int _current;
         private bool _inAsyncFunction = false; // CPython 3.12 await context validation
         private bool _inComprehension = false; // Comprehension parsing context
+        private bool _inMatchPattern = false; // Match pattern parsing context
         
         // CPython-style precedence table
         private static readonly Dictionary<TokenType, int> OperatorPrecedence = new()
@@ -815,8 +816,8 @@ namespace SharpPy
             var expr = ParseBinaryExpression();
             
             // Check for conditional: expr if condition else alternative  
-            // Skip conditional expression parsing when inside comprehension
-            if (Check(TokenType.IF) && !_inComprehension)
+            // Skip conditional expression parsing when inside comprehension or match pattern
+            if (Check(TokenType.IF) && !_inComprehension && !_inMatchPattern)
             {
                 Advance(); // consume IF
                 var condition = ParseBinaryExpression();
@@ -2231,6 +2232,7 @@ namespace SharpPy
         }
         private Statement ParseMatchStatement()
         {
+            // Console.WriteLine($"🔍 ParseMatchStatement called");
             var subject = ParseExpression(); // match subject
             Consume(TokenType.COLON, "Expected ':' after match subject");
             
@@ -2299,9 +2301,12 @@ namespace SharpPy
             
             // Parse optional guard (if condition)
             Expression? guard = null;
+            // Console.WriteLine($"🔍 Parsing Guard: Current token = {Peek().Type} ({Peek().Lexeme})");
             if (Match(TokenType.IF))
             {
+                // Console.WriteLine($"🔍 Guard IF token matched, parsing expression...");
                 guard = ParseExpression();
+                // Console.WriteLine($"🔍 Guard expression parsed: {guard?.GetType().Name} - {guard}");
             }
             
             Consume(TokenType.COLON, "Expected ':' after case pattern");
@@ -2319,6 +2324,11 @@ namespace SharpPy
         {
             return WithRecursionProtection("ParseMatchPattern", () =>
             {
+                var wasInMatchPattern = _inMatchPattern;
+                _inMatchPattern = true;
+                
+                try
+                {
                 var patterns = new List<Expression>();
                 var startPos = _current;  // Track token progress to prevent infinite loops
                 
@@ -2379,6 +2389,11 @@ namespace SharpPy
                 }
                 
                 return basePattern;
+                }
+                finally
+                {
+                    _inMatchPattern = wasInMatchPattern;
+                }
             });
         }
         
@@ -3279,8 +3294,10 @@ namespace SharpPy
         /// </summary>
         private bool IsMatchStatementStart()
         {
+            // Console.WriteLine($"🔍 IsMatchStatementStart: Current={Peek().Type} ({Peek().Lexeme})");
             if (!(Check(TokenType.IDENTIFIER) && Peek().Lexeme == "match"))
             {
+                // Console.WriteLine($"🔍 IsMatchStatementStart: Not a match statement");
                 return false;
             }
             

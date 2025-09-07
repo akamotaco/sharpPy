@@ -3214,12 +3214,20 @@ namespace SharpPy
         {
             // CPython 3.12: Match statement compilation - exact pattern placement
             
-            // Compile and keep the subject on stack
-            CompileExpression(matchStmt.Subject);
+            // FOR 루프 컨텍스트 내에서 패턴 매칭인지 확인
+            bool inForLoop = IsInForLoopContext();
+            if (inForLoop)
+            {
+                Console.WriteLine("🔍 FOR 루프 컨텍스트 내 패턴 매칭 감지 - 스택 관리 특별 처리");
+            }
             
-            // Create labels for control flow
-            var endLabel = CreateLabel($"match_end_{_labelCounter++}");
-            var noMatchLabel = CreateLabel($"no_match_{_labelCounter++}");
+            // CPython 3.12: Don't keep subject on stack, load it per case
+            // Note: Subject will be loaded individually for each case
+            
+            // Create labels for control flow with FOR 루프 컨텍스트 고려
+            string labelPrefix = inForLoop ? "forloop_match" : "match";
+            var endLabel = CreateLabel($"{labelPrefix}_end_{_labelCounter++}");
+            var noMatchLabel = CreateLabel($"{labelPrefix}_no_match_{_labelCounter++}");
             
             // Console.WriteLine($"🔍 CompileMatch: Starting with {matchStmt.Cases.Count} cases");
             
@@ -3227,14 +3235,14 @@ namespace SharpPy
             var bodyLabels = new List<Label>();
             var nextPatternLabels = new List<Label>();
             
-            // Pre-create body labels and next pattern labels
+            // Pre-create body labels and next pattern labels with 네임스페이스 분리
             for (int i = 0; i < matchStmt.Cases.Count; i++)
             {
-                bodyLabels.Add(CreateLabel($"body_{i}_{_labelCounter++}"));
+                bodyLabels.Add(CreateLabel($"{labelPrefix}_body_{i}_{_labelCounter++}"));
                 // Each pattern (except last) needs a "next pattern" label
                 if (i + 1 < matchStmt.Cases.Count)
                 {
-                    nextPatternLabels.Add(CreateLabel($"next_pattern_{i+1}_{_labelCounter++}"));
+                    nextPatternLabels.Add(CreateLabel($"{labelPrefix}_next_pattern_{i+1}_{_labelCounter++}"));
                 }
             }
             
@@ -3255,25 +3263,41 @@ namespace SharpPy
                 Label failLabel = (i + 1 < matchStmt.Cases.Count) ? nextPatternLabels[i] : noMatchLabel;
                 // Console.WriteLine($"🔍 Case {i}: Fail jump target = {failLabel.Name}");
                 
-                // Compile pattern matching
-                if (!CompilePatternMatch(matchCase.Pattern, failLabel))
-                {
-                    EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, failLabel);
-                    continue;
-                }
-                
-                // Check guard condition if present
+                // Handle Guard patterns specially - CPython 3.12 compatible
+                // Console.WriteLine($"🔍 Checking Guard for case {i}: Guard={matchCase.Guard?.GetType().Name} - {matchCase.Guard}");
                 if (matchCase.Guard != null)
                 {
-                    EmitInstruction(ByteCodeOp.COPY, 1);
+                    // Guard pattern: CPython 3.12 compatible - load subject per case
+                    // Load subject fresh for this case
+                    CompileExpression(matchStmt.Subject);
+                    
+                    // Compile pattern matching - this will bind the variable and consume subject
+                    if (!CompilePatternMatch(matchCase.Pattern, failLabel))
+                    {
+                        EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, failLabel);
+                        continue;
+                    }
+                    
+                    // Stack: [] (after pattern binding consumed subject)
+                    // Now evaluate guard condition
                     CompileExpression(matchCase.Guard);
                     EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+                    
+                    // No cleanup needed - each case is independent
                 }
-                
-                // Pattern matched - clean up and jump to body
-                if (ShouldCleanupSubjectAfterMatch(matchCase.Pattern))
+                else
                 {
-                    EmitInstruction(ByteCodeOp.POP_TOP);
+                    // Regular pattern without guard - CPython 3.12 compatible
+                    // Load subject fresh for this case
+                    CompileExpression(matchStmt.Subject);
+                    
+                    if (!CompilePatternMatch(matchCase.Pattern, failLabel))
+                    {
+                        EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, failLabel);
+                        continue;
+                    }
+                    
+                    // No cleanup needed - each case is independent
                 }
                 EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, bodyLabels[i]);
             }
@@ -3522,6 +3546,41 @@ namespace SharpPy
         }
         
         /// <summary>
+        /// CPython 3.12: Compile pattern matching for Guard patterns - preserves subject on stack
+        /// This is similar to CompilePatternMatch but designed for Guard context where subject must remain
+        /// </summary>
+        private bool CompilePatternMatchForGuard(Expression pattern, Label failLabel)
+        {
+            // Console.WriteLine($"🔍 CompilePatternMatchForGuard: {pattern?.GetType().Name} - {pattern}");
+            switch (pattern)
+            {
+                case ConstantExpression constExpr:
+                    // Guard constant pattern: subject is already copied, so consume the copy for comparison
+                    CompileExpression(constExpr);
+                    EmitComparison(CompareOp.EQ);
+                    EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+                    return true;
+                
+                case NameExpression nameExpr when nameExpr.Name == "_":
+                    // Wildcard pattern - always matches, no binding needed
+                    // But we need to consume the copied subject
+                    EmitInstruction(ByteCodeOp.POP_TOP);  // consume the copy
+                    return true;
+                    
+                case NameExpression nameExpr:
+                    // Guard variable pattern: bind the copied subject to variable
+                    // Stack: [original_subject, subject_copy] -> [original_subject]
+                    EmitStoreName(nameExpr.Name);
+                    return true;
+                    
+                default:
+                    // For other patterns, fall back to regular pattern matching
+                    // This might not work perfectly but provides basic functionality
+                    return CompilePatternMatch(pattern, failLabel);
+            }
+        }
+        
+        /// <summary>
         /// Compile sequence pattern matching like [1, 2, *rest]
         /// </summary>
         private bool CompileSequencePattern(SequencePattern pattern, Label failLabel)
@@ -3752,45 +3811,61 @@ namespace SharpPy
                 Console.WriteLine($"  Flattened Pattern {i}: {flattenedPatterns[i]}");
             }
             
-            // CPython 3.12: Use multiple comparisons with OR short-circuiting
-            // Stack: [subject] - we need to preserve this throughout
-            var successLabel = CreateLabel("or_match_success");
+            // CPython 3.12: OR pattern with proper jump logic
+            // Stack: [subject] - preserve throughout
+            
+            // Create labels for each pattern attempt
+            var nextPatternLabels = new List<Label>();
+            for (int i = 0; i < flattenedPatterns.Count - 1; i++)
+            {
+                nextPatternLabels.Add(CreateLabel($"or_next_{i}"));
+            }
             
             for (int i = 0; i < flattenedPatterns.Count; i++)
             {
-                var isLast = (i == flattenedPatterns.Count - 1);
+                if (i > 0)
+                {
+                    // Place the label for this pattern attempt
+                    PlaceLabel(nextPatternLabels[i - 1]);
+                }
+                
                 var pattern = flattenedPatterns[i];
+                var isLastPattern = (i == flattenedPatterns.Count - 1);
+                var nextLabel = isLastPattern ? failLabel : nextPatternLabels[i];
                 
                 if (pattern is ConstantExpression constExpr)
                 {
-                    // For each pattern, duplicate the subject for comparison
+                    // Duplicate subject for comparison
                     EmitInstruction(ByteCodeOp.COPY, 1); // [subject, subject]
                     CompileExpression(constExpr); // [subject, subject, constant]
                     EmitComparison(CompareOp.EQ);  // [subject, comparison_result]
                     
-                    // If match, jump to success - this consumes the comparison result
-                    if (!isLast)
+                    if (isLastPattern)
                     {
-                        EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_TRUE, successLabel); // [subject]
-                        // Continue to next pattern if no match
+                        // Last pattern - if false, fail the entire OR
+                        EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+                        // Fall through if true - OR pattern succeeds
                     }
                     else
                     {
-                        // Last comparison - if false, jump to fail
-                        EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel); // [subject] if true
-                        // Fall through to success if last pattern matches
+                        // Not last pattern - if false, try next pattern
+                        EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, nextLabel);
+                        // If true, OR pattern succeeds - fall through
+                        break; // Don't try remaining patterns
                     }
                 }
                 else
                 {
-                    // For other non-constant patterns, fail immediately 
-                    EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, failLabel);
-                    return false;
+                    // For non-constant patterns, delegate to individual pattern matching
+                    if (!CompilePatternMatch(pattern, nextLabel))
+                    {
+                        // Pattern compilation failed
+                        EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, failLabel);
+                        return false;
+                    }
                 }
             }
             
-            PlaceLabel(successLabel);
-            // Stack should have [subject] here - the successful match consumes comparison result but leaves subject
             return true;
         }
         
@@ -4471,6 +4546,29 @@ namespace SharpPy
         private LoopContext? GetCurrentLoop()
         {
             return _loopStack.Count > 0 ? _loopStack.Peek() : null;
+        }
+        
+        /// <summary>
+        /// FOR 루프 컨텍스트 내부인지 확인
+        /// </summary>
+        private bool IsInForLoopContext()
+        {
+            return _loopStack.Count > 0;
+        }
+        
+        /// <summary>
+        /// FOR 루프 컨텍스트에서 패턴 매칭을 위한 스택 상태 보정
+        /// Guard 패턴 등에서 스택 언더플로우 방지
+        /// </summary>
+        private void AdjustStackForForLoopMatch()
+        {
+            // FOR 루프 내에서 패턴 매칭 시 필요한 스택 조정
+            // FOR_ITER가 루프 변수를 스택에 남겨둔 상태에서
+            // match subject와 충돌 방지
+            if (IsInForLoopContext())
+            {
+                // Console.WriteLine("🔧 FOR 루프 컨텍스트에서 패턴 매칭 스택 조정");
+            }
         }
         
         /// <summary>
