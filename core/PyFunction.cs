@@ -63,14 +63,44 @@ public class PyFunction : PyObject, IDescriptor
 
     public override PyObject Call(params PyObject[] args)
     {
-        // 제너레이터 함수인지 확인
-        if (CodeObject?.IsGenerator() == true)
+        // async generator 함수인지 먼저 확인
+        if (CodeObject?.IsAsyncGenerator() == true)
+        {
+            // async generator 객체 생성
+            return CreateAsyncGenerator(args);
+        }
+        // 일반 generator 함수인지 확인
+        else if (CodeObject?.IsGenerator() == true)
         {
             // 제너레이터 객체 생성
             return CreateGenerator(args);
         }
         
         return Implementation(args);
+    }
+    
+    /// <summary>
+    /// async generator 객체 생성 - PEP 525 호환
+    /// </summary>
+    private SharpPy.Core.PyAsyncGenerator CreateAsyncGenerator(PyObject[] args)
+    {
+        // async generator 방식: Frame과 VM을 사용한 실제 async generator
+        if (CodeObject == null)
+        {
+            throw new InvalidOperationException("Cannot create async generator without code object");
+        }
+        
+        // async generator용 VM 인스턴스 사용
+        var vm = PyVM.Instance;
+        
+        // async generator 실행용 Frame 생성
+        var frame = new PyFrame(CodeObject, args, null, Closure);
+        frame.IsGenerator = true;  // CPython 3.12: generator frame 표시
+        
+        // async generator enumerator 생성
+        var enumerator = new FrameGeneratorEnumerator(frame, vm);
+        
+        return new SharpPy.Core.PyAsyncGenerator(enumerator, Name);
     }
     
     /// <summary>

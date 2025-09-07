@@ -309,6 +309,7 @@ namespace SharpPy
         public const int CO_VARKEYWORDS = 0x08;    // **kwargs 매개변수 존재
         public const int CO_GENERATOR = 0x20;      // 제너레이터 함수
         public const int CO_COROUTINE = 0x80;      // 네이티브 코루틴 (async def)
+        public const int CO_ASYNC_GENERATOR = 0x200; // 비동기 제너레이터 (async def + yield)
         
         public string Name { get; }
         public List<ByteCodeInstruction> Instructions { get; }
@@ -351,6 +352,30 @@ namespace SharpPy
             FreeVars = freeVars ?? new List<string>();
             CellVars = cellVars ?? new List<string>();
             DefaultValues = defaultValues ?? new List<PyObject>();
+            ExceptionTable = new List<ExceptionTableEntry>(); // 기본값 설정
+        }
+        
+        // ExceptionTable을 포함한 생성자
+        public PyCodeObject(string name, List<ByteCodeInstruction> instructions,
+                        List<PyObject> constants, List<string> names,
+                        List<string> varNames, int argCount,
+                        int flags, string fileName,
+                        List<string> freeVars, List<string> cellVars,
+                        List<ExceptionTableEntry> exceptionTable)
+        {
+            Name = name;
+            Instructions = instructions;
+            Constants = constants;
+            Names = names;
+            VarNames = varNames;
+            ArgCount = argCount;
+            Flags = flags;
+            FileName = fileName;
+            FreeVars = freeVars ?? new List<string>();
+            CellVars = cellVars ?? new List<string>();
+            ExceptionTable = exceptionTable ?? new List<ExceptionTableEntry>();
+            DefaultValues = new List<PyObject>();
+            SourceLines = null;
         }
         
         public override string GetTypeName() => "code";
@@ -401,6 +426,14 @@ namespace SharpPy
         public bool IsCoroutine()
         {
             return (Flags & CO_COROUTINE) != 0;
+        }
+        
+        /// <summary>
+        /// 비동기 제너레이터 함수인지 확인 (CO_ASYNC_GENERATOR 플래그)
+        /// </summary>
+        public bool IsAsyncGenerator()
+        {
+            return (Flags & CO_ASYNC_GENERATOR) != 0;
         }
         
         // Evaluate 메서드 - 나중에 구현

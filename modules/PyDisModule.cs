@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-namespace SharpPy
+namespace SharpPy.Modules
 {
     /// <summary>
     /// CPython 3.12 호환 디스어셈블리 모듈

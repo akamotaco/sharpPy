@@ -71,7 +71,7 @@ namespace SharpPy
             }
 
             // 기본 모드: REPL 실행
-            var repl = new SharpPyRepl();
+            var repl = new SharpPy.Core.SharpPyRepl();
             repl.Start();
         }
 
@@ -126,7 +126,7 @@ namespace SharpPy
                 // 디스어셈블리 전용 모드 설정 (디버그 출력 숨김)
                 SharpPyConfig.DisassemblyOnlyMode = true;
                 
-                var disModule = new PyDisModule();
+                var disModule = new SharpPy.Modules.PyDisModule();
                 disModule.DisassembleFile(pythonFile);
             }
             catch (Exception ex)

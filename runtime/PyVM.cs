@@ -892,7 +892,37 @@ namespace SharpPy
                     if (codeObject is PyCodeObject pyCode)
                     {
                         // CPython 3.12: async def로 정의된 함수인지 확인
-                        if (pyCode.IsCoroutine())
+                        if (pyCode.IsAsyncGenerator())
+                        {
+                            // Async generator: 호출 시 PyAsyncGenerator 객체 반환
+                            var asyncGenImpl = new Func<PyObject[], PyObject>(args =>
+                            {
+                                var boundArgs = BindFunctionArguments(args, pyCode, defaults);
+                                var asyncGenFrame = closure != null && closure.Length > 0 
+                                    ? new PyFrame(pyCode, boundArgs, frame.ScopeChain, closure)
+                                    : new PyFrame(pyCode, boundArgs, frame.ScopeChain);
+                                
+                                // Async generator 생성
+                                var enumerator = new FrameGeneratorEnumerator(asyncGenFrame, this);
+                                return new SharpPy.Core.PyAsyncGenerator(enumerator, pyCode.Name);
+                            });
+                            
+                            var asyncGenFunction = new PyFunction(pyCode.Name, asyncGenImpl, null, null, closure, pyCode);
+                            
+                            // Set CPython 3.12 compatible function attributes
+                            if (defaults != null)
+                            {
+                                asyncGenFunction.SetAttribute("__defaults__", defaults);
+                            }
+                            if (kwDefaults != null)
+                            {
+                                asyncGenFunction.SetAttribute("__kwdefaults__", kwDefaults);
+                            }
+                            
+                            frame.ValueStack.Push(asyncGenFunction);
+                            Console.WriteLine($"✅ Created async generator function: {pyCode.Name}");
+                        }
+                        else if (pyCode.IsCoroutine())
                         {
                             // Async function: 호출 시 PyCoroutine 객체 반환
                             var asyncImpl = new Func<PyObject[], PyObject>(args =>

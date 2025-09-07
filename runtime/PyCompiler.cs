@@ -380,7 +380,7 @@ namespace SharpPy
     // AST를 바이트코드로 컴파일 (기존 시스템과 연동)
     public class PythonCompiler
     {
-        private readonly bool _enable_optimizer = false;
+        private readonly bool _enable_optimizer = true;
         private List<ByteCodeInstruction> _instructions;
         private List<PyObject> _constants;
         private List<string> _names;
@@ -651,7 +651,32 @@ namespace SharpPy
             
             var compiler = new PythonCompiler();
             compiler.SetupClosureCompilation(cellVars, freeVars);
-            return compiler.CompileWithClosureAndDefaults(asyncFunc.Body, asyncFunc.Name, paramNames, defaults, freeVars, cellVars, flags);
+            var codeObject = compiler.CompileWithClosureAndDefaults(asyncFunc.Body, asyncFunc.Name, paramNames, defaults, freeVars, cellVars, flags);
+            
+            // yield가 있는 async 함수는 async generator
+            if (codeObject.IsGenerator())
+            {
+                // CO_ASYNC_GENERATOR 플래그 추가 및 CO_GENERATOR 제거
+                var newFlags = codeObject.Flags | PyCodeObject.CO_ASYNC_GENERATOR;
+                newFlags &= ~PyCodeObject.CO_GENERATOR; // CO_GENERATOR 플래그 제거
+                
+                // 새로운 플래그로 코드 객체 재생성
+                codeObject = new PyCodeObject(
+                    codeObject.Name,
+                    codeObject.Instructions,
+                    codeObject.Constants,
+                    codeObject.Names,
+                    codeObject.VarNames,
+                    codeObject.ArgCount,
+                    newFlags,
+                    codeObject.FileName,
+                    codeObject.FreeVars,
+                    codeObject.CellVars,
+                    codeObject.ExceptionTable
+                );
+            }
+            
+            return codeObject;
         }
         
         /// <summary>

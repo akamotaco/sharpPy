@@ -10,6 +10,7 @@ namespace SharpPy.Core
     public class PyCoroutine : PyObject
     {
         public override string GetTypeName() => "coroutine";
+        public override PyType GetPyType() => PyType.CoroutineType;
         
         private readonly PyFrame _frame;
         private readonly PyVM _vm;

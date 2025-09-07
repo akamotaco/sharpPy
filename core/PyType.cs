@@ -35,6 +35,8 @@ namespace SharpPy
         public static readonly PyType MethodType = new PyType("method", new[] { ObjectType });
         public static readonly PyType IteratorType = new PyType("iterator", new[] { ObjectType });
         public static readonly PyType GeneratorType = new PyType("generator", new[] { IteratorType });
+        public static readonly PyType CoroutineType = new PyType("coroutine", new[] { ObjectType });
+        public static readonly PyType AsyncGeneratorType = new PyType("async_generator", new[] { ObjectType });
         
         // Descriptor 타입들 (데모에서 필요)
         public static readonly PyType PropertyType = new PyType("property", new[] { ObjectType });

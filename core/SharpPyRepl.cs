@@ -1,7 +1,7 @@
 using System;
 using System.Text;
 
-namespace SharpPy
+namespace SharpPy.Core
 {
     /// <summary>
     /// SharpPy REPL (Read-Eval-Print Loop) - Python-style interactive shell
