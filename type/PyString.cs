@@ -763,6 +763,18 @@ namespace SharpPy
 
         #endregion
 
+        #region Iterator Support
+
+        /// <summary>
+        /// Iterator support for string iteration (for char in "string")
+        /// </summary>
+        public override PyObject GetIterator()
+        {
+            return new PyStringIterator(this);
+        }
+
+        #endregion
+
         #region Evaluate Method (NotImplementedException)
 
         public PyObject Evaluate(PyScope scope)

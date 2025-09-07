@@ -459,6 +459,15 @@ namespace SharpPy
             return new PyString(ToRepr()); // CPython에서 str(dict)는 repr(dict)와 동일
         }
 
+        /// <summary>
+        /// Iterator support for dictionary iteration (for key in dict) - CPython compatible
+        /// Returns keys only, same as CPython behavior
+        /// </summary>
+        public override PyObject GetIterator()
+        {
+            return new PyDictKeyIterator(this);
+        }
+
         #endregion
     }
 }
