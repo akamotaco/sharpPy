@@ -131,6 +131,29 @@ namespace SharpPy
                             Advance(); // consume semicolon as statement terminator
                         }
                     }
+                    else
+                    {
+                        // If ParseStatement returns null, check if we've hit unexpected tokens
+                        // that should be handled gracefully to avoid infinite loops
+                        if (Check(TokenType.DEDENT))
+                        {
+                            // Skip unexpected DEDENT tokens at top level
+                            if (!SharpPyConfig.DisassemblyOnlyMode)
+                            {
+                                Console.WriteLine("⚠️ Warning: Skipping unexpected DEDENT token at top level");
+                            }
+                            Advance();
+                        }
+                        else if (!IsAtEnd() && !Check(TokenType.EOF))
+                        {
+                            // For other unexpected tokens, advance to prevent infinite loop
+                            if (!SharpPyConfig.DisassemblyOnlyMode)
+                            {
+                                Console.WriteLine($"⚠️ Warning: Skipping unexpected token {Peek()?.Type} at top level");
+                            }
+                            Advance();
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -164,6 +187,18 @@ namespace SharpPy
                         Console.WriteLine("⚠️ Warning: Encountered INDENT in statement context - might be multiline expression");
                     }
                     SkipIndentationTokens();
+                }
+                
+                // CPython 3.12: Handle unexpected DEDENT tokens gracefully
+                if (Check(TokenType.DEDENT))
+                {
+                    // This might be a DEDENT that should be handled by the parent block parser
+                    // Don't consume it here, just return null to let the caller handle it
+                    if (!SharpPyConfig.DisassemblyOnlyMode)
+                    {
+                        Console.WriteLine("⚠️ Warning: Encountered DEDENT in statement context - returning control to block parser");
+                    }
+                    return null;
                 }
                 
                 // Check for decorators first
@@ -611,6 +646,21 @@ namespace SharpPy
                     if (stmt != null)
                     {
                         statements.Add(stmt);
+                    }
+                    else
+                    {
+                        // If ParseStatement returns null, check if we've hit a DEDENT
+                        // If so, break out of the loop to avoid infinite loop
+                        if (Check(TokenType.DEDENT))
+                        {
+                            break;
+                        }
+                        // If not DEDENT, this might be another parsing issue
+                        // Advance to avoid infinite loop on other unexpected tokens
+                        if (!IsAtEnd() && !Check(TokenType.EOF))
+                        {
+                            Advance();
+                        }
                     }
                 }
                 
