@@ -443,10 +443,10 @@ namespace SharpPy
                             Console.WriteLine($"🔧 Exception handled: jumping to handler at offset {handlerOffset.Value}");
                             Console.WriteLine($"🔧 Stack after exception push: {frame.ValueStack.Count} items");
                             Console.WriteLine($"🔧 Total instructions: {frame.Code.Instructions.Count}");
-                            Console.WriteLine($"🔧 Handler offset {handlerOffset.Value} → instruction index: {handlerOffset.Value / 2}");
+                            Console.WriteLine($"🔧 Handler offset {handlerOffset.Value} → instruction index: {handlerOffset.Value}");
                             
-                            // Convert byte offset to instruction index for CPython 3.12 compatibility
-                            var instructionIndex = handlerOffset.Value / 2;
+                            // CPython 3.12 compatibility: SharpPy Exception Table stores instruction indices, not byte offsets
+                            var instructionIndex = handlerOffset.Value;
                             if (instructionIndex >= 0 && instructionIndex < frame.Code.Instructions.Count)
                             {
                                 frame.InstructionPointer = instructionIndex;
@@ -1143,9 +1143,12 @@ namespace SharpPy
                     var truthValue = frame.ValueStack.Pop();
                     if (truthValue.PyBoolValue())
                     {
-                        // CPython 3.12: 동적 점프 오프셋 계산
-                        frame.InstructionPointer = JumpInstructionManager.CalculateJumpOffset(
-                            ByteCodeOp.POP_JUMP_IF_TRUE, frame.InstructionPointer, instruction.Argument);
+                        // CPython 3.12: POP_JUMP_IF_TRUE uses absolute byte offset
+                        // Convert byte offset back to instruction index
+                        int targetInstructionIndex = instruction.Argument / 2;
+                        Console.WriteLine($"🔄 POP_JUMP_IF_TRUE: condition True, jump to instr {targetInstructionIndex} (byte offset {instruction.Argument})");
+                        // Subtract 1 because main loop will increment
+                        frame.InstructionPointer = targetInstructionIndex - 1;
                         return null; // Continue execution from new position
                     }
                     break;
@@ -1154,23 +1157,28 @@ namespace SharpPy
                     var falseValue = frame.ValueStack.Pop();
                     if (!falseValue.PyBoolValue())
                     {
-                        // CPython 3.12: 동적 점프 오프셋 계산
-                        frame.InstructionPointer = JumpInstructionManager.CalculateJumpOffset(
-                            ByteCodeOp.POP_JUMP_IF_FALSE, frame.InstructionPointer, instruction.Argument);
+                        // CPython 3.12: POP_JUMP_IF_FALSE uses relative offset from next instruction
+                        int currentPosJump = frame.InstructionPointer;
+                        int relativeOffset = instruction.Argument;
+                        int targetInstructionIndex = currentPosJump + 1 + relativeOffset;
+                        Console.WriteLine($"🔄 POP_JUMP_IF_FALSE: condition False, jump from {currentPosJump} + 1 + {relativeOffset} to instr {targetInstructionIndex}");
+                        // Subtract 1 because main loop will increment
+                        frame.InstructionPointer = targetInstructionIndex - 1;
                         return null; // Continue execution from new position
                     }
                     break;
                     
                 case ByteCodeOp.JUMP_FORWARD:
-                    // CPython 3.12: JUMP_FORWARD는 현재 위치 + argument로 점프
-                    // argument는 바이트 오프셋이 아닌 instruction 오프셋
+                    // CPython 3.12: JUMP_FORWARD uses relative offset from next instruction
+                    // argument is the number of instructions to skip forward
                     int currentPos = frame.InstructionPointer;
                     int jumpOffset = instruction.Argument;
-                    int targetPos = currentPos + jumpOffset;
+                    // Target = current instruction + 1 (next) + jump offset
+                    int targetPos = currentPos + 1 + jumpOffset;
                     
                     Console.WriteLine($"🔄 JUMP_FORWARD: from instr {currentPos} forward {jumpOffset} to instr {targetPos}");
                     
-                    // 메인 루프에서 +1이 되므로 -1 보정
+                    // Subtract 1 because main loop will increment
                     frame.InstructionPointer = targetPos - 1;
                     return null; // Continue execution from new position
                     
@@ -1457,6 +1465,12 @@ namespace SharpPy
                             Console.WriteLine($"   exc_type={exceptionInfo.ExcType}, exc_value={exceptionInfo.ExcValue}");
                             Console.WriteLine($"   exc_traceback={exceptionInfo.ExcTraceback}, lasti={exceptionInfo.Lasti}");
                         }
+                        
+                        // CPython 3.12: Clear exception handling state after successful exception processing
+                        // This prevents infinite loop in exception handling
+                        frame.CurrentException = null;
+                        frame.ExceptionHandlerCallCount = 0;
+                        Console.WriteLine($"🔧 POP_EXCEPT: Cleared exception handling state to prevent infinite loops");
                     }
                     else
                     {

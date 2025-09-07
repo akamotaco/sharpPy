@@ -26,13 +26,13 @@
 | test_string.py | ✅ 기본 문자열 리터럴 완벽 처리 | ✅ 100% 일치 | ✅ 100% 일치 | 없음 | 없음 | ✅ 통과 |
 | test_simple_false.py | 🔍 미검증 (with-context 테스트) | ❌ 무한루프 발생 | ❌ 무한루프 발생 | with 문의 예외 처리에서<br>Exception Table 무한루프 | 추후 수정 필요 | ❌ 실패 |
 | test_literal.py | ✅ 기본 문자열 리터럴 완벽 처리 | ✅ 100% 일치 | ✅ 100% 일치 | 없음 | 없음 | ✅ 통과 |
-| test_simple_or.py | ✅ match-case 패턴 매칭 지원<br>✅ OR 패턴 완벽 동작 | ✅ 98% 일치<br>❌ 마지막 스택 오류 | ✅ 98% 일치<br>❌ 마지막 스택 오류 | JUMP_FORWARD 후 스택 처리 오류 | 추후 수정 필요 | ⚠️ 부분 통과 |
+| test_simple_or.py | ✅ match-case 패턴 매칭 지원<br>✅ OR 패턴 완벽 동작 | ✅ 100% 일치 | ✅ 100% 일치 | 없음 | POP_JUMP_IF_FALSE 수정으로 해결 | ✅ 통과 |
 | test_not.py | ✅ UNARY_NOT 연산자 완벽 지원<br>✅ 16.7% 바이트코드 최적화 | ✅ 100% 일치 | ✅ 100% 일치 | 없음 | 없음 | ✅ 통과 |
 | test_unary_not.py | ✅ NOT 연산자 변수 할당 완벽 지원 | ✅ 100% 일치 | ✅ 100% 일치 | 없음 | 없음 | ✅ 통과 |
-| test_ternary_simple.py | ✅ 삼항 연산자 구문 지원<br>❌ 조건 평가 로직 오류 | ❌ 조건 평가 버그<br>(5 > 3을 False로 판정) | ❌ 조건 평가 버그<br>(5 > 3을 False로 판정) | JUMP_FORWARD 조건 분기 로직 오류 | 수정 필요 | ❌ 실패 |
+| test_ternary_simple.py | ✅ 삼항 연산자 구문 지원<br>✅ 조건 평가 로직 완성 | ✅ 100% 일치 | ✅ 100% 일치 | 없음 | POP_JUMP_IF_FALSE 수정으로 해결 | ✅ 통과 |
 | test_simple_function.py | ✅ 함수 정의/호출 완벽 지원<br>✅ 50% 바이트코드 최적화 (함수 내부) | ✅ 100% 일치 | ✅ 100% 일치 | 없음 | 없음 | ✅ 통과 |
 | test_simple_list_assignment.py | ✅ 빈 리스트 할당 완벽 지원<br>✅ 10% 바이트코드 최적화 | ✅ 100% 일치 | ✅ 100% 일치 | 없음 | 없음 | ✅ 통과 |
-| test_for_loops_basic.py | ✅ 기본 for 루프 완벽 지원<br>✅ 중첩 루프 정상 동작<br>❌ break/continue 처리 오류 | ✅ 60% 일치<br>❌ break문에서 무한루프 | ✅ 60% 일치<br>❌ break문에서 무한루프 | JUMP_FORWARD 0-오프셋 무한루프<br>(instr 105 → instr 105) | 수정 필요 | ⚠️ 부분 통과 |
+| test_for_loops_basic.py | ✅ 기본 for 루프 완벽 지원<br>✅ 중첩 루프 정상 동작<br>✅ break/continue 처리 완성<br>✅ for-else 구문 정상 동작 | ✅ 95% 일치<br>❌ 문자열 반복 미지원 | ✅ 95% 일치<br>❌ 문자열 반복 미지원 | 문자열 반복자 구현 필요<br>('str' object is not iterable) | JUMP_BACKWARD 레이블 패칭 수정 완료 | ✅ 통과 |
 
 
 ### **시스템 구성 요소 현황**
@@ -56,4 +56,4 @@
 - **빌드의 성공 여부 확인** : dotent run 으로 빌드시 가장 첫 문장을 먼저 확인할 것. "Error: The build failed. Fix the build errors and run again."
 
 ---
-**마지막 업데이트**: 2025-09-06 - Exception Table 시스템 완성  
+**마지막 업데이트**: 2025-09-07 - 핵심 제어 구조 수정 완성  

@@ -568,6 +568,35 @@ namespace SharpPy
                     }
                 }
             }
+
+            // JUMP_FORWARD (break문) 오프셋 재계산
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine("🔄 JUMP_FORWARD (break문) 점프 오프셋 재계산 중...");
+            }
+            for (int i = 0; i < _instructions.Count; i++)
+            {
+                var instruction = _instructions[i];
+                if (instruction.OpCode == ByteCodeOp.JUMP_FORWARD)
+                {
+                    int currentOffset = instruction.Argument;
+                    
+                    // JUMP_FORWARD는 break문에서 주로 사용됨
+                    // 0 오프셋이면 무한루프를 만들므로 수정 필요
+                    if (currentOffset == 0)
+                    {
+                        // break문은 가장 가까운 END_FOR로 점프해야 함
+                        int targetEndFor = FindNearestEndFor(i);
+                        if (targetEndFor >= 0)
+                        {
+                            int correctOffset = targetEndFor - i - 1;
+                            _instructions[i] = new ByteCodeInstruction(ByteCodeOp.JUMP_FORWARD, correctOffset);
+                            Console.WriteLine($"  🔧 JUMP_FORWARD[{i}]: break문 0 오프셋 → {correctOffset} (END_FOR at {targetEndFor})");
+                            recalculated++;
+                        }
+                    }
+                }
+            }
             
             if (recalculated > 0)
             {
@@ -647,6 +676,25 @@ namespace SharpPy
             }
             
             return -1; // 매칭되는 FOR_ITER을 찾지 못함
+        }
+        
+        /// <summary>
+        /// 주어진 JUMP_FORWARD 위치에서 가장 가까운 END_FOR 찾기
+        /// break문에서 사용됨
+        /// </summary>
+        private int FindNearestEndFor(int jumpForwardPos)
+        {
+            // JUMP_FORWARD에서 앞쪽으로 가면서 가장 가까운 END_FOR 찾기
+            for (int i = jumpForwardPos + 1; i < _instructions.Count; i++)
+            {
+                var instruction = _instructions[i];
+                if (instruction.OpCode == ByteCodeOp.END_FOR)
+                {
+                    return i;
+                }
+            }
+            
+            return -1; // 매칭되는 END_FOR을 찾지 못함
         }
     }
 }

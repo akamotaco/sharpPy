@@ -380,7 +380,7 @@ namespace SharpPy
     // AST를 바이트코드로 컴파일 (기존 시스템과 연동)
     public class PythonCompiler
     {
-        private readonly bool _enable_optimizer = true;
+        private readonly bool _enable_optimizer = false;
         private List<ByteCodeInstruction> _instructions;
         private List<PyObject> _constants;
         private List<string> _names;
@@ -986,12 +986,28 @@ namespace SharpPy
                     
                 case BreakStatement:
                     // CPython 3.12: BREAK_LOOP removed, use JUMP_FORWARD to loop end
-                    EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0); // Will be patched
+                    if (_loopStack.Count > 0)
+                    {
+                        var currentLoop = _loopStack.Peek();
+                        EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, currentLoop.BreakLabel);
+                    }
+                    else
+                    {
+                        EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0); // Fallback - will be patched
+                    }
                     break;
                     
                 case ContinueStatement:
                     // CPython 3.12: CONTINUE_LOOP removed, use JUMP_BACKWARD to loop start  
-                    EmitInstruction(ByteCodeOp.JUMP_BACKWARD, 0); // Will be patched
+                    if (_loopStack.Count > 0)
+                    {
+                        var currentLoop = _loopStack.Peek();
+                        EmitJumpToLabel(ByteCodeOp.JUMP_BACKWARD, currentLoop.ContinueLabel);
+                    }
+                    else
+                    {
+                        EmitInstruction(ByteCodeOp.JUMP_BACKWARD, 0); // Fallback - will be patched
+                    }
                     break;
                     
                 case PassStatement:
@@ -2072,7 +2088,10 @@ namespace SharpPy
             
             // Patch the false jump to point to the else clause (or end)
             var elseStart = _instructions.Count;
-            _instructions[jumpIfFalse] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, elseStart);
+            // CPython 3.12: POP_JUMP_IF_FALSE uses relative offset from the jump instruction
+            var relativeOffset = elseStart - jumpIfFalse - 1;
+            Console.WriteLine($"Debug CompileIf: jumpIfFalse={jumpIfFalse}, elseStart={elseStart}, relativeOffset={relativeOffset}");
+            _instructions[jumpIfFalse] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, relativeOffset);
             
             // Compile else clause
             foreach (var stmt in ifStmt.OrElse)
@@ -2084,7 +2103,9 @@ namespace SharpPy
             if (jumpAfterIf.HasValue)
             {
                 var afterElse = _instructions.Count;
-                _instructions[jumpAfterIf.Value] = new ByteCodeInstruction(ByteCodeOp.JUMP_FORWARD, afterElse);
+                // CPython 3.12: JUMP_FORWARD uses relative offset from the jump instruction
+                var jumpForwardOffset = afterElse - jumpAfterIf.Value - 1;
+                _instructions[jumpAfterIf.Value] = new ByteCodeInstruction(ByteCodeOp.JUMP_FORWARD, jumpForwardOffset);
             }
         }
         
@@ -2152,23 +2173,31 @@ namespace SharpPy
             // 3. FOR_ITER pushes the next value on stack, store it in loop variable
             EmitStoreName(forStmt.Target);
             
-            // 4. Execute loop body
+            // 4. Set up loop context for break/continue
+            var breakLabel = CreateLabel("for_break");
+            var continueLabel = CreateLabel("for_continue");
+            PushLoopContext(breakLabel, continueLabel);
+            
+            // 5. Execute loop body
             foreach (var stmt in forStmt.Body)
             {
                 CompileStatement(stmt);
             }
             
-            // 5. Jump back to FOR_ITER (not GET_ITER) - CPython 3.12 style relative offset
+            // 6. Mark continue label (jump back to FOR_ITER)
+            MarkLabel(continueLabel);
+            
+            // 7. Jump back to FOR_ITER (not GET_ITER) - CPython 3.12 style relative offset
             // JUMP_BACKWARD argument = number of instructions to jump backward
             int currentPos = _instructions.Count;
             int relativeOffset = currentPos - forIterInstruction;
             EmitInstruction(ByteCodeOp.JUMP_BACKWARD, relativeOffset);
             
-            // 6. CPython 3.12 방식: END_FOR 추가 (통합 구조)
+            // 8. CPython 3.12 방식: END_FOR 추가 (통합 구조)
             var endForPosition = _instructions.Count;
             EmitInstruction(ByteCodeOp.END_FOR, 0);
             
-            // 7. Loop completed normally - execute else clause if present
+            // 9. Loop completed normally - execute else clause if present
             if (forStmt.ElseClause != null && forStmt.ElseClause.Count > 0)
             {
                 foreach (var stmt in forStmt.ElseClause)
@@ -2177,7 +2206,13 @@ namespace SharpPy
                 }
             }
             
-            // 8. Patch FOR_ITER to jump to END_FOR (CPython 3.12 통합 방식)
+            // 10. Mark break label (after ALL loop constructs including else)
+            MarkLabel(breakLabel);
+            
+            // 11. Pop loop context after everything
+            PopLoopContext();
+            
+            // 12. Patch FOR_ITER to jump to END_FOR (CPython 3.12 통합 방식)
             var relativeJump = endForPosition - forIterInstruction - 1;
             _instructions[forIterInstruction] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, relativeJump);
             Console.WriteLine($"    → FOR_ITER 패치 (일반 루프): loop start {forIterInstruction}, jump offset {relativeJump}, END_FOR at {endForPosition}");
@@ -3483,14 +3518,29 @@ namespace SharpPy
                 var oldInstruction = _instructions[refIndex];
                 int argument;
                 
-                // JUMP_FORWARD requires relative offset from instruction following the jump
+                // CPython 3.12 compatible jump addressing
                 if (oldInstruction.OpCode == ByteCodeOp.JUMP_FORWARD)
                 {
-                    argument = label.Offset - refIndex - 1;
+                    // CPython 3.12: JUMP_FORWARD uses relative offset from next instruction
+                    // Formula: target_instruction - (current_instruction + 1)
+                    argument = label.Offset - (refIndex + 1);
+                }
+                else if (oldInstruction.OpCode == ByteCodeOp.POP_JUMP_IF_FALSE || 
+                         oldInstruction.OpCode == ByteCodeOp.POP_JUMP_IF_TRUE)
+                {
+                    // CPython 3.12: POP_JUMP_IF_* use absolute instruction indices
+                    // Convert to byte offset (instruction_index * 2) as per CPython 3.12
+                    argument = label.Offset * 2;
+                }
+                else if (oldInstruction.OpCode == ByteCodeOp.JUMP_BACKWARD)
+                {
+                    // CPython 3.12: JUMP_BACKWARD uses relative offset (how many instructions back)
+                    // Formula: current_instruction - target_instruction
+                    argument = refIndex - label.Offset;
                 }
                 else
                 {
-                    // Other jump instructions (JUMP_BACKWARD, POP_JUMP_IF_*, etc.) use absolute offsets
+                    // Other jump instructions use absolute offsets
                     argument = label.Offset;
                 }
                 
