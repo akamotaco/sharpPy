@@ -1933,10 +1933,26 @@ namespace SharpPy
                     // CPython 3.12: Check if the exception on stack matches the expected type
                     // Stack: [..., exception_instance, exception_type] -> [..., exception_instance, bool]
                     var expectedType = frame.ValueStack.Pop();
-                    var exceptionInstance = frame.ValueStack.Peek(); // Don't pop, will be used later
+                    var stackTop = frame.ValueStack.Peek(); // Don't pop, will be used later
                     
                     bool matches = false;
-                    if (exceptionInstance is PyException pyException)
+                    
+                    // Handle PyExceptionInfo case (from PUSH_EXC_INFO)
+                    if (stackTop is PyExceptionInfo excInfo)
+                    {
+                        // Extract actual exception from PyExceptionInfo
+                        var actualException = excInfo.ExcValue;
+                        
+                        // Replace PyExceptionInfo with actual exception on stack (for STORE_NAME)
+                        frame.ValueStack.Pop(); // Remove PyExceptionInfo
+                        frame.ValueStack.Push(actualException); // Push actual exception
+                        
+                        if (actualException is PyException pyException && expectedType is PyBuiltinType builtinType)
+                        {
+                            matches = pyException.GetTypeName() == builtinType.Name;
+                        }
+                    }
+                    else if (stackTop is PyException pyException)
                     {
                         if (expectedType is PyBuiltinType builtinType)
                         {

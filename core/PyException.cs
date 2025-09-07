@@ -432,6 +432,25 @@ namespace SharpPy
         }
     }
 
+    /// <summary>
+    /// CPython 3.12: GeneratorExit exception - used for generator cleanup
+    /// </summary>
+    public class PyGeneratorExit : PyBaseException
+    {
+        public PyGeneratorExit(string message = "generator exit") : base(message)
+        {
+        }
+
+        public override PyType GetPyType() => PyType.GeneratorExitType;
+        public override string GetTypeName() => "GeneratorExit";
+
+        public new static System.Exception Create(string message = "generator exit")
+        {
+            var pyException = new PyGeneratorExit(message);
+            return new PythonException(pyException);
+        }
+    }
+
     #endregion
 
     #region C# Exception Bridge

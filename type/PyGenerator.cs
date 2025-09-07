@@ -147,10 +147,15 @@ namespace SharpPy
             if (_finished)
                 throw PyStopIteration.Create();
 
-            // 간단한 구현: 예외 타입을 저장하고 다음 호출에서 발생
+            // CPython 3.12 호환: 다양한 예외 타입 처리
             if (excType is PyType exceptionType)
             {
                 _thrownException = CreateExceptionFromType(exceptionType, value);
+            }
+            else if (excType is PyBuiltinType builtinType)
+            {
+                // 내장 예외 타입 (ValueError, TypeError 등) 처리
+                _thrownException = CreateExceptionFromBuiltinType(builtinType, value);
             }
             else if (excType is PyException exception)
             {
@@ -189,6 +194,35 @@ namespace SharpPy
             return PyRuntimeError.Create($"generator exception: {message}");
         }
 
+        private System.Exception CreateExceptionFromBuiltinType(PyBuiltinType builtinType, PyObject? value)
+        {
+            var message = value?.ToStr() ?? "generator exception";
+            
+            // PyBuiltinType의 Name 속성 사용 (예: "ValueError")
+            var typeName = builtinType.Name;
+            
+            switch (typeName)
+            {
+                case "ValueError":
+                case "class 'ValueError'":  // SharpPy에서 나타나는 형태
+                    return PyValueError.Create(message);
+                case "TypeError":
+                case "class 'TypeError'":
+                    return PyTypeError.Create(message);
+                case "RuntimeError":
+                case "class 'RuntimeError'":
+                    return PyRuntimeError.Create(message);
+                case "StopIteration":
+                case "class 'StopIteration'":
+                    return PyStopIteration.Create();
+                case "GeneratorExit":
+                case "class 'GeneratorExit'":
+                    return PyGeneratorExit.Create(message);
+                default:
+                    return PyRuntimeError.Create($"generator exception: {message}");
+            }
+        }
+
         /// <summary>
         /// generator.close() - 제너레이터 종료
         /// </summary>
@@ -201,15 +235,15 @@ namespace SharpPy
             {
                 Throw(PyType.GeneratorExitType);
             }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
+            catch (PythonException ex) when (ex.PyException is PyGeneratorExit)
             {
-                // GeneratorExit이 StopIteration으로 변환되는 것은 정상
+                // GeneratorExit 예외가 발생하면 정상 종료
                 _finished = true;
                 return PyNone.Instance;
             }
-            catch (PythonException ex) when (ex.PyException?.GetTypeName() == "GeneratorExit")
+            catch (PythonException ex) when (ex.PyException is PyStopIteration)
             {
-                // GeneratorExit 예외가 발생하면 정상 종료
+                // StopIteration도 정상 종료로 처리
                 _finished = true;
                 return PyNone.Instance;
             }
@@ -232,6 +266,51 @@ namespace SharpPy
         /// 제너레이터가 완료되었는지 확인
         /// </summary>
         public bool IsFinished => _finished;
+
+        #endregion
+
+        #region Python Attribute Access
+
+        /// <summary>
+        /// Generator 메소드들을 Python에서 접근 가능하도록 노출
+        /// </summary>
+        protected override PyObject PyGetAttribute(string name)
+        {
+            switch (name)
+            {
+                case "send":
+                    return new PyFunction("send", args =>
+                    {
+                        if (args.Length != 1)
+                            throw PyTypeError.Create("send() takes exactly one argument");
+                        return Send(args[0]);
+                    });
+
+                case "throw":
+                    return new PyFunction("throw", args =>
+                    {
+                        if (args.Length < 1 || args.Length > 3)
+                            throw PyTypeError.Create("throw() takes 1 to 3 arguments");
+                        
+                        var excType = args[0];
+                        var value = args.Length > 1 ? args[1] : null;
+                        var traceback = args.Length > 2 ? args[2] : null;
+                        
+                        return Throw(excType, value, traceback);
+                    });
+
+                case "close":
+                    return new PyFunction("close", args =>
+                    {
+                        if (args.Length != 0)
+                            throw PyTypeError.Create("close() takes no arguments");
+                        return Close();
+                    });
+
+                default:
+                    return base.PyGetAttribute(name);
+            }
+        }
 
         #endregion
 

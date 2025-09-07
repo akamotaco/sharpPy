@@ -14,6 +14,7 @@ namespace SharpPy
         private List<PyObject> _constants;
         private List<string> _names;
         private bool _optimizationEnabled;
+        private Dictionary<int, int> _instructionMapping; // 원본 인덱스 → 최적화된 인덱스 매핑
 
         public ByteCodeOptimizer(bool enableOptimization = true)
         {
@@ -36,6 +37,13 @@ namespace SharpPy
             _instructions = new List<ByteCodeInstruction>(originalCode.Instructions);
             _constants = new List<PyObject>(originalCode.Constants);
             _names = new List<string>(originalCode.Names);
+            
+            // 초기 매핑: 1:1 대응
+            _instructionMapping = new Dictionary<int, int>();
+            for (int i = 0; i < _instructions.Count; i++)
+            {
+                _instructionMapping[i] = i;
+            }
 
             int originalCount = _instructions.Count;
 
@@ -253,10 +261,14 @@ namespace SharpPy
                 }
             }
             
-            // 역순으로 제거 (인덱스 변경 방지)
+            // 역순으로 제거하면서 mapping 업데이트 (인덱스 변경 방지)
             for (int i = indicesToRemove.Count - 1; i >= 0; i--)
             {
-                _instructions.RemoveAt(indicesToRemove[i]);
+                int removedIndex = indicesToRemove[i];
+                _instructions.RemoveAt(removedIndex);
+                
+                // instruction mapping 업데이트: 제거된 instruction 이후의 모든 매핑을 1씩 앞으로
+                UpdateMappingAfterRemoval(removedIndex);
             }
             
             if (indicesToRemove.Count > 0)
@@ -266,6 +278,38 @@ namespace SharpPy
                     Console.WriteLine($"🔄 최적화 NOP 제거: {indicesToRemove.Count}개 (try-except NOP 보존됨)");
                 }
             }
+        }
+        
+        /// <summary>
+        /// Instruction 제거 후 매핑 업데이트
+        /// </summary>
+        private void UpdateMappingAfterRemoval(int removedIndex)
+        {
+            var newMapping = new Dictionary<int, int>();
+            
+            foreach (var kvp in _instructionMapping)
+            {
+                int originalIndex = kvp.Key;
+                int currentMappedIndex = kvp.Value;
+                
+                if (currentMappedIndex == removedIndex)
+                {
+                    // 제거된 instruction: 다음 유효한 instruction으로 매핑
+                    newMapping[originalIndex] = Math.Max(0, removedIndex);
+                }
+                else if (currentMappedIndex > removedIndex)
+                {
+                    // 제거된 instruction 이후의 instruction들: 1씩 앞으로
+                    newMapping[originalIndex] = currentMappedIndex - 1;
+                }
+                else
+                {
+                    // 제거된 instruction 이전의 instruction들: 변경 없음
+                    newMapping[originalIndex] = currentMappedIndex;
+                }
+            }
+            
+            _instructionMapping = newMapping;
         }
 
         /// <summary>
@@ -669,37 +713,57 @@ namespace SharpPy
         {
             foreach (var entry in originalTable)
             {
-                // 원본 offsets이 최적화된 instruction 배열 범위 내에 있는지 검증
-                int maxOffset = optimizedCode.Instructions.Count - 1;
+                // instruction mapping을 통한 정확한 오프셋 재계산
+                int mappedStart = MapOriginalOffset(entry.StartOffset, optimizedCode.Instructions.Count);
+                int mappedEnd = MapOriginalOffset(entry.EndOffset, optimizedCode.Instructions.Count);
+                int mappedHandler = MapOriginalOffset(entry.HandlerOffset, optimizedCode.Instructions.Count);
                 
-                // Start, End, Handler 오프셋이 유효한 범위 내에 있는지 확인
-                int adjustedStart = Math.Min(entry.StartOffset, maxOffset);
-                int adjustedEnd = Math.Min(entry.EndOffset, maxOffset);
-                int adjustedHandler = Math.Min(entry.HandlerOffset, maxOffset);
-                
-                // 오프셋이 조정된 경우 경고 출력
-                if (adjustedStart != entry.StartOffset || adjustedEnd != entry.EndOffset || adjustedHandler != entry.HandlerOffset)
+                // 오프셋이 변경된 경우 로그 출력
+                if (mappedStart != entry.StartOffset || mappedEnd != entry.EndOffset || mappedHandler != entry.HandlerOffset)
                 {
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
-                        Console.WriteLine($"⚠️ Exception Table 오프셋 조정: " +
-                            $"Start {entry.StartOffset}→{adjustedStart}, " +
-                            $"End {entry.EndOffset}→{adjustedEnd}, " +
-                            $"Handler {entry.HandlerOffset}→{adjustedHandler}");
+                        Console.WriteLine($"🔧 Exception Table 정확한 재매핑: " +
+                            $"Start {entry.StartOffset}→{mappedStart}, " +
+                            $"End {entry.EndOffset}→{mappedEnd}, " +
+                            $"Handler {entry.HandlerOffset}→{mappedHandler}");
                     }
                 }
                 
-                // 조정된 오프셋으로 새로운 Exception Table Entry 생성
-                var adjustedEntry = new ExceptionTableEntry(
-                    adjustedStart, 
-                    adjustedEnd, 
-                    adjustedHandler, 
+                // 정확하게 재매핑된 오프셋으로 새로운 Exception Table Entry 생성
+                var remappedEntry = new ExceptionTableEntry(
+                    mappedStart, 
+                    mappedEnd, 
+                    mappedHandler, 
                     entry.Depth,
                     entry.Lasti
                 );
                 
-                optimizedCode.ExceptionTable.Add(adjustedEntry);
+                optimizedCode.ExceptionTable.Add(remappedEntry);
             }
+        }
+        
+        /// <summary>
+        /// 원본 오프셋을 최적화된 오프셋으로 매핑
+        /// </summary>
+        private int MapOriginalOffset(int originalOffset, int maxOffset)
+        {
+            if (_instructionMapping.ContainsKey(originalOffset))
+            {
+                return Math.Min(_instructionMapping[originalOffset], maxOffset - 1);
+            }
+            
+            // 매핑에 없는 경우, 가장 가까운 유효한 오프셋 찾기
+            for (int i = originalOffset; i >= 0; i--)
+            {
+                if (_instructionMapping.ContainsKey(i))
+                {
+                    return Math.Min(_instructionMapping[i], maxOffset - 1);
+                }
+            }
+            
+            // 마지막 안전장치
+            return Math.Min(originalOffset, maxOffset - 1);
         }
         
         /// <summary>

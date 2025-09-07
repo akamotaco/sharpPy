@@ -2944,8 +2944,10 @@ namespace SharpPy
             
             var tryEndOffset = _instructions.Count * CPYTHON_INSTRUCTION_SIZE;
             
-            // Exception handler start (where PUSH_EXC_INFO will jump to) - 바이트 오프셋
-            var handlersStartOffset = _instructions.Count * CPYTHON_INSTRUCTION_SIZE;
+            // CPython 3.12: Jump to continuation if no exception (try body completed normally)
+            EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, continueLabel);
+            
+            // Exception handler start (where PUSH_EXC_INFO will jump to)
             var handlersStartLabel = CreateLabel("handlers_start");
             MarkLabel(handlersStartLabel);
             
@@ -3057,11 +3059,11 @@ namespace SharpPy
             // Mark continuation point - this is where normal execution continues after try-except
             MarkLabel(continueLabel);
             
-            // CPython 3.12: Create Exception Table entry
+            // CPython 3.12: Create Exception Table entry for try block (label-based)
             var exceptionEntry = new ExceptionTableEntry(
                 start: tryStartOffset,
                 end: tryEndOffset,
-                handler: handlersStartOffset,
+                handlerLabel: handlersStartLabel.Name,
                 depth: 0,  // Stack depth when exception occurs
                 lasti: true
             );
@@ -3070,7 +3072,7 @@ namespace SharpPy
             
             Console.WriteLine($"🔧 Exception Table Entry Created:");
             Console.WriteLine($"   Try: {tryStartOffset} to {tryEndOffset}");
-            Console.WriteLine($"   Handler: {handlersStartOffset}, Depth: 0");
+            Console.WriteLine($"   Handler Label: {handlersStartLabel.Name}, Depth: 0");
             Console.WriteLine($"🔍 Debug: NOP at ~{_instructions.Count-1}, try body starts at {tryStartOffset}");
         }
         private void CompileWith(WithStatement withStmt)
