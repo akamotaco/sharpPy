@@ -103,7 +103,8 @@ namespace SharpPy.Interop
                 List<Comprehension> generators,
                 PyScope scope)
             {
-                return new PyGenerator(GenerateItems().GetEnumerator());
+                // TODO: This needs to be reimplemented with new PyGenerator
+                throw new NotImplementedException("ExecuteGeneratorExpression needs to be reimplemented with new PyGenerator");
                 
                 IEnumerable<PyObject> GenerateItems()
                 {

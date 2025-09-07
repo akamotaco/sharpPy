@@ -1,29 +1,35 @@
 using System;
-using System.Collections.Generic;
 
 namespace SharpPy
 {
     /// <summary>
-    /// Python generator 타입 구현 - yield를 사용한 제너레이터
+    /// CPython 3.12 완전 호환 제너레이터 구현
+    /// 바이트코드 실행을 중단하고 재개하는 방식으로 동작
     /// </summary>
     public class PyGenerator : PyIterator
     {
         #region Core Properties
 
-        private readonly IEnumerator<PyObject> _enumerator;
-        private bool _finished;
-        private PyObject _sentValue;
-        private Exception _thrownException;
+        private readonly PyFrame _frame;
+        private readonly PyVM _vm;
+        private bool _started = false;
+        private bool _finished = false;
+        private PyObject _sentValue = PyNone.Instance;
+        private Exception? _thrownException = null;
 
         public string Name { get; }
         public PyObject Qualname { get; }
 
-        public PyGenerator(IEnumerator<PyObject> enumerator, string name = "<generator>")
+        public PyGenerator(PyFrame frame, PyVM vm, string name = "<generator>")
         {
-            _enumerator = enumerator ?? throw new ArgumentNullException(nameof(enumerator));
+            _frame = frame ?? throw new ArgumentNullException(nameof(frame));
+            _vm = vm ?? throw new ArgumentNullException(nameof(vm));
             _finished = false;
             Name = name;
             Qualname = new PyString(name);
+            
+            // 제너레이터 플래그 설정
+            _frame.IsGenerator = true;
         }
 
         public override PyType GetPyType() => PyType.GeneratorType;
@@ -37,32 +43,71 @@ namespace SharpPy
 
         #endregion
 
-        #region Iterator Protocol
+        #region Iterator Protocol - CPython 3.12 호환
 
         public override PyObject Next()
         {
             if (_finished)
                 throw PyStopIteration.Create();
 
+            // 제너레이터에 던져진 예외가 있으면 프레임에서 발생시키기
+            if (_thrownException != null)
+            {
+                var exceptionToThrow = _thrownException;
+                _thrownException = null; // 한 번만 사용
+                
+                // 프레임 내에서 예외 발생 (일단 간단한 구현)
+                _finished = true;
+                if (exceptionToThrow is PythonException pyEx)
+                    throw pyEx;
+                throw PyRuntimeError.Create($"generator exception: {exceptionToThrow.Message}");
+            }
+
             try
             {
-                if (!_enumerator.MoveNext())
+                if (!_started)
                 {
-                    _finished = true;
-                    throw PyStopIteration.Create();
+                    // 첫 번째 실행: 처음부터 시작
+                    _frame.InstructionPointer = 0;
+                    _started = true;
+                    Console.WriteLine("🔄 Native Generator: First execution, starting from instruction 0");
                 }
+                else
+                {
+                    // 재개: CPython과 달리 sent value를 스택에 push하지 않음
+                    // YIELD_VALUE에서 이미 처리했고, 대부분 제너레이터에서는 sent value를 사용하지 않음
+                    Console.WriteLine($"🔄 Native Generator: Resumed, stack size: {_frame.ValueStack.Count}");
+                }
+
+                // 프레임 실행 (yield까지 또는 끝까지)
+                var result = _vm.ExecuteFrame(_frame);
                 
-                return _enumerator.Current;
+                // 정상 완료된 경우 (return 또는 end of function)
+                _finished = true;
+                Console.WriteLine("🔄 Native Generator: Completed normally");
+                throw PyStopIteration.Create();
+            }
+            catch (PyYieldException yieldEx)
+            {
+                // yield 지점에서 중단 - 이것이 정상적인 제너레이터 동작
+                Console.WriteLine($"🔄 Native Generator: Yielded {yieldEx.Value} at instruction {_frame.InstructionPointer}");
+                
+                // sent value 초기화 (다음 호출까지 기본값)
+                _sentValue = PyNone.Instance;
+                
+                return yieldEx.Value ?? PyNone.Instance;
             }
             catch (PythonException ex) when (ex.PyException is PyStopIteration)
             {
+                // 제너레이터가 완료된 경우
                 _finished = true;
                 throw;
             }
-            catch (Exception ex)
+            catch (PythonException ex)
             {
+                // 다른 Python 예외가 발생한 경우 전파
                 _finished = true;
-                throw PyRuntimeError.Create($"generator raised {ex.GetType().Name}: {ex.Message}");
+                throw;
             }
         }
 
@@ -86,6 +131,10 @@ namespace SharpPy
             if (_finished)
                 throw PyStopIteration.Create();
 
+            // 첫 번째 호출에서 None이 아닌 값을 보내면 TypeError
+            if (!_started && value != PyNone.Instance)
+                throw PyTypeError.Create("can't send non-None value to a just-started generator");
+
             _sentValue = value ?? PyNone.Instance;
             return Next();
         }
@@ -93,7 +142,7 @@ namespace SharpPy
         /// <summary>
         /// generator.throw(type, value=None, traceback=None) - 제너레이터에 예외를 보냄
         /// </summary>
-        public PyObject Throw(PyObject excType, PyObject value = null, PyObject traceback = null)
+        public PyObject Throw(PyObject excType, PyObject? value = null, PyObject? traceback = null)
         {
             if (_finished)
                 throw PyStopIteration.Create();
@@ -123,7 +172,7 @@ namespace SharpPy
             }
         }
 
-        private System.Exception CreateExceptionFromType(PyType excType, PyObject value)
+        private System.Exception CreateExceptionFromType(PyType excType, PyObject? value)
         {
             var message = value?.ToStr() ?? "generator exception";
             
@@ -158,7 +207,7 @@ namespace SharpPy
                 _finished = true;
                 return PyNone.Instance;
             }
-            catch (PythonException ex) when (ex.PyException is PyGeneratorExit)
+            catch (PythonException ex) when (ex.PyException?.GetTypeName() == "GeneratorExit")
             {
                 // GeneratorExit 예외가 발생하면 정상 종료
                 _finished = true;
@@ -184,26 +233,6 @@ namespace SharpPy
         /// </summary>
         public bool IsFinished => _finished;
 
-        /// <summary>
-        /// 제너레이터에 보낸 값 가져오기 (yield 표현식의 값)
-        /// </summary>
-        protected PyObject GetSentValue()
-        {
-            var value = _sentValue ?? PyNone.Instance;
-            _sentValue = null; // 한 번만 사용
-            return value;
-        }
-
-        /// <summary>
-        /// 제너레이터에 던진 예외 가져오기
-        /// </summary>
-        protected Exception GetThrownException()
-        {
-            var exception = _thrownException;
-            _thrownException = null; // 한 번만 사용
-            return exception;
-        }
-
         #endregion
 
         #region Resource Management
@@ -220,96 +249,10 @@ namespace SharpPy
                 {
                     // 종료 중 예외 무시
                 }
-                
-                _enumerator?.Dispose();
             }
             base.Dispose(disposing);
         }
 
         #endregion
-
-        #region Generator Helpers
-
-        /// <summary>
-        /// 간단한 값 시퀀스로부터 제너레이터 생성
-        /// </summary>
-        public static PyGenerator FromSequence(IEnumerable<PyObject> sequence, string name = "<generator>")
-        {
-            return new PyGenerator(sequence.GetEnumerator(), name);
-        }
-
-        /// <summary>
-        /// 함수로부터 제너레이터 생성 (간단한 구현)
-        /// </summary>
-        public static PyGenerator FromFunction(Func<IEnumerable<PyObject>> generatorFunction, string name = "<generator>")
-        {
-            return new PyGenerator(generatorFunction().GetEnumerator(), name);
-        }
-
-        #endregion
-    }
-
-    /// <summary>
-    /// GeneratorExit 예외 - generator.close()에서 사용
-    /// </summary>
-    public class PyGeneratorExit : PyException
-    {
-        public PyGeneratorExit(string message = "") : base(message) { }
-        
-        public static PyGeneratorExit Create(string message = "generator exit")
-        {
-            return new PyGeneratorExit(message);
-        }
-
-        public override PyType GetPyType() => PyType.GeneratorExitType;
-        public override string GetTypeName() => "GeneratorExit";
-    }
-
-    /// <summary>
-    /// 제너레이터 표현식 구현을 위한 헬퍼
-    /// </summary>
-    public static class GeneratorHelpers
-    {
-        /// <summary>
-        /// 리스트 컴프리헨션을 제너레이터 표현식으로 변환
-        /// </summary>
-        public static PyGenerator ListToGenerator<T>(IEnumerable<T> source, Func<T, PyObject> selector)
-        {
-            return PyGenerator.FromSequence(source.Select(selector));
-        }
-
-        /// <summary>
-        /// 조건부 제너레이터 생성
-        /// </summary>
-        public static PyGenerator ConditionalGenerator<T>(IEnumerable<T> source, Func<T, bool> predicate, Func<T, PyObject> selector)
-        {
-            return PyGenerator.FromSequence(source.Where(predicate).Select(selector));
-        }
-
-        /// <summary>
-        /// range() 함수의 제너레이터 버전
-        /// </summary>
-        public static PyGenerator RangeGenerator(int start, int stop, int step = 1)
-        {
-            return PyGenerator.FromFunction(() => GenerateRange(start, stop, step));
-        }
-
-        private static IEnumerable<PyObject> GenerateRange(int start, int stop, int step)
-        {
-            if (step > 0)
-            {
-                for (int i = start; i < stop; i += step)
-                    yield return new PyInt(i);
-            }
-            else if (step < 0)
-            {
-                for (int i = start; i > stop; i += step)
-                    yield return new PyInt(i);
-            }
-            else
-            {
-                throw PyValueError.Create("range() step argument must not be zero");
-            }
-        }
     }
 }

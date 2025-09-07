@@ -92,6 +92,46 @@ namespace SharpPy.Modules
                     Console.WriteLine($"  {entry.StartOffset} to {entry.EndOffset} -> {entry.HandlerOffset} [{entry.Depth}]{(entry.Lasti ? " lasti" : "")}");
                 }
             }
+            
+            // 🎉 새로 추가: 중첩 함수들의 바이트코드 재귀 디스어셈블리
+            DisassembleNestedCodeObjects(constants);
+        }
+        
+        /// <summary>
+        /// 상수에 포함된 중첩 함수들의 PyCodeObject를 재귀적으로 디스어셈블리
+        /// CPython dis 모듈과 동일한 동작
+        /// </summary>
+        private void DisassembleNestedCodeObjects(List<PyObject> constants)
+        {
+            for (int i = 0; i < constants.Count; i++)
+            {
+                var constant = constants[i];
+                if (constant is PyCodeObject nestedCode)
+                {
+                    // CPython 호환 형식: 중첩 함수 제목 출력
+                    Console.WriteLine($"\nDisassembly of <code object {nestedCode.Name} at 0x{nestedCode.GetHashCode():X8}, file \"{nestedCode.FileName ?? "<unknown>"}\", line {GetFunctionStartLine(nestedCode)}>:");
+                    
+                    // 재귀적으로 중첩 함수 디스어셈블리
+                    DisassembleCodeObject(nestedCode);
+                }
+            }
+        }
+        
+        /// <summary>
+        /// 함수의 시작 라인 번호 추정 (간단한 구현)
+        /// </summary>
+        private int GetFunctionStartLine(PyCodeObject codeObject)
+        {
+            // 첫 번째 명령어의 라인 번호를 찾거나 기본값 반환
+            if (codeObject.Instructions.Count > 0)
+            {
+                var firstInstruction = codeObject.Instructions[0];
+                if (firstInstruction.LineNumber > 0)
+                {
+                    return firstInstruction.LineNumber;
+                }
+            }
+            return 1; // 기본값
         }
         
         private int GetInstructionSize(ByteCodeOp op, int arg)

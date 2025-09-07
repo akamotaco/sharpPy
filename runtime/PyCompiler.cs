@@ -2730,6 +2730,9 @@ namespace SharpPy
         {
             // CPython-style while loop compilation
             
+            // Check if this is while True: case
+            bool isWhileTrue = IsConstantTrue(whileStmt.Test);
+            
             // Mark loop start for JUMP_BACKWARD
             var loopStart = _instructions.Count;
             
@@ -2740,6 +2743,9 @@ namespace SharpPy
             var jumpIfFalse = _instructions.Count;
             EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // Address will be patched later
             
+            // For while True: case, mark the actual body start (after condition+jump will be optimized to NOPs)
+            var bodyStart = _instructions.Count;
+            
             // Compile the while body
             foreach (var stmt in whileStmt.Body)
             {
@@ -2749,7 +2755,8 @@ namespace SharpPy
             // Jump back to loop condition - CPython 3.12 style relative offset
             // JUMP_BACKWARD argument = number of instructions to jump backward
             int currentPos = _instructions.Count;
-            int relativeOffset = currentPos - loopStart;
+            int targetPos = isWhileTrue ? bodyStart : loopStart;
+            int relativeOffset = currentPos - targetPos;
             EmitInstruction(ByteCodeOp.JUMP_BACKWARD, relativeOffset);
             
             // While completed normally - execute else clause if present
@@ -2767,6 +2774,26 @@ namespace SharpPy
             _instructions[jumpIfFalse] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, normalCompletionPoint);
             
             // Note: Break statements need to jump past else clause to loopEnd
+        }
+        
+        /// <summary>
+        /// Check if an expression is a constant True value
+        /// </summary>
+        private bool IsConstantTrue(Expression expr)
+        {
+            // Check for constant True
+            if (expr is ConstantExpression constExpr)
+            {
+                return constExpr.Value == PyBool.True;
+            }
+            
+            // Check for name reference to True
+            if (expr is NameExpression nameExpr && nameExpr.Name == "True")
+            {
+                return true;
+            }
+            
+            return false;
         }
         
         /// <summary>
@@ -5033,19 +5060,26 @@ namespace SharpPy
                 forBody.Add(new YieldStatement(genExp.Element));
             }
             
+            // CPython 3.12: 제너레이터 함수는 iterator를 매개변수 .0으로 받음
+            var iteratorParam = new NameExpression(".0");
             var genStatements = new List<Statement>
             {
-                new ForStatement(targetName, generator.Iter, forBody)
+                new ForStatement(targetName, iteratorParam, forBody)
             };
             
-            var genCode = genCompiler.Compile(genStatements, "<genexpr>");
+            // CPython 3.12: 제너레이터 표현식은 iterator를 .0 매개변수로 받음
+            var parameters = new List<string> { ".0" };  // 매개변수는 .0 하나
+            var defaults = new List<PyObject>();  // 기본값 없음
+            var genCode = genCompiler.CompileFunction(genStatements, "<genexpr>", parameters, defaults);
             
             // 제너레이터 함수 객체 생성
             EmitLoadConst(genCode);
             EmitInstruction(ByteCodeOp.MAKE_FUNCTION, 0);
-            // Python 3.12: 함수 생성 후 PUSH_NULL + CALL
-            EmitInstruction(ByteCodeOp.PUSH_NULL);
-            EmitInstruction(ByteCodeOp.CALL, 0);
+            
+            // CPython 3.12: 올바른 스택 순서로 호출
+            CompileExpression(generator.Iter);  // range(5) 컴파일  
+            EmitInstruction(ByteCodeOp.GET_ITER);  // iterator 생성
+            EmitInstruction(ByteCodeOp.CALL, 0);  // 제너레이터 함수 호출 (iterator는 특별 처리)
             
             Console.WriteLine("✅ Generator expression 바이트코드 인라인 완료");
         }

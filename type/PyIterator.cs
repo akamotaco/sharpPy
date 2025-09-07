@@ -22,6 +22,11 @@ namespace SharpPy
         public virtual PyIterator Iter() => this;
 
         /// <summary>
+        /// 자기 자신을 반환 (Python __iter__ 메서드) - PyObject 오버라이드
+        /// </summary>
+        public override PyObject GetIterator() => this;
+
+        /// <summary>
         /// iterator는 항상 호출 가능 (__next__)
         /// </summary>
         public override bool IsCallable() => true;

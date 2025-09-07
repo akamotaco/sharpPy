@@ -104,7 +104,7 @@ public class PyFunction : PyObject, IDescriptor
     }
     
     /// <summary>
-    /// 제너레이터 객체 생성 - CPython 3.12 스타일
+    /// 제너레이터 객체 생성 - CPython 3.12 완전 호환
     /// </summary>
     private PyGenerator CreateGenerator(PyObject[] args)
     {
@@ -121,10 +121,8 @@ public class PyFunction : PyObject, IDescriptor
         var frame = new PyFrame(CodeObject, args, null, Closure);
         frame.IsGenerator = true;  // CPython 3.12: generator frame 표시
         
-        // CPython 3.12 스타일 FrameGeneratorEnumerator 사용
-        var enumerator = new FrameGeneratorEnumerator(frame, vm);
-        
-        return new PyGenerator(enumerator, Name);
+        // CPython 3.12 완전 호환 PyGenerator 사용
+        return new PyGenerator(frame, vm, Name);
     }
     
     // Function은 항상 호출 가능

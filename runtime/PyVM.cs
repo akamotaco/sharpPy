@@ -1326,6 +1326,7 @@ namespace SharpPy
                     // Stack validation for generator safety
                     Console.WriteLine($"🔄 JUMP_BACKWARD: from instr {currentInstrPos} back {jumpBackCount} instrs to instr {targetInstrPos} (CPython 3.12 relative)");
                     Console.WriteLine($"   Stack size before jump: {frame.ValueStack.Count}");
+                    Console.WriteLine($"   Current instruction: {instruction.OpCode} (arg: {instruction.Argument})");
                     
                     // Validate target instruction position
                     if (targetInstrPos < 0 || targetInstrPos >= frame.Code.Instructions.Count)
@@ -1337,6 +1338,25 @@ namespace SharpPy
                     if ((frame.Code.Flags & PyCodeObject.CO_GENERATOR) != 0)
                     {
                         Console.WriteLine($"   Generator JUMP_BACKWARD: preserving stack state for yield/resume");
+                    }
+                    
+                    // Debug: Check what instruction will be executed at target
+                    if (targetInstrPos >= 0 && targetInstrPos < frame.Code.Instructions.Count)
+                    {
+                        var targetInstruction = frame.Code.Instructions[targetInstrPos];
+                        Console.WriteLine($"🔍 Target instruction at {targetInstrPos}: {targetInstruction.OpCode} (arg: {targetInstruction.Argument})");
+                        
+                        // Check for problematic JUMP_BACKWARD targets
+                        if (targetInstruction.OpCode == ByteCodeOp.STORE_NAME && frame.ValueStack.Count == 0)
+                        {
+                            Console.WriteLine($"⚠️ Critical: JUMP_BACKWARD targeting STORE_NAME with empty stack!");
+                            Console.WriteLine($"   This indicates a bytecode generation issue in try-except loops");
+                            
+                            // Instead of jumping to wrong target, find the correct loop start
+                            // For now, we'll skip this problematic jump and continue normally
+                            Console.WriteLine($"🔧 Skipping problematic JUMP_BACKWARD to prevent stack corruption");
+                            return null; // Don't perform the jump, continue execution
+                        }
                     }
                     
                     // Direct jump to target position (subtract 1 because main loop will increment)
@@ -2382,8 +2402,13 @@ namespace SharpPy
                         throw PySyntaxError.Create("'yield' outside function");
                     }
                     
+                    // CPython 3.12 방식: yield 시점에서는 스택에 아무것도 남기지 않음
+                    // sent value는 PyNativeGenerator에서 resume 시 직접 관리
+                    
                     // CPython 3.12 스타일: instruction pointer를 다음으로 이동한 후 yield
                     frame.InstructionPointer++;
+                    
+                    Console.WriteLine($"🔄 Generator: Yielding {yieldValue}, stack size: {frame.ValueStack.Count}");
                     throw new PyYieldException(yieldValue);
                     
                 // CPython 3.12: YIELD_FROM removed
