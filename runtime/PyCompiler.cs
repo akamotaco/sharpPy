@@ -2933,8 +2933,8 @@ namespace SharpPy
             // CPython 3.12: Add NOP instruction before try body (exact CPython pattern)
             EmitInstruction(ByteCodeOp.NOP);
             
-            // Exception Table start offset is after NOP - 바이트 오프셋 계산
-            var tryStartOffset = _instructions.Count * CPYTHON_INSTRUCTION_SIZE;
+            // Exception Table start offset is after NOP - 명령어 인덱스 사용 (CPython 호환)
+            var tryStartOffset = _instructions.Count;
             
             // CPython 3.12: Direct compilation of try body (no SETUP_EXCEPT)
             foreach (var stmt in tryStmt.Body)
@@ -2942,7 +2942,7 @@ namespace SharpPy
                 CompileStatement(stmt);
             }
             
-            var tryEndOffset = _instructions.Count * CPYTHON_INSTRUCTION_SIZE;
+            var tryEndOffset = _instructions.Count;
             
             // CPython 3.12: Jump to continuation if no exception (try body completed normally)
             EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, continueLabel);
@@ -2975,7 +2975,8 @@ namespace SharpPy
                         
                         if (handler.Name != null)
                         {
-                            EmitInstruction(ByteCodeOp.STORE_NAME, AddName(handler.Name));
+                            // CPython 3.12: Exception variables are stored as local variables (STORE_FAST)
+                            EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(handler.Name));
                         }
                         else
                         {
@@ -2999,7 +3000,8 @@ namespace SharpPy
                         
                         if (handler.Name != null)
                         {
-                            EmitInstruction(ByteCodeOp.STORE_NAME, AddName(handler.Name));
+                            // CPython 3.12: Exception variables are stored as local variables (STORE_FAST)
+                            EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(handler.Name));
                         }
                         else
                         {
@@ -3012,7 +3014,8 @@ namespace SharpPy
                     // Bare except - catches everything
                     if (handler.Name != null)
                     {
-                        EmitInstruction(ByteCodeOp.STORE_NAME, AddName(handler.Name));
+                        // CPython 3.12: Exception variables are stored as local variables (STORE_FAST)
+                        EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(handler.Name));
                     }
                     else
                     {
