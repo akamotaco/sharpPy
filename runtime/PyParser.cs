@@ -106,6 +106,13 @@ namespace SharpPy
                     continue;
                 }
 
+                // CPython 3.12: Skip semicolons as statement separators (like newlines)
+                if (Check(TokenType.SEMICOLON))
+                {
+                    Advance();
+                    continue;
+                }
+
                 try
                 {
                     var statement = ParseStatement();
@@ -115,6 +122,12 @@ namespace SharpPy
                         if (!SharpPyConfig.DisassemblyOnlyMode)
                         {
                             Console.WriteLine($"  → {statement}");
+                        }
+                        
+                        // CPython 3.12: After parsing a statement, consume optional semicolon
+                        if (Check(TokenType.SEMICOLON))
+                        {
+                            Advance(); // consume semicolon as statement terminator
                         }
                     }
                 }

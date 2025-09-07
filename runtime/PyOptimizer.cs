@@ -415,6 +415,17 @@ namespace SharpPy
             }
             int recalculated = 0;
             
+            // CPython 3.12: FOR 루프가 없는 경우 FOR 관련 최적화 건너뛰기
+            bool hasForLoop = _instructions.Any(inst => inst.OpCode == ByteCodeOp.FOR_ITER);
+            if (!hasForLoop)
+            {
+                if (!SharpPyConfig.DisassemblyOnlyMode)
+                {
+                    Console.WriteLine("✅ FOR 루프 없음 - FOR 관련 점프 최적화 건너뛰기");
+                }
+                return; // FOR 루프가 없으면 관련 최적화는 불필요
+            }
+            
             // FOR 루프 패턴 감지 및 수정: GET_ITER → FOR_ITER → ... → JUMP_BACKWARD
             for (int i = 0; i < _instructions.Count - 1; i++)
             {
@@ -518,81 +529,93 @@ namespace SharpPy
             // CPython 3.12 방식: FOR_ITER → END_FOR 구조 점프 오프셋 재계산
             // Superinstructions로 인해 명령어 위치가 변경되므로 FOR_ITER 오프셋도 업데이트 필요
             
-            if (!SharpPyConfig.DisassemblyOnlyMode)
+            bool hasEndFor = _instructions.Any(inst => inst.OpCode == ByteCodeOp.END_FOR);
+            if (hasEndFor)
             {
-                Console.WriteLine("🔄 FOR_ITER → END_FOR 점프 오프셋 재계산 중...");
-            }
-            for (int i = 0; i < _instructions.Count; i++)
-            {
-                var instruction = _instructions[i];
-                if (instruction.OpCode == ByteCodeOp.FOR_ITER)
+                if (!SharpPyConfig.DisassemblyOnlyMode)
                 {
-                    // FOR_ITER에서 대응하는 END_FOR 찾기
-                    int targetEndFor = FindMatchingEndFor(i);
-                    if (targetEndFor >= 0)
-                    {
-                        int newOffset = targetEndFor - i - 1;
-                        if (newOffset != instruction.Argument)
-                        {
-                            _instructions[i] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, newOffset);
-                            Console.WriteLine($"  🔧 FOR_ITER[{i}]: 오프셋 {instruction.Argument} → {newOffset} (END_FOR at {targetEndFor})");
-                            recalculated++;
-                        }
-                    }
+                    Console.WriteLine("🔄 FOR_ITER → END_FOR 점프 오프셋 재계산 중...");
                 }
-            }
-
-            // 중첩 루프 JUMP_BACKWARD 재계산 추가
-            if (!SharpPyConfig.DisassemblyOnlyMode)
-            {
-                Console.WriteLine("🔄 중첩 루프 JUMP_BACKWARD → FOR_ITER 점프 오프셋 재계산 중...");
-            }
-            for (int i = 0; i < _instructions.Count; i++)
-            {
-                var instruction = _instructions[i];
-                if (instruction.OpCode == ByteCodeOp.JUMP_BACKWARD)
+                for (int i = 0; i < _instructions.Count; i++)
                 {
-                    // JUMP_BACKWARD에서 올바른 FOR_ITER 타겟 찾기
-                    int targetForIter = FindMatchingForIter(i);
-                    if (targetForIter >= 0)
+                    var instruction = _instructions[i];
+                    if (instruction.OpCode == ByteCodeOp.FOR_ITER)
                     {
-                        int currentOffset = instruction.Argument;
-                        int correctOffset = i - targetForIter;
-                        
-                        if (currentOffset != correctOffset)
-                        {
-                            _instructions[i] = new ByteCodeInstruction(ByteCodeOp.JUMP_BACKWARD, correctOffset);
-                            Console.WriteLine($"  🔧 중첩 JUMP_BACKWARD[{i}]: 오프셋 {currentOffset} → {correctOffset} (FOR_ITER at {targetForIter})");
-                            recalculated++;
-                        }
-                    }
-                }
-            }
-
-            // JUMP_FORWARD (break문) 오프셋 재계산
-            if (!SharpPyConfig.DisassemblyOnlyMode)
-            {
-                Console.WriteLine("🔄 JUMP_FORWARD (break문) 점프 오프셋 재계산 중...");
-            }
-            for (int i = 0; i < _instructions.Count; i++)
-            {
-                var instruction = _instructions[i];
-                if (instruction.OpCode == ByteCodeOp.JUMP_FORWARD)
-                {
-                    int currentOffset = instruction.Argument;
-                    
-                    // JUMP_FORWARD는 break문에서 주로 사용됨
-                    // 0 오프셋이면 무한루프를 만들므로 수정 필요
-                    if (currentOffset == 0)
-                    {
-                        // break문은 가장 가까운 END_FOR로 점프해야 함
-                        int targetEndFor = FindNearestEndFor(i);
+                        // FOR_ITER에서 대응하는 END_FOR 찾기
+                        int targetEndFor = FindMatchingEndFor(i);
                         if (targetEndFor >= 0)
                         {
-                            int correctOffset = targetEndFor - i - 1;
-                            _instructions[i] = new ByteCodeInstruction(ByteCodeOp.JUMP_FORWARD, correctOffset);
-                            Console.WriteLine($"  🔧 JUMP_FORWARD[{i}]: break문 0 오프셋 → {correctOffset} (END_FOR at {targetEndFor})");
-                            recalculated++;
+                            int newOffset = targetEndFor - i - 1;
+                            if (newOffset != instruction.Argument)
+                            {
+                                _instructions[i] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, newOffset);
+                                Console.WriteLine($"  🔧 FOR_ITER[{i}]: 오프셋 {instruction.Argument} → {newOffset} (END_FOR at {targetEndFor})");
+                                recalculated++;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 중첩 루프 JUMP_BACKWARD 재계산 추가 (JUMP_BACKWARD가 있는 경우만)
+            bool hasJumpBackward = _instructions.Any(inst => inst.OpCode == ByteCodeOp.JUMP_BACKWARD);
+            if (hasJumpBackward)
+            {
+                if (!SharpPyConfig.DisassemblyOnlyMode)
+                {
+                    Console.WriteLine("🔄 중첩 루프 JUMP_BACKWARD → FOR_ITER 점프 오프셋 재계산 중...");
+                }
+                for (int i = 0; i < _instructions.Count; i++)
+                {
+                    var instruction = _instructions[i];
+                    if (instruction.OpCode == ByteCodeOp.JUMP_BACKWARD)
+                    {
+                        // JUMP_BACKWARD에서 올바른 FOR_ITER 타겟 찾기
+                        int targetForIter = FindMatchingForIter(i);
+                        if (targetForIter >= 0)
+                        {
+                            int currentOffset = instruction.Argument;
+                            int correctOffset = i - targetForIter;
+                            
+                            if (currentOffset != correctOffset)
+                            {
+                                _instructions[i] = new ByteCodeInstruction(ByteCodeOp.JUMP_BACKWARD, correctOffset);
+                                Console.WriteLine($"  🔧 중첩 JUMP_BACKWARD[{i}]: 오프셋 {currentOffset} → {correctOffset} (FOR_ITER at {targetForIter})");
+                                recalculated++;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // JUMP_FORWARD (break문) 오프셋 재계산 (JUMP_FORWARD가 있는 경우만)
+            bool hasJumpForward = _instructions.Any(inst => inst.OpCode == ByteCodeOp.JUMP_FORWARD);
+            if (hasJumpForward)
+            {
+                if (!SharpPyConfig.DisassemblyOnlyMode)
+                {
+                    Console.WriteLine("🔄 JUMP_FORWARD (break문) 점프 오프셋 재계산 중...");
+                }
+                for (int i = 0; i < _instructions.Count; i++)
+                {
+                    var instruction = _instructions[i];
+                    if (instruction.OpCode == ByteCodeOp.JUMP_FORWARD)
+                    {
+                        int currentOffset = instruction.Argument;
+                        
+                        // JUMP_FORWARD는 break문에서 주로 사용됨
+                        // 0 오프셋이면 무한루프를 만들므로 수정 필요
+                        if (currentOffset == 0)
+                        {
+                            // break문은 가장 가까운 END_FOR로 점프해야 함
+                            int targetEndFor = FindNearestEndFor(i);
+                            if (targetEndFor >= 0)
+                            {
+                                int correctOffset = targetEndFor - i - 1;
+                                _instructions[i] = new ByteCodeInstruction(ByteCodeOp.JUMP_FORWARD, correctOffset);
+                                Console.WriteLine($"  🔧 JUMP_FORWARD[{i}]: break문 0 오프셋 → {correctOffset} (END_FOR at {targetEndFor})");
+                                recalculated++;
+                            }
                         }
                     }
                 }

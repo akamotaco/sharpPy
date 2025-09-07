@@ -86,8 +86,16 @@ namespace SharpPy.Core
                 Console.Write(">>> ");
             }
 
-            string input = Console.ReadLine();
-            return input ?? "";
+            string? input = Console.ReadLine();
+            
+            // CPython 3.12: EOF (Ctrl+D or pipe end) should exit REPL
+            if (input == null)
+            {
+                _isRunning = false;
+                return "";
+            }
+            
+            return input;
         }
 
         private bool IsExitCommand(string input)
