@@ -1299,6 +1299,14 @@ namespace SharpPy
         {
             Console.WriteLine($"\n🔍 Compiling nested function: {func.Name}");
             
+            // PEP 695: Check if function has type parameters
+            if (func.TypeParams != null && func.TypeParams.Count > 0)
+            {
+                Console.WriteLine($"  → PEP 695 Generic function with type parameters: [{string.Join(", ", func.TypeParams)}]");
+                CompileGenericFunction(func);
+                return;
+            }
+            
             // 1. 자유 변수 분석
             var analyzer = new FreeVariableAnalyzer();
             Console.WriteLine($"  DEBUG: Current _varNames: [{string.Join(", ", _varNames)}]");
@@ -1816,6 +1824,142 @@ namespace SharpPy
             EmitStoreName(cls.Name);
         }
         
+        /// <summary>
+        /// PEP 695: Compile generic function with type parameters
+        /// CPython pattern: def identity[T](x: T) -> PUSH_NULL, LOAD_CONST <generic parameters>, MAKE_FUNCTION, CALL
+        /// </summary>
+        private void CompileGenericFunction(FunctionDefStatement func)
+        {
+            // CPython pattern: PUSH_NULL, LOAD_CONST <generic parameters function>, MAKE_FUNCTION, CALL
+            EmitInstruction(ByteCodeOp.PUSH_NULL);
+            
+            // Create generic parameters function
+            var genericParamsCode = CompileGenericParametersFunction(func.TypeParams, func.Name, func);
+            EmitLoadConst(genericParamsCode);
+            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, 0);
+            EmitInstruction(ByteCodeOp.CALL, 0);
+            
+            // Store the resulting function
+            EmitStoreName(func.Name);
+        }
+        
+        /// <summary>
+        /// Compile Generic Parameters function for PEP 695 function
+        /// Creates: <code object <generic parameters of identity>>
+        /// </summary>
+        private PyCodeObject CompileGenericParametersFunction(List<string> typeParams, string functionName, FunctionDefStatement func)
+        {
+            // Save current compilation state
+            var savedInstructions = _instructions;
+            var savedConstants = _constants;
+            var savedNames = _names;
+            var savedVarNames = _varNames;
+            var savedCellVars = _cellVars;
+            var savedFreeVars = _freeVars;
+            
+            // Initialize new compilation state for generic parameters function
+            _instructions = new List<ByteCodeInstruction>();
+            _constants = new List<PyObject>();
+            _names = new List<string>();
+            _varNames = new List<string>();
+            _cellVars = new List<string>();
+            _freeVars = new List<string>();
+            
+            try
+            {
+                // CPython 3.12 pattern for generic function parameters
+                EmitInstruction(ByteCodeOp.RESUME, 0);
+                
+                // Create TYPEVAR for each type parameter
+                foreach (var typeParam in typeParams)
+                {
+                    EmitLoadConst(new PyString(typeParam));
+                    EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, 7); // INTRINSIC_TYPEVAR
+                    EmitInstruction(ByteCodeOp.COPY, 1);
+                    
+                    // Add to varNames for STORE_FAST/LOAD_FAST
+                    if (!_varNames.Contains(typeParam))
+                        _varNames.Add(typeParam);
+                    
+                    int varIndex = _varNames.IndexOf(typeParam);
+                    EmitInstruction(ByteCodeOp.STORE_FAST, varIndex);
+                }
+                
+                // Build tuple of type parameters
+                EmitInstruction(ByteCodeOp.BUILD_TUPLE, typeParams.Count);
+                
+                // Create annotations tuple: complex parameter annotations
+                var (paramNames, defaults, flags) = ParseFunctionParameters(func.Parameters);
+                
+                // Build complex annotations tuple for all parameters and return type
+                var annotationCount = 0;
+                
+                // Add parameter annotations
+                foreach (var paramName in paramNames)
+                {
+                    EmitLoadConst(new PyString(paramName)); // parameter name
+                    annotationCount++;
+                    
+                    // Add type annotation (simplified: use first type param for now)
+                    int typeVarIndex = _varNames.IndexOf(typeParams[0]);
+                    EmitInstruction(ByteCodeOp.LOAD_FAST, typeVarIndex);
+                    annotationCount++;
+                }
+                
+                // Add return type annotation if exists
+                if (func.Parameters.Count > 0) // Simple heuristic: if has params, likely has return type
+                {
+                    EmitLoadConst(new PyString("return"));
+                    annotationCount++;
+                    
+                    int typeVarIndex = _varNames.IndexOf(typeParams[0]);
+                    EmitInstruction(ByteCodeOp.LOAD_FAST, typeVarIndex);
+                    annotationCount++;
+                }
+                
+                EmitInstruction(ByteCodeOp.BUILD_TUPLE, annotationCount);
+                
+                // Compile actual function
+                var compiler = new PythonCompiler();
+                var funcCode = compiler.CompileFunction(func.Body, func.Name, paramNames, defaults, flags);
+                EmitLoadConst(funcCode);
+                EmitInstruction(ByteCodeOp.MAKE_FUNCTION, 4); // annotations flag
+                
+                // SWAP 2 (not 4!) and CALL_INTRINSIC_2 for SET_FUNCTION_TYPE_PARAMS
+                EmitInstruction(ByteCodeOp.SWAP, 2);
+                EmitInstruction(ByteCodeOp.CALL_INTRINSIC_2, 4); // INTRINSIC_SET_FUNCTION_TYPE_PARAMS
+                
+                EmitInstruction(ByteCodeOp.RETURN_VALUE);
+                
+                // Build the code object
+                var functionName_full = $"<generic parameters of {functionName}>";
+                return new PyCodeObject(
+                    functionName_full, 
+                    _instructions,
+                    _constants,
+                    _names,
+                    _varNames,
+                    0, // argCount
+                    _freeVars,
+                    _cellVars,
+                    new List<PyObject>(), // defaultValues
+                    0, // flags
+                    "", // fileName
+                    new List<string>() // sourceLines
+                );
+            }
+            finally
+            {
+                // Restore compilation state
+                _instructions = savedInstructions;
+                _constants = savedConstants;
+                _names = savedNames;
+                _varNames = savedVarNames;
+                _cellVars = savedCellVars;
+                _freeVars = savedFreeVars;
+            }
+        }
+        
         private void CompileRegularClass(ClassDefStatement cls)
         {
             // CPython 3.12: Regular class compilation (no type parameters)
@@ -1918,9 +2062,9 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.PUSH_NULL);
                 EmitLoadName("__build_class__");
                 
-                // 6. Load closure for class body (type parameters)
-                EmitLoadDeref(".type_params");
-                EmitLoadDeref(typeParams[0]); // Load first type parameter (e.g., 'T')
+                // 6. Load closure for class body (type parameters) - CPython 3.12 uses LOAD_CLOSURE
+                EmitLoadClosure(".type_params");
+                EmitLoadClosure(typeParams[0]); // Load first type parameter (e.g., 'T')
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, 2);
                 
                 // 7. Compile class body with closure
@@ -1952,8 +2096,8 @@ namespace SharpPy
                     _names, 
                     _varNames, 
                     0,  // argCount
-                    _cellVars,
-                    _freeVars
+                    _freeVars,    // 7번째 매개변수: freeVars
+                    _cellVars     // 8번째 매개변수: cellVars (수정됨!)
                 );
             }
             finally
@@ -2154,6 +2298,8 @@ namespace SharpPy
             // Store the result with the alias name
             EmitStoreName(typeAlias.Name);
         }
+
+        
         private void CompileImport(ImportStatement import)
         {
             foreach (var moduleName in import.Names)
@@ -4310,9 +4456,24 @@ namespace SharpPy
                     break;
                     
                 case SubscriptExpression subscript:
-                    CompileExpression(subscript.Value);
-                    CompileExpression(subscript.Slice);
-                    EmitInstruction(ByteCodeOp.STORE_SUBSCR);
+                    // Check if this is a slice assignment (obj[start:stop] = value)
+                    if (subscript.Slice is SliceExpression slice)
+                    {
+                        // CPython 3.12: Use STORE_SLICE for slice assignments
+                        // Stack order: container, start, stop, value -> []
+                        CompileExpression(subscript.Value);  // container
+                        CompileExpression(slice.Start);      // start 
+                        CompileExpression(slice.Stop);       // stop
+                        // Value is already on stack from assignment statement
+                        EmitInstruction(ByteCodeOp.STORE_SLICE);
+                    }
+                    else
+                    {
+                        // Regular subscript assignment (obj[key] = value)
+                        CompileExpression(subscript.Value);
+                        CompileExpression(subscript.Slice);
+                        EmitInstruction(ByteCodeOp.STORE_SUBSCR);
+                    }
                     break;
                     
                 case TupleExpression tuple:
@@ -4353,9 +4514,24 @@ namespace SharpPy
                     break;
                     
                 case SubscriptExpression subscript:
-                    CompileExpression(subscript.Value);
-                    CompileExpression(subscript.Slice);
-                    EmitInstruction(ByteCodeOp.STORE_SUBSCR);
+                    // Check if this is a slice assignment (obj[start:stop] = value)
+                    if (subscript.Slice is SliceExpression slice)
+                    {
+                        // CPython 3.12: Use STORE_SLICE for slice assignments  
+                        // Stack order: container, start, stop, value -> []
+                        CompileExpression(subscript.Value);  // container
+                        CompileExpression(slice.Start);      // start 
+                        CompileExpression(slice.Stop);       // stop
+                        // Value is already on stack from previous operations
+                        EmitInstruction(ByteCodeOp.STORE_SLICE);
+                    }
+                    else
+                    {
+                        // Regular subscript assignment (obj[key] = value)
+                        CompileExpression(subscript.Value);
+                        CompileExpression(subscript.Slice);
+                        EmitInstruction(ByteCodeOp.STORE_SUBSCR);
+                    }
                     break;
                     
                 case TupleExpression tuple:
@@ -4410,6 +4586,25 @@ namespace SharpPy
             if (index == -1)
                 throw new Exception($"Variable '{varName}' not found in cell variables");
             EmitInstruction(ByteCodeOp.LOAD_CLOSURE, index);
+        }
+        
+        /// <summary>
+        /// Emit LOAD_CLOSURE for multiple cell variables
+        /// </summary>
+        private void EmitLoadClosure(List<int> cellIndices)
+        {
+            foreach (var index in cellIndices)
+            {
+                EmitInstruction(ByteCodeOp.LOAD_CLOSURE, index);
+            }
+        }
+        
+        /// <summary>
+        /// Emit COPY_FREE_VARS for functions with free variables
+        /// </summary>
+        private void EmitCopyFreeVars(int count)
+        {
+            EmitInstruction(ByteCodeOp.COPY_FREE_VARS, count);
         }
         
         /// <summary>

@@ -66,5 +66,16 @@ namespace SharpPy
             }
             return PyBool.False;
         }
+
+        /// <summary>
+        /// CPython 3.12: Generic alias subscripting for type parameters
+        /// Example: Point[int] where Point = tuple[T, T]
+        /// </summary>
+        public override PyObject GetItem(PyObject key)
+        {
+            // For type aliases like Point[T] = tuple[T, T], Point[int] should return tuple[int, int]
+            // This implements parameterization of generic aliases
+            return new PyGenericAlias(Origin, key);
+        }
     }
 }

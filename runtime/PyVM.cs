@@ -525,33 +525,48 @@ namespace SharpPy
                     break;
                     
                 case ByteCodeOp.SWAP:
-                    // CPython 3.12: SWAP i - Exchange top i elements with the next i elements
+                    // CPython 3.12: SWAP i - Exchange TOS with TOS-i
                     var swapCount = instruction.Argument;
-                    if (frame.ValueStack.Count < swapCount * 2)
+                    
+                    
+                    var requiredItems = swapCount; // CPython 3.12: SWAP i requires i items
+                    
+                    if (frame.ValueStack.Count < requiredItems)
                     {
-                        throw PyRuntimeError.Create($"SWAP: Not enough items on stack (need {swapCount * 2}, got {frame.ValueStack.Count})");
+                        throw PyRuntimeError.Create($"SWAP: Not enough items on stack (need {requiredItems}, got {frame.ValueStack.Count})");
                     }
                     
                     // CPython 3.12 SWAP behavior: SWAP i exchanges TOS with TOS-i
-                    var temp = new PyObject[swapCount];
-                    
-                    // Pop top i elements
-                    for (int j = 0; j < swapCount; j++)
+                    // Simple implementation for the common case
+                    if (swapCount == 2) 
                     {
-                        temp[j] = frame.ValueStack.Pop();
+                        // SWAP 2: Exchange top 2 elements
+                        var tos = frame.ValueStack.Pop();      // Get TOS (STACK[-1])
+                        var second = frame.ValueStack.Pop();   // Get TOS-1 (STACK[-2]) 
+                        frame.ValueStack.Push(tos);            // Push old TOS to TOS-1 position
+                        frame.ValueStack.Push(second);         // Push old TOS-1 to TOS position
                     }
-                    
-                    // Get the element at position i (which is now at top)
-                    var swapElement = frame.ValueStack.Pop();
-                    
-                    // Push back the temp elements in reverse order
-                    for (int j = swapCount - 1; j >= 0; j--)
+                    else 
                     {
-                        frame.ValueStack.Push(temp[j]);
+                        // General SWAP i implementation
+                        var elements = new PyObject[swapCount];
+                        for (int j = 0; j < swapCount; j++)
+                        {
+                            elements[j] = frame.ValueStack.Pop();
+                        }
+                        
+                        // elements[0] = TOS, elements[1] = TOS-1, ..., elements[swapCount-1] = TOS-(swapCount-1)
+                        // We want to swap elements[0] (TOS) with elements[swapCount-1] (TOS-swapCount)
+                        var temp = elements[0];
+                        elements[0] = elements[swapCount - 1];
+                        elements[swapCount - 1] = temp;
+                        
+                        // Push back in reverse order
+                        for (int j = swapCount - 1; j >= 0; j--)
+                        {
+                            frame.ValueStack.Push(elements[j]);
+                        }
                     }
-                    
-                    // Push the swapped element on top
-                    frame.ValueStack.Push(swapElement);
                     break;
                     
                 case ByteCodeOp.LOAD_CONST:
@@ -1334,6 +1349,11 @@ namespace SharpPy
                         {
                             // Type subscript access: Type[args] (for generics like Unpack[T], Required[T], etc.)
                             subscriptResult = subscriptType.GetItem(subscriptKey);
+                        }
+                        else if (subscriptObj is PyGenericAlias subscriptGeneric)
+                        {
+                            // Generic alias subscript access: Point[int] where Point = tuple[T, T]
+                            subscriptResult = subscriptGeneric.GetItem(subscriptKey);
                         }
                         else
                         {
@@ -2265,15 +2285,15 @@ namespace SharpPy
                         Console.WriteLine($"   Initializing '{cellVarName}' cell with None (Generic Parameters standard)");
                     }
                     
-                    // CPython 3.12: Use makeCellIndex directly (argument is the CellVars index)
-                    if (makeCellIndex < frame.Cells.Length)
+                    // CPython 3.12: Use cellVarIndex (converted from unified index) for actual cell access
+                    if (cellVarIndex < frame.Cells.Length)
                     {
-                        frame.Cells[makeCellIndex].SetValue(cellValue);
-                        Console.WriteLine($"   ✅ Set cell[{makeCellIndex}] '{cellVarName}' = {cellValue}");
+                        frame.Cells[cellVarIndex].SetValue(cellValue);
+                        Console.WriteLine($"   ✅ Set cell[{cellVarIndex}] '{cellVarName}' = {cellValue}");
                     }
                     else
                     {
-                        Console.WriteLine($"   ❌ Invalid cell index {makeCellIndex}, Cells.Length: {frame.Cells.Length}");
+                        Console.WriteLine($"   ❌ Invalid cell index {cellVarIndex}, Cells.Length: {frame.Cells.Length}");
                     }
                     break;
                     
@@ -2308,12 +2328,12 @@ namespace SharpPy
                     break;
                     
                 case ByteCodeOp.STORE_SLICE:
-                    // Stack: TOS = value, TOS1 = stop, TOS2 = start, TOS3 = container  
+                    // CPython 3.12: Stack: TOS = stop, TOS1 = start, TOS2 = container, TOS3 = value  
                     // Result: container[start:stop] = value
-                    var sliceValue = frame.ValueStack.Pop();
-                    var sliceStoreStop = frame.ValueStack.Pop();
-                    var sliceStoreStart = frame.ValueStack.Pop();
-                    var sliceStoreContainer = frame.ValueStack.Pop();
+                    var sliceStoreStop = frame.ValueStack.Pop();    // stop
+                    var sliceStoreStart = frame.ValueStack.Pop();   // start
+                    var sliceStoreContainer = frame.ValueStack.Pop(); // container
+                    var sliceValue = frame.ValueStack.Pop();        // value
                     
                     // PySlice 객체 생성하여 실제 슬라이스 할당 수행
                     var storeSlice = new PySlice(sliceStoreStart, sliceStoreStop);
@@ -2824,11 +2844,30 @@ namespace SharpPy
             {
                 case 1: // INTRINSIC_PREP_RERAISE_STAR - Exception Groups cleanup
                     return PrepReraiseStarExceptions(arg1, arg2);
+                case 4: // INTRINSIC_SET_FUNCTION_TYPE_PARAMS - PEP 695 Generic Function
+                    return SetFunctionTypeParams(arg1, arg2);
                 default:
                     throw new NotImplementedException($"Intrinsic function 2-arg {functionId} not implemented");
             }
         }
         
+        /// <summary>
+        /// CPython 3.12: INTRINSIC_SET_FUNCTION_TYPE_PARAMS - Set Generic Type Parameters for PEP 695 function
+        /// </summary>
+        private PyObject SetFunctionTypeParams(PyObject function, PyObject typeParams)
+        {
+            // arg1 = function object, arg2 = type parameters tuple
+            if (function is PyFunction pyFunc && typeParams is PyTuple paramTuple)
+            {
+                // Set the type parameters on the function
+                // For now, just return the function as-is (basic implementation)
+                // TODO: Enhanced type parameter handling if needed
+                return pyFunc;
+            }
+            
+            return function; // Fallback: return function unchanged
+        }
+
         /// <summary>
         /// CPython 3.12: INTRINSIC_PREP_RERAISE_STAR - prepare exceptions for reraise in except* handlers
         /// </summary>
