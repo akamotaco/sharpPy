@@ -17,6 +17,10 @@ namespace SharpPy
             _vm = PyVM.Instance;
             _globalScope = new PyScopeChain(); // 기존 LEGB 시스템!
             
+            // CPython 3.12 호환: 모듈 생성시 __name__ 설정
+            // PyModule_New()에서 __name__을 모듈 딕셔너리에 설정하는 것과 동일
+            _globalScope.AssignVariable("__name__", new PyString("__main__"));
+            
             SetupBuiltinHelpers();
         }
         
