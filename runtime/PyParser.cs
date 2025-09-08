@@ -198,6 +198,18 @@ namespace SharpPy
                     return null;
                 }
                 
+                // CPython 3.12: Handle block-ending tokens gracefully
+                if (Check(TokenType.EXCEPT) || Check(TokenType.FINALLY) || Check(TokenType.ELSE))
+                {
+                    // These tokens signal end of current block and should be handled by the parent parser
+                    // Don't consume them here, just return null to let the caller handle it
+                    if (!SharpPyConfig.DisassemblyOnlyMode)
+                    {
+                        Console.WriteLine($"⚠️ Warning: Encountered block-ending token {Peek().Type} - returning control to block parser");
+                    }
+                    return null;
+                }
+                
                 // Check for decorators first
                 if (Check(TokenType.AT))
                 {
@@ -610,6 +622,75 @@ namespace SharpPy
             return parameters;
         }
 
+        // CPython PEG: block: NEWLINE INDENT statements DEDENT | simple_stmts
+        private List<Statement> ParseBlock()
+        {
+            var statements = new List<Statement>();
+            
+            // CPython PEG: NEWLINE INDENT statements DEDENT
+            if (Match(TokenType.NEWLINE))
+            {
+                // Expect INDENT token
+                if (!Check(TokenType.INDENT))
+                {
+                    throw new Exception("Expected an indented block after ':'");
+                }
+                Advance(); // consume INDENT
+                
+                // Parse statements until DEDENT
+                while (!IsAtEnd() && !Check(TokenType.DEDENT) && !Check(TokenType.EOF))
+                {
+                    // Skip empty lines
+                    if (Match(TokenType.NEWLINE))
+                    {
+                        continue;
+                    }
+                    
+                    var stmt = ParseStatement();
+                    if (stmt != null)
+                    {
+                        statements.Add(stmt);
+                    }
+                    else
+                    {
+                        // Check for block-ending tokens
+                        if (Check(TokenType.DEDENT) || Check(TokenType.EXCEPT) || Check(TokenType.FINALLY) || Check(TokenType.ELSE))
+                        {
+                            break;
+                        }
+                        // Skip unexpected tokens
+                        if (!IsAtEnd() && !Check(TokenType.EOF))
+                        {
+                            Advance();
+                        }
+                    }
+                }
+                
+                // Consume DEDENT
+                if (Check(TokenType.DEDENT))
+                {
+                    Advance();
+                }
+            }
+            else
+            {
+                // CPython PEG: simple_stmts (single line)
+                var stmt = ParseStatement();
+                if (stmt != null)
+                {
+                    statements.Add(stmt);
+                }
+            }
+            
+            // Empty block gets a pass statement (like CPython)
+            if (statements.Count == 0)
+            {
+                statements.Add(new PassStatement());
+            }
+            
+            return statements;
+        }
+
         private List<Statement> ParseBlockOrSingleStatement()
         {
             var statements = new List<Statement>();
@@ -646,13 +727,12 @@ namespace SharpPy
                     }
                     else
                     {
-                        // If ParseStatement returns null, check if we've hit a DEDENT
-                        // If so, break out of the loop to avoid infinite loop
-                        if (Check(TokenType.DEDENT))
+                        // If ParseStatement returns null, check if we've hit a DEDENT or block-ending tokens
+                        if (Check(TokenType.DEDENT) || Check(TokenType.EXCEPT) || Check(TokenType.FINALLY) || Check(TokenType.ELSE))
                         {
-                            break;
+                            break; // These tokens signal end of current block
                         }
-                        // If not DEDENT, this might be another parsing issue
+                        // If not a block-ending token, this might be another parsing issue
                         // Advance to avoid infinite loop on other unexpected tokens
                         if (!IsAtEnd() && !Check(TokenType.EOF))
                         {
@@ -2164,43 +2244,57 @@ namespace SharpPy
         }
         private Statement ParseTryStatement()
         {
+            // CPython PEG: 'try' ':' b=block ...
             Consume(TokenType.COLON, "Expected ':' after try");
             
             // Parse try body
-            var tryBody = ParseBlockOrSingleStatement();
+            var tryBody = ParseBlock();
             
-            // CPython 3.12: try 문은 except 절들과 선택적 else 절, 또는 finally 절만 있을 수 있음
+            // CPython PEG: Two patterns:
+            // Pattern 1: 'try' ':' b=block f=finally_block
+            // Pattern 2: 'try' ':' b=block ex=except_block+ el=[else_block] f=[finally_block]
             
-            // Parse except handlers
+            // Try Pattern 1: Check for finally block first
+            if (Check(TokenType.FINALLY))
+            {
+                Advance(); // consume 'finally'
+                Consume(TokenType.COLON, "Expected ':' after finally");
+                var finallyStmts = ParseBlock();
+                return new TryStatement(tryBody, new List<ExceptHandler>(), null, finallyStmts);
+            }
+            
+            // Try Pattern 2: Parse except handlers
             var handlers = new List<ExceptHandler>();
+            
+            // Must have at least one except handler for this pattern
+            if (!Check(TokenType.EXCEPT))
+            {
+                throw new Exception("'try' statement must have either 'except' or 'finally' clause");
+            }
+            
+            // Parse except_block+
             while (Check(TokenType.EXCEPT))
             {
                 Advance(); // consume 'except'
                 handlers.Add(ParseExceptHandler());
             }
             
-            // Parse optional else clause (except 절이 있을 때만)
+            // Parse optional else_block
             List<Statement>? elseBody = null;
-            if (handlers.Count > 0 && Check(TokenType.ELSE))
+            if (Check(TokenType.ELSE))
             {
                 Advance(); // consume 'else'
                 Consume(TokenType.COLON, "Expected ':' after else");
-                elseBody = ParseBlockOrSingleStatement();
+                elseBody = ParseBlock();
             }
             
-            // Parse optional finally clause
+            // Parse optional finally_block
             List<Statement>? finallyBody = null;
             if (Check(TokenType.FINALLY))
             {
                 Advance(); // consume 'finally'
                 Consume(TokenType.COLON, "Expected ':' after finally");
-                finallyBody = ParseBlockOrSingleStatement();
-            }
-            
-            // CPython 3.12: try 문은 except 절이 있거나 finally 절이 있어야 함
-            if (handlers.Count == 0 && finallyBody == null)
-            {
-                throw new Exception("'try' statement must have either 'except' or 'finally' clause");
+                finallyBody = ParseBlock();
             }
             
             return new TryStatement(tryBody, handlers, elseBody, finallyBody);
