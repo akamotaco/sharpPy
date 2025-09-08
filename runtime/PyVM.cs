@@ -1276,10 +1276,11 @@ namespace SharpPy
                     var truthValue = frame.ValueStack.Pop();
                     if (truthValue.PyBoolValue())
                     {
-                        // CPython 3.12: POP_JUMP_IF_TRUE uses absolute byte offset
-                        // Convert byte offset back to instruction index
-                        int targetInstructionIndex = instruction.Argument / 2;
-                        Console.WriteLine($"🔄 POP_JUMP_IF_TRUE: condition True, jump to instr {targetInstructionIndex} (byte offset {instruction.Argument})");
+                        // CPython 3.12: POP_JUMP_IF_TRUE uses relative offset from next instruction (same as POP_JUMP_IF_FALSE)
+                        int currentPosJump = frame.InstructionPointer;
+                        int relativeOffset = instruction.Argument;
+                        int targetInstructionIndex = currentPosJump + 1 + relativeOffset;
+                        Console.WriteLine($"🔄 POP_JUMP_IF_TRUE: condition True, jump from {currentPosJump} + 1 + {relativeOffset} to instr {targetInstructionIndex}");
                         // Subtract 1 because main loop will increment
                         frame.InstructionPointer = targetInstructionIndex - 1;
                         return null; // Continue execution from new position

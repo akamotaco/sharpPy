@@ -4046,7 +4046,8 @@ namespace SharpPy
             // If test is true, skip the assertion error
             EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_TRUE, endLabel);
             
-            // Load AssertionError class
+            // Load AssertionError class (CPython 3.12 calling convention)
+            EmitInstruction(ByteCodeOp.PUSH_NULL);
             EmitInstruction(ByteCodeOp.LOAD_ASSERTION_ERROR);
             
             if (assert.Msg != null)
@@ -4054,6 +4055,11 @@ namespace SharpPy
                 // assert test, msg: AssertionError(msg)
                 CompileExpression(assert.Msg);
                 EmitInstruction(ByteCodeOp.CALL, 1);
+            }
+            else
+            {
+                // assert test: AssertionError()
+                EmitInstruction(ByteCodeOp.CALL, 0);
             }
             
             // Raise the AssertionError
