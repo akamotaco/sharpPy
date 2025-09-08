@@ -90,10 +90,7 @@ namespace SharpPy
         {
             var statements = new List<Statement>();
             
-            if (!SharpPyConfig.DisassemblyOnlyMode)
-            {
-                Console.WriteLine($"\n📝 파싱: {_tokens.Count}개 토큰");
-            }
+            SharpPyConfig.DebugWriteInternal($"\n📝 파싱: {_tokens.Count}개 토큰");
             
             while (!IsAtEnd())
             {

@@ -857,7 +857,33 @@ namespace SharpPy
                     Advance(); // consume backslash
                     if (!IsAtEnd())
                     {
-                        value.Append(ProcessEscapeSequence(Advance()));
+                        var escapeChar = Peek();
+                        if (escapeChar == 'x')
+                        {
+                            // Handle hex escape sequence \xHH
+                            Advance(); // consume 'x'
+                            if (_position + 1 < _source.Length && 
+                                IsHexDigit(_source[_position]) && 
+                                IsHexDigit(_source[_position + 1]))
+                            {
+                                var hex1 = _source[_position];
+                                var hex2 = _source[_position + 1];
+                                _position += 2;
+                                _column += 2;
+                                
+                                // Convert hex digits to byte value
+                                var byteValue = Convert.ToByte($"{hex1}{hex2}", 16);
+                                value.Append((char)byteValue);
+                            }
+                            else
+                            {
+                                throw new Exception($"Invalid hex escape sequence at line {_line}, column {_column}");
+                            }
+                        }
+                        else
+                        {
+                            value.Append(ProcessEscapeSequence(Advance()));
+                        }
                     }
                 }
                 else

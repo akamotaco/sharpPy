@@ -121,7 +121,7 @@ public class PyBuiltinsModule : PyObject
         BuiltinDict["memoryview"] = new PyBuiltinFunction("memoryview");
         BuiltinDict["buffer"] = new PyBuiltinType("buffer");
         
-        Console.WriteLine($"🏗️ Builtin 모듈 초기화: {BuiltinDict.Count}개 내장 객체");
+        SharpPyConfig.DebugWriteInternal($"🏗️ Builtin 모듈 초기화: {BuiltinDict.Count}개 내장 객체");
     }
     
     public override string GetTypeName() => "module";
@@ -307,7 +307,7 @@ public class PyScope
             // Global 스코프에 __builtins__ 참조 추가 (Python과 동일)
             globalScope.SetVariable("__builtins__", _builtinModule);
 
-            Console.WriteLine("🏗️ LEGB 시스템 초기화 (Builtin 특별 관리)");
+            SharpPyConfig.DebugWriteInternal("🏗️ LEGB 시스템 초기화 (Builtin 특별 관리)");
         }
 
         public PyScope PushScope(ScopeType type, string name = "", PyScope enclosingScope = null)
@@ -405,6 +405,12 @@ public class PyScope
             {
                 GlobalScope.SetVariable(name, value);
                 Console.WriteLine($"📝 Global 변수 할당: {name} = {value}");
+            }
+            // **핵심 수정**: 모듈 레벨에서는 GlobalScope에 저장
+            else if (CurrentScope != null && CurrentScope.Name == "<module>")
+            {
+                GlobalScope.SetVariable(name, value);
+                Console.WriteLine($"📝 Module → Global 변수 할당: {name} = {value}");
             }
             else if (CurrentScope != null)
             {

@@ -730,10 +730,18 @@ namespace SharpPy
                     
                 case ByteCodeOp.LOAD_GLOBAL:
                     var globalName = frame.Code.Names[instruction.Argument];
-                    var globalValue = frame.ScopeChain.GlobalScope.GetVariable(globalName) ?? 
+                    Console.WriteLine($"🔍 LOAD_GLOBAL({globalName}): Checking GlobalScope");
+                    Console.WriteLine($"   GlobalScope is null: {frame.ScopeChain.GlobalScope == null}");
+                    if (frame.ScopeChain.GlobalScope != null)
+                    {
+                        Console.WriteLine($"   GlobalScope variables: {frame.ScopeChain.GlobalScope.Variables.Count}");
+                        Console.WriteLine($"   Has '{globalName}': {frame.ScopeChain.GlobalScope.Variables.ContainsKey(globalName)}");
+                    }
+                    var globalValue = frame.ScopeChain.GlobalScope?.GetVariable(globalName) ?? 
                                     frame.ScopeChain.BuiltinModule.GetBuiltin(globalName);
                     if (globalValue == null)
                         throw PyNameError.Create($"name '{globalName}' is not defined");
+                    Console.WriteLine($"🔍 LOAD_GLOBAL({globalName}): loaded {globalValue?.GetType().Name ?? "null"} value = {globalValue}");
                     frame.ValueStack.Push(globalValue);
                     break;
                     

@@ -421,6 +421,87 @@ namespace SharpPy
         private HashSet<string> _nonlocalVars = new HashSet<string>();
         private HashSet<string> _globalVars = new HashSet<string>();
         
+        // 모듈 전역으로 선언된 global 변수들 (static으로 모든 컴파일러 인스턴스가 공유)
+        private static HashSet<string> _moduleGlobalVars = new HashSet<string>();
+        
+        /// <summary>
+        /// Pre-scan all function definitions to collect global variable declarations
+        /// This ensures module-level assignments use STORE_GLOBAL for variables declared as global
+        /// </summary>
+        private void PreScanForGlobalVariables(List<Statement> statements)
+        {
+            foreach (var stmt in statements)
+            {
+                PreScanStatement(stmt);
+            }
+            
+            if (_moduleGlobalVars.Count > 0)
+            {
+                Console.WriteLine($"🔍 Pre-scan found global variables: {string.Join(", ", _moduleGlobalVars)}");
+            }
+        }
+        
+        private void PreScanStatement(Statement stmt)
+        {
+            switch (stmt)
+            {
+                case FunctionDefStatement funcStmt:
+                    PreScanFunction(funcStmt.Body);
+                    break;
+                case AsyncFunctionDefStatement asyncFuncStmt:
+                    PreScanFunction(asyncFuncStmt.Body);
+                    break;
+                case ClassDefStatement classStmt:
+                    PreScanFunction(classStmt.Body);
+                    break;
+                case IfStatement ifStmt:
+                    PreScanFunction(ifStmt.Body);
+                    if (ifStmt.OrElse != null && ifStmt.OrElse.Count > 0)
+                        PreScanFunction(ifStmt.OrElse);
+                    break;
+                case ForStatement forStmt:
+                    PreScanFunction(forStmt.Body);
+                    if (forStmt.ElseClause != null && forStmt.ElseClause.Count > 0)
+                        PreScanFunction(forStmt.ElseClause);
+                    break;
+                case WhileStatement whileStmt:
+                    PreScanFunction(whileStmt.Body);
+                    if (whileStmt.ElseClause != null && whileStmt.ElseClause.Count > 0)
+                        PreScanFunction(whileStmt.ElseClause);
+                    break;
+                case TryStatement tryStmt:
+                    PreScanFunction(tryStmt.Body);
+                    foreach (var handler in tryStmt.Handlers)
+                        PreScanFunction(handler.Body);
+                    if (tryStmt.OrElse != null && tryStmt.OrElse.Count > 0)
+                        PreScanFunction(tryStmt.OrElse);
+                    if (tryStmt.FinalBody != null && tryStmt.FinalBody.Count > 0)
+                        PreScanFunction(tryStmt.FinalBody);
+                    break;
+                case WithStatement withStmt:
+                    PreScanFunction(withStmt.Body);
+                    break;
+            }
+        }
+        
+        private void PreScanFunction(List<Statement> statements)
+        {
+            foreach (var stmt in statements)
+            {
+                if (stmt is GlobalStatement globalStmt)
+                {
+                    foreach (var name in globalStmt.Names)
+                    {
+                        _moduleGlobalVars.Add(name);
+                    }
+                }
+                else
+                {
+                    PreScanStatement(stmt);
+                }
+            }
+        }
+        
         public PyCodeObject Compile(List<Statement> statements, string name = "<module>")
         {
             return Compile(statements, name, new List<string>());
@@ -436,6 +517,13 @@ namespace SharpPy
             
             // Set current file name for source location tracking
             _currentFileName = fileName;
+            
+            // Pre-scan for global variables in functions (CPython 3.12 compatibility)
+            if (name == "<module>")
+            {
+                _moduleGlobalVars.Clear(); // 새로운 모듈 컴파일 시작
+                PreScanForGlobalVariables(statements);
+            }
             
             // Load source lines for error reporting if fileName is provided
             _sourceLines = null;
@@ -788,6 +876,19 @@ namespace SharpPy
                 _varNames.Add(localVarName);
             }
             
+            // **핵심 수정**: 함수 본문에서 지역 변수들도 수집해서 _varNames에 추가
+            var localVarNames = new List<string>(paramNames);
+            CollectLocalVariables(statements, localVarNames);
+            
+            // 매개변수가 아닌 지역 변수들을 _varNames에 추가
+            foreach (var localVar in localVarNames)
+            {
+                if (!_varNames.Contains(localVar))
+                {
+                    _varNames.Add(localVar);
+                }
+            }
+            
             Console.WriteLine($"\n🔧 컴파일 (클로저+기본값): {name}");
             Console.WriteLine($"  매개변수: [{string.Join(", ", paramNames)}]");
             Console.WriteLine($"  기본값: [{string.Join(", ", defaults.Select(d => d?.ToString() ?? "None"))}]");
@@ -800,17 +901,24 @@ namespace SharpPy
                 Console.WriteLine($"  CellVars: [{string.Join(", ", cellVars)}]");
             }
             
-            // Phase 2: Cell 변수들을 위한 MAKE_CELL 명령어 발행
+            // Phase 2: Cell 변수들을 위한 MAKE_CELL 명령어 발행 (CPython 3.12 호환)
             foreach (var cellVar in cellVars)
             {
-                var paramIndex = paramNames.IndexOf(cellVar);
-                if (paramIndex >= 0)
+                var varIndex = _varNames.IndexOf(cellVar);
+                if (varIndex >= 0)
                 {
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
-                        Console.WriteLine($"  → Making cell for parameter: {cellVar}");
+                        Console.WriteLine($"  → Making cell for variable: {cellVar} (var index {varIndex})");
                     }
-                    EmitInstruction(ByteCodeOp.MAKE_CELL, paramIndex);
+                    EmitInstruction(ByteCodeOp.MAKE_CELL, varIndex);
+                }
+                else
+                {
+                    if (!SharpPyConfig.DisassemblyOnlyMode)
+                    {
+                        Console.WriteLine($"  ⚠️ Warning: Cell variable {cellVar} not found in _varNames");
+                    }
                 }
             }
             
@@ -1634,10 +1742,19 @@ namespace SharpPy
                 return;
             }
             
-            // 3. 모듈 레벨: CPython 3.12 완전 호환성을 위해 항상 LOAD_NAME 사용
-            // CPython 3.12는 모듈 레벨에서 print 등 내장 함수도 LOAD_NAME으로 접근
+            // 3. 모듈 레벨: CPython 3.12 호환성 확인
             if (!_isInFunction)
             {
+                // 만약 이 변수가 함수 내에서 global로 선언되었다면 LOAD_GLOBAL 사용
+                if (_globalVars.Contains(name) || _moduleGlobalVars.Contains(name))
+                {
+                    var globalIndex = AddName(name);
+                    EmitInstruction(ByteCodeOp.LOAD_GLOBAL, globalIndex);
+                    Console.WriteLine($"    → Module level LOAD_GLOBAL for global var: {name} (global index {globalIndex})");
+                    return;
+                }
+                
+                // 기본적으로 모듈 레벨에서는 LOAD_NAME 사용 
                 var nameIndex = AddName(name);
                 EmitInstruction(ByteCodeOp.LOAD_NAME, nameIndex);
                 return;
@@ -1710,7 +1827,17 @@ namespace SharpPy
                 return;
             }
             
-            // 모듈 레벨: CPython 3.12 호환성을 위해 STORE_NAME 사용
+            // 모듈 레벨: CPython 3.12 호환성 확인
+            // 만약 이 변수가 함수 내에서 global로 선언되었다면 STORE_GLOBAL 사용
+            if (_globalVars.Contains(name) || _moduleGlobalVars.Contains(name))
+            {
+                var globalIndex = AddName(name);
+                EmitInstruction(ByteCodeOp.STORE_GLOBAL, globalIndex);
+                Console.WriteLine($"    → Module level STORE_GLOBAL for global var: {name} (global index {globalIndex})");
+                return;
+            }
+            
+            // 기본적으로 모듈 레벨에서는 STORE_NAME 사용
             var index = AddName(name);
             EmitInstruction(ByteCodeOp.STORE_NAME, index);
         }
@@ -2673,58 +2800,107 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.POP_TOP);
         }
         /// <summary>
-        /// CPython-style if statement compilation - simplified implementation
+        /// CPython-style if statement compilation - supports if-elif-else chains
         /// </summary>
         private void CompileIf(IfStatement ifStmt)
         {
-            // CPython-style if statement with proper conditional jumps
+            // CPython 3.12 스타일: if-elif-else 체인 컴파일 (완전 수정)
+            var endJumps = new List<int>(); // 각 블록 끝에서 전체 if-elif-else 끝으로의 점프들
+            var conditionJumps = new List<int>(); // 각 조건의 False 점프들 (나중에 패치)
             
-            // Compile condition expression
-            CompileExpression(ifStmt.Test);
+            // 모든 if/elif 조건들을 미리 수집
+            var conditions = new List<(Expression Test, List<Statement> Body)>();
+            var currentIf = ifStmt;
             
-            // Jump past the if body if condition is false
-            var jumpIfFalse = _instructions.Count;
-            EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // Address will be patched later
-            
-            // Compile the if body
-            foreach (var stmt in ifStmt.Body)
+            // 모든 if/elif 수집
+            while (currentIf != null)
             {
-                CompileStatement(stmt);
+                conditions.Add((currentIf.Test, currentIf.Body));
+                
+                if (currentIf.OrElse != null && currentIf.OrElse.Count == 1 && 
+                    currentIf.OrElse[0] is IfStatement nextIf)
+                {
+                    currentIf = nextIf;
+                }
+                else
+                {
+                    break;
+                }
             }
             
-            // If there's an else clause, we need to jump past it after the if body
-            int? jumpAfterIf = null;
-            if (ifStmt.OrElse != null && ifStmt.OrElse.Count > 0)
+            // 각 조건과 바디 컴파일
+            for (int i = 0; i < conditions.Count; i++)
             {
-                jumpAfterIf = _instructions.Count;
-                EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0); // Address will be patched later
+                var (test, body) = conditions[i];
+                
+                // 조건 컴파일
+                CompileExpression(test);
+                
+                // 조건이 False면 다음 elif/else로 점프 (나중에 패치)
+                var jumpIfFalse = _instructions.Count;
+                EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0);
+                conditionJumps.Add(jumpIfFalse);
+                
+                // 바디 컴파일
+                foreach (var stmt in body)
+                {
+                    CompileStatement(stmt);
+                }
+                
+                // 바디 실행 후 전체 if-elif-else 끝으로 점프 (return이 없는 경우)
+                var hasReturn = body.Any(stmt => stmt is ReturnStatement);
+                if (!hasReturn)
+                {
+                    var jumpToEnd = _instructions.Count;
+                    EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
+                    endJumps.Add(jumpToEnd);
+                }
+                
+                // 이전 조건의 False 점프를 현재 조건의 시작으로 패치
+                if (i > 0)
+                {
+                    var prevJumpIndex = conditionJumps[i - 1];
+                    var currentConditionStart = jumpIfFalse - 3; // LOAD_FAST의 위치 (LOAD_FAST, LOAD_CONST, COMPARE_OP 이전)
+                    var relativeOffset = currentConditionStart - prevJumpIndex - 1;
+                    _instructions[prevJumpIndex] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, relativeOffset);
+                }
             }
             
-            // Patch the false jump to point to the else clause (or end)
-            var elseStart = _instructions.Count;
-            // CPython 3.12: POP_JUMP_IF_FALSE uses relative offset from the jump instruction
-            var relativeOffset = elseStart - jumpIfFalse - 1;
-            Console.WriteLine($"Debug CompileIf: jumpIfFalse={jumpIfFalse}, elseStart={elseStart}, relativeOffset={relativeOffset}");
-            _instructions[jumpIfFalse] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, relativeOffset);
-            
-            // Compile else clause
-            if (ifStmt.OrElse != null)
+            // else 블록 처리
+            var finalElse = ifStmt;
+            while (finalElse.OrElse != null && finalElse.OrElse.Count == 1 && 
+                   finalElse.OrElse[0] is IfStatement)
             {
-                foreach (var stmt in ifStmt.OrElse)
+                finalElse = (IfStatement)finalElse.OrElse[0];
+            }
+            
+            // 마지막 조건의 False 점프를 else 블록으로 패치
+            if (conditionJumps.Count > 0)
+            {
+                var lastJumpIndex = conditionJumps.Last();
+                var elsePos = _instructions.Count;
+                var relativeOffset = elsePos - lastJumpIndex - 1;
+                _instructions[lastJumpIndex] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, relativeOffset);
+            }
+            
+            // else 블록 컴파일
+            if (finalElse.OrElse != null && finalElse.OrElse.Count > 0)
+            {
+                foreach (var stmt in finalElse.OrElse)
                 {
                     CompileStatement(stmt);
                 }
             }
             
-            // Patch the jump after if body to point past the else clause
-            if (jumpAfterIf.HasValue)
+            // 모든 end jumps를 현재 위치로 패치
+            var endPosition = _instructions.Count;
+            foreach (var jumpIndex in endJumps)
             {
-                var afterElse = _instructions.Count;
-                // CPython 3.12: JUMP_FORWARD uses relative offset from the jump instruction
-                var jumpForwardOffset = afterElse - jumpAfterIf.Value - 1;
-                _instructions[jumpAfterIf.Value] = new ByteCodeInstruction(ByteCodeOp.JUMP_FORWARD, jumpForwardOffset);
+                var relativeOffset = endPosition - jumpIndex - 1;
+                _instructions[jumpIndex] = new ByteCodeInstruction(ByteCodeOp.JUMP_FORWARD, relativeOffset);
             }
         }
+        
         
         /// <summary>
         /// CPython-style while loop compilation - simplified implementation
@@ -4119,6 +4295,7 @@ namespace SharpPy
             foreach (var name in global.Names)
             {
                 _globalVars.Add(name);
+                _moduleGlobalVars.Add(name); // 모듈 전역에도 추가
                 Console.WriteLine($"🌍 Global variable declared: {name}");
             }
         }

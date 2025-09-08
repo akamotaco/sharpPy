@@ -72,5 +72,29 @@ namespace SharpPy
         {
             return $"VerboseMode={VerboseMode}, QuietMode={QuietMode}, ShowBytecode={ShowBytecode}";
         }
+        
+        /// <summary>
+        /// 조건부 디버그 출력 (VerboseMode일 때만 출력)
+        /// </summary>
+        /// <param name="message">출력할 메시지</param>
+        public static void DebugWrite(string message)
+        {
+            if (ShouldShowDebugInfo)
+            {
+                Console.WriteLine(message);
+            }
+        }
+        
+        /// <summary>
+        /// 조건부 디버그 출력 (컴파일/VM 내부 정보, VerboseMode일 때만 출력)
+        /// </summary>
+        /// <param name="message">출력할 메시지</param>
+        public static void DebugWriteInternal(string message)
+        {
+            if (VerboseMode && !DisassemblyOnlyMode)
+            {
+                Console.WriteLine(message);
+            }
+        }
     }
 }
