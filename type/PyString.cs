@@ -351,6 +351,21 @@ namespace SharpPy
         public override int Length() => Value.Length;
         
         public PyBool Contains(string substring) => PyBool.FromBool(Value.Contains(substring));
+        
+        /// <summary>
+        /// CPython __contains__ 메소드 구현 - PyObject 버전
+        /// </summary>
+        public override PyBool Contains(PyObject item)
+        {
+            if (item is PyString pyStr)
+            {
+                return PyBool.FromBool(Value.Contains(pyStr.Value));
+            }
+            
+            // 다른 타입은 문자열로 변환하여 검사
+            var itemStr = item.ToStr();
+            return PyBool.FromBool(Value.Contains(itemStr));
+        }
 
         #endregion
 
@@ -507,6 +522,7 @@ namespace SharpPy
                 "endswith" => new PyStringMethod(this, "endswith", EndsWith),
                 "find" => new PyStringMethod(this, "find", Find),
                 "count" => new PyStringMethod(this, "count", Count),
+                "encode" => new PyStringMethod(this, "encode", EncodeMethod),
                 _ => base.GetAttribute(name)
             };
         }
@@ -759,6 +775,24 @@ namespace SharpPy
             }
             
             return new PyInt(count);
+        }
+
+        private PyObject EncodeMethod(PyObject[] args)
+        {
+            if (args.Length > 2)
+                throw PyTypeError.Create($"encode() takes at most 2 arguments ({args.Length} given)");
+            
+            string encoding = "utf-8";
+            if (args.Length >= 1)
+            {
+                if (args[0] is PyString encodingStr)
+                    encoding = encodingStr.Value;
+                else
+                    throw PyTypeError.Create("encode() encoding must be str");
+            }
+            
+            // Second argument (errors) is ignored for now
+            return Encode(encoding);
         }
 
         #endregion

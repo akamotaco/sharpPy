@@ -75,6 +75,10 @@ namespace SharpPy
                 "chr" => CallChr(args),
                 "open" => CallOpen(args),
                 "__build_class__" => CallBuildClass(args),
+                // Buffer Protocol functions
+                "bytes" => CallBytes(args),
+                "bytearray" => CallBytearray(args),
+                "memoryview" => CallMemoryview(args),
                 _ => throw PyNotImplementedError.Create($"Built-in function '{Name}' not implemented")
             };
         }
@@ -1373,6 +1377,181 @@ namespace SharpPy
             
             return newClass;
         }
+
+        #region Buffer Protocol Functions
+
+        /// <summary>
+        /// bytes() constructor - creates immutable byte sequences
+        /// </summary>
+        private PyObject CallBytes(PyObject[] args)
+        {
+            if (args.Length == 0)
+            {
+                // bytes() with no arguments creates empty bytes
+                return new PyBytes(new byte[0]);
+            }
+            else if (args.Length == 1)
+            {
+                var arg = args[0];
+                
+                // bytes(string, encoding) - convert string to bytes
+                if (arg is PyString str)
+                {
+                    // Default encoding is utf-8
+                    var bytes = System.Text.Encoding.UTF8.GetBytes(str.Value);
+                    return new PyBytes(bytes);
+                }
+                // bytes(iterable) - create from iterable of integers
+                else if (arg is PyList list)
+                {
+                    var byteList = new List<byte>();
+                    foreach (var item in list.Items)
+                    {
+                        if (item is PyInt pyInt)
+                        {
+                            if (pyInt.Value < 0 || pyInt.Value > 255)
+                                throw PyValueError.Create("byte must be in range(0, 256)");
+                            byteList.Add((byte)pyInt.Value);
+                        }
+                        else
+                        {
+                            throw PyTypeError.Create("an integer is required");
+                        }
+                    }
+                    return new PyBytes(byteList.ToArray());
+                }
+                // bytes(range) - create from range object
+                else if (arg is PyRange range)
+                {
+                    var byteList = new List<byte>();
+                    var items = range.GetValues();
+                    foreach (var item in items)
+                    {
+                        if (item is PyInt pyInt)
+                        {
+                            if (pyInt.Value < 0 || pyInt.Value > 255)
+                                throw PyValueError.Create("byte must be in range(0, 256)");
+                            byteList.Add((byte)pyInt.Value);
+                        }
+                    }
+                    return new PyBytes(byteList.ToArray());
+                }
+                // bytes(int) - create bytes of specified size filled with zeros
+                else if (arg is PyInt size)
+                {
+                    if (size.Value < 0)
+                        throw PyValueError.Create("negative count");
+                    return new PyBytes(new byte[size.Value]);
+                }
+                else
+                {
+                    throw PyTypeError.Create($"cannot convert '{arg.GetTypeName()}' object to bytes");
+                }
+            }
+            else if (args.Length == 2)
+            {
+                // bytes(string, encoding)
+                if (args[0] is PyString str && args[1] is PyString encoding)
+                {
+                    var enc = encoding.Value.ToLowerInvariant() switch
+                    {
+                        "utf-8" or "utf8" => System.Text.Encoding.UTF8,
+                        "ascii" => System.Text.Encoding.ASCII,
+                        "unicode" or "utf-16" => System.Text.Encoding.Unicode,
+                        _ => throw PyLookupError.Create($"unknown encoding: {encoding.Value}")
+                    };
+                    var bytes = enc.GetBytes(str.Value);
+                    return new PyBytes(bytes);
+                }
+                else
+                {
+                    throw PyTypeError.Create("bytes() argument 2 must be a string");
+                }
+            }
+            else
+            {
+                throw PyTypeError.Create($"bytes() takes at most 2 arguments ({args.Length} given)");
+            }
+        }
+
+        /// <summary>
+        /// bytearray() constructor - creates mutable byte sequences
+        /// </summary>
+        private PyObject CallBytearray(PyObject[] args)
+        {
+            // Temporary implementation: return PyBytes for now
+            // TODO: Implement full mutable PyBytearray class
+            if (args.Length == 0)
+            {
+                return new PyBytes(new byte[0]);
+            }
+            else if (args.Length == 1)
+            {
+                var arg = args[0];
+                if (arg is PyString str)
+                {
+                    var bytes = System.Text.Encoding.UTF8.GetBytes(str.Value);
+                    return new PyBytes(bytes);
+                }
+                else if (arg is PyBytes bytesObj)
+                {
+                    return new PyBytes((byte[])bytesObj.Value.Clone());
+                }
+                else if (arg is PyInt size)
+                {
+                    if (size.Value < 0)
+                        throw PyValueError.Create("negative count");
+                    return new PyBytes(new byte[size.Value]);
+                }
+                else if (arg is PyList list)
+                {
+                    var bytes = new List<byte>();
+                    foreach (var item in list.Items)
+                    {
+                        if (item is PyInt itemInt)
+                        {
+                            if (itemInt.Value < 0 || itemInt.Value > 255)
+                                throw PyValueError.Create("byte must be in range(0, 256)");
+                            bytes.Add((byte)itemInt.Value);
+                        }
+                        else
+                        {
+                            throw PyTypeError.Create($"'{item.GetTypeName()}' object cannot be interpreted as an integer");
+                        }
+                    }
+                    return new PyBytes(bytes.ToArray());
+                }
+            }
+            throw PyTypeError.Create($"bytearray() argument must be bytes-like, not '{args[0]?.GetTypeName() ?? "None"}'");
+        }
+
+        /// <summary>
+        /// memoryview() constructor - creates memory view objects
+        /// </summary>
+        private PyObject CallMemoryview(PyObject[] args)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"memoryview() takes exactly one argument ({args.Length} given)");
+
+            var obj = args[0];
+
+            // Check if object supports buffer protocol
+            if (obj is PyBytes bytes)
+            {
+                return new PyMemoryView(bytes.Value, true); // bytes are read-only
+            }
+            else if (obj.SupportsBuffer())
+            {
+                var buffer = obj.GetBuffer(0);
+                return buffer;
+            }
+            else
+            {
+                throw PyTypeError.Create($"a bytes-like object is required, not '{obj.GetTypeName()}'");
+            }
+        }
+
+        #endregion
 
         public override string ToString() => $"<built-in function {Name}>";
     }

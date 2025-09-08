@@ -115,9 +115,11 @@ public class PyBuiltinsModule : PyObject
         BuiltinDict["StopIteration"] = new PyBuiltinType("StopIteration");
         BuiltinDict["AssertionError"] = new PyBuiltinType("AssertionError");
         
-        // Buffer Protocol (PEP 688)
+        // Buffer Protocol (PEP 688) - Functions
+        BuiltinDict["bytes"] = new PyBuiltinFunction("bytes");
+        BuiltinDict["bytearray"] = new PyBuiltinFunction("bytearray");
+        BuiltinDict["memoryview"] = new PyBuiltinFunction("memoryview");
         BuiltinDict["buffer"] = new PyBuiltinType("buffer");
-        BuiltinDict["memoryview"] = new PyBuiltinType("memoryview");
         
         Console.WriteLine($"🏗️ Builtin 모듈 초기화: {BuiltinDict.Count}개 내장 객체");
     }
