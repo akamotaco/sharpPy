@@ -2321,8 +2321,18 @@ namespace SharpPy
             // Parse except_block+
             while (Check(TokenType.EXCEPT))
             {
+                Console.WriteLine($"🔍 ParseTryStatement: Found EXCEPT #{handlers.Count + 1} at {Peek().Line}:{Peek().Column}");
                 Advance(); // consume 'except'
                 handlers.Add(ParseExceptHandler());
+                Console.WriteLine($"🔍 ParseTryStatement: After ParseExceptHandler #{handlers.Count}, current token: {Peek().Type} at {Peek().Line}:{Peek().Column}");
+                
+                // Skip any whitespace before checking for next EXCEPT
+                while (Check(TokenType.NEWLINE))
+                {
+                    Advance();
+                }
+                
+                Console.WriteLine($"🔍 ParseTryStatement: After whitespace skip, checking for next EXCEPT. Current token: {Peek().Type} at {Peek().Line}:{Peek().Column}");
             }
             
             // Parse optional else_block
@@ -2352,6 +2362,8 @@ namespace SharpPy
             string? exceptionName = null;
             bool isStar = false;
             
+            Console.WriteLine($"🔍 ParseExceptHandler: Starting, current token: {Peek().Type} at {Peek().Line}:{Peek().Column}");
+            
             // Check for except* syntax (PEP 654)
             if (Check(TokenType.STAR))
             {
@@ -2362,16 +2374,30 @@ namespace SharpPy
             // Parse exception type (optional)
             if (!Check(TokenType.COLON))
             {
-                exceptionType = ParseExpression();
+                Console.WriteLine($"🔍 ParseExceptHandler: Parsing exception type, current token: {Peek().Type}");
+                
+                try 
+                {
+                    exceptionType = ParseExpression();
+                    Console.WriteLine($"🔍 ParseExceptHandler: After ParseExpression SUCCESS, current token: {Peek().Type} at {Peek().Line}:{Peek().Column}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"💥 ParseExceptHandler: ParseExpression FAILED: {ex.Message}");
+                    Console.WriteLine($"   Current token when failed: {Peek().Type} at {Peek().Line}:{Peek().Column}");
+                    throw;
+                }
                 
                 // Parse "as name" clause (optional)
                 if (Match(TokenType.AS))
                 {
+                    Console.WriteLine($"🔍 ParseExceptHandler: Found AS, parsing identifier");
                     if (!Check(TokenType.IDENTIFIER))
                     {
                         throw new Exception("Expected identifier after 'as'");
                     }
                     exceptionName = Advance().Lexeme;
+                    Console.WriteLine($"🔍 ParseExceptHandler: Exception name: {exceptionName}");
                 }
             }
             

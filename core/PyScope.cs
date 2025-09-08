@@ -63,6 +63,7 @@ public class PyBuiltinsModule : PyObject
         BuiltinDict["getattr"] = new PyBuiltinFunction("getattr");
         BuiltinDict["setattr"] = new PyBuiltinFunction("setattr");
         BuiltinDict["delattr"] = new PyBuiltinFunction("delattr");
+        BuiltinDict["dir"] = new PyBuiltinFunction("dir");
         BuiltinDict["type"] = new PyBuiltinFunction("type");
         BuiltinDict["id"] = new PyBuiltinFunction("id");
         BuiltinDict["hash"] = new PyBuiltinFunction("hash");
@@ -85,6 +86,7 @@ public class PyBuiltinsModule : PyObject
         BuiltinDict["divmod"] = new PyBuiltinFunction("divmod");
         BuiltinDict["ord"] = new PyBuiltinFunction("ord");
         BuiltinDict["chr"] = new PyBuiltinFunction("chr");
+        BuiltinDict["open"] = new PyBuiltinFunction("open");
         
         // 내장 상수들
         BuiltinDict["True"] = PyBool.True;
