@@ -2,6 +2,15 @@ using System.Linq;
 
 namespace SharpPy
 {
+    // CPython 3.12 호환: MAKE_FUNCTION 플래그 상수
+    public static class MakeFunctionFlags
+    {
+        public const int DEFAULTS = 0x01;        // 기본값 있음
+        public const int KWDEFAULTS = 0x02;      // 키워드 기본값 있음
+        public const int ANNOTATIONS = 0x04;     // 타입 어노테이션 있음
+        public const int CLOSURE = 0x08;         // 클로저 있음
+    }
+    
     #region Compiler Extension (AST → Bytecode)
     
     /// <summary>
@@ -4525,11 +4534,40 @@ namespace SharpPy
             _names = lambdaNames;
             _varNames = new List<string>(); // Fresh VarNames for lambda
             
-            // CPython 3.12: Parameters must be first in VarNames for LOAD_FAST to work
+            // CPython 3.12: Extract clean parameter names and default values
+            var cleanParamNames = new List<string>();
+            var defaultValues = new List<PyObject>();
+            
             foreach (var arg in lambda.Args)
             {
-                _varNames.Add(arg);
-                Console.WriteLine($"  → Added parameter '{arg}' as FAST variable at index {_varNames.Count - 1}");
+                if (arg.Contains("="))
+                {
+                    // Parameter with default value: name=defaultValue
+                    var parts = arg.Split('=', 2);
+                    var paramName = parts[0].Trim();
+                    var defaultValueStr = parts[1].Trim();
+                    
+                    cleanParamNames.Add(paramName);
+                    
+                    // Parse and evaluate default value at compile time (CPython way)
+                    var defaultValue = ParseAndEvaluateDefaultValue(defaultValueStr);
+                    defaultValues.Add(defaultValue);
+                    
+                    Console.WriteLine($"  → Parameter '{paramName}' with default value: {defaultValue}");
+                }
+                else
+                {
+                    // Parameter without default value
+                    cleanParamNames.Add(arg.Trim());
+                    Console.WriteLine($"  → Parameter '{arg}' (no default)");
+                }
+            }
+            
+            // Parameters must be first in VarNames for LOAD_FAST to work
+            foreach (var paramName in cleanParamNames)
+            {
+                _varNames.Add(paramName);
+                Console.WriteLine($"  → Added parameter '{paramName}' as FAST variable at index {_varNames.Count - 1}");
             }
             
             // Set up closure compilation if there are free variables
@@ -4541,7 +4579,7 @@ namespace SharpPy
             // Phase 2: Cell 변수들을 위한 MAKE_CELL 명령어 발행 (람다 파라미터용)
             foreach (var cellVar in cellVars)
             {
-                var paramIndex = lambda.Args.IndexOf(cellVar);
+                var paramIndex = cleanParamNames.IndexOf(cellVar);
                 if (paramIndex >= 0)
                 {
                     Console.WriteLine($"  → Making cell for lambda parameter: {cellVar}");
@@ -4561,7 +4599,7 @@ namespace SharpPy
             
             // CPython 3.12: Create function code object with correct VarNames order
             // VarNames = parameters first, then any local variables used in lambda body
-            var lambdaVarNames = new List<string>(lambda.Args);
+            var lambdaVarNames = new List<string>(cleanParamNames);
             
             // Add any additional local variables that were used (beyond parameters)
             foreach (var name in lambdaNames)
@@ -4578,18 +4616,30 @@ namespace SharpPy
                 lambdaConstants,
                 lambdaNames,
                 lambdaVarNames, // VarNames with parameters first
-                lambda.Args.Count,
+                cleanParamNames.Count, // Use clean parameter count
                 freeVars, // Set FreeVars for closure support
                 cellVars, // Set CellVars for closure support
-                defaultValues: null,
+                defaultValues: defaultValues, // CPython 3.12: Pass default values
                 flags: 0,
                 fileName: _currentFileName,
                 sourceLines: _sourceLines
             );
             
-            Console.WriteLine($"  → Lambda code object created: {lambdaVarNames.Count} variables, {lambda.Args.Count} parameters");
+            Console.WriteLine($"  → Lambda code object created: {lambdaVarNames.Count} variables, {cleanParamNames.Count} parameters, {defaultValues.Count} defaults");
             
-            // Handle closure creation if there are free variables
+            // CPython 3.12: Handle default values if present (스택 순서 1)
+            if (defaultValues.Count > 0)
+            {
+                // Load default values onto stack
+                foreach (var defaultValue in defaultValues)
+                {
+                    EmitLoadConst(defaultValue);
+                }
+                EmitInstruction(ByteCodeOp.BUILD_TUPLE, defaultValues.Count);
+                Console.WriteLine($"  → Built defaults tuple: {defaultValues.Count} defaults");
+            }
+            
+            // Handle closure creation if there are free variables (스택 순서 2)
             if (freeVars.Count > 0)
             {
                 Console.WriteLine($"  → Creating closure with {freeVars.Count} free variables");
@@ -4610,7 +4660,17 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(functionCode));
             
             // CPython 3.12: MAKE_FUNCTION 플래그 동적 계산
-            int flags = freeVars.Count > 0 ? StackEffectAnalyzer.MakeFunctionFlags.CLOSURE : 0;
+            int flags = 0;
+            if (defaultValues.Count > 0)
+            {
+                flags |= MakeFunctionFlags.DEFAULTS;
+            }
+            if (freeVars.Count > 0)
+            {
+                flags |= MakeFunctionFlags.CLOSURE;
+            }
+            
+            Console.WriteLine($"  → MAKE_FUNCTION flags: {flags} (defaults={defaultValues.Count > 0}, closure={freeVars.Count > 0})");
             EmitInstruction(ByteCodeOp.MAKE_FUNCTION, flags);
         }
         

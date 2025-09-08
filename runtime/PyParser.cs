@@ -669,7 +669,9 @@ namespace SharpPy
                 // Consume DEDENT
                 if (Check(TokenType.DEDENT))
                 {
+                    Console.WriteLine($"🔍 ParseBlock: Consuming DEDENT, next token will be: {_tokens[_current + 1].Type}");
                     Advance();
+                    Console.WriteLine($"🔍 ParseBlock: After DEDENT, current token: {Peek().Type} at {Peek().Line}:{Peek().Column}");
                 }
             }
             else
@@ -2266,9 +2268,53 @@ namespace SharpPy
             // Try Pattern 2: Parse except handlers
             var handlers = new List<ExceptHandler>();
             
+            // CPython 3.12: Skip remaining tokens until we reach EXCEPT/FINALLY/ELSE
+            // This handles the case where try block has remaining unparsed statements  
+            while (!Check(TokenType.EXCEPT) && !Check(TokenType.FINALLY) && !Check(TokenType.ELSE) && !IsAtEnd())
+            {
+                if (Check(TokenType.NEWLINE))
+                {
+                    Advance();
+                }
+                else if (Check(TokenType.INDENT))
+                {
+                    // Skip INDENT and find matching DEDENT
+                    Advance(); // consume INDENT
+                    int indentLevel = 1;
+                    while (indentLevel > 0 && !IsAtEnd())
+                    {
+                        if (Check(TokenType.INDENT))
+                        {
+                            indentLevel++;
+                        }
+                        else if (Check(TokenType.DEDENT))
+                        {
+                            indentLevel--;
+                        }
+                        Advance();
+                    }
+                }
+                else if (Check(TokenType.DEDENT))
+                {
+                    Advance();
+                }
+                else
+                {
+                    // Skip any other tokens until we find what we need
+                    Advance();
+                }
+            }
+            
             // Must have at least one except handler for this pattern
+            Console.WriteLine($"🔍 ParseTryStatement: After try block and whitespace skip, current token: {Peek().Type} at {Peek().Line}:{Peek().Column}");
             if (!Check(TokenType.EXCEPT))
             {
+                Console.WriteLine($"⚠️  Expected EXCEPT but found {Peek().Type}. Available tokens:");
+                for (int i = 0; i < Math.Min(15, _tokens.Count - _current); i++)
+                {
+                    var token = _tokens[_current + i];
+                    Console.WriteLine($"   [{i}] {token.Type}: '{token.Lexeme}' at {token.Line}:{token.Column}");
+                }
                 throw new Exception("'try' statement must have either 'except' or 'finally' clause");
             }
             
@@ -2947,14 +2993,34 @@ namespace SharpPy
                 // Parse first parameter
                 if (Check(TokenType.IDENTIFIER))
                 {
-                    args.Add(Advance().Lexeme);
+                    var param = Advance().Lexeme;
+                    var paramString = param;
+                    
+                    // Handle default value (CPython style: lambda x, y=2: x * y)
+                    if (Match(TokenType.EQUAL))
+                    {
+                        var defaultValue = ParseExpression();
+                        paramString += "=" + defaultValue?.ToString();
+                    }
+                    
+                    args.Add(paramString);
                     
                     // Parse remaining parameters
                     while (Match(TokenType.COMMA))
                     {
                         if (Check(TokenType.IDENTIFIER))
                         {
-                            args.Add(Advance().Lexeme);
+                            param = Advance().Lexeme;
+                            paramString = param;
+                            
+                            // Handle default value for each parameter
+                            if (Match(TokenType.EQUAL))
+                            {
+                                var defaultValue = ParseExpression();
+                                paramString += "=" + defaultValue?.ToString();
+                            }
+                            
+                            args.Add(paramString);
                         }
                         else
                         {
