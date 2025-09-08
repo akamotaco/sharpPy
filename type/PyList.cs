@@ -398,5 +398,18 @@ namespace SharpPy
         }
 
         #endregion
+        
+        /// <summary>
+        /// CPython __contains__ 메소드 구현 - in 연산자 지원
+        /// </summary>
+        public override PyBool Contains(PyObject item)
+        {
+            foreach (var listItem in _items)
+            {
+                if (AreEqual(listItem, item))
+                    return PyBool.True;
+            }
+            return PyBool.False;
+        }
     }
 }

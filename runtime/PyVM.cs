@@ -2648,6 +2648,19 @@ namespace SharpPy
                         }
                     }
                 }
+                
+                // 천단위 구분자 지원 (예: :,)
+                if (formatSpec == "," || formatSpec.Contains(","))
+                {
+                    if (obj is PyInt intObjComma)
+                    {
+                        return new PyString(intObjComma.Value.ToString("N0"));
+                    }
+                    else if (obj is PyFloat floatObjComma)
+                    {
+                        return new PyString(floatObjComma.Value.ToString("N"));
+                    }
+                }
             }
             catch
             {

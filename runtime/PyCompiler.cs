@@ -2694,7 +2694,7 @@ namespace SharpPy
             
             // If there's an else clause, we need to jump past it after the if body
             int? jumpAfterIf = null;
-            if (ifStmt.OrElse.Count > 0)
+            if (ifStmt.OrElse != null && ifStmt.OrElse.Count > 0)
             {
                 jumpAfterIf = _instructions.Count;
                 EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0); // Address will be patched later
@@ -2708,9 +2708,12 @@ namespace SharpPy
             _instructions[jumpIfFalse] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, relativeOffset);
             
             // Compile else clause
-            foreach (var stmt in ifStmt.OrElse)
+            if (ifStmt.OrElse != null)
             {
-                CompileStatement(stmt);
+                foreach (var stmt in ifStmt.OrElse)
+                {
+                    CompileStatement(stmt);
+                }
             }
             
             // Patch the jump after if body to point past the else clause
