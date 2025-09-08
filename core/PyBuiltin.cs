@@ -920,6 +920,7 @@ namespace SharpPy
             {
                 "__name__" => new PyString(Name),
                 "__call__" => this,
+                "__new__" when Name == "type" => new PyBuiltinFunction("type.__new__"),
                 _ => throw PyAttributeError.Create($"'builtin_function_or_method' object has no attribute '{name}'")
             };
         }
@@ -1087,6 +1088,24 @@ namespace SharpPy
                 Console.WriteLine($"Class body function is not PyFunction: {func?.GetType().Name}");
             }
             
+            // CPython 3.12: Handle __classcell__ mechanism
+            PyCell classcell = null;
+            if (classNamespace.ContainsKey("__classcell__"))
+            {
+                Console.WriteLine($"🔍 Found __classcell__ in class namespace for {className}");
+                if (classNamespace["__classcell__"] is PyCell cell)
+                {
+                    classcell = cell;
+                    Console.WriteLine($"✅ Extracted __classcell__ for later update");
+                    // Remove __classcell__ from namespace as it's not a class attribute
+                    classNamespace.Remove("__classcell__");
+                }
+                else
+                {
+                    Console.WriteLine($"⚠️  __classcell__ is not a PyCell: {classNamespace["__classcell__"]?.GetType().Name}");
+                }
+            }
+            
             // Now create class using metaclass if available
             PyClass pyClass;
             
@@ -1094,45 +1113,76 @@ namespace SharpPy
             {
                 Console.WriteLine($"Creating class with metaclass: {metaclass}");
                 
-                // Try to call the metaclass __new__ method if available
+                // CPython 3.12: Execute the custom metaclass to create the class
                 try
                 {
-                    var newMethod = metaclass.GetAttribute("__new__");
-                    if (newMethod.IsCallable())
+                    Console.WriteLine("Executing custom metaclass to create class");
+                    
+                    // Create a PyDict from the class namespace for the metaclass call
+                    var namespaceDict = new PyDict();
+                    foreach (var kvp in classNamespace)
                     {
-                        Console.WriteLine("Calling metaclass.__new__");
+                        namespaceDict.SetItem(new PyString(kvp.Key), kvp.Value);
+                    }
+                    
+                    // CPython 3.12: Execute metaclass.__new__ which modifies namespace and calls type.__new__ 
+                    Console.WriteLine("Executing metaclass.__new__ with namespace modification support");
+                    
+                    // Get the __new__ method from the metaclass
+                    var newMethod = metaclass.GetAttribute("__new__");
+                    if (newMethod != null && newMethod.IsCallable())
+                    {
+                        Console.WriteLine("Found metaclass.__new__ method, executing it");
                         
-                        // Create a PyDict from the class namespace for the metaclass call
-                        var namespaceDict = new PyDict();
-                        foreach (var kvp in classNamespace)
-                        {
-                            namespaceDict.SetItem(new PyString(kvp.Key), kvp.Value);
-                        }
-                        
-                        // Call metaclass.__new__(metaclass, name, bases, namespace)
-                        var metaclassArgs = new PyObject[] { 
-                            metaclass,                           // cls
-                            new PyString(className),            // name
+                        var newArgs = new PyObject[] {
+                            metaclass,                      // cls  
+                            new PyString(className),        // name
                             new PyTuple(bases.Cast<PyObject>().ToArray()), // bases
-                            namespaceDict                       // namespace
+                            namespaceDict                   // namespace - this will be modified by metaclass
                         };
                         
-                        var result = newMethod.Call(metaclassArgs);
+                        // Execute metaclass.__new__ - this should modify namespaceDict and call type.__new__
+                        var result = newMethod.Call(newArgs);
+                        Console.WriteLine($"Metaclass.__new__ returned: {result?.GetType().Name}");
+                        
                         if (result is PyClass createdClass)
                         {
                             pyClass = createdClass;
+                            pyClass.Metaclass = metaclass as PyClass;
+                            
+                            // CPython 3.12: The metaclass.__new__ should have already set all attributes
+                            // But let's ensure any additional attributes from the modified namespace are set
+                            Console.WriteLine("Ensuring all namespace attributes are set on metaclass-created class");
+                            var items = namespaceDict.Items();
+                            for (int i = 0; i < items.Items.Length; i++)
+                            {
+                                if (items.Items[i] is PyTuple kvp && kvp.Items.Length == 2)
+                                {
+                                    if (kvp.Items[0] is PyString keyStr)
+                                    {
+                                        pyClass.SetAttribute(keyStr.Value, kvp.Items[1]);
+                                        Console.WriteLine($"  Set attribute from namespace: {keyStr.Value} = {kvp.Items[1].GetType().Name}");
+                                    }
+                                }
+                            }
+                            
+                            Console.WriteLine($"✅ Metaclass created class successfully: {createdClass}");
                         }
                         else
                         {
-                            Console.WriteLine($"Metaclass.__new__ returned non-class: {result.GetType().Name}");
-                            pyClass = new PyClass(className, bases.ToArray());
+                            // If metaclass.__new__ didn't return a class, fall back to direct type.__new__ call
+                            Console.WriteLine("Metaclass.__new__ didn't return a class, falling back to type.__new__");
+                            var typeResult = CallTypeNew(new PyObject[] { metaclass, new PyString(className), new PyTuple(bases.Cast<PyObject>().ToArray()), namespaceDict });
+                            pyClass = typeResult as PyClass ?? new PyClass(className, bases.ToArray());
+                            pyClass.Metaclass = metaclass as PyClass;
                         }
                     }
                     else
                     {
-                        Console.WriteLine("Metaclass has no callable __new__ method");
-                        pyClass = new PyClass(className, bases.ToArray());
-                        pyClass.SetAttribute("__metaclass__", metaclass);
+                        Console.WriteLine("No callable __new__ method found on metaclass, using type.__new__ directly");
+                        var typeResult = CallTypeNew(new PyObject[] { metaclass, new PyString(className), new PyTuple(bases.Cast<PyObject>().ToArray()), namespaceDict });
+                        pyClass = typeResult as PyClass ?? new PyClass(className, bases.ToArray());
+                        pyClass.Metaclass = metaclass as PyClass;
                     }
                 }
                 catch (Exception ex)
@@ -1147,9 +1197,25 @@ namespace SharpPy
                 pyClass = new PyClass(className, bases.ToArray());
             }
             
-            // If we didn't use metaclass, copy namespace to class manually
-            // When using metaclass, the attributes are already set by type.__new__
-            if (!hasMetaclass)
+            // CPython 3.12: Copy namespace attributes to class
+            // For metaclass: use the potentially modified namespace dict
+            // For non-metaclass: use the original classNamespace
+            if (hasMetaclass)
+            {
+                // Extract attributes from the namespace dict that was passed to metaclass.__new__
+                // This dict may have been modified by the metaclass
+                var namespaceDict = new PyDict();
+                foreach (var kvp in classNamespace)
+                {
+                    namespaceDict.SetItem(new PyString(kvp.Key), kvp.Value);
+                }
+                
+                // After metaclass execution, the namespaceDict should contain any additions
+                // But we need to get the updated dict from the metaclass result
+                // For now, let's try to get the attributes from the created class itself
+                Console.WriteLine($"Setting attributes for metaclass-created class");
+            }
+            else
             {
                 foreach (var kvp in classNamespace)
                 {
@@ -1158,52 +1224,16 @@ namespace SharpPy
                 }
             }
             
-            // CPython 3.12: Update __class__ cell variable with created class
-            Console.WriteLine($"DEBUG: func type = {func?.GetType().Name}, is PyFunction = {func is PyFunction}");
-            if (func is PyFunction classBodyFunction)
+            // CPython 3.12: Update __classcell__ with created class
+            if (classcell != null)
             {
-                Console.WriteLine($"DEBUG: classBodyFunction.Closure = {classBodyFunction.Closure?.Length ?? -1} cells");
-                if (classBodyFunction.Closure != null && classBodyFunction.Closure.Length > 0)
-                {
-                    Console.WriteLine($"🔧 Updating __class__ cell variable for {className}");
-                    UpdateClassCellVariable(classBodyFunction, pyClass);
-                }
-                else
-                {
-                    Console.WriteLine($"⚠️  No closure to update for {className}");
-                }
+                Console.WriteLine($"🎯 CPython 3.12: Updating __classcell__ with created class {pyClass}");
+                classcell.Value = pyClass;
+                Console.WriteLine($"✅ __classcell__ updated successfully");
             }
+            
             
             return pyClass;
-        }
-        
-        /// <summary>
-        /// CPython 3.12: Update __class__ cell variable in class body function closure
-        /// </summary>
-        private void UpdateClassCellVariable(PyFunction classBodyFunc, PyClass createdClass)
-        {
-            if (classBodyFunc.Closure == null || classBodyFunc.Closure.Length == 0)
-            {
-                Console.WriteLine("  ⚠️  No closure found in class body function");
-                return;
-            }
-            
-            // Find __class__ cell in the closure
-            // In CPython 3.12, __class__ is typically the first cell variable (index 0)
-            if (classBodyFunc.CodeObject?.CellVars != null)
-            {
-                var classIndex = classBodyFunc.CodeObject.CellVars.IndexOf("__class__");
-                if (classIndex >= 0 && classIndex < classBodyFunc.Closure.Length)
-                {
-                    Console.WriteLine($"  🎯 Found __class__ cell at index {classIndex}, updating with {createdClass}");
-                    classBodyFunc.Closure[classIndex].Value = createdClass;
-                    Console.WriteLine($"  ✅ Updated __class__ cell = {classBodyFunc.Closure[classIndex].Value}");
-                }
-                else
-                {
-                    Console.WriteLine($"  ⚠️  __class__ cell not found in closure (index {classIndex}, closure length {classBodyFunc.Closure.Length})");
-                }
-            }
         }
 
         /// <summary>

@@ -9,6 +9,7 @@ namespace SharpPy
     {
         public Dictionary<string, PyObject> ClassDict { get; }
         public List<PyObject>? TypeParams { get; set; } // PEP 695 __type_params__
+        public PyClass? Metaclass { get; set; } // Metaclass information for type() calls
 
         public PyClass(string name, PyType[] baseTypes, Dictionary<string, PyObject> classDict = null, List<PyObject>? typeParams = null) 
             : base(name, baseTypes)
@@ -87,6 +88,18 @@ namespace SharpPy
             }
 
             return new PyGenericType($"{Name}[{key}]", this, typeArgs);
+        }
+
+        // CPython 3.12: Override GetPyType to return metaclass if set
+        public override PyType GetPyType()
+        {
+            // If this class was created with a metaclass, return the metaclass
+            if (Metaclass != null)
+            {
+                return Metaclass;
+            }
+            // Otherwise, return the default type (which is 'type')
+            return base.GetPyType();
         }
 
         // 클래스 attribute 접근

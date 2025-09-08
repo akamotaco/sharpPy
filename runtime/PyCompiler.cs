@@ -2618,6 +2618,24 @@ namespace SharpPy
                     CompileStatement(stmt);
                 }
                 
+                // CPython 3.12: If __class__ cell variable exists, store __classcell__ for __build_class__
+                if (_cellVars.Contains("__class__"))
+                {
+                    var classIndex = _cellVars.IndexOf("__class__");
+                    Console.WriteLine($"🔧 Generating __classcell__ store for __class__ cell at index {classIndex}");
+                    
+                    // LOAD_CLOSURE __class__ (CPython: LOAD_CLOSURE 0 (__class__))
+                    EmitInstruction(ByteCodeOp.LOAD_CLOSURE, classIndex);
+                    
+                    // COPY 1 (CPython does this to duplicate the cell)
+                    EmitInstruction(ByteCodeOp.COPY, 1);
+                    
+                    // STORE_NAME __classcell__ (CPython: STORE_NAME 4 (__classcell__))
+                    var classcellIndex = AddName("__classcell__");
+                    EmitInstruction(ByteCodeOp.STORE_NAME, classcellIndex);
+                    Console.WriteLine($"✅ Stored __classcell__ at name index {classcellIndex}");
+                }
+                
                 // Return None at the end
                 EmitLoadConst(PyNone.Instance);
                 EmitInstruction(ByteCodeOp.RETURN_VALUE);
