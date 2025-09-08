@@ -59,14 +59,19 @@ namespace SharpPy
             // 클로저 정보 설정
             Closure = closure ?? new PyCell[0];
             
-            // Phase 2: CellVars 개수에 따라 Cells 배열 초기화
-            if (code.CellVars != null && code.CellVars.Count > 0)
+            // CPython 3.12: Cells array includes both FreeVars (first) and CellVars (after)
+            int freeVarCount = code.FreeVars?.Count ?? 0;
+            int cellVarCount = code.CellVars?.Count ?? 0;
+            int totalCellCount = freeVarCount + cellVarCount;
+            
+            if (totalCellCount > 0)
             {
-                Cells = new PyCell[code.CellVars.Count];
+                Cells = new PyCell[totalCellCount];
                 for (int i = 0; i < Cells.Length; i++)
                 {
                     Cells[i] = new PyCell(); // 빈 셀로 초기화
                 }
+                Console.WriteLine($"🆕 Frame Cells initialized: {freeVarCount} FreeVars + {cellVarCount} CellVars = {totalCellCount} total cells");
             }
             else
             {
@@ -2406,6 +2411,34 @@ namespace SharpPy
                     }
                     
                     frame.ValueStack.Push(closureCell);
+                    break;
+                    
+                case ByteCodeOp.COPY_FREE_VARS:
+                    // CPython 3.12: COPY_FREE_VARS initializes free variable cells from closure
+                    var freeVarCount = instruction.Argument;
+                    Console.WriteLine($"🔧 COPY_FREE_VARS: Initializing {freeVarCount} free variables");
+                    
+                    // Copy closure cells to frame's free variable cells
+                    if (frame.Closure != null && frame.Closure.Length >= freeVarCount)
+                    {
+                        for (int i = 0; i < freeVarCount; i++)
+                        {
+                            if (i < frame.Cells.Length && i < frame.Closure.Length)
+                            {
+                                // Copy closure cell to frame cell (free variables start from cell index 0)
+                                frame.Cells[i] = frame.Closure[i];
+                                Console.WriteLine($"   ✅ Copied closure[{i}] to cell[{i}]: {frame.Closure[i]?.Value}");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"   ⚠️ Cannot copy closure[{i}]: frame.Cells.Length={frame.Cells.Length}, closure.Length={frame.Closure.Length}");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"   ⚠️ No closure available or insufficient closure cells. Closure: {frame.Closure?.Length ?? -1}, needed: {freeVarCount}");
+                    }
                     break;
                     
                 case ByteCodeOp.MAKE_CELL:

@@ -1307,31 +1307,68 @@ namespace SharpPy
                 var currentFrame = PyVM.CurrentFrame;
                 if (currentFrame != null)
                 {
-                    // Check if __class__ cell variable exists in current frame's code object
-                    var classIndex = currentFrame.Code.CellVars.IndexOf("__class__");
+                    // CPython 3.12: __class__ can be in FreeVars (from parent) or CellVars (local)
+                    int classIndex = -1;
+                    
+                    // Check FreeVars first (most common for class methods)
+                    var freeVarIndex = currentFrame.Code.FreeVars.IndexOf("__class__");
+                    if (freeVarIndex >= 0)
+                    {
+                        classIndex = freeVarIndex; // FreeVars start at index 0
+                        Console.WriteLine($"🔍 Found __class__ in FreeVars at index {classIndex}");
+                    }
+                    else
+                    {
+                        // Check CellVars (local cell variables come after FreeVars)
+                        var cellVarIndex = currentFrame.Code.CellVars.IndexOf("__class__");
+                        if (cellVarIndex >= 0)
+                        {
+                            classIndex = (currentFrame.Code.FreeVars?.Count ?? 0) + cellVarIndex;
+                            Console.WriteLine($"🔍 Found __class__ in CellVars at combined index {classIndex}");
+                        }
+                    }
+                    
                     if (classIndex >= 0)
                     {
-                        Console.WriteLine($"🔍 Found __class__ cell variable at index {classIndex}");
-                        
                         // Try to get the __class__ value from cell variables
-                        // In CPython 3.12, cell variables are stored separately from the value stack
                         if (currentFrame.Cells != null && classIndex < currentFrame.Cells.Length)
                         {
                             var classCell = currentFrame.Cells[classIndex];
                             if (classCell != null && classCell.Value != null)
                             {
-                                Console.WriteLine($"🔍 Retrieved __class__ from cell: {classCell.Value}");
-                                // TODO: Implement proper zero-argument super() with __class__ and __self__
-                                // For now, return a placeholder that indicates we found the cell
-                                return new PyString($"super() found __class__: {classCell.Value}");
+                                var classValue = classCell.Value;
+                                Console.WriteLine($"🔍 Retrieved __class__ from cell[{classIndex}]: {classValue}");
+                                
+                                // CPython 3.12: zero-argument super() needs __class__ and first parameter (self/cls)
+                                // For metaclass methods, first parameter is typically 'cls'
+                                if (classValue is PyType || classValue is PyClass)
+                                {
+                                    // Return the class directly for __new__ method calls
+                                    // In metaclass __new__, we want to call type.__new__
+                                    if (classValue is PyClass pyClass)
+                                    {
+                                        // Get the parent type (usually 'type' for metaclasses)
+                                        var baseTypes = pyClass.BaseTypes;
+                                        if (baseTypes != null && baseTypes.Length > 0)
+                                        {
+                                            return baseTypes[0]; // Return parent class (type)
+                                        }
+                                    }
+                                    return classValue;
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"🔍 __class__ cell contains non-type value: {classValue.GetType().Name}");
+                                }
                             }
                         }
                         
-                        Console.WriteLine($"🔍 __class__ cell variable found but not initialized");
+                        Console.WriteLine($"🔍 __class__ cell found but not initialized (cell[{classIndex}])");
                     }
                     else
                     {
-                        Console.WriteLine($"🔍 No __class__ cell variable found in current frame");
+                        Console.WriteLine($"🔍 No __class__ found in current frame");
+                        Console.WriteLine($"   FreeVars: [{string.Join(", ", currentFrame.Code.FreeVars)}]");
                         Console.WriteLine($"   CellVars: [{string.Join(", ", currentFrame.Code.CellVars)}]");
                     }
                 }

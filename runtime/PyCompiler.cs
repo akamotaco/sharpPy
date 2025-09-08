@@ -986,6 +986,16 @@ namespace SharpPy
                 Console.WriteLine($"  CellVars: [{string.Join(", ", cellVars)}]");
             }
             
+            // CPython 3.12: COPY_FREE_VARS for functions with free variables (MUST be first instruction)
+            if (freeVars.Count > 0)
+            {
+                if (!SharpPyConfig.DisassemblyOnlyMode)
+                {
+                    Console.WriteLine($"  → Emitting COPY_FREE_VARS for {freeVars.Count} free variables");
+                }
+                EmitCopyFreeVars(freeVars.Count);
+            }
+
             // Phase 2: Cell 변수들을 위한 MAKE_CELL 명령어 발행 (CPython 3.12 호환)
             foreach (var cellVar in cellVars)
             {
