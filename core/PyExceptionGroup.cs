@@ -16,6 +16,12 @@ namespace SharpPy
         {
             Message = message;
             Exceptions = exceptions ?? new List<PyException>();
+            
+            // CPython 3.12: Validate non-empty exceptions sequence
+            if (Exceptions.Count == 0)
+            {
+                throw PyTypeError.Create("second argument (exceptions) must be a non-empty sequence");
+            }
         }
 
         public override PyType GetPyType() => PyType.BaseExceptionGroupType;

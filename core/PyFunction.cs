@@ -159,6 +159,7 @@ public class PyFunction : PyObject, IDescriptor
             "__call__" => this, // 함수 자체가 __call__
             "__closure__" => Attributes["__closure__"], // 클로저 정보
             "__code__" => (PyObject)(CodeObject ?? (object)PyNone.Instance), // 코드 객체
+            "__dict__" => new PyDict(Attributes), // CPython 3.12: Function __dict__ attribute
             _ => Attributes.TryGetValue(name, out PyObject value) ? value : throw PyAttributeError.Create($"'function' object has no attribute '{name}'")
         };
     }

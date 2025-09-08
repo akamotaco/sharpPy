@@ -1158,7 +1158,52 @@ namespace SharpPy
                 }
             }
             
+            // CPython 3.12: Update __class__ cell variable with created class
+            Console.WriteLine($"DEBUG: func type = {func?.GetType().Name}, is PyFunction = {func is PyFunction}");
+            if (func is PyFunction classBodyFunction)
+            {
+                Console.WriteLine($"DEBUG: classBodyFunction.Closure = {classBodyFunction.Closure?.Length ?? -1} cells");
+                if (classBodyFunction.Closure != null && classBodyFunction.Closure.Length > 0)
+                {
+                    Console.WriteLine($"🔧 Updating __class__ cell variable for {className}");
+                    UpdateClassCellVariable(classBodyFunction, pyClass);
+                }
+                else
+                {
+                    Console.WriteLine($"⚠️  No closure to update for {className}");
+                }
+            }
+            
             return pyClass;
+        }
+        
+        /// <summary>
+        /// CPython 3.12: Update __class__ cell variable in class body function closure
+        /// </summary>
+        private void UpdateClassCellVariable(PyFunction classBodyFunc, PyClass createdClass)
+        {
+            if (classBodyFunc.Closure == null || classBodyFunc.Closure.Length == 0)
+            {
+                Console.WriteLine("  ⚠️  No closure found in class body function");
+                return;
+            }
+            
+            // Find __class__ cell in the closure
+            // In CPython 3.12, __class__ is typically the first cell variable (index 0)
+            if (classBodyFunc.CodeObject?.CellVars != null)
+            {
+                var classIndex = classBodyFunc.CodeObject.CellVars.IndexOf("__class__");
+                if (classIndex >= 0 && classIndex < classBodyFunc.Closure.Length)
+                {
+                    Console.WriteLine($"  🎯 Found __class__ cell at index {classIndex}, updating with {createdClass}");
+                    classBodyFunc.Closure[classIndex].Value = createdClass;
+                    Console.WriteLine($"  ✅ Updated __class__ cell = {classBodyFunc.Closure[classIndex].Value}");
+                }
+                else
+                {
+                    Console.WriteLine($"  ⚠️  __class__ cell not found in closure (index {classIndex}, closure length {classBodyFunc.Closure.Length})");
+                }
+            }
         }
 
         /// <summary>

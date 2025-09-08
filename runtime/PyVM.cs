@@ -538,6 +538,7 @@ namespace SharpPy
                     
                 case ByteCodeOp.COPY:
                     // CPython 3.12: Copy the Nth element from stack top (1-indexed)
+                    // COPY 1 = copy TOS (top of stack), COPY 2 = copy TOS-1, etc.
                     var copyIndex = instruction.Argument;
                     if (frame.ValueStack.Count == 0)
                     {
@@ -547,7 +548,12 @@ namespace SharpPy
                     {
                         throw PyRuntimeError.Create($"COPY index {copyIndex} out of range (stack size: {frame.ValueStack.Count}). Stack contents: [{string.Join(", ", frame.ValueStack.Take(5).Select(x => x.GetType().Name))}]");
                     }
-                    var valueToCopy = frame.ValueStack.ElementAt(frame.ValueStack.Count - copyIndex);
+                    
+                    // CPython 3.12: COPY 1 copies TOS, COPY 2 copies TOS-1 (second from top), etc.
+                    // .NET Stack: ElementAt(0) is TOS, ElementAt(1) is TOS-1
+                    // So COPY 1 should use ElementAt(copyIndex - 1)
+                    var valueToCopy = frame.ValueStack.ElementAt(copyIndex - 1);
+                    // Debug: Console.WriteLine($"🔄 COPY {copyIndex}: copying TOS-{copyIndex-1} = {valueToCopy}");
                     frame.ValueStack.Push(valueToCopy);
                     break;
                     
@@ -1102,6 +1108,21 @@ namespace SharpPy
                     setObj.SetAttribute(setAttrName, setAttrValue);
                     break;
                     
+                case ByteCodeOp.LOAD_SUPER_ATTR:
+                    // CPython 3.12: super() attribute access
+                    // Stack: [..., super_obj, self] -> [..., attr_value]
+                    var superAttrName = frame.Code.Names[instruction.Argument];
+                    var selfObj = frame.ValueStack.Pop();
+                    var superObj = frame.ValueStack.Pop();
+                    
+                    Console.WriteLine($"🔧 LOAD_SUPER_ATTR: {superAttrName}, super={superObj.GetType().Name}, self={selfObj.GetType().Name}");
+                    
+                    // Emulate CPython's super() behavior
+                    // Get the class from super object and look up method in parent classes
+                    var superAttr = GetSuperAttribute(superObj, selfObj, superAttrName);
+                    frame.ValueStack.Push(superAttr);
+                    break;
+                    
                 // CPython 3.12: Pattern matching opcodes
                 case ByteCodeOp.MATCH_MAPPING:
                     // Check if subject is a mapping type (dict, etc.)
@@ -1282,31 +1303,43 @@ namespace SharpPy
                 // CPython-style Control Flow Opcodes (Phase 1 - High Priority)
                 case ByteCodeOp.POP_JUMP_IF_TRUE:
                     var truthValue = frame.ValueStack.Pop();
-                    if (truthValue.PyBoolValue())
+                    bool isTruthy = truthValue.PyBoolValue();
+                    // Debug: Console.WriteLine($"🔄 POP_JUMP_IF_TRUE: popped value = {truthValue}, isTruthy = {isTruthy}");
+                    if (isTruthy)  // CPython 3.12: Jump if the popped value is truthy
                     {
                         // CPython 3.12: POP_JUMP_IF_TRUE uses relative offset from next instruction (same as POP_JUMP_IF_FALSE)
                         int currentPosJump = frame.InstructionPointer;
                         int relativeOffset = instruction.Argument;
                         int targetInstructionIndex = currentPosJump + 1 + relativeOffset;
-                        Console.WriteLine($"🔄 POP_JUMP_IF_TRUE: condition True, jump from {currentPosJump} + 1 + {relativeOffset} to instr {targetInstructionIndex}");
+                        Console.WriteLine($"   → JUMPING: from {currentPosJump} + 1 + {relativeOffset} to instr {targetInstructionIndex}");
                         // Subtract 1 because main loop will increment
                         frame.InstructionPointer = targetInstructionIndex - 1;
                         return null; // Continue execution from new position
+                    }
+                    else
+                    {
+                        Console.WriteLine($"   → NOT JUMPING: continue to next instruction");
                     }
                     break;
                     
                 case ByteCodeOp.POP_JUMP_IF_FALSE:
                     var falseValue = frame.ValueStack.Pop();
-                    if (!falseValue.PyBoolValue())
+                    bool isFalsy = !falseValue.PyBoolValue();
+                    // Debug: Console.WriteLine($"🔄 POP_JUMP_IF_FALSE: popped value = {falseValue}, isFalsy = {isFalsy}");
+                    if (isFalsy)  // CPython 3.12: Jump if the popped value is falsy
                     {
                         // CPython 3.12: POP_JUMP_IF_FALSE uses relative offset from next instruction
                         int currentPosJump = frame.InstructionPointer;
                         int relativeOffset = instruction.Argument;
                         int targetInstructionIndex = currentPosJump + 1 + relativeOffset;
-                        Console.WriteLine($"🔄 POP_JUMP_IF_FALSE: condition False, jump from {currentPosJump} + 1 + {relativeOffset} to instr {targetInstructionIndex}");
+                        Console.WriteLine($"   → JUMPING: from {currentPosJump} + 1 + {relativeOffset} to instr {targetInstructionIndex}");
                         // Subtract 1 because main loop will increment
                         frame.InstructionPointer = targetInstructionIndex - 1;
                         return null; // Continue execution from new position
+                    }
+                    else
+                    {
+                        Console.WriteLine($"   → NOT JUMPING: continue to next instruction");
                     }
                     break;
                     
@@ -3451,6 +3484,51 @@ namespace SharpPy
             {
                 // Complex functions fall back to standard path
                 return pyFunc.Call(args);
+            }
+        }
+        
+        /// <summary>
+        /// CPython 3.12: Implement super() attribute lookup
+        /// </summary>
+        private PyObject GetSuperAttribute(PyObject superObj, PyObject selfObj, string attrName)
+        {
+            try
+            {
+                // In CPython, super() object contains the class hierarchy info
+                // For now, implement a simple version that looks up parent class methods
+                
+                if (selfObj is PyType selfType)
+                {
+                    // Get the parent class (metaclass case)
+                    var parentType = typeof(PyType); // Python type metaclass
+                    
+                    // Look for the method in parent type
+                    if (attrName == "__new__")
+                    {
+                        // Return type.__new__ method
+                        return new PyFunction("__new__", (args) => 
+                        {
+                            var cls = args[0];
+                            var name = args[1];
+                            var bases = args[2];
+                            var attrs = args[3];
+                            
+                            Console.WriteLine($"🔧 type.__new__: Creating class {name}");
+                            
+                            // Create new class using PyType constructor
+                            return new PyType(((PyString)name).Value, new PyType[0]);
+                        }, null); // cls, name, bases, attrs
+                    }
+                }
+                
+                // Fallback: try to get attribute directly from super object
+                return superObj.GetAttribute(attrName);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"⚠️  GetSuperAttribute error: {ex.Message}");
+                // Return None for missing attributes for now
+                return PyNone.Instance;
             }
         }
     }

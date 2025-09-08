@@ -892,7 +892,9 @@ namespace SharpPy
             {
                 var op = Previous().Lexeme;
                 var right = ParseAndExpression();
-                expr = new BinaryOpExpression(expr, op, right);
+                // CPython 3.12: Create BoolOpExpression for proper short-circuit evaluation
+                var values = new List<Expression> { expr, right };
+                expr = new BoolOpExpression(op, values);
             }
             
             return expr;
@@ -906,7 +908,9 @@ namespace SharpPy
             {
                 var op = Previous().Lexeme;
                 var right = ParseComparisonExpression();
-                expr = new BinaryOpExpression(expr, op, right);
+                // CPython 3.12: Create BoolOpExpression for proper short-circuit evaluation
+                var values = new List<Expression> { expr, right };
+                expr = new BoolOpExpression(op, values);
             }
             
             return expr;

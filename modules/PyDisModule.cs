@@ -258,7 +258,7 @@ namespace SharpPy.Modules
             sb.AppendFormat("{0,-20}", instruction.OpCode.ToString());
             
             // 인수 및 추가 정보
-            string argInfo = GetArgumentInfo(instruction, constants, names, varNames);
+            string argInfo = GetArgumentInfo(instruction, byteOffset, constants, names, varNames);
             if (!string.IsNullOrEmpty(argInfo))
             {
                 sb.Append(argInfo);
@@ -267,7 +267,7 @@ namespace SharpPy.Modules
             return sb.ToString();
         }
         
-        private string GetArgumentInfo(ByteCodeInstruction instruction, List<PyObject> constants, 
+        private string GetArgumentInfo(ByteCodeInstruction instruction, int currentByteOffset, List<PyObject> constants, 
                                      List<string> names, List<string> varNames)
         {
             var op = instruction.OpCode;
@@ -319,8 +319,12 @@ namespace SharpPy.Modules
                 case ByteCodeOp.POP_JUMP_IF_FALSE:
                 case ByteCodeOp.POP_JUMP_IF_TRUE:
                 case ByteCodeOp.FOR_ITER:
-                    // 점프 타겟을 바이트 오프셋으로 표시
-                    return $"{arg,15} (to {arg * 2})";
+                    // CPython 3.12: Calculate actual target absolute byte offset from relative jump argument
+                    // Formula: target_absolute_offset = (current_byte_offset + CPYTHON_INSTRUCTION_SIZE) + (arg * CPYTHON_INSTRUCTION_SIZE)
+                    // CPython uses absolute byte offsets in jump targets, calculated from relative instruction offsets
+                    const int CPYTHON_INSTRUCTION_SIZE = 2;
+                    var targetByteOffset = currentByteOffset + CPYTHON_INSTRUCTION_SIZE + (arg * CPYTHON_INSTRUCTION_SIZE);
+                    return $"{arg,15} (to {targetByteOffset})";
                     
                 case ByteCodeOp.CALL:
                     return $"{arg,15}";

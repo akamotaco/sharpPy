@@ -74,11 +74,25 @@ namespace SharpPy
                 AnalyzeStatement(statement);
             }
             
-            // Free variables: used but not defined locally (CPython 방식)
-            // 외부 스코프의 모든 변수(매개변수 + 지역 변수)가 자유 변수가 될 수 있음
+            // CPython 3.12: Check for super() calls and add __class__ as free variable
+            var hasSuperCalls = HasSuperCalls(func.Body);
+            if (hasSuperCalls && !_usedVars.Contains("__class__"))
+            {
+                Console.WriteLine($"  🔍 Found super() call in {func.Name}, adding __class__ as free variable");
+                _usedVars.Add("__class__");
+            }
+            
+            // Free variables: used but not defined locally AND exist in outer scope (CPython 3.12 방식)
+            // Only variables that exist in the outer scope can be free variables
             var freeVars = _usedVars.Except(_definedVars)
-                                   .Where(var => outerVarNames.Contains(var)) // 외부 스코프의 모든 변수
+                                   .Where(var => outerVarNames.Contains(var))
                                    .ToList();
+            
+            // CPython 3.12: __class__ is always available in class body scope
+            if (hasSuperCalls && !freeVars.Contains("__class__"))
+            {
+                freeVars.Add("__class__");
+            }
             
             // Cell variables: analyze nested functions to see what they reference
             var cellVars = new List<string>();
@@ -383,6 +397,68 @@ namespace SharpPy
                     break;
                     
                 // TODO: Add more expression types as needed
+            }
+        }
+        
+        /// <summary>
+        /// CPython 3.12: Check if function body contains super() calls
+        /// </summary>
+        private bool HasSuperCalls(List<Statement> statements)
+        {
+            foreach (var stmt in statements)
+            {
+                if (HasSuperCallsInStatement(stmt))
+                    return true;
+            }
+            return false;
+        }
+        
+        private bool HasSuperCallsInStatement(Statement stmt)
+        {
+            switch (stmt)
+            {
+                case ReturnStatement returnStmt:
+                    if (returnStmt.Value != null)
+                        return HasSuperCallsInExpression(returnStmt.Value);
+                    return false;
+                    
+                case ExpressionStatement exprStmt:
+                    return HasSuperCallsInExpression(exprStmt.Expression);
+                    
+                case AssignStatement assignStmt:
+                    return HasSuperCallsInExpression(assignStmt.Value);
+                    
+                default:
+                    return false;
+            }
+        }
+        
+        private bool HasSuperCallsInExpression(Expression expr)
+        {
+            switch (expr)
+            {
+                case CallExpression call:
+                    // Check if this is a super() call
+                    if (call.Function is NameExpression name && name.Name == "super" && call.Arguments.Count == 0)
+                        return true;
+                    
+                    // Check for super().method() pattern
+                    foreach (var arg in call.Arguments)
+                    {
+                        if (HasSuperCallsInExpression(arg))
+                            return true;
+                    }
+                    return HasSuperCallsInExpression(call.Function);
+                    
+                case AttributeExpression attr:
+                    return HasSuperCallsInExpression(attr.Value);
+                    
+                case BinaryOpExpression binary:
+                    return HasSuperCallsInExpression(binary.Left) || 
+                           HasSuperCallsInExpression(binary.Right);
+                    
+                default:
+                    return false;
             }
         }
     }
@@ -1282,8 +1358,45 @@ namespace SharpPy
                     break;
                     
                 case AttributeExpression attr:
-                    CompileExpression(attr.Value);
-                    EmitLoadAttr(attr.Attr);
+                    // CPython 3.12: Check for super() calls and use LOAD_SUPER_ATTR
+                    if (attr.Value is CallExpression superCall && 
+                        superCall.Function is NameExpression superName && 
+                        superName.Name == "super" && 
+                        superCall.Arguments.Count == 0)
+                    {
+                        // super().method pattern: use LOAD_SUPER_ATTR
+                        Console.WriteLine($"🔍 Detected super().{attr.Attr} - generating LOAD_DEREF + LOAD_SUPER_ATTR");
+                        
+                        // Load __class__ cell variable using LOAD_DEREF
+                        var classIndex = _cellVars.IndexOf("__class__");
+                        if (classIndex >= 0)
+                        {
+                            // Load super() (null + self)
+                            var superNameIndex = GetOrAddName("super");
+                            EmitInstruction(ByteCodeOp.LOAD_GLOBAL, superNameIndex);
+                            EmitInstruction(ByteCodeOp.LOAD_DEREF, classIndex);
+                            
+                            // Load self - assume this is in first parameter (cls/self)
+                            EmitInstruction(ByteCodeOp.LOAD_FAST, 0);
+                            
+                            // Call super with __class__ and self
+                            var attrNameIndex = GetOrAddName(attr.Attr);
+                            EmitInstruction(ByteCodeOp.LOAD_SUPER_ATTR, attrNameIndex);
+                        }
+                        else
+                        {
+                            // Fallback to regular attribute access if no __class__ cell
+                            Console.WriteLine("⚠️  No __class__ cell variable found, falling back to LOAD_ATTR");
+                            CompileExpression(attr.Value);
+                            EmitLoadAttr(attr.Attr);
+                        }
+                    }
+                    else
+                    {
+                        // Regular attribute access
+                        CompileExpression(attr.Value);
+                        EmitLoadAttr(attr.Attr);
+                    }
                     break;
                     
                 case SubscriptExpression subscript:
@@ -1920,9 +2033,7 @@ namespace SharpPy
                 "^" => BinaryOpType.XOR,                  // 10 (was 10)
                 "&" => BinaryOpType.AND,                  // 11 (was 1)
                 "@" => BinaryOpType.MATRIX_MULTIPLY,      // 12 (was 12)
-                // Boolean operators (simplified implementation)
-                "and" => BinaryOpType.AND,               // Logical AND (simplified as bitwise AND)
-                "or" => BinaryOpType.OR,                 // Logical OR (simplified as bitwise OR)
+                // Note: "and" and "or" are now handled as BoolOpExpression, not BinaryOpExpression
                 _ => throw new NotImplementedException($"Binary operator '{op}' not implemented")
             };
             
@@ -2527,11 +2638,17 @@ namespace SharpPy
         /// </summary>
         private bool ContainsSuperCalls(List<Statement> statements)
         {
+            Console.WriteLine($"🔍 Checking {statements.Count} statements for super() calls");
             foreach (var stmt in statements)
             {
+                Console.WriteLine($"  - Checking statement: {stmt.GetType().Name}");
                 if (ContainsSuperCallsInStatement(stmt))
+                {
+                    Console.WriteLine($"    ✅ Found super() call in {stmt.GetType().Name}");
                     return true;
+                }
             }
+            Console.WriteLine($"  ❌ No super() calls found in {statements.Count} statements");
             return false;
         }
         
@@ -2559,7 +2676,13 @@ namespace SharpPy
                 case AssignStatement assignStmt:
                     return ContainsSuperCallsInExpression(assignStmt.Value);
                     
+                case ReturnStatement returnStmt:
+                    if (returnStmt.Value != null)
+                        return ContainsSuperCallsInExpression(returnStmt.Value);
+                    return false;
+                    
                 default:
+                    Console.WriteLine($"  ⚠️  Unhandled statement type: {stmt.GetType().Name}");
                     return false;
             }
         }
@@ -3213,7 +3336,8 @@ namespace SharpPy
                 
                 // CPython 3.12: Exception handler completion - offset-based jump direction
                 // Jump BACKWARD if target is before handler, FORWARD if target is after handler
-                var currentHandlerOffset = _instructions.Count * CPYTHON_INSTRUCTION_SIZE; // Current byte offset
+                // CPython 3.12: Calculate absolute byte offset for exception handler
+                var currentHandlerOffset = _instructions.Count * CPYTHON_INSTRUCTION_SIZE; // Current absolute byte offset
                 if (continueLabel.Offset < currentHandlerOffset)
                 {
                     EmitJumpToLabel(ByteCodeOp.JUMP_BACKWARD, continueLabel);
@@ -4025,6 +4149,9 @@ namespace SharpPy
             // CPython 3.12: OR pattern with proper jump logic
             // Stack: [subject] - preserve throughout
             
+            // Create success label that all patterns jump to when they match
+            var successLabel = CreateLabel("or_pattern_success");
+            
             // Create labels for each pattern attempt
             var nextPatternLabels = new List<Label>();
             for (int i = 0; i < flattenedPatterns.Count - 1; i++)
@@ -4055,14 +4182,15 @@ namespace SharpPy
                     {
                         // Last pattern - if false, fail the entire OR
                         EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
-                        // Fall through if true - OR pattern succeeds
+                        // If true, OR pattern succeeds - jump to success
+                        EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, successLabel);
                     }
                     else
                     {
                         // Not last pattern - if false, try next pattern
                         EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, nextLabel);
-                        // If true, OR pattern succeeds - fall through
-                        break; // Don't try remaining patterns
+                        // If true, OR pattern succeeds - jump to success
+                        EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, successLabel);
                     }
                 }
                 else
@@ -4074,9 +4202,16 @@ namespace SharpPy
                         EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, failLabel);
                         return false;
                     }
+                    else
+                    {
+                        // Pattern matched - jump to success
+                        EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, successLabel);
+                    }
                 }
             }
             
+            // Place the success label - all patterns that succeed jump here
+            PlaceLabel(successLabel);
             return true;
         }
         
@@ -4625,13 +4760,13 @@ namespace SharpPy
         private void MarkLabel(Label label)
         {
             label.Offset = _instructions.Count;
-            // Console.WriteLine($"🔍 MarkLabel: {label.Name} → offset {label.Offset}, {label.References.Count} references");
+            Console.WriteLine($"🔍 MarkLabel: {label.Name} → offset {label.Offset}, {label.References.Count} references");
             
             // Update all references to this label
             foreach (var refIndex in label.References)
             {
                 var oldInstruction = _instructions[refIndex];
-                // Console.WriteLine($"🔍 Updating ref {refIndex}: {oldInstruction.OpCode} from arg {oldInstruction.Argument}");
+                Console.WriteLine($"🔍 Updating ref {refIndex}: {oldInstruction.OpCode} from arg {oldInstruction.Argument}");
                 int argument;
                 
                 // CPython 3.12 compatible jump addressing
@@ -4660,7 +4795,7 @@ namespace SharpPy
                     argument = label.Offset;
                 }
                 
-                // Console.WriteLine($"🔍 Updated to arg {argument} (offset {label.Offset} - {refIndex} - 1 = {label.Offset - (refIndex + 1)})");
+                Console.WriteLine($"🔍 Updated to arg {argument} (offset {label.Offset} - {refIndex} - 1 = {label.Offset - (refIndex + 1)})");
                 _instructions[refIndex] = new ByteCodeInstruction(oldInstruction.OpCode, argument);
             }
         }
