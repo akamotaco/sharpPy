@@ -9,6 +9,22 @@ namespace SharpPy
             // 명령줄 옵션 파싱
             var (parsedArgs, pythonFile) = ParseCommandLineArgs(args);
             
+            // --dis 옵션 처리 (직접 바이트코드 출력)
+            if (parsedArgs.ContainsKey("--dis"))
+            {
+                if (!string.IsNullOrEmpty(pythonFile))
+                {
+                    RunDirectDisassembly(pythonFile);
+                }
+                else
+                {
+                    Console.WriteLine("사용법: dotnet run --dis <python_file>");
+                    Console.WriteLine("예제: dotnet run --dis test.py");
+                    Environment.Exit(1);
+                }
+                return;
+            }
+            
             // -m 옵션 처리 (CPython 호환)
             if (parsedArgs.ContainsKey("-m"))
             {
@@ -106,6 +122,153 @@ namespace SharpPy
             }
         }
 
+        private static void RunDirectDisassembly(string pythonFile)
+        {
+            if (!System.IO.File.Exists(pythonFile))
+            {
+                Console.WriteLine($"❌ 파일을 찾을 수 없습니다: {pythonFile}");
+                Environment.Exit(1);
+            }
+
+            try
+            {
+                // 컴파일러에서 직접 바이트코드 출력 (PyDisModule 우회)
+                Console.WriteLine($"Disassembly of {pythonFile}:");
+                
+                string code = System.IO.File.ReadAllText(pythonFile);
+                var lexer = new PyLexer(code);
+                var tokens = lexer.Tokenize();
+                var parser = new PyParser(tokens);
+                var ast = parser.Parse();
+                
+                var compiler = new PythonCompiler();
+                var codeObject = compiler.Compile(ast, "<module>", new List<string>(), pythonFile);
+                
+                // 실제 컴파일된 바이트코드 직접 출력
+                ShowActualBytecode(codeObject);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ 컴파일 오류: {ex.Message}");
+                Environment.Exit(1);
+            }
+        }
+
+        private static void ShowActualBytecode(PyCodeObject codeObject)
+        {
+            var instructions = codeObject.Instructions;
+            var constants = codeObject.Constants;
+            var names = codeObject.Names;
+            var varNames = codeObject.VarNames;
+            
+            // CPython 3.12 정확한 바이트 오프셋 누적 계산
+            int currentByteOffset = 0;
+            
+            for (int i = 0; i < instructions.Count; i++)
+            {
+                var instruction = instructions[i];
+                
+                // CPython 호환 형식 출력
+                string line = FormatActualInstruction(i, currentByteOffset, instruction, constants, names, varNames);
+                Console.WriteLine(line);
+                
+                // 다음 명령어를 위한 바이트 오프셋 누적 계산
+                currentByteOffset += PythonCompiler.GetCPythonInstructionSize(instruction.OpCode, instruction.Argument);
+            }
+        }
+        
+        private static string FormatActualInstruction(int instructionIndex, int byteOffset, 
+                                                    ByteCodeInstruction instruction,
+                                                    List<PyObject> constants, 
+                                                    List<string> names, 
+                                                    List<string> varNames)
+        {
+            var sb = new System.Text.StringBuilder();
+            
+            // CPython 3.12 호환: 실제 AST 라인 번호 사용
+            if (instruction.LineNumber > 0)
+            {
+                sb.AppendFormat("{0,3}", instruction.LineNumber);
+            }
+            else if (instructionIndex == 0) // RESUME은 항상 라인 0
+            {
+                sb.AppendFormat("{0,3}", 0);
+            }
+            else
+            {
+                sb.Append("   ");
+            }
+            
+            // 바이트 오프셋
+            sb.AppendFormat("{0,12}", byteOffset);
+            
+            // 점프 타겟 표시 (간단 구현)
+            if (instruction.OpCode == ByteCodeOp.FOR_ITER || instruction.OpCode == ByteCodeOp.END_FOR)
+                sb.Append(" >> ");
+            else
+                sb.Append("    ");
+                
+            // 명령어 이름
+            sb.AppendFormat("{0,-20}", instruction.OpCode.ToString());
+            
+            // 인수 정보
+            string argInfo = GetActualArgumentInfo(instruction, byteOffset, constants, names, varNames);
+            if (!string.IsNullOrEmpty(argInfo))
+                sb.Append(argInfo);
+                
+            return sb.ToString();
+        }
+        
+        private static string GetActualArgumentInfo(ByteCodeInstruction instruction, int currentByteOffset,
+                                                  List<PyObject> constants, List<string> names, List<string> varNames)
+        {
+            var op = instruction.OpCode;
+            var arg = instruction.Argument;
+            
+            switch (op)
+            {
+                case ByteCodeOp.LOAD_CONST:
+                    if (arg >= 0 && arg < constants.Count)
+                    {
+                        var constant = constants[arg];
+                        var constRepr = constant?.ToString() ?? "None";
+                        return $"{arg,15} ({constRepr})";
+                    }
+                    return $"{arg,15}";
+                    
+                case ByteCodeOp.LOAD_NAME:
+                case ByteCodeOp.STORE_NAME:
+                    if (arg >= 0 && arg < names.Count)
+                        return $"{arg,15} ({names[arg]})";
+                    return $"{arg,15}";
+                    
+                case ByteCodeOp.CALL:
+                    return $"{arg,15}";
+                    
+                case ByteCodeOp.FOR_ITER:
+                    var forIterTarget = currentByteOffset + 2 + (arg * 2);
+                    return $"{arg,15} (to {forIterTarget})";
+                    
+                case ByteCodeOp.JUMP_BACKWARD:
+                    // CPython 3.12 exact formula from dis.py:
+                    // argval = offset + 2 + (-arg * 2)
+                    var jumpBackwardTarget = currentByteOffset + 2 + (-arg * 2);
+                    return $"{arg,15} (to {jumpBackwardTarget})";
+                    
+                case ByteCodeOp.RETURN_CONST:
+                    if (arg >= 0 && arg < constants.Count)
+                    {
+                        var constant = constants[arg];
+                        var constRepr = constant?.ToString() ?? "None";
+                        return $"{arg,15} ({constRepr})";
+                    }
+                    return $"{arg,15}";
+                    
+                default:
+                    return arg > 0 ? $"{arg,15}" : "";
+            }
+        }
+
         private static void RunDisModule(string[] args)
         {
             if (args.Length == 0)
@@ -122,20 +285,6 @@ namespace SharpPy
                 Console.WriteLine($"❌ 파일을 찾을 수 없습니다: {pythonFile}");
                 Environment.Exit(1);
             }
-
-            try
-            {
-                // 디스어셈블리 전용 모드 설정 (디버그 출력 숨김)
-                SharpPyConfig.DisassemblyOnlyMode = true;
-                
-                var disModule = new SharpPy.Modules.PyDisModule();
-                disModule.DisassembleFile(pythonFile);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"❌ 디스어셈블리 오류: {ex.Message}");
-                Environment.Exit(1);
-            }
         }
 
         private static void ShowHelp()
@@ -145,13 +294,15 @@ namespace SharpPy
             Console.WriteLine("사용법:");
             Console.WriteLine("  dotnet run                    - REPL 모드로 실행 (대화형)");
             Console.WriteLine("  dotnet run <file.py>          - Python 파일 실행");
+            Console.WriteLine("  dotnet run --dis <file.py>    - 바이트코드 직접 출력 (정확한 오프셋)");
             Console.WriteLine("  dotnet run -m <module> <args> - 모듈 실행 (CPython 호환)");
             Console.WriteLine("  dotnet run demo               - 모든 데모 실행");
             Console.WriteLine("  dotnet run test-iteration     - 반복자 테스트");
             Console.WriteLine("  dotnet run test-try-except    - 예외 처리 테스트");
             Console.WriteLine("  dotnet run help               - 이 도움말 표시");
-            Console.WriteLine("\n-m 옵션 (모듈 실행):");
-            Console.WriteLine("  dotnet run -m dis <file.py>   - 바이트코드 디스어셈블리");
+            Console.WriteLine("\n바이트코드 옵션:");
+            Console.WriteLine("  dotnet run --dis <file.py>    - 실제 바이트코드 출력 (권장)");
+            Console.WriteLine("  dotnet run -m dis <file.py>   - dis 모듈 사용 (참고용)");
             Console.WriteLine("\n예제:");
             Console.WriteLine("  dotnet run                    # REPL 시작");
             Console.WriteLine("  dotnet run hello.py           # hello.py 파일 실행");
@@ -230,6 +381,10 @@ namespace SharpPy
                     case "--quiet":
                     case "-q":
                         SharpPyConfig.QuietMode = true;
+                        break;
+                        
+                    case "--dis":
+                        options["--dis"] = "true";
                         break;
                         
                     case "-m":

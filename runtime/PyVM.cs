@@ -1367,13 +1367,15 @@ namespace SharpPy
                     // instruction.Argument contains the number of instructions to jump backward
                     // CPython: JUMPBY(-oparg) means current position - oparg instructions
                     int currentInstrPos = frame.InstructionPointer;
-                    int jumpBackCount = instruction.Argument;  // Number of instructions to jump back
+                    // CPython 3.12: JUMP_BACKWARD argument is in bytes, convert to instruction count
+                    int jumpBackBytes = instruction.Argument;
+                    int jumpBackCount = jumpBackBytes / 2;  // Convert bytes to instruction count
                     int targetInstrPos = currentInstrPos - jumpBackCount;
                     
                     // Stack validation for generator safety
-                    Console.WriteLine($"🔄 JUMP_BACKWARD: from instr {currentInstrPos} back {jumpBackCount} instrs to instr {targetInstrPos} (CPython 3.12 relative)");
+                    Console.WriteLine($"🔄 JUMP_BACKWARD: from instr {currentInstrPos} back {jumpBackBytes} bytes ({jumpBackCount} instrs) to instr {targetInstrPos} (CPython 3.12 relative)");
                     Console.WriteLine($"   Stack size before jump: {frame.ValueStack.Count}");
-                    Console.WriteLine($"   Current instruction: {instruction.OpCode} (arg: {instruction.Argument})");
+                    Console.WriteLine($"   Current instruction: {instruction.OpCode} (arg: {instruction.Argument} bytes)");
                     
                     // Validate target instruction position
                     if (targetInstrPos < 0 || targetInstrPos >= frame.Code.Instructions.Count)

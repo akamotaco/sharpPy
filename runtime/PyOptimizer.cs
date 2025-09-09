@@ -133,6 +133,68 @@ namespace SharpPy
                     }
                 }
             }
+            
+            // CPython 3.12: Tuple literal constant folding optimization
+            // Pattern: LOAD_CONST a, LOAD_CONST b, ..., BUILD_TUPLE n → LOAD_CONST (a, b, ...)
+            ApplyTupleLiteralOptimization();
+        }
+
+        /// <summary>
+        /// CPython 3.12: Tuple literal constant folding optimization
+        /// Pattern: LOAD_CONST a, LOAD_CONST b, ..., BUILD_TUPLE n → LOAD_CONST (a, b, ...)
+        /// </summary>
+        private void ApplyTupleLiteralOptimization()
+        {
+            for (int i = 0; i < _instructions.Count; i++)
+            {
+                var buildTupleInstr = _instructions[i];
+                if (buildTupleInstr.OpCode != ByteCodeOp.BUILD_TUPLE)
+                    continue;
+                
+                int tupleSize = buildTupleInstr.Argument;
+                if (tupleSize == 0)
+                    continue; // Empty tuple, skip for now
+                
+                // Check if the previous n instructions are all LOAD_CONST
+                if (i < tupleSize)
+                    continue; // Not enough preceding instructions
+                
+                bool allLoadConst = true;
+                var tupleElements = new List<PyObject>();
+                
+                for (int j = 0; j < tupleSize; j++)
+                {
+                    var instrIndex = i - tupleSize + j;
+                    var instr = _instructions[instrIndex];
+                    
+                    if (instr.OpCode != ByteCodeOp.LOAD_CONST)
+                    {
+                        allLoadConst = false;
+                        break;
+                    }
+                    
+                    tupleElements.Add(_constants[instr.Argument]);
+                }
+                
+                if (allLoadConst)
+                {
+                    // Create tuple constant
+                    var tupleConstant = new PyTuple(tupleElements.ToArray());
+                    int tupleConstIndex = AddConstant(tupleConstant);
+                    
+                    // Replace n LOAD_CONST + BUILD_TUPLE with single LOAD_CONST
+                    _instructions[i - tupleSize] = new ByteCodeInstruction(ByteCodeOp.LOAD_CONST, tupleConstIndex);
+                    
+                    // Remove the remaining LOAD_CONST instructions and BUILD_TUPLE
+                    for (int j = 0; j < tupleSize; j++)
+                    {
+                        _instructions.RemoveAt(i - tupleSize + 1);
+                    }
+                    
+                    Console.WriteLine($"🔄 튤플 상수 접기: {tupleSize}개 LOAD_CONST + BUILD_TUPLE → LOAD_CONST({tupleConstant})");
+                    i -= tupleSize; // Adjust index after removals
+                }
+            }
         }
 
         /// <summary>
@@ -613,11 +675,16 @@ namespace SharpPy
                         int targetEndFor = FindMatchingEndFor(i);
                         if (targetEndFor >= 0)
                         {
-                            int newOffset = targetEndFor - i - 1;
-                            if (newOffset != instruction.Argument)
+                            // CPython 3.12 호환: FOR_ITER는 바이트 단위 오프셋 사용
+                            // FOR_ITER current position에서 END_FOR position까지의 바이트 차이
+                            int bytesFromCurrentToTarget = CalculateByteOffsetBetweenInstructions(i, targetEndFor);
+                            if (bytesFromCurrentToTarget != instruction.Argument)
                             {
-                                _instructions[i] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, newOffset);
-                                Console.WriteLine($"  🔧 FOR_ITER[{i}]: 오프셋 {instruction.Argument} → {newOffset} (END_FOR at {targetEndFor})");
+                                _instructions[i] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, bytesFromCurrentToTarget);
+                                if (!SharpPyConfig.DisassemblyOnlyMode)
+                                {
+                                    Console.WriteLine($"  🔧 FOR_ITER[{i}]: 오프셋 {instruction.Argument} → {bytesFromCurrentToTarget} (END_FOR at {targetEndFor})");
+                                }
                                 recalculated++;
                             }
                         }
@@ -643,7 +710,11 @@ namespace SharpPy
                         if (targetForIter >= 0)
                         {
                             int currentOffset = instruction.Argument;
-                            int correctOffset = i - targetForIter;
+                            // CPython 3.12 공식: arg = (current_byte_offset + 2 - target_byte_offset) / 2
+                            // 정확한 누적 바이트 오프셋 계산 (CALL=8바이트, 기타=2바이트)
+                            int currentByteOffset = CalculateByteOffset(i);
+                            int targetByteOffset = CalculateByteOffset(targetForIter);
+                            int correctOffset = (currentByteOffset + 2 - targetByteOffset) / 2;
                             
                             if (currentOffset != correctOffset)
                             {
@@ -847,6 +918,62 @@ namespace SharpPy
             }
             
             return -1; // 매칭되는 END_FOR을 찾지 못함
+        }
+        
+        /// <summary>
+        /// 두 명령어 위치 사이의 바이트 오프셋 계산 (CPython 3.12 호환)
+        /// 인라인 캐시를 포함한 정확한 바이트 크기를 계산
+        /// </summary>
+        private int CalculateByteOffsetBetweenInstructions(int fromIndex, int toIndex)
+        {
+            int totalBytes = 0;
+            int startIndex = Math.Min(fromIndex, toIndex);
+            int endIndex = Math.Max(fromIndex, toIndex);
+            
+            // fromIndex부터 toIndex까지의 모든 명령어들의 바이트 크기 합산
+            for (int i = startIndex; i < endIndex; i++)
+            {
+                var instruction = _instructions[i];
+                totalBytes += PythonCompiler.GetCPythonInstructionSize(instruction.OpCode, instruction.Argument);
+            }
+            
+            return totalBytes;
+        }
+        
+        /// <summary>
+        /// CPython 3.12 FOR_ITER argument 계산 (인라인 캐시 엔트리 포함 명령어 개수)
+        /// FOR_ITER의 argument는 CACHE 명령어를 포함한 논리적 명령어 개수
+        /// </summary>
+        private int CalculateInstructionOffsetWithCache(int fromIndex, int toIndex)
+        {
+            int instructionCount = 0;
+            int startIndex = Math.Min(fromIndex, toIndex);
+            int endIndex = Math.Max(fromIndex, toIndex);
+            
+            // fromIndex부터 toIndex까지의 논리적 명령어 개수 계산 (CACHE 포함)
+            for (int i = startIndex; i < endIndex; i++)
+            {
+                var instruction = _instructions[i];
+                // 각 명령어는 1 + 인라인 캐시 엔트리 개수만큼 논리적 명령어를 차지
+                instructionCount += 1 + PythonCompiler.GetInlineCacheEntries(instruction.OpCode);
+            }
+            
+            return instructionCount;
+        }
+        
+        
+        /// <summary>
+        /// 명령어 인덱스에서 누적 바이트 오프셋 계산
+        /// </summary>
+        private int CalculateByteOffset(int instructionIndex)
+        {
+            int byteOffset = 0;
+            for (int i = 0; i < instructionIndex && i < _instructions.Count; i++)
+            {
+                var instruction = _instructions[i];
+                byteOffset += PythonCompiler.GetCPythonInstructionSize(instruction.OpCode, instruction.Argument);
+            }
+            return byteOffset;
         }
     }
 }

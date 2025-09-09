@@ -475,12 +475,6 @@ namespace SharpPy
     // AST를 바이트코드로 컴파일 (기존 시스템과 연동)
     public class PythonCompiler
     {
-        /// <summary>
-        /// CPython 3.12: Each bytecode instruction uses 2 bytes
-        /// All jump offsets are calculated in 2-byte units for compatibility
-        /// This ensures SharpPy generates identical bytecode to CPython 3.12
-        /// </summary>
-        private const int CPYTHON_INSTRUCTION_SIZE = 2;
         
         private readonly bool _enable_optimizer = true;   // CPython 3.12 compatibility with 2-byte addressing
         private List<ByteCodeInstruction> _instructions;
@@ -3151,6 +3145,7 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.FOR_ITER, 0); // Jump target will be patched later
             
             // 3. FOR_ITER pushes the next value on stack, store it in loop variable
+            // CPython 3.12에서 FOR_ITER는 4바이트 명령어이므로 자동으로 올바른 오프셋 생성
             EmitStoreName(forStmt.Target);
             
             // 4. Set up loop context for break/continue
@@ -3168,10 +3163,12 @@ namespace SharpPy
             MarkLabel(continueLabel);
             
             // 7. Jump back to FOR_ITER (not GET_ITER) - CPython 3.12 style relative offset
-            // JUMP_BACKWARD argument = number of instructions to jump backward
+            // CPython: next_instr -= oparg, so oparg = next_instr - target
             int currentPos = _instructions.Count;
-            int relativeOffset = currentPos - forIterInstruction;
-            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, relativeOffset);
+            int nextInstrByteOffset = (currentPos + 1) * 2; // Next instruction after JUMP_BACKWARD  
+            int forIterByteOffset = forIterInstruction * 2; 
+            int relativeByteOffset = nextInstrByteOffset - forIterByteOffset; // CPython 3.12 exact formula
+            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, relativeByteOffset);
             
             // 8. CPython 3.12 방식: END_FOR 추가 (통합 구조)
             var endForPosition = _instructions.Count;
@@ -3193,9 +3190,12 @@ namespace SharpPy
             PopLoopContext();
             
             // 12. Patch FOR_ITER to jump to END_FOR (CPython 3.12 통합 방식)
-            var relativeJump = endForPosition - forIterInstruction - 1;
-            _instructions[forIterInstruction] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, relativeJump);
-            Console.WriteLine($"    → FOR_ITER 패치 (일반 루프): loop start {forIterInstruction}, jump offset {relativeJump}, END_FOR at {endForPosition}");
+            // FOR_ITER argument = byte offset to jump forward  
+            int forIterCurrentByteOffset = forIterInstruction * 2;
+            int endForByteOffset = endForPosition * 2;
+            int forIterJumpBytes = (endForByteOffset - forIterCurrentByteOffset - 4) / 2; // -4 for FOR_ITER size, /2 for instruction units
+            _instructions[forIterInstruction] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, forIterJumpBytes);
+            Console.WriteLine($"    → FOR_ITER 패치 (일반 루프): loop start {forIterInstruction}, jump offset {forIterJumpBytes}, END_FOR at {endForPosition}");
             
             // Note: Break statements will need to jump past the else clause to loopEnd
             // This requires break handling to be aware of loop-else structure
@@ -3374,7 +3374,7 @@ namespace SharpPy
                 // CPython 3.12: Exception handler completion - offset-based jump direction
                 // Jump BACKWARD if target is before handler, FORWARD if target is after handler
                 // CPython 3.12: Calculate absolute byte offset for exception handler
-                var currentHandlerOffset = _instructions.Count * CPYTHON_INSTRUCTION_SIZE; // Current absolute byte offset
+                var currentHandlerOffset = CalculateCurrentByteOffset(); // Current absolute byte offset (with inline caches)
                 if (continueLabel.Offset < currentHandlerOffset)
                 {
                     EmitJumpToLabel(ByteCodeOp.JUMP_BACKWARD, continueLabel);
@@ -3402,21 +3402,57 @@ namespace SharpPy
             // Mark continuation point - this is where normal execution continues after try-except
             MarkLabel(continueLabel);
             
-            // CPython 3.12: Create Exception Table entry for try block (label-based)
-            var exceptionEntry = new ExceptionTableEntry(
+            // CPython 3.12: Create Exception Table entries (both try block and handler block)
+            
+            // 1. Main try block entry
+            var tryBlockEntry = new ExceptionTableEntry(
                 start: tryStartOffset,
                 end: tryEndOffset,
                 handlerLabel: handlersStartLabel.Name,
                 depth: 0,  // Stack depth when exception occurs
-                lasti: true
+                lasti: false  // First entry is not lasti
             );
+            _exceptionTable.Add(tryBlockEntry);
             
-            _exceptionTable.Add(exceptionEntry);
+            // 2. Handler block entry (CPython 3.12 pattern: handlers need their own protection)
+            if (tryStmt.Handlers.Count > 0)
+            {
+                // Find actual handler range by marking current position
+                var currentPos = _instructions.Count;
+                
+                // The handler block starts from PUSH_EXC_INFO (after handlersStartLabel)
+                // Since MarkLabel() sets the offset, we can use it directly
+                var handlerStartOffset = handlersStartLabel.Offset;
+                
+                // Handler block ends where the current reraise block begins
+                // We need to go back to find the end of the actual handler body
+                var handlerEndOffset = currentPos - 1;  // Before current RERAISE
+                
+                // Create separate reraise handler for exceptions in the exception handler
+                var handlerReraiseLabel = CreateLabel("handler_reraise");
+                MarkLabel(handlerReraiseLabel);
+                EmitInstruction(ByteCodeOp.COPY, 3);
+                EmitInstruction(ByteCodeOp.POP_EXCEPT);
+                EmitInstruction(ByteCodeOp.RERAISE, 1);
+                
+                var handlerBlockEntry = new ExceptionTableEntry(
+                    start: handlerStartOffset,
+                    end: handlerEndOffset, 
+                    handlerLabel: handlerReraiseLabel.Name,
+                    depth: 1,  // Higher depth for nested exception handling
+                    lasti: true  // Second entry has lasti flag
+                );
+                _exceptionTable.Add(handlerBlockEntry);
+                
+                Console.WriteLine($"🔧 Handler Exception Table: {handlerStartOffset} to {handlerEndOffset} -> {handlerReraiseLabel.Name} [depth=1, lasti]");
+            }
             
-            Console.WriteLine($"🔧 Exception Table Entry Created:");
-            Console.WriteLine($"   Try: {tryStartOffset} to {tryEndOffset}");
-            Console.WriteLine($"   Handler Label: {handlersStartLabel.Name}, Depth: 0");
-            Console.WriteLine($"🔍 Debug: NOP at ~{_instructions.Count-1}, try body starts at {tryStartOffset}");
+            Console.WriteLine($"🔧 Exception Table Entries Created:");
+            Console.WriteLine($"   Try Block: {tryStartOffset} to {tryEndOffset} -> {handlersStartLabel.Name}");
+            if (tryStmt.Handlers.Count > 0)
+            {
+                Console.WriteLine($"   Handler Block: handler range -> handler_reraise [lasti]");
+            }
         }
         private void CompileWith(WithStatement withStmt)
         {
@@ -5760,6 +5796,78 @@ namespace SharpPy
                 // BUILD_SLICE 2 (start, stop)
                 EmitInstruction(ByteCodeOp.BUILD_SLICE, 2);
             }
+        }
+        
+        #endregion
+        
+        #region CPython 3.12 Instruction Size Helper Methods
+        
+        /// <summary>
+        /// CPython 3.12 완전 호환 명령어 크기 계산
+        /// dis._inline_cache_entries 기반 정확한 인라인 캐시 반영
+        /// 참조: https://github.com/python/cpython/blob/3.12/Python/bytecodes.c
+        /// 참조: PEP 659 (Specializing Adaptive Interpreter)
+        /// </summary>
+        public static int GetCPythonInstructionSize(ByteCodeOp op, int arg)
+        {
+            int cacheEntries = GetInlineCacheEntries(op);
+            return 2 + (cacheEntries * 2); // 기본 2바이트 + 인라인 캐시 엔트리들
+        }
+        
+        /// <summary>
+        /// CPython 3.12 dis._inline_cache_entries 매핑 테이블
+        /// 각 명령어의 인라인 캐시 엔트리 개수를 반환
+        /// 참조: https://github.com/python/cpython/blob/3.12/Lib/dis.py#L241-L254
+        /// </summary>
+        public static int GetInlineCacheEntries(ByteCodeOp op)
+        {
+            // 인라인 캐시가 있는 명령어들 (CPython 3.12 기준 12개)
+            return op switch
+            {
+                // opcode 25 (BINARY_SUBSCR) - 4 cache entries
+                ByteCodeOp.BINARY_SUBSCR => 4,
+                // opcode 60 (STORE_SUBSCR) - 1 cache entry  
+                ByteCodeOp.STORE_SUBSCR => 1,
+                // opcode 90 (UNPACK_SEQUENCE) - 1 cache entry
+                ByteCodeOp.UNPACK_SEQUENCE => 1,
+                // opcode 93 (FOR_ITER) - 1 cache entry
+                ByteCodeOp.FOR_ITER => 1,
+                // opcode 95 (STORE_ATTR) - 4 cache entries
+                ByteCodeOp.STORE_ATTR => 4,
+                // opcode 106 (LOAD_ATTR) - 9 cache entries  
+                ByteCodeOp.LOAD_ATTR => 9,
+                // opcode 107 (COMPARE_OP) - 2 cache entries
+                ByteCodeOp.COMPARE_OP => 2,
+                // opcode 116 (LOAD_GLOBAL) - 5 cache entries
+                ByteCodeOp.LOAD_GLOBAL => 5,
+                // opcode 122 (BINARY_OP) - 1 cache entry
+                ByteCodeOp.BINARY_OP => 1,
+                // opcode 126 (SEND) - 1 cache entry
+                ByteCodeOp.SEND => 1,
+                // opcode 141 (LOAD_SUPER_ATTR) - 1 cache entry
+                ByteCodeOp.LOAD_SUPER_ATTR => 1,
+                // opcode 171 (CALL) - 3 cache entries
+                ByteCodeOp.CALL => 3,
+                
+                // 나머지 모든 명령어들은 인라인 캐시 없음 (0 entries)
+                _ => 0
+            };
+        }
+        
+        /// <summary>
+        /// 현재 명령어 리스트의 정확한 바이트 오프셋 계산
+        /// CPython 3.12 인라인 캐시를 포함한 실제 바이트 크기
+        /// </summary>
+        private int CalculateCurrentByteOffset()
+        {
+            int totalBytes = 0;
+            
+            foreach (var instruction in _instructions)
+            {
+                totalBytes += PythonCompiler.GetCPythonInstructionSize(instruction.OpCode, instruction.Argument);
+            }
+            
+            return totalBytes;
         }
         
         #endregion
