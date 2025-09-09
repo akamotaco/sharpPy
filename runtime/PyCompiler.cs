@@ -3405,18 +3405,27 @@ namespace SharpPy
                 // CPython 3.12: POP_EXCEPT after handler execution
                 EmitInstruction(ByteCodeOp.POP_EXCEPT);
                 
-                // CPython 3.12: Exception handler completion - offset-based jump direction
-                // Jump BACKWARD if target is before handler, FORWARD if target is after handler
-                // CPython 3.12: Calculate absolute byte offset for exception handler
-                var currentHandlerOffset = CalculateCurrentByteOffset(); // Current absolute byte offset (with inline caches)
-                if (continueLabel.Offset < currentHandlerOffset)
+                // CPython 3.12: Exception handler completion - always JUMP_FORWARD to continue after try-except
+                // Delete variable binding (for 'as' variable) if needed
+                if (handler.Name != null)
                 {
-                    EmitJumpToLabel(ByteCodeOp.JUMP_BACKWARD, continueLabel);
+                    EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(PyNone.Instance));
+                    if (_isInFunction)
+                    {
+                        EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(handler.Name));
+                        // CPython 3.12: DELETE_FAST for exception variables in functions
+                        EmitInstruction(ByteCodeOp.DELETE_FAST, GetOrAddVarName(handler.Name));
+                    }
+                    else
+                    {
+                        EmitInstruction(ByteCodeOp.STORE_NAME, GetOrAddName(handler.Name));
+                        // CPython 3.12: DELETE_NAME for exception variables at module level
+                        EmitInstruction(ByteCodeOp.DELETE_NAME, GetOrAddName(handler.Name));
+                    }
                 }
-                else
-                {
-                    EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, continueLabel);
-                }
+                
+                // CPython 3.12: Always JUMP_FORWARD to continuation after exception handling
+                EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, continueLabel);
                 
                 // Mark next handler if not last
                 if (i < tryStmt.Handlers.Count - 1)
@@ -3425,16 +3434,13 @@ namespace SharpPy
                 }
             }
             
-            // Reraise if no handler matched
+            // Reraise if no handler matched (before continuation point)
             if (tryStmt.Handlers.Count > 0)
             {
                 var reraiseLabel = CreateLabel("reraise");
                 MarkLabel(reraiseLabel);
                 EmitInstruction(ByteCodeOp.RERAISE, 1);
             }
-            
-            // Mark continuation point - this is where normal execution continues after try-except
-            MarkLabel(continueLabel);
             
             // CPython 3.12: Create Exception Table entries (both try block and handler block)
             
@@ -3480,6 +3486,9 @@ namespace SharpPy
                 
                 Console.WriteLine($"🔧 Handler Exception Table: {handlerStartOffset} to {handlerEndOffset} -> {handlerReraiseLabel.Name} [depth=1, lasti]");
             }
+            
+            // Mark continuation point AFTER all exception handling code - this is where normal execution continues after try-except
+            MarkLabel(continueLabel);
             
             Console.WriteLine($"🔧 Exception Table Entries Created:");
             Console.WriteLine($"   Try Block: {tryStartOffset} to {tryEndOffset} -> {handlersStartLabel.Name}");
@@ -5224,10 +5233,14 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.LIST_APPEND, listAppendArg);
             }
             
-            // JUMP_BACKWARD 
+            // JUMP_BACKWARD - CPython 3.12 바이트 오프셋 방식
             int currentPos = _instructions.Count;
-            int relativeOffset = currentPos - loopStart;
-            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, relativeOffset);
+            int nextInstrByteOffset = (currentPos + 1) * 2; // 다음 명령어의 바이트 오프셋
+            int targetByteOffset = loopStart * 2; // FOR_ITER의 바이트 오프셋
+            int relativeByteOffset = nextInstrByteOffset - targetByteOffset;
+            
+            // CPython 3.12: JUMP_BACKWARD는 바이트 단위 오프셋 사용 (명령어 단위가 아님)
+            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, relativeByteOffset);
             
             // END_FOR 라벨 (FOR_ITER 패치용)
             var endFor = _instructions.Count;
@@ -5250,36 +5263,10 @@ namespace SharpPy
             }
             
             // 5. 정상 완료 시 스택 정리 - CPython 3.12 패턴
+            // END_FOR 이후에 exception table end 설정 (CPython 3.12 호환)
             var exceptionTableEnd = _instructions.Count;
             
-            // CPython 3.12: 모든 comprehension 변수를 역순으로 저장 (STORE_NAME은 JUMP_FORWARD 이후)
-            // Jump over exception handler first
-            var jumpOverHandler = _instructions.Count;
-            EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0); // 패치 예정
-            
-            // 6. Exception handler 시작
-            var handlerStart = _instructions.Count;
-            EmitInstruction(ByteCodeOp.SWAP, 2);
-            EmitInstruction(ByteCodeOp.POP_TOP);
-            EmitInstruction(ByteCodeOp.SWAP, 2);
-            if (comprehensionVars.Count > 0)
-            {
-                // 모듈 레벨에서는 STORE_NAME 사용 (CPython 3.12 호환)
-                if (_isInFunction)
-                {
-                    EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(comprehensionVars[0]));
-                }
-                else
-                {
-                    EmitInstruction(ByteCodeOp.STORE_NAME, GetOrAddName(comprehensionVars[0]));
-                }
-            }
-            EmitInstruction(ByteCodeOp.RERAISE, 0);
-            
-            // 7. Exception handler 끝 - 정상 흐름 계속
-            var handlerEnd = _instructions.Count;
-            
-            // CPython 3.12: 모든 comprehension 변수를 역순으로 저장 (Exception handler 이후)
+            // CPython 3.12: 정상 완료 시 즉시 comprehension 변수 저장 (END_FOR 직후)
             if (comprehensionVars.Count > 0)
             {
                 EmitInstruction(ByteCodeOp.SWAP, 2);
@@ -5292,16 +5279,37 @@ namespace SharpPy
                     }
                     else
                     {
-                        EmitInstruction(ByteCodeOp.STORE_NAME, GetOrAddName(comprehensionVars[i]));
+                        EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(comprehensionVars[i]));
                     }
                 }
             }
             
-            // JUMP_FORWARD 패치 (핸들러 이후 위치로)
-            var actualEnd = _instructions.Count;
+            // CPython 3.12: List comprehension 결과를 스택에 남겨두고 exception handler를 건너뛴다
+            // Assignment target은 AssignStatement에서 별도로 처리됨
+            // Jump over exception handler
+            var jumpOverHandler = _instructions.Count;
+            EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0); // 패치 예정
+            
+            // 6. Exception handler 시작
+            var handlerStart = _instructions.Count;
+            EmitInstruction(ByteCodeOp.SWAP, 2);
+            EmitInstruction(ByteCodeOp.POP_TOP);
+            EmitInstruction(ByteCodeOp.SWAP, 2);
+            if (comprehensionVars.Count > 0)
+            {
+                // CPython 3.12: exception handler에서도 STORE_FAST 사용 (모듈 레벨에서도)
+                EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(comprehensionVars[0]));
+            }
+            EmitInstruction(ByteCodeOp.RERAISE, 0);
+            
+            // 7. Exception handler 끝 - 정상 흐름 계속
+            var handlerEnd = _instructions.Count;
+            
+            // JUMP_FORWARD 패치 (정상 완료 흐름으로 - exception handler 건너뛰기)
+            var handlerEndPos = _instructions.Count;
             _instructions[jumpOverHandler] = new ByteCodeInstruction(
                 ByteCodeOp.JUMP_FORWARD, 
-                actualEnd - jumpOverHandler - 1
+                handlerEndPos - jumpOverHandler - 1
             );
             
             // 8. CPython 3.12: Exception Table 추가 (컴프리헨션 정리용)
