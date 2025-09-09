@@ -5086,16 +5086,31 @@ namespace SharpPy
             CompileExpression(firstGenerator.Iter);
             EmitInstruction(ByteCodeOp.GET_ITER);
             
-            // 2. LOAD_FAST_AND_CLEAR: 컴프리헨션 변수 초기화 (CPython 3.12 패턴)  
-            if (comprehensionVars.Count > 0)
+            // 2. LOAD_FAST_AND_CLEAR: 모든 컴프리헨션 변수 초기화 (CPython 3.12 패턴)  
+            foreach (var varName in comprehensionVars)
             {
-                EmitInstruction(ByteCodeOp.LOAD_FAST_AND_CLEAR, GetOrAddVarName(comprehensionVars[0]));
+                EmitInstruction(ByteCodeOp.LOAD_FAST_AND_CLEAR, GetOrAddVarName(varName));
             }
             
-            // 3. SWAP + BUILD_LIST + SWAP 패턴
-            EmitInstruction(ByteCodeOp.SWAP, 2);
+            // 3. SWAP + BUILD_LIST + SWAP 패턴 (CPython 3.12 호환)
+            // CPython 3.12: 스택 상태 = [iter, var1_none, var2_none, ...]
+            // 목표: [var1_none, var2_none, ..., iter, empty_list]
+            if (comprehensionVars.Count > 1)
+            {
+                // 중첩된 comprehension의 경우 SWAP 3 (row, x, iter -> iter, row, x)
+                EmitInstruction(ByteCodeOp.SWAP, comprehensionVars.Count + 1);
+            }
+            else if (comprehensionVars.Count == 1)
+            {
+                // 단일 comprehension의 경우 SWAP 2 (var, iter -> iter, var)  
+                EmitInstruction(ByteCodeOp.SWAP, 2);
+            }
+            
             EmitInstruction(ByteCodeOp.BUILD_LIST, 0);
-            EmitInstruction(ByteCodeOp.SWAP, 2);
+            if (comprehensionVars.Count > 0)
+            {
+                EmitInstruction(ByteCodeOp.SWAP, 2); // [iter, empty_list] -> [empty_list, iter]
+            }
             
             // 4. 중첩된 루프 컴파일 - CPython 3.12 방식 (첫 번째 generator는 이미 처리됨)
             var exceptionTableStart = _instructions.Count;
@@ -5119,19 +5134,24 @@ namespace SharpPy
             }
             
             // 나머지 generator들 처리 (있다면)
+            // CPython 3.12: LIST_APPEND 인수는 comprehension variables 개수 + 1
+            // 단일: x -> LIST_APPEND 2 (1+1)  
+            // 중첩: row,x -> LIST_APPEND 3 (2+1)
+            var listAppendArg = comprehensionVars.Count + 1;
+            
             if (listComp.Generators.Count > 1)
             {
                 CompileNestedGenerators(listComp.Generators, 1, comprehensionVars, () =>
                 {
                     CompileExpression(listComp.Element);
-                    EmitInstruction(ByteCodeOp.LIST_APPEND, 2);
+                    EmitInstruction(ByteCodeOp.LIST_APPEND, listAppendArg);
                 });
             }
             else
             {
                 // 단일 generator인 경우 직접 처리
                 CompileExpression(listComp.Element);
-                EmitInstruction(ByteCodeOp.LIST_APPEND, 2);
+                EmitInstruction(ByteCodeOp.LIST_APPEND, listAppendArg);
             }
             
             // JUMP_BACKWARD 
@@ -5161,10 +5181,15 @@ namespace SharpPy
             
             // 5. 정상 완료 시 스택 정리 - CPython 3.12 패턴
             var exceptionTableEnd = _instructions.Count;
-            EmitInstruction(ByteCodeOp.SWAP, 2);
+            
+            // CPython 3.12: 모든 comprehension 변수를 역순으로 저장
             if (comprehensionVars.Count > 0)
             {
-                EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(comprehensionVars[0]));
+                EmitInstruction(ByteCodeOp.SWAP, 2);
+                for (int i = comprehensionVars.Count - 1; i >= 0; i--)
+                {
+                    EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(comprehensionVars[i]));
+                }
             }
             
             // Jump over exception handler
@@ -5175,10 +5200,15 @@ namespace SharpPy
             var handlerStart = _instructions.Count;
             EmitInstruction(ByteCodeOp.SWAP, 2);
             EmitInstruction(ByteCodeOp.POP_TOP);
-            EmitInstruction(ByteCodeOp.SWAP, 2);
+            
+            // CPython 3.12: Exception handler에서도 모든 변수를 역순으로 저장
             if (comprehensionVars.Count > 0)
             {
-                EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(comprehensionVars[0]));
+                EmitInstruction(ByteCodeOp.SWAP, 2);
+                for (int i = comprehensionVars.Count - 1; i >= 0; i--)
+                {
+                    EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(comprehensionVars[i]));
+                }
             }
             EmitInstruction(ByteCodeOp.RERAISE, 0);
             
