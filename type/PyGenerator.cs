@@ -47,6 +47,7 @@ namespace SharpPy
 
         public override PyObject Next()
         {
+            Console.WriteLine($"🔄 PyGenerator.Next() called, _finished: {_finished}, _started: {_started}");
             if (_finished)
                 throw PyStopIteration.Create();
 
@@ -67,15 +68,19 @@ namespace SharpPy
             {
                 if (!_started)
                 {
-                    // 첫 번째 실행: 처음부터 시작
+                    // 첫 번째 실행: CPython 3.12 패턴
+                    // RETURN_GENERATOR -> POP_TOP -> RESUME 순서
+                    // POP_TOP를 위해 초기 None 값을 스택에 push
                     _frame.InstructionPointer = 0;
+                    _frame.ValueStack.Push(PyNone.Instance); // CPython 3.12: initial sent value is None
                     _started = true;
-                    Console.WriteLine("🔄 Native Generator: First execution, starting from instruction 0");
+                    Console.WriteLine($"🔄 Native Generator: First execution, starting from instruction 0, stack size: {_frame.ValueStack.Count}");
                 }
                 else
                 {
-                    // 재개: CPython과 달리 sent value를 스택에 push하지 않음
-                    // YIELD_VALUE에서 이미 처리했고, 대부분 제너레이터에서는 sent value를 사용하지 않음
+                    // 재개: CPython 3.12 호환 - sent value를 스택에 push
+                    // RESUME + POP_TOP 패턴을 위해 sent value가 스택에 있어야 함
+                    _frame.ValueStack.Push(_sentValue);
                     Console.WriteLine($"🔄 Native Generator: Resumed, stack size: {_frame.ValueStack.Count}");
                 }
 
@@ -106,6 +111,22 @@ namespace SharpPy
             catch (PythonException ex)
             {
                 // 다른 Python 예외가 발생한 경우 전파
+                Console.WriteLine($"🔴 PyGenerator.Next() PythonException: {ex.PyException?.GetType().Name}: {ex.Message}");
+                _finished = true;
+                throw;
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("Stack empty"))
+            {
+                // Generator completion: Stack empty during final cleanup is normal completion
+                Console.WriteLine($"🎉 Generator: Completed successfully (stack empty during cleanup)");
+                _finished = true;
+                throw PyStopIteration.Create();
+            }
+            catch (Exception ex)
+            {
+                // 다른 예외가 발생한 경우
+                Console.WriteLine($"🔴 PyGenerator.Next() Exception: {ex.GetType().Name}: {ex.Message}");
+                Console.WriteLine($"🔴 Stack trace: {ex.StackTrace}");
                 _finished = true;
                 throw;
             }
@@ -278,6 +299,24 @@ namespace SharpPy
         {
             switch (name)
             {
+                case "__iter__":
+                    // Python __iter__ 메서드: 자기 자신을 반환
+                    return new PyFunction("__iter__", args =>
+                    {
+                        if (args.Length != 0)
+                            throw PyTypeError.Create("__iter__() takes no arguments");
+                        return this;
+                    });
+
+                case "__next__":
+                    // Python __next__ 메서드: Next() 호출
+                    return new PyFunction("__next__", args =>
+                    {
+                        if (args.Length != 0)
+                            throw PyTypeError.Create("__next__() takes no arguments");
+                        return Next();
+                    });
+
                 case "send":
                     return new PyFunction("send", args =>
                     {

@@ -2481,6 +2481,12 @@ namespace SharpPy
                     break;
                     
                 // Generator Implementation
+                case ByteCodeOp.RETURN_GENERATOR:
+                    // CPython 3.12: RETURN_GENERATOR는 Generator 함수의 첫 명령어
+                    // Generator 객체를 생성하고 반환해야 하지만, 여기서는 실행을 계속 진행
+                    // 실제로는 이 명령어가 실행될 때 이미 Generator 객체가 생성되어 있음
+                    break;
+                    
                 case ByteCodeOp.YIELD_VALUE:
                     var yieldValue = frame.ValueStack.Pop();
                     
@@ -2490,10 +2496,7 @@ namespace SharpPy
                         throw PySyntaxError.Create("'yield' outside function");
                     }
                     
-                    // CPython 3.12 방식: yield 시점에서는 스택에 아무것도 남기지 않음
-                    // sent value는 PyNativeGenerator에서 resume 시 직접 관리
-                    
-                    // CPython 3.12 스타일: instruction pointer를 다음으로 이동한 후 yield
+                    // CPython 3.12: YIELD_VALUE 후에 다음 명령어(RESUME)로 진행
                     frame.InstructionPointer++;
                     
                     Console.WriteLine($"🔄 Generator: Yielding {yieldValue}, stack size: {frame.ValueStack.Count}");

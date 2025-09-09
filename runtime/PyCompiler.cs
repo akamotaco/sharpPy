@@ -1092,7 +1092,25 @@ namespace SharpPy
             EmitLoadConst(PyNone.Instance);
             EmitInstruction(ByteCodeOp.RETURN_VALUE);
             
-            // PyCodeObject 생성 (기본값 포함)
+            // CPython 3.12: Generator 함수 감지 - 임시 객체로 체크
+            var tempCodeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, 
+                                                paramNames.Count, null, null, defaults, flags, _currentFileName, _sourceLines);
+            
+            // Generator 함수 감지 및 수정
+            if (tempCodeObject.IsGenerator())
+            {
+                Console.WriteLine($"🔍 Generator 함수 감지: {name}, RETURN_GENERATOR 추가");
+                
+                // RETURN_GENERATOR를 첫 번째 명령어로 삽입
+                _instructions.Insert(0, new ByteCodeInstruction(ByteCodeOp.RETURN_GENERATOR, 0));
+                _instructions.Insert(1, new ByteCodeInstruction(ByteCodeOp.POP_TOP, 0));
+                
+                // CO_GENERATOR 플래그 추가
+                flags |= PyCodeObject.CO_GENERATOR;
+                Console.WriteLine($"✅ Generator 함수 설정 완료: CO_GENERATOR 플래그 추가");
+            }
+            
+            // 최종 PyCodeObject 생성 (수정된 flags 포함)
             var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, 
                                             paramNames.Count, null, null, defaults, flags, _currentFileName, _sourceLines);
             
@@ -1165,7 +1183,9 @@ namespace SharpPy
                         CompileExpression(yield.Value);
                     else
                         EmitLoadConst(PyNone.Instance);
-                    EmitInstruction(ByteCodeOp.YIELD_VALUE);
+                    EmitInstruction(ByteCodeOp.YIELD_VALUE, 1); // CPython 3.12: yield_value argument 1
+                    EmitInstruction(ByteCodeOp.RESUME, 1); // CPython 3.12: Resume after yield
+                    EmitInstruction(ByteCodeOp.POP_TOP); // CPython 3.12: POP_TOP after resume
                     break;
                     
                 case YieldFromStatement yieldFrom:
@@ -3314,8 +3334,15 @@ namespace SharpPy
                         
                         if (handler.Name != null)
                         {
-                            // CPython 3.12: Exception variables are stored as local variables (STORE_FAST)
-                            EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(handler.Name));
+                            // CPython 3.12: Exception variables - STORE_NAME for module level, STORE_FAST for function level
+                            if (_isInFunction)
+                            {
+                                EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(handler.Name));
+                            }
+                            else
+                            {
+                                EmitInstruction(ByteCodeOp.STORE_NAME, GetOrAddName(handler.Name));
+                            }
                         }
                         else
                         {
@@ -3339,8 +3366,15 @@ namespace SharpPy
                         
                         if (handler.Name != null)
                         {
-                            // CPython 3.12: Exception variables are stored as local variables (STORE_FAST)
-                            EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(handler.Name));
+                            // CPython 3.12: Exception variables - STORE_NAME for module level, STORE_FAST for function level
+                            if (_isInFunction)
+                            {
+                                EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(handler.Name));
+                            }
+                            else
+                            {
+                                EmitInstruction(ByteCodeOp.STORE_NAME, GetOrAddName(handler.Name));
+                            }
                         }
                         else
                         {
@@ -4810,7 +4844,7 @@ namespace SharpPy
                 // 상수 문자열이 아닌 경우 FORMAT_VALUE 적용
                 if (!(value is ConstantExpression constant && constant.Value is PyString))
                 {
-                    EmitInstruction(ByteCodeOp.FORMAT_VALUE);
+                    EmitInstruction(ByteCodeOp.FORMAT_VALUE, 0);
                 }
             }
             
@@ -5218,17 +5252,8 @@ namespace SharpPy
             // 5. 정상 완료 시 스택 정리 - CPython 3.12 패턴
             var exceptionTableEnd = _instructions.Count;
             
-            // CPython 3.12: 모든 comprehension 변수를 역순으로 저장
-            if (comprehensionVars.Count > 0)
-            {
-                EmitInstruction(ByteCodeOp.SWAP, 2);
-                for (int i = comprehensionVars.Count - 1; i >= 0; i--)
-                {
-                    EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(comprehensionVars[i]));
-                }
-            }
-            
-            // Jump over exception handler
+            // CPython 3.12: 모든 comprehension 변수를 역순으로 저장 (STORE_NAME은 JUMP_FORWARD 이후)
+            // Jump over exception handler first
             var jumpOverHandler = _instructions.Count;
             EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0); // 패치 예정
             
@@ -5239,17 +5264,44 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.SWAP, 2);
             if (comprehensionVars.Count > 0)
             {
-                EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(comprehensionVars[0]));
+                // 모듈 레벨에서는 STORE_NAME 사용 (CPython 3.12 호환)
+                if (_isInFunction)
+                {
+                    EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(comprehensionVars[0]));
+                }
+                else
+                {
+                    EmitInstruction(ByteCodeOp.STORE_NAME, GetOrAddName(comprehensionVars[0]));
+                }
             }
             EmitInstruction(ByteCodeOp.RERAISE, 0);
             
             // 7. Exception handler 끝 - 정상 흐름 계속
             var handlerEnd = _instructions.Count;
             
-            // JUMP_FORWARD 패치
+            // CPython 3.12: 모든 comprehension 변수를 역순으로 저장 (Exception handler 이후)
+            if (comprehensionVars.Count > 0)
+            {
+                EmitInstruction(ByteCodeOp.SWAP, 2);
+                for (int i = comprehensionVars.Count - 1; i >= 0; i--)
+                {
+                    // 모듈 레벨에서는 STORE_NAME 사용 (CPython 3.12 호환)
+                    if (_isInFunction)
+                    {
+                        EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(comprehensionVars[i]));
+                    }
+                    else
+                    {
+                        EmitInstruction(ByteCodeOp.STORE_NAME, GetOrAddName(comprehensionVars[i]));
+                    }
+                }
+            }
+            
+            // JUMP_FORWARD 패치 (핸들러 이후 위치로)
+            var actualEnd = _instructions.Count;
             _instructions[jumpOverHandler] = new ByteCodeInstruction(
                 ByteCodeOp.JUMP_FORWARD, 
-                handlerEnd - jumpOverHandler - 1
+                actualEnd - jumpOverHandler - 1
             );
             
             // 8. CPython 3.12: Exception Table 추가 (컴프리헨션 정리용)
