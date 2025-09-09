@@ -5200,15 +5200,10 @@ namespace SharpPy
             var handlerStart = _instructions.Count;
             EmitInstruction(ByteCodeOp.SWAP, 2);
             EmitInstruction(ByteCodeOp.POP_TOP);
-            
-            // CPython 3.12: Exception handler에서도 모든 변수를 역순으로 저장
+            EmitInstruction(ByteCodeOp.SWAP, 2);
             if (comprehensionVars.Count > 0)
             {
-                EmitInstruction(ByteCodeOp.SWAP, 2);
-                for (int i = comprehensionVars.Count - 1; i >= 0; i--)
-                {
-                    EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(comprehensionVars[i]));
-                }
+                EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(comprehensionVars[0]));
             }
             EmitInstruction(ByteCodeOp.RERAISE, 0);
             

@@ -2747,23 +2747,11 @@ namespace SharpPy
         
         private PyObject CompareOperation(PyObject left, PyObject right, int compareOp)
         {
-            // CPython 3.12는 두 가지 방식을 사용:
-            // 1. 인덱스 기반 (dis.cmp_op): 0=<, 1=<=, 2==, 3!=, 4=>, 5=>=
-            // 2. 바이트코드 값 기반: 2=<, 26=<=, 40==, 55!=, 68=>, 92=>=
+            // CPython 3.12는 바이트코드 값을 직접 사용:
+            // 2=<, 26=<=, 40==, 55!=, 68=>, 92=>=
+            // 더 이상 인덱스 기반 변환이 필요하지 않음
             
-            // 인덱스 기반 값들을 바이트코드 값으로 변환
-            var actualOp = compareOp switch
-            {
-                0 => (int)CompareOp.LT,  // < 
-                1 => (int)CompareOp.LE,  // <=
-                2 => (int)CompareOp.EQ,  // ==
-                3 => (int)CompareOp.NE,  // !=
-                4 => (int)CompareOp.GT,  // >
-                5 => (int)CompareOp.GE,  // >=
-                _ => compareOp  // 이미 바이트코드 값인 경우
-            };
-            
-            var operation = (CompareOp)actualOp;
+            var operation = (CompareOp)compareOp;
             return operation switch
             {
                 CompareOp.EQ => left.RichCompare(right, PyObject.CompareOp.EQ),    // 40
