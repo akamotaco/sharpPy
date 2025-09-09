@@ -734,22 +734,6 @@ namespace SharpPy
             { ByteCodeOp.CHECK_EG_MATCH, (2, 2) }, // exception_group, match_type -> matched, remainder
         };
 
-        // CPython 3.12 정확한 명령어 바이트 크기 (2-byte word addressing)
-        public static int GetInstructionSize(ByteCodeOp op, int arg = 0)
-        {
-            // CPython 3.12에서 대부분의 명령어는 2바이트
-            // 단, 일부 명령어는 더 많은 바이트를 차지함
-            
-            return op switch
-            {
-                // CPython 3.12: CALL 명령어는 8바이트 차지 (extended instruction)
-                ByteCodeOp.CALL => 8,
-                
-                // 대부분의 일반 명령어는 2바이트
-                _ => 2
-            };
-        }
-
         // 인수에 따라 달라지는 스택 효과
         public static (int pop, int push) GetStackEffect(ByteCodeOp op, int arg = 0)
         {

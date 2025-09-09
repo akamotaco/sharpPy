@@ -1363,19 +1363,19 @@ namespace SharpPy
                     return null; // Continue execution from new position
                     
                 case ByteCodeOp.JUMP_BACKWARD:
-                    // CPython 3.12 compatible: JUMP_BACKWARD uses relative offset
-                    // instruction.Argument contains the number of instructions to jump backward
-                    // CPython: JUMPBY(-oparg) means current position - oparg instructions
+                    // CPython 3.12 compatible: JUMP_BACKWARD uses byte offset calculation
+                    // Formula: target_byte_offset = current_byte_offset + 2 - arg * 2
+                    // Reference: https://docs.python.org/3.12/library/dis.html#opcode-JUMP_BACKWARD
                     int currentInstrPos = frame.InstructionPointer;
-                    // CPython 3.12: JUMP_BACKWARD argument is in bytes, convert to instruction count
-                    int jumpBackBytes = instruction.Argument;
-                    int jumpBackCount = jumpBackBytes / 2;  // Convert bytes to instruction count
-                    int targetInstrPos = currentInstrPos - jumpBackCount;
+                    int currentByteOffset = CalculateByteOffset(currentInstrPos, frame.Code.Instructions);
+                    int targetByteOffset = currentByteOffset + 2 - instruction.Argument * 2;
+                    int targetInstrPos = ByteOffsetToInstructionIndex(targetByteOffset, frame.Code.Instructions);
                     
                     // Stack validation for generator safety
-                    Console.WriteLine($"🔄 JUMP_BACKWARD: from instr {currentInstrPos} back {jumpBackBytes} bytes ({jumpBackCount} instrs) to instr {targetInstrPos} (CPython 3.12 relative)");
+                    Console.WriteLine($"🔄 JUMP_BACKWARD: from instr {currentInstrPos} (offset {currentByteOffset}) back to instr {targetInstrPos} (offset {targetByteOffset}) (CPython 3.12 compatible)");
+                    Console.WriteLine($"   Formula: {currentByteOffset} + 2 - {instruction.Argument} * 2 = {targetByteOffset}");
                     Console.WriteLine($"   Stack size before jump: {frame.ValueStack.Count}");
-                    Console.WriteLine($"   Current instruction: {instruction.OpCode} (arg: {instruction.Argument} bytes)");
+                    Console.WriteLine($"   Current instruction: {instruction.OpCode} (arg: {instruction.Argument})");
                     
                     // Validate target instruction position
                     if (targetInstrPos < 0 || targetInstrPos >= frame.Code.Instructions.Count)
@@ -1395,16 +1395,10 @@ namespace SharpPy
                         var targetInstruction = frame.Code.Instructions[targetInstrPos];
                         Console.WriteLine($"🔍 Target instruction at {targetInstrPos}: {targetInstruction.OpCode} (arg: {targetInstruction.Argument})");
                         
-                        // Check for problematic JUMP_BACKWARD targets
-                        if (targetInstruction.OpCode == ByteCodeOp.STORE_NAME && frame.ValueStack.Count == 0)
+                        // Verify this is a valid loop target (typically FOR_ITER)
+                        if (targetInstruction.OpCode != ByteCodeOp.FOR_ITER && targetInstruction.OpCode != ByteCodeOp.LOAD_CONST)
                         {
-                            Console.WriteLine($"⚠️ Critical: JUMP_BACKWARD targeting STORE_NAME with empty stack!");
-                            Console.WriteLine($"   This indicates a bytecode generation issue in try-except loops");
-                            
-                            // Instead of jumping to wrong target, find the correct loop start
-                            // For now, we'll skip this problematic jump and continue normally
-                            Console.WriteLine($"🔧 Skipping problematic JUMP_BACKWARD to prevent stack corruption");
-                            return null; // Don't perform the jump, continue execution
+                            Console.WriteLine($"⚠️ Warning: JUMP_BACKWARD targeting unexpected instruction {targetInstruction.OpCode}");
                         }
                     }
                     
@@ -2205,23 +2199,24 @@ namespace SharpPy
                     
                 // PEP 709 Comprehension Optimization - VM 구현
                 case ByteCodeOp.LIST_APPEND:
-                    // CPython 호환: LIST_APPEND i
-                    // 스택에서 top 아이템을 pop하고, top에서 i번째 아래 리스트에 append
+                    // CPython 3.12 호환: LIST_APPEND i
+                    // 1. TOS를 pop하여 append할 아이템 획득
+                    // 2. 현재 스택 TOS에서 i-1 인덱스 위치의 리스트에 append
                     // 스택: [..., list, ..., item] → [..., list, ...]
                     var itemToAppend = frame.ValueStack.Pop();
-                    var stackItems = frame.ValueStack.ToArray();
-                    Array.Reverse(stackItems); // 스택 bottom부터 top 순서로 변경
                     
-                    // CPython LIST_APPEND i: 스택에서 아이템을 pop한 후,
-                    // 현재 스택 top에서 i-1번째 아래가 타겟 (0-based)
-                    var targetIndex = instruction.Argument - 1;
+                    // CPython 3.12: LIST_APPEND i에서 타겟은 (현재 TOS - (i-1))
+                    var targetDepth = instruction.Argument - 1; // 0-based 인덱스
                     
-                    if (targetIndex < 0 || targetIndex >= stackItems.Length)
+                    if (frame.ValueStack.Count <= targetDepth)
                     {
-                        throw new Exception($"LIST_APPEND: invalid target index {targetIndex}, stack length {stackItems.Length}");
+                        throw new Exception($"LIST_APPEND: not enough items on stack (need {targetDepth + 1}, got {frame.ValueStack.Count})");
                     }
                     
-                    var targetList = stackItems[targetIndex];
+                    // 스택에서 targetDepth만큼 아래에 있는 아이템 접근
+                    // 스택 top에서 targetDepth번째 아래 = 스택[Count-1-targetDepth]
+                    var stackIndex = frame.ValueStack.Count - 1 - targetDepth;
+                    var targetList = frame.ValueStack.ElementAt(stackIndex);
                     
                     if (targetList is PyList targetPyList)
                     {
@@ -3553,6 +3548,43 @@ namespace SharpPy
                 // Return None for missing attributes for now
                 return PyNone.Instance;
             }
+        }
+
+        /// <summary>
+        /// Calculate cumulative byte offset for given instruction index (CPython 3.12 compatible)
+        /// </summary>
+        private int CalculateByteOffset(int instructionIndex, List<ByteCodeInstruction> instructions)
+        {
+            int byteOffset = 0;
+            for (int i = 0; i < instructionIndex && i < instructions.Count; i++)
+            {
+                var instruction = instructions[i];
+                byteOffset += PythonCompiler.GetCPythonInstructionSize(instruction.OpCode, instruction.Argument);
+            }
+            return byteOffset;
+        }
+
+        /// <summary>
+        /// Find instruction index for given byte offset (CPython 3.12 compatible)
+        /// </summary>
+        private int ByteOffsetToInstructionIndex(int targetByteOffset, List<ByteCodeInstruction> instructions)
+        {
+            int currentByteOffset = 0;
+            
+            for (int i = 0; i < instructions.Count; i++)
+            {
+                // If we've reached or passed the target offset, this is our instruction
+                if (currentByteOffset >= targetByteOffset)
+                {
+                    return i;
+                }
+                
+                var instruction = instructions[i];
+                currentByteOffset += PythonCompiler.GetCPythonInstructionSize(instruction.OpCode, instruction.Argument);
+            }
+            
+            // If target is beyond all instructions, return last valid index
+            return Math.Max(0, instructions.Count - 1);
         }
     }
 
