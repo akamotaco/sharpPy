@@ -43,8 +43,8 @@ namespace SharpPy
             // 인라인 캐시가 있는 명령어들 (CPython 3.12 기준 12개)
             return op switch
             {
-                // opcode 25 (BINARY_SUBSCR) - 4 cache entries
-                ByteCodeOp.BINARY_SUBSCR => 4,
+                // opcode 25 (BINARY_SUBSCR) - 1 cache entry (CPython 3.12 verified)
+                ByteCodeOp.BINARY_SUBSCR => 1,
                 // opcode 60 (STORE_SUBSCR) - 1 cache entry  
                 ByteCodeOp.STORE_SUBSCR => 1,
                 // opcode 90 (UNPACK_SEQUENCE) - 1 cache entry
@@ -55,12 +55,12 @@ namespace SharpPy
                 ByteCodeOp.STORE_ATTR => 4,
                 // opcode 106 (LOAD_ATTR) - 9 cache entries  
                 ByteCodeOp.LOAD_ATTR => 9,
-                // opcode 107 (COMPARE_OP) - 2 cache entries
-                ByteCodeOp.COMPARE_OP => 2,
-                // opcode 108 (IS_OP) - 1 cache entry
-                ByteCodeOp.IS_OP => 1,
-                // opcode 109 (CONTAINS_OP) - 1 cache entry  
-                ByteCodeOp.CONTAINS_OP => 1,
+                // opcode 107 (COMPARE_OP) - 1 cache entry (CPython 3.12 verified)
+                ByteCodeOp.COMPARE_OP => 1,
+                // opcode 108 (IS_OP) - 0 cache entries (CPython 3.12 verified)
+                ByteCodeOp.IS_OP => 0,
+                // opcode 109 (CONTAINS_OP) - 0 cache entries (CPython 3.12 verified)
+                ByteCodeOp.CONTAINS_OP => 0,
                 // opcode 119 (BINARY_OP) - 1 cache entry
                 ByteCodeOp.BINARY_OP => 1,
                 // opcode 168 (CALL) - 3 cache entries

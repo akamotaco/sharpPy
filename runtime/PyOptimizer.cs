@@ -528,15 +528,34 @@ namespace SharpPy
             }
             int recalculated = 0;
             
-            // CPython 3.12: FOR 루프가 없는 경우 FOR 관련 최적화 건너뛰기
+            // CPython 3.12: 루프 패턴 확인
             bool hasForLoop = _instructions.Any(inst => inst.OpCode == ByteCodeOp.FOR_ITER);
+            bool hasWhileLoop = _instructions.Any(inst => inst.OpCode == ByteCodeOp.POP_JUMP_IF_FALSE);
+            
+            if (!hasForLoop && !hasWhileLoop)
+            {
+                if (!SharpPyConfig.DisassemblyOnlyMode)
+                {
+                    Console.WriteLine("✅ 루프 없음 - 점프 오프셋 재계산 불필요");
+                }
+                return;
+            }
+            
+            // WHILE 루프 점프 오프셋 재계산
+            if (hasWhileLoop)
+            {
+                RecalculateWhileLoopJumps();
+                recalculated++;
+            }
+            
+            // FOR 루프가 없으면 FOR 관련 처리 건너뛰기
             if (!hasForLoop)
             {
                 if (!SharpPyConfig.DisassemblyOnlyMode)
                 {
-                    Console.WriteLine("✅ FOR 루프 없음 - FOR 관련 점프 최적화 건너뛰기");
+                    Console.WriteLine($"✅ 점프 오프셋 재계산 완료: {recalculated}개 명령어 수정");
                 }
-                return; // FOR 루프가 없으면 관련 최적화는 불필요
+                return;
             }
             
             // FOR 루프 패턴 감지 및 수정: GET_ITER → FOR_ITER → ... → JUMP_BACKWARD
@@ -746,6 +765,76 @@ namespace SharpPy
                 if (!SharpPyConfig.DisassemblyOnlyMode)
                 {
                     Console.WriteLine("✅ 점프 오프셋 재계산 완료: 수정 필요 없음");
+                }
+            }
+        }
+
+        /// <summary>
+        /// WHILE 루프의 POP_JUMP_IF_FALSE 점프 오프셋 재계산
+        /// 최적화로 인해 변경된 명령어 위치에 맞게 점프 타겟을 다시 계산
+        /// CPython 3.12 패턴: WHILE 루프의 두 POP_JUMP_IF_FALSE는 동일한 루프 종료점을 가리킴
+        /// </summary>
+        private void RecalculateWhileLoopJumps()
+        {
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine("🔄 WHILE 루프 점프 오프셋 재계산 중...");
+            }
+            
+            // WHILE 루프 패턴 찾기: COMPARE_OP → POP_JUMP_IF_FALSE ... JUMP_BACKWARD ... POP_JUMP_IF_FALSE
+            // CPython 3.12: 두 POP_JUMP_IF_FALSE가 동일한 루프 종료점을 가리켜야 함
+            for (int i = 0; i < _instructions.Count - 2; i++)
+            {
+                // JUMP_BACKWARD 명령어를 찾음
+                if (_instructions[i].OpCode == ByteCodeOp.JUMP_BACKWARD)
+                {
+                    int jumpBackwardPos = i;
+                    
+                    // JUMP_BACKWARD 다음의 첫 번째 명령어가 실제 루프 종료점
+                    // 최적화로 인해 명령어가 재배열될 수 있으므로 정확한 위치 찾기
+                    int loopEndPos = jumpBackwardPos + 1;
+                    
+                    // 디버깅: 실제 루프 종료점 확인
+                    if (!SharpPyConfig.DisassemblyOnlyMode)
+                    {
+                        Console.WriteLine($"  🔍 JUMP_BACKWARD at {jumpBackwardPos}, 계산된 루프 종료점: {loopEndPos}");
+                        if (loopEndPos < _instructions.Count)
+                        {
+                            Console.WriteLine($"  🔍 루프 종료점 명령어: {_instructions[loopEndPos].OpCode}");
+                        }
+                    }
+                    
+                    // 이 JUMP_BACKWARD 이전의 POP_JUMP_IF_FALSE들을 찾아서 루프 종료점으로 수정
+                    int popJumpCount = 0;
+                    for (int j = jumpBackwardPos - 1; j >= 0; j--)
+                    {
+                        var inst = _instructions[j];
+                        if (inst.OpCode == ByteCodeOp.POP_JUMP_IF_FALSE)
+                        {
+                            popJumpCount++;
+                            if (!SharpPyConfig.DisassemblyOnlyMode)
+                            {
+                                Console.WriteLine($"  🔍 발견된 POP_JUMP_IF_FALSE #{popJumpCount} at [{j}]: {inst.Argument} (원래 타겟: {j + inst.Argument + 1})");
+                            }
+                            // 올바른 루프 종료점으로 점프하도록 상대 오프셋 재계산
+                            int correctRelativeOffset = loopEndPos - j - 1;
+                            
+                            if (correctRelativeOffset != inst.Argument)
+                            {
+                                _instructions[j] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, correctRelativeOffset);
+                                
+                                if (!SharpPyConfig.DisassemblyOnlyMode)
+                                {
+                                    Console.WriteLine($"  🔧 WHILE POP_JUMP_IF_FALSE[{j}]: {inst.Argument} → {correctRelativeOffset} (target: {loopEndPos})");
+                                }
+                            }
+                        }
+                        // 다른 JUMP_BACKWARD를 만나면 중첩 루프이므로 중단
+                        else if (inst.OpCode == ByteCodeOp.JUMP_BACKWARD)
+                        {
+                            break;
+                        }
+                    }
                 }
             }
         }

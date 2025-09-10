@@ -3167,6 +3167,47 @@ namespace SharpPy
             }
         }
         
+        /// <summary>
+        /// CPython 3.12 호환 while True: compilation
+        /// 특징: 조건 체크 없이 바로 루프 바디 시작, NOP 삽입
+        /// </summary>
+        private void CompileWhileTrue(WhileStatement whileStmt)
+        {
+            Console.WriteLine("🔧 CPython 3.12 호환 while True 루프 컴파일");
+            
+            // Setup loop context for break/continue
+            var breakLabel = CreateLabel("while_true_break");
+            var continueLabel = CreateLabel("while_true_continue");
+            PushLoopContext(breakLabel, continueLabel);
+            
+            // CPython pattern: emit NOP for while True:
+            EmitInstruction(ByteCodeOp.NOP, 0);
+            
+            // 루프 바디 시작점 (JUMP_BACKWARD 타겟) - continue target
+            var bodyStart = _instructions.Count;
+            MarkLabel(continueLabel); // continue는 루프 바디 시작으로
+            Console.WriteLine($"  바디 시작점 = {bodyStart} (JUMP_BACKWARD 타겟)");
+            
+            // Compile loop body
+            foreach (var stmt in whileStmt.Body)
+            {
+                CompileStatement(stmt);
+            }
+            
+            // JUMP_BACKWARD to body start (no condition check)
+            int currentPos = _instructions.Count;
+            int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, bodyStart);
+            Console.WriteLine($"  JUMP_BACKWARD {currentPos} → {bodyStart} (arg={jumpBackwardArg})");
+            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
+            
+            // Pop loop context
+            PopLoopContext();
+            
+            // Mark break label - break는 여기로 점프
+            MarkLabel(breakLabel);
+            Console.WriteLine("🔧 CPython 3.12 호환 while True 루프 컴파일 완료");
+        }
+        
         
         /// <summary>
         /// CPython 3.12 완전 호환 while loop compilation
@@ -3178,6 +3219,13 @@ namespace SharpPy
             
             // Check if this is while True: case
             bool isWhileTrue = IsConstantTrue(whileStmt.Test);
+            Console.WriteLine($"  while True 패턴: {isWhileTrue}");
+            
+            if (isWhileTrue)
+            {
+                CompileWhileTrue(whileStmt);
+                return;
+            }
             
             // Phase 1: 초기 조건 체크 (CPython pattern)
             Console.WriteLine("  Phase 1: 초기 조건 체크");
@@ -3186,8 +3234,9 @@ namespace SharpPy
             var initialJumpIfFalse = _instructions.Count;
             EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // 주소는 나중에 패치
             
-            // Phase 2: 루프 바디 시작점 (JUMP_BACKWARD 타겟)
-            var bodyStart = _instructions.Count;
+            // Phase 2: 루프 바디 컴파일 (JUMP_BACKWARD 타겟은 첫 번째 바디 명령어)
+            // CPython 패턴: JUMP_BACKWARD는 실제 루프 바디 시작으로 점프
+            var bodyStart = _instructions.Count; // 바디 첫 번째 명령어 위치
             Console.WriteLine($"  Phase 2: 바디 시작점 = {bodyStart} (JUMP_BACKWARD 타겟)");
             
             // Compile loop body
@@ -3203,7 +3252,7 @@ namespace SharpPy
             var endJumpIfFalse = _instructions.Count;
             EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // 주소는 나중에 패치
             
-            // Phase 4: JUMP_BACKWARD (바디 시작점으로)
+            // Phase 4: JUMP_BACKWARD (바디 시작점으로 - CPython 패턴 확인됨)
             int currentPos = _instructions.Count;
             int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, bodyStart);
             Console.WriteLine($"  Phase 4: JUMP_BACKWARD {currentPos} → {bodyStart} (arg={jumpBackwardArg})");
@@ -3213,10 +3262,14 @@ namespace SharpPy
             var loopEnd = _instructions.Count;
             Console.WriteLine($"  Phase 5: 루프 종료점 = {loopEnd}");
             
-            // 점프 주소 패치 (직접 수정)
-            Console.WriteLine($"  Patching jump instructions: {initialJumpIfFalse} → {loopEnd}, {endJumpIfFalse} → {loopEnd}");
-            _instructions[initialJumpIfFalse] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, loopEnd);
-            _instructions[endJumpIfFalse] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, loopEnd);
+            // 점프 주소 패치 (상대 오프셋 사용)
+            var relativeOffsetInitial = loopEnd - initialJumpIfFalse - 1;
+            var relativeOffsetEnd = loopEnd - endJumpIfFalse - 1;
+            Console.WriteLine($"  Patching jump instructions:");
+            Console.WriteLine($"    initialJumpIfFalse[{initialJumpIfFalse}] → {loopEnd} (relative offset: {relativeOffsetInitial})");
+            Console.WriteLine($"    endJumpIfFalse[{endJumpIfFalse}] → {loopEnd} (relative offset: {relativeOffsetEnd})");
+            _instructions[initialJumpIfFalse] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, relativeOffsetInitial);
+            _instructions[endJumpIfFalse] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, relativeOffsetEnd);
             
             // While completed normally - execute else clause if present
             if (whileStmt.ElseClause != null && whileStmt.ElseClause.Count > 0)
