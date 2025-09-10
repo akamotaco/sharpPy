@@ -1463,6 +1463,43 @@ namespace SharpPy
                     frame.ValueStack.Push(pyTuple);
                     break;
                     
+                case ByteCodeOp.LIST_EXTEND:
+                    // CPython 3.12 LIST_EXTEND: extend the list at TOS1 with the iterable at TOS
+                    var extendArg = instruction.Argument; // Should be 1 for this case
+                    var extendIterable = frame.ValueStack.Pop(); // Pop iterable from top
+                    
+                    // The list should now be on top of the stack
+                    var extendTargetList = (PyList)frame.ValueStack.Peek();
+                    
+                    // Handle different iterable types
+                    if (extendIterable is PyTuple extendTuple)
+                    {
+                        foreach (var item in extendTuple.Items)
+                        {
+                            extendTargetList.Append(item);
+                        }
+                    }
+                    else if (extendIterable is PyList extendList)
+                    {
+                        foreach (var item in extendList.Items)
+                        {
+                            extendTargetList.Append(item);
+                        }
+                    }
+                    else if (extendIterable is PyString extendStr)
+                    {
+                        foreach (char c in extendStr.Value)
+                        {
+                            extendTargetList.Append(new PyString(c.ToString()));
+                        }
+                    }
+                    else
+                    {
+                        // Generic iterable handling if needed
+                        throw new Exception($"LIST_EXTEND: Unsupported iterable type {extendIterable.GetType()}");
+                    }
+                    break;
+                    
                 case ByteCodeOp.BUILD_SLICE:
                     // Build slice object - argument is 2 or 3
                     var sliceArgCount = instruction.Argument;
@@ -2829,12 +2866,22 @@ namespace SharpPy
                 CompareOp.EQ => left.RichCompare(right, PyObject.CompareOp.EQ),    // 40
                 CompareOp.NE => left.RichCompare(right, PyObject.CompareOp.NE),    // 55
                 CompareOp.LT => left.RichCompare(right, PyObject.CompareOp.LT),    // 2
+                CompareOp.IS_NOT => IsNotOperation(left, right),                   // 3 - is not
                 CompareOp.LE => left.RichCompare(right, PyObject.CompareOp.LE),    // 26
                 CompareOp.GT => left.RichCompare(right, PyObject.CompareOp.GT),    // 68
                 CompareOp.GE => left.RichCompare(right, PyObject.CompareOp.GE),    // 92
                 CompareOp.EXC_MATCH => left.RichCompare(right, PyObject.CompareOp.EQ), // 8 - exception match
                 _ => throw new NotImplementedException($"Compare operation {compareOp} not implemented")
             };
+        }
+
+        private PyObject IsNotOperation(PyObject left, PyObject right)
+        {
+            // 'is not' 연산: 객체 identity 비교의 반대
+            // CPython에서는 PyObject_RichCompareBool을 사용하지만,
+            // is/is not은 identity 비교이므로 ReferenceEquals를 사용
+            bool result = !ReferenceEquals(left, right);
+            return result ? PyBool.True : PyBool.False;
         }
 
         private PyObject ContainsOperation(PyObject left, PyObject right, int containsOp)

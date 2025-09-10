@@ -1524,11 +1524,32 @@ namespace SharpPy
                     break;
                     
                 case ListExpression list:
-                    foreach (var element in list.Elements)
+                    // CPython 3.12 LIST_EXTEND optimization: when all elements are constants,
+                    // use BUILD_LIST 0 + LOAD_CONST (tuple) + LIST_EXTEND 1
+                    if (list.Elements.Count > 0 && list.Elements.All(e => e is ConstantExpression))
                     {
-                        CompileExpression(element);
+                        // All elements are constants, use LIST_EXTEND optimization
+                        EmitInstruction(ByteCodeOp.BUILD_LIST, 0); // Empty list
+                        
+                        // Create tuple constant from all elements
+                        var constantElements = list.Elements.Cast<ConstantExpression>()
+                                                           .Select(c => c.Value)
+                                                           .ToArray();
+                        var tupleConstant = new PyTuple(constantElements);
+                        EmitLoadConst(tupleConstant);
+                        
+                        // Extend the list with the tuple
+                        EmitInstruction(ByteCodeOp.LIST_EXTEND, 1);
                     }
-                    EmitInstruction(ByteCodeOp.BUILD_LIST, list.Elements.Count);
+                    else
+                    {
+                        // Fallback to original method for non-constant elements
+                        foreach (var element in list.Elements)
+                        {
+                            CompileExpression(element);
+                        }
+                        EmitInstruction(ByteCodeOp.BUILD_LIST, list.Elements.Count);
+                    }
                     break;
                     
                 case TupleExpression tuple:
@@ -3148,43 +3169,56 @@ namespace SharpPy
         
         
         /// <summary>
-        /// CPython-style while loop compilation - simplified implementation
+        /// CPython 3.12 완전 호환 while loop compilation
+        /// 특징: 조건을 두 번 체크 (초기 + 루프 끝)
         /// </summary>
         private void CompileWhile(WhileStatement whileStmt)
         {
-            // CPython-style while loop compilation
+            Console.WriteLine("🔧 CPython 3.12 호환 while 루프 컴파일 시작");
             
             // Check if this is while True: case
             bool isWhileTrue = IsConstantTrue(whileStmt.Test);
             
-            // Mark loop start for JUMP_BACKWARD
-            var loopStart = _instructions.Count;
-            
-            // Compile condition expression
+            // Phase 1: 초기 조건 체크 (CPython pattern)
+            Console.WriteLine("  Phase 1: 초기 조건 체크");
             CompileExpression(whileStmt.Test);
             
-            // Jump past the while body if condition is false
-            var jumpIfFalse = _instructions.Count;
-            EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // Address will be patched later
+            var initialJumpIfFalse = _instructions.Count;
+            EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // 주소는 나중에 패치
             
-            // For while True: case, mark the actual body start (after condition+jump will be optimized to NOPs)
+            // Phase 2: 루프 바디 시작점 (JUMP_BACKWARD 타겟)
             var bodyStart = _instructions.Count;
+            Console.WriteLine($"  Phase 2: 바디 시작점 = {bodyStart} (JUMP_BACKWARD 타겟)");
             
-            // Compile the while body
+            // Compile loop body
             foreach (var stmt in whileStmt.Body)
             {
                 CompileStatement(stmt);
             }
             
-            // Jump back to loop condition - CPython 3.12 style relative offset
-            // CPython 3.12: 통일된 JUMP_BACKWARD oparg 계산 사용
+            // Phase 3: 루프 끝 조건 체크 (CPython pattern)
+            Console.WriteLine("  Phase 3: 루프 끝 조건 체크");
+            CompileExpression(whileStmt.Test);  // 조건을 두 번째로 체크
+            
+            var endJumpIfFalse = _instructions.Count;
+            EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // 주소는 나중에 패치
+            
+            // Phase 4: JUMP_BACKWARD (바디 시작점으로)
             int currentPos = _instructions.Count;
-            int targetPos = isWhileTrue ? bodyStart : loopStart;
-            int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, targetPos);
+            int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, bodyStart);
+            Console.WriteLine($"  Phase 4: JUMP_BACKWARD {currentPos} → {bodyStart} (arg={jumpBackwardArg})");
             EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
             
+            // Phase 5: 루프 종료 지점
+            var loopEnd = _instructions.Count;
+            Console.WriteLine($"  Phase 5: 루프 종료점 = {loopEnd}");
+            
+            // 점프 주소 패치 (직접 수정)
+            Console.WriteLine($"  Patching jump instructions: {initialJumpIfFalse} → {loopEnd}, {endJumpIfFalse} → {loopEnd}");
+            _instructions[initialJumpIfFalse] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, loopEnd);
+            _instructions[endJumpIfFalse] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, loopEnd);
+            
             // While completed normally - execute else clause if present
-            var normalCompletionPoint = _instructions.Count;
             if (whileStmt.ElseClause != null && whileStmt.ElseClause.Count > 0)
             {
                 foreach (var stmt in whileStmt.ElseClause)
@@ -3193,11 +3227,7 @@ namespace SharpPy
                 }
             }
             
-            // Patch the false jump to point to else clause (normal completion)
-            var loopEnd = _instructions.Count;
-            _instructions[jumpIfFalse] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, normalCompletionPoint);
-            
-            // Note: Break statements need to jump past else clause to loopEnd
+            Console.WriteLine("🔧 CPython 3.12 호환 while 루프 컴파일 완료");
         }
         
         /// <summary>
@@ -4691,33 +4721,7 @@ namespace SharpPy
             // Create a unique name for the lambda function
             string lambdaName = $"<lambda_{_lambdaCounter++}>";
             
-            // Phase 1: Free variable analysis
-            var analyzer = new FreeVariableAnalyzer();
-            var (freeVars, cellVars) = analyzer.AnalyzeScope(lambda.Body, lambda.Args);
-            
-            Console.WriteLine($"\n🔍 Lambda analysis: {lambdaName}");
-            Console.WriteLine($"  Parameters: [{string.Join(", ", lambda.Args)}]");
-            Console.WriteLine($"  Free variables: [{string.Join(", ", freeVars)}]");
-            Console.WriteLine($"  Cell variables: [{string.Join(", ", cellVars)}]");
-            
-            // Compile lambda body in a separate compiler context
-            var lambdaInstructions = new List<ByteCodeInstruction>();
-            var lambdaConstants = new List<PyObject>();
-            var lambdaNames = new List<string>();
-            
-            // Save current compiler state
-            var tempInstructions = _instructions;
-            var tempConstants = _constants;
-            var tempNames = _names;
-            var tempVarNames = _varNames; // Save current VarNames
-            
-            // Set up lambda compiler context
-            _instructions = lambdaInstructions;
-            _constants = lambdaConstants;
-            _names = lambdaNames;
-            _varNames = new List<string>(); // Fresh VarNames for lambda
-            
-            // CPython 3.12: Extract clean parameter names and default values
+            // CPython 3.12: Extract clean parameter names and default values FIRST
             var cleanParamNames = new List<string>();
             var defaultValues = new List<PyObject>();
             
@@ -4745,6 +4749,33 @@ namespace SharpPy
                     Console.WriteLine($"  → Parameter '{arg}' (no default)");
                 }
             }
+            
+            // Phase 1: Free variable analysis with clean parameter names
+            var analyzer = new FreeVariableAnalyzer();
+            var (freeVars, cellVars) = analyzer.AnalyzeScope(lambda.Body, cleanParamNames);
+            
+            Console.WriteLine($"\n🔍 Lambda analysis: {lambdaName}");
+            Console.WriteLine($"  Parameters: [{string.Join(", ", lambda.Args)}]");
+            Console.WriteLine($"  Clean parameters: [{string.Join(", ", cleanParamNames)}]");
+            Console.WriteLine($"  Free variables: [{string.Join(", ", freeVars)}]");
+            Console.WriteLine($"  Cell variables: [{string.Join(", ", cellVars)}]");
+            
+            // Compile lambda body in a separate compiler context
+            var lambdaInstructions = new List<ByteCodeInstruction>();
+            var lambdaConstants = new List<PyObject>();
+            var lambdaNames = new List<string>();
+            
+            // Save current compiler state
+            var tempInstructions = _instructions;
+            var tempConstants = _constants;
+            var tempNames = _names;
+            var tempVarNames = _varNames; // Save current VarNames
+            
+            // Set up lambda compiler context
+            _instructions = lambdaInstructions;
+            _constants = lambdaConstants;
+            _names = lambdaNames;
+            _varNames = new List<string>(); // Fresh VarNames for lambda
             
             // Parameters must be first in VarNames for LOAD_FAST to work
             foreach (var paramName in cleanParamNames)

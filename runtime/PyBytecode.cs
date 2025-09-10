@@ -531,6 +531,7 @@ namespace SharpPy
     {
         // CPython 3.12 실제 바이트코드 인코딩 값들
         LT = 2,        // <  (CPython: 0x02, was 0)
+        IS_NOT = 3,    // is not (CPython: 0x03) - Exception Groups에서 사용
         LE = 26,       // <= (CPython: 0x1A, was 1)  
         EQ = 40,       // == (CPython: 0x28, was 2)
         NE = 55,       // != (CPython: 0x37, was 3)

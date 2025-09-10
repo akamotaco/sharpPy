@@ -3276,8 +3276,8 @@ namespace SharpPy
             {
                 do
                 {
-                    // **kwargs 처리
-                    if (Match(TokenType.STAR, TokenType.STAR))
+                    // **kwargs 처리  
+                    if (Match(TokenType.STAR_STAR))
                     {
                         var expr = ParseExpression();
                         if (expr != null)
