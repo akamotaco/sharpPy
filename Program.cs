@@ -9,6 +9,13 @@ namespace SharpPy
             // 명령줄 옵션 파싱
             var (parsedArgs, pythonFile) = ParseCommandLineArgs(args);
             
+            // 모든 플래그를 먼저 처리
+            // --no-optimize 옵션 처리
+            if (parsedArgs.ContainsKey("--no-optimize"))
+            {
+                SharpPyConfig.DisableOptimizer = true;
+            }
+            
             // --dis 옵션 처리 (직접 바이트코드 출력)
             if (parsedArgs.ContainsKey("--dis"))
             {
@@ -21,6 +28,25 @@ namespace SharpPy
                     Console.WriteLine("사용법: dotnet run --dis <python_file>");
                     Console.WriteLine("예제: dotnet run --dis test.py");
                     Environment.Exit(1);
+                }
+                return;
+            }
+            
+            // -c 옵션 처리 (CPython 호환 - 코드 문자열 직접 실행)
+            if (parsedArgs.ContainsKey("-c"))
+            {
+                string codeString = parsedArgs["-c"];
+                try
+                {
+                    var interpreter = new IntegratedPythonInterpreter();
+                    interpreter.Execute(codeString, "<string>");
+                }
+                catch (Exception ex)
+                {
+                    if (SharpPyConfig.ShouldShowErrors)
+                    {
+                        Console.WriteLine(ex.ToString());
+                    }
                 }
                 return;
             }
@@ -255,6 +281,12 @@ namespace SharpPy
                     var jumpBackwardTarget = currentByteOffset + 2 + (-arg * 2);
                     return $"{arg,15} (to {jumpBackwardTarget})";
                     
+                case ByteCodeOp.POP_JUMP_IF_FALSE:
+                case ByteCodeOp.POP_JUMP_IF_TRUE:
+                    // CPython 3.12: Jump target = offset + 2 + arg*2 
+                    var jumpTarget = currentByteOffset + 2 + arg * 2;
+                    return $"{arg,15} (to {jumpTarget})";
+                    
                 case ByteCodeOp.RETURN_CONST:
                     if (arg >= 0 && arg < constants.Count)
                     {
@@ -262,6 +294,9 @@ namespace SharpPy
                         var constRepr = constant?.ToString() ?? "None";
                         return $"{arg,15} ({constRepr})";
                     }
+                    return $"{arg,15}";
+                    
+                case ByteCodeOp.FORMAT_VALUE:
                     return $"{arg,15}";
                     
                 default:
@@ -292,14 +327,16 @@ namespace SharpPy
             Console.WriteLine("🐍 SharpPy - Python Interpreter in C#");
             Console.WriteLine("=====================================\n");
             Console.WriteLine("사용법:");
-            Console.WriteLine("  dotnet run                    - REPL 모드로 실행 (대화형)");
-            Console.WriteLine("  dotnet run <file.py>          - Python 파일 실행");
-            Console.WriteLine("  dotnet run --dis <file.py>    - 바이트코드 직접 출력 (정확한 오프셋)");
-            Console.WriteLine("  dotnet run -m <module> <args> - 모듈 실행 (CPython 호환)");
-            Console.WriteLine("  dotnet run demo               - 모든 데모 실행");
-            Console.WriteLine("  dotnet run test-iteration     - 반복자 테스트");
-            Console.WriteLine("  dotnet run test-try-except    - 예외 처리 테스트");
-            Console.WriteLine("  dotnet run help               - 이 도움말 표시");
+            Console.WriteLine("  dotnet run                       - REPL 모드로 실행 (대화형)");
+            Console.WriteLine("  dotnet run <file.py>             - Python 파일 실행");
+            Console.WriteLine("  dotnet run --dis <file.py>       - 바이트코드 직접 출력 (정확한 오프셋)");
+            Console.WriteLine("  dotnet run --no-optimize <file.py> - 최적화 없이 실행");
+            Console.WriteLine("  dotnet run -c \"code\"             - 코드 문자열 직접 실행");
+            Console.WriteLine("  dotnet run -m <module> <args>    - 모듈 실행 (CPython 호환)");
+            Console.WriteLine("  dotnet run demo                  - 모든 데모 실행");
+            Console.WriteLine("  dotnet run test-iteration        - 반복자 테스트");
+            Console.WriteLine("  dotnet run test-try-except       - 예외 처리 테스트");
+            Console.WriteLine("  dotnet run help                  - 이 도움말 표시");
             Console.WriteLine("\n바이트코드 옵션:");
             Console.WriteLine("  dotnet run --dis <file.py>    - 실제 바이트코드 출력 (권장)");
             Console.WriteLine("  dotnet run -m dis <file.py>   - dis 모듈 사용 (참고용)");
@@ -385,6 +422,18 @@ namespace SharpPy
                         
                     case "--dis":
                         options["--dis"] = "true";
+                        break;
+                        
+                    case "--no-optimize":
+                        options["--no-optimize"] = "true";
+                        break;
+                        
+                    case "-c":
+                        if (i + 1 < args.Length)
+                        {
+                            options["-c"] = args[i + 1];
+                            i++; // 다음 인수 건너뛰기
+                        }
                         break;
                         
                     case "-m":

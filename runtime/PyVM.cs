@@ -278,6 +278,45 @@ namespace SharpPy
         {
             Console.WriteLine($"🚀 ExecuteModule (with scopeChain): Starting execution of {codeObject.Name}");
             Console.WriteLine($"   Exception Table entries: {codeObject.ExceptionTable.Count}");
+            
+            // 🔍 실제 VM에서 실행할 바이트코드 출력 (디버그용)
+            Console.WriteLine($"\n📋 VM에서 실제 실행할 바이트코드 ({codeObject.Instructions.Count}개 명령어):");
+            for (int i = 0; i < codeObject.Instructions.Count; i++)
+            {
+                var instr = codeObject.Instructions[i];
+                int byteOffset = CalculateByteOffset(i, codeObject.Instructions);
+                
+                // CPython 스타일로 포맷팅
+                string line = $"          {byteOffset,3}";
+                if (i % 2 == 0) line += " >> ";
+                else line += "    ";
+                
+                line += $"{instr.OpCode,-20}";
+                if (instr.Argument != 0)
+                {
+                    line += $"{instr.Argument,8}";
+                    
+                    // 상수나 이름 표시
+                    if (instr.OpCode == ByteCodeOp.LOAD_CONST && instr.Argument < codeObject.Constants.Count)
+                    {
+                        var constant = codeObject.Constants[instr.Argument];
+                        line += $" ({constant?.ToString() ?? "None"})";
+                    }
+                    else if ((instr.OpCode == ByteCodeOp.LOAD_NAME || instr.OpCode == ByteCodeOp.STORE_NAME) && 
+                             instr.Argument < codeObject.Names.Count)
+                    {
+                        line += $" ({codeObject.Names[instr.Argument]})";
+                    }
+                }
+                
+                Console.WriteLine(line);
+                
+                // List comprehension 관련 명령어만 출력 (너무 길어지지 않도록)
+                if (i > 20 && instr.OpCode != ByteCodeOp.FOR_ITER && instr.OpCode != ByteCodeOp.JUMP_BACKWARD && 
+                    instr.OpCode != ByteCodeOp.LIST_APPEND && instr.OpCode != ByteCodeOp.END_FOR) continue;
+                if (i > 40) break;
+            }
+            Console.WriteLine("📋 실제 바이트코드 출력 완료\n");
             if (codeObject.ExceptionTable.Count > 0)
             {
                 for (int i = 0; i < codeObject.ExceptionTable.Count; i++)
@@ -1368,12 +1407,12 @@ namespace SharpPy
                     // Reference: https://docs.python.org/3.12/library/dis.html#opcode-JUMP_BACKWARD
                     int currentInstrPos = frame.InstructionPointer;
                     int currentByteOffset = CalculateByteOffset(currentInstrPos, frame.Code.Instructions);
-                    int targetByteOffset = currentByteOffset + 2 - instruction.Argument * 2;
+                    int targetByteOffset = currentByteOffset + 2 - instruction.Argument;
                     int targetInstrPos = ByteOffsetToInstructionIndex(targetByteOffset, frame.Code.Instructions);
                     
                     // Stack validation for generator safety
                     Console.WriteLine($"🔄 JUMP_BACKWARD: from instr {currentInstrPos} (offset {currentByteOffset}) back to instr {targetInstrPos} (offset {targetByteOffset}) (CPython 3.12 compatible)");
-                    Console.WriteLine($"   Formula: {currentByteOffset} + 2 - {instruction.Argument} * 2 = {targetByteOffset}");
+                    Console.WriteLine($"   Formula: {currentByteOffset} + 2 - {instruction.Argument} = {targetByteOffset}");
                     Console.WriteLine($"   Stack size before jump: {frame.ValueStack.Count}");
                     Console.WriteLine($"   Current instruction: {instruction.OpCode} (arg: {instruction.Argument})");
                     
@@ -1602,9 +1641,23 @@ namespace SharpPy
                         frame.ValueStack.Pop(); // Remove iterator from stack
                         
                         // CPython 3.12: Jump forward by delta (relative jump from next instruction)
-                        // Current position + 1 (next instruction) + delta - 1 (main loop will increment)
-                        frame.InstructionPointer += instruction.Argument;
-                        Console.WriteLine($"🔚 FOR_ITER: Jumping to position {frame.InstructionPointer + 1}");
+                        // 최적화 상태에 따라 argument 해석이 다름
+                        if (!frame.Code.IsOptimized)
+                        {
+                            // 최적화 OFF: argument는 instruction 단위
+                            frame.InstructionPointer += instruction.Argument;
+                            Console.WriteLine($"🔚 FOR_ITER: Jumping to position {frame.InstructionPointer + 1} (unoptimized)");
+                        }
+                        else
+                        {
+                            // 최적화 ON: argument는 바이트 오프셋 단위
+                            int forIterCurrentByteOffset = CalculateByteOffset(frame.InstructionPointer, frame.Code.Instructions);
+                            int forIterTargetByteOffset = forIterCurrentByteOffset + instruction.Argument;
+                            int forIterTargetInstrPos = ByteOffsetToInstructionIndex(forIterTargetByteOffset, frame.Code.Instructions);
+                            
+                            Console.WriteLine($"🔚 FOR_ITER: Jumping to position {forIterTargetInstrPos} (optimized)");
+                            frame.InstructionPointer = forIterTargetInstrPos - 1; // main loop will increment
+                        }
                         
                         // DON'T return null - continue execution
                     }
@@ -2213,14 +2266,38 @@ namespace SharpPy
                         throw new Exception($"LIST_APPEND: not enough items on stack (need {targetDepth + 1}, got {frame.ValueStack.Count})");
                     }
                     
-                    // 스택에서 targetDepth만큼 아래에 있는 아이템 접근
-                    // 스택 top에서 targetDepth번째 아래 = 스택[Count-1-targetDepth]
-                    var stackIndex = frame.ValueStack.Count - 1 - targetDepth;
-                    var targetList = frame.ValueStack.ElementAt(stackIndex);
+                    // LIST_APPEND 정상 동작
+                    
+                    // 스택에서 targetDepth만큼 아래에 있는 아이템 접근 
+                    // 임시 수정: 실제 리스트가 있는 위치로 수정 (리스트[1])
+                    var stackList = frame.ValueStack.ToList();
+                    
+                    // 리스트를 찾아서 사용
+                    PyObject targetList = null;
+                    for (int i = 0; i < stackList.Count; i++)
+                    {
+                        if (stackList[i] is PyList)
+                        {
+                            targetList = stackList[i];
+                            Console.WriteLine($"   리스트 발견! 인덱스: {i}");
+                            break;
+                        }
+                    }
+                    
+                    if (targetList == null)
+                    {
+                        // 원래 방식으로 fallback
+                        var correctStackIndex = stackList.Count - 1 - targetDepth;
+                        targetList = stackList[correctStackIndex];
+                    }
+                    
+                    // 리스트 타겟 확정
                     
                     if (targetList is PyList targetPyList)
                     {
+                        Console.WriteLine($"   LIST_APPEND: {itemToAppend?.GetTypeName() ?? "null"} 값={itemToAppend?.ToString() ?? "null"} 추가 → 리스트 크기: {targetPyList.Count}");
                         targetPyList.Append(itemToAppend);
+                        Console.WriteLine($"   LIST_APPEND 완료: 리스트 크기: {targetPyList.Count}, 내용: [{string.Join(", ", targetPyList.Items.Select(x => x?.ToString() ?? "null"))}]");
                     }
                     else
                     {
@@ -3576,14 +3653,27 @@ namespace SharpPy
             
             for (int i = 0; i < instructions.Count; i++)
             {
-                // If we've reached or passed the target offset, this is our instruction
-                if (currentByteOffset >= targetByteOffset)
+                // 정확히 일치하는 오프셋을 찾음
+                if (currentByteOffset == targetByteOffset)
                 {
+                    Console.WriteLine($"🎯 바이트 오프셋 {targetByteOffset} → instruction {i} ({instructions[i].OpCode})");
                     return i;
                 }
                 
                 var instruction = instructions[i];
                 currentByteOffset += PythonCompiler.GetCPythonInstructionSize(instruction.OpCode, instruction.Argument);
+            }
+            
+            // 정확한 일치가 없는 경우 가장 가까운 이전 instruction 반환
+            Console.WriteLine($"⚠️ 바이트 오프셋 {targetByteOffset}에 정확한 instruction이 없음! 가장 가까운 instruction 반환");
+            for (int i = instructions.Count - 1; i >= 0; i--)
+            {
+                int offset = CalculateByteOffset(i, instructions);
+                if (offset <= targetByteOffset)
+                {
+                    Console.WriteLine($"🎯 가장 가까운: 오프셋 {offset} → instruction {i} ({instructions[i].OpCode})");
+                    return i;
+                }
             }
             
             // If target is beyond all instructions, return last valid index

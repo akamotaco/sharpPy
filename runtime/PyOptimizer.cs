@@ -26,8 +26,12 @@ namespace SharpPy
         /// </summary>
         public PyCodeObject OptimizeCode(PyCodeObject originalCode)
         {
+            Console.WriteLine($"🔧 ByteCodeOptimizer.OptimizeCode 호출: _optimizationEnabled={_optimizationEnabled}");
             if (!_optimizationEnabled)
+            {
+                Console.WriteLine($"🚫 최적화 비활성화됨 - 원본 코드 반환 (명령어 수: {originalCode.Instructions.Count})");
                 return originalCode;
+            }
 
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
@@ -83,7 +87,10 @@ namespace SharpPy
                 originalCode.FreeVars,
                 originalCode.CellVars,
                 originalCode.DefaultValues,
-                originalCode.Flags
+                originalCode.Flags,
+                originalCode.FileName,
+                originalCode.SourceLines,
+                isOptimized: SharpPyConfig._enable_optimizer
             );
             
             // CPython 3.12: Exception Table 동기화 (최적화로 변경된 오프셋 반영)
@@ -710,11 +717,11 @@ namespace SharpPy
                         if (targetForIter >= 0)
                         {
                             int currentOffset = instruction.Argument;
-                            // CPython 3.12 공식: arg = (current_byte_offset + 2 - target_byte_offset) / 2
+                            // CPython 3.12 공식: arg = (current_byte_offset + 2 - target_byte_offset)
                             // 정확한 누적 바이트 오프셋 계산 (CALL=8바이트, 기타=2바이트)
                             int currentByteOffset = CalculateByteOffset(i);
                             int targetByteOffset = CalculateByteOffset(targetForIter);
-                            int correctOffset = (currentByteOffset + 2 - targetByteOffset) / 2;
+                            int correctOffset = currentByteOffset + 2 - targetByteOffset;  // 바이트 단위 그대로
                             
                             if (currentOffset != correctOffset)
                             {

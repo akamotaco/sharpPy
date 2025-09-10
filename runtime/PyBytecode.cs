@@ -317,6 +317,7 @@ namespace SharpPy
         public List<string> VarNames { get; }         // co_varnames (지역변수명들)
         public int ArgCount { get; }                  // 매개변수 개수
         public int Flags { get; }                     // co_flags (CPython 호환)
+        public bool IsOptimized { get; }              // 바이트코드 최적화 여부
         public string? FileName { get; }              // co_filename (CPython 호환)
         
         // CPython 스타일 에러 보고를 위한 소스 라인 정보
@@ -343,7 +344,7 @@ namespace SharpPy
                         List<string> varNames, int argCount = 0,
                         List<string> freeVars = null, List<string> cellVars = null,
                         List<PyObject> defaultValues = null, int flags = 0, string fileName = null,
-                        List<string> sourceLines = null)
+                        List<string> sourceLines = null, bool isOptimized = false)
         {
             Name = name;
             Instructions = instructions;
@@ -352,6 +353,7 @@ namespace SharpPy
             VarNames = varNames;
             ArgCount = argCount;
             Flags = flags;
+            IsOptimized = isOptimized;
             FileName = fileName;
             SourceLines = sourceLines;
             FreeVars = freeVars ?? new List<string>();
@@ -366,7 +368,7 @@ namespace SharpPy
                         List<string> varNames, int argCount,
                         int flags, string fileName,
                         List<string> freeVars, List<string> cellVars,
-                        List<ExceptionTableEntry> exceptionTable)
+                        List<ExceptionTableEntry> exceptionTable, bool isOptimized = false)
         {
             Name = name;
             Instructions = instructions;
@@ -375,6 +377,7 @@ namespace SharpPy
             VarNames = varNames;
             ArgCount = argCount;
             Flags = flags;
+            IsOptimized = isOptimized;
             FileName = fileName;
             FreeVars = freeVars ?? new List<string>();
             CellVars = cellVars ?? new List<string>();

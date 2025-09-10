@@ -476,7 +476,13 @@ namespace SharpPy
     public class PythonCompiler
     {
         
-        private readonly bool _enable_optimizer = true;   // CPython 3.12 compatibility with 2-byte addressing
+        private bool _enable_optimizer { 
+            get {
+                bool result = !SharpPyConfig.DisableOptimizer;
+                Console.WriteLine($"🔧 _enable_optimizer: {result} (DisableOptimizer: {SharpPyConfig.DisableOptimizer})");
+                return result;
+            }
+        }   // CPython 3.12 compatibility with 2-byte addressing
         private List<ByteCodeInstruction> _instructions;
         private List<PyObject> _constants;
         private List<string> _names;
@@ -495,6 +501,18 @@ namespace SharpPy
         private List<string> _cellVars = new List<string>();
         private List<string> _freeVars = new List<string>();
         private List<ExceptionTableEntry> _exceptionTable = new List<ExceptionTableEntry>(); // CPython 3.12 Exception Table
+        
+        // CPython 3.12: 지연된 exception handler 생성 시스템
+        private List<PendingExceptionHandler> _pendingExceptionHandlers = new List<PendingExceptionHandler>();
+        
+        // CPython 3.12 Exception Handler 정보
+        private class PendingExceptionHandler
+        {
+            public int StartOffset { get; set; }      // 보호 구간 시작 (바이트 오프셋)
+            public int EndOffset { get; set; }        // 보호 구간 끝 (바이트 오프셋)  
+            public List<string> ComprehensionVars { get; set; } = new List<string>(); // 정리할 변수들
+            public int Depth { get; set; } = 2;       // 스택 depth
+        }
         
         // CPython 3.12 호환: Nonlocal/Global 변수 추적
         private HashSet<string> _nonlocalVars = new HashSet<string>();
@@ -1050,13 +1068,54 @@ namespace SharpPy
             }
             }
             
+            // CPython 3.12: 지연된 exception handler들을 바이트코드 끝에 생성
+            GeneratePendingExceptionHandlers();
+            
             // 바이트코드 최적화 적용
+            Console.WriteLine($"🔧 메인 컴파일러에서 최적화 호출: _enable_optimizer={_enable_optimizer}");
             var optimizer = new ByteCodeOptimizer(_enable_optimizer);
             var optimizedCode = optimizer.OptimizeCode(codeObject);
             
             _isInFunction = false; // Reset function context
             _currentFunctionName = null; // Reset function name
             return optimizedCode;
+        }
+        
+        /// <summary>
+        /// CPython 3.12: 지연된 exception handler들을 바이트코드 끝에 생성
+        /// </summary>
+        private void GeneratePendingExceptionHandlers()
+        {
+            foreach (var handler in _pendingExceptionHandlers)
+            {
+                // Exception handler를 바이트코드 끝에 생성
+                var handlerStart = _instructions.Count * 2; // 바이트 오프셋
+                
+                // CPython 3.12 호환 exception handler 생성
+                EmitInstruction(ByteCodeOp.SWAP, 2);
+                EmitInstruction(ByteCodeOp.POP_TOP);
+                EmitInstruction(ByteCodeOp.SWAP, 2);
+                
+                // Comprehension 변수 정리
+                foreach (var varName in handler.ComprehensionVars)
+                {
+                    EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(varName));
+                }
+                
+                EmitInstruction(ByteCodeOp.RERAISE, 0);
+                
+                // Exception table entry 생성
+                var exceptionEntry = new ExceptionTableEntry(
+                    start: handler.StartOffset,
+                    end: handler.EndOffset,
+                    handler: handlerStart,
+                    depth: handler.Depth
+                );
+                _exceptionTable.Add(exceptionEntry);
+            }
+            
+            // 사용 완료된 pending handler들 정리
+            _pendingExceptionHandlers.Clear();
         }
         
         /// <summary>
@@ -5171,24 +5230,18 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.LOAD_FAST_AND_CLEAR, GetOrAddVarName(varName));
             }
             
-            // 3. SWAP + BUILD_LIST + SWAP 패턴 (CPython 3.12 호환)
-            // CPython 3.12: 스택 상태 = [iter, var1_none, var2_none, ...]
-            // 목표: [var1_none, var2_none, ..., iter, empty_list]
-            if (comprehensionVars.Count > 1)
-            {
-                // 중첩된 comprehension의 경우 SWAP 3 (row, x, iter -> iter, row, x)
-                EmitInstruction(ByteCodeOp.SWAP, comprehensionVars.Count + 1);
-            }
-            else if (comprehensionVars.Count == 1)
-            {
-                // 단일 comprehension의 경우 SWAP 2 (var, iter -> iter, var)  
-                EmitInstruction(ByteCodeOp.SWAP, 2);
-            }
-            
-            EmitInstruction(ByteCodeOp.BUILD_LIST, 0);
+            // 3. SWAP + BUILD_LIST + SWAP 패턴 (CPython 3.12 정확한 순서)
+            // CPython 3.12: [iter, var_none] → [var_none, iter] → [var_none, iter, empty_list] → [var_none, empty_list, iter]
             if (comprehensionVars.Count > 0)
             {
-                EmitInstruction(ByteCodeOp.SWAP, 2); // [iter, empty_list] -> [empty_list, iter]
+                EmitInstruction(ByteCodeOp.SWAP, 2); // [iter, var_none] -> [var_none, iter]
+            }
+            
+            EmitInstruction(ByteCodeOp.BUILD_LIST, 0); // [var_none, iter] -> [var_none, iter, empty_list]
+            
+            if (comprehensionVars.Count > 0)
+            {
+                EmitInstruction(ByteCodeOp.SWAP, 2); // [var_none, iter, empty_list] -> [var_none, empty_list, iter]
             }
             
             // 4. 중첩된 루프 컴파일 - CPython 3.12 방식 (첫 번째 generator는 이미 처리됨)
@@ -5234,13 +5287,29 @@ namespace SharpPy
             }
             
             // JUMP_BACKWARD - CPython 3.12 바이트 오프셋 방식
+            // CPython 3.12: JUMP_BACKWARD 인수 = (current_offset + 2 - target_offset)
             int currentPos = _instructions.Count;
-            int nextInstrByteOffset = (currentPos + 1) * 2; // 다음 명령어의 바이트 오프셋
-            int targetByteOffset = loopStart * 2; // FOR_ITER의 바이트 오프셋
-            int relativeByteOffset = nextInstrByteOffset - targetByteOffset;
+            
+            // 정확한 바이트 오프셋 계산 (명령어마다 크기가 다름)
+            int currentByteOffset = 0;
+            for (int i = 0; i < currentPos; i++)
+            {
+                currentByteOffset += GetCPythonInstructionSize(_instructions[i].OpCode, _instructions[i].Argument);
+            }
+            
+            int targetByteOffset = 0;
+            for (int i = 0; i < loopStart; i++)
+            {
+                targetByteOffset += GetCPythonInstructionSize(_instructions[i].OpCode, _instructions[i].Argument);
+            }
+            int jumpBackwardArg = currentByteOffset + 2 - targetByteOffset;
+            
+            Console.WriteLine($"🔧 JUMP_BACKWARD 컴파일: currentPos={currentPos}, loopStart={loopStart}");
+            Console.WriteLine($"   currentByteOffset={currentByteOffset}, targetByteOffset={targetByteOffset}");
+            Console.WriteLine($"   jumpBackwardArg={jumpBackwardArg}");
             
             // CPython 3.12: JUMP_BACKWARD는 바이트 단위 오프셋 사용 (명령어 단위가 아님)
-            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, relativeByteOffset);
+            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
             
             // END_FOR 라벨 (FOR_ITER 패치용)
             var endFor = _instructions.Count;
@@ -5284,42 +5353,18 @@ namespace SharpPy
                 }
             }
             
-            // CPython 3.12: List comprehension 결과를 스택에 남겨두고 exception handler를 건너뛴다
-            // Assignment target은 AssignStatement에서 별도로 처리됨
-            // Jump over exception handler
-            var jumpOverHandler = _instructions.Count;
-            EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0); // 패치 예정
+            // CPython 3.12: List comprehension 정상 완료 - 결과 리스트가 스택에 남음
+            // Assignment target은 이 지점에서 AssignStatement에 의해 처리됨
             
-            // 6. Exception handler 시작
-            var handlerStart = _instructions.Count;
-            EmitInstruction(ByteCodeOp.SWAP, 2);
-            EmitInstruction(ByteCodeOp.POP_TOP);
-            EmitInstruction(ByteCodeOp.SWAP, 2);
-            if (comprehensionVars.Count > 0)
+            // CPython 3.12: Exception handler를 지연 생성으로 등록
+            var pendingHandler = new PendingExceptionHandler
             {
-                // CPython 3.12: exception handler에서도 STORE_FAST 사용 (모듈 레벨에서도)
-                EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(comprehensionVars[0]));
-            }
-            EmitInstruction(ByteCodeOp.RERAISE, 0);
-            
-            // 7. Exception handler 끝 - 정상 흐름 계속
-            var handlerEnd = _instructions.Count;
-            
-            // JUMP_FORWARD 패치 (정상 완료 흐름으로 - exception handler 건너뛰기)
-            var handlerEndPos = _instructions.Count;
-            _instructions[jumpOverHandler] = new ByteCodeInstruction(
-                ByteCodeOp.JUMP_FORWARD, 
-                handlerEndPos - jumpOverHandler - 1
-            );
-            
-            // 8. CPython 3.12: Exception Table 추가 (컴프리헨션 정리용)
-            var exceptionEntry = new ExceptionTableEntry(
-                start: exceptionTableStart,
-                end: exceptionTableEnd,
-                handler: handlerStart,
-                depth: 2
-            );
-            _exceptionTable.Add(exceptionEntry);
+                StartOffset = exceptionTableStart * 2,     // 바이트 오프셋으로 변환
+                EndOffset = exceptionTableEnd * 2,         // 바이트 오프셋으로 변환
+                ComprehensionVars = new List<string>(comprehensionVars),
+                Depth = 2
+            };
+            _pendingExceptionHandlers.Add(pendingHandler);
             
             // CPython 3.12: 컴프리헨션 컨텍스트 종료
             _isInComprehension = savedIsInComprehension;
