@@ -245,6 +245,51 @@ namespace SharpPy
         public override string ToString() => $"{Target} = {Value}";
     }
 
+    // Chained assignment statement (a = b = c + d)
+    public class ChainedAssignStatement : Statement
+    {
+        public override string NodeType => "ChainedAssign";
+        public List<Expression> Targets { get; }
+        public Expression Value { get; }
+        
+        public ChainedAssignStatement(List<Expression> targets, Expression value)
+        {
+            Targets = targets;
+            Value = value;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var value = Value.Evaluate(scope);
+            
+            // Assign to all targets (right-to-left like CPython)
+            foreach (var target in Targets)
+            {
+                switch (target)
+                {
+                    case NameExpression name:
+                        scope.SetVariable(name.Name, value);
+                        break;
+                    case AttributeExpression attr:
+                        var obj = attr.Value.Evaluate(scope);
+                        obj.SetAttribute(attr.Attr, value);
+                        break;
+                    case SubscriptExpression subscript:
+                        var container = subscript.Value.Evaluate(scope);
+                        var index = subscript.Slice.Evaluate(scope);
+                        container.SetItem(index, value);
+                        break;
+                    default:
+                        throw new Exception($"Unsupported assignment target: {target.GetType().Name}");
+                }
+            }
+            
+            return value;
+        }
+        
+        public override string ToString() => $"{string.Join(" = ", Targets)} = {Value}";
+    }
+
     // PEP 526: Annotated assignment statement (name: type or name: type = value)
     public class AnnAssignStatement : Statement
     {

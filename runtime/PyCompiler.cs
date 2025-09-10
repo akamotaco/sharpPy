@@ -1210,6 +1210,10 @@ namespace SharpPy
                     CompileAssignTarget(assignTarget);
                     break;
                     
+                case ChainedAssignStatement chainedAssign:
+                    CompileChainedAssign(chainedAssign);
+                    break;
+                    
                 case AnnAssignStatement annAssign:
                     CompileAnnAssign(annAssign);
                     break;
@@ -5773,6 +5777,31 @@ namespace SharpPy
                     
                 default:
                     throw new Exception($"Invalid assignment target expression: {target.GetType().Name}");
+            }
+        }
+        
+        /// <summary>
+        /// Compiles chained assignment: a = b = c + d
+        /// CPython 3.12 compatible implementation using COPY instruction
+        /// </summary>
+        private void CompileChainedAssign(ChainedAssignStatement chainedAssign)
+        {
+            // Compile the value expression once
+            CompileExpression(chainedAssign.Value);
+            
+            // For each target except the last, we need to COPY the value
+            for (int i = 0; i < chainedAssign.Targets.Count; i++)
+            {
+                var target = chainedAssign.Targets[i];
+                
+                // If not the last target, copy the value for the next assignment
+                if (i < chainedAssign.Targets.Count - 1)
+                {
+                    EmitInstruction(ByteCodeOp.COPY, 1);
+                }
+                
+                // Assign to the current target
+                CompileAssignmentTarget(target);
             }
         }
         

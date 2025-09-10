@@ -881,20 +881,28 @@ namespace SharpPy
                         }
                     }
                 }
-                // Check for regular assignment
+                // Check for regular assignment (including chained assignment)
                 else if (Match(TokenType.EQUAL))
                 {
-                    // CPython 3.12: Support various assignment targets
-                    var value = ParseExpression();
+                    // Parse chained assignment: a = b = c + d
+                    var targets = new List<Expression> { expr };
                     
-                    // Check if it's a simple name assignment (backward compatibility)
-                    if (expr is NameExpression nameExpr)
+                    // Collect all assignment targets from left to right
+                    while (true)
                     {
-                        return new AssignStatement(nameExpr.Name, value);
+                        var rightExpr = ParseExpression();
+                        
+                        // Check if there's another assignment operator (chained assignment)
+                        if (Match(TokenType.EQUAL))
+                        {
+                            targets.Add(rightExpr);
+                        }
+                        else
+                        {
+                            // This is the final value expression
+                            return CreateChainedAssignment(targets, rightExpr);
+                        }
                     }
-                    
-                    // Use general assignment target for complex targets (attribute, subscript, etc.)
-                    return new AssignTargetStatement(expr, value);
                 }
                 
                 // Check for augmented assignment (CPython style - separate from expression parsing)
@@ -3602,6 +3610,28 @@ namespace SharpPy
             {
                 ExitRecursion();
             }
+        }
+
+        /// <summary>
+        /// Create chained assignment statement: a = b = c + d
+        /// Generates: a = value, b = value (right-to-left evaluation)
+        /// </summary>
+        private Statement CreateChainedAssignment(List<Expression> targets, Expression value)
+        {
+            if (targets.Count == 1)
+            {
+                // Single assignment - use existing logic
+                var target = targets[0];
+                if (target is NameExpression nameExpr)
+                {
+                    return new AssignStatement(nameExpr.Name, value);
+                }
+                return new AssignTargetStatement(target, value);
+            }
+            
+            // Multiple targets - create chained assignment
+            // CPython 3.12 uses COPY instruction for chained assignments
+            return new ChainedAssignStatement(targets, value);
         }
 
         private void Synchronize()
