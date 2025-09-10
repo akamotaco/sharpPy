@@ -3308,8 +3308,8 @@ namespace SharpPy
                     }
                     else
                     {
-                        // 일반적인 positional 인수
-                        var arg = ParseExpression();
+                        // 일반적인 positional 인수 또는 generator expression
+                        var arg = ParseFunctionArgument();
                         if (arg != null)
                         {
                             args.Add(arg);
@@ -3319,6 +3319,22 @@ namespace SharpPy
             }
             
             return (args, keywords);
+        }
+
+        // 함수 인수 파싱 - generator expression 지원
+        private Expression ParseFunctionArgument()
+        {
+            // 첫 번째 expression 파싱
+            var firstExpr = ParseExpression();
+            
+            // FOR 키워드가 오면 generator expression
+            if (Check(TokenType.FOR))
+            {
+                var generators = ParseComprehensionGenerators();
+                return new GeneratorExpression(firstExpr, generators);
+            }
+            
+            return firstExpr;
         }
 
         // Helper methods

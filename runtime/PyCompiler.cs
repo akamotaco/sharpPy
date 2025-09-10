@@ -1890,6 +1890,14 @@ namespace SharpPy
             _instructions.Add(new ByteCodeInstruction(opCode, argument, _currentLineNumber, _currentColumnOffset, _currentFileName));
         }
         
+        /// <summary>
+        /// CPython 3.12 호환 JUMP_BACKWARD oparg 계산 (통합 유틸리티 사용)
+        /// </summary>
+        private int CalculateJumpBackwardArg(int currentInstrPos, int targetInstrPos)
+        {
+            return PyJumpBackwardUtil.CalculateJumpBackwardOpArg(currentInstrPos, targetInstrPos, _instructions);
+        }
+        
         private void EmitLoadConst(PyObject value)
         {
             var index = AddConstant(value);
@@ -3169,11 +3177,11 @@ namespace SharpPy
             }
             
             // Jump back to loop condition - CPython 3.12 style relative offset
-            // JUMP_BACKWARD argument = number of instructions to jump backward
+            // CPython 3.12: 통일된 JUMP_BACKWARD oparg 계산 사용
             int currentPos = _instructions.Count;
             int targetPos = isWhileTrue ? bodyStart : loopStart;
-            int relativeOffset = currentPos - targetPos;
-            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, relativeOffset);
+            int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, targetPos);
+            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
             
             // While completed normally - execute else clause if present
             var normalCompletionPoint = _instructions.Count;
@@ -3221,7 +3229,14 @@ namespace SharpPy
             
             // 1. Get iterator from iterable
             CompileExpression(forStmt.Iter);  // Push iterable on stack
-            EmitInstruction(ByteCodeOp.GET_ITER); // Convert to iterator
+            
+            // CPython 3.12: Generator function에서 .0 매개변수는 이미 iterator임
+            // .0 매개변수인 경우 GET_ITER 건너뛰기
+            bool skipGetIter = forStmt.Iter is NameExpression nameExpr && nameExpr.Name == ".0";
+            if (!skipGetIter)
+            {
+                EmitInstruction(ByteCodeOp.GET_ITER); // Convert to iterator
+            }
             
             // 2. Loop start - FOR_ITER will handle next() and StopIteration
             var forIterInstruction = _instructions.Count;
@@ -3246,12 +3261,10 @@ namespace SharpPy
             MarkLabel(continueLabel);
             
             // 7. Jump back to FOR_ITER (not GET_ITER) - CPython 3.12 style relative offset
-            // CPython: next_instr -= oparg, so oparg = next_instr - target
+            // CPython 3.12: 통일된 JUMP_BACKWARD oparg 계산 사용
             int currentPos = _instructions.Count;
-            int nextInstrByteOffset = (currentPos + 1) * 2; // Next instruction after JUMP_BACKWARD  
-            int forIterByteOffset = forIterInstruction * 2; 
-            int relativeByteOffset = nextInstrByteOffset - forIterByteOffset; // CPython 3.12 exact formula
-            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, relativeByteOffset);
+            int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, forIterInstruction);
+            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
             
             // 8. CPython 3.12 방식: END_FOR 추가 (통합 구조)
             var endForPosition = _instructions.Count;
@@ -3317,10 +3330,10 @@ namespace SharpPy
             }
             
             // 6. Jump back to FOR_ITER - CPython 3.12 style relative offset
-            // JUMP_BACKWARD argument = number of instructions to jump backward
+            // CPython 3.12: 통일된 JUMP_BACKWARD oparg 계산 사용
             int currentPos = _instructions.Count;
-            int relativeOffset = currentPos - forIterInstruction;
-            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, relativeOffset);
+            int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, forIterInstruction);
+            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
             
             // 7. CPython 3.12 방식: END_FOR 추가 (통합 구조)
             var endForPosition = _instructions.Count;
@@ -5015,9 +5028,8 @@ namespace SharpPy
                 }
                 else if (oldInstruction.OpCode == ByteCodeOp.JUMP_BACKWARD)
                 {
-                    // CPython 3.12: JUMP_BACKWARD uses relative offset (how many instructions back)
-                    // Formula: current_instruction - target_instruction
-                    argument = refIndex - label.Offset;
+                    // CPython 3.12: 통합된 JUMP_BACKWARD 유틸리티 사용
+                    argument = PyJumpBackwardUtil.CalculateJumpBackwardOpArg(refIndex, label.Offset, _instructions);
                 }
                 else
                 {
@@ -5273,7 +5285,7 @@ namespace SharpPy
                 int condCurrentByteOffset = 0;
                 for (int i = 0; i < _instructions.Count; i++)
                 {
-                    condCurrentByteOffset += GetCPythonInstructionSize(_instructions[i].OpCode, _instructions[i].Argument);
+                    condCurrentByteOffset += PyJumpBackwardUtil.GetCPythonInstructionSize(_instructions[i].OpCode, _instructions[i].Argument);
                 }
                 condCurrentByteOffset += 2; // JUMP_BACKWARD 명령어 자체 크기
                 
@@ -5281,7 +5293,7 @@ namespace SharpPy
                 int forIterByteOffset = 0;
                 for (int i = 0; i < loopStart; i++)
                 {
-                    forIterByteOffset += GetCPythonInstructionSize(_instructions[i].OpCode, _instructions[i].Argument);
+                    forIterByteOffset += PyJumpBackwardUtil.GetCPythonInstructionSize(_instructions[i].OpCode, _instructions[i].Argument);
                 }
                 
                 // CPython JUMP_BACKWARD: next_instr -= oparg (바이트 단위)
@@ -5311,26 +5323,12 @@ namespace SharpPy
             }
             
             
-            // JUMP_BACKWARD - CPython 3.12 바이트 오프셋 방식
-            // CPython 3.12: JUMP_BACKWARD 인수 = (current_offset + 2 - target_offset)
+            // JUMP_BACKWARD - CPython 3.12 통일된 oparg 계산
+            // CPython 3.12: 통일된 JUMP_BACKWARD oparg 계산 사용
             int currentPos = _instructions.Count;
-            
-            // 정확한 바이트 오프셋 계산 (명령어마다 크기가 다름)
-            int currentByteOffset = 0;
-            for (int i = 0; i < currentPos; i++)
-            {
-                currentByteOffset += GetCPythonInstructionSize(_instructions[i].OpCode, _instructions[i].Argument);
-            }
-            
-            int targetByteOffset = 0;
-            for (int i = 0; i < loopStart; i++)
-            {
-                targetByteOffset += GetCPythonInstructionSize(_instructions[i].OpCode, _instructions[i].Argument);
-            }
-            int jumpBackwardArg = currentByteOffset + 2 - targetByteOffset;
+            int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, loopStart);
             
             Console.WriteLine($"🔧 JUMP_BACKWARD 컴파일: currentPos={currentPos}, loopStart={loopStart}");
-            Console.WriteLine($"   currentByteOffset={currentByteOffset}, targetByteOffset={targetByteOffset}");
             Console.WriteLine($"   jumpBackwardArg={jumpBackwardArg}");
             
             // CPython 3.12: JUMP_BACKWARD는 바이트 단위 오프셋 사용 (명령어 단위가 아님)
@@ -5454,10 +5452,10 @@ namespace SharpPy
             CompileNestedGenerators(generators, currentIndex + 1, comprehensionVars, innerBlock);
             
             // 다음 generator 재귀 호출 후 JUMP_BACKWARD - CPython 3.12 style relative offset
-            // JUMP_BACKWARD argument = number of instructions to jump backward
+            // CPython 3.12: 통일된 JUMP_BACKWARD oparg 계산 사용
             int currentPos = _instructions.Count;
-            int relativeOffset = currentPos - loopStart;
-            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, relativeOffset);
+            int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, loopStart);
+            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
             
             // 조건 점프 대상 패치 - 조건이 거짓이면 FOR_ITER로 점프하여 다음 iteration
             foreach (var jumpIndex in conditionJumps)
@@ -5643,8 +5641,12 @@ namespace SharpPy
             var genCompiler = new PythonCompiler();
             var generator = genExp.Generators[0];
             
-            // 제너레이터 바디 컴파일 - 단순화된 구현
+            // 제너레이터 바디 컴파일 - CPython 3.12 올바른 패턴
             var targetName = generator.Target is NameExpression nameExpr ? nameExpr.Name : "x";
+            
+            // CPython 3.12 패턴: .0 iterator를 받아서 직접 FOR 루프 실행
+            var iteratorExpr = new NameExpression(".0"); // .0 매개변수 (이미 iterator)
+            var yieldStatement = new YieldStatement(genExp.Element);
             
             // 제너레이터 바디: for문 + yield
             var forBody = new List<Statement>();
@@ -5664,26 +5666,26 @@ namespace SharpPy
                 
                 forBody.Add(new IfStatement(
                     combinedCondition,
-                    new List<Statement> { new YieldStatement(genExp.Element) },
+                    new List<Statement> { yieldStatement },
                     null
                 ));
             }
             else
             {
-                forBody.Add(new YieldStatement(genExp.Element));
+                forBody.Add(yieldStatement);
             }
             
-            // CPython 3.12: 제너레이터 함수는 iterator를 매개변수 .0으로 받음
-            var iteratorParam = new NameExpression(".0");
+            // CPython 3.12: for x in .0 (iterator를 직접 사용)
             var genStatements = new List<Statement>
             {
-                new ForStatement(targetName, iteratorParam, forBody)
+                new ForStatement(targetName, iteratorExpr, forBody)
             };
             
             // CPython 3.12: 제너레이터 표현식은 iterator를 .0 매개변수로 받음
             var parameters = new List<string> { ".0" };  // 매개변수는 .0 하나
             var defaults = new List<PyObject>();  // 기본값 없음
-            var genCode = genCompiler.CompileFunction(genStatements, "<genexpr>", parameters, defaults);
+            var flags = PyCodeObject.CO_GENERATOR;  // CO_GENERATOR 플래그 설정
+            var genCode = genCompiler.CompileFunction(genStatements, "<genexpr>", parameters, defaults, flags);
             
             // 제너레이터 함수 객체 생성
             EmitLoadConst(genCode);
@@ -6003,51 +6005,6 @@ namespace SharpPy
         /// 참조: https://github.com/python/cpython/blob/3.12/Python/bytecodes.c
         /// 참조: PEP 659 (Specializing Adaptive Interpreter)
         /// </summary>
-        public static int GetCPythonInstructionSize(ByteCodeOp op, int arg)
-        {
-            int cacheEntries = GetInlineCacheEntries(op);
-            return 2 + (cacheEntries * 2); // 기본 2바이트 + 인라인 캐시 엔트리들
-        }
-        
-        /// <summary>
-        /// CPython 3.12 dis._inline_cache_entries 매핑 테이블
-        /// 각 명령어의 인라인 캐시 엔트리 개수를 반환
-        /// 참조: https://github.com/python/cpython/blob/3.12/Lib/dis.py#L241-L254
-        /// </summary>
-        public static int GetInlineCacheEntries(ByteCodeOp op)
-        {
-            // 인라인 캐시가 있는 명령어들 (CPython 3.12 기준 12개)
-            return op switch
-            {
-                // opcode 25 (BINARY_SUBSCR) - 4 cache entries
-                ByteCodeOp.BINARY_SUBSCR => 4,
-                // opcode 60 (STORE_SUBSCR) - 1 cache entry  
-                ByteCodeOp.STORE_SUBSCR => 1,
-                // opcode 90 (UNPACK_SEQUENCE) - 1 cache entry
-                ByteCodeOp.UNPACK_SEQUENCE => 1,
-                // opcode 93 (FOR_ITER) - 1 cache entry
-                ByteCodeOp.FOR_ITER => 1,
-                // opcode 95 (STORE_ATTR) - 4 cache entries
-                ByteCodeOp.STORE_ATTR => 4,
-                // opcode 106 (LOAD_ATTR) - 9 cache entries  
-                ByteCodeOp.LOAD_ATTR => 9,
-                // opcode 107 (COMPARE_OP) - 2 cache entries
-                ByteCodeOp.COMPARE_OP => 2,
-                // opcode 116 (LOAD_GLOBAL) - 5 cache entries
-                ByteCodeOp.LOAD_GLOBAL => 5,
-                // opcode 122 (BINARY_OP) - 1 cache entry
-                ByteCodeOp.BINARY_OP => 1,
-                // opcode 126 (SEND) - 1 cache entry
-                ByteCodeOp.SEND => 1,
-                // opcode 141 (LOAD_SUPER_ATTR) - 1 cache entry
-                ByteCodeOp.LOAD_SUPER_ATTR => 1,
-                // opcode 171 (CALL) - 3 cache entries
-                ByteCodeOp.CALL => 3,
-                
-                // 나머지 모든 명령어들은 인라인 캐시 없음 (0 entries)
-                _ => 0
-            };
-        }
         
         /// <summary>
         /// 현재 명령어 리스트의 정확한 바이트 오프셋 계산
@@ -6059,7 +6016,7 @@ namespace SharpPy
             
             foreach (var instruction in _instructions)
             {
-                totalBytes += PythonCompiler.GetCPythonInstructionSize(instruction.OpCode, instruction.Argument);
+                totalBytes += PyJumpBackwardUtil.GetCPythonInstructionSize(instruction.OpCode, instruction.Argument);
             }
             
             return totalBytes;

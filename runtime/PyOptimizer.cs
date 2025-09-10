@@ -564,8 +564,8 @@ namespace SharpPy
                             int currentTarget = jumpPos - currentOffset - 1;
                             
                             // 올바른 타겟은 FOR_ITER 위치여야 함  
-                            // CPython 3.12 방식: 상대 오프셋 계산
-                            int correctOffset = jumpPos - forIterPos;
+                            // CPython 3.12 방식: 바이트 오프셋 기반 정확한 계산
+                            int correctOffset = PyJumpBackwardUtil.CalculateJumpBackwardOpArg(jumpPos, forIterPos, _instructions);
                             
                             if (currentOffset != correctOffset)
                             {
@@ -699,40 +699,7 @@ namespace SharpPy
                 }
             }
 
-            // 중첩 루프 JUMP_BACKWARD 재계산 추가 (JUMP_BACKWARD가 있는 경우만)
-            bool hasJumpBackward = _instructions.Any(inst => inst.OpCode == ByteCodeOp.JUMP_BACKWARD);
-            if (hasJumpBackward)
-            {
-                if (!SharpPyConfig.DisassemblyOnlyMode)
-                {
-                    Console.WriteLine("🔄 중첩 루프 JUMP_BACKWARD → FOR_ITER 점프 오프셋 재계산 중...");
-                }
-                for (int i = 0; i < _instructions.Count; i++)
-                {
-                    var instruction = _instructions[i];
-                    if (instruction.OpCode == ByteCodeOp.JUMP_BACKWARD)
-                    {
-                        // JUMP_BACKWARD에서 올바른 FOR_ITER 타겟 찾기
-                        int targetForIter = FindMatchingForIter(i);
-                        if (targetForIter >= 0)
-                        {
-                            int currentOffset = instruction.Argument;
-                            // CPython 3.12 공식: arg = (current_byte_offset + 2 - target_byte_offset)
-                            // 정확한 누적 바이트 오프셋 계산 (CALL=8바이트, 기타=2바이트)
-                            int currentByteOffset = CalculateByteOffset(i);
-                            int targetByteOffset = CalculateByteOffset(targetForIter);
-                            int correctOffset = currentByteOffset + 2 - targetByteOffset;  // 바이트 단위 그대로
-                            
-                            if (currentOffset != correctOffset)
-                            {
-                                _instructions[i] = new ByteCodeInstruction(ByteCodeOp.JUMP_BACKWARD, correctOffset);
-                                Console.WriteLine($"  🔧 중첩 JUMP_BACKWARD[{i}]: 오프셋 {currentOffset} → {correctOffset} (FOR_ITER at {targetForIter})");
-                                recalculated++;
-                            }
-                        }
-                    }
-                }
-            }
+            // CPython 3.12: 단일 패스로 모든 JUMP_BACKWARD 처리 완료 (중복 재계산 방지)
 
             // JUMP_FORWARD (break문) 오프셋 재계산 (JUMP_FORWARD가 있는 경우만)
             bool hasJumpForward = _instructions.Any(inst => inst.OpCode == ByteCodeOp.JUMP_FORWARD);
@@ -941,7 +908,7 @@ namespace SharpPy
             for (int i = startIndex; i < endIndex; i++)
             {
                 var instruction = _instructions[i];
-                totalBytes += PythonCompiler.GetCPythonInstructionSize(instruction.OpCode, instruction.Argument);
+                totalBytes += PyJumpBackwardUtil.GetCPythonInstructionSize(instruction.OpCode, instruction.Argument);
             }
             
             return totalBytes;
@@ -962,7 +929,7 @@ namespace SharpPy
             {
                 var instruction = _instructions[i];
                 // 각 명령어는 1 + 인라인 캐시 엔트리 개수만큼 논리적 명령어를 차지
-                instructionCount += 1 + PythonCompiler.GetInlineCacheEntries(instruction.OpCode);
+                instructionCount += 1 + PyJumpBackwardUtil.GetInlineCacheEntries(instruction.OpCode);
             }
             
             return instructionCount;
@@ -972,15 +939,5 @@ namespace SharpPy
         /// <summary>
         /// 명령어 인덱스에서 누적 바이트 오프셋 계산
         /// </summary>
-        private int CalculateByteOffset(int instructionIndex)
-        {
-            int byteOffset = 0;
-            for (int i = 0; i < instructionIndex && i < _instructions.Count; i++)
-            {
-                var instruction = _instructions[i];
-                byteOffset += PythonCompiler.GetCPythonInstructionSize(instruction.OpCode, instruction.Argument);
-            }
-            return byteOffset;
-        }
     }
 }

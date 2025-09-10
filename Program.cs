@@ -199,7 +199,7 @@ namespace SharpPy
                 Console.WriteLine(line);
                 
                 // 다음 명령어를 위한 바이트 오프셋 누적 계산
-                currentByteOffset += PythonCompiler.GetCPythonInstructionSize(instruction.OpCode, instruction.Argument);
+                currentByteOffset += PyJumpBackwardUtil.GetCPythonInstructionSize(instruction.OpCode, instruction.Argument);
             }
         }
         

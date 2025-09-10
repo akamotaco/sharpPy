@@ -284,7 +284,7 @@ namespace SharpPy
             for (int i = 0; i < codeObject.Instructions.Count; i++)
             {
                 var instr = codeObject.Instructions[i];
-                int byteOffset = CalculateByteOffset(i, codeObject.Instructions);
+                int byteOffset = PyJumpBackwardUtil.CalculateByteOffset(i, codeObject.Instructions);
                 
                 // CPython 스타일로 포맷팅
                 string line = $"          {byteOffset,3}";
@@ -1402,19 +1402,9 @@ namespace SharpPy
                     return null; // Continue execution from new position
                     
                 case ByteCodeOp.JUMP_BACKWARD:
-                    // CPython 3.12 compatible: JUMP_BACKWARD uses byte offset calculation
-                    // Formula: target_byte_offset = current_byte_offset + 2 - arg * 2
-                    // Reference: https://docs.python.org/3.12/library/dis.html#opcode-JUMP_BACKWARD
+                    // CPython 3.12 호환: 통합된 JUMP_BACKWARD 유틸리티 사용
                     int currentInstrPos = frame.InstructionPointer;
-                    int currentByteOffset = CalculateByteOffset(currentInstrPos, frame.Code.Instructions);
-                    int targetByteOffset = currentByteOffset + 2 - instruction.Argument;
-                    int targetInstrPos = ByteOffsetToInstructionIndex(targetByteOffset, frame.Code.Instructions);
-                    
-                    // Stack validation for generator safety
-                    Console.WriteLine($"🔄 JUMP_BACKWARD: from instr {currentInstrPos} (offset {currentByteOffset}) back to instr {targetInstrPos} (offset {targetByteOffset}) (CPython 3.12 compatible)");
-                    Console.WriteLine($"   Formula: {currentByteOffset} + 2 - {instruction.Argument} = {targetByteOffset}");
-                    Console.WriteLine($"   Stack size before jump: {frame.ValueStack.Count}");
-                    Console.WriteLine($"   Current instruction: {instruction.OpCode} (arg: {instruction.Argument})");
+                    int targetInstrPos = PyJumpBackwardUtil.CalculateJumpBackwardTarget(currentInstrPos, instruction.Argument, frame.Code.Instructions);
                     
                     // Validate target instruction position
                     if (targetInstrPos < 0 || targetInstrPos >= frame.Code.Instructions.Count)
@@ -1651,9 +1641,9 @@ namespace SharpPy
                         else
                         {
                             // 최적화 ON: argument는 바이트 오프셋 단위
-                            int forIterCurrentByteOffset = CalculateByteOffset(frame.InstructionPointer, frame.Code.Instructions);
+                            int forIterCurrentByteOffset = PyJumpBackwardUtil.CalculateByteOffset(frame.InstructionPointer, frame.Code.Instructions);
                             int forIterTargetByteOffset = forIterCurrentByteOffset + instruction.Argument;
-                            int forIterTargetInstrPos = ByteOffsetToInstructionIndex(forIterTargetByteOffset, frame.Code.Instructions);
+                            int forIterTargetInstrPos = PyJumpBackwardUtil.ByteOffsetToInstructionIndex(forIterTargetByteOffset, frame.Code.Instructions);
                             
                             Console.WriteLine($"🔚 FOR_ITER: Jumping to position {forIterTargetInstrPos} (optimized)");
                             frame.InstructionPointer = forIterTargetInstrPos - 1; // main loop will increment
@@ -3644,45 +3634,9 @@ namespace SharpPy
             for (int i = 0; i < instructionIndex && i < instructions.Count; i++)
             {
                 var instruction = instructions[i];
-                byteOffset += PythonCompiler.GetCPythonInstructionSize(instruction.OpCode, instruction.Argument);
+                byteOffset += PyJumpBackwardUtil.GetCPythonInstructionSize(instruction.OpCode, instruction.Argument);
             }
             return byteOffset;
-        }
-
-        /// <summary>
-        /// Find instruction index for given byte offset (CPython 3.12 compatible)
-        /// </summary>
-        private int ByteOffsetToInstructionIndex(int targetByteOffset, List<ByteCodeInstruction> instructions)
-        {
-            int currentByteOffset = 0;
-            
-            for (int i = 0; i < instructions.Count; i++)
-            {
-                // 정확히 일치하는 오프셋을 찾음
-                if (currentByteOffset == targetByteOffset)
-                {
-                    Console.WriteLine($"🎯 바이트 오프셋 {targetByteOffset} → instruction {i} ({instructions[i].OpCode})");
-                    return i;
-                }
-                
-                var instruction = instructions[i];
-                currentByteOffset += PythonCompiler.GetCPythonInstructionSize(instruction.OpCode, instruction.Argument);
-            }
-            
-            // 정확한 일치가 없는 경우 가장 가까운 이전 instruction 반환
-            Console.WriteLine($"⚠️ 바이트 오프셋 {targetByteOffset}에 정확한 instruction이 없음! 가장 가까운 instruction 반환");
-            for (int i = instructions.Count - 1; i >= 0; i--)
-            {
-                int offset = CalculateByteOffset(i, instructions);
-                if (offset <= targetByteOffset)
-                {
-                    Console.WriteLine($"🎯 가장 가까운: 오프셋 {offset} → instruction {i} ({instructions[i].OpCode})");
-                    return i;
-                }
-            }
-            
-            // If target is beyond all instructions, return last valid index
-            return Math.Max(0, instructions.Count - 1);
         }
     }
 
