@@ -281,6 +281,11 @@ namespace SharpPy
                     var jumpBackwardTarget = currentByteOffset + 2 + (-arg * 2);
                     return $"{arg,15} (to {jumpBackwardTarget})";
                     
+                case ByteCodeOp.JUMP_FORWARD:
+                    // CPython 3.12: Jump target = offset + 2 + arg*2
+                    var jumpForwardTarget = currentByteOffset + 2 + arg * 2;
+                    return $"{arg,15} (to {jumpForwardTarget})";
+                    
                 case ByteCodeOp.POP_JUMP_IF_FALSE:
                 case ByteCodeOp.POP_JUMP_IF_TRUE:
                     // CPython 3.12: Jump target = offset + 2 + arg*2 

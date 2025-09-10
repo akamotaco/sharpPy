@@ -411,5 +411,27 @@ namespace SharpPy
             }
             return PyBool.False;
         }
+
+        /// <summary>
+        /// PyList 동등성 비교 - CPython 호환
+        /// </summary>
+        protected override PyObject PyEquals(PyObject other)
+        {
+            if (other is not PyList otherList)
+                return PyBool.False;
+            
+            // 길이가 다르면 False
+            if (_items.Count != otherList._items.Count)
+                return PyBool.False;
+            
+            // 각 요소를 비교
+            for (int i = 0; i < _items.Count; i++)
+            {
+                if (!AreEqual(_items[i], otherList._items[i]))
+                    return PyBool.False;
+            }
+            
+            return PyBool.True;
+        }
     }
 }
