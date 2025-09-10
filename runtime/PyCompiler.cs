@@ -5260,20 +5260,39 @@ namespace SharpPy
                 EmitStoreComprehensionVar(firstNameExpr.Name, comprehensionVars);
             }
             
-            // 첫 번째 generator의 조건 검사
+            // 첫 번째 generator의 조건 검사 - CPython 3.12 정확한 패턴
             List<int> conditionJumps = new List<int>();
+            
             foreach (var condition in firstGenerator.Ifs)
             {
                 CompileExpression(condition);
                 conditionJumps.Add(_instructions.Count);
-                EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0);
+                EmitInstruction(ByteCodeOp.POP_JUMP_IF_TRUE, 0); // 조건이 참이면 LIST_APPEND로 점프
+                
+                // CPython 패턴: 조건이 거짓이면 바로 FOR_ITER로 JUMP_BACKWARD
+                int condCurrentByteOffset = 0;
+                for (int i = 0; i < _instructions.Count; i++)
+                {
+                    condCurrentByteOffset += GetCPythonInstructionSize(_instructions[i].OpCode, _instructions[i].Argument);
+                }
+                condCurrentByteOffset += 2; // JUMP_BACKWARD 명령어 자체 크기
+                
+                // 타겟 위치: FOR_ITER 명령어의 바이트 위치
+                int forIterByteOffset = 0;
+                for (int i = 0; i < loopStart; i++)
+                {
+                    forIterByteOffset += GetCPythonInstructionSize(_instructions[i].OpCode, _instructions[i].Argument);
+                }
+                
+                // CPython JUMP_BACKWARD: next_instr -= oparg (바이트 단위)
+                int conditionJumpBackwardArg = condCurrentByteOffset - forIterByteOffset;
+                EmitInstruction(ByteCodeOp.JUMP_BACKWARD, conditionJumpBackwardArg); // FOR_ITER로 바로 점프
             }
             
-            // 나머지 generator들 처리 (있다면)
-            // CPython 3.12: LIST_APPEND 인수는 comprehension variables 개수 + 1
-            // 단일: x -> LIST_APPEND 2 (1+1)  
-            // 중첩: row,x -> LIST_APPEND 3 (2+1)
+            // CPython 패턴: 조건이 참일 때의 타겟 - LIST_APPEND 준비 
+            // POP_JUMP_IF_TRUE는 여기로 점프함
             var listAppendArg = comprehensionVars.Count + 1;
+            int listAppendStart = _instructions.Count;
             
             if (listComp.Generators.Count > 1)
             {
@@ -5286,9 +5305,11 @@ namespace SharpPy
             else
             {
                 // 단일 generator인 경우 직접 처리
-                CompileExpression(listComp.Element);
+                // CPython 패턴: element 값 로드 → LIST_APPEND
+                CompileExpression(listComp.Element);  // 예: x 값 로드
                 EmitInstruction(ByteCodeOp.LIST_APPEND, listAppendArg);
             }
+            
             
             // JUMP_BACKWARD - CPython 3.12 바이트 오프셋 방식
             // CPython 3.12: JUMP_BACKWARD 인수 = (current_offset + 2 - target_offset)
@@ -5326,14 +5347,22 @@ namespace SharpPy
                 relativeJump
             );
             
-            // 조건 점프들 패치 (루프 재시작으로)
+            // 조건 점프들 패치 - CPython 3.12 패턴: POP_JUMP_IF_TRUE는 상대 오프셋 사용
             foreach (var jumpPos in conditionJumps)
             {
+                // POP_JUMP_IF_TRUE 다음 명령어 위치 계산
+                int popJumpNextInstr = jumpPos + 1;
+                
+                // 상대 오프셋 계산: listAppendStart - popJumpNextInstr
+                int relativeOffset = listAppendStart - popJumpNextInstr;
+                
                 _instructions[jumpPos] = new ByteCodeInstruction(
-                    ByteCodeOp.POP_JUMP_IF_FALSE, 
-                    loopStart  // FOR_ITER 위치로 점프
+                    ByteCodeOp.POP_JUMP_IF_TRUE, 
+                    relativeOffset  // 상대 오프셋 (CPython 3.12 호환)
                 );
             }
+            
+            // fallback JUMP_BACKWARD 패치 제거 - 이제 조건문 처리에서 직접 생성함
             
             // 5. 정상 완료 시 스택 정리 - CPython 3.12 패턴
             // END_FOR 이후에 exception table end 설정 (CPython 3.12 호환)
@@ -5708,17 +5737,49 @@ namespace SharpPy
                     break;
                     
                 case TupleExpression tuple:
-                    // CPython 3.12 compatible tuple unpacking assignment: x, y = (1, 2)
-                    // Value is already on stack, unpack it
-                    EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, tuple.Elements.Count);
-                    
-                    // CPython: UNPACK_SEQUENCE pushes elements in reverse order on stack
-                    // When we pop for STORE operations, we get them in forward order
-                    // So we store in forward order (x first, then y)
-                    for (int i = 0; i < tuple.Elements.Count; i++)
+                    // Check if this is starred unpacking (contains StarExpression)
+                    var starIndex = tuple.Elements.FindIndex(e => e is StarExpression);
+                    if (starIndex >= 0)
                     {
-                        var element = tuple.Elements[i];
-                        CompileAssignmentTarget(element);
+                        // Starred unpacking: first, *middle, last = items
+                        // Use UNPACK_EX instead of UNPACK_SEQUENCE
+                        var beforeStarCount = starIndex;
+                        var afterStarCount = tuple.Elements.Count - starIndex - 1;
+                        var arg = beforeStarCount | (afterStarCount << 8);
+                        
+                        // CPython 3.12: UNPACK_EX argument format
+                        // Low byte: number of elements before *
+                        // High byte: number of elements after *
+                        EmitInstruction(ByteCodeOp.UNPACK_EX, arg);
+                        
+                        // Store elements in order: before*, starred, after*
+                        for (int i = 0; i < tuple.Elements.Count; i++)
+                        {
+                            var element = tuple.Elements[i];
+                            if (element is StarExpression star)
+                            {
+                                CompileAssignmentTarget(star.Value);
+                            }
+                            else
+                            {
+                                CompileAssignmentTarget(element);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Regular tuple unpacking: x, y = (1, 2)
+                        // Value is already on stack, unpack it
+                        EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, tuple.Elements.Count);
+                        
+                        // CPython: UNPACK_SEQUENCE pushes elements in reverse order on stack
+                        // When we pop for STORE operations, we get them in forward order
+                        // So we store in forward order (x first, then y)
+                        for (int i = 0; i < tuple.Elements.Count; i++)
+                        {
+                            var element = tuple.Elements[i];
+                            CompileAssignmentTarget(element);
+                        }
                     }
                     break;
                     

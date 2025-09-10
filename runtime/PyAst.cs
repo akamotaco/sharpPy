@@ -2109,6 +2109,26 @@ namespace SharpPy
         public override string ToString() => $"{Value}[{Slice}]";
     }
 
+    // Starred expression: *variable (for unpacking)
+    public class StarExpression : Expression
+    {
+        public override string NodeType => "Starred";
+        public Expression Value { get; }
+        
+        public StarExpression(Expression value)
+        {
+            Value = value;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // StarExpression는 평가되지 않고 unpacking 컨텍스트에서만 사용됨
+            throw new Exception("StarExpression cannot be evaluated directly");
+        }
+        
+        public override string ToString() => $"*{Value}";
+    }
+
     // Container expressions
     public class ListExpression : Expression
     {

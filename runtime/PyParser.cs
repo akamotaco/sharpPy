@@ -1238,6 +1238,13 @@ namespace SharpPy
 
         private Expression ParsePrimaryExpression()
         {
+            // Starred expression: *variable (for unpacking)
+            if (Match(TokenType.STAR))
+            {
+                var expr = ParsePrimaryExpression();
+                return new StarExpression(expr);
+            }
+            
             // Literals
             if (Match(TokenType.TRUE)) return new ConstantExpression(PyBool.True);
             if (Match(TokenType.FALSE)) return new ConstantExpression(PyBool.False);

@@ -2169,16 +2169,21 @@ namespace SharpPy
                         }
                         
                         // CPython UNPACK_EX pushes in order: [before_elements..., star_list, after_elements...]
-                        // For [1, 2, 3, 4, 5] with pattern [a, b, *rest]: pushes [2, 1, [3, 4, 5]]
-                        // Note: before elements are pushed in reverse order for stack-based comparison
+                        // For [1, 2, 3, 4, 5] with pattern [first, *middle, last]: 
+                        // Should push: first(1), middle([2,3,4]), last(5) on stack in order
                         
-                        // Extract before elements (in reverse order for correct stack comparison)
-                        for (int i = countBefore - 1; i >= 0; i--)
+                        // Stack is LIFO, so we need to push in reverse order for STORE operations
+                        // STORE order will be: first, middle, last
+                        // So we push: last, middle, first (reverse order)
+                        
+                        // Push after elements first (in reverse order)
+                        for (int i = countAfter - 1; i >= 0; i--)
                         {
-                            frame.ValueStack.Push(items[i]);
+                            var afterItem = items[items.Length - countAfter + i];
+                            frame.ValueStack.Push(afterItem);
                         }
                         
-                        // Extract star elements (middle part)
+                        // Push star elements (middle part)
                         var starCount = items.Length - countBefore - countAfter;
                         var starItems = new PyObject[starCount];
                         for (int i = 0; i < starCount; i++)
@@ -2187,10 +2192,10 @@ namespace SharpPy
                         }
                         frame.ValueStack.Push(new PyList(starItems));
                         
-                        // Extract after elements (in forward order)
-                        for (int i = 0; i < countAfter; i++)
+                        // Push before elements last (in reverse order)
+                        for (int i = countBefore - 1; i >= 0; i--)
                         {
-                            frame.ValueStack.Push(items[items.Length - countAfter + i]);
+                            frame.ValueStack.Push(items[i]);
                         }
                     }
                     else if (unpackExSequence is PyTuple unpackExTuple)
