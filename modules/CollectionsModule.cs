@@ -349,7 +349,7 @@ namespace SharpPy
             _defaultFactory = defaultFactory;
         }
 
-        public new PyObject GetItem(PyObject key)
+        public override PyObject GetItem(PyObject key)
         {
             try
             {
@@ -484,7 +484,7 @@ namespace SharpPy
                 throw PyTypeError.Create($"{typeName} takes {fieldNames.Length} arguments ({values.Length} given)");
         }
 
-        public new PyObject GetAttr(string name)
+        protected override PyObject PyGetAttribute(string name)
         {
             var index = Array.IndexOf(_fieldNames, name);
             if (index >= 0)
@@ -492,7 +492,12 @@ namespace SharpPy
                 return Items[index];
             }
 
-            return base.GetAttribute(name);
+            return base.PyGetAttribute(name);
+        }
+
+        public new PyObject GetAttr(string name)
+        {
+            return PyGetAttribute(name);
         }
 
         public override PyType GetPyType() => new PyNamedTupleType(_typeName, _fieldNames);

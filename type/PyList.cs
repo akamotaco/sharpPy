@@ -328,6 +328,14 @@ namespace SharpPy
                         return PyNone.Instance;
                     });
 
+                case "copy":
+                    return new PyFunction("copy", args =>
+                    {
+                        if (args.Length != 0)
+                            throw PyTypeError.Create($"copy() takes no arguments ({args.Length} given)");
+                        return new PyList(_items.ToArray());
+                    });
+
                 default:
                     // 기본 속성 접근은 부모 클래스에 위임
                     return base.PyGetAttribute(name);
