@@ -2037,8 +2037,10 @@ namespace SharpPy
                     
                     Console.WriteLine($"🔧 CHECK_EG_MATCH: matched={matched?.GetType().Name}, remainder={remainder?.GetType().Name}");
                     
-                    frame.ValueStack.Push(matched ?? PyNone.Instance);
+                    // CPython 3.12: CHECK_EG_MATCH pushes remainder first, then matched
+                    // This way, STORE_NAME gets the matched exception group
                     frame.ValueStack.Push(remainder ?? PyNone.Instance);
+                    frame.ValueStack.Push(matched ?? PyNone.Instance);
                     break;
                     
                 case ByteCodeOp.RAISE_VARARGS:
@@ -3256,7 +3258,15 @@ namespace SharpPy
         {
             Console.WriteLine($"🔍 ExceptionGroupMatches: exception={exception?.GetType().Name}, type={exceptionType?.GetType().Name}");
             
-            if (exception is PyBaseExceptionGroup group)
+            // Extract actual exception from PyExceptionInfo if needed
+            PyObject actualException = exception;
+            if (exception is PyExceptionInfo exceptionInfo)
+            {
+                actualException = exceptionInfo.ExcValue;
+                Console.WriteLine($"🔍 Extracted exception from PyExceptionInfo: {actualException?.GetType().Name}");
+            }
+            
+            if (actualException is PyBaseExceptionGroup group)
             {
                 Console.WriteLine($"🔍 Processing ExceptionGroup with {group.Exceptions.Count} exceptions");
                 
@@ -3302,12 +3312,12 @@ namespace SharpPy
             }
             
             // Not an exception group - check if single exception matches
-            if (ExceptionMatches(exception, exceptionType))
+            if (ExceptionMatches(actualException, exceptionType))
             {
-                return (exception, null);
+                return (actualException, null);
             }
             
-            return (null, exception);
+            return (null, actualException);
         }
         
         /// <summary>
