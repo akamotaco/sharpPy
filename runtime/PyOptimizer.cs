@@ -530,7 +530,9 @@ namespace SharpPy
             
             // CPython 3.12: 루프 패턴 확인
             bool hasForLoop = _instructions.Any(inst => inst.OpCode == ByteCodeOp.FOR_ITER);
-            bool hasWhileLoop = _instructions.Any(inst => inst.OpCode == ByteCodeOp.POP_JUMP_IF_FALSE);
+            // WHILE 루프는 JUMP_BACKWARD와 POP_JUMP_IF_FALSE가 모두 있어야 함 (if-elif 체인 제외)
+            bool hasWhileLoop = _instructions.Any(inst => inst.OpCode == ByteCodeOp.JUMP_BACKWARD) && 
+                               _instructions.Any(inst => inst.OpCode == ByteCodeOp.POP_JUMP_IF_FALSE);
             
             if (!hasForLoop && !hasWhileLoop)
             {
@@ -538,6 +540,8 @@ namespace SharpPy
                 {
                     Console.WriteLine("✅ 루프 없음 - 점프 오프셋 재계산 불필요");
                 }
+                // 루프가 없더라도 if-elif 체인의 점프 오프셋은 업데이트 필요 (최적화로 인한 변경 반영)
+                RecalculateIfElifJumps();
                 return;
             }
             
@@ -787,6 +791,7 @@ namespace SharpPy
         /// WHILE 루프의 POP_JUMP_IF_FALSE 점프 오프셋 재계산
         /// 최적화로 인해 변경된 명령어 위치에 맞게 점프 타겟을 다시 계산
         /// CPython 3.12 패턴: WHILE 루프의 두 POP_JUMP_IF_FALSE는 동일한 루프 종료점을 가리킴
+        /// 주의: if-elif 체인의 POP_JUMP_IF_FALSE는 수정하지 않음 (CompileIf에서 올바르게 처리됨)
         /// </summary>
         private void RecalculateWhileLoopJumps()
         {
@@ -799,7 +804,7 @@ namespace SharpPy
             // CPython 3.12: 두 POP_JUMP_IF_FALSE가 동일한 루프 종료점을 가리켜야 함
             for (int i = 0; i < _instructions.Count - 2; i++)
             {
-                // JUMP_BACKWARD 명령어를 찾음
+                // JUMP_BACKWARD 명령어를 찾음 - 이것이 실제 while 루프의 지표
                 if (_instructions[i].OpCode == ByteCodeOp.JUMP_BACKWARD)
                 {
                     int jumpBackwardPos = i;
@@ -1059,5 +1064,52 @@ namespace SharpPy
         /// <summary>
         /// 명령어 인덱스에서 누적 바이트 오프셋 계산
         /// </summary>
+        
+        /// <summary>
+        /// if-elif 체인의 POP_JUMP_IF_FALSE 점프 오프셋 재계산
+        /// 최적화로 인해 변경된 명령어 위치에 맞게 점프 타겟을 다시 계산
+        /// CompileIf에서 계산된 올바른 상대 점프를 유지하되, 최적화로 인한 위치 변경 반영
+        /// </summary>
+        private void RecalculateIfElifJumps()
+        {
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine("🔄 if-elif 체인 점프 오프셋 재계산 중...");
+            }
+            
+            // if-elif 체인의 POP_JUMP_IF_FALSE 명령어들을 찾아서 올바른 타겟으로 점프하도록 업데이트
+            // JUMP_BACKWARD가 없으므로 이는 while 루프가 아닌 if-elif 체인
+            for (int i = 0; i < _instructions.Count; i++)
+            {
+                var inst = _instructions[i];
+                if (inst.OpCode == ByteCodeOp.POP_JUMP_IF_FALSE)
+                {
+                    int currentTarget = i + inst.Argument + 1;
+                    
+                    // 현재 타겟이 유효한 범위에 있는지 확인
+                    if (currentTarget >= 0 && currentTarget < _instructions.Count)
+                    {
+                        // 타겟이 유효하면 상대 오프셋 그대로 유지 (CompileIf에서 올바르게 계산됨)
+                        continue;
+                    }
+                    else
+                    {
+                        // 타겟이 범위를 벗어났으면 최적화로 인한 문제이므로 수정 필요
+                        // 가장 가까운 유효한 명령어로 점프하도록 조정
+                        int newTarget = Math.Min(_instructions.Count - 1, Math.Max(0, currentTarget));
+                        int newOffset = newTarget - i - 1;
+                        
+                        if (newOffset != inst.Argument)
+                        {
+                            _instructions[i] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, newOffset);
+                            if (!SharpPyConfig.DisassemblyOnlyMode)
+                            {
+                                Console.WriteLine($"  🔧 if-elif POP_JUMP_IF_FALSE[{i}]: {inst.Argument} → {newOffset} (target: {currentTarget} → {newTarget})");
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

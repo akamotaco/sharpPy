@@ -116,6 +116,7 @@ public class PyBuiltinsModule : PyObject
         BuiltinDict["NameError"] = new PyBuiltinType("NameError");
         BuiltinDict["StopIteration"] = new PyBuiltinType("StopIteration");
         BuiltinDict["AssertionError"] = new PyBuiltinType("AssertionError");
+        BuiltinDict["SyntaxError"] = new PyBuiltinType("SyntaxError");
         
         // Buffer Protocol (PEP 688) - Functions
         BuiltinDict["bytes"] = new PyBuiltinFunction("bytes");
@@ -198,6 +199,9 @@ public class PyBuiltinType : PyObject
             case "AssertionError":
                 message = args.Length > 0 ? args[0].ToStr() : "";
                 return new PyAssertionError(message);
+            case "SyntaxError":
+                message = args.Length > 0 ? args[0].ToStr() : "";
+                return new PySyntaxError(message);
             case "BaseException":
                 message = args.Length > 0 ? args[0].ToStr() : "";
                 return new PyBaseException(message);

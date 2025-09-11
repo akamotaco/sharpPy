@@ -3073,6 +3073,7 @@ namespace SharpPy
             // CPython 3.12 스타일: if-elif-else 체인 컴파일 (완전 수정)
             var endJumps = new List<int>(); // 각 블록 끝에서 전체 if-elif-else 끝으로의 점프들
             var conditionJumps = new List<int>(); // 각 조건의 False 점프들 (나중에 패치)
+            var conditionStarts = new List<int>(); // 각 조건 시작 위치 저장
             
             // 모든 if/elif 조건들을 미리 수집
             var conditions = new List<(Expression Test, List<Statement> Body)>();
@@ -3098,6 +3099,10 @@ namespace SharpPy
             for (int i = 0; i < conditions.Count; i++)
             {
                 var (test, body) = conditions[i];
+                
+                // 조건 시작 위치 저장
+                var conditionStartPos = _instructions.Count;
+                conditionStarts.Add(conditionStartPos);
                 
                 // 조건 컴파일
                 CompileExpression(test);
@@ -3126,7 +3131,7 @@ namespace SharpPy
                 if (i > 0)
                 {
                     var prevJumpIndex = conditionJumps[i - 1];
-                    var currentConditionStart = jumpIfFalse - 3; // LOAD_FAST의 위치 (LOAD_FAST, LOAD_CONST, COMPARE_OP 이전)
+                    var currentConditionStart = conditionStarts[i]; // 실제 조건 시작 위치 사용
                     var relativeOffset = currentConditionStart - prevJumpIndex - 1;
                     _instructions[prevJumpIndex] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, relativeOffset);
                 }
@@ -3329,10 +3334,10 @@ namespace SharpPy
             // CPython 3.12에서 FOR_ITER는 4바이트 명령어이므로 자동으로 올바른 오프셋 생성
             EmitStoreName(forStmt.Target);
             
-            // 4. Set up loop context for break/continue
+            // 4. Set up loop context for break/continue with FOR_ITER tracking
             var breakLabel = CreateLabel("for_break");
             var continueLabel = CreateLabel("for_continue");
-            PushLoopContext(breakLabel, continueLabel);
+            PushLoopContext(breakLabel, continueLabel, forIterInstruction);
             
             // 5. Execute loop body
             foreach (var stmt in forStmt.Body)
@@ -3350,7 +3355,6 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
             
             // 8. CPython 3.12 방식: END_FOR 추가 (통합 구조)
-            var endForPosition = _instructions.Count;
             EmitInstruction(ByteCodeOp.END_FOR, 0);
             
             // 9. Loop completed normally - execute else clause if present
@@ -3365,16 +3369,8 @@ namespace SharpPy
             // 10. Mark break label (after ALL loop constructs including else)
             MarkLabel(breakLabel);
             
-            // 11. Pop loop context after everything
+            // 11. Pop loop context after everything (FOR_ITER 패치가 자동으로 수행됨)
             PopLoopContext();
-            
-            // 12. Patch FOR_ITER to jump to END_FOR (CPython 3.12 통합 방식)
-            // FOR_ITER argument = byte offset to jump forward  
-            int forIterCurrentByteOffset = forIterInstruction * 2;
-            int endForByteOffset = endForPosition * 2;
-            int forIterJumpBytes = (endForByteOffset - forIterCurrentByteOffset - 4) / 2; // -4 for FOR_ITER size, /2 for instruction units
-            _instructions[forIterInstruction] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, forIterJumpBytes);
-            Console.WriteLine($"    → FOR_ITER 패치 (일반 루프): loop start {forIterInstruction}, jump offset {forIterJumpBytes}, END_FOR at {endForPosition}");
             
             // Note: Break statements will need to jump past the else clause to loopEnd
             // This requires break handling to be aware of loop-else structure
@@ -3406,23 +3402,30 @@ namespace SharpPy
                 EmitStoreName(forTupleStmt.Targets[i]);
             }
             
-            // 5. Execute loop body
+            // 5. Set up loop context with FOR_ITER tracking
+            var breakLabel = CreateLabel("for_break");
+            var continueLabel = CreateLabel("for_continue");
+            PushLoopContext(breakLabel, continueLabel, forIterInstruction);
+            
+            // 6. Execute loop body
             foreach (var stmt in forTupleStmt.Body)
             {
                 CompileStatement(stmt);
             }
             
-            // 6. Jump back to FOR_ITER - CPython 3.12 style relative offset
+            // 7. Mark continue label
+            MarkLabel(continueLabel);
+            
+            // 8. Jump back to FOR_ITER - CPython 3.12 style relative offset
             // CPython 3.12: 통일된 JUMP_BACKWARD oparg 계산 사용
             int currentPos = _instructions.Count;
             int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, forIterInstruction);
             EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
             
-            // 7. CPython 3.12 방식: END_FOR 추가 (통합 구조)
-            var endForPosition = _instructions.Count;
+            // 9. CPython 3.12 방식: END_FOR 추가 (통합 구조)
             EmitInstruction(ByteCodeOp.END_FOR, 0);
             
-            // 8. Loop completed normally - execute else clause if present
+            // 10. Loop completed normally - execute else clause if present
             if (forTupleStmt.ElseClause != null && forTupleStmt.ElseClause.Count > 0)
             {
                 foreach (var stmt in forTupleStmt.ElseClause)
@@ -3431,10 +3434,11 @@ namespace SharpPy
                 }
             }
             
-            // 9. Patch FOR_ITER to jump to END_FOR (CPython 3.12 통합 방식)
-            var relativeJump = endForPosition - forIterInstruction - 1;
-            _instructions[forIterInstruction] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, relativeJump);
-            Console.WriteLine($"    → FOR_ITER 패치 (튜플 루프): loop start {forIterInstruction}, jump offset {relativeJump}, END_FOR at {endForPosition}");
+            // 11. Mark break label
+            MarkLabel(breakLabel);
+            
+            // 12. Pop loop context (FOR_ITER 패치가 자동으로 수행됨)
+            PopLoopContext();
         }
         
         /// <summary>
@@ -5201,6 +5205,7 @@ namespace SharpPy
         {
             public Label BreakLabel { get; }
             public Label ContinueLabel { get; }
+            public int ForIterInstruction { get; set; } = -1; // FOR_ITER 명령어 위치
             
             public LoopContext(Label breakLabel, Label continueLabel)
             {
@@ -5211,15 +5216,31 @@ namespace SharpPy
         
         private Stack<LoopContext> _loopStack = new();
         
-        private void PushLoopContext(Label breakLabel, Label continueLabel)
+        private void PushLoopContext(Label breakLabel, Label continueLabel, int forIterInstruction = -1)
         {
-            _loopStack.Push(new LoopContext(breakLabel, continueLabel));
+            var context = new LoopContext(breakLabel, continueLabel);
+            if (forIterInstruction >= 0)
+            {
+                context.ForIterInstruction = forIterInstruction;
+            }
+            _loopStack.Push(context);
         }
         
         private void PopLoopContext()
         {
             if (_loopStack.Count > 0)
-                _loopStack.Pop();
+            {
+                var context = _loopStack.Pop();
+                
+                // FOR_ITER 패치: END_FOR 위치로 점프하도록 수정
+                if (context.ForIterInstruction >= 0)
+                {
+                    int endForPosition = _instructions.Count - 1; // 현재 END_FOR 위치
+                    int relativeJump = endForPosition - context.ForIterInstruction - 1;
+                    _instructions[context.ForIterInstruction] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, relativeJump);
+                    Console.WriteLine($"    → FOR_ITER 패치 (중첩 루프 지원): loop start {context.ForIterInstruction}, jump offset {relativeJump}, END_FOR at {endForPosition}");
+                }
+            }
         }
         
         private LoopContext? GetCurrentLoop()
