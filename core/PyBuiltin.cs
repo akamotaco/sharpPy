@@ -75,6 +75,8 @@ namespace SharpPy
                 "chr" => CallChr(args),
                 "open" => CallOpen(args),
                 "__build_class__" => CallBuildClass(args),
+                "globals" => CallGlobals(args),
+                "locals" => CallLocals(args),
                 // Buffer Protocol functions
                 "bytes" => CallBytes(args),
                 "bytearray" => CallBytearray(args),
@@ -1660,6 +1662,76 @@ namespace SharpPy
             }
             
             return newClass;
+        }
+
+        /// <summary>
+        /// globals() builtin function - returns a dictionary of the current global symbol table
+        /// </summary>
+        private PyObject CallGlobals(PyObject[] args)
+        {
+            if (args.Length != 0)
+            {
+                throw PyTypeError.Create($"globals() takes no arguments ({args.Length} given)");
+            }
+
+            // Get the current global scope from the VM
+            var currentFrame = PyVM.CurrentFrame;
+            if (currentFrame == null)
+            {
+                return new PyDict(); // Return empty dict if no frame
+            }
+
+            // Get the global scope from the current frame's scope chain
+            var globalScope = currentFrame.ScopeChain?.GlobalScope;
+            if (globalScope == null)
+            {
+                return new PyDict(); // Return empty dict if no global scope
+            }
+
+            // Convert the global scope variables to a Python dictionary
+            var result = new PyDict();
+            foreach (var variable in globalScope.Variables)
+            {
+                result.SetItem(new PyString(variable.Key), variable.Value);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// locals() builtin function - returns a dictionary of the current local symbol table
+        /// </summary>
+        private PyObject CallLocals(PyObject[] args)
+        {
+            if (args.Length != 0)
+            {
+                throw PyTypeError.Create($"locals() takes no arguments ({args.Length} given)");
+            }
+
+            // Get the current frame from the VM
+            var currentFrame = PyVM.CurrentFrame;
+            if (currentFrame == null)
+            {
+                return new PyDict(); // Return empty dict if no frame
+            }
+
+            // Get the local scope from the current frame's scope chain
+            // At module level or if no local scope, return globals
+            var localScope = currentFrame.ScopeChain?.CurrentScope;
+            if (localScope == null || localScope.Type == ScopeType.Global)
+            {
+                // If no local scope or at global level, return globals
+                return CallGlobals(new PyObject[0]);
+            }
+
+            // Convert the local scope variables to a Python dictionary
+            var result = new PyDict();
+            foreach (var variable in localScope.Variables)
+            {
+                result.SetItem(new PyString(variable.Key), variable.Value);
+            }
+
+            return result;
         }
         
         /// <summary>

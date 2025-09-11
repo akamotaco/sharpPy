@@ -96,6 +96,10 @@ public class PyBuiltinsModule : PyObject
         // 클래스 생성 함수
         BuiltinDict["__build_class__"] = new PyBuiltinFunction("__build_class__");
         
+        // 스코프 및 네임스페이스 함수들
+        BuiltinDict["globals"] = new PyBuiltinFunction("globals");
+        BuiltinDict["locals"] = new PyBuiltinFunction("locals");
+        
         // 내장 타입들 (타입 객체, 변환 함수와 별개)
         BuiltinDict["object"] = new PyBuiltinType("object");
         

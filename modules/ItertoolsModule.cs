@@ -603,8 +603,107 @@ namespace SharpPy
 
     public class ISliceIterator : PyIterator
     {
-        public ISliceIterator(PyObject[] args) { }
-        public override PyObject Next() => throw PyStopIteration.Create();
+        private readonly PyIterator _iterator;
+        private readonly int _start;
+        private readonly int? _stop;
+        private readonly int _step;
+        private int _index;
+
+        public ISliceIterator(PyObject[] args)
+        {
+            if (args.Length < 2 || args.Length > 4)
+                throw PyTypeError.Create($"islice expected 2-4 arguments ({args.Length} given)");
+
+            // Get iterable and convert to iterator
+            var iteratorObj = args[0].GetIterator();
+            if (iteratorObj == null)
+                throw PyTypeError.Create("islice argument 1 must be iterable");
+            _iterator = (PyIterator)iteratorObj;
+
+            if (args.Length == 2)
+            {
+                // islice(iterable, stop)
+                _start = 0;
+                _stop = ((PyInt)args[1]).Value;
+                _step = 1;
+            }
+            else if (args.Length == 3)
+            {
+                // islice(iterable, start, stop)
+                _start = ((PyInt)args[1]).Value;
+                _stop = ((PyInt)args[2]).Value;
+                _step = 1;
+            }
+            else
+            {
+                // islice(iterable, start, stop, step)
+                _start = ((PyInt)args[1]).Value;
+                _stop = ((PyInt)args[2]).Value;
+                _step = ((PyInt)args[3]).Value;
+                
+                if (_step <= 0)
+                    throw PyValueError.Create("Step for islice() must be a positive integer or None.");
+            }
+
+            if (_start < 0)
+                throw PyValueError.Create("Indices for islice() must be None or an integer: 0 <= x <= maxint.");
+            
+            if (_stop.HasValue && _stop < 0)
+                throw PyValueError.Create("Stop argument for islice() must be None or an integer: 0 <= x <= maxint.");
+
+            _index = 0;
+            
+            // Skip elements before start
+            while (_index < _start)
+            {
+                try
+                {
+                    _iterator.Next();
+                    _index++;
+                }
+                catch (Exception ex) when (ex.Data.Contains("PyException") && ex.Data["PyException"] is PyStopIteration)
+                {
+                    break;
+                }
+            }
+        }
+
+        public override PyObject Next()
+        {
+            // Check if we've reached the stop position
+            if (_stop.HasValue && _index >= _stop.Value)
+                throw PyStopIteration.Create();
+
+            // Skip elements according to step (after the first yielded element)
+            if (_index > _start)
+            {
+                for (int i = 1; i < _step; i++)
+                {
+                    try
+                    {
+                        _iterator.Next();
+                        _index++;
+                        if (_stop.HasValue && _index >= _stop.Value)
+                            throw PyStopIteration.Create();
+                    }
+                    catch (Exception ex) when (ex.Data.Contains("PyException") && ex.Data["PyException"] is PyStopIteration)
+                    {
+                        throw;
+                    }
+                }
+            }
+
+            try
+            {
+                var result = _iterator.Next();
+                _index++;
+                return result;
+            }
+            catch (Exception ex) when (ex.Data.Contains("PyException") && ex.Data["PyException"] is PyStopIteration)
+            {
+                throw;
+            }
+        }
     }
 
     public class GroupByIterator : PyIterator
