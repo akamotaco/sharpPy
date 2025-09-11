@@ -123,6 +123,49 @@ namespace SharpPy
         public override string GetTypeName() => "deque";
         public override string ToString() => $"deque([{string.Join(", ", _items)}])";
 
+        protected override PyObject PyGetAttribute(string name)
+        {
+            switch (name)
+            {
+                case "append":
+                    return new PyFunction("append", args =>
+                    {
+                        if (args.Length != 1)
+                            throw PyTypeError.Create($"append() takes exactly one argument ({args.Length} given)");
+                        Append(args[0]);
+                        return PyNone.Instance;
+                    });
+
+                case "appendleft":
+                    return new PyFunction("appendleft", args =>
+                    {
+                        if (args.Length != 1)
+                            throw PyTypeError.Create($"appendleft() takes exactly one argument ({args.Length} given)");
+                        AppendLeft(args[0]);
+                        return PyNone.Instance;
+                    });
+
+                case "pop":
+                    return new PyFunction("pop", args =>
+                    {
+                        if (args.Length != 0)
+                            throw PyTypeError.Create($"pop() takes no arguments ({args.Length} given)");
+                        return Pop();
+                    });
+
+                case "popleft":
+                    return new PyFunction("popleft", args =>
+                    {
+                        if (args.Length != 0)
+                            throw PyTypeError.Create($"popleft() takes no arguments ({args.Length} given)");
+                        return PopLeft();
+                    });
+
+                default:
+                    return base.PyGetAttribute(name);
+            }
+        }
+
         public override PyIterator GetIterator()
         {
             return new DequeIterator(_items.ToList());
@@ -175,7 +218,17 @@ namespace SharpPy
                     while (true)
                     {
                         var item = iterator.Next();
-                        var currentCount = GetItem(item);
+                        
+                        // Counter는 존재하지 않는 키에 대해 0을 반환
+                        PyObject currentCount;
+                        try
+                        {
+                            currentCount = GetItem(item);
+                        }
+                        catch (PythonException ex) when (ex.PyException is PyKeyError)
+                        {
+                            currentCount = new PyInt(0);
+                        }
                         
                         if (currentCount is PyInt intCount)
                         {
@@ -206,6 +259,64 @@ namespace SharpPy
                               .Cast<PyObject>().ToList();
 
             return new PyList(result.ToArray());
+        }
+
+        public void Update(PyObject iterable)
+        {
+            var iterator = iterable.GetIterator();
+            try
+            {
+                while (true)
+                {
+                    var item = iterator.Next();
+                    
+                    // 현재 카운트 가져오기 (없으면 0)
+                    PyObject currentCount;
+                    try
+                    {
+                        currentCount = GetItem(item);
+                    }
+                    catch (PythonException ex) when (ex.PyException is PyKeyError)
+                    {
+                        currentCount = new PyInt(0);
+                    }
+                    
+                    if (currentCount is PyInt intCount)
+                    {
+                        SetItem(item, new PyInt(intCount.Value + 1));
+                    }
+                    else
+                    {
+                        SetItem(item, new PyInt(1));
+                    }
+                }
+            }
+            catch (PythonException ex) when (ex.PyException is PyStopIteration) { }
+        }
+
+        protected override PyObject PyGetAttribute(string name)
+        {
+            switch (name)
+            {
+                case "most_common":
+                    return new PyFunction("most_common", args =>
+                    {
+                        var n = args.Length > 0 ? args[0].ToInt() : -1;
+                        return MostCommon(n);
+                    });
+
+                case "update":
+                    return new PyFunction("update", args =>
+                    {
+                        if (args.Length != 1)
+                            throw PyTypeError.Create($"update() takes exactly one argument ({args.Length} given)");
+                        Update(args[0]);
+                        return PyNone.Instance;
+                    });
+
+                default:
+                    return base.PyGetAttribute(name);
+            }
         }
 
         public override PyType GetPyType() => new PyCounterType();
