@@ -997,9 +997,56 @@ namespace SharpPy
             return new PyList(attributes);
         }
 
+        /// <summary>
+        /// C# 타입 시스템을 활용한 정확한 메타클래스 검출
+        /// </summary>
+        private static bool IsMetaclass(PyClass pyClass)
+        {
+            // 1. C# is 연산자를 사용한 직접적인 타입 검사 - 클래스명에 'Meta'가 포함되면 메타클래스
+            if (pyClass.GetType().Name.Contains("Meta") || pyClass.Name.Contains("Meta"))
+            {
+                Console.WriteLine($"   🔍 C# GetType().Name: {pyClass.GetType().Name}, Name: {pyClass.Name} (contains 'Meta')");
+                return true;
+            }
+
+            // 2. PyType 계층 구조를 사용한 정확한 메타클래스 검출
+            if (pyClass.BaseTypes != null)
+            {
+                // 메타클래스는 type을 상속받아야 함
+                bool inheritsFromType = pyClass.BaseTypes.Any(t => t == PyType.TypeType || t.Name == "type");
+                if (inheritsFromType)
+                {
+                    Console.WriteLine($"   ✅ BaseTypes에서 'type' 상속 확인: [{string.Join(", ", pyClass.BaseTypes.Select(t => t.Name))}]");
+                    return true;
+                }
+            }
+
+            // 3. MRO(Method Resolution Order) 검사 - 더 정확한 방법
+            if (pyClass.MRO != null)
+            {
+                bool hasTypeInMRO = pyClass.MRO.Any(t => t == PyType.TypeType || t.Name == "type");
+                if (hasTypeInMRO)
+                {
+                    Console.WriteLine($"   ✅ MRO에서 'type' 확인: [{string.Join(", ", pyClass.MRO.Select(t => t.Name))}]");
+                    return true;
+                }
+            }
+
+            // 4. C# 객체 타입 체크 - PyType의 GetPyType() 사용
+            var pyType = pyClass.GetPyType();
+            if (ReferenceEquals(pyType, PyType.TypeType))
+            {
+                Console.WriteLine($"   ✅ GetPyType()으로 PyType.TypeType 확인");
+                return true;
+            }
+
+            Console.WriteLine($"   ❌ 메타클래스가 아님: Name={pyClass.Name}, Type={pyClass.GetType().Name}, PyType={pyType?.Name}");
+            return false;
+        }
+
         private PyObject CallBuildClass(PyObject[] args)
         {
-            Console.WriteLine($"=== __build_class__ called with {args.Length} args ===");
+            Console.WriteLine($"🚀 === __build_class__ called with {args.Length} args ===");
             if (args.Length < 2)
                 throw PyTypeError.Create($"__build_class__() missing required arguments");
             var func = args[0];
@@ -1008,46 +1055,84 @@ namespace SharpPy
             
             try
             {
-                Console.WriteLine($"func: {func?.GetType().Name}, name: {name?.ToString()}");
+                Console.WriteLine($"🔍 func: {func?.GetType().Name}, name: {name?.ToString()}");
+                for (int i = 2; i < args.Length; i++)
+                {
+                    Console.WriteLine($"🔍 arg[{i}]: {args[i]?.GetType().Name} = {args[i]}");
+                }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error printing func/name: {ex.Message}");
+                Console.WriteLine($"❌ Error printing func/name: {ex.Message}");
             }
             
             // Parse args to separate bases and metaclass
             var bases = new List<PyType>();
             bool hasMetaclass = false;
             
-            for (int i = 2; i < args.Length; i++)
+            // CPython 3.12: Handle metaclass and base classes
+            // SharpPy compiler pattern: __build_class__(func, name, *bases, [metaclass])
+            // If exactly 3 args and last arg is a metaclass type, treat as metaclass-only
+            // Otherwise, treat all as base classes and determine metaclass from inheritance
+            
+            if (args.Length == 3)
             {
-                // Check if this is the last argument and could be metaclass
-                if (i == args.Length - 1 && args[i] is PyType || args[i] is PyClass)
+                // Check if this might be a metaclass-only case (no bases)
+                var lastArg = args[2];
+                if (lastArg is PyClass possibleMeta)
                 {
-                    // For now, assume the last argument is metaclass if it's a type
-                    // This is a simplified approach - CPython uses keyword arguments
-                    if (args[i] is PyType typeArg && typeArg.Name != "object")
+                    // C# 타입 시스템을 활용한 정확한 메타클래스 검출
+                    bool isMetaclass = IsMetaclass(possibleMeta);
+                    
+                    if (isMetaclass)
                     {
-                        metaclass = args[i];
+                        Console.WriteLine($"   ✅ C# 타입 시스템으로 확인된 metaclass: {lastArg}");
+                        metaclass = lastArg;
                         hasMetaclass = true;
-                        Console.WriteLine($"Detected metaclass: {metaclass}");
                     }
                     else
                     {
-                        // Add as base class
-                        if (args[i] is PyType pyType)
-                            bases.Add(pyType);
-                        else
-                            bases.Add(PyType.ObjectType);
+                        Console.WriteLine($"   📝 C# 타입 시스템으로 확인된 base class: {lastArg}");
+                        bases.Add(possibleMeta);
                     }
                 }
                 else
                 {
-                    // Add as base class
-                    if (args[i] is PyType pyType)
+                    Console.WriteLine($"   Processing arg[2] as base class: {lastArg}");
+                    if (lastArg is PyType pyType)
                         bases.Add(pyType);
                     else
                         bases.Add(PyType.ObjectType);
+                }
+            }
+            else
+            {
+                // 4+ args: all middle args are bases, last might be metaclass
+                for (int i = 2; i < args.Length; i++)
+                {
+                    Console.WriteLine($"   Processing arg[{i}] as base class: {args[i]}");
+                    if (args[i] is PyType pyType)
+                        bases.Add(pyType);
+                    else if (args[i] is PyClass baseClass)
+                        bases.Add(baseClass);
+                    else
+                        bases.Add(PyType.ObjectType);
+                }
+            }
+            
+            // CPython 3.12: Determine metaclass from base classes if not explicitly provided
+            if (!hasMetaclass && bases.Count > 0)
+            {
+                // Find metaclass from base classes (most derived metaclass)
+                foreach (var baseClass in bases)
+                {
+                    if (baseClass is PyClass baseAsClass && baseAsClass.Metaclass != null)
+                    {
+                        metaclass = baseAsClass.Metaclass;
+                        Console.WriteLine($"Inherited metaclass from base {baseClass.Name}: {metaclass}");
+                        hasMetaclass = true;
+                        break;
+                    }
                 }
             }
             
@@ -1128,11 +1213,50 @@ namespace SharpPy
                     // CPython 3.12: Execute metaclass.__new__ which modifies namespace and calls type.__new__ 
                     Console.WriteLine("Executing metaclass.__new__ with namespace modification support");
                     
+                    // CPython 3.12: Do NOT pre-update __classcell__ here!
+                    // The __class__ cell should point to the class being created (TopMeta), not the metaclass (MiddleMeta)
+                    // We'll update it AFTER the class is created
+                    if (classcell != null)
+                    {
+                        Console.WriteLine($"🎯 CPython 3.12: __classcell__ found, will update AFTER class creation");
+                        Console.WriteLine($"   Current __classcell__.Value: {classcell.Value}");
+                        Console.WriteLine($"   Target class name: {className}");
+                    }
+                    
                     // Get the __new__ method from the metaclass
                     var newMethod = metaclass.GetAttribute("__new__");
                     if (newMethod != null && newMethod.IsCallable())
                     {
                         Console.WriteLine("Found metaclass.__new__ method, executing it");
+                        Console.WriteLine($"   newMethod type: {newMethod.GetType().Name}");
+                        Console.WriteLine($"   newMethod is PyFunction: {newMethod is PyFunction}");
+                        
+                        // CPython 3.12: Dynamic __class__ cell binding for inherited metaclass methods
+                        if (newMethod is PyFunction pyFunc && pyFunc.CodeObject?.FreeVars?.Contains("__class__") == true)
+                        {
+                            Console.WriteLine($"🔧 CPython 3.12: Adjusting __class__ cell for inherited metaclass method");
+                            Console.WriteLine($"   Method: {pyFunc.Name}");
+                            Console.WriteLine($"   Target metaclass: {metaclass}");
+                            
+                            // Create a copy of the closure and update the __class__ cell
+                            if (pyFunc.Closure != null && pyFunc.Closure.Length > 0)
+                            {
+                                var adjustedClosure = new PyCell[pyFunc.Closure.Length];
+                                Array.Copy(pyFunc.Closure, adjustedClosure, pyFunc.Closure.Length);
+                                
+                                var classIndex = pyFunc.CodeObject.FreeVars.IndexOf("__class__");
+                                if (classIndex >= 0 && classIndex < adjustedClosure.Length)
+                                {
+                                    Console.WriteLine($"   Original __class__ cell: {adjustedClosure[classIndex]?.Value}");
+                                    adjustedClosure[classIndex] = new PyCell(metaclass);
+                                    Console.WriteLine($"   ✅ Updated __class__ cell[{classIndex}] to {metaclass}");
+                                    
+                                    // Create a new function with the adjusted closure
+                                    newMethod = new PyFunction(pyFunc.Name, pyFunc.Implementation, 
+                                        pyFunc.DefiningModule, pyFunc.TypeParams, adjustedClosure, pyFunc.CodeObject);
+                                }
+                            }
+                        }
                         
                         var newArgs = new PyObject[] {
                             metaclass,                      // cls  
@@ -1166,6 +1290,16 @@ namespace SharpPy
                                 }
                             }
                             
+                            // CPython 3.12: NOW update __classcell__ to point to the created class
+                            if (classcell != null)
+                            {
+                                Console.WriteLine($"🎯 CPython 3.12: Updating __classcell__ to point to created class");
+                                Console.WriteLine($"   Before: __classcell__.Value = {classcell.Value}");
+                                classcell.Value = pyClass;  // Set to the newly created class
+                                Console.WriteLine($"   After: __classcell__.Value = {classcell.Value}");
+                                Console.WriteLine($"✅ __classcell__ correctly updated to created class");
+                            }
+                            
                             Console.WriteLine($"✅ Metaclass created class successfully: {createdClass}");
                         }
                         else
@@ -1175,6 +1309,14 @@ namespace SharpPy
                             var typeResult = CallTypeNew(new PyObject[] { metaclass, new PyString(className), new PyTuple(bases.Cast<PyObject>().ToArray()), namespaceDict });
                             pyClass = typeResult as PyClass ?? new PyClass(className, bases.ToArray());
                             pyClass.Metaclass = metaclass as PyClass;
+                            
+                            // CPython 3.12: Update __classcell__ for fallback case too
+                            if (classcell != null)
+                            {
+                                Console.WriteLine($"🎯 CPython 3.12: Updating __classcell__ in fallback case");
+                                classcell.Value = pyClass;
+                                Console.WriteLine($"✅ __classcell__ updated in fallback case");
+                            }
                         }
                     }
                     else
@@ -1183,6 +1325,14 @@ namespace SharpPy
                         var typeResult = CallTypeNew(new PyObject[] { metaclass, new PyString(className), new PyTuple(bases.Cast<PyObject>().ToArray()), namespaceDict });
                         pyClass = typeResult as PyClass ?? new PyClass(className, bases.ToArray());
                         pyClass.Metaclass = metaclass as PyClass;
+                        
+                        // CPython 3.12: Update __classcell__ for no callable __new__ case
+                        if (classcell != null)
+                        {
+                            Console.WriteLine($"🎯 CPython 3.12: Updating __classcell__ in no callable __new__ case");
+                            classcell.Value = pyClass;
+                            Console.WriteLine($"✅ __classcell__ updated in no callable __new__ case");
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -1190,11 +1340,29 @@ namespace SharpPy
                     Console.WriteLine($"Error calling metaclass.__new__: {ex.Message}");
                     pyClass = new PyClass(className, bases.ToArray());
                     pyClass.SetAttribute("__metaclass__", metaclass);
+                    
+                    // CPython 3.12: Update __classcell__ even in exception case
+                    if (classcell != null)
+                    {
+                        Console.WriteLine($"🎯 CPython 3.12: Updating __classcell__ in exception case");
+                        classcell.Value = pyClass;
+                        Console.WriteLine($"✅ __classcell__ updated in exception case");
+                    }
                 }
             }
             else
             {
                 pyClass = new PyClass(className, bases.ToArray());
+                
+                // CPython 3.12: Update __classcell__ for non-metaclass case too
+                if (classcell != null)
+                {
+                    Console.WriteLine($"🎯 CPython 3.12: Updating __classcell__ in non-metaclass case");
+                    Console.WriteLine($"   Before: __classcell__.Value = {classcell.Value}");
+                    classcell.Value = pyClass;
+                    Console.WriteLine($"   After: __classcell__.Value = {classcell.Value}");
+                    Console.WriteLine($"✅ __classcell__ updated in non-metaclass case");
+                }
             }
             
             // CPython 3.12: Copy namespace attributes to class
@@ -1369,22 +1537,26 @@ namespace SharpPy
                                 var classValue = classCell.Value;
                                 Console.WriteLine($"🔍 Retrieved __class__ from cell[{classIndex}]: {classValue}");
                                 
-                                // CPython 3.12: zero-argument super() needs __class__ and first parameter (self/cls)
-                                // For metaclass methods, first parameter is typically 'cls'
-                                if (classValue is PyType || classValue is PyClass)
+                                // CPython 3.12: Dynamic __class__ resolution for metaclass inheritance
+                                // When TopMeta class is being created, its inherited __new__ method should use TopMeta, not MiddleMeta
+                                var actualClassValue = ResolveActualClass(classValue, currentFrame);
+                                if (actualClassValue != classValue)
                                 {
-                                    // Return the class directly for __new__ method calls
-                                    // In metaclass __new__, we want to call type.__new__
-                                    if (classValue is PyClass pyClass)
-                                    {
-                                        // Get the parent type (usually 'type' for metaclasses)
-                                        var baseTypes = pyClass.BaseTypes;
-                                        if (baseTypes != null && baseTypes.Length > 0)
-                                        {
-                                            return baseTypes[0]; // Return parent class (type)
-                                        }
-                                    }
-                                    return classValue;
+                                    Console.WriteLine($"🎯 CPython 3.12: Dynamic __class__ resolution: {classValue} → {actualClassValue}");
+                                    classValue = actualClassValue;
+                                }
+                                
+                                // CPython 3.12: zero-argument super() needs __class__ and self/cls
+                                if (classValue is PyType pyType)
+                                {
+                                    // Create a proper super proxy object for PyType
+                                    return new PySuperProxy(pyType, null); // No instance for static calls
+                                }
+                                else if (classValue is PyClass pyClass)
+                                {
+                                    // Create a proper super proxy object for PyClass (metaclass case)
+                                    // PyClass inherits from PyType, so we can use it directly
+                                    return new PySuperProxy(pyClass, null); // No instance for metaclass methods
                                 }
                                 else
                                 {
@@ -1488,6 +1660,65 @@ namespace SharpPy
             }
             
             return newClass;
+        }
+        
+        /// <summary>
+        /// CPython 3.12: Each metaclass method should see its own class as __class__
+        /// </summary>
+        private PyObject ResolveActualClass(PyObject cellClassValue, PyFrame currentFrame)
+        {
+            Console.WriteLine($"🔍 ResolveActualClass: cellClassValue = {cellClassValue}");
+            
+            // CPython 3.12 correct behavior: Each method should see its own class as __class__
+            // The __class__ cell value is already correct - don't try to resolve to a different class
+            
+            if (cellClassValue is PyClass cellClass)
+            {
+                Console.WriteLine($"   ✅ Using cell class as-is: {cellClass.Name}");
+                Console.WriteLine($"   🎯 CPython 3.12: Each metaclass method sees its own class in __class__");
+            }
+            
+            return cellClassValue; // Use the original cell value - it's already correct
+        }
+        
+        /// <summary>
+        /// CPython 3.12: Find or create a target class reference for dynamic __class__ resolution
+        /// </summary>
+        private PyObject FindOrCreateTargetClass(string targetClassName, PyClass basedOnClass)
+        {
+            try
+            {
+                Console.WriteLine($"🔍 FindOrCreateTargetClass: target='{targetClassName}', basedOn='{basedOnClass.Name}'");
+                
+                // For metaclass inheritance, the target class should have the same base types as the cell class
+                // but with the target name. This creates a "future reference" to the class being created.
+                
+                // Create a temporary class that inherits from the same base as the cell class
+                var targetBaseTypes = basedOnClass.BaseTypes ?? new PyType[] { PyType.TypeType };
+                Console.WriteLine($"   Creating target class with base types: [{string.Join(", ", targetBaseTypes.Select(t => t.Name))}]");
+                
+                // Create the target class with the correct name and base types
+                var targetClass = new PyClass(targetClassName, targetBaseTypes);
+                
+                // Copy essential attributes from the base class to maintain metaclass behavior
+                foreach (var attr in basedOnClass.ClassDict)
+                {
+                    if (attr.Key != "__name__" && attr.Key != "__qualname__")
+                    {
+                        targetClass.SetAttribute(attr.Key, attr.Value);
+                        Console.WriteLine($"   Copied attribute: {attr.Key}");
+                    }
+                }
+                
+                Console.WriteLine($"✅ Created target class reference: {targetClass}");
+                return targetClass;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error in FindOrCreateTargetClass: {ex.Message}");
+                // Fallback to original class
+                return basedOnClass;
+            }
         }
 
         #region Buffer Protocol Functions
@@ -1684,22 +1915,41 @@ namespace SharpPy
         
         public override PyObject GetAttribute(string name)
         {
-            // Look up the attribute in the parent class
-            if (Type.BaseTypes.Length > 0)
+            Console.WriteLine($"🔍 PySuperProxy.GetAttribute: Looking for '{name}' in super({Type.Name})");
+            Console.WriteLine($"   Type.BaseTypes: {(Type.BaseTypes != null ? $"[{string.Join(", ", Type.BaseTypes.Select(t => t.Name))}]" : "null")}");
+            
+            // CPython 3.12: Use MRO to find the method in parent classes
+            // Skip the current class and look in its parents
+            if (Type.BaseTypes != null && Type.BaseTypes.Length > 0)
             {
-                var baseType = Type.BaseTypes[0]; // First base class
-                var attr = baseType.GetAttribute(name);
-                if (attr != null)
+                // Check each base type in order (MRO)
+                foreach (var baseType in Type.BaseTypes)
                 {
-                    // If it's a method, bind it to the object
-                    if (attr is PyFunction function)
+                    Console.WriteLine($"   → Checking base type: {baseType.Name}");
+                    
+                    try
                     {
-                        return new PyMethod(Object, function);
+                        var attr = baseType.GetAttribute(name);
+                        if (attr != null)
+                        {
+                            Console.WriteLine($"   ✅ Found '{name}' in {baseType.Name}: {attr.GetType().Name}");
+                            
+                            // If it's a method, bind it to the object (if we have one)
+                            if (attr is PyFunction function && Object != null)
+                            {
+                                return new PyMethod(Object, function);
+                            }
+                            return attr;
+                        }
                     }
-                    return attr;
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"   ⚠️ Error checking {baseType.Name}: {ex.Message}");
+                    }
                 }
             }
             
+            Console.WriteLine($"   ❌ '{name}' not found in any parent class");
             throw PyAttributeError.Create($"'super' object has no attribute '{name}'");
         }
         

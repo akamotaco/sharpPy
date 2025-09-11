@@ -131,9 +131,57 @@ public class PyFunction : PyObject, IDescriptor
     // Descriptor로서의 동작 (method binding)
     public PyObject Get(PyObject instance, PyType owner)
     {
+        Console.WriteLine($"🔧 PyFunction.Get called:");
+        Console.WriteLine($"   Function: {Name}");
+        Console.WriteLine($"   Instance: {instance?.GetType().Name} = {instance}");
+        Console.WriteLine($"   Owner: {owner?.Name}");
+        Console.WriteLine($"   Has CodeObject: {CodeObject != null}");
+        if (CodeObject != null)
+        {
+            Console.WriteLine($"   FreeVars: [{string.Join(", ", CodeObject.FreeVars ?? new List<string>())}]");
+            Console.WriteLine($"   Has __class__ in FreeVars: {CodeObject.FreeVars?.Contains("__class__") == true}");
+        }
+        Console.WriteLine($"   Closure length: {Closure?.Length ?? 0}");
+        
         if (instance == null)
+        {
+            Console.WriteLine($"   → returning unbound function (instance is null)");
             return this; // unbound function
-        return new PyMethod(instance, this); // bound method
+        }
+            
+        // CPython 3.12: Handle __class__ cell dynamic binding for metaclass methods
+        if (instance is PyClass metaclassInstance && CodeObject?.FreeVars?.Contains("__class__") == true)
+        {
+            Console.WriteLine($"🔧 CPython 3.12: Metaclass method binding detected");
+            Console.WriteLine($"   Method: {Name}");
+            Console.WriteLine($"   Binding to metaclass: {metaclassInstance}");
+            
+            // Create a copy of this function with adjusted __class__ cell for the target metaclass
+            if (Closure != null && Closure.Length > 0)
+            {
+                var adjustedClosure = new PyCell[Closure.Length];
+                Array.Copy(Closure, adjustedClosure, Closure.Length);
+                
+                var classIndex = CodeObject.FreeVars.IndexOf("__class__");
+                if (classIndex >= 0 && classIndex < adjustedClosure.Length)
+                {
+                    Console.WriteLine($"   Original __class__ cell: {adjustedClosure[classIndex]?.Value}");
+                    adjustedClosure[classIndex] = new PyCell(metaclassInstance);
+                    Console.WriteLine($"   ✅ Updated __class__ cell[{classIndex}] to {metaclassInstance}");
+                    
+                    // Create a new function with the adjusted closure
+                    var adjustedFunction = new PyFunction(Name, Implementation, DefiningModule, TypeParams, adjustedClosure, CodeObject);
+                    var boundMethod = new PyMethod(instance, adjustedFunction);
+                    Console.WriteLine($"   → returning bound method with adjusted __class__ cell");
+                    return boundMethod; // bound method with correct __class__
+                }
+            }
+            Console.WriteLine($"   ⚠️  Could not adjust __class__ cell (no closure or invalid index)");
+        }
+        
+        var normalBoundMethod = new PyMethod(instance, this);
+        Console.WriteLine($"   → returning normal bound method");
+        return normalBoundMethod; // bound method
     }
     
     public void Set(PyObject instance, PyObject value)

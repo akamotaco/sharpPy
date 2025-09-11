@@ -139,18 +139,25 @@ namespace SharpPy
         protected virtual PyObject PyGetAttribute(string name)
         {
             var type = GetPyType();
+            Console.WriteLine($"🔍 PyObject.PyGetAttribute: looking for '{name}' on {type.Name}");
 
             // 1. 타입의 MRO에서 descriptor 찾기
             IDescriptor descriptor = null;
             PyObject attr = null;
 
+            Console.WriteLine($"   → checking MRO ({type.MRO.Count} types):");
             foreach (var mroType in type.MRO)
             {
+                Console.WriteLine($"     - checking {mroType.Name}");
                 if (mroType is PyClass customType && customType.ClassDict.ContainsKey(name))
                 {
                     attr = customType.ClassDict[name];
+                    Console.WriteLine($"   ✅ found '{name}' in {mroType.Name}: {attr?.GetType().Name}");
                     if (attr is IDescriptor desc)
+                    {
                         descriptor = desc;
+                        Console.WriteLine($"   🔧 '{name}' is a descriptor: {desc.GetType().Name}");
+                    }
                     break;
                 }
             }
@@ -158,6 +165,7 @@ namespace SharpPy
             // 2. data descriptor라면 우선권
             if (descriptor != null && descriptor.IsDataDescriptor())
             {
+                Console.WriteLine($"   → calling data descriptor.Get({this}, {type}) for '{name}'");
                 return descriptor.Get(this, type);
             }
 

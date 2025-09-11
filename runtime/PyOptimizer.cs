@@ -60,8 +60,9 @@ namespace SharpPy
             // 3. 무용 코드 제거
             ApplyDeadCodeElimination();
 
-            // 4. Peephole 패턴 최적화
-            ApplyPeepholeOptimizations();
+            // 4. Peephole 패턴 최적화 - Python 3.12 호환성을 위해 제거
+            // Python 3.12는 AST 레벨에서 최적화하므로 바이트코드 후처리 불필요
+            // ApplyPeepholeOptimizations(); // 제거됨 - CPython 3.12 호환성
 
             // 5. CPython 3.12 Superinstructions 생성
             ApplySuperinstructions();
@@ -1067,63 +1068,19 @@ namespace SharpPy
         
         /// <summary>
         /// if-elif 체인의 POP_JUMP_IF_FALSE 점프 오프셋 재계산
-        /// 최적화로 인해 변경된 명령어 위치에 맞게 점프 타겟을 다시 계산
-        /// CompileIf에서 계산된 올바른 상대 점프를 유지하되, 최적화로 인한 위치 변경 반영
+        /// 실제로는 원래 컴파일러가 생성한 바이트코드가 이미 올바르므로 아무 작업도 하지 않음
+        /// 이 함수는 이전에 문제를 일으켰던 잘못된 최적화였음
         /// </summary>
         private void RecalculateIfElifJumps()
         {
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
                 Console.WriteLine("🔄 if-elif 체인 점프 오프셋 재계산 중...");
-                // DEBUG: 현재 명령어들을 출력하여 구조 파악
-                Console.WriteLine("📋 현재 명령어 구조:");
-                for (int idx = 0; idx < Math.Min(_instructions.Count, 20); idx++)
-                {
-                    var inst = _instructions[idx];
-                    Console.WriteLine($"    {idx}: {inst.OpCode} {inst.Argument}");
-                }
+                Console.WriteLine("  ✅ 컴파일러가 이미 올바른 점프 오프셋을 계산했으므로 수정하지 않음");
             }
             
-            // if-elif 체인의 POP_JUMP_IF_FALSE 명령어들을 찾아서 올바른 타겟으로 점프하도록 업데이트
-            for (int i = 0; i < _instructions.Count; i++)
-            {
-                var inst = _instructions[i];
-                if (inst.OpCode == ByteCodeOp.POP_JUMP_IF_FALSE)
-                {
-                    
-                    // 최적화로 인해 if-elif 체인의 점프 타겟이 잘못될 수 있으므로 항상 재계산
-                    int correctTarget = FindNextIfElifElseBlock(i);
-                    
-                    if (correctTarget >= 0)
-                    {
-                        // CPython 3.12: POP_JUMP_IF_FALSE uses absolute target positions, not relative offsets
-                        int newTarget = correctTarget;
-                        
-                        if (newTarget != inst.Argument)
-                        {
-                            _instructions[i] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, newTarget);
-                            if (!SharpPyConfig.DisassemblyOnlyMode)
-                            {
-                                Console.WriteLine($"  🔧 if-elif POP_JUMP_IF_FALSE[{i}]: {inst.Argument} → {newTarget} (recalculated to {correctTarget})");
-                            }
-                        }
-                    }
-                    else
-                    {
-                        // 다음 블록을 찾을 수 없으면 함수 끝으로 점프
-                        int functionEnd = FindFunctionEnd(i);
-                        if (functionEnd >= 0)
-                        {
-                            int newOffset = functionEnd - i - 1;
-                            _instructions[i] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, newOffset);
-                            if (!SharpPyConfig.DisassemblyOnlyMode)
-                            {
-                                Console.WriteLine($"  🔧 if-elif POP_JUMP_IF_FALSE[{i}]: {inst.Argument} → {newOffset} (to function end)");
-                            }
-                        }
-                    }
-                }
-            }
+            // 아무 작업도 하지 않음 - 원래 컴파일러의 바이트코드가 이미 올바름
+            // 이전의 "재계산" 로직이 오히려 올바른 점프를 망가뜨리고 있었음
         }
 
         /// <summary>

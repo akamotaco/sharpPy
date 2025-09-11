@@ -105,27 +105,45 @@ namespace SharpPy
         // 클래스 attribute 접근
         public override PyObject GetAttribute(string name)
         {
+            Console.WriteLine($"🔍 PyClass.GetAttribute: {Name}.{name}");
+            
             switch (name)
             {
                 case "__name__":
+                    Console.WriteLine($"   → returning __name__ = {Name}");
                     return new PyString(Name);
                 case "__bases__":
+                    Console.WriteLine($"   → returning __bases__ (count: {BaseTypes.Length})");
                     return new PyTuple(BaseTypes);
                 case "__mro__":
+                    Console.WriteLine($"   → returning __mro__ (count: {MRO.Count})");
                     return new PyTuple(MRO.Cast<PyObject>().ToArray());
                 case "__dict__":
+                    Console.WriteLine($"   → returning __dict__ (count: {ClassDict.Count})");
                     return new PyDict(ClassDict);
                 case "__call__":
+                    Console.WriteLine($"   → returning self for __call__");
                     return this; // 클래스 자체가 __call__
                 default:
+                    Console.WriteLine($"   → searching for '{name}' in ClassDict ({ClassDict.Count} items)");
                     if (ClassDict.TryGetValue(name, out PyObject value))
                     {
+                        Console.WriteLine($"   ✅ found '{name}' in ClassDict: {value?.GetType().Name}");
                         // Descriptor 처리
                         if (value is IDescriptor desc)
-                            return desc.Get(null, this);
+                        {
+                            Console.WriteLine($"   🔧 calling descriptor.Get(null, {Name}) for '{name}'");
+                            var result = desc.Get(null, this);
+                            Console.WriteLine($"   → descriptor returned: {result?.GetType().Name}");
+                            return result;
+                        }
+                        Console.WriteLine($"   → returning direct value: {value}");
                         return value;
                     }
-                    return base.GetAttribute(name);
+                    Console.WriteLine($"   ❌ '{name}' not found in ClassDict, calling base.GetAttribute");
+                    var baseResult = base.GetAttribute(name);
+                    Console.WriteLine($"   → base.GetAttribute returned: {baseResult?.GetType().Name}");
+                    return baseResult;
             }
         }
 

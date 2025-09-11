@@ -2545,8 +2545,10 @@ namespace SharpPy
             EmitLoadConst(new PyString(cls.Name));
             
             // Load base classes
+            Console.WriteLine($"🔍 CompileRegularClass: {cls.Name} has {cls.Bases.Count} base classes:");
             foreach (var baseExpr in cls.Bases)
             {
+                Console.WriteLine($"   → Base class expression: {baseExpr.GetType().Name}");
                 CompileExpression(baseExpr);
             }
             

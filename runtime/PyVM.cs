@@ -11,6 +11,12 @@ namespace SharpPy
         public Dictionary<string, PyObject> FastLocals { get; } // 빠른 지역변수 접근
         public int InstructionPointer { get; set; }
         
+        // CPython 3.12: Frame chain for proper call stack tracking
+        public PyFrame? ParentFrame { get; set; }     // 부모 프레임 (call stack)
+        
+        // Helper property to access local scope from ScopeChain
+        public PyScope? LocalScope => ScopeChain?.CurrentScope;
+        
         // CPython-style error location tracking
         public int CurrentLineNumber { get; set; } = -1;
         public int CurrentColumnOffset { get; set; } = -1;
@@ -39,7 +45,7 @@ namespace SharpPy
         public bool IsGenerator { get; set; } = false;
         public bool IsCoroutine { get; set; } = false;
         
-        public PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope = null, PyCell[] closure = null)
+        public PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope = null, PyCell[] closure = null, PyFrame parentFrame = null)
         {
             if (SharpPyConfig.ShouldShowDebugInfo)
             {
@@ -52,6 +58,9 @@ namespace SharpPy
             ScopeChain = parentScope ?? new PyScopeChain();
             FastLocals = new Dictionary<string, PyObject>();
             InstructionPointer = 0;
+            
+            // CPython 3.12: Set parent frame for call stack tracking
+            ParentFrame = parentFrame;
             
             // Initialize filename from code object
             CurrentFileName = code.FileName;
@@ -1027,8 +1036,8 @@ namespace SharpPy
                             {
                                 var boundArgs = BindFunctionArguments(args, pyCode, defaults);
                                 var asyncGenFrame = closure != null && closure.Length > 0 
-                                    ? new PyFrame(pyCode, boundArgs, frame.ScopeChain, closure)
-                                    : new PyFrame(pyCode, boundArgs, frame.ScopeChain);
+                                    ? new PyFrame(pyCode, boundArgs, frame.ScopeChain, closure, frame)
+                                    : new PyFrame(pyCode, boundArgs, frame.ScopeChain, null, frame);
                                 
                                 // Async generator 생성
                                 var enumerator = new FrameGeneratorEnumerator(asyncGenFrame, this);
@@ -1057,8 +1066,8 @@ namespace SharpPy
                             {
                                 var boundArgs = BindFunctionArguments(args, pyCode, defaults);
                                 var asyncFrame = closure != null && closure.Length > 0 
-                                    ? new PyFrame(pyCode, boundArgs, frame.ScopeChain, closure)
-                                    : new PyFrame(pyCode, boundArgs, frame.ScopeChain);
+                                    ? new PyFrame(pyCode, boundArgs, frame.ScopeChain, closure, frame)
+                                    : new PyFrame(pyCode, boundArgs, frame.ScopeChain, null, frame);
                                 
                                 // Native coroutine 생성
                                 return new SharpPy.Core.PyCoroutine(asyncFrame, this, pyCode.Name);
@@ -1093,10 +1102,10 @@ namespace SharpPy
                             {
                             // Apply CPython-style parameter binding with defaults
                             var boundArgs = BindFunctionArguments(args, pyCode, defaults);
-                            // Create frame with closure support if needed
+                            // Create frame with closure support if needed - CPython 3.12: include parent frame
                             var functionFrame = closure != null && closure.Length > 0 
-                                ? new PyFrame(pyCode, boundArgs, frame.ScopeChain, closure)
-                                : new PyFrame(pyCode, boundArgs, frame.ScopeChain);
+                                ? new PyFrame(pyCode, boundArgs, frame.ScopeChain, closure, frame)
+                                : new PyFrame(pyCode, boundArgs, frame.ScopeChain, null, frame);
                             return ExecuteFrame(functionFrame);
                         };
                         
@@ -3582,8 +3591,8 @@ namespace SharpPy
             {
                 try
                 {
-                    // Create minimal frame for simple function
-                    var frame = new PyFrame(code, argsWithSelf, parentScope, pyFunc.Closure);
+                    // Create minimal frame for simple function - CPython 3.12: include parent frame
+                    var frame = new PyFrame(code, argsWithSelf, parentScope, pyFunc.Closure, CurrentFrame);
                     return ExecuteFrame(frame);
                 }
                 catch (PyReturnException retEx)
@@ -3612,8 +3621,8 @@ namespace SharpPy
             {
                 try
                 {
-                    // Create minimal frame for simple function
-                    var frame = new PyFrame(code, args, parentScope, pyFunc.Closure);
+                    // Create minimal frame for simple function - CPython 3.12: include parent frame
+                    var frame = new PyFrame(code, args, parentScope, pyFunc.Closure, CurrentFrame);
                     return ExecuteFrame(frame);
                 }
                 catch (PyReturnException retEx)
