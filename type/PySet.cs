@@ -108,7 +108,7 @@ namespace SharpPy
         /// <summary>
         /// 요소 포함 여부 확인 (in 연산자)
         /// </summary>
-        public PyBool Contains(PyObject item)
+        public override PyBool Contains(PyObject item)
         {
             return PyBool.FromBool(_items.Contains(item));
         }
@@ -350,6 +350,18 @@ namespace SharpPy
         public PySet Copy()
         {
             return new PySet(_items);
+        }
+
+        #endregion
+
+        #region Iterator Protocol
+
+        /// <summary>
+        /// Iterator protocol 구현 - Python __iter__ 메서드
+        /// </summary>
+        public override PyIterator GetIterator()
+        {
+            return new PySetIterator(this);
         }
 
         #endregion

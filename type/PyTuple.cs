@@ -155,6 +155,19 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Override base GetItem for Python subscript access
+        /// </summary>
+        public override PyObject GetItem(PyObject key)
+        {
+            return key switch
+            {
+                PyInt index => GetItem(index.Value),
+                PySlice slice => throw PyNotImplementedError.Create("tuple slicing not yet implemented"),
+                _ => throw PyTypeError.Create($"tuple indices must be integers or slices, not {key.GetTypeName()}")
+            };
+        }
+
+        /// <summary>
         /// 슬라이싱 tuple[start:end:step]
         /// </summary>
         public PyTuple GetSlice(int? start = null, int? end = null, int step = 1)
