@@ -370,23 +370,205 @@ namespace SharpPy
 
     #endregion
 
-    // 나머지 이터레이터들은 기본 구조만 제공 (간단한 구현으로 대체)
+    /// <summary>
+    /// combinations(iterable, r) 이터레이터 구현
+    /// </summary>
     public class CombinationsIterator : PyIterator
     {
-        public CombinationsIterator(PyObject iterable, int r) { }
-        public override PyObject Next() => throw PyStopIteration.Create();
+        private readonly List<PyObject> _pool;
+        private readonly int _r;
+        private int[] _indices;
+        private bool _started = false;
+
+        public CombinationsIterator(PyObject iterable, int r)
+        {
+            _pool = new List<PyObject>();
+            var iterator = iterable.GetIterator();
+            try
+            {
+                while (true)
+                {
+                    _pool.Add(iterator.Next());
+                }
+            }
+            catch (PythonException ex) when (ex.PyException is PyStopIteration) { }
+            
+            _r = r;
+            if (r < 0 || r > _pool.Count)
+            {
+                _indices = null; // Empty iterator
+            }
+            else
+            {
+                _indices = Enumerable.Range(0, r).ToArray();
+            }
+        }
+
+        public override PyObject Next()
+        {
+            if (_indices == null)
+                throw PyStopIteration.Create();
+            
+            if (!_started)
+            {
+                _started = true;
+                return new PyTuple(_indices.Select(i => _pool[i]).ToArray());
+            }
+            
+            // Generate next combination
+            int i = _r - 1;
+            while (i >= 0 && _indices[i] == _pool.Count - _r + i)
+                i--;
+            
+            if (i < 0)
+                throw PyStopIteration.Create();
+            
+            _indices[i]++;
+            for (int j = i + 1; j < _r; j++)
+                _indices[j] = _indices[j - 1] + 1;
+            
+            return new PyTuple(_indices.Select(i => _pool[i]).ToArray());
+        }
     }
 
+    /// <summary>
+    /// permutations(iterable, r) 이터레이터 구현
+    /// </summary>
     public class PermutationsIterator : PyIterator
     {
-        public PermutationsIterator(PyObject iterable, int? r) { }
-        public override PyObject Next() => throw PyStopIteration.Create();
+        private readonly List<PyObject> _pool;
+        private readonly int _r;
+        private int[] _indices;
+        private int[] _cycles;
+        private bool _started = false;
+
+        public PermutationsIterator(PyObject iterable, int? r)
+        {
+            _pool = new List<PyObject>();
+            var iterator = iterable.GetIterator();
+            try
+            {
+                while (true)
+                {
+                    _pool.Add(iterator.Next());
+                }
+            }
+            catch (PythonException ex) when (ex.PyException is PyStopIteration) { }
+            
+            _r = r ?? _pool.Count;
+            
+            if (_r > _pool.Count)
+            {
+                _indices = null; // Empty iterator
+            }
+            else
+            {
+                _indices = Enumerable.Range(0, _pool.Count).ToArray();
+                _cycles = Enumerable.Range(_pool.Count - _r + 1, _r).Reverse().ToArray();
+            }
+        }
+
+        public override PyObject Next()
+        {
+            if (_indices == null)
+                throw PyStopIteration.Create();
+            
+            if (!_started)
+            {
+                _started = true;
+                return new PyTuple(_indices.Take(_r).Select(i => _pool[i]).ToArray());
+            }
+            
+            for (int i = _r - 1; i >= 0; i--)
+            {
+                _cycles[i]--;
+                if (_cycles[i] == 0)
+                {
+                    // Rotate indices
+                    var first = _indices[i];
+                    Array.Copy(_indices, i + 1, _indices, i, _pool.Count - i - 1);
+                    _indices[_pool.Count - 1] = first;
+                    _cycles[i] = _pool.Count - i;
+                }
+                else
+                {
+                    // Swap
+                    int j = _pool.Count - _cycles[i];
+                    (_indices[i], _indices[j]) = (_indices[j], _indices[i]);
+                    return new PyTuple(_indices.Take(_r).Select(idx => _pool[idx]).ToArray());
+                }
+            }
+            
+            throw PyStopIteration.Create();
+        }
     }
 
+    /// <summary>
+    /// product(*iterables, repeat=1) 이터레이터 구현
+    /// </summary>
     public class ProductIterator : PyIterator
     {
-        public ProductIterator(PyObject[] iterables, int repeat) { }
-        public override PyObject Next() => throw PyStopIteration.Create();
+        private readonly List<PyObject>[] _pools;
+        private readonly int[] _indices;
+        private bool _started = false;
+
+        public ProductIterator(PyObject[] iterables, int repeat)
+        {
+            var expandedIterables = new List<PyObject>();
+            for (int r = 0; r < repeat; r++)
+            {
+                expandedIterables.AddRange(iterables);
+            }
+            
+            _pools = new List<PyObject>[expandedIterables.Count];
+            
+            for (int i = 0; i < expandedIterables.Count; i++)
+            {
+                _pools[i] = new List<PyObject>();
+                var iterator = expandedIterables[i].GetIterator();
+                try
+                {
+                    while (true)
+                    {
+                        _pools[i].Add(iterator.Next());
+                    }
+                }
+                catch (PythonException ex) when (ex.PyException is PyStopIteration) { }
+                
+                if (_pools[i].Count == 0)
+                {
+                    _indices = null; // Empty iterator if any pool is empty
+                    return;
+                }
+            }
+            
+            _indices = new int[_pools.Length];
+        }
+
+        public override PyObject Next()
+        {
+            if (_indices == null)
+                throw PyStopIteration.Create();
+            
+            if (!_started)
+            {
+                _started = true;
+                return new PyTuple(_indices.Select((idx, i) => _pools[i][idx]).ToArray());
+            }
+            
+            // Increment indices (like odometer)
+            for (int i = _pools.Length - 1; i >= 0; i--)
+            {
+                _indices[i]++;
+                if (_indices[i] < _pools[i].Count)
+                {
+                    return new PyTuple(_indices.Select((idx, poolIdx) => _pools[poolIdx][idx]).ToArray());
+                }
+                _indices[i] = 0;
+            }
+            
+            throw PyStopIteration.Create();
+        }
     }
 
     public class AccumulateIterator : PyIterator
