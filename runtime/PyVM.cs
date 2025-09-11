@@ -1,3 +1,5 @@
+using System.Linq;
+
 namespace SharpPy
 {
     #region Virtual Machine (기존 LEGB 시스템 활용)
@@ -24,6 +26,9 @@ namespace SharpPy
         
         // CPython-style closure support
         public PyCell[] Cells { get; set; } = new PyCell[0];     // 클로저 셀들 (freevars + cellvars)
+        
+        // CPython 3.12: Keyword names for next CALL instruction
+        public PyTuple? KeywordNamesForNextCall { get; set; }
         public PyCell[] Closure { get; set; } = new PyCell[0];   // 부모로부터 받은 클로저 셀들
         
         // CPython-style exception handling support
@@ -881,6 +886,9 @@ namespace SharpPy
                     var callArgCount = instruction.Argument;
                     var callArgs = new PyObject[callArgCount];
                     
+                    // CPython 3.12: Check for keyword arguments from KW_NAMES
+                    var kwNames = frame.KeywordNamesForNextCall;
+                    
                     // 명시적 인수들을 스택에서 팝 (역순으로) - 스택 최상위부터
                     for (int i = callArgCount - 1; i >= 0; i--)
                     {
@@ -913,25 +921,37 @@ namespace SharpPy
                         Array.Copy(callArgs, 0, finalArgs, 1, callArgs.Length);
                     }
                     
-                    // 함수 호출 실행
-                    if (actualCallable is PyBuiltinFunction builtin)
+                    // CPython 3.12: 키워드 인수 처리
+                    if (kwNames != null && kwNames.Items.Length > 0)
                     {
-                        newCallResult = builtin.Call(finalArgs);
-                    }
-                    else if (actualCallable is PyMethod method)
-                    {
-                        newCallResult = method.Call(finalArgs);
-                    }
-                    else if (actualCallable is PyFunction func)
-                    {
-                        newCallResult = ExecuteFunctionCall(func, finalArgs, frame.ScopeChain);
+                        // 키워드 인수가 있는 경우 - CallWithKeywords 사용
+                        newCallResult = CallWithKeywords(actualCallable, finalArgs, kwNames, frame.ScopeChain);
                     }
                     else
                     {
-                        newCallResult = actualCallable.Call(finalArgs);
+                        // 위치 인수만 있는 경우 - 기존 방식 사용
+                        if (actualCallable is PyBuiltinFunction builtin)
+                        {
+                            newCallResult = builtin.Call(finalArgs);
+                        }
+                        else if (actualCallable is PyMethod method)
+                        {
+                            newCallResult = method.Call(finalArgs);
+                        }
+                        else if (actualCallable is PyFunction func)
+                        {
+                            newCallResult = ExecuteFunctionCall(func, finalArgs, frame.ScopeChain);
+                        }
+                        else
+                        {
+                            newCallResult = actualCallable.Call(finalArgs);
+                        }
                     }
                     
                     frame.ValueStack.Push(newCallResult);
+                    
+                    // CPython 3.12: Clear keyword names after call
+                    frame.KeywordNamesForNextCall = null;
                     break;
                     
                 case ByteCodeOp.RESUME:
@@ -2664,6 +2684,16 @@ namespace SharpPy
                     frame.ValueStack.Push(result2);
                     break;
                     
+                case ByteCodeOp.KW_NAMES:
+                    // CPython 3.12: KW_NAMES sets the names for keyword arguments
+                    // The argument is an index into the constants table containing a tuple of keyword names
+                    var kwNamesIndex = instruction.Argument;
+                    var kwNamesTuple = frame.Code.Constants[kwNamesIndex];
+                    
+                    // Store keyword names tuple for the following CALL instruction
+                    frame.KeywordNamesForNextCall = kwNamesTuple as PyTuple;
+                    break;
+                    
                 default:
                     throw new NotImplementedException($"OpCode {instruction.OpCode} not implemented");
             }
@@ -3682,6 +3712,137 @@ namespace SharpPy
             }
         }
 
+        /// <summary>
+        /// CPython 3.12: Handle function calls with keyword arguments using KW_NAMES
+        /// </summary>
+        private PyObject CallWithKeywords(PyObject callable, PyObject[] args, PyTuple kwNames, PyScopeChain scopeChain)
+        {
+            // KW_NAMES contains the names of keyword arguments
+            // args array: [positional_args...] [keyword_values...]
+            var kwNamesList = kwNames.Items.Select(name => ((PyString)name).Value).ToArray();
+            var numKwArgs = kwNamesList.Length;
+            var numPosArgs = args.Length - numKwArgs;
+            
+            // Split positional and keyword arguments
+            var positionalArgs = new PyObject[numPosArgs];
+            var keywordArgs = new Dictionary<string, PyObject>();
+            
+            Array.Copy(args, 0, positionalArgs, 0, numPosArgs);
+            
+            for (int i = 0; i < numKwArgs; i++)
+            {
+                keywordArgs[kwNamesList[i]] = args[numPosArgs + i];
+            }
+            
+            // Special handling for different callable types
+            if (callable is PyType pyType)
+            {
+                return CallTypeWithKeywords(pyType, positionalArgs, keywordArgs);
+            }
+            else if (callable is PyBuiltinFunction builtin)
+            {
+                return CallBuiltinWithKeywords(builtin, positionalArgs, keywordArgs);
+            }
+            else if (callable is PyFunction func)
+            {
+                return CallPyFunctionWithKeywords(func, positionalArgs, keywordArgs, scopeChain);
+            }
+            else
+            {
+                // Fallback: combine all arguments and call normally
+                return callable.Call(args);
+            }
+        }
+        
+        /// <summary>
+        /// Call PyType (constructor) with keyword arguments
+        /// </summary>
+        private PyObject CallTypeWithKeywords(PyType pyType, PyObject[] positionalArgs, Dictionary<string, PyObject> keywordArgs)
+        {
+            // For now, handle common datetime types specially
+            if (pyType.Name == "timedelta")
+            {
+                return CreateTimeDeltaWithKeywords(positionalArgs, keywordArgs);
+            }
+            else if (pyType.Name == "datetime")
+            {
+                return CreateDateTimeWithKeywords(positionalArgs, keywordArgs);
+            }
+            
+            // Default: call with positional arguments only (ignore keywords for now)
+            return pyType.Call(positionalArgs);
+        }
+        
+        /// <summary>
+        /// Create timedelta object with keyword arguments
+        /// </summary>
+        private PyObject CreateTimeDeltaWithKeywords(PyObject[] positionalArgs, Dictionary<string, PyObject> keywordArgs)
+        {
+            var days = 0;
+            var seconds = 0;
+            var microseconds = 0;
+            var milliseconds = 0;
+            var minutes = 0;
+            var hours = 0;
+            var weeks = 0;
+            
+            // Process positional arguments first
+            if (positionalArgs.Length > 0 && positionalArgs[0] is PyInt daysArg) days = daysArg.Value;
+            if (positionalArgs.Length > 1 && positionalArgs[1] is PyInt secondsArg) seconds = secondsArg.Value;
+            if (positionalArgs.Length > 2 && positionalArgs[2] is PyInt microsecondsArg) microseconds = microsecondsArg.Value;
+            if (positionalArgs.Length > 3 && positionalArgs[3] is PyInt millisecondsArg) milliseconds = millisecondsArg.Value;
+            if (positionalArgs.Length > 4 && positionalArgs[4] is PyInt minutesArg) minutes = minutesArg.Value;
+            if (positionalArgs.Length > 5 && positionalArgs[5] is PyInt hoursArg) hours = hoursArg.Value;
+            if (positionalArgs.Length > 6 && positionalArgs[6] is PyInt weeksArg) weeks = weeksArg.Value;
+            
+            // Process keyword arguments
+            foreach (var kvp in keywordArgs)
+            {
+                if (kvp.Value is PyInt intVal)
+                {
+                    switch (kvp.Key)
+                    {
+                        case "days": days = intVal.Value; break;
+                        case "seconds": seconds = intVal.Value; break;
+                        case "microseconds": microseconds = intVal.Value; break;
+                        case "milliseconds": milliseconds = intVal.Value; break;
+                        case "minutes": minutes = intVal.Value; break;
+                        case "hours": hours = intVal.Value; break;
+                        case "weeks": weeks = intVal.Value; break;
+                    }
+                }
+            }
+            
+            return new Modules.Stdlib.PyTimeDelta(days, seconds, microseconds, milliseconds, minutes, hours, weeks);
+        }
+        
+        /// <summary>
+        /// Create datetime object with keyword arguments
+        /// </summary>
+        private PyObject CreateDateTimeWithKeywords(PyObject[] positionalArgs, Dictionary<string, PyObject> keywordArgs)
+        {
+            // Basic implementation - extend as needed
+            return new Modules.Stdlib.PyDateTime(DateTime.Now);
+        }
+        
+        /// <summary>
+        /// Call builtin function with keyword arguments
+        /// </summary>
+        private PyObject CallBuiltinWithKeywords(PyBuiltinFunction builtin, PyObject[] positionalArgs, Dictionary<string, PyObject> keywordArgs)
+        {
+            // For now, ignore keyword arguments and call with positional only
+            return builtin.Call(positionalArgs);
+        }
+        
+        /// <summary>
+        /// Call PyFunction with keyword arguments
+        /// </summary>
+        private PyObject CallPyFunctionWithKeywords(PyFunction func, PyObject[] positionalArgs, Dictionary<string, PyObject> keywordArgs, PyScopeChain scopeChain)
+        {
+            // For now, call with positional arguments only
+            return ExecuteFunctionCall(func, positionalArgs, scopeChain);
+        }
+        
         /// <summary>
         /// Calculate cumulative byte offset for given instruction index (CPython 3.12 compatible)
         /// </summary>

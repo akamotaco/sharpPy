@@ -1412,11 +1412,8 @@ namespace SharpPy
                     break;
                     
                 case CallExpression call:
-                    // CPython 3.12: PUSH_NULL을 먼저 (키워드 인수가 없는 경우만)
-                    if (call.Keywords.Count == 0)
-                    {
-                        EmitInstruction(ByteCodeOp.PUSH_NULL);
-                    }
+                    // CPython 3.12: PUSH_NULL을 먼저
+                    EmitInstruction(ByteCodeOp.PUSH_NULL);
                     
                     CompileExpression(call.Function);
                     
@@ -1435,16 +1432,14 @@ namespace SharpPy
                             CompileExpression(keyword.Value);
                         }
                         
-                        // 키워드 이름들을 튜플로 만들어서 스택에 푸시
-                        foreach (var keyword in call.Keywords)
-                        {
-                            EmitLoadConst(new PyString(keyword.Arg ?? ""));
-                        }
-                        EmitInstruction(ByteCodeOp.BUILD_TUPLE, call.Keywords.Count);
+                        // CPython 3.12: Create keyword names tuple and add to constants
+                        var kwNames = call.Keywords.Select(kw => new PyString(kw.Arg ?? "")).ToArray();
+                        var kwNamesTuple = new PyTuple(kwNames);
+                        var kwNamesIndex = GetOrAddConstant(kwNamesTuple);
                         
                         // CPython 3.12: KW_NAMES + CALL pattern
-                        EmitInstruction(ByteCodeOp.KW_NAMES, 0); // Keyword names tuple index
-                        EmitInstruction(ByteCodeOp.CALL, call.Arguments.Count);
+                        EmitInstruction(ByteCodeOp.KW_NAMES, kwNamesIndex);
+                        EmitInstruction(ByteCodeOp.CALL, call.Arguments.Count + call.Keywords.Count);
                     }
                     else
                     {
