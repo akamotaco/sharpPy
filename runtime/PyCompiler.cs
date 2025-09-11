@@ -5334,7 +5334,7 @@ namespace SharpPy
             // CPython 3.12: [iter, var_none] → [var_none, iter] → [var_none, iter, empty_list] → [var_none, empty_list, iter]
             if (comprehensionVars.Count > 0)
             {
-                EmitInstruction(ByteCodeOp.SWAP, 2); // [iter, var_none] -> [var_none, iter]
+                EmitInstruction(ByteCodeOp.SWAP, 3); // [iter, var_none] -> [var_none, iter]
             }
             
             EmitInstruction(ByteCodeOp.BUILD_LIST, 0); // [var_none, iter] -> [var_none, iter, empty_list]
@@ -5453,7 +5453,7 @@ namespace SharpPy
             // CPython 3.12: 정상 완료 시 즉시 comprehension 변수 저장 (END_FOR 직후)
             if (comprehensionVars.Count > 0)
             {
-                EmitInstruction(ByteCodeOp.SWAP, 2);
+                EmitInstruction(ByteCodeOp.SWAP, 3);
                 for (int i = comprehensionVars.Count - 1; i >= 0; i--)
                 {
                     // 모듈 레벨에서는 STORE_NAME 사용 (CPython 3.12 호환)
