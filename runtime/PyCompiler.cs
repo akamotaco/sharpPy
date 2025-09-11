@@ -5365,24 +5365,8 @@ namespace SharpPy
                 conditionJumps.Add(_instructions.Count);
                 EmitInstruction(ByteCodeOp.POP_JUMP_IF_TRUE, 0); // 조건이 참이면 LIST_APPEND로 점프
                 
-                // CPython 패턴: 조건이 거짓이면 바로 FOR_ITER로 JUMP_BACKWARD
-                int condCurrentByteOffset = 0;
-                for (int i = 0; i < _instructions.Count; i++)
-                {
-                    condCurrentByteOffset += PyJumpBackwardUtil.GetCPythonInstructionSize(_instructions[i].OpCode, _instructions[i].Argument);
-                }
-                condCurrentByteOffset += 2; // JUMP_BACKWARD 명령어 자체 크기
-                
-                // 타겟 위치: FOR_ITER 명령어의 바이트 위치
-                int forIterByteOffset = 0;
-                for (int i = 0; i < loopStart; i++)
-                {
-                    forIterByteOffset += PyJumpBackwardUtil.GetCPythonInstructionSize(_instructions[i].OpCode, _instructions[i].Argument);
-                }
-                
-                // CPython JUMP_BACKWARD: next_instr -= oparg (바이트 단위)
-                int conditionJumpBackwardArg = condCurrentByteOffset - forIterByteOffset;
-                EmitInstruction(ByteCodeOp.JUMP_BACKWARD, conditionJumpBackwardArg); // FOR_ITER로 바로 점프
+                // CPython 패턴: 조건이 거짓이면 바로 JUMP_BACKWARD
+                EmitInstruction(ByteCodeOp.JUMP_BACKWARD, 0); // 패치 대상 - FOR_ITER로 돌아감
             }
             
             // CPython 패턴: 조건이 참일 때의 타겟 - LIST_APPEND 준비 
@@ -5429,18 +5413,24 @@ namespace SharpPy
                 relativeJump
             );
             
-            // 조건 점프들 패치 - CPython 3.12 패턴: POP_JUMP_IF_TRUE는 상대 오프셋 사용
-            foreach (var jumpPos in conditionJumps)
+            // 조건 점프들 패치 - CPython 3.12 패턴
+            for (int i = 0; i < conditionJumps.Count; i++)
             {
-                // POP_JUMP_IF_TRUE 다음 명령어 위치 계산
-                int popJumpNextInstr = jumpPos + 1;
+                int popJumpIndex = conditionJumps[i];
+                int jumpBackwardIndex = popJumpIndex + 1;
                 
-                // 상대 오프셋 계산: listAppendStart - popJumpNextInstr
-                int relativeOffset = listAppendStart - popJumpNextInstr;
-                
-                _instructions[jumpPos] = new ByteCodeInstruction(
+                // POP_JUMP_IF_TRUE: 조건이 참이면 LIST_APPEND로 점프
+                int relativeOffset = listAppendStart - popJumpIndex - 1;
+                _instructions[popJumpIndex] = new ByteCodeInstruction(
                     ByteCodeOp.POP_JUMP_IF_TRUE, 
-                    relativeOffset  // 상대 오프셋 (CPython 3.12 호환)
+                    relativeOffset
+                );
+                
+                // JUMP_BACKWARD: 조건이 거짓이면 FOR_ITER로 돌아감
+                int jumpBackArg = CalculateJumpBackwardArg(jumpBackwardIndex, loopStart);
+                _instructions[jumpBackwardIndex] = new ByteCodeInstruction(
+                    ByteCodeOp.JUMP_BACKWARD, 
+                    jumpBackArg
                 );
             }
             
@@ -5523,13 +5513,16 @@ namespace SharpPy
                 throw new NotImplementedException("Complex target patterns not yet supported");
             }
             
-            // 조건 검사 (if문이 있는 경우)
+            // 조건 검사 (if문이 있는 경우) - CPython 3.12 패턴: POP_JUMP_IF_TRUE 사용
             List<int> conditionJumps = new List<int>();
             foreach (var condition in generator.Ifs)
             {
                 CompileExpression(condition);
                 conditionJumps.Add(_instructions.Count);
-                EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // 조건이 거짓이면 루프 재시작으로 점프
+                EmitInstruction(ByteCodeOp.POP_JUMP_IF_TRUE, 0); // 조건이 참이면 내부 블록으로 점프
+                
+                // CPython 패턴: 조건이 거짓이면 바로 JUMP_BACKWARD
+                EmitInstruction(ByteCodeOp.JUMP_BACKWARD, 0); // 패치 대상 - FOR_ITER로 돌아감
             }
             
             // 다음 generator 재귀 호출
@@ -5541,12 +5534,25 @@ namespace SharpPy
             int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, loopStart);
             EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
             
-            // 조건 점프 대상 패치 - 조건이 거짓이면 FOR_ITER로 점프하여 다음 iteration
-            foreach (var jumpIndex in conditionJumps)
+            // 조건 점프 대상 패치 - CPython 3.12 패턴
+            for (int i = 0; i < conditionJumps.Count; i++)
             {
-                _instructions[jumpIndex] = new ByteCodeInstruction(
-                    ByteCodeOp.POP_JUMP_IF_FALSE, 
-                    loopStart  // FOR_ITER 위치로 점프
+                int popJumpIndex = conditionJumps[i];
+                int jumpBackwardIndex = popJumpIndex + 1;
+                
+                // POP_JUMP_IF_TRUE: 조건이 참이면 내부 블록(다음 generator 또는 LIST_APPEND)으로 점프
+                int innerBlockStart = jumpBackwardIndex + 1; // JUMP_BACKWARD 다음부터 내부 블록
+                int relativeOffset = innerBlockStart - popJumpIndex - 1;
+                _instructions[popJumpIndex] = new ByteCodeInstruction(
+                    ByteCodeOp.POP_JUMP_IF_TRUE, 
+                    relativeOffset
+                );
+                
+                // JUMP_BACKWARD: 조건이 거짓이면 FOR_ITER로 돌아감
+                int jumpBackArg = CalculateJumpBackwardArg(jumpBackwardIndex, loopStart);
+                _instructions[jumpBackwardIndex] = new ByteCodeInstruction(
+                    ByteCodeOp.JUMP_BACKWARD, 
+                    jumpBackArg
                 );
             }
             

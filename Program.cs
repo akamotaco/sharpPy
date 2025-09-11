@@ -268,6 +268,12 @@ namespace SharpPy
                         return $"{arg,15} ({names[arg]})";
                     return $"{arg,15}";
                     
+                case ByteCodeOp.LOAD_FAST:
+                case ByteCodeOp.STORE_FAST:
+                    if (arg >= 0 && arg < varNames.Count)
+                        return $"{arg,15} ({varNames[arg]})";
+                    return $"{arg,15}";
+                    
                 case ByteCodeOp.CALL:
                     return $"{arg,15}";
                     
