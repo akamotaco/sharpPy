@@ -1075,41 +1075,120 @@ namespace SharpPy
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
                 Console.WriteLine("🔄 if-elif 체인 점프 오프셋 재계산 중...");
+                // DEBUG: 현재 명령어들을 출력하여 구조 파악
+                Console.WriteLine("📋 현재 명령어 구조:");
+                for (int idx = 0; idx < Math.Min(_instructions.Count, 20); idx++)
+                {
+                    var inst = _instructions[idx];
+                    Console.WriteLine($"    {idx}: {inst.OpCode} {inst.Argument}");
+                }
             }
             
             // if-elif 체인의 POP_JUMP_IF_FALSE 명령어들을 찾아서 올바른 타겟으로 점프하도록 업데이트
-            // JUMP_BACKWARD가 없으므로 이는 while 루프가 아닌 if-elif 체인
             for (int i = 0; i < _instructions.Count; i++)
             {
                 var inst = _instructions[i];
                 if (inst.OpCode == ByteCodeOp.POP_JUMP_IF_FALSE)
                 {
-                    int currentTarget = i + inst.Argument + 1;
                     
-                    // 현재 타겟이 유효한 범위에 있는지 확인
-                    if (currentTarget >= 0 && currentTarget < _instructions.Count)
+                    // 최적화로 인해 if-elif 체인의 점프 타겟이 잘못될 수 있으므로 항상 재계산
+                    int correctTarget = FindNextIfElifElseBlock(i);
+                    
+                    if (correctTarget >= 0)
                     {
-                        // 타겟이 유효하면 상대 오프셋 그대로 유지 (CompileIf에서 올바르게 계산됨)
-                        continue;
+                        // CPython 3.12: POP_JUMP_IF_FALSE uses absolute target positions, not relative offsets
+                        int newTarget = correctTarget;
+                        
+                        if (newTarget != inst.Argument)
+                        {
+                            _instructions[i] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, newTarget);
+                            if (!SharpPyConfig.DisassemblyOnlyMode)
+                            {
+                                Console.WriteLine($"  🔧 if-elif POP_JUMP_IF_FALSE[{i}]: {inst.Argument} → {newTarget} (recalculated to {correctTarget})");
+                            }
+                        }
                     }
                     else
                     {
-                        // 타겟이 범위를 벗어났으면 최적화로 인한 문제이므로 수정 필요
-                        // 가장 가까운 유효한 명령어로 점프하도록 조정
-                        int newTarget = Math.Min(_instructions.Count - 1, Math.Max(0, currentTarget));
-                        int newOffset = newTarget - i - 1;
-                        
-                        if (newOffset != inst.Argument)
+                        // 다음 블록을 찾을 수 없으면 함수 끝으로 점프
+                        int functionEnd = FindFunctionEnd(i);
+                        if (functionEnd >= 0)
                         {
+                            int newOffset = functionEnd - i - 1;
                             _instructions[i] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, newOffset);
                             if (!SharpPyConfig.DisassemblyOnlyMode)
                             {
-                                Console.WriteLine($"  🔧 if-elif POP_JUMP_IF_FALSE[{i}]: {inst.Argument} → {newOffset} (target: {currentTarget} → {newTarget})");
+                                Console.WriteLine($"  🔧 if-elif POP_JUMP_IF_FALSE[{i}]: {inst.Argument} → {newOffset} (to function end)");
                             }
                         }
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// if-elif 체인에서 다음 조건문 또는 else 블록을 찾습니다
+        /// </summary>
+        private int FindNextIfElifElseBlock(int currentPos)
+        {
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine($"🔍 FindNextIfElifElseBlock: currentPos={currentPos}에서 다음 블록 찾는 중...");
+            }
+            
+            for (int i = currentPos + 1; i < _instructions.Count; i++)
+            {
+                var inst = _instructions[i];
+                
+                // 다음 elif 조건의 시작: LOAD_FAST 또는 LOAD_NAME (변수 로드)
+                if (inst.OpCode == ByteCodeOp.LOAD_FAST || inst.OpCode == ByteCodeOp.LOAD_NAME)
+                {
+                    // 이것이 비교 패턴의 시작인지 확인 (LOAD_FAST → LOAD_CONST → COMPARE_OP)
+                    if (i + 2 < _instructions.Count &&
+                        (_instructions[i + 1].OpCode == ByteCodeOp.LOAD_CONST || _instructions[i + 1].OpCode == ByteCodeOp.LOAD_NAME) &&
+                        _instructions[i + 2].OpCode == ByteCodeOp.COMPARE_OP)
+                    {
+                        if (!SharpPyConfig.DisassemblyOnlyMode)
+                        {
+                            Console.WriteLine($"    ✅ 다음 elif 조건 발견: {i} ({inst.OpCode})");
+                        }
+                        return i;
+                    }
+                }
+                
+                // else 블록: RETURN_CONST 또는 RETURN_VALUE (더 이상의 조건 없이 바로 반환)
+                if (inst.OpCode == ByteCodeOp.RETURN_CONST || inst.OpCode == ByteCodeOp.RETURN_VALUE)
+                {
+                    if (!SharpPyConfig.DisassemblyOnlyMode)
+                    {
+                        Console.WriteLine($"    ✅ else 블록(반환문) 발견: {i} ({inst.OpCode})");
+                    }
+                    return i;
+                }
+            }
+            
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine($"    ❌ 다음 블록을 찾을 수 없음");
+            }
+            return -1; // 찾을 수 없음
+        }
+
+        /// <summary>
+        /// 함수의 끝을 찾습니다 (RETURN_* 명령어 위치)
+        /// </summary>
+        private int FindFunctionEnd(int currentPos)
+        {
+            for (int i = _instructions.Count - 1; i > currentPos; i--)
+            {
+                var inst = _instructions[i];
+                if (inst.OpCode == ByteCodeOp.RETURN_CONST || 
+                    inst.OpCode == ByteCodeOp.RETURN_VALUE)
+                {
+                    return i;
+                }
+            }
+            return -1;
         }
     }
 }
