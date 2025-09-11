@@ -7,6 +7,12 @@ namespace SharpPy
 {
     #region Parser Extension (Token -> AST)
 
+    // CPython 3.12 스타일 SyntaxError 예외 클래스
+    public class PySyntaxErrorException : Exception
+    {
+        public PySyntaxErrorException(string message) : base(message) { }
+    }
+    
     /// <summary>
     /// 토큰 기반 파서 (Token -> AST)
     /// </summary>
@@ -17,6 +23,10 @@ namespace SharpPy
         private bool _inAsyncFunction = false; // CPython 3.12 await context validation
         private bool _inComprehension = false; // Comprehension parsing context
         private bool _inMatchPattern = false; // Match pattern parsing context
+        
+        // CPython 3.12 스타일 에러 리포팅을 위한 정보
+        private readonly string _filename;
+        private readonly string _sourceCode;
         
         // CPython-style precedence table
         private static readonly Dictionary<TokenType, int> OperatorPrecedence = new()
@@ -66,21 +76,31 @@ namespace SharpPy
         private int _parsingIterations = 0;
         private readonly Dictionary<int, int> _positionVisitCount = new();
 
-        public PyParser(List<PyToken> tokens)
+        public PyParser(List<PyToken> tokens, string filename = "<unknown>", string sourceCode = "")
         {
             _tokens = tokens ?? throw new ArgumentNullException(nameof(tokens));
             _current = 0;
+            _filename = filename;
+            _sourceCode = sourceCode;
         }
 
         /// <summary>
         /// 편의 메서드: 소스 코드에서 직접 파싱
         /// </summary>
-        public static List<Statement> ParseSource(string source)
+        public static List<Statement> ParseSource(string source, string filename = "<string>")
         {
-            var lexer = new PyLexer(source);
-            var tokens = lexer.Tokenize();
-            var parser = new PyParser(tokens);
-            return parser.Parse();
+            try
+            {
+                var lexer = new PyLexer(source);
+                var tokens = lexer.Tokenize();
+                var parser = new PyParser(tokens, filename, source);
+                return parser.Parse();
+            }
+            catch (PySyntaxErrorException ex)
+            {
+                // CPython 3.12 스타일: SyntaxError 즉시 중단
+                throw new Exception($"SyntaxError: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -151,6 +171,15 @@ namespace SharpPy
                             Advance();
                         }
                     }
+                }
+                catch (PySyntaxErrorException ex)
+                {
+                    // CPython 3.12 스타일: SyntaxError는 즉시 중단
+                    if (!SharpPyConfig.DisassemblyOnlyMode)
+                    {
+                        Console.WriteLine($"  ❌ SyntaxError: {ex.Message}");
+                    }
+                    throw; // 즉시 중단
                 }
                 catch (Exception ex)
                 {
@@ -1165,7 +1194,7 @@ namespace SharpPy
                 // CPython 3.12: await는 async def 내부에서만 사용 가능
                 if (!_inAsyncFunction)
                 {
-                    throw CreateSyntaxError("'await' outside async function");
+                    throw CreateSyntaxError("'await' outside function");
                 }
                 
                 var expr = ParseUnaryExpression();
@@ -3219,7 +3248,7 @@ namespace SharpPy
                 // CPython 3.12: await는 async def 내부에서만 사용 가능
                 if (!_inAsyncFunction)
                 {
-                    throw CreateSyntaxError("'await' outside async function");
+                    throw CreateSyntaxError("'await' outside function");
                 }
                 var expr = ParseUnaryOrAtom();
                 return new AwaitExpression(expr);
@@ -3431,12 +3460,45 @@ namespace SharpPy
             return _tokens[_current - 1];
         }
         
-        // CPython-style error reporting
+        // CPython 3.12-style error reporting
         private Exception CreateSyntaxError(string message)
         {
             var token = Peek();
-            var position = $"at {token.Type}({token.Lexeme}) at 1:{token.Column}";
-            return new Exception($"{message}. Got {token.Type}({token.Lexeme}) {position}");
+            var errorMessage = FormatSyntaxError(message, token);
+            return new PySyntaxErrorException(errorMessage);
+        }
+        
+        private string FormatSyntaxError(string message, PyToken token)
+        {
+            var lines = _sourceCode.Split('\n');
+            var lineNumber = token.Line;
+            var columnNumber = token.Column;
+            
+            var sb = new StringBuilder();
+            
+            // File and line info: File "filename", line N
+            sb.AppendLine($"  File \"{_filename}\", line {lineNumber}");
+            
+            // Source code line (if available)
+            if (lines.Length >= lineNumber && lineNumber > 0)
+            {
+                var sourceLine = lines[lineNumber - 1]; // 0-based indexing
+                sb.AppendLine($"    {sourceLine}");
+                
+                // Pointer to error position
+                if (columnNumber > 0)
+                {
+                    var spaces = new string(' ', Math.Max(0, columnNumber - 1 + 4)); // +4 for "    " prefix
+                    var pointerLength = Math.Max(1, token.Lexeme.Length);
+                    var pointer = new string('^', pointerLength);
+                    sb.AppendLine($"{spaces}{pointer}");
+                }
+            }
+            
+            // Error message
+            sb.Append($"SyntaxError: {message}");
+            
+            return sb.ToString();
         }
         
         private T ConsumeOrError<T>(TokenType expected, string context, Func<T> onSuccess)
@@ -3686,9 +3748,9 @@ namespace SharpPy
     /// </summary>
     public class SimpleParser
     {
-        public List<Statement> Parse(string source)
+        public List<Statement> Parse(string source, string filename = "<string>")
         {
-            return PyParser.ParseSource(source);
+            return PyParser.ParseSource(source, filename);
         }
     }
 

@@ -63,7 +63,7 @@ namespace SharpPy
                     Console.WriteLine("1️⃣ 파싱: 소스 → AST");
                     Console.WriteLine(new string('=', 30));
                 }
-                var statements = _parser.Parse(sourceCode);
+                var statements = _parser.Parse(sourceCode, fileName ?? "<string>");
                 
                 // 2단계: 컴파일 (AST → 바이트코드)
                 if (SharpPyConfig.ShouldShowStepInfo)
