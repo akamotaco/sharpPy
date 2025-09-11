@@ -2231,8 +2231,10 @@ namespace SharpPy
             }
             else if (target is TupleExpression tupleExpr)
             {
-                // Tuple unpacking: for x, y in items:
+                // Check if this is simple flat tuple unpacking: for x, y in items:
                 var targetNames = new List<string>();
+                bool isSimpleTuple = true;
+                
                 foreach (var element in tupleExpr.Elements)
                 {
                     if (element is NameExpression elementName)
@@ -2241,10 +2243,22 @@ namespace SharpPy
                     }
                     else
                     {
-                        throw new Exception("For loop tuple unpacking targets must be variable names");
+                        // Complex nested structure like (x, (y, z))
+                        isSimpleTuple = false;
+                        break;
                     }
                 }
-                return new ForTupleStatement(targetNames, iterable, body, elseClause);
+                
+                if (isSimpleTuple)
+                {
+                    // Use existing ForTupleStatement for simple flat unpacking
+                    return new ForTupleStatement(targetNames, iterable, body, elseClause);
+                }
+                else
+                {
+                    // Use new ForComplexStatement for nested unpacking
+                    return new ForComplexStatement(target, iterable, body, elseClause);
+                }
             }
             else
             {
@@ -2253,32 +2267,22 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Parse for loop target - supports both simple names and tuple unpacking
+        /// Parse for loop target - supports simple names, tuple unpacking, and nested parentheses
         /// </summary>
         private Expression ParseForTarget()
         {
-            // Check if this is a tuple unpacking (comma-separated identifiers)
             var targets = new List<Expression>();
             
-            // Parse first target
-            if (!Check(TokenType.IDENTIFIER))
-            {
-                throw new Exception("Expected variable name in for statement target");
-            }
-            
-            targets.Add(new NameExpression(Advance().Lexeme));
+            // Parse first target (can be parenthesized or simple identifier)
+            targets.Add(ParseForTargetExpression());
             
             // Check for additional targets (comma-separated)
             while (Match(TokenType.COMMA))
             {
-                if (!Check(TokenType.IDENTIFIER))
-                {
-                    throw new Exception("Expected variable name after comma in for statement target");
-                }
-                targets.Add(new NameExpression(Advance().Lexeme));
+                targets.Add(ParseForTargetExpression());
             }
             
-            // Return single name or tuple
+            // Return single expression or tuple
             if (targets.Count == 1)
             {
                 return targets[0];
@@ -2287,6 +2291,43 @@ namespace SharpPy
             {
                 return new TupleExpression(targets);
             }
+        }
+        
+        /// <summary>
+        /// Parse a single for target expression (can be nested)
+        /// </summary>
+        private Expression ParseForTargetExpression()
+        {
+            // Handle parenthesized expressions: (a, b) or ((a, b), c)
+            if (Check(TokenType.LEFT_PAREN))
+            {
+                Advance(); // consume '('
+                
+                if (Check(TokenType.RIGHT_PAREN))
+                {
+                    Advance(); // empty tuple
+                    return new TupleExpression(new List<Expression>());
+                }
+                
+                var elements = new List<Expression>();
+                do
+                {
+                    elements.Add(ParseForTargetExpression());
+                } while (Match(TokenType.COMMA) && !Check(TokenType.RIGHT_PAREN));
+                
+                Consume(TokenType.RIGHT_PAREN, "Expected ')' after tuple unpacking target");
+                
+                return elements.Count == 1 ? elements[0] : new TupleExpression(elements);
+            }
+            
+            // Handle simple identifiers
+            if (Check(TokenType.IDENTIFIER))
+            {
+                var name = Advance().Lexeme;
+                return new NameExpression(name);
+            }
+            
+            throw new Exception("Expected variable name or parenthesized tuple in for statement target");
         }
         private Statement ParseTryStatement()
         {

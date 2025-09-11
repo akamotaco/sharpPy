@@ -1298,6 +1298,10 @@ namespace SharpPy
                     CompileForTuple(forTupleStmt);
                     break;
                     
+                case ForComplexStatement forComplexStmt:
+                    CompileForComplex(forComplexStmt);
+                    break;
+                    
                 case TryStatement tryStmt:
                     CompileTry(tryStmt);
                     break;
@@ -3436,6 +3440,90 @@ namespace SharpPy
             
             // 12. Pop loop context (FOR_ITER 패치가 자동으로 수행됨)
             PopLoopContext();
+        }
+        
+        /// <summary>
+        /// Compile for loop with complex tuple unpacking (e.g., for i, (name, value) in enumerate(tests):)
+        /// </summary>
+        private void CompileForComplex(ForComplexStatement forComplexStmt)
+        {
+            // CPython approach with complex tuple unpacking support
+            
+            // 1. Get iterator from iterable
+            CompileExpression(forComplexStmt.Iter);  // Push iterable on stack
+            EmitInstruction(ByteCodeOp.GET_ITER); // Convert to iterator
+            
+            // 2. Loop start - FOR_ITER will handle next() and StopIteration
+            var forIterInstruction = _instructions.Count;
+            EmitInstruction(ByteCodeOp.FOR_ITER, 0); // Jump target will be patched later
+            
+            // 3. FOR_ITER pushes the next value on stack
+            // Now we need to compile the complex target assignment
+            CompileComplexAssignTarget(forComplexStmt.Target);
+            
+            // 4. Set up loop context with FOR_ITER tracking
+            var breakLabel = CreateLabel("for_break");
+            var continueLabel = CreateLabel("for_continue");
+            PushLoopContext(breakLabel, continueLabel, forIterInstruction);
+            
+            // 5. Execute loop body
+            foreach (var stmt in forComplexStmt.Body)
+            {
+                CompileStatement(stmt);
+            }
+            
+            // 6. Mark continue label
+            MarkLabel(continueLabel);
+            
+            // 7. Jump back to FOR_ITER - CPython 3.12 style relative offset
+            int currentPos = _instructions.Count;
+            int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, forIterInstruction);
+            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
+            
+            // 8. CPython 3.12 방식: END_FOR 추가 (통합 구조)
+            EmitInstruction(ByteCodeOp.END_FOR, 0);
+            
+            // 9. Loop completed normally - execute else clause if present
+            if (forComplexStmt.ElseClause != null && forComplexStmt.ElseClause.Count > 0)
+            {
+                foreach (var stmt in forComplexStmt.ElseClause)
+                {
+                    CompileStatement(stmt);
+                }
+            }
+            
+            // 10. Mark break label
+            MarkLabel(breakLabel);
+            
+            // 11. Pop loop context (FOR_ITER 패치가 자동으로 수행됨)
+            PopLoopContext();
+        }
+        
+        /// <summary>
+        /// Compile complex assignment target for for loop unpacking
+        /// </summary>
+        private void CompileComplexAssignTarget(Expression target)
+        {
+            if (target is NameExpression nameExpr)
+            {
+                // Simple assignment: x = stack_top
+                EmitStoreName(nameExpr.Name);
+            }
+            else if (target is TupleExpression tupleExpr)
+            {
+                // Complex tuple unpacking: (x, y) = stack_top or (x, (y, z)) = stack_top
+                EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, tupleExpr.Elements.Count);
+                
+                // Store each element (in forward order - UNPACK_SEQUENCE puts them in correct order)
+                for (int i = 0; i < tupleExpr.Elements.Count; i++)
+                {
+                    CompileComplexAssignTarget(tupleExpr.Elements[i]);
+                }
+            }
+            else
+            {
+                throw new Exception($"Cannot compile assignment target: {target.GetType().Name}");
+            }
         }
         
         /// <summary>

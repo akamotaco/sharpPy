@@ -1191,6 +1191,32 @@ namespace SharpPy
         public override string ToString() => $"for {string.Join(", ", Targets)} in {Iter}: ...";
     }
 
+    public class ForComplexStatement : Statement
+    {
+        public override string NodeType => "ForComplex";
+        public Expression Target { get; }
+        public Expression Iter { get; }
+        public List<Statement> Body { get; }
+        public List<Statement>? ElseClause { get; }
+        
+        public ForComplexStatement(Expression target, Expression iter, List<Statement> body, List<Statement>? elseClause = null)
+        {
+            Target = target;
+            Iter = iter;
+            Body = body;
+            ElseClause = elseClause;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // This method should not be called in compiled mode
+            // The PyVM handles for loop execution through bytecode
+            throw new NotImplementedException("ForComplexStatement evaluation should be handled by compiled bytecode");
+        }
+        
+        public override string ToString() => $"for {Target} in {Iter}: ...";
+    }
+
     public class TryStatement : Statement
     {
         public override string NodeType => "Try";

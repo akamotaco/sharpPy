@@ -3340,26 +3340,58 @@ namespace SharpPy
                 throw PyTypeError.Create($"{code.Name}() missing {requiredArgCount - args.Length} required positional argument(s)");
             }
             
-            // Check if we have too many arguments
-            if (args.Length > code.ArgCount)
+            // Check if function accepts *args or **kwargs
+            bool hasVarArgs = (code.Flags & PyCodeObject.CO_VARARGS) != 0;
+            bool hasVarKeywords = (code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0;
+            
+            // Check if we have too many arguments (only if no *args)
+            if (!hasVarArgs && args.Length > code.ArgCount)
             {
                 throw PyTypeError.Create($"{code.Name}() takes {code.ArgCount} positional argument(s) but {args.Length} were given");
             }
             
-            // Create bound arguments array
-            var boundArgs = new PyObject[code.ArgCount];
+            // Calculate total parameter count including *args and **kwargs
+            int totalParamCount = code.ArgCount;
+            if (hasVarArgs) totalParamCount++;
+            if (hasVarKeywords) totalParamCount++;
             
-            // Bind provided arguments first
-            for (int i = 0; i < args.Length; i++)
+            // Create bound arguments array
+            var boundArgs = new PyObject[totalParamCount];
+            
+            // Bind positional arguments to regular parameters
+            int regularParamCount = Math.Min(args.Length, code.ArgCount);
+            for (int i = 0; i < regularParamCount; i++)
             {
                 boundArgs[i] = args[i];
                 Console.WriteLine($"  → 매개변수[{i}] = {args[i]} (제공된 인수)");
             }
             
-            // Bind default values for missing arguments
+            // Handle *args if present
+            if (hasVarArgs)
+            {
+                // Pack extra positional arguments into tuple
+                var extraArgs = new List<PyObject>();
+                for (int i = code.ArgCount; i < args.Length; i++)
+                {
+                    extraArgs.Add(args[i]);
+                }
+                var argsTuple = new PyTuple(extraArgs.ToArray());
+                boundArgs[code.ArgCount] = argsTuple;
+                Console.WriteLine($"  → *args[{code.ArgCount}] = {argsTuple} (패킹된 인수 {extraArgs.Count}개)");
+            }
+            
+            // Handle **kwargs if present (for now, empty dict)
+            if (hasVarKeywords)
+            {
+                var kwargsIndex = code.ArgCount + (hasVarArgs ? 1 : 0);
+                boundArgs[kwargsIndex] = new PyDict();
+                Console.WriteLine($"  → **kwargs[{kwargsIndex}] = {{}} (빈 딕셔너리)");
+            }
+            
+            // Bind default values for missing regular arguments (not *args or **kwargs)
             if (defaults != null && defaults.Items.Length > 0)
             {
-                for (int i = args.Length; i < code.ArgCount; i++)
+                for (int i = regularParamCount; i < code.ArgCount; i++)
                 {
                     int defaultIndex = i - requiredArgCount;
                     if (defaultIndex >= 0 && defaultIndex < defaults.Items.Length)
