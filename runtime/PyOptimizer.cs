@@ -579,18 +579,23 @@ namespace SharpPy
                             int jumpPos = j;
                             int currentOffset = laterInst.Argument;
                             
-                            // 현재 JUMP_BACKWARD가 FOR_ITER로 점프하는지 확인
-                            int currentTarget = jumpPos - currentOffset - 1;
+                            // 중첩 루프에서 이 JUMP_BACKWARD가 어떤 FOR_ITER로 가야 하는지 올바르게 찾기
+                            int correctForIterPos = FindMatchingForIter(jumpPos);
                             
-                            // 올바른 타겟은 FOR_ITER 위치여야 함  
-                            // CPython 3.12 방식: 바이트 오프셋 기반 정확한 계산
-                            int correctOffset = PyJumpBackwardUtil.CalculateJumpBackwardOpArg(jumpPos, forIterPos, _instructions);
-                            
-                            if (currentOffset != correctOffset)
+                            if (correctForIterPos >= 0)
                             {
-                                _instructions[j] = new ByteCodeInstruction(ByteCodeOp.JUMP_BACKWARD, correctOffset);
-                                Console.WriteLine($"  🔧 FOR 루프 JUMP_BACKWARD[{j}]: {currentOffset} → {correctOffset} (FOR_ITER: {forIterPos})");
-                                recalculated++;
+                                // 올바른 FOR_ITER 위치로 점프하도록 오프셋 재계산
+                                int correctOffset = PyJumpBackwardUtil.CalculateJumpBackwardOpArg(jumpPos, correctForIterPos, _instructions);
+                                
+                                if (currentOffset != correctOffset)
+                                {
+                                    _instructions[j] = new ByteCodeInstruction(ByteCodeOp.JUMP_BACKWARD, correctOffset);
+                                    if (!SharpPyConfig.DisassemblyOnlyMode)
+                                    {
+                                        Console.WriteLine($"  🔧 중첩 FOR 루프 JUMP_BACKWARD[{j}]: {currentOffset} → {correctOffset} (FOR_ITER: {correctForIterPos})");
+                                    }
+                                    recalculated++;
+                                }
                             }
                             
                             // 중첩 루프를 위해 모든 JUMP_BACKWARD 처리 (하나만 처리하지 말고 계속)
@@ -691,6 +696,15 @@ namespace SharpPy
                 if (!SharpPyConfig.DisassemblyOnlyMode)
                 {
                     Console.WriteLine("🔄 FOR_ITER → END_FOR 점프 오프셋 재계산 중...");
+                    Console.WriteLine("📋 모든 FOR_ITER와 END_FOR 위치:");
+                    for (int i = 0; i < _instructions.Count; i++)
+                    {
+                        var inst = _instructions[i];
+                        if (inst.OpCode == ByteCodeOp.FOR_ITER || inst.OpCode == ByteCodeOp.END_FOR)
+                        {
+                            Console.WriteLine($"    {i}: {inst.OpCode} (arg: {inst.Argument})");
+                        }
+                    }
                 }
                 for (int i = 0; i < _instructions.Count; i++)
                 {
@@ -908,7 +922,12 @@ namespace SharpPy
         {
             // FOR_ITER에서 시작해서 대응하는 END_FOR 찾기
             // 중첩된 루프를 고려해야 함
-            int nestedLevel = 0;
+            int nestedLevel = 1; // 현재 FOR_ITER에 대한 END_FOR를 찾아야 하므로 1부터 시작
+            
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+                Console.WriteLine($"🔍 FindMatchingEndFor: FOR_ITER at {forIterPos} 에 대한 END_FOR 찾는 중...");
+            }
             
             for (int i = forIterPos + 1; i < _instructions.Count; i++)
             {
@@ -916,16 +935,28 @@ namespace SharpPy
                 
                 if (instruction.OpCode == ByteCodeOp.FOR_ITER)
                 {
-                    nestedLevel++;
+                    nestedLevel++; // 중첩된 FOR_ITER 발견, 레벨 증가
+                    if (!SharpPyConfig.DisassemblyOnlyMode)
+                    {
+                        Console.WriteLine($"    FOR_ITER at {i}, level → {nestedLevel}");
+                    }
                 }
                 else if (instruction.OpCode == ByteCodeOp.END_FOR)
                 {
+                    nestedLevel--; // END_FOR 발견, 레벨 감소
+                    if (!SharpPyConfig.DisassemblyOnlyMode)
+                    {
+                        Console.WriteLine($"    END_FOR at {i}, level → {nestedLevel}");
+                    }
                     if (nestedLevel == 0)
                     {
-                        // 이것이 매칭되는 END_FOR
+                        // 이것이 매칭되는 END_FOR (현재 FOR_ITER에 대응)
+                        if (!SharpPyConfig.DisassemblyOnlyMode)
+                        {
+                            Console.WriteLine($"✅ FOR_ITER[{forIterPos}] → END_FOR[{i}] 매칭 완료");
+                        }
                         return i;
                     }
-                    nestedLevel--;
                 }
             }
             

@@ -1424,10 +1424,11 @@ namespace SharpPy
                         var targetInstruction = frame.Code.Instructions[targetInstrPos];
                         Console.WriteLine($"🔍 Target instruction at {targetInstrPos}: {targetInstruction.OpCode} (arg: {targetInstruction.Argument})");
                         
-                        // Verify this is a valid loop target (typically FOR_ITER)
-                        if (targetInstruction.OpCode != ByteCodeOp.FOR_ITER && targetInstruction.OpCode != ByteCodeOp.LOAD_CONST)
+                        // Verify this is a valid loop target (FOR_ITER for loops, various opcodes for WHILE loops)
+                        var invalidTargets = new[] { ByteCodeOp.RETURN_VALUE, ByteCodeOp.RETURN_CONST, ByteCodeOp.RAISE_VARARGS };
+                        if (invalidTargets.Contains(targetInstruction.OpCode))
                         {
-                            Console.WriteLine($"⚠️ Warning: JUMP_BACKWARD targeting unexpected instruction {targetInstruction.OpCode}");
+                            Console.WriteLine($"⚠️ Warning: JUMP_BACKWARD targeting potentially invalid instruction {targetInstruction.OpCode}");
                         }
                     }
                     
