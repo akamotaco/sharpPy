@@ -35,6 +35,7 @@ public class PyBuiltinsModule : PyObject
         // 기본 내장 함수들
         BuiltinDict["print"] = new PyBuiltinFunction("print");
         BuiltinDict["len"] = new PyBuiltinFunction("len");
+        BuiltinDict["repr"] = new PyBuiltinFunction("repr");
         BuiltinDict["abs"] = new PyBuiltinFunction("abs");
         BuiltinDict["callable"] = new PyBuiltinFunction("callable");
         

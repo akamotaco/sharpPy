@@ -59,6 +59,7 @@ namespace SharpPy
                 "super" => CallSuper(args),
                 "type.__new__" => CallTypeNew(args),
                 "str" => CallStr(args),
+                "repr" => CallRepr(args),
                 "int" => CallInt(args),
                 "float" => CallFloat(args),
                 "bool" => CallBool(args),
@@ -2060,6 +2061,20 @@ namespace SharpPy
             {
                 throw PyTypeError.Create($"a bytes-like object is required, not '{obj.GetTypeName()}'");
             }
+        }
+
+        /// <summary>
+        /// repr() built-in function - returns a printable representation of an object
+        /// </summary>
+        private PyObject CallRepr(PyObject[] args)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"repr() takes exactly one argument ({args.Length} given)");
+
+            var obj = args[0];
+            
+            // Use the object's ToRepr() method, which should provide the canonical string representation
+            return new PyString(obj.ToRepr());
         }
 
         #endregion
