@@ -1322,7 +1322,8 @@ namespace SharpPy
             
             if (Match(TokenType.IDENTIFIER))
             {
-                var identifierName = Previous().Lexeme;
+                var identifierToken = Previous();
+                var identifierName = identifierToken.Lexeme;
                 
                 // f-string (enhanced support)
                 if (identifierName == "f" && Check(TokenType.STRING))
@@ -1333,7 +1334,9 @@ namespace SharpPy
                 }
                 
                 // Regular identifier
-                return new NameExpression(identifierName);
+                var nameExpr = new NameExpression(identifierName);
+                SetSourceLocation(nameExpr, identifierToken);
+                return nameExpr;
             }
             
             // Handle 'type' keyword as identifier in expressions (for metaclass usage)
@@ -3499,6 +3502,25 @@ namespace SharpPy
         private PyToken Previous()
         {
             return _tokens[_current - 1];
+        }
+        
+        /// <summary>
+        /// Set source location information on AST node from current token
+        /// </summary>
+        private void SetSourceLocation(ASTNode node)
+        {
+            var currentToken = Peek();
+            node.LineNo = currentToken.Line;
+            node.ColOffset = currentToken.Column;
+        }
+        
+        /// <summary>
+        /// Set source location information on AST node from specific token
+        /// </summary>
+        private void SetSourceLocation(ASTNode node, PyToken token)
+        {
+            node.LineNo = token.Line;
+            node.ColOffset = token.Column;
         }
         
         // CPython 3.12-style error reporting

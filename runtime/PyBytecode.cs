@@ -380,12 +380,16 @@ namespace SharpPy
         // CPython 3.12 Exception Table 지원
         public List<ExceptionTableEntry> ExceptionTable { get; set; } = new List<ExceptionTableEntry>();
         
+        // Line Number Table: instruction offset → source line number mapping
+        public Dictionary<int, int> LineNumberTable { get; set; } = new Dictionary<int, int>();
+        
         public PyCodeObject(string name, List<ByteCodeInstruction> instructions, 
                         List<PyObject> constants, List<string> names, 
                         List<string> varNames, int argCount = 0,
                         List<string> freeVars = null, List<string> cellVars = null,
                         List<PyObject> defaultValues = null, int flags = 0, string fileName = null,
-                        List<string> sourceLines = null, bool isOptimized = false)
+                        List<string> sourceLines = null, bool isOptimized = false,
+                        Dictionary<int, int> lineNumberTable = null)
         {
             Name = name;
             Instructions = instructions;
@@ -401,6 +405,7 @@ namespace SharpPy
             CellVars = cellVars ?? new List<string>();
             DefaultValues = defaultValues ?? new List<PyObject>();
             ExceptionTable = new List<ExceptionTableEntry>(); // 기본값 설정
+            LineNumberTable = lineNumberTable ?? new Dictionary<int, int>();
         }
         
         // ExceptionTable을 포함한 생성자

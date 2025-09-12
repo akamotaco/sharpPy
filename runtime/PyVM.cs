@@ -442,7 +442,12 @@ namespace SharpPy
                     var instruction = frame.Code.Instructions[frame.InstructionPointer];
                     
                     // CPython-style error location tracking: Update current execution location
-                    if (instruction.LineNumber > 0)
+                    // First try from LineNumberTable (more accurate), then from instruction
+                    if (frame.Code.LineNumberTable.TryGetValue(frame.InstructionPointer, out var lineFromTable))
+                    {
+                        frame.CurrentLineNumber = lineFromTable;
+                    }
+                    else if (instruction.LineNumber > 0)
                     {
                         frame.CurrentLineNumber = instruction.LineNumber;
                     }

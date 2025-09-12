@@ -1549,16 +1549,33 @@ namespace SharpPy
                                 }
                                 
                                 // CPython 3.12: zero-argument super() needs __class__ and self/cls
+                                // Check if we have a 'self' parameter in the current frame (instance method)
+                                PyObject instance = null;
+                                if (currentFrame.Code.VarNames.Count > 0)
+                                {
+                                    var firstParam = currentFrame.Code.VarNames[0];
+                                    if (firstParam == "self" && currentFrame.FastLocals.TryGetValue("self", out var selfValue))
+                                    {
+                                        instance = selfValue;
+                                        Console.WriteLine($"🔍 Found 'self' parameter: {instance}");
+                                    }
+                                    else if (firstParam == "cls" && currentFrame.FastLocals.TryGetValue("cls", out var clsValue))
+                                    {
+                                        instance = clsValue;
+                                        Console.WriteLine($"🔍 Found 'cls' parameter: {instance}");
+                                    }
+                                }
+                                
                                 if (classValue is PyType pyType)
                                 {
                                     // Create a proper super proxy object for PyType
-                                    return new PySuperProxy(pyType, null); // No instance for static calls
+                                    return new PySuperProxy(pyType, instance);
                                 }
                                 else if (classValue is PyClass pyClass)
                                 {
-                                    // Create a proper super proxy object for PyClass (metaclass case)
+                                    // Create a proper super proxy object for PyClass 
                                     // PyClass inherits from PyType, so we can use it directly
-                                    return new PySuperProxy(pyClass, null); // No instance for metaclass methods
+                                    return new PySuperProxy(pyClass, instance);
                                 }
                                 else
                                 {

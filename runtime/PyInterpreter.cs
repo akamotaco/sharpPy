@@ -10,6 +10,10 @@ namespace SharpPy
         private readonly PyVM _vm;
         private readonly PyScopeChain _globalScope;
         
+        // For Python-like error reporting
+        private string _currentFileName;
+        private string[] _sourceLines;
+        
         public IntegratedPythonInterpreter()
         {
             _parser = new SimpleParser();
@@ -42,6 +46,10 @@ namespace SharpPy
         
         public PyObject Execute(string sourceCode, string fileName)
         {
+            // Store filename and source lines for Python-like error reporting
+            _currentFileName = fileName;
+            _sourceLines = sourceCode.Split(new[] { '\r', '\n' }, StringSplitOptions.None);
+            
             // Verbose 모드일 때만 상세 디버그 정보 출력
             if (SharpPyConfig.ShouldShowDebugInfo)
             {
@@ -124,10 +132,119 @@ namespace SharpPy
             {
                 if (SharpPyConfig.ShouldShowErrors)
                 {
-                    Console.WriteLine($"\n💥 실행 오류: {e.Message}");
+                    PrintPythonStyleTraceback(e);
                 }
                 throw;
             }
+        }
+        
+        /// <summary>
+        /// Print Python-style traceback with filename, line numbers, and source code
+        /// </summary>
+        private void PrintPythonStyleTraceback(Exception e)
+        {
+            Console.WriteLine("Traceback (most recent call last):");
+            
+            // Get current execution frame from VM
+            var currentFrame = PyVM.CurrentFrame;
+            if (currentFrame != null && currentFrame.CurrentLineNumber > 0)
+            {
+                var fileName = _currentFileName ?? "<stdin>";
+                var functionName = currentFrame.Code.Name ?? "<module>";
+                var lineNumber = currentFrame.CurrentLineNumber;
+                
+                Console.WriteLine($"  File \"{fileName}\", line {lineNumber}, in {functionName}");
+                
+                // Show actual source line if available
+                if (_sourceLines != null && lineNumber > 0 && lineNumber <= _sourceLines.Length)
+                {
+                    var sourceLine = _sourceLines[lineNumber - 1].Trim(); // Convert to 0-based index
+                    Console.WriteLine($"    {sourceLine}");
+                    
+                    // Add ^^^ markers if column information is available
+                    if (currentFrame.CurrentColumnOffset >= 0)
+                    {
+                        var leadingSpaces = _sourceLines[lineNumber - 1].Length - sourceLine.Length; // Account for trimmed whitespace
+                        var adjustedColumn = Math.Max(0, currentFrame.CurrentColumnOffset - leadingSpaces);
+                        var markers = new string(' ', Math.Min(adjustedColumn, sourceLine.Length)) + "^";
+                        
+                        // Extend markers if we can identify the token length
+                        var errorWord = GetErrorWordFromException(e);
+                        if (!string.IsNullOrEmpty(errorWord) && sourceLine.Contains(errorWord))
+                        {
+                            var wordIndex = sourceLine.IndexOf(errorWord);
+                            if (wordIndex >= 0 && Math.Abs(wordIndex - adjustedColumn) <= 5) // Close enough
+                            {
+                                markers = new string(' ', wordIndex) + new string('^', errorWord.Length);
+                            }
+                        }
+                        
+                        Console.WriteLine($"    {markers}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"    # Source line not available (line {lineNumber})");
+                }
+            }
+            else
+            {
+                var fileName = _currentFileName ?? "<stdin>";
+                Console.WriteLine($"  File \"{fileName}\", line ?, in <module>");
+                Console.WriteLine($"    # Line information not available");
+            }
+            
+            // Show the exception type and message (Python-style)
+            var exceptionTypeName = e.GetType().Name;
+            
+            // Convert C# exception types to Python exception types
+            var pythonExceptionType = exceptionTypeName switch
+            {
+                "PyNameError" => "NameError",
+                "PyTypeError" => "TypeError",
+                "PyValueError" => "ValueError",
+                "PyAttributeError" => "AttributeError",
+                "PyKeyError" => "KeyError",
+                "PyIndexError" => "IndexError",
+                _ when e.Message.Contains("not defined") => "NameError",
+                _ when e.Message.Contains("not found") => "NameError", 
+                _ when e.Message.Contains("has no attribute") => "AttributeError",
+                _ when e.Message.Contains("required argument") => "TypeError",
+                _ => "RuntimeError"
+            };
+            
+            Console.WriteLine($"{pythonExceptionType}: {e.Message}");
+        }
+        
+        /// <summary>
+        /// Extract the problematic word/token from exception message for better ^^^ marker positioning
+        /// </summary>
+        private string GetErrorWordFromException(Exception e)
+        {
+            var message = e.Message;
+            
+            // Extract variable name from NameError: "name 'variable_name' is not defined"
+            if (message.Contains("not defined"))
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(message, @"name '([^']+)' is not defined");
+                if (match.Success) return match.Groups[1].Value;
+            }
+            
+            // Extract attribute name from AttributeError: "object has no attribute 'attribute_name'"
+            if (message.Contains("has no attribute"))
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(message, @"has no attribute '([^']+)'");
+                if (match.Success) return match.Groups[1].Value;
+            }
+            
+            // Extract argument name from TypeError: "missing required argument: 'argument_name'"
+            if (message.Contains("required argument"))
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(message, @"required argument: '([^']+)'");
+                if (match.Success) return match.Groups[1].Value;
+            }
+            
+            return "";
         }
         
         // 대화형 실행 (REPL 스타일)

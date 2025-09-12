@@ -496,6 +496,7 @@ namespace SharpPy
         private int _currentColumnOffset = -1;   // Current column offset being compiled
         private string? _currentFileName = null;  // Current source file name
         private List<string>? _sourceLines = null; // Source code lines for error reporting
+        private Dictionary<int, int> _lineNumberTable = new Dictionary<int, int>(); // instruction offset → line number mapping
         
         // Phase 2: 클로저 지원
         private List<string> _cellVars = new List<string>();
@@ -611,6 +612,7 @@ namespace SharpPy
             _names = new List<string>();
             _varNames = new List<string>();
             _exceptionTable = new List<ExceptionTableEntry>(); // Reset Exception Table
+            _lineNumberTable = new Dictionary<int, int>(); // Reset line number table
             
             // Set current file name for source location tracking
             _currentFileName = fileName;
@@ -669,7 +671,7 @@ namespace SharpPy
             EmitLoadConst(PyNone.Instance);
             EmitInstruction(ByteCodeOp.RETURN_VALUE);
             
-            var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, parameters.Count, null, null, null, 0, _currentFileName, _sourceLines);
+            var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, parameters.Count, null, null, null, 0, _currentFileName, _sourceLines, false, _lineNumberTable);
             
             // Resolve Exception Table labels to offsets (CPython 3.12 compatible)
             ResolveExceptionTable();
@@ -1928,7 +1930,14 @@ namespace SharpPy
         
         private void EmitInstruction(ByteCodeOp opCode, int argument = 0)
         {
+            var instructionOffset = _instructions.Count;
             _instructions.Add(new ByteCodeInstruction(opCode, argument, _currentLineNumber, _currentColumnOffset, _currentFileName));
+            
+            // Add to line number table if line number is valid
+            if (_currentLineNumber >= 0)
+            {
+                _lineNumberTable[instructionOffset] = _currentLineNumber;
+            }
         }
         
         /// <summary>
