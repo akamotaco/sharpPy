@@ -338,11 +338,17 @@ public class PyScope
 
         public void PopScope()
         {
+            Console.WriteLine($"🔍 PopScope called: Current scope = {CurrentScope?.Type} '{CurrentScope?.Name}'");
             if (_normalScopes.Count > 1) // Global 유지
             {
                 var removed = _normalScopes.Last();
                 _normalScopes.RemoveAt(_normalScopes.Count - 1);
-                Console.WriteLine($"🗑️ 스코프 제거: {removed}");
+                Console.WriteLine($"🗑️ 스코프 제거: {removed.Type} '{removed.Name}' ({removed.Variables.Count} vars)");
+                Console.WriteLine($"📂 새 현재 스코프: {CurrentScope?.Type} '{CurrentScope?.Name}'");
+            }
+            else
+            {
+                Console.WriteLine($"📂 PopScope 스킵: 최소 스코프 수준 (count={_normalScopes.Count})");
             }
         }
 
@@ -413,6 +419,8 @@ public class PyScope
 
         public void AssignVariable(string name, PyObject value, HashSet<string> globalVars = null)
         {
+            Console.WriteLine($"🔍 AssignVariable Debug: name={name}, CurrentScope={CurrentScope?.Name}, Type={CurrentScope?.Type}");
+            
             if (globalVars?.Contains(name) == true)
             {
                 GlobalScope.SetVariable(name, value);
@@ -423,6 +431,13 @@ public class PyScope
             {
                 GlobalScope.SetVariable(name, value);
                 Console.WriteLine($"📝 Module → Global 변수 할당: {name} = {value}");
+            }
+            // **추가 수정**: 클래스 바디 스코프에서 정의된 함수는 Global로 처리 (임시 해결책)
+            else if (CurrentScope != null && CurrentScope.Name.StartsWith("<class_body_") && CurrentScope.Type == ScopeType.Local)
+            {
+                // 클래스 바디에서 정의되는 함수들을 Global로 처리
+                GlobalScope.SetVariable(name, value);
+                Console.WriteLine($"📝 ClassBody → Global 변수 할당: {name} = {value} (from scope: {CurrentScope.Name})");
             }
             else if (CurrentScope != null)
             {

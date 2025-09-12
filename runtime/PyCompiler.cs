@@ -1666,6 +1666,10 @@ namespace SharpPy
                     CompileSliceExpression(sliceExp);
                     break;
                     
+                case KeywordExpression keyword:
+                    CompileKeywordExpression(keyword);
+                    break;
+                    
                 default:
                     throw PyNotImplementedError.Create($"Expression {expression.GetType().Name} not implemented");
             }
@@ -6458,6 +6462,17 @@ namespace SharpPy
                 // BUILD_SLICE 2 (start, stop)
                 EmitInstruction(ByteCodeOp.BUILD_SLICE, 2);
             }
+        }
+
+        /// <summary>
+        /// 키워드 표현식 컴파일 (arg=value)
+        /// 데코레이터나 함수 호출에서 키워드 인자로 사용됨
+        /// </summary>
+        private void CompileKeywordExpression(KeywordExpression keyword)
+        {
+            // 키워드 표현식은 단순히 값 부분만 컴파일
+            // 키워드명(Arg)은 호출자에서 별도로 처리함
+            CompileExpression(keyword.Value);
         }
         
         #endregion

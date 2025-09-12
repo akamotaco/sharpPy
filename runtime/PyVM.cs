@@ -851,7 +851,8 @@ namespace SharpPy
                 case ByteCodeOp.STORE_GLOBAL:
                     var storeGlobalName = frame.Code.Names[instruction.Argument];
                     var storeGlobalValue = frame.ValueStack.Pop();
-                    frame.ScopeChain.GlobalScope.SetVariable(storeGlobalName, storeGlobalValue);
+                    // Use AssignVariable to handle scope issues consistently
+                    frame.ScopeChain.AssignVariable(storeGlobalName, storeGlobalValue);
                     break;
                     
                 // Duplicate LOAD_GLOBAL case removed (was LOAD_GLOBAL_BUILTIN)
@@ -1237,11 +1238,13 @@ namespace SharpPy
                             functionObject = PyFunction.CreateClosureFunction(pyCode.Name, pyCode, closure, frame.ScopeChain);
                             // Override implementation to use our parameter binding
                             functionObject = new PyFunction(pyCode.Name, implementation, null, null, closure, pyCode);
+                            functionObject.ParentScope = frame.ScopeChain;
                         }
                         else
                         {
                             // Create regular function without closure
                             functionObject = new PyFunction(pyCode.Name, implementation, null, null, closure, pyCode);
+                            functionObject.ParentScope = frame.ScopeChain;
                         }
                         
                             // Set CPython 3.12 compatible function attributes

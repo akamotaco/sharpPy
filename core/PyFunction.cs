@@ -120,7 +120,8 @@ public partial class PyFunction : PyObject, IDescriptor
         var vm = PyVM.Instance;
         
         // 제너레이터 실행용 Frame 생성 (한 번만 생성하여 재사용)
-        var frame = new PyFrame(CodeObject, args, null, Closure);
+        // Generator는 정의된 모듈의 GlobalScope를 유지해야 함
+        var frame = new PyFrame(CodeObject, args, ParentScope, Closure);
         frame.IsGenerator = true;  // CPython 3.12: generator frame 표시
         
         // CPython 3.12 완전 호환 PyGenerator 사용

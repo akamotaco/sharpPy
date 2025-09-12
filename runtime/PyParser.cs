@@ -420,15 +420,16 @@ namespace SharpPy
             List<Expression>? arguments = null;
             if (Match(TokenType.LEFT_PAREN))
             {
-                arguments = new List<Expression>();
-                if (!Check(TokenType.RIGHT_PAREN))
+                // 함수 호출과 동일한 방식으로 인자 파싱 (키워드 인자 지원)
+                var (args, keywords) = ParseFunctionCallArguments();
+                ConsumeEnhanced(TokenType.RIGHT_PAREN, "after decorator arguments");
+                
+                // 데코레이터의 경우 키워드 인자도 일반 arguments 리스트에 포함시킴
+                arguments = new List<Expression>(args);
+                if (keywords != null)
                 {
-                    do
-                    {
-                        arguments.Add(ParseExpression());
-                    } while (Match(TokenType.COMMA));
+                    arguments.AddRange(keywords);
                 }
-                Consume(TokenType.RIGHT_PAREN, "Expected ')' after decorator arguments");
             }
             
             return new DecoratorExpression(decoratorFunc, arguments);
