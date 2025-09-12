@@ -46,7 +46,7 @@ namespace SharpPy
 
     // CPython 3.12 완전 호환 바이트코드 명령어
     // 출처: CPython 3.12.0 dis.opname
-    public enum ByteCodeOp : byte
+    public enum ByteCodeOp : int
     {
         // CPython 3.12 정확한 opcode 번호 매핑
         CACHE = 0,
@@ -247,13 +247,54 @@ namespace SharpPy
         INSTRUMENTED_END_FOR = 251,
         INSTRUMENTED_END_SEND = 252,
         INSTRUMENTED_INSTRUCTION = 253,
-        INSTRUMENTED_LINE = 254
+        INSTRUMENTED_LINE = 254,
         
         // 255: Reserved
         
+        // =============================================================================
+        // CPython 3.12 Adaptive Specialization - Specialized Instructions
+        // Range: 300-399 (SharpPy specific range for specialized operations)
+        // =============================================================================
+        
+        // Binary Operation Specializations (300-309)
+        BINARY_ADD_INT = 300,
+        BINARY_ADD_FLOAT = 301,
+        BINARY_ADD_UNICODE = 302,
+        BINARY_MULTIPLY_INT = 303,
+        BINARY_MULTIPLY_FLOAT = 304,
+        BINARY_SUBTRACT_INT = 305,
+        BINARY_SUBTRACT_FLOAT = 306,
+        BINARY_TRUE_DIVIDE_FLOAT = 307,
+        BINARY_FLOOR_DIVIDE_INT = 308,
+        BINARY_MODULO_INT = 309,
+        
+        // Method Call Specializations (310-319)
+        CALL_LIST_APPEND = 310,
+        CALL_DICT_GET = 311,
+        CALL_STR_UPPER = 312,
+        CALL_STR_LOWER = 313,
+        CALL_STR_STRIP = 314,
+        CALL_LEN_LIST = 315,
+        CALL_LEN_STR = 316,
+        CALL_TYPE_1 = 317,
+        CALL_ISINSTANCE = 318,
+        CALL_BUILTIN_FAST = 319,
+        
+        // Global/Attribute Access Specializations (320-329)
+        LOAD_GLOBAL_BUILTIN = 320,
+        LOAD_GLOBAL_MODULE = 321,
+        STORE_ATTR_INSTANCE_VALUE = 322,
+        LOAD_ATTR_INSTANCE_VALUE = 323,
+        STORE_SUBSCR_LIST_INT = 324,
+        LOAD_SUBSCR_LIST_INT = 325,
+        STORE_SUBSCR_DICT_STR = 326,
+        LOAD_SUBSCR_DICT_STR = 327,
+        FOR_ITER_LIST = 328,
+        FOR_ITER_TUPLE = 329
+        
         // =============================================================================  
-        // 이 enum은 CPython 3.12.0과 100% 호환됩니다
-        // 모든 opcode 번호는 CPython 3.12의 dis.opname과 정확히 일치합니다
+        // 이 enum은 CPython 3.12.0과 100% 호환됩니다 (기본 범위)
+        // 특수화된 명령어는 SharpPy 확장 (300+)
         // =============================================================================
     }
 

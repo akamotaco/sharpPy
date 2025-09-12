@@ -1614,6 +1614,15 @@ namespace SharpPy
                     // 별표 처리는 문맥에 따라 다름
                     break;
                     
+                // Type-aware optimized expressions (Phase 2)
+                case TypeSpecializedBinaryOpExpression specializedBinOp:
+                    CompileTypeSpecializedBinaryOp(specializedBinOp);
+                    break;
+                    
+                case InlinedMethodCallExpression inlinedCall:
+                    CompileInlinedMethodCall(inlinedCall);
+                    break;
+                    
                 // Python 3.12 Type Parameters
                 case TypeVarExpression typeVar:
                     EmitLoadConst(new PyString(typeVar.Name));
@@ -3547,6 +3556,101 @@ namespace SharpPy
             {
                 CompileStatement(statement);
             }
+        }
+        
+        /// <summary>
+        /// Compile type-specialized binary operation
+        /// </summary>
+        private void CompileTypeSpecializedBinaryOp(TypeSpecializedBinaryOpExpression specializedBinOp)
+        {
+            CompileExpression(specializedBinOp.Left);
+            CompileExpression(specializedBinOp.Right);
+            
+            // 타입에 따른 특수화된 바이트코드 생성
+            var opCode = GetSpecializedBinaryOpCode(specializedBinOp.LeftType, specializedBinOp.RightType, specializedBinOp.Operator);
+            
+            if (opCode != ByteCodeOp.NOP)
+            {
+                // 특수화된 명령어 사용
+                EmitInstruction(opCode);
+                Console.WriteLine($"🚀 Type-specialized: {specializedBinOp.LeftType} {specializedBinOp.Operator} {specializedBinOp.RightType} → {opCode}");
+            }
+            else
+            {
+                // 일반 이진 연산 사용
+                var binaryOp = GetSpecializedBinaryOpCode(specializedBinOp.LeftType, specializedBinOp.RightType, specializedBinOp.Operator);
+                EmitInstruction(ByteCodeOp.BINARY_OP, (int)binaryOp);
+            }
+        }
+        
+        /// <summary>
+        /// 타입 기반 특수화된 바이트코드 결정
+        /// </summary>
+        private ByteCodeOp GetSpecializedBinaryOpCode(PyTypeInfo leftType, PyTypeInfo rightType, string op)
+        {
+            // 정수 연산 특수화
+            if (leftType.IsInt && rightType.IsInt)
+            {
+                return op switch
+                {
+                    "+" => ByteCodeOp.BINARY_OP, // 향후 BINARY_ADD_INT로 확장
+                    "-" => ByteCodeOp.BINARY_OP, // 향후 BINARY_SUB_INT로 확장
+                    "*" => ByteCodeOp.BINARY_OP, // 향후 BINARY_MUL_INT로 확장
+                    _ => ByteCodeOp.NOP
+                };
+            }
+            
+            // 문자열 연산 특수화
+            if (leftType.IsString && rightType.IsString && op == "+")
+            {
+                return ByteCodeOp.BINARY_OP; // 향후 BINARY_ADD_STR로 확장
+            }
+            
+            return ByteCodeOp.NOP;
+        }
+        
+        /// <summary>
+        /// Compile inlined method call
+        /// </summary>
+        private void CompileInlinedMethodCall(InlinedMethodCallExpression inlinedCall)
+        {
+            CompileExpression(inlinedCall.Target);
+            
+            // 인수들 컴파일
+            foreach (var arg in inlinedCall.Arguments)
+            {
+                CompileExpression(arg);
+            }
+            
+            // 인라인된 메서드에 특화된 바이트코드 생성
+            var opCode = GetInlinedMethodOpCode(inlinedCall.ObjectType, inlinedCall.MethodName);
+            
+            if (opCode != ByteCodeOp.NOP)
+            {
+                EmitInstruction(opCode, inlinedCall.Arguments.Count);
+                Console.WriteLine($"🚀 Method inlined: {inlinedCall.ObjectType}.{inlinedCall.MethodName}() → {opCode}");
+            }
+            else
+            {
+                // 일반 메서드 호출 사용
+                EmitLoadConst(new PyString(inlinedCall.MethodName));
+                EmitInstruction(ByteCodeOp.CALL, inlinedCall.Arguments.Count);
+            }
+        }
+        
+        /// <summary>
+        /// 인라인된 메서드에 대한 특수화된 바이트코드 결정
+        /// </summary>
+        private ByteCodeOp GetInlinedMethodOpCode(string objectType, string methodName)
+        {
+            return (objectType, methodName) switch
+            {
+                ("str", "upper") => ByteCodeOp.CALL, // 향후 STR_UPPER로 확장
+                ("str", "lower") => ByteCodeOp.CALL, // 향후 STR_LOWER로 확장
+                ("list", "append") => ByteCodeOp.CALL, // 향후 LIST_APPEND로 확장
+                ("dict", "get") => ByteCodeOp.CALL, // 향후 DICT_GET로 확장
+                _ => ByteCodeOp.NOP
+            };
         }
         
         /// <summary>
@@ -6255,8 +6359,8 @@ namespace SharpPy
                 return OptimizationLevel.Disabled;
                 
             // 환경변수나 설정에 따라 레벨 조정 가능
-            // 현재는 Standard 레벨을 기본으로 사용
-            return OptimizationLevel.Standard;
+            // Phase 2 테스트를 위해 TypeAware 레벨 사용
+            return OptimizationLevel.TypeAware;
         }
         
         #endregion

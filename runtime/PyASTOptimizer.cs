@@ -242,25 +242,30 @@ namespace SharpPy
         /// </summary>
         private void RegisterOptimizationRules()
         {
-            // Constant folding rules
+            // Basic optimizations (Level: Basic+)
             RegisterRule<BinaryOpExpression>(new ConstantFoldingRule());
             RegisterRule<UnaryOpExpression>(new UnaryConstantFoldingRule());
-            
-            // Dead code elimination rules  
             RegisterRule<IfStatement>(new DeadBranchEliminationRule());
             RegisterRule<WhileStatement>(new DeadLoopEliminationRule());
-            
-            // Boolean expression simplification
             RegisterRule<BinaryOpExpression>(new BooleanSimplificationRule());
             
-            // Algebraic simplification
+            // Standard optimizations (Level: Standard+)
             if (_level >= OptimizationLevel.Standard)
             {
                 RegisterRule<BinaryOpExpression>(new AlgebraicSimplificationRule());
                 RegisterRule<CallExpression>(new BuiltinCallOptimizationRule());
+                RegisterRule<CallExpression>(new ContainerSizeOptimizationRule(_typeInference));
             }
             
-            // Advanced optimizations
+            // Type-aware optimizations (Level: TypeAware+)
+            if (_level >= OptimizationLevel.TypeAware)
+            {
+                RegisterRule<BinaryOpExpression>(new TypeSpecializedBinaryOpRule(_typeInference));
+                RegisterRule<CallExpression>(new BuiltinMethodInliningRule(_typeInference));
+                RegisterRule<CallExpression>(new TypeGuardEliminationRule(_typeInference));
+            }
+            
+            // Aggressive optimizations (Level: Aggressive)
             if (_level >= OptimizationLevel.Aggressive)
             {
                 RegisterRule<ForStatement>(new LoopUnrollingRule());
@@ -328,23 +333,26 @@ namespace SharpPy
     /// </summary>
     public class TypeInferenceEngine
     {
-        private readonly Dictionary<string, PyType> _variableTypes;
+        private readonly PyTypeInference _typeInference;
 
         public TypeInferenceEngine()
         {
-            _variableTypes = new Dictionary<string, PyType>();
+            _typeInference = new PyTypeInference();
         }
 
         public void AnalyzeStatements(List<Statement> statements)
         {
-            Console.WriteLine("🔍 타입 추론 분석 시작");
-            // 기본 타입 추론 구현
-            // 추후 확장 예정
+            _typeInference.AnalyzeStatements(statements);
         }
 
-        public PyType GetVariableType(string variableName)
+        public PyTypeInfo GetVariableType(string variableName)
         {
-            return _variableTypes.TryGetValue(variableName, out var type) ? type : null;
+            return _typeInference.GetVariableType(variableName);
+        }
+        
+        public PyTypeInfo GetExpressionType(Expression expr)
+        {
+            return _typeInference.GetExpressionType(expr);
         }
     }
 }

@@ -293,6 +293,9 @@ namespace SharpPy
             Console.WriteLine($"🚀 ExecuteModule (with scopeChain): Starting execution of {codeObject.Name}");
             Console.WriteLine($"   Exception Table entries: {codeObject.ExceptionTable.Count}");
             
+            // CPython 3.12 Adaptive Optimization - 실행 전 최적화 검사
+            codeObject = PyAdaptiveOptimizer.Instance.OptimizeIfNeeded(codeObject);
+            
             // 🔍 실제 VM에서 실행할 바이트코드 출력 (디버그용)
             Console.WriteLine($"\n📋 VM에서 실제 실행할 바이트코드 ({codeObject.Instructions.Count}개 명령어):");
             for (int i = 0; i < codeObject.Instructions.Count; i++)
@@ -862,12 +865,57 @@ namespace SharpPy
                     break;
                     
                 case ByteCodeOp.BINARY_OP:
-                    // CPython 3.12+ unified binary operation
+                    // CPython 3.12+ unified binary operation with adaptive profiling
                     var operation = (BinaryOpType)instruction.Argument;
                     var right = frame.ValueStack.Pop();
                     var left = frame.ValueStack.Pop();
+                    
+                    // Record profiling data for adaptive specialization
+                    var location = $"{frame.Code.Name}_{frame.InstructionPointer}";
+                    var opName = operation.ToString().ToLower().Replace("_", "");
+                    if (opName == "truedivide") opName = "/";
+                    else if (opName == "floordivide") opName = "//";
+                    else if (opName == "add") opName = "+";
+                    else if (opName == "subtract") opName = "-";
+                    else if (opName == "multiply") opName = "*";
+                    else if (opName == "modulo") opName = "%";
+                    else if (opName == "power") opName = "**";
+                    
+                    PyAdaptiveProfile.Instance.RecordBinaryOp(location, left, right, opName);
+                    
                     var result = ExecuteBinaryOpType(left, right, operation);
                     frame.ValueStack.Push(result);
+                    break;
+
+                // Specialized Binary Operations - CPython 3.12 Adaptive Specialization
+                case ByteCodeOp.BINARY_ADD_INT:
+                    var rightInt = ((PyInt)frame.ValueStack.Pop()).Value;
+                    var leftInt = ((PyInt)frame.ValueStack.Pop()).Value;
+                    frame.ValueStack.Push(new PyInt(leftInt + rightInt));
+                    break;
+
+                case ByteCodeOp.BINARY_ADD_FLOAT:
+                    var rightFloat = ((PyFloat)frame.ValueStack.Pop()).Value;
+                    var leftFloat = ((PyFloat)frame.ValueStack.Pop()).Value;
+                    frame.ValueStack.Push(new PyFloat(leftFloat + rightFloat));
+                    break;
+
+                case ByteCodeOp.BINARY_ADD_UNICODE:
+                    var rightStr = ((PyString)frame.ValueStack.Pop()).Value;
+                    var leftStr = ((PyString)frame.ValueStack.Pop()).Value;
+                    frame.ValueStack.Push(new PyString(leftStr + rightStr));
+                    break;
+
+                case ByteCodeOp.BINARY_MULTIPLY_INT:
+                    var rightMulInt = ((PyInt)frame.ValueStack.Pop()).Value;
+                    var leftMulInt = ((PyInt)frame.ValueStack.Pop()).Value;
+                    frame.ValueStack.Push(new PyInt(leftMulInt * rightMulInt));
+                    break;
+
+                case ByteCodeOp.BINARY_MULTIPLY_FLOAT:
+                    var rightMulFloat = ((PyFloat)frame.ValueStack.Pop()).Value;
+                    var leftMulFloat = ((PyFloat)frame.ValueStack.Pop()).Value;
+                    frame.ValueStack.Push(new PyFloat(leftMulFloat * rightMulFloat));
                     break;
                     
                 // ===============================================
@@ -952,6 +1000,48 @@ namespace SharpPy
                     
                     // CPython 3.12: Clear keyword names after call
                     frame.KeywordNamesForNextCall = null;
+                    break;
+
+                // Specialized Method Calls - CPython 3.12 Adaptive Specialization
+                case ByteCodeOp.CALL_LIST_APPEND:
+                    var appendArg = frame.ValueStack.Pop();
+                    var appendList = (PyList)frame.ValueStack.Pop();
+                    frame.ValueStack.Pop(); // Pop the null (PUSH_NULL)
+                    appendList.Add(appendArg);
+                    frame.ValueStack.Push(PyNone.Instance);
+                    break;
+
+                case ByteCodeOp.CALL_DICT_GET:
+                    var getDefault = frame.ValueStack.Pop();  // default value
+                    var getKey = frame.ValueStack.Pop();      // key
+                    var getDict = (PyDict)frame.ValueStack.Pop();  // dict
+                    frame.ValueStack.Pop(); // Pop the null (PUSH_NULL)
+                    var getValue = getDict.Get(getKey, getDefault);
+                    frame.ValueStack.Push(getValue);
+                    break;
+
+                case ByteCodeOp.CALL_STR_UPPER:
+                    var upperStr = (PyString)frame.ValueStack.Pop();
+                    frame.ValueStack.Pop(); // Pop the null (PUSH_NULL)
+                    frame.ValueStack.Push(new PyString(upperStr.Value.ToUpper()));
+                    break;
+
+                case ByteCodeOp.CALL_STR_LOWER:
+                    var lowerStr = (PyString)frame.ValueStack.Pop();
+                    frame.ValueStack.Pop(); // Pop the null (PUSH_NULL)
+                    frame.ValueStack.Push(new PyString(lowerStr.Value.ToLower()));
+                    break;
+
+                case ByteCodeOp.CALL_LEN_LIST:
+                    var lenList = (PyList)frame.ValueStack.Pop();
+                    frame.ValueStack.Pop(); // Pop the null (PUSH_NULL)
+                    frame.ValueStack.Push(new PyInt(lenList.Length()));
+                    break;
+
+                case ByteCodeOp.CALL_LEN_STR:
+                    var lenStr = (PyString)frame.ValueStack.Pop();
+                    frame.ValueStack.Pop(); // Pop the null (PUSH_NULL)
+                    frame.ValueStack.Push(new PyInt(lenStr.Value.Length));
                     break;
                     
                 case ByteCodeOp.RESUME:
@@ -1722,6 +1812,68 @@ namespace SharpPy
                     {
                         Console.WriteLine($"💥 FOR_ITER error: {ex.Message}");
                         throw;
+                    }
+                    break;
+
+                // Specialized Loop Operations - CPython 3.12 Adaptive Specialization
+                case ByteCodeOp.FOR_ITER_LIST:
+                    // 리스트 전용 최적화된 iteration
+                    var listIter = frame.ValueStack.Peek();
+                    if (listIter is PyListIterator listIterator)
+                    {
+                        try
+                        {
+                            var nextListItem = listIterator.Next();
+                            frame.ValueStack.Push(nextListItem);
+                            Console.WriteLine($"🚀 FOR_ITER_LIST: got next item {nextListItem} (optimized)");
+                        }
+                        catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                        {
+                            Console.WriteLine($"🔚 FOR_ITER_LIST: StopIteration - loop finished (optimized)");
+                            frame.ValueStack.Pop(); // Remove exhausted iterator
+                            
+                            // Jump to END_FOR position
+                            int forIterCurrentByteOffset = PyJumpBackwardUtil.CalculateByteOffset(frame.InstructionPointer, frame.Code.Instructions);
+                            int forIterTargetByteOffset = forIterCurrentByteOffset + instruction.Argument;
+                            int forIterTargetInstrPos = PyJumpBackwardUtil.ByteOffsetToInstructionIndex(forIterTargetByteOffset, frame.Code.Instructions);
+                            
+                            Console.WriteLine($"🔚 FOR_ITER_LIST: Jumping to position {forIterTargetInstrPos} (optimized)");
+                            frame.InstructionPointer = forIterTargetInstrPos - 1;
+                        }
+                    }
+                    else
+                    {
+                        // Fallback to regular FOR_ITER
+                        goto case ByteCodeOp.FOR_ITER;
+                    }
+                    break;
+
+                case ByteCodeOp.FOR_ITER_TUPLE:
+                    // 튜플 전용 최적화된 iteration
+                    var tupleIter = frame.ValueStack.Peek();
+                    if (tupleIter is PyTupleIterator tupleIterator)
+                    {
+                        try
+                        {
+                            var nextTupleItem = tupleIterator.Next();
+                            frame.ValueStack.Push(nextTupleItem);
+                            Console.WriteLine($"🚀 FOR_ITER_TUPLE: got next item {nextTupleItem} (optimized)");
+                        }
+                        catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                        {
+                            Console.WriteLine($"🔚 FOR_ITER_TUPLE: StopIteration - loop finished (optimized)");
+                            frame.ValueStack.Pop();
+                            
+                            int forIterCurrentByteOffset = PyJumpBackwardUtil.CalculateByteOffset(frame.InstructionPointer, frame.Code.Instructions);
+                            int forIterTargetByteOffset = forIterCurrentByteOffset + instruction.Argument;
+                            int forIterTargetInstrPos = PyJumpBackwardUtil.ByteOffsetToInstructionIndex(forIterTargetByteOffset, frame.Code.Instructions);
+                            
+                            frame.InstructionPointer = forIterTargetInstrPos - 1;
+                        }
+                    }
+                    else
+                    {
+                        goto case ByteCodeOp.FOR_ITER;
                     }
                     break;
                     
