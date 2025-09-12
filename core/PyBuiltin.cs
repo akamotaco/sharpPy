@@ -57,6 +57,7 @@ namespace SharpPy
                 "id" => CallId(args),
                 "hash" => CallHash(args),
                 "super" => CallSuper(args),
+                "property" => CallProperty(args),
                 "type.__new__" => CallTypeNew(args),
                 "str" => CallStr(args),
                 "repr" => CallRepr(args),
@@ -1694,6 +1695,30 @@ namespace SharpPy
             {
                 throw PyTypeError.Create($"super expected at most 2 arguments ({args.Length} given)");
             }
+        }
+
+        /// <summary>
+        /// property builtin function implementation
+        /// Creates a property descriptor
+        /// </summary>
+        private PyObject CallProperty(PyObject[] args)
+        {
+            if (args.Length < 1 || args.Length > 4)
+            {
+                throw PyTypeError.Create($"property expected 1 to 4 arguments ({args.Length} given)");
+            }
+
+            PyFunction getter = args[0] as PyFunction;
+            PyFunction setter = args.Length > 1 ? args[1] as PyFunction : null;
+            PyFunction deleter = args.Length > 2 ? args[2] as PyFunction : null;
+            // args[3] would be doc string, but we'll ignore it for now
+
+            if (getter == null)
+            {
+                throw PyTypeError.Create("property() argument 1 must be callable");
+            }
+
+            return new PyProperty(getter, setter, deleter);
         }
 
         /// <summary>

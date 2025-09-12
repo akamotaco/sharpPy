@@ -232,7 +232,9 @@ public class PyModule : PyObject
             ["json"] = () => SharpPy.Modules.Stdlib.JsonModule.CreateJsonModule(),
             ["re"] = () => SharpPy.Modules.Stdlib.RegexModule.CreateRegexModule(),
             ["datetime"] = () => SharpPy.Modules.Stdlib.DatetimeModule.CreateDatetimeModule(),
-            ["urllib"] = () => SharpPy.Modules.Stdlib.UrllibModule.CreateUrllibModule()
+            ["urllib"] = () => SharpPy.Modules.Stdlib.UrllibModule.CreateUrllibModule(),
+            ["abc"] = () => CreateAbcModule(),
+            ["contextlib"] = () => CreateContextlibModule()
         };
 
 
@@ -587,6 +589,27 @@ public class PyModule : PyObject
             }
 
             return result;
+        }
+
+        // abc 모듈 생성
+        private static PyModule CreateAbcModule()
+        {
+            var module = new PyModule("abc", "<abc module>");
+            
+            // abc 모듈의 내용을 AbcModule에서 가져오기
+            var abcContent = SharpPy.Modules.AbcModule.GetModule();
+            foreach (var item in abcContent)
+            {
+                module.ModuleDict[item.Key] = item.Value;
+            }
+            
+            return module;
+        }
+
+        // contextlib 모듈 생성
+        private static PyModule CreateContextlibModule()
+        {
+            return SharpPy.ContextlibModule.Create();
         }
     }
 #endregion

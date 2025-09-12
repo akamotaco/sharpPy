@@ -245,6 +245,91 @@ namespace SharpPy
         public override string ToString() => $"{Target} = {Value}";
     }
 
+    // CPython 3.12: Augmented assignment statement (x += y, obj.attr += z, list[0] += 1)
+    public class AugmentedAssignStatement : Statement
+    {
+        public override string NodeType => "AugAssign";
+        public Expression Target { get; }
+        public string Op { get; }
+        public Expression Value { get; }
+        
+        public AugmentedAssignStatement(Expression target, string op, Expression value)
+        {
+            Target = target;
+            Op = op;
+            Value = value;
+        }
+        
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // x += y is equivalent to x = x + y, but target is evaluated only once
+            PyObject currentValue;
+            
+            switch (Target)
+            {
+                case NameExpression name:
+                    currentValue = scope.GetVariable(name.Name);
+                    break;
+                    
+                case AttributeExpression attr:
+                    var obj = attr.Value.Evaluate(scope);
+                    currentValue = obj.GetAttribute(attr.Attr);
+                    break;
+                    
+                case SubscriptExpression subscript:
+                    var target = subscript.Value.Evaluate(scope);
+                    var index = subscript.Slice.Evaluate(scope);
+                    currentValue = target.GetItem(index);
+                    break;
+                    
+                default:
+                    throw new Exception($"Invalid augmented assignment target: {Target.GetType().Name}");
+            }
+            
+            // Perform binary operation
+            var rightValue = Value.Evaluate(scope);
+            var result = Op switch
+            {
+                "+" => currentValue.Add(rightValue),
+                "-" => currentValue.Subtract(rightValue),
+                "*" => currentValue.Multiply(rightValue),
+                "/" => currentValue.Divide(rightValue),
+                "%" => currentValue.Modulo(rightValue),
+                "//" => currentValue.FloorDivide(rightValue),
+                "**" => currentValue.Power(rightValue),
+                "|" => currentValue.BitwiseOr(rightValue),
+                "&" => currentValue.BitwiseAnd(rightValue),
+                "^" => currentValue.BitwiseXor(rightValue),
+                "<<" => currentValue.LeftShift(rightValue),
+                ">>" => currentValue.RightShift(rightValue),
+                _ => throw new Exception($"Unknown binary operator: {Op}")
+            };
+            
+            // Store result back to target
+            switch (Target)
+            {
+                case NameExpression name:
+                    scope.SetVariable(name.Name, result);
+                    break;
+                    
+                case AttributeExpression attr:
+                    var obj = attr.Value.Evaluate(scope);
+                    obj.SetAttribute(attr.Attr, result);
+                    break;
+                    
+                case SubscriptExpression subscript:
+                    var target = subscript.Value.Evaluate(scope);
+                    var index = subscript.Slice.Evaluate(scope);
+                    target.SetItem(index, result);
+                    break;
+            }
+            
+            return result;
+        }
+        
+        public override string ToString() => $"{Target} {Op}= {Value}";
+    }
+
     // Chained assignment statement (a = b = c + d)
     public class ChainedAssignStatement : Statement
     {

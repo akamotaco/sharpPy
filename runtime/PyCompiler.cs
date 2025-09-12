@@ -1232,6 +1232,10 @@ namespace SharpPy
                     CompileAugAssign(augAssign);
                     break;
                     
+                case AugmentedAssignStatement augmentedAssign:
+                    CompileAugmentedAssign(augmentedAssign);
+                    break;
+                    
                 case WalrusStatement walrus:
                     CompileExpression(walrus.Value);
                     EmitInstruction(ByteCodeOp.COPY, 1);  // 값 복사
@@ -2298,6 +2302,77 @@ namespace SharpPy
             
             EmitInstruction(ByteCodeOp.BINARY_OP, (int)binaryOpType);
             EmitStoreName(augAssign.Target);
+        }
+        
+        private void CompileAugmentedAssign(AugmentedAssignStatement augAssign)
+        {
+            // CPython 3.12: Enhanced augmented assignment for complex targets (obj.attr += 1, list[0] += 1)
+            // Pattern: LOAD_target, LOAD_value, BINARY_OP, STORE_target
+            
+            // Load current value from target
+            switch (augAssign.Target)
+            {
+                case NameExpression name:
+                    EmitLoadName(name.Name);
+                    break;
+                    
+                case AttributeExpression attr:
+                    CompileExpression(attr.Value);  // Load object
+                    EmitInstruction(ByteCodeOp.LOAD_ATTR, GetOrAddName(attr.Attr));
+                    break;
+                    
+                case SubscriptExpression subscript:
+                    CompileExpression(subscript.Value);   // Load container
+                    CompileExpression(subscript.Slice);   // Load index
+                    EmitInstruction(ByteCodeOp.BINARY_SUBSCR);
+                    break;
+                    
+                default:
+                    throw new NotImplementedException($"Augmented assignment target '{augAssign.Target.GetType().Name}' not implemented");
+            }
+            
+            // Load right-hand side value
+            CompileExpression(augAssign.Value);
+            
+            // Perform binary operation
+            var binaryOpType = augAssign.Op switch
+            {
+                "+" => BinaryOpType.ADD,
+                "-" => BinaryOpType.SUBTRACT,
+                "*" => BinaryOpType.MULTIPLY,
+                "/" => BinaryOpType.TRUE_DIVIDE,
+                "//" => BinaryOpType.FLOOR_DIVIDE,
+                "%" => BinaryOpType.MODULO,
+                "**" => BinaryOpType.POWER,
+                "<<" => BinaryOpType.LSHIFT,
+                ">>" => BinaryOpType.RSHIFT,
+                "|" => BinaryOpType.OR,
+                "^" => BinaryOpType.XOR,
+                "&" => BinaryOpType.AND,
+                "@" => BinaryOpType.MATRIX_MULTIPLY,
+                _ => throw new NotImplementedException($"Binary operator '{augAssign.Op}' not implemented")
+            };
+            
+            EmitInstruction(ByteCodeOp.BINARY_OP, (int)binaryOpType);
+            
+            // Store result back to target
+            switch (augAssign.Target)
+            {
+                case NameExpression name:
+                    EmitStoreName(name.Name);
+                    break;
+                    
+                case AttributeExpression attr:
+                    CompileExpression(attr.Value);  // Load object again
+                    EmitInstruction(ByteCodeOp.STORE_ATTR, GetOrAddName(attr.Attr));
+                    break;
+                    
+                case SubscriptExpression subscript:
+                    CompileExpression(subscript.Value);   // Load container again
+                    CompileExpression(subscript.Slice);   // Load index again
+                    EmitInstruction(ByteCodeOp.STORE_SUBSCR);
+                    break;
+            }
         }
         
         private void CompileAnnAssign(AnnAssignStatement annAssign)
@@ -5553,7 +5628,7 @@ namespace SharpPy
             var savedIsInComprehension = _isInComprehension;
             _isInComprehension = true;
             
-            // CPython 3.12 패턴: 컴프리헨션 변수 사전 할당 및 정리
+            // CPython 3.12 패턴: 컴프리헨션 변수 사전 할당 및 정리 - 튜플 언패킹 지원
             var comprehensionVars = new List<string>();
             foreach (var gen in listComp.Generators)
             {
@@ -5561,7 +5636,19 @@ namespace SharpPy
                 {
                     comprehensionVars.Add(nameExpr.Name);
                 }
+                else if (gen.Target is TupleExpression tupleExpr)
+                {
+                    foreach (var element in tupleExpr.Elements)
+                    {
+                        if (element is NameExpression elemName)
+                        {
+                            comprehensionVars.Add(elemName.Name);
+                        }
+                    }
+                }
             }
+            
+            Console.WriteLine($"🔧 List comprehension vars: {string.Join(", ", comprehensionVars)} (count: {comprehensionVars.Count})");
             
             // 1. First compile the iterator source (CPython 3.12 pattern)
             var firstGenerator = listComp.Generators[0];
@@ -5578,8 +5665,9 @@ namespace SharpPy
             // CPython 3.12: [iter, var_none] → [var_none, iter] → [var_none, iter, empty_list] → [var_none, empty_list, iter]
             if (comprehensionVars.Count > 0)
             {
-                // CPython 3.12: SWAP 값 = Generator 개수 + 1 (선형 관계)
-                int swapArg = listComp.Generators.Count + 1;
+                // CPython 3.12: SWAP 값 = 실제 컴프리헨션 변수 개수 + 1
+                int swapArg = comprehensionVars.Count + 1;
+                Console.WriteLine($"🔧 Initial SWAP: vars={comprehensionVars.Count}, swapArg={swapArg}");
                 EmitInstruction(ByteCodeOp.SWAP, swapArg); // [iter, var_none] -> [var_none, iter]
             }
             
@@ -5596,10 +5684,30 @@ namespace SharpPy
             var loopStart = _instructions.Count;
             EmitInstruction(ByteCodeOp.FOR_ITER, 0); // 패치 대상
             
-            // 첫 번째 generator의 타겟 변수 저장
+            // 첫 번째 generator의 타겟 변수 저장 - 튜플 언패킹 지원
             if (firstGenerator.Target is NameExpression firstNameExpr)
             {
                 EmitStoreComprehensionVar(firstNameExpr.Name, comprehensionVars);
+            }
+            else if (firstGenerator.Target is TupleExpression tupleExpr)
+            {
+                // CPython 3.12: 튜플 언패킹 패턴 (k, v) for k, v in items()
+                // UNPACK_SEQUENCE + STORE_FAST 패턴 사용
+                Console.WriteLine($"🔧 List comprehension: processing tuple unpacking with {tupleExpr.Elements.Count} elements");
+                EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, tupleExpr.Elements.Count);
+                
+                foreach (var element in tupleExpr.Elements)
+                {
+                    if (element is NameExpression elemName)
+                    {
+                        Console.WriteLine($"    → unpacking element: {elemName.Name}");
+                        EmitStoreComprehensionVar(elemName.Name, comprehensionVars);
+                    }
+                    else
+                    {
+                        throw new Exception("Only name expressions supported in tuple unpacking patterns");
+                    }
+                }
             }
             
             // 첫 번째 generator의 조건 검사 - CPython 3.12 정확한 패턴
@@ -5689,8 +5797,9 @@ namespace SharpPy
             // CPython 3.12: 정상 완료 시 즉시 comprehension 변수 저장 (END_FOR 직후)
             if (comprehensionVars.Count > 0)
             {
-                // CPython 3.12: SWAP 값 = Generator 개수 + 1 (선형 관계)
-                int swapArg = listComp.Generators.Count + 1;
+                // CPython 3.12: SWAP 값 = 실제 컴프리헨션 변수 개수 + 1 (result list)
+                int swapArg = comprehensionVars.Count + 1;
+                Console.WriteLine($"🔧 END_FOR SWAP: vars={comprehensionVars.Count}, swapArg={swapArg}");
                 EmitInstruction(ByteCodeOp.SWAP, swapArg);
                 for (int i = comprehensionVars.Count - 1; i >= 0; i--)
                 {
@@ -5755,6 +5864,24 @@ namespace SharpPy
             {
                 // CPython 3.12: 컴프리헨션 변수는 임시 스코프에 저장
                 EmitStoreComprehensionVar(nameExpr.Name, comprehensionVars);
+            }
+            else if (generator.Target is TupleExpression tupleExpr)
+            {
+                // CPython 3.12: 튜플 언패킹 패턴 (k, v) for k, v in items()
+                // UNPACK_SEQUENCE + STORE_FAST 패턴 사용
+                EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, tupleExpr.Elements.Count);
+                
+                foreach (var element in tupleExpr.Elements)
+                {
+                    if (element is NameExpression elemName)
+                    {
+                        EmitStoreComprehensionVar(elemName.Name, comprehensionVars);
+                    }
+                    else
+                    {
+                        throw PyRuntimeError.Create("Only name expressions supported in tuple unpacking patterns");
+                    }
+                }
             }
             else
             {

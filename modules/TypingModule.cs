@@ -32,6 +32,7 @@ namespace SharpPy
             // 이터레이션 타입들
             AddClass("Iterator", () => new PyTypingIteratorType());
             AddClass("Iterable", () => new PyTypingIterableType());
+            AddClass("Generator", () => new PyTypingGeneratorType());
             
             // PEP 692: TypedDict **kwargs 지원
             AddClass("TypedDict", () => new PyTypedDictType());
@@ -589,6 +590,42 @@ namespace SharpPy
     {
         public PyTypingIterable(List<PyObject> typeArgs) 
             : base($"Iterable[{string.Join(", ", typeArgs)}]", PyType.ObjectType, typeArgs)
+        {
+        }
+    }
+
+    /// <summary>
+    /// typing.Generator 타입
+    /// </summary>
+    public class PyTypingGeneratorType : PyType
+    {
+        public PyTypingGeneratorType() : base("Generator", new PyType[] { PyType.ObjectType })
+        {
+        }
+
+        public override PyObject GetItem(PyObject key)
+        {
+            // Generator[YieldType, SendType, ReturnType]
+            if (key is PyTuple tuple)
+            {
+                return new PyTypingGenerator(tuple.Items.ToList());
+            }
+            else
+            {
+                // Single type argument: Generator[YieldType, None, None]
+                var typeArgs = new List<PyObject> { key, PyNone.Instance, PyNone.Instance };
+                return new PyTypingGenerator(typeArgs);
+            }
+        }
+    }
+
+    /// <summary>
+    /// typing 제네릭 제너레이터 타입
+    /// </summary>
+    public class PyTypingGenerator : PyGenericType
+    {
+        public PyTypingGenerator(List<PyObject> typeArgs) 
+            : base($"Generator[{string.Join(", ", typeArgs)}]", PyType.ObjectType, typeArgs)
         {
         }
     }

@@ -69,6 +69,7 @@ public class PyBuiltinsModule : PyObject
         BuiltinDict["id"] = new PyBuiltinFunction("id");
         BuiltinDict["hash"] = new PyBuiltinFunction("hash");
         BuiltinDict["super"] = new PyBuiltinFunction("super");
+        BuiltinDict["property"] = new PyBuiltinFunction("property");
         
         // CPython 3.12 호환성: 타입들을 PyType으로 등록 (isinstance 지원)
         BuiltinDict["str"] = PyType.StrType;

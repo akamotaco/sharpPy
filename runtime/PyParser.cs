@@ -3062,7 +3062,8 @@ namespace SharpPy
         /// </summary>
         private Statement ParseAugmentedAssignment(Expression target)
         {
-            if (!(target is NameExpression nameExpr))
+            // CPython 3.12: Allow name, attribute, and subscript expressions as targets
+            if (!(target is NameExpression || target is AttributeExpression || target is SubscriptExpression))
             {
                 throw new Exception("Invalid augmented assignment target");
             }
@@ -3088,8 +3089,8 @@ namespace SharpPy
                 _ => throw new Exception($"Unknown augmented assignment operator: {opToken.Type}")
             };
             
-            var binaryExpr = new BinaryOpExpression(nameExpr, opString, value);
-            return new AssignStatement(nameExpr.Name, binaryExpr);
+            // Create augmented assignment statement
+            return new AugmentedAssignStatement(target, opString, value);
         }
 
         /// <summary>
