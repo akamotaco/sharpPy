@@ -1729,7 +1729,20 @@ namespace SharpPy
             compiler.SetupClosureCompilation(cellVars, freeVars); // 셀 변수와 자유 변수 설정
             var funcCode = compiler.CompileWithClosureAndDefaults(func.Body, func.Name, paramNames, defaults, freeVars, cellVars, flags);
             
-            // 3. 자유 변수가 있는 경우 클로저 생성
+            // 3. CPython 3.12 호환: MAKE_FUNCTION 스택 순서 맞추기
+            // 기본값이 있는 경우 기본값 튜플을 먼저 푸시 (스택 맨 아래)
+            int makeFunctionFlags = 0;
+            if (defaults.Count > 0)
+            {
+                foreach (var defaultValue in defaults)
+                {
+                    EmitLoadConst(defaultValue);
+                }
+                EmitInstruction(ByteCodeOp.BUILD_TUPLE, defaults.Count);
+                makeFunctionFlags |= 1; // MAKE_FUNCTION_DEFAULTS flag
+            }
+            
+            // 4. 자유 변수가 있는 경우 클로저 생성 (defaults 위에 푸시)
             if (freeVars.Count > 0)
             {
                 Console.WriteLine($"  → Creating closure for {freeVars.Count} free variables");
@@ -1754,18 +1767,6 @@ namespace SharpPy
                 
                 // 클로저 튜플 생성
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, freeVars.Count);
-            }
-            
-            // 4. 기본값이 있는 경우 기본값 튜플을 스택에 푸시
-            int makeFunctionFlags = 0;
-            if (defaults.Count > 0)
-            {
-                foreach (var defaultValue in defaults)
-                {
-                    EmitLoadConst(defaultValue);
-                }
-                EmitInstruction(ByteCodeOp.BUILD_TUPLE, defaults.Count);
-                makeFunctionFlags |= 1; // MAKE_FUNCTION_DEFAULTS flag
             }
             
             // 5. 함수 생성 (기본값 + 클로저 플래그 설정)

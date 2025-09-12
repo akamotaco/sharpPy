@@ -290,6 +290,32 @@ namespace SharpPy
 
         public override PyObject GetAttribute(string name)
         {
+            // Special handling for str type methods
+            if (this == StrType)
+            {
+                switch (name)
+                {
+                    case "upper":
+                        return new PyBuiltinFunction("str.upper", args => {
+                            if (args.Length != 1) throw PyTypeError.Create($"upper() takes exactly one argument ({args.Length} given)");
+                            if (args[0] is PyString str) return new PyString(str.Value.ToUpperInvariant());
+                            throw PyTypeError.Create("descriptor 'upper' for 'str' objects doesn't apply to a '" + args[0].GetTypeName() + "' object");
+                        });
+                    case "lower":
+                        return new PyBuiltinFunction("str.lower", args => {
+                            if (args.Length != 1) throw PyTypeError.Create($"lower() takes exactly one argument ({args.Length} given)");
+                            if (args[0] is PyString str) return new PyString(str.Value.ToLowerInvariant());
+                            throw PyTypeError.Create("descriptor 'lower' for 'str' objects doesn't apply to a '" + args[0].GetTypeName() + "' object");
+                        });
+                    case "title":
+                        return new PyBuiltinFunction("str.title", args => {
+                            if (args.Length != 1) throw PyTypeError.Create($"title() takes exactly one argument ({args.Length} given)");
+                            if (args[0] is PyString str) return str.Title();
+                            throw PyTypeError.Create("descriptor 'title' for 'str' objects doesn't apply to a '" + args[0].GetTypeName() + "' object");
+                        });
+                }
+            }
+            
             switch (name)
             {
                 case "__name__":

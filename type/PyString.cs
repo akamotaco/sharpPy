@@ -512,6 +512,7 @@ namespace SharpPy
             {
                 "upper" => new PyStringMethod(this, "upper", Upper),
                 "lower" => new PyStringMethod(this, "lower", Lower),
+                "title" => new PyStringMethod(this, "title", TitleMethod),
                 "strip" => new PyStringMethod(this, "strip", Strip),
                 "lstrip" => new PyStringMethod(this, "lstrip", LStrip),
                 "rstrip" => new PyStringMethod(this, "rstrip", RStrip),
@@ -539,6 +540,13 @@ namespace SharpPy
             if (args.Length != 0)
                 throw PyTypeError.Create($"lower() takes no arguments ({args.Length} given)");
             return new PyString(Value.ToLowerInvariant());
+        }
+
+        private PyObject TitleMethod(PyObject[] args)
+        {
+            if (args.Length != 0)
+                throw PyTypeError.Create($"title() takes no arguments ({args.Length} given)");
+            return Title();
         }
 
         private PyObject Strip(PyObject[] args)

@@ -1075,6 +1075,15 @@ namespace SharpPy
                     PyTuple annotations = null;
                     
                     Console.WriteLine($"🔧 MAKE_FUNCTION with flags: {flags:X} (binary: {Convert.ToString(flags, 2)})");
+                    Console.WriteLine($"🔧 MAKE_FUNCTION stack size before processing: {frame.ValueStack.Count}");
+                    if (frame.ValueStack.Count > 0)
+                    {
+                        var stackItems = frame.ValueStack.ToArray();
+                        for (int i = 0; i < Math.Min(stackItems.Length, 5); i++)
+                        {
+                            Console.WriteLine($"   Stack[{i}]: {stackItems[i]?.GetType().Name} = {stackItems[i]}");
+                        }
+                    }
                     
                     // CPython 3.12 MAKE_FUNCTION flags processing order (bit order matters!):
                     // 0x01 - HAS_DEFAULTS: function has positional default parameters  
@@ -1083,16 +1092,32 @@ namespace SharpPy
                     // 0x08 - HAS_CLOSURE: function uses closure variables
                     // 0x10 - HAS_QUALNAME: function has qualified name (not used in basic implementation)
                     
-                    // Process in reverse stack order (last pushed = first popped)
+                    // Process in correct CPython 3.12 stack order: closure, annotations, kw_defaults, defaults
                     
                     // Check for closure flag (8 = HAS_CLOSURE) - processed first due to stack order
                     if ((flags & 8) != 0)
                     {
                         var closureTuple = frame.ValueStack.Pop();
+                        Console.WriteLine($"🔧 Processing closure: {closureTuple?.GetType().Name} = {closureTuple}");
                         if (closureTuple is PyTuple closureTupleObj)
                         {
-                            closure = closureTupleObj.Items.Cast<PyCell>().ToArray();
-                            Console.WriteLine($"  → Function has closure: {closure.Length} cells");
+                            Console.WriteLine($"   Closure tuple has {closureTupleObj.Items.Length} items:");
+                            for (int i = 0; i < closureTupleObj.Items.Length; i++)
+                            {
+                                var item = closureTupleObj.Items[i];
+                                Console.WriteLine($"     Item[{i}]: {item?.GetType().Name} = {item}");
+                            }
+                            try
+                            {
+                                closure = closureTupleObj.Items.Cast<PyCell>().ToArray();
+                                Console.WriteLine($"  → Function has closure: {closure.Length} cells");
+                            }
+                            catch (InvalidCastException e)
+                            {
+                                Console.WriteLine($"  ❌ Closure casting error: {e.Message}");
+                                Console.WriteLine($"     Failed to cast items to PyCell");
+                                throw;
+                            }
                         }
                         else
                         {
