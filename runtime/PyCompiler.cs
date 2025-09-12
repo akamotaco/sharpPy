@@ -615,11 +615,19 @@ namespace SharpPy
             // Set current file name for source location tracking
             _currentFileName = fileName;
             
+            // Phase 1: AST 수준 최적화 (CPython 3.12 스타일)
+            var optimizedStatements = statements;
+            if (SharpPyConfig._enable_optimizer && !SharpPyConfig.DisableOptimizer)
+            {
+                var astOptimizer = new PyASTOptimizer(GetOptimizationLevel());
+                optimizedStatements = astOptimizer.OptimizeAST(statements);
+            }
+            
             // Pre-scan for global variables in functions (CPython 3.12 compatibility)
             if (name == "<module>")
             {
                 _moduleGlobalVars.Clear(); // 새로운 모듈 컴파일 시작
-                PreScanForGlobalVariables(statements);
+                PreScanForGlobalVariables(optimizedStatements);
             }
             
             // Load source lines for error reporting if fileName is provided
@@ -652,7 +660,7 @@ namespace SharpPy
             _currentLineNumber = 0;
             EmitInstruction(ByteCodeOp.RESUME, 0);
             
-            foreach (var statement in statements)
+            foreach (var statement in optimizedStatements)
             {
                 CompileStatement(statement);
             }
@@ -1300,6 +1308,10 @@ namespace SharpPy
                     
                 case ForComplexStatement forComplexStmt:
                     CompileForComplex(forComplexStmt);
+                    break;
+                    
+                case BlockStatement blockStmt:
+                    CompileBlockStatement(blockStmt);
                     break;
                     
                 case TryStatement tryStmt:
@@ -3523,6 +3535,17 @@ namespace SharpPy
             else
             {
                 throw new Exception($"Cannot compile assignment target: {target.GetType().Name}");
+            }
+        }
+        
+        /// <summary>
+        /// Compile a block statement (multiple statements grouped together)
+        /// </summary>
+        private void CompileBlockStatement(BlockStatement blockStmt)
+        {
+            foreach (var statement in blockStmt.Statements)
+            {
+                CompileStatement(statement);
             }
         }
         
@@ -6220,6 +6243,20 @@ namespace SharpPy
             }
             
             return totalBytes;
+        }
+        
+        /// <summary>
+        /// 현재 설정에 기반하여 최적화 레벨을 결정
+        /// </summary>
+        private OptimizationLevel GetOptimizationLevel()
+        {
+            // SharpPyConfig 설정에 기반하여 최적화 레벨 결정
+            if (!SharpPyConfig._enable_optimizer || SharpPyConfig.DisableOptimizer)
+                return OptimizationLevel.Disabled;
+                
+            // 환경변수나 설정에 따라 레벨 조정 가능
+            // 현재는 Standard 레벨을 기본으로 사용
+            return OptimizationLevel.Standard;
         }
         
         #endregion
