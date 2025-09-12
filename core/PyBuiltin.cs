@@ -1000,49 +1000,43 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// C# 타입 시스템을 활용한 정확한 메타클래스 검출 (재귀 방지 헬퍼)
+        /// </summary>
+        private static bool IsMetaclassRecursive(PyClass pyClass)
+        {
+            if (pyClass.BaseTypes == null) return false;
+            
+            // 직접 type을 상속하면 메타클래스
+            return pyClass.BaseTypes.Any(t => t == PyType.TypeType || t.Name == "type");
+        }
+
+        /// <summary>
         /// C# 타입 시스템을 활용한 정확한 메타클래스 검출
         /// </summary>
         private static bool IsMetaclass(PyClass pyClass)
         {
-            // 1. C# is 연산자를 사용한 직접적인 타입 검사 - 클래스명에 'Meta'가 포함되면 메타클래스
-            if (pyClass.GetType().Name.Contains("Meta") || pyClass.Name.Contains("Meta"))
-            {
-                Console.WriteLine($"   🔍 C# GetType().Name: {pyClass.GetType().Name}, Name: {pyClass.Name} (contains 'Meta')");
-                return true;
-            }
-
-            // 2. PyType 계층 구조를 사용한 정확한 메타클래스 검출
+            // 1. PyType 계층 구조를 사용한 정확한 메타클래스 검출 - 직접 'type'을 상속하는 경우만
             if (pyClass.BaseTypes != null)
             {
-                // 메타클래스는 type을 상속받아야 함
-                bool inheritsFromType = pyClass.BaseTypes.Any(t => t == PyType.TypeType || t.Name == "type");
-                if (inheritsFromType)
+                // 메타클래스는 직접 type을 상속받거나, 다른 메타클래스를 상속받아야 함
+                bool directlyInheritsFromType = pyClass.BaseTypes.Any(t => t == PyType.TypeType || t.Name == "type");
+                if (directlyInheritsFromType)
                 {
-                    Console.WriteLine($"   ✅ BaseTypes에서 'type' 상속 확인: [{string.Join(", ", pyClass.BaseTypes.Select(t => t.Name))}]");
+                    Console.WriteLine($"   ✅ BaseTypes에서 직접 'type' 상속 확인: [{string.Join(", ", pyClass.BaseTypes.Select(t => t.Name))}]");
+                    return true;
+                }
+                
+                // 다른 메타클래스를 상속하는 경우 (재귀 검사)
+                bool inheritsFromMetaclass = pyClass.BaseTypes.Any(t => 
+                    t is PyClass baseClass && IsMetaclassRecursive(baseClass));
+                if (inheritsFromMetaclass)
+                {
+                    Console.WriteLine($"   ✅ BaseTypes에서 메타클래스 상속 확인: [{string.Join(", ", pyClass.BaseTypes.Select(t => t.Name))}]");
                     return true;
                 }
             }
 
-            // 3. MRO(Method Resolution Order) 검사 - 더 정확한 방법
-            if (pyClass.MRO != null)
-            {
-                bool hasTypeInMRO = pyClass.MRO.Any(t => t == PyType.TypeType || t.Name == "type");
-                if (hasTypeInMRO)
-                {
-                    Console.WriteLine($"   ✅ MRO에서 'type' 확인: [{string.Join(", ", pyClass.MRO.Select(t => t.Name))}]");
-                    return true;
-                }
-            }
-
-            // 4. C# 객체 타입 체크 - PyType의 GetPyType() 사용
-            var pyType = pyClass.GetPyType();
-            if (ReferenceEquals(pyType, PyType.TypeType))
-            {
-                Console.WriteLine($"   ✅ GetPyType()으로 PyType.TypeType 확인");
-                return true;
-            }
-
-            Console.WriteLine($"   ❌ 메타클래스가 아님: Name={pyClass.Name}, Type={pyClass.GetType().Name}, PyType={pyType?.Name}");
+            Console.WriteLine($"   ❌ 메타클래스가 아님: Name={pyClass.Name}, BaseTypes=[{string.Join(", ", pyClass.BaseTypes?.Select(t => t.Name) ?? new string[0])}]");
             return false;
         }
 
@@ -1073,43 +1067,40 @@ namespace SharpPy
             bool hasMetaclass = false;
             
             // CPython 3.12: Handle metaclass and base classes
-            // SharpPy compiler pattern: __build_class__(func, name, *bases, [metaclass])
-            // If exactly 3 args and last arg is a metaclass type, treat as metaclass-only
-            // Otherwise, treat all as base classes and determine metaclass from inheritance
+            // SharpPy compiler pattern: 
+            // - Inheritance: __build_class__(func, name, *bases)
+            // - Explicit metaclass: __build_class__(func, name, *bases, "__metaclass__", metaclass)
             
-            if (args.Length == 3)
+            // Check for explicit metaclass marker
+            bool hasExplicitMetaclass = false;
+            if (args.Length >= 4)
             {
-                // Check if this might be a metaclass-only case (no bases)
-                var lastArg = args[2];
-                if (lastArg is PyClass possibleMeta)
+                // Look for "__metaclass__" marker in second-to-last position
+                var markerIndex = args.Length - 2;
+                if (args[markerIndex] is PyString marker && marker.Value == "__metaclass__")
                 {
-                    // C# 타입 시스템을 활용한 정확한 메타클래스 검출
-                    bool isMetaclass = IsMetaclass(possibleMeta);
+                    hasExplicitMetaclass = true;
+                    metaclass = args[args.Length - 1];  // Last arg is metaclass
+                    hasMetaclass = true;
+                    Console.WriteLine($"   ✅ Explicit metaclass detected: {metaclass}");
                     
-                    if (isMetaclass)
+                    // Process all args before marker as bases
+                    for (int i = 2; i < markerIndex; i++)
                     {
-                        Console.WriteLine($"   ✅ C# 타입 시스템으로 확인된 metaclass: {lastArg}");
-                        metaclass = lastArg;
-                        hasMetaclass = true;
+                        Console.WriteLine($"   Processing arg[{i}] as base class: {args[i]}");
+                        if (args[i] is PyType pyType)
+                            bases.Add(pyType);
+                        else if (args[i] is PyClass baseClass)
+                            bases.Add(baseClass);
+                        else
+                            bases.Add(PyType.ObjectType);
                     }
-                    else
-                    {
-                        Console.WriteLine($"   📝 C# 타입 시스템으로 확인된 base class: {lastArg}");
-                        bases.Add(possibleMeta);
-                    }
-                }
-                else
-                {
-                    Console.WriteLine($"   Processing arg[2] as base class: {lastArg}");
-                    if (lastArg is PyType pyType)
-                        bases.Add(pyType);
-                    else
-                        bases.Add(PyType.ObjectType);
                 }
             }
-            else
+            
+            if (!hasExplicitMetaclass)
             {
-                // 4+ args: all middle args are bases, last might be metaclass
+                // Traditional logic: all args from index 2 onwards are bases
                 for (int i = 2; i < args.Length; i++)
                 {
                     Console.WriteLine($"   Processing arg[{i}] as base class: {args[i]}");
@@ -1303,6 +1294,28 @@ namespace SharpPy
                             }
                             
                             Console.WriteLine($"✅ Metaclass created class successfully: {createdClass}");
+                            
+                            // CPython 3.12: Call metaclass.__init__ after __new__
+                            var initMethod = metaclass.GetAttribute("__init__");
+                            if (initMethod != null && initMethod.IsCallable())
+                            {
+                                Console.WriteLine("Found metaclass.__init__ method, executing it");
+                                try 
+                                {
+                                    var initArgs = new PyObject[] {
+                                        pyClass,                    // cls (the created class)
+                                        new PyString(className),    // name
+                                        new PyTuple(bases.Cast<PyObject>().ToArray()), // bases
+                                        namespaceDict              // namespace
+                                    };
+                                    initMethod.Call(initArgs);
+                                    Console.WriteLine("Metaclass.__init__ executed successfully");
+                                }
+                                catch (Exception initEx)
+                                {
+                                    Console.WriteLine($"Error calling metaclass.__init__: {initEx.Message}");
+                                }
+                            }
                         }
                         else
                         {
@@ -2023,10 +2036,20 @@ namespace SharpPy
                         {
                             Console.WriteLine($"   ✅ Found '{name}' in {baseType.Name}: {attr.GetType().Name}");
                             
-                            // If it's a method, bind it to the object (if we have one)
+                            // Special handling for metaclass methods like __new__
                             if (attr is PyFunction function && Object != null)
                             {
-                                return new PyMethod(Object, function);
+                                // For __new__ and __init__ methods in metaclass context, don't bind as instance method  
+                                if (name == "__new__" || name == "__init__" || name == "__init_subclass__")
+                                {
+                                    // Return unbound function for class methods
+                                    return function;
+                                }
+                                else
+                                {
+                                    // Regular instance method binding
+                                    return new PyMethod(Object, function);
+                                }
                             }
                             return attr;
                         }

@@ -28,7 +28,7 @@ namespace SharpPy
             _optimizedCodeCache = new Dictionary<string, PyCodeObject>();
             
             _reoptimizationThreshold = 1000; // CPython 3.12 기본값
-            _enableAdaptiveOptimization = true;
+            _enableAdaptiveOptimization = !SharpPyConfig.DisableOptimizer;
         }
 
         /// <summary>

@@ -91,7 +91,7 @@ namespace SharpPy
                 originalCode.Flags,
                 originalCode.FileName,
                 originalCode.SourceLines,
-                isOptimized: SharpPyConfig._enable_optimizer
+                isOptimized: !SharpPyConfig.DisableOptimizer
             );
             
             // CPython 3.12: Exception Table 동기화 (최적화로 변경된 오프셋 반영)

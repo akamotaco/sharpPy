@@ -619,7 +619,7 @@ namespace SharpPy
             
             // Phase 1: AST 수준 최적화 (CPython 3.12 스타일)
             var optimizedStatements = statements;
-            if (SharpPyConfig._enable_optimizer && !SharpPyConfig.DisableOptimizer)
+            if (!SharpPyConfig.DisableOptimizer)
             {
                 var astOptimizer = new PyASTOptimizer(GetOptimizationLevel());
                 optimizedStatements = astOptimizer.OptimizeAST(statements);
@@ -2585,11 +2585,13 @@ namespace SharpPy
             int totalArgs = 2 + cls.Bases.Count;
             if (cls.Metaclass != null)
             {
+                // Push explicit metaclass marker to distinguish from base classes
+                EmitLoadConst(new PyString("__metaclass__"));  // Special marker
                 CompileExpression(cls.Metaclass);
-                totalArgs++;
+                totalArgs += 2;  // marker + metaclass
             }
             
-            // Call __build_class__(class_body_function, name, *bases [, metaclass])
+            // Call __build_class__(class_body_function, name, *bases [, "__metaclass__", metaclass])
             EmitInstruction(ByteCodeOp.CALL, totalArgs);
             
             // Store the created class
@@ -6364,7 +6366,7 @@ namespace SharpPy
         private OptimizationLevel GetOptimizationLevel()
         {
             // SharpPyConfig 설정에 기반하여 최적화 레벨 결정
-            if (!SharpPyConfig._enable_optimizer || SharpPyConfig.DisableOptimizer)
+            if (SharpPyConfig.DisableOptimizer)
                 return OptimizationLevel.Disabled;
                 
             // 환경변수나 설정에 따라 레벨 조정 가능
