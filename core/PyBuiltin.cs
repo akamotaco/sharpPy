@@ -662,6 +662,7 @@ namespace SharpPy
             return args[0].GetPyType();
         }
 
+
         private PyObject CallId(PyObject[] args)
         {
             if (args.Length != 1)
@@ -1258,14 +1259,59 @@ namespace SharpPy
                             namespaceDict                   // namespace - this will be modified by metaclass
                         };
                         
-                        // Execute metaclass.__new__ - this should modify namespaceDict and call type.__new__
-                        var result = newMethod.Call(newArgs);
+                        // CPython 3.12: Make metaclass name available during metaclass.__new__ execution
+                        // This enables explicit super(MetaclassName, cls) calls
+                        PyObject? previousValue = null;
+                        bool hadPreviousValue = false;
+                        var globalScope = PyVM.CurrentFrame?.ScopeChain?.GlobalScope;
+                        if (globalScope != null && metaclass is PyClass metaclassForScope)
+                        {
+                            string metaclassName = metaclassForScope.Name;
+                            Console.WriteLine($"🔧 CPython 3.12: Temporarily adding {metaclassName} to global scope for explicit super()");
+                            
+                            // Save any existing value
+                            if (globalScope.Variables.ContainsKey(metaclassName))
+                            {
+                                previousValue = globalScope.GetVariable(metaclassName);
+                                hadPreviousValue = true;
+                            }
+                            
+                            // Set the metaclass in global scope
+                            globalScope.SetVariable(metaclassName, metaclass);
+                        }
+                        
+                        PyObject? result = null;
+                        try
+                        {
+                            // Execute metaclass.__new__ - this should modify namespaceDict and call type.__new__
+                            result = newMethod.Call(newArgs);
+                        }
+                        finally
+                        {
+                            // CPython 3.12: Restore previous global scope state
+                            if (globalScope != null && metaclass is PyClass metaclassForRestore)
+                            {
+                                string metaclassName = metaclassForRestore.Name;
+                                if (hadPreviousValue)
+                                {
+                                    globalScope.SetVariable(metaclassName, previousValue!);
+                                    Console.WriteLine($"🔧 Restored {metaclassName} to previous value in global scope");
+                                }
+                                else
+                                {
+                                    globalScope.Variables.Remove(metaclassName);
+                                    Console.WriteLine($"🔧 Removed {metaclassName} from global scope");
+                                }
+                            }
+                        }
                         Console.WriteLine($"Metaclass.__new__ returned: {result?.GetType().Name}");
                         
                         if (result is PyClass createdClass)
                         {
                             pyClass = createdClass;
+                            Console.WriteLine($"🔍 Setting Metaclass: {metaclass?.GetType().Name}, is PyClass: {metaclass is PyClass}");
                             pyClass.Metaclass = metaclass as PyClass;
+                            Console.WriteLine($"🔍 After setting: pyClass.Metaclass = {pyClass.Metaclass}");
                             
                             // CPython 3.12: The metaclass.__new__ should have already set all attributes
                             // But let's ensure any additional attributes from the modified namespace are set
@@ -1296,10 +1342,13 @@ namespace SharpPy
                             Console.WriteLine($"✅ Metaclass created class successfully: {createdClass}");
                             
                             // CPython 3.12: Call metaclass.__init__ after __new__
-                            var initMethod = metaclass.GetAttribute("__init__");
-                            if (initMethod != null && initMethod.IsCallable())
+                            Console.WriteLine($"🔍 Calling metaclass.__init__: metaclass={metaclass}, type={metaclass?.GetType().Name}");
+                            try
                             {
-                                Console.WriteLine("Found metaclass.__init__ method, executing it");
+                                var initMethod = metaclass.GetAttribute("__init__");
+                                if (initMethod != null && initMethod.IsCallable())
+                                {
+                                    Console.WriteLine("Found metaclass.__init__ method, executing it");
                                 try 
                                 {
                                     var initArgs = new PyObject[] {
@@ -1315,6 +1364,11 @@ namespace SharpPy
                                 {
                                     Console.WriteLine($"Error calling metaclass.__init__: {initEx.Message}");
                                 }
+                                }
+                            }
+                            catch (Exception ex) when (ex.Message.Contains("has no attribute"))
+                            {
+                                Console.WriteLine("No __init__ method found on metaclass, skipping initialization");
                             }
                         }
                         else
@@ -1415,6 +1469,18 @@ namespace SharpPy
                 Console.WriteLine($"✅ __classcell__ updated successfully");
             }
             
+            
+            // Debug: Check final class attributes
+            Console.WriteLine($"🔍 Final class attributes: {pyClass?.Name}");
+            Console.WriteLine($"   Metaclass: {pyClass?.Metaclass}");
+            if (pyClass?.ClassDict != null)
+            {
+                Console.WriteLine($"   ClassDict has {pyClass.ClassDict.Count} items:");
+                foreach (var attr in pyClass.ClassDict)
+                {
+                    Console.WriteLine($"     {attr.Key}: {attr.Value?.GetType().Name}");
+                }
+            }
             
             return pyClass;
         }
@@ -2039,15 +2105,19 @@ namespace SharpPy
                             // Special handling for metaclass methods like __new__
                             if (attr is PyFunction function && Object != null)
                             {
-                                // For __new__ and __init__ methods in metaclass context, don't bind as instance method  
-                                if (name == "__new__" || name == "__init__" || name == "__init_subclass__")
+                                // Check if we're in a metaclass context (Object is a class)
+                                bool isMetaclassContext = Object is PyClass || Object is PyTypeMetaclass;
+                                
+                                if (isMetaclassContext && (name == "__new__" || name == "__init__" || name == "__init_subclass__"))
                                 {
-                                    // Return unbound function for class methods
+                                    // Return unbound function for class methods in metaclass context
+                                    Console.WriteLine($"   🔧 Metaclass context: returning unbound {name}");
                                     return function;
                                 }
                                 else
                                 {
                                     // Regular instance method binding
+                                    Console.WriteLine($"   🔧 Instance context: binding {name} to {Object.GetType().Name}");
                                     return new PyMethod(Object, function);
                                 }
                             }

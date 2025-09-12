@@ -93,13 +93,21 @@ namespace SharpPy
         // CPython 3.12: Override GetPyType to return metaclass if set
         public override PyType GetPyType()
         {
+            Console.WriteLine($"🔍 PyClass.GetPyType() called for {Name}");
+            Console.WriteLine($"   Metaclass: {Metaclass}");
+            Console.WriteLine($"   Metaclass != null: {Metaclass != null}");
+            
             // If this class was created with a metaclass, return the metaclass
             if (Metaclass != null)
             {
+                Console.WriteLine($"   → Returning Metaclass: {Metaclass}");
                 return Metaclass;
             }
             // Otherwise, return the default type (which is 'type')
-            return base.GetPyType();
+            Console.WriteLine($"   → Returning base.GetPyType()");
+            var baseType = base.GetPyType();
+            Console.WriteLine($"   → base.GetPyType() returned: {baseType}");
+            return baseType;
         }
 
         // 클래스 attribute 접근
@@ -140,7 +148,31 @@ namespace SharpPy
                         Console.WriteLine($"   → returning direct value: {value}");
                         return value;
                     }
-                    Console.WriteLine($"   ❌ '{name}' not found in ClassDict, calling base.GetAttribute");
+                    Console.WriteLine($"   ❌ '{name}' not found in ClassDict, checking base classes");
+                    
+                    // Check base classes (MRO)
+                    foreach (var baseClass in BaseTypes)
+                    {
+                        if (baseClass is PyClass pyBaseClass)
+                        {
+                            Console.WriteLine($"   → Checking base class: {pyBaseClass.Name}");
+                            if (pyBaseClass.ClassDict.TryGetValue(name, out PyObject baseValue))
+                            {
+                                Console.WriteLine($"   ✅ found '{name}' in base class {pyBaseClass.Name}: {baseValue?.GetType().Name}");
+                                // Descriptor 처리
+                                if (baseValue is IDescriptor baseDesc)
+                                {
+                                    Console.WriteLine($"   🔧 calling descriptor.Get(null, {Name}) for '{name}' from base");
+                                    var result = baseDesc.Get(null, this);
+                                    Console.WriteLine($"   → descriptor returned: {result?.GetType().Name}");
+                                    return result;
+                                }
+                                return baseValue;
+                            }
+                        }
+                    }
+                    
+                    Console.WriteLine($"   ❌ '{name}' not found in any base class, calling PyObject.GetAttribute");
                     var baseResult = base.GetAttribute(name);
                     Console.WriteLine($"   → base.GetAttribute returned: {baseResult?.GetType().Name}");
                     return baseResult;
