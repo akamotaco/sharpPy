@@ -701,7 +701,8 @@ namespace SharpPy
                 case ByteCodeOp.LOAD_NAME:
                     var name = frame.Code.Names[instruction.Argument];
                     // 기존 LEGB 시스템 사용!
-                    var value = frame.ScopeChain.LookupVariable(name);
+                    Console.WriteLine($"🔍 LOAD_NAME({name}): 현재 스코프 = {frame.ScopeChain.CurrentScope?.Name ?? "null"}");
+                    var value = frame.ScopeChain.LookupVariable(name, verbose: true);
                     Console.WriteLine($"🔍 LOAD_NAME({name}): loaded {value?.GetType().Name ?? "null"} value = {value}");
                     frame.ValueStack.Push(value);
                     break;
@@ -1484,23 +1485,56 @@ namespace SharpPy
                     var classToMatch = frame.ValueStack.Pop(); // class to match against
                     var classSubject = frame.ValueStack.Pop(); // subject to match
                     
+                    Console.WriteLine($"🔍 MATCH_CLASS: subject={classSubject?.GetType().Name}, classToMatch={classToMatch?.GetType().Name}");
+                    
                     try 
                     {
-                        // Check isinstance(subject, classToMatch)
+                        // Check isinstance(subject, classToMatch) - supports both built-in and custom types
                         bool isInstance = false;
-                        if (classToMatch is PyClass targetClass && classSubject is PyClassInstance instance)
+                        
+                        // Handle built-in types (int, str, list, etc.)
+                        if (classToMatch is PyType builtinType)
+                        {
+                            Console.WriteLine($"🔍 MATCH_CLASS: Checking built-in type {builtinType.Name}");
+                            
+                            if (builtinType.Name == "int" && classSubject is PyInt)
+                                isInstance = true;
+                            else if (builtinType.Name == "str" && classSubject is PyString)
+                                isInstance = true;
+                            else if (builtinType.Name == "list" && classSubject is PyList)
+                                isInstance = true;
+                            else if (builtinType.Name == "dict" && classSubject is PyDict)
+                                isInstance = true;
+                            else if (builtinType.Name == "tuple" && classSubject is PyTuple)
+                                isInstance = true;
+                            else if (builtinType.Name == "float" && classSubject is PyFloat)
+                                isInstance = true;
+                            else if (builtinType.Name == "bool" && classSubject is PyBool)
+                                isInstance = true;
+                        }
+                        // Handle custom classes
+                        else if (classToMatch is PyClass targetClass && classSubject is PyClassInstance instance)
                         {
                             isInstance = (instance.InstanceType == targetClass);
                         }
                         
+                        Console.WriteLine($"🔍 MATCH_CLASS: isInstance = {isInstance}");
+                        
                         if (isInstance)
                         {
-                            // Extract positional attributes based on __match_args__
+                            // For built-in types, we don't extract attributes - just return empty tuple
                             var positionalCount = instruction.Argument;
-                            var attrs = new List<PyObject>();
                             
-                            if (classToMatch is PyClass cls && cls.GetAttribute("__match_args__") is PyTuple matchArgs)
+                            if (classToMatch is PyType && positionalCount == 0)
                             {
+                                // Built-in types like int(), str() without positional args
+                                frame.ValueStack.Push(new PyTuple(new PyObject[0]));
+                            }
+                            else if (classToMatch is PyClass cls && cls.GetAttribute("__match_args__") is PyTuple matchArgs)
+                            {
+                                // Extract positional attributes for custom classes
+                                var attrs = new List<PyObject>();
+                                
                                 for (int i = 0; i < Math.Min(positionalCount, matchArgs.Items.Length); i++)
                                 {
                                     var matchArgName = matchArgs.Items[i].ToStr();
@@ -1517,7 +1551,7 @@ namespace SharpPy
                             }
                             else
                             {
-                                frame.ValueStack.Push(PyNone.Instance);
+                                frame.ValueStack.Push(new PyTuple(new PyObject[0]));
                             }
                         }
                         else
@@ -1527,17 +1561,30 @@ namespace SharpPy
                     }
                     catch (Exception ex)
                     {
+                        Console.WriteLine($"🚨 MATCH_CLASS error: {ex.Message}");
                         frame.ValueStack.Push(PyNone.Instance);
                     }
                     break;
                     
                 case ByteCodeOp.RETURN_VALUE:
                     var returnValue = frame.ValueStack.Count > 0 ? frame.ValueStack.Pop() : PyNone.Instance;
+                    // 🔧 함수 종료 시 scope cleanup
+                    if (frame.ScopeChain.CurrentScope?.Type == ScopeType.Local)
+                    {
+                        Console.WriteLine($"🔧 RETURN_VALUE: Cleaning up function scope '{frame.ScopeChain.CurrentScope.Name}'");
+                        frame.ScopeChain.PopScope();
+                    }
                     return returnValue;
                     
                 case ByteCodeOp.RETURN_CONST:
                     // CPython 3.12: Return constant value directly
                     var constValue = frame.Code.Constants[instruction.Argument];
+                    // 🔧 함수 종료 시 scope cleanup
+                    if (frame.ScopeChain.CurrentScope?.Type == ScopeType.Local)
+                    {
+                        Console.WriteLine($"🔧 RETURN_CONST: Cleaning up function scope '{frame.ScopeChain.CurrentScope.Name}'");
+                        frame.ScopeChain.PopScope();
+                    }
                     return constValue;
                     
                 case ByteCodeOp.GET_AWAITABLE:

@@ -4181,9 +4181,11 @@ namespace SharpPy
                 // Console.WriteLine($"🔍 Case {i}: Fail jump target = {failLabel.Name}");
                 
                 // Handle Guard patterns specially - CPython 3.12 compatible
-                // Console.WriteLine($"🔍 Checking Guard for case {i}: Guard={matchCase.Guard?.GetType().Name} - {matchCase.Guard}");
+                Console.WriteLine($"🔍 Checking Guard for case {i}: Guard={matchCase.Guard?.GetType().Name} - {matchCase.Guard}");
                 if (matchCase.Guard != null)
                 {
+                    Console.WriteLine($"🔍 Compiling Guard pattern case {i}: {matchCase.Pattern} if {matchCase.Guard}");
+                    
                     // Guard pattern: CPython 3.12 compatible - load subject per case
                     // Load subject fresh for this case
                     CompileExpression(matchStmt.Subject);
@@ -4191,14 +4193,19 @@ namespace SharpPy
                     // Compile pattern matching - this will bind the variable and consume subject
                     if (!CompilePatternMatch(matchCase.Pattern, failLabel))
                     {
+                        Console.WriteLine($"🔍 Pattern match failed for case {i}, jumping to {failLabel.Name}");
                         EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, failLabel);
                         continue;
                     }
+                    
+                    Console.WriteLine($"🔍 Pattern matched for case {i}, now compiling guard: {matchCase.Guard}");
                     
                     // Stack: [] (after pattern binding consumed subject)
                     // Now evaluate guard condition
                     CompileExpression(matchCase.Guard);
                     EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+                    
+                    Console.WriteLine($"🔍 Guard condition compiled for case {i}, will jump to {failLabel.Name} if false");
                     
                     // No cleanup needed - each case is independent
                 }
