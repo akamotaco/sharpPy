@@ -272,50 +272,37 @@ print('Max:', max(numbers))
 
             var interpreter = new IntegratedPythonInterpreter();
 
-            // 1. C# 함수를 Python에 등록
-            Console.WriteLine("🔧 1. C# 함수를 Python에 등록");
+            // 1. C# 함수를 Python에 등록 (새로운 IronPython 스타일 API!)
+            Console.WriteLine("🔧 1. C# 함수를 Python에 등록 (IronPython 스타일)");
             
-            // 수학 함수 등록
-            var addFunction = new PyFunction("csharp_add", args =>
+            // 수학 함수 등록 - 간단한 구문!
+            var addFunction = PyFunction.Create("csharp_add", (int a, int b) =>
             {
-                if (args.Length != 2)
-                    throw PyTypeError.Create("csharp_add() takes exactly 2 arguments");
-                
-                var a = ((PyInt)args[0]).Value;
-                var b = ((PyInt)args[1]).Value;
                 var result = a + b;
-                
                 Console.WriteLine($"  C# Add function called: {a} + {b} = {result}");
-                return new PyInt(result);
+                return result;
             });
 
-            // 문자열 처리 함수 등록
-            var reverseFunction = new PyFunction("csharp_reverse", args =>
+            // 문자열 처리 함수 등록 - 타입 변환 자동화!
+            var reverseFunction = PyFunction.Create("csharp_reverse", (string str) =>
             {
-                if (args.Length != 1)
-                    throw PyTypeError.Create("csharp_reverse() takes exactly 1 argument");
-                
-                var str = ((PyString)args[0]).Value;
                 var reversed = new string(str.Reverse().ToArray());
-                
                 Console.WriteLine($"  C# Reverse function called: '{str}' → '{reversed}'");
-                return new PyString(reversed);
+                return reversed;
             });
 
-            // 시스템 정보 함수 등록
-            var sysInfoFunction = new PyFunction("csharp_sysinfo", args =>
+            // 시스템 정보 함수 등록 - Action 지원!
+            var sysInfoFunction = PyFunction.Create("csharp_sysinfo", () =>
             {
-                var info = new Dictionary<string, PyObject>
-                {
-                    ["platform"] = new PyString(Environment.OSVersion.Platform.ToString()),
-                    ["version"] = new PyString(Environment.OSVersion.VersionString),
-                    ["machine_name"] = new PyString(Environment.MachineName),
-                    ["processor_count"] = new PyInt(Environment.ProcessorCount),
-                    ["dotnet_version"] = new PyString(Environment.Version.ToString())
-                };
-                
                 Console.WriteLine("  C# System info function called");
-                return new PyDict(info);
+                return new Dictionary<string, object>
+                {
+                    ["platform"] = Environment.OSVersion.Platform.ToString(),
+                    ["version"] = Environment.OSVersion.VersionString,
+                    ["machine_name"] = Environment.MachineName,
+                    ["processor_count"] = Environment.ProcessorCount,
+                    ["dotnet_version"] = Environment.Version.ToString()
+                };
             });
 
             Console.WriteLine("C# 함수들이 생성되었습니다:");
@@ -357,63 +344,40 @@ print('Max:', max(numbers))
 
             var interpreter = new IntegratedPythonInterpreter();
 
-            // 1. C#에서 직접 Python 함수 생성
-            Console.WriteLine("🐍 1. C#에서 Python 함수 생성");
+            // 1. C#에서 직접 Python 함수 생성 (IronPython 스타일!)
+            Console.WriteLine("🐍 1. C#에서 Python 함수 생성 (IronPython 스타일)");
             
-            // 계산 함수 생성
-            var calculateAreaFunc = new PyFunction("calculate_area", args =>
+            // 계산 함수 생성 - 깨끗한 타입 시그니처!
+            var calculateAreaFunc = PyFunction.Create("calculate_area", (int width, int height) =>
             {
-                if (args.Length != 2) 
-                    throw PyTypeError.Create("calculate_area() takes exactly 2 arguments");
-                    
-                var width = ((PyInt)args[0]).Value;
-                var height = ((PyInt)args[1]).Value;
                 var area = width * height;
-                
                 Console.WriteLine($"Python function called: {width} × {height} = {area}");
-                return new PyInt(area);
+                return area;
             });
 
-            // 메시지 포맷팅 함수 생성
-            var formatMessageFunc = new PyFunction("format_message", args =>
+            // 메시지 포맷팅 함수 생성 - 자동 타입 변환!
+            var formatMessageFunc = PyFunction.Create("format_message", (string name, int age) =>
             {
-                if (args.Length != 2) 
-                    throw PyTypeError.Create("format_message() takes exactly 2 arguments");
-                    
-                var name = ((PyString)args[0]).Value;
-                var age = ((PyInt)args[1]).Value;
                 var message = $"Hello, {name}! You are {age} years old.";
-                
                 Console.WriteLine($"Python formatter called: {message}");
-                return new PyString(message);
+                return message;
             });
 
-            // 숫자 처리 함수 생성
-            var processNumbersFunc = new PyFunction("process_numbers", args =>
+            // 숫자 처리 함수 생성 - 복잡한 타입도 지원!
+            var processNumbersFunc = PyFunction.Create("process_numbers", (int[] numbers) =>
             {
-                if (args.Length != 1) 
-                    throw PyTypeError.Create("process_numbers() takes exactly 1 argument");
-                    
-                var numbers = (PyList)args[0];
-                var total = 0;
-                var count = numbers.Length();
-                
-                for (int i = 0; i < count; i++)
-                {
-                    total += ((PyInt)numbers.GetItem(new PyInt(i))).Value;
-                }
-                
+                var total = numbers.Sum();
+                var count = numbers.Length;
                 var average = (double)total / count;
+                
                 Console.WriteLine($"Python processor called: sum={total}, avg={average}");
                 
-                var result = new Dictionary<string, PyObject>
+                return new Dictionary<string, object>
                 {
-                    ["sum"] = new PyInt(total),
-                    ["average"] = new PyFloat(average),
-                    ["count"] = new PyInt(count)
+                    ["sum"] = total,
+                    ["average"] = average,
+                    ["count"] = count
                 };
-                
-                return new PyDict(result);
             });
 
             Console.WriteLine("Python 스타일 함수들이 C#에서 생성되었습니다:");
@@ -434,12 +398,9 @@ print('Max:', max(numbers))
                 var message = formatMessageFunc.Call(new PyString("Alice"), new PyInt(30));
                 Console.WriteLine($"C# got message: {message}");
 
-                // process_numbers 함수 호출
-                var numbers = new PyList(new List<PyObject> 
-                { 
-                    new PyInt(10), new PyInt(20), new PyInt(30), new PyInt(40) 
-                });
-                var result = processNumbersFunc.Call(numbers);
+                // process_numbers 함수 호출 - C# 배열을 직접 전달!
+                var numbers = new int[] { 10, 20, 30, 40 };
+                var result = processNumbersFunc.Call(PyTypeConverter.ToPyObject(numbers));
                 Console.WriteLine($"C# got process result: {result}");
                 
                 // 결과 딕셔너리에서 개별 값 추출
@@ -456,47 +417,39 @@ print('Max:', max(numbers))
                 Console.WriteLine($"C#에서 Python 함수 호출 중 오류: {ex.Message}");
             }
 
-            // 3. 양방향 호출 데모
-            Console.WriteLine("\n🔄 3. 양방향 호출 데모");
+            // 3. 양방향 호출 데모 (IronPython 스타일로 개선!)
+            Console.WriteLine("\n🔄 3. 양방향 호출 데모 (새로운 API)");
             
-            // C# 헬퍼 함수
-            var mathHelper = new PyFunction("csharp_math_helper", args =>
+            // C# 헬퍼 함수 - 깨끗한 시그니처!
+            var mathHelper = PyFunction.Create("csharp_math_helper", (string operation, int a, int b) =>
             {
-                var operation = ((PyString)args[0]).Value;
-                var a = ((PyInt)args[1]).Value;
-                var b = ((PyInt)args[2]).Value;
-                
                 int result = operation switch
                 {
                     "add" => a + b,
                     "multiply" => a * b,
                     "power" => (int)Math.Pow(a, b),
-                    _ => throw PyValueError.Create($"Unknown operation: {operation}")
+                    _ => throw new ArgumentException($"Unknown operation: {operation}")
                 };
                 
                 Console.WriteLine($"  C# math helper: {operation}({a}, {b}) = {result}");
-                return new PyInt(result);
+                return result;
             });
 
-            // Python 계산기 함수가 C# 헬퍼를 호출
-            var pythonCalculator = new PyFunction("python_calculator", args =>
+            // Python 계산기 함수가 C# 헬퍼를 호출 - 간단해진 구조!
+            var pythonCalculator = PyFunction.Create("python_calculator", (int x, int y) =>
             {
-                var x = ((PyInt)args[0]).Value;
-                var y = ((PyInt)args[1]).Value;
                 Console.WriteLine($"Python calculator called with {x}, {y}");
                 
                 var sumResult = mathHelper.Call(new PyString("add"), new PyInt(x), new PyInt(y));
                 var mulResult = mathHelper.Call(new PyString("multiply"), new PyInt(x), new PyInt(y));  
                 var powResult = mathHelper.Call(new PyString("power"), new PyInt(x), new PyInt(y));
                 
-                var result = new Dictionary<string, PyObject>
+                return new Dictionary<string, object>
                 {
                     ["sum"] = sumResult,
                     ["product"] = mulResult, 
                     ["power"] = powResult
                 };
-                
-                return new PyDict(result);
             });
 
             // 테스트 호출

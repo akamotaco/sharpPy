@@ -1,12 +1,14 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using SharpPy.Core;
 
 namespace SharpPy
 {
     #region Function and Method System
 
 // Python의 function 타입
-public class PyFunction : PyObject, IDescriptor
+public partial class PyFunction : PyObject, IDescriptor
 {
     public string Name { get; }
     public Func<PyObject[], PyObject> Implementation { get; }
@@ -345,6 +347,299 @@ public class PyFunctionSignature
             throw PyTypeError.Create($"Invalid kwargs for {typedDict.Name}: {string.Join("; ", errors)}");
         }
     }
+}
+
+/// <summary>
+/// IronPython 스타일의 편리한 함수 생성을 위한 팩토리 메서드들
+/// 자동 타입 변환과 타입 안전성을 제공
+/// </summary>
+public static class PyFunctionFactory
+{
+    #region Func 델리게이트용 Create 메서드들
+
+    /// <summary>
+    /// 매개변수 없는 함수 생성
+    /// </summary>
+    public static PyFunction Create<TResult>(string name, Func<TResult> func)
+    {
+        return new PyFunction(name, args =>
+        {
+            if (args.Length != 0)
+                throw PyTypeError.Create($"{name}() takes no arguments but {args.Length} were given");
+
+            try
+            {
+                var result = func();
+                return PyTypeConverter.ToPyObject(result);
+            }
+            catch (Exception ex)
+            {
+                throw PyRuntimeError.Create($"Error in {name}(): {ex.Message}");
+            }
+        });
+    }
+
+    /// <summary>
+    /// 매개변수 1개 함수 생성
+    /// </summary>
+    public static PyFunction Create<T1, TResult>(string name, Func<T1, TResult> func)
+    {
+        return new PyFunction(name, args =>
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"{name}() takes exactly 1 argument but {args.Length} were given");
+
+            try
+            {
+                var arg1 = PyTypeConverter.FromPyObject<T1>(args[0]);
+                var result = func(arg1);
+                return PyTypeConverter.ToPyObject(result);
+            }
+            catch (Exception ex) when (!(ex is PyException))
+            {
+                throw PyRuntimeError.Create($"Error in {name}(): {ex.Message}");
+            }
+        });
+    }
+
+    /// <summary>
+    /// 매개변수 2개 함수 생성
+    /// </summary>
+    public static PyFunction Create<T1, T2, TResult>(string name, Func<T1, T2, TResult> func)
+    {
+        return new PyFunction(name, args =>
+        {
+            if (args.Length != 2)
+                throw PyTypeError.Create($"{name}() takes exactly 2 arguments but {args.Length} were given");
+
+            try
+            {
+                var arg1 = PyTypeConverter.FromPyObject<T1>(args[0]);
+                var arg2 = PyTypeConverter.FromPyObject<T2>(args[1]);
+                var result = func(arg1, arg2);
+                return PyTypeConverter.ToPyObject(result);
+            }
+            catch (Exception ex) when (!(ex is PyException))
+            {
+                throw PyRuntimeError.Create($"Error in {name}(): {ex.Message}");
+            }
+        });
+    }
+
+    /// <summary>
+    /// 매개변수 3개 함수 생성
+    /// </summary>
+    public static PyFunction Create<T1, T2, T3, TResult>(string name, Func<T1, T2, T3, TResult> func)
+    {
+        return new PyFunction(name, args =>
+        {
+            if (args.Length != 3)
+                throw PyTypeError.Create($"{name}() takes exactly 3 arguments but {args.Length} were given");
+
+            try
+            {
+                var arg1 = PyTypeConverter.FromPyObject<T1>(args[0]);
+                var arg2 = PyTypeConverter.FromPyObject<T2>(args[1]);
+                var arg3 = PyTypeConverter.FromPyObject<T3>(args[2]);
+                var result = func(arg1, arg2, arg3);
+                return PyTypeConverter.ToPyObject(result);
+            }
+            catch (Exception ex) when (!(ex is PyException))
+            {
+                throw PyRuntimeError.Create($"Error in {name}(): {ex.Message}");
+            }
+        });
+    }
+
+    /// <summary>
+    /// 매개변수 4개 함수 생성
+    /// </summary>
+    public static PyFunction Create<T1, T2, T3, T4, TResult>(string name, Func<T1, T2, T3, T4, TResult> func)
+    {
+        return new PyFunction(name, args =>
+        {
+            if (args.Length != 4)
+                throw PyTypeError.Create($"{name}() takes exactly 4 arguments but {args.Length} were given");
+
+            try
+            {
+                var arg1 = PyTypeConverter.FromPyObject<T1>(args[0]);
+                var arg2 = PyTypeConverter.FromPyObject<T2>(args[1]);
+                var arg3 = PyTypeConverter.FromPyObject<T3>(args[2]);
+                var arg4 = PyTypeConverter.FromPyObject<T4>(args[3]);
+                var result = func(arg1, arg2, arg3, arg4);
+                return PyTypeConverter.ToPyObject(result);
+            }
+            catch (Exception ex) when (!(ex is PyException))
+            {
+                throw PyRuntimeError.Create($"Error in {name}(): {ex.Message}");
+            }
+        });
+    }
+
+    #endregion
+
+    #region Action 델리게이트용 Create 메서드들 (void 반환)
+
+    /// <summary>
+    /// 매개변수 없는 Action 생성
+    /// </summary>
+    public static PyFunction Create(string name, Action action)
+    {
+        return new PyFunction(name, args =>
+        {
+            if (args.Length != 0)
+                throw PyTypeError.Create($"{name}() takes no arguments but {args.Length} were given");
+
+            try
+            {
+                action();
+                return PyNone.Instance;
+            }
+            catch (Exception ex)
+            {
+                throw PyRuntimeError.Create($"Error in {name}(): {ex.Message}");
+            }
+        });
+    }
+
+    /// <summary>
+    /// 매개변수 1개 Action 생성
+    /// </summary>
+    public static PyFunction Create<T1>(string name, Action<T1> action)
+    {
+        return new PyFunction(name, args =>
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"{name}() takes exactly 1 argument but {args.Length} were given");
+
+            try
+            {
+                var arg1 = PyTypeConverter.FromPyObject<T1>(args[0]);
+                action(arg1);
+                return PyNone.Instance;
+            }
+            catch (Exception ex) when (!(ex is PyException))
+            {
+                throw PyRuntimeError.Create($"Error in {name}(): {ex.Message}");
+            }
+        });
+    }
+
+    /// <summary>
+    /// 매개변수 2개 Action 생성
+    /// </summary>
+    public static PyFunction Create<T1, T2>(string name, Action<T1, T2> action)
+    {
+        return new PyFunction(name, args =>
+        {
+            if (args.Length != 2)
+                throw PyTypeError.Create($"{name}() takes exactly 2 arguments but {args.Length} were given");
+
+            try
+            {
+                var arg1 = PyTypeConverter.FromPyObject<T1>(args[0]);
+                var arg2 = PyTypeConverter.FromPyObject<T2>(args[1]);
+                action(arg1, arg2);
+                return PyNone.Instance;
+            }
+            catch (Exception ex) when (!(ex is PyException))
+            {
+                throw PyRuntimeError.Create($"Error in {name}(): {ex.Message}");
+            }
+        });
+    }
+
+    /// <summary>
+    /// 매개변수 3개 Action 생성
+    /// </summary>
+    public static PyFunction Create<T1, T2, T3>(string name, Action<T1, T2, T3> action)
+    {
+        return new PyFunction(name, args =>
+        {
+            if (args.Length != 3)
+                throw PyTypeError.Create($"{name}() takes exactly 3 arguments but {args.Length} were given");
+
+            try
+            {
+                var arg1 = PyTypeConverter.FromPyObject<T1>(args[0]);
+                var arg2 = PyTypeConverter.FromPyObject<T2>(args[1]);
+                var arg3 = PyTypeConverter.FromPyObject<T3>(args[2]);
+                action(arg1, arg2, arg3);
+                return PyNone.Instance;
+            }
+            catch (Exception ex) when (!(ex is PyException))
+            {
+                throw PyRuntimeError.Create($"Error in {name}(): {ex.Message}");
+            }
+        });
+    }
+
+    #endregion
+}
+
+/// <summary>
+/// PyFunction 클래스에 IronPython 스타일 팩토리 메서드 추가
+/// </summary>
+public partial class PyFunction
+{
+    #region IronPython 스타일 Create 메서드들
+
+    /// <summary>
+    /// 매개변수 없는 함수 생성
+    /// </summary>
+    public static PyFunction Create<TResult>(string name, Func<TResult> func)
+        => PyFunctionFactory.Create(name, func);
+
+    /// <summary>
+    /// 매개변수 1개 함수 생성
+    /// </summary>
+    public static PyFunction Create<T1, TResult>(string name, Func<T1, TResult> func)
+        => PyFunctionFactory.Create(name, func);
+
+    /// <summary>
+    /// 매개변수 2개 함수 생성
+    /// </summary>
+    public static PyFunction Create<T1, T2, TResult>(string name, Func<T1, T2, TResult> func)
+        => PyFunctionFactory.Create(name, func);
+
+    /// <summary>
+    /// 매개변수 3개 함수 생성
+    /// </summary>
+    public static PyFunction Create<T1, T2, T3, TResult>(string name, Func<T1, T2, T3, TResult> func)
+        => PyFunctionFactory.Create(name, func);
+
+    /// <summary>
+    /// 매개변수 4개 함수 생성
+    /// </summary>
+    public static PyFunction Create<T1, T2, T3, T4, TResult>(string name, Func<T1, T2, T3, T4, TResult> func)
+        => PyFunctionFactory.Create(name, func);
+
+    /// <summary>
+    /// 매개변수 없는 Action 생성
+    /// </summary>
+    public static PyFunction Create(string name, Action action)
+        => PyFunctionFactory.Create(name, action);
+
+    /// <summary>
+    /// 매개변수 1개 Action 생성
+    /// </summary>
+    public static PyFunction Create<T1>(string name, Action<T1> action)
+        => PyFunctionFactory.Create(name, action);
+
+    /// <summary>
+    /// 매개변수 2개 Action 생성
+    /// </summary>
+    public static PyFunction Create<T1, T2>(string name, Action<T1, T2> action)
+        => PyFunctionFactory.Create(name, action);
+
+    /// <summary>
+    /// 매개변수 3개 Action 생성
+    /// </summary>
+    public static PyFunction Create<T1, T2, T3>(string name, Action<T1, T2, T3> action)
+        => PyFunctionFactory.Create(name, action);
+
+    #endregion
 }
 
 /// <summary>
