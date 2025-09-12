@@ -33,6 +33,14 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Python의 str() 함수에서 호출되는 메서드 - CPython 호환 형태
+        /// </summary>
+        public override string ToStr()
+        {
+            return $"{Message} ({Exceptions.Count} sub-exception{(Exceptions.Count != 1 ? "s" : "")})";
+        }
+
+        /// <summary>
         /// Create a new exception group with filtered exceptions (C# internal)
         /// </summary>
         public PyBaseExceptionGroup Subgroup(System.Type exceptionType)
