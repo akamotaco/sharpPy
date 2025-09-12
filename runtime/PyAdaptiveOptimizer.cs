@@ -186,6 +186,14 @@ namespace SharpPy
         /// </summary>
         private PyCodeObject OptimizeLoops(PyCodeObject code)
         {
+            // CPython 3.12 호환성: Comprehension에서는 FOR_ITER_LIST 최적화 비활성화
+            // Comprehension은 복잡한 중첩 루프 구조를 가지고 있어 단순한 최적화가 부적절함
+            if (IsComprehensionCode(code))
+            {
+                Console.WriteLine($"🚫 Skipping FOR_ITER_LIST optimization for comprehension: {code.Name}");
+                return code;
+            }
+            
             // 루프 언롤링, 루프 불변식 최적화 등
             // 간단한 구현: FOR_ITER를 FOR_ITER_LIST로 특수화
             var instructions = code.Instructions.ToList();
@@ -212,6 +220,38 @@ namespace SharpPy
             }
 
             return code;
+        }
+        
+        /// <summary>
+        /// Comprehension 코드인지 검사
+        /// </summary>
+        private bool IsComprehensionCode(PyCodeObject code)
+        {
+            // Comprehension 관련 바이트코드 패턴 검사
+            var instructions = code.Instructions;
+            
+            // LIST_APPEND, SET_ADD, MAP_ADD가 있으면 comprehension
+            bool hasComprehensionOps = instructions.Any(instr => 
+                instr.OpCode == ByteCodeOp.LIST_APPEND ||
+                instr.OpCode == ByteCodeOp.SET_ADD || 
+                instr.OpCode == ByteCodeOp.MAP_ADD);
+                
+            // BUILD_LIST, BUILD_SET, BUILD_MAP과 함께 FOR_ITER가 있으면 comprehension일 가능성이 높음
+            bool hasBuildOps = instructions.Any(instr =>
+                instr.OpCode == ByteCodeOp.BUILD_LIST ||
+                instr.OpCode == ByteCodeOp.BUILD_SET ||
+                instr.OpCode == ByteCodeOp.BUILD_MAP);
+                
+            bool hasForIter = instructions.Any(instr => instr.OpCode == ByteCodeOp.FOR_ITER);
+            
+            // comprehension 함수 이름 패턴
+            bool hasComprehensionName = code.Name.Contains("comprehension") || 
+                                       code.Name.Contains("listcomp") ||
+                                       code.Name.Contains("dictcomp") ||
+                                       code.Name.Contains("setcomp") ||
+                                       code.Name.Contains("genexpr");
+            
+            return hasComprehensionOps || (hasBuildOps && hasForIter) || hasComprehensionName;
         }
 
         /// <summary>
