@@ -134,6 +134,7 @@ namespace SharpPy
                 {
                     PrintPythonStyleTraceback(e);
                 }
+                // Re-throw to let Program.cs handle exit code
                 throw;
             }
         }
@@ -147,6 +148,7 @@ namespace SharpPy
             
             // Get current execution frame from VM
             var currentFrame = PyVM.CurrentFrame;
+            
             if (currentFrame != null && currentFrame.CurrentLineNumber > 0)
             {
                 var fileName = _currentFileName ?? "<stdin>";
@@ -189,9 +191,34 @@ namespace SharpPy
             }
             else
             {
+                // Try to get line number from PythonException
+                var lineNumber = -1;
+                if (e is PythonException pythonEx && pythonEx.LineNumber > 0)
+                {
+                    lineNumber = pythonEx.LineNumber;
+                }
+                
                 var fileName = _currentFileName ?? "<stdin>";
-                Console.WriteLine($"  File \"{fileName}\", line ?, in <module>");
-                Console.WriteLine($"    # Line information not available");
+                if (lineNumber > 0)
+                {
+                    Console.WriteLine($"  File \"{fileName}\", line {lineNumber}, in <module>");
+                    
+                    // Show actual source line if available
+                    if (_sourceLines != null && lineNumber > 0 && lineNumber <= _sourceLines.Length)
+                    {
+                        var sourceLine = _sourceLines[lineNumber - 1].Trim();
+                        Console.WriteLine($"    {sourceLine}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"    # Source line not available (line {lineNumber})");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"  File \"{fileName}\", line ?, in <module>");
+                    Console.WriteLine($"    # Line information not available");
+                }
             }
             
             // Show the exception type and message (Python-style)
@@ -201,15 +228,28 @@ namespace SharpPy
             var pythonExceptionType = exceptionTypeName switch
             {
                 "PyNameError" => "NameError",
-                "PyTypeError" => "TypeError",
+                "PyTypeError" => "TypeError", 
                 "PyValueError" => "ValueError",
                 "PyAttributeError" => "AttributeError",
                 "PyKeyError" => "KeyError",
                 "PyIndexError" => "IndexError",
+                "PyRuntimeError" => "RuntimeError",
+                "PyNotImplementedError" => "NotImplementedError",
+                "PySyntaxError" => "SyntaxError",
+                "PyIndentationError" => "IndentationError",
+                "PyTabError" => "TabError",
+                "PySystemError" => "SystemError",
+                "PyImportError" => "ImportError",
+                "PyModuleNotFoundError" => "ModuleNotFoundError",
+                "PyOSError" => "OSError",
+                "PyFileNotFoundError" => "FileNotFoundError",
+                "PyPermissionError" => "PermissionError",
                 _ when e.Message.Contains("not defined") => "NameError",
                 _ when e.Message.Contains("not found") => "NameError", 
                 _ when e.Message.Contains("has no attribute") => "AttributeError",
                 _ when e.Message.Contains("required argument") => "TypeError",
+                _ when e.Message.Contains("Complex target patterns") => "RuntimeError",
+                _ when e.Message.Contains("not implemented") => "NotImplementedError",
                 _ => "RuntimeError"
             };
             

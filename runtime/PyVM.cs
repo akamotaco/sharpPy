@@ -2861,7 +2861,7 @@ namespace SharpPy
                     break;
                     
                 default:
-                    throw new NotImplementedException($"OpCode {instruction.OpCode} not implemented");
+                    throw PyNotImplementedError.Create($"OpCode {instruction.OpCode} not implemented");
             }
             
             return null;
@@ -2908,7 +2908,7 @@ namespace SharpPy
                     BinaryOpType.AND => left.BitwiseAnd(right),
                     BinaryOpType.OR => left.BitwiseOr(right),
                     BinaryOpType.XOR => left.BitwiseXor(right),
-                    BinaryOpType.MATRIX_MULTIPLY => throw new NotImplementedException("Matrix multiplication not yet implemented"),
+                    BinaryOpType.MATRIX_MULTIPLY => throw PyNotImplementedError.Create("Matrix multiplication not yet implemented"),
                     _ => throw PyTypeError.Create($"unsupported binary operation: {binaryOp}")
                 };
             }
@@ -3077,7 +3077,7 @@ namespace SharpPy
                 CompareOp.GT => left.RichCompare(right, PyObject.CompareOp.GT),    // 68
                 CompareOp.GE => left.RichCompare(right, PyObject.CompareOp.GE),    // 92
                 CompareOp.EXC_MATCH => left.RichCompare(right, PyObject.CompareOp.EQ), // 8 - exception match
-                _ => throw new NotImplementedException($"Compare operation {compareOp} not implemented")
+                _ => throw PyNotImplementedError.Create($"Compare operation {compareOp} not implemented")
             };
         }
 
@@ -3097,7 +3097,7 @@ namespace SharpPy
             {
                 ContainsOp.In => ((PyBool)right.Contains(left)),
                 ContainsOp.NotIn => ((PyBool)right.Contains(left)).Not(),
-                _ => throw new NotImplementedException($"Contains operation {operation} not implemented")
+                _ => throw PyNotImplementedError.Create($"Contains operation {operation} not implemented")
             };
         }
 

@@ -1379,7 +1379,7 @@ namespace SharpPy
                     break;
                     
                 default:
-                    throw new NotImplementedException($"Statement {statement.GetType().Name} not implemented");
+                    throw PyNotImplementedError.Create($"Statement {statement.GetType().Name} not implemented");
             }
         }
         
@@ -1663,7 +1663,7 @@ namespace SharpPy
                     break;
                     
                 default:
-                    throw new NotImplementedException($"Expression {expression.GetType().Name} not implemented");
+                    throw PyNotImplementedError.Create($"Expression {expression.GetType().Name} not implemented");
             }
         }
         
@@ -5758,7 +5758,7 @@ namespace SharpPy
             }
             else
             {
-                throw new NotImplementedException("Complex target patterns not yet supported");
+                throw PyRuntimeError.Create("Complex target patterns not yet supported");
             }
             
             // 조건 검사 (if문이 있는 경우) - CPython 3.12 패턴: POP_JUMP_IF_TRUE 사용
