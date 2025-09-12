@@ -234,7 +234,8 @@ public class PyModule : PyObject
             ["datetime"] = () => SharpPy.Modules.Stdlib.DatetimeModule.CreateDatetimeModule(),
             ["urllib"] = () => SharpPy.Modules.Stdlib.UrllibModule.CreateUrllibModule(),
             ["abc"] = () => CreateAbcModule(),
-            ["contextlib"] = () => CreateContextlibModule()
+            ["contextlib"] = () => CreateContextlibModule(),
+            ["traceback"] = () => SharpPy.Modules.Stdlib.TracebackModule.CreateModule()
         };
 
 

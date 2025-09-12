@@ -52,6 +52,40 @@ public interface IDescriptor
 
         public bool IsDataDescriptor() => _setter != null || _deleter != null;
 
+        // Property decorator chaining methods
+        public override PyObject GetAttribute(string name)
+        {
+            switch (name)
+            {
+                case "setter":
+                    return new PyBuiltinFunction("setter", args => {
+                        if (args.Length != 1) throw PyTypeError.Create($"setter() takes exactly one argument ({args.Length} given)");
+                        if (args[0] is not PyFunction func) throw PyTypeError.Create("setter() argument must be a function");
+                        return new PyProperty(_getter, func, _deleter);
+                    });
+                case "deleter":
+                    return new PyBuiltinFunction("deleter", args => {
+                        if (args.Length != 1) throw PyTypeError.Create($"deleter() takes exactly one argument ({args.Length} given)");
+                        if (args[0] is not PyFunction func) throw PyTypeError.Create("deleter() argument must be a function");
+                        return new PyProperty(_getter, _setter, func);
+                    });
+                case "getter":
+                    return new PyBuiltinFunction("getter", args => {
+                        if (args.Length != 1) throw PyTypeError.Create($"getter() takes exactly one argument ({args.Length} given)");
+                        if (args[0] is not PyFunction func) throw PyTypeError.Create("getter() argument must be a function");
+                        return new PyProperty(func, _setter, _deleter);
+                    });
+                case "fget":
+                    return _getter ?? (PyObject)PyNone.Instance;
+                case "fset":
+                    return _setter ?? (PyObject)PyNone.Instance;
+                case "fdel":
+                    return _deleter ?? (PyObject)PyNone.Instance;
+                default:
+                    return base.GetAttribute(name);
+            }
+        }
+
         public override string GetTypeName() => "property";
         public override string ToString() => "<property object>";
     }

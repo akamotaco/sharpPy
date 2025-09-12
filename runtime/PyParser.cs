@@ -592,11 +592,22 @@ namespace SharpPy
         private List<string> ParseParameterList()
         {
             var parameters = new List<string>();
+            bool seenPositionalOnlySeparator = false;
+            bool seenKeywordOnlyMarker = false;
             
             if (!Check(TokenType.RIGHT_PAREN))
             {
                 do
                 {
+                    // Handle positional-only separator (/) - PEP 570
+                    if (Check(TokenType.SLASH))
+                    {
+                        Advance(); // consume /
+                        seenPositionalOnlySeparator = true;
+                        parameters.Add("/"); // Mark positional-only separator
+                        continue;
+                    }
+                    
                     // Handle *args and **kwargs (CPython style)
                     if (Check(TokenType.STAR_STAR))
                     {
@@ -619,10 +630,22 @@ namespace SharpPy
                     }
                     else if (Check(TokenType.STAR))
                     {
-                        // *args
+                        // Check for bare * (keyword-only marker)
                         Advance(); // consume *
-                        var argsParam = Consume(TokenType.IDENTIFIER, "Expected parameter name after *").Lexeme;
-                        parameters.Add("*" + argsParam);
+                        
+                        if (Check(TokenType.COMMA) || Check(TokenType.RIGHT_PAREN))
+                        {
+                            // Bare * - keyword-only marker (PEP 3102)
+                            seenKeywordOnlyMarker = true;
+                            parameters.Add("*"); // Mark keyword-only separator
+                        }
+                        else
+                        {
+                            // *args
+                            var argsParam = Consume(TokenType.IDENTIFIER, "Expected parameter name after *").Lexeme;
+                            parameters.Add("*" + argsParam);
+                            seenKeywordOnlyMarker = true;
+                        }
                     }
                     else
                     {
@@ -2865,7 +2888,7 @@ namespace SharpPy
             
             do
             {
-                targets.Add(ParsePrimaryExpression());
+                targets.Add(ParseExpression());
             } while (Match(TokenType.COMMA));
             
             return new DeleteStatement(targets);
