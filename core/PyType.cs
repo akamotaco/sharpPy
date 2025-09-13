@@ -88,7 +88,9 @@ namespace SharpPy
         public static readonly PyType IndentationErrorType = new PyType("IndentationError", new[] { SyntaxErrorType });
         
         public static readonly PyType StopIterationType = new PyType("StopIteration", new[] { ExceptionType });
+        public static readonly PyType AssertionErrorType = new PyType("AssertionError", new[] { ExceptionType });
         public static readonly PyType GeneratorExitType = new PyType("GeneratorExit", new[] { BaseExceptionType });
+
 
         #endregion
 
@@ -315,7 +317,21 @@ namespace SharpPy
                         });
                 }
             }
-            
+
+            // CPython 3.12: object type의 기본 메서드들
+            if (this == ObjectType)
+            {
+                switch (name)
+                {
+                    case "__init__":
+                        return new PyBuiltinMethod("__init__", (self, args) =>
+                        {
+                            // object.__init__() does nothing and returns None
+                            return PyNone.Instance;
+                        });
+                }
+            }
+
             switch (name)
             {
                 case "__name__":

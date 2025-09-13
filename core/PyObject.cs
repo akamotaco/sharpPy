@@ -158,6 +158,12 @@ namespace SharpPy
                         descriptor = desc;
                         Console.WriteLine($"   🔧 '{name}' is a descriptor: {desc.GetType().Name}");
                     }
+                    // CPython 호환: __get__, __set__, __delete__ 메서드가 있는 객체는 디스크립터로 취급
+                    else if (IsPythonDescriptor(attr))
+                    {
+                        descriptor = new PyDescriptorWrapper(attr);
+                        Console.WriteLine($"   🔧 '{name}' is a Python descriptor: {attr.GetType().Name}");
+                    }
                     break;
                 }
             }
@@ -685,6 +691,42 @@ namespace SharpPy
         public bool IsInstance(PyType type) => GetPyType().IsSubclassOf(type);
 
         #endregion
+
+        #region Descriptor Protocol Support
+
+        /// <summary>
+        /// CPython 호환: 객체가 Python 디스크립터인지 확인 (__get__, __set__, __delete__ 메서드 존재)
+        /// </summary>
+        protected virtual bool IsPythonDescriptor(PyObject obj)
+        {
+            try
+            {
+                var hasGet = HasAttribute(obj, "__get__");
+                return hasGet;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 객체가 특정 속성을 가지고 있는지 확인
+        /// </summary>
+        private bool HasAttribute(PyObject obj, string attrName)
+        {
+            try
+            {
+                var attr = obj.GetAttribute(attrName);
+                return attr != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        #endregion
     }
 
     #region Support Classes
@@ -697,6 +739,99 @@ namespace SharpPy
         public override string GetTypeName() => "NotImplementedType";
         public override string ToStr() => "NotImplemented";
         public override string ToRepr() => "NotImplemented";
+    }
+
+    /// <summary>
+    /// Python 디스크립터 객체(__get__, __set__, __delete__ 메서드를 가진 객체)를 IDescriptor로 래핑
+    /// </summary>
+    public class PyDescriptorWrapper : IDescriptor
+    {
+        private readonly PyObject _descriptor;
+
+        public PyDescriptorWrapper(PyObject descriptor)
+        {
+            _descriptor = descriptor;
+        }
+
+        public PyObject Get(PyObject instance, PyType owner)
+        {
+            try
+            {
+                var getMethod = _descriptor.GetAttribute("__get__");
+                if (getMethod != null && getMethod.IsCallable())
+                {
+                    return getMethod.Call(instance, owner);
+                }
+                return _descriptor;
+            }
+            catch
+            {
+                return _descriptor;
+            }
+        }
+
+        public void Set(PyObject instance, PyObject value)
+        {
+            try
+            {
+                var setMethod = _descriptor.GetAttribute("__set__");
+                if (setMethod != null && setMethod.IsCallable())
+                {
+                    setMethod.Call(instance, value);
+                    return;
+                }
+            }
+            catch
+            {
+                // Fall through to AttributeError
+            }
+            throw PyAttributeError.Create($"'{_descriptor.GetTypeName()}' object has no attribute '__set__'");
+        }
+
+        public void Delete(PyObject instance)
+        {
+            try
+            {
+                var delMethod = _descriptor.GetAttribute("__delete__");
+                if (delMethod != null && delMethod.IsCallable())
+                {
+                    delMethod.Call(instance);
+                    return;
+                }
+            }
+            catch
+            {
+                // Fall through to AttributeError
+            }
+            throw PyAttributeError.Create($"'{_descriptor.GetTypeName()}' object has no attribute '__delete__'");
+        }
+
+        public bool IsDataDescriptor()
+        {
+            try
+            {
+                var hasSet = HasAttribute("__set__");
+                var hasDelete = HasAttribute("__delete__");
+                return hasSet || hasDelete;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private bool HasAttribute(string attrName)
+        {
+            try
+            {
+                var attr = _descriptor.GetAttribute(attrName);
+                return attr != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
     }
 
     #endregion

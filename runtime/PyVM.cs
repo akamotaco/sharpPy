@@ -1358,17 +1358,43 @@ namespace SharpPy
                     
                 case ByteCodeOp.LOAD_SUPER_ATTR:
                     // CPython 3.12: super() attribute access
-                    // Stack: [..., super_obj, self] -> [..., attr_value]
+                    // Stack: [..., super_func, __class__, self] -> [..., attr_value]
                     var superAttrName = frame.Code.Names[instruction.Argument];
-                    var selfObj = frame.ValueStack.Pop();
-                    var superObj = frame.ValueStack.Pop();
-                    
-                    Console.WriteLine($"🔧 LOAD_SUPER_ATTR: {superAttrName}, super={superObj.GetType().Name}, self={selfObj.GetType().Name}");
-                    
-                    // Emulate CPython's super() behavior
-                    // Get the class from super object and look up method in parent classes
-                    var superAttr = GetSuperAttribute(superObj, selfObj, superAttrName);
-                    frame.ValueStack.Push(superAttr);
+                    var selfObj = frame.ValueStack.Pop();         // self
+                    var classObj = frame.ValueStack.Pop();        // __class__
+                    var superFunc = frame.ValueStack.Pop();       // super function
+
+                    Console.WriteLine($"🔧 LOAD_SUPER_ATTR: {superAttrName}, super={superFunc.GetType().Name}, class={classObj.GetType().Name}, self={selfObj.GetType().Name}");
+
+                    // Call super(__class__, self) to create super proxy, then get attribute
+                    try
+                    {
+                        // Create super proxy by calling super() with class and self
+                        var superArgs = new PyObject[] { classObj, selfObj };
+                        PyObject superProxy;
+
+                        if (superFunc is PyBuiltinFunction builtinSuper)
+                        {
+                            superProxy = builtinSuper.Call(superArgs);
+                        }
+                        else if (superFunc is PyFunction userSuper)
+                        {
+                            superProxy = userSuper.Call(superArgs);
+                        }
+                        else
+                        {
+                            throw PyRuntimeError.Create($"super object must be callable, got {superFunc.GetType().Name}");
+                        }
+
+                        var superAttr = superProxy.GetAttribute(superAttrName);
+                        frame.ValueStack.Push(superAttr);
+                        Console.WriteLine($"🔧 LOAD_SUPER_ATTR success: got {superAttr.GetType().Name}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"🔧 LOAD_SUPER_ATTR failed: {ex.Message}");
+                        throw;
+                    }
                     break;
                     
                 // CPython 3.12: Pattern matching opcodes

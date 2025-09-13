@@ -109,19 +109,19 @@ public class PyBuiltinsModule : PyObject
         BuiltinDict["BaseExceptionGroup"] = new PyBuiltinType("BaseExceptionGroup");
         BuiltinDict["ExceptionGroup"] = new PyBuiltinType("ExceptionGroup");
         
-        // Exception Types
-        BuiltinDict["BaseException"] = new PyBuiltinType("BaseException");
-        BuiltinDict["Exception"] = new PyBuiltinType("Exception");
-        BuiltinDict["ValueError"] = new PyBuiltinType("ValueError");
-        BuiltinDict["TypeError"] = new PyBuiltinType("TypeError");
-        BuiltinDict["AttributeError"] = new PyBuiltinType("AttributeError");
-        BuiltinDict["KeyError"] = new PyBuiltinType("KeyError");
-        BuiltinDict["IndexError"] = new PyBuiltinType("IndexError");
-        BuiltinDict["RuntimeError"] = new PyBuiltinType("RuntimeError");
-        BuiltinDict["ZeroDivisionError"] = new PyBuiltinType("ZeroDivisionError");
-        BuiltinDict["NameError"] = new PyBuiltinType("NameError");
-        BuiltinDict["StopIteration"] = new PyBuiltinType("StopIteration");
-        BuiltinDict["AssertionError"] = new PyBuiltinType("AssertionError");
+        // Exception Types - Use actual PyType objects for isinstance() compatibility
+        BuiltinDict["BaseException"] = PyType.BaseExceptionType;
+        BuiltinDict["Exception"] = PyType.ExceptionType;
+        BuiltinDict["ValueError"] = PyType.ValueErrorType;
+        BuiltinDict["TypeError"] = PyType.TypeErrorType;
+        BuiltinDict["AttributeError"] = PyType.AttributeErrorType;
+        BuiltinDict["KeyError"] = PyType.KeyErrorType;
+        BuiltinDict["IndexError"] = PyType.IndexErrorType;
+        BuiltinDict["RuntimeError"] = PyType.RuntimeErrorType;
+        BuiltinDict["ZeroDivisionError"] = PyType.ZeroDivisionErrorType;
+        BuiltinDict["NameError"] = PyType.NameErrorType;
+        BuiltinDict["StopIteration"] = PyType.StopIterationType;
+        BuiltinDict["AssertionError"] = PyType.AssertionErrorType;
         BuiltinDict["SyntaxError"] = new PyBuiltinType("SyntaxError");
         
         // Buffer Protocol (PEP 688) - Functions
@@ -252,6 +252,34 @@ public class PyBuiltinType : PyObject
                 
             default:
                 return base.Call(args);
+        }
+    }
+
+    public override PyObject GetAttribute(string name)
+    {
+        // CPython 3.12: object type의 기본 속성들
+        if (Name == "object")
+        {
+            switch (name)
+            {
+                case "__name__":
+                    return new PyString(Name);
+                case "__init__":
+                    return new PyBuiltinMethod("__init__", (self, args) =>
+                    {
+                        // object.__init__() does nothing and returns None
+                        return PyNone.Instance;
+                    });
+            }
+        }
+
+        // 기본 type 속성들
+        switch (name)
+        {
+            case "__name__":
+                return new PyString(Name);
+            default:
+                return base.GetAttribute(name);
         }
     }
 }

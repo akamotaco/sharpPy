@@ -1453,6 +1453,14 @@ namespace SharpPy
                 // But we need to get the updated dict from the metaclass result
                 // For now, let's try to get the attributes from the created class itself
                 Console.WriteLine($"Setting attributes for metaclass-created class");
+
+                // CPython 3.12: Ensure all namespace attributes are set on metaclass-created class
+                Console.WriteLine($"Ensuring all namespace attributes are set on metaclass-created class");
+                foreach (var kvp in classNamespace)
+                {
+                    Console.WriteLine($"  Set attribute from namespace: {kvp.Key} = {kvp.Value.GetType().Name}");
+                    pyClass.SetAttribute(kvp.Key, kvp.Value);
+                }
             }
             else
             {

@@ -37,12 +37,20 @@ namespace SharpPy.Modules
     }
 
     /// <summary>
-    /// ABC - Helper base class
+    /// ABC - Helper base class (실제로는 일반 클래스여야 함)
     /// </summary>
-    public class PyABC : PyType
+    public class PyABC : PyClass
     {
-        public PyABC() : base("ABC", new PyType[] { PyType.ObjectType })
+        public PyABC() : base("ABC", new PyType[] { PyType.ObjectType }, null)
         {
+            // CPython 3.12: ABC는 일반 클래스이므로 object.__init__을 상속받음
+            // object.__init__ 메서드를 함수로 추가 (바인딩은 런타임에)
+            SetAttribute("__init__", new PyBuiltinFunction("__init__", args =>
+            {
+                // object.__init__(self)는 아무것도 하지 않고 None 반환
+                // self 인자가 첫 번째 인자로 자동 전달됨
+                return PyNone.Instance;
+            }));
         }
     }
 

@@ -84,11 +84,17 @@ namespace SharpPy
             }
             
             // CPython 3.12: Check for super() calls and add __class__ as free variable
-            var hasSuperCalls = HasSuperCalls(func.Body);
+            Console.WriteLine($"  🔍 Checking function {func.Name} for super() calls...");
+            var hasSuperCalls = PythonCompiler.ContainsSuperCalls(func.Body);
+            Console.WriteLine($"  🔍 Super calls detection result for {func.Name}: {hasSuperCalls}");
             if (hasSuperCalls && !_usedVars.Contains("__class__"))
             {
-                Console.WriteLine($"  🔍 Found super() call in {func.Name}, adding __class__ as free variable");
+                Console.WriteLine($"  ✅ Found super() call in {func.Name}, adding __class__ as free variable");
                 _usedVars.Add("__class__");
+            }
+            else if (hasSuperCalls)
+            {
+                Console.WriteLine($"  ⚠️ Super() calls found but __class__ already in _usedVars for {func.Name}");
             }
             
             // Free variables: used but not defined locally AND exist in outer scope (CPython 3.12 방식)
@@ -409,67 +415,7 @@ namespace SharpPy
             }
         }
         
-        /// <summary>
-        /// CPython 3.12: Check if function body contains super() calls
-        /// </summary>
-        private bool HasSuperCalls(List<Statement> statements)
-        {
-            foreach (var stmt in statements)
-            {
-                if (HasSuperCallsInStatement(stmt))
-                    return true;
-            }
-            return false;
-        }
-        
-        private bool HasSuperCallsInStatement(Statement stmt)
-        {
-            switch (stmt)
-            {
-                case ReturnStatement returnStmt:
-                    if (returnStmt.Value != null)
-                        return HasSuperCallsInExpression(returnStmt.Value);
-                    return false;
-                    
-                case ExpressionStatement exprStmt:
-                    return HasSuperCallsInExpression(exprStmt.Expression);
-                    
-                case AssignStatement assignStmt:
-                    return HasSuperCallsInExpression(assignStmt.Value);
-                    
-                default:
-                    return false;
-            }
-        }
-        
-        private bool HasSuperCallsInExpression(Expression expr)
-        {
-            switch (expr)
-            {
-                case CallExpression call:
-                    // Check if this is a super() call
-                    if (call.Function is NameExpression name && name.Name == "super" && call.Arguments.Count == 0)
-                        return true;
-                    
-                    // Check for super().method() pattern
-                    foreach (var arg in call.Arguments)
-                    {
-                        if (HasSuperCallsInExpression(arg))
-                            return true;
-                    }
-                    return HasSuperCallsInExpression(call.Function);
-                    
-                case AttributeExpression attr:
-                    return HasSuperCallsInExpression(attr.Value);
-                    
-                case BinaryOpExpression binary:
-                    return HasSuperCallsInExpression(binary.Left) || 
-                           HasSuperCallsInExpression(binary.Right);
-                    
-                default:
-                    return false;
-            }
-        }
+        // Note: HasSuperCalls methods removed - now using ContainsSuperCalls instead for consistency
     }
 
     // AST를 바이트코드로 컴파일 (기존 시스템과 연동)
@@ -1480,8 +1426,10 @@ namespace SharpPy
                         // super().method pattern: use LOAD_SUPER_ATTR
                         Console.WriteLine($"🔍 Detected super().{attr.Attr} - generating LOAD_DEREF + LOAD_SUPER_ATTR");
                         
-                        // Load __class__ cell variable using LOAD_DEREF
-                        var classIndex = _cellVars.IndexOf("__class__");
+                        // Load __class__ free variable using LOAD_DEREF
+                        // Note: In methods, __class__ is a free variable, not a cell variable
+                        var classIndex = _freeVars.IndexOf("__class__");
+                        Console.WriteLine($"🔍 Looking for __class__ in free variables: index={classIndex}, freeVars=[{string.Join(", ", _freeVars)}]");
                         if (classIndex >= 0)
                         {
                             // Load super() (null + self)
@@ -2892,7 +2840,7 @@ namespace SharpPy
         /// <summary>
         /// Check if class body contains super() calls (without arguments)
         /// </summary>
-        private bool ContainsSuperCalls(List<Statement> statements)
+        public static bool ContainsSuperCalls(List<Statement> statements)
         {
             Console.WriteLine($"🔍 Checking {statements.Count} statements for super() calls");
             foreach (var stmt in statements)
@@ -2911,7 +2859,7 @@ namespace SharpPy
         /// <summary>
         /// Recursively check if a statement contains super() calls
         /// </summary>
-        private bool ContainsSuperCallsInStatement(Statement stmt)
+        private static bool ContainsSuperCallsInStatement(Statement stmt)
         {
             switch (stmt)
             {
@@ -2946,7 +2894,7 @@ namespace SharpPy
         /// <summary>
         /// Check if an expression contains super() calls
         /// </summary>
-        private bool ContainsSuperCallsInExpression(Expression expr)
+        private static bool ContainsSuperCallsInExpression(Expression expr)
         {
             switch (expr)
             {
@@ -2954,6 +2902,7 @@ namespace SharpPy
                     // Check if this is a super() call
                     if (call.Function is NameExpression name && name.Name == "super" && call.Arguments.Count == 0)
                     {
+                        Console.WriteLine($"    ✅ Found direct super() call");
                         return true;
                     }
                     // Recursively check arguments
@@ -2963,18 +2912,37 @@ namespace SharpPy
                             return true;
                     }
                     return ContainsSuperCallsInExpression(call.Function);
-                    
+
                 case NameExpression:
                     return false;
-                    
+
                 case AttributeExpression attr:
-                    return ContainsSuperCallsInExpression(attr.Value);
-                    
+                    Console.WriteLine($"    🔍 Checking AttributeExpression: {attr.Attr}");
+                    bool result = ContainsSuperCallsInExpression(attr.Value);
+                    if (result) Console.WriteLine($"    ✅ Found super() in AttributeExpression.Value");
+                    return result;
+
                 case BinaryOpExpression binary:
-                    return ContainsSuperCallsInExpression(binary.Left) || 
+                    return ContainsSuperCallsInExpression(binary.Left) ||
                            ContainsSuperCallsInExpression(binary.Right);
-                    
+
+                case FStringExpression fstring:
+                    Console.WriteLine($"    🔍 Checking FStringExpression with {fstring.Values.Count} values");
+                    foreach (var value in fstring.Values)
+                    {
+                        if (ContainsSuperCallsInExpression(value))
+                        {
+                            Console.WriteLine($"    ✅ Found super() in FStringExpression.Value");
+                            return true;
+                        }
+                    }
+                    return false;
+
+                case ConstantExpression:
+                    return false;
+
                 default:
+                    Console.WriteLine($"    ⚠️  Unhandled expression type: {expr.GetType().Name}");
                     return false;
             }
         }
@@ -5806,24 +5774,21 @@ namespace SharpPy
             // END_FOR 이후에 exception table end 설정 (CPython 3.12 호환)
             var exceptionTableEnd = _instructions.Count;
             
-            // CPython 3.12: 정상 완료 시 즉시 comprehension 변수 저장 (END_FOR 직후)
+            // CPython 3.12 PEP 709: List comprehension 변수는 외부 스코프로 누출되지 않음
+            // 따라서 comprehension 완료 후 변수를 다시 저장하지 않음
             if (comprehensionVars.Count > 0)
             {
-                // CPython 3.12: SWAP 값 = 실제 컴프리헨션 변수 개수 + 1 (result list)
+                // CPython 3.12: SWAP으로 스택에서 None 값들을 제거하고 결과 리스트만 남김
                 int swapArg = comprehensionVars.Count + 1;
-                Console.WriteLine($"🔧 END_FOR SWAP: vars={comprehensionVars.Count}, swapArg={swapArg}");
+                Console.WriteLine($"🔧 END_FOR SWAP (PEP 709): vars={comprehensionVars.Count}, swapArg={swapArg} - cleaning stack without storing vars");
                 EmitInstruction(ByteCodeOp.SWAP, swapArg);
-                for (int i = comprehensionVars.Count - 1; i >= 0; i--)
+
+                // PEP 709: comprehension 변수를 외부 스코프에 저장하지 않음
+                // 스택에서 None 값들을 POP_TOP으로 제거
+                for (int i = 0; i < comprehensionVars.Count; i++)
                 {
-                    // 모듈 레벨에서는 STORE_NAME 사용 (CPython 3.12 호환)
-                    if (_isInFunction)
-                    {
-                        EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(comprehensionVars[i]));
-                    }
-                    else
-                    {
-                        EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(comprehensionVars[i]));
-                    }
+                    Console.WriteLine($"  🗑️ POP_TOP: removing comprehension var {i} from stack (PEP 709)");
+                    EmitInstruction(ByteCodeOp.POP_TOP);
                 }
             }
             
