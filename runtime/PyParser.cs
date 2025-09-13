@@ -663,7 +663,7 @@ namespace SharpPy
                         // Default value 처리 (CPython style)
                         if (Match(TokenType.EQUAL))
                         {
-                            var defaultValue = ParseExpression();
+                            var defaultValue = ParseConditionalExpression();
                             paramString += "=" + defaultValue?.ToString();
                         }
                         
@@ -1043,8 +1043,41 @@ namespace SharpPy
             {
                 return ParseLambdaExpression();
             }
-            
-            return ParseConditionalExpression();
+
+            // Parse first expression
+            var expr = ParseConditionalExpression();
+
+            // Check for comma-separated expressions (tuple)
+            if (Check(TokenType.COMMA))
+            {
+                var elements = new List<Expression> { expr };
+
+                while (Match(TokenType.COMMA))
+                {
+                    // Handle trailing comma (e.g., "1, 2,")
+                    if (Check(TokenType.NEWLINE) || Check(TokenType.EOF) ||
+                        Check(TokenType.RIGHT_PAREN) || Check(TokenType.RIGHT_BRACKET) ||
+                        Check(TokenType.COLON) || Check(TokenType.SEMICOLON))
+                    {
+                        break;
+                    }
+
+                    elements.Add(ParseConditionalExpression());
+                }
+
+                // Only create tuple if we have more than one element
+                if (elements.Count > 1)
+                {
+                    return new TupleExpression(elements);
+                }
+                else
+                {
+                    // Single element with trailing comma is still a tuple
+                    return expr;
+                }
+            }
+
+            return expr;
         }
 
         private Expression ParseConditionalExpression()
@@ -1310,7 +1343,8 @@ namespace SharpPy
                     {
                         do
                         {
-                            args.Add(ParseExpression());
+                            // Use ParseConditionalExpression to avoid tuple parsing in function arguments
+                            args.Add(ParseConditionalExpression());
                         } while (Match(TokenType.COMMA));
                     }
                     
@@ -3191,7 +3225,7 @@ namespace SharpPy
                     // Handle default value (CPython style: lambda x, y=2: x * y)
                     if (Match(TokenType.EQUAL))
                     {
-                        var defaultValue = ParseExpression();
+                        var defaultValue = ParseConditionalExpression();
                         paramString += "=" + defaultValue?.ToString();
                     }
                     
@@ -3208,7 +3242,7 @@ namespace SharpPy
                             // Handle default value for each parameter
                             if (Match(TokenType.EQUAL))
                             {
-                                var defaultValue = ParseExpression();
+                                var defaultValue = ParseConditionalExpression();
                                 paramString += "=" + defaultValue?.ToString();
                             }
                             
@@ -3441,7 +3475,7 @@ namespace SharpPy
                     {
                         var keywordName = Advance().Lexeme;
                         Consume(TokenType.EQUAL, "Expected '=' after keyword argument name");
-                        var value = ParseExpression();
+                        var value = ParseConditionalExpression();
                         
                         if (value != null)
                         {
@@ -3451,7 +3485,7 @@ namespace SharpPy
                     // *args 처리
                     else if (Match(TokenType.STAR))
                     {
-                        var expr = ParseExpression();
+                        var expr = ParseConditionalExpression();
                         if (expr != null)
                         {
                             args.Add(new StarredExpression(expr));
@@ -3475,16 +3509,16 @@ namespace SharpPy
         // 함수 인수 파싱 - generator expression 지원
         private Expression ParseFunctionArgument()
         {
-            // 첫 번째 expression 파싱
-            var firstExpr = ParseExpression();
-            
+            // 첫 번째 expression 파싱 - avoid tuple parsing in function arguments
+            var firstExpr = ParseConditionalExpression();
+
             // FOR 키워드가 오면 generator expression
             if (Check(TokenType.FOR))
             {
                 var generators = ParseComprehensionGenerators();
                 return new GeneratorExpression(firstExpr, generators);
             }
-            
+
             return firstExpr;
         }
 

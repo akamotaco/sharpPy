@@ -4242,10 +4242,165 @@ namespace SharpPy
         /// </summary>
         private PyObject CallPyFunctionWithKeywords(PyFunction func, PyObject[] positionalArgs, Dictionary<string, PyObject> keywordArgs, PyScopeChain scopeChain)
         {
-            // For now, call with positional arguments only
-            return ExecuteFunctionCall(func, positionalArgs, scopeChain);
+            // CPython 3.12 방식: ExecuteFunctionCall에 키워드 인수를 전달하여 매개변수 바인딩 처리
+            return ExecuteFunctionCallWithKeywords(func, positionalArgs, keywordArgs, scopeChain);
         }
-        
+
+        /// <summary>
+        /// CPython 3.12: Execute function call with keyword arguments support
+        /// </summary>
+        private PyObject ExecuteFunctionCallWithKeywords(PyFunction pyFunc, PyObject[] positionalArgs, Dictionary<string, PyObject> keywordArgs, PyScopeChain parentScope)
+        {
+            if (pyFunc.CodeObject == null)
+            {
+                return pyFunc.Call(positionalArgs);
+            }
+
+            var code = pyFunc.CodeObject;
+
+            try
+            {
+                // Create frame with proper keyword argument binding
+                var frame = new PyFrame(code, positionalArgs, parentScope, pyFunc.Closure, CurrentFrame);
+
+                // CPython 3.12: Bind keyword arguments to parameters
+                BindArgumentsToParametersWithKeywords(frame, positionalArgs, keywordArgs, code);
+
+                return ExecuteFrame(frame);
+            }
+            catch (PyReturnException retEx)
+            {
+                return retEx.Value;
+            }
+        }
+
+        /// <summary>
+        /// CPython 3.12: Bind arguments to parameters with keyword arguments support
+        /// </summary>
+        private void BindArgumentsToParametersWithKeywords(PyFrame frame, PyObject[] positionalArgs, Dictionary<string, PyObject> keywordArgs, PyCodeObject code)
+        {
+            if (SharpPyConfig.ShouldShowDebugInfo)
+            {
+                Console.WriteLine($"🔗 키워드 인수 매개변수 바인딩: {positionalArgs.Length}개 위치 인수, {keywordArgs.Count}개 키워드 인수, {code.ArgCount}개 매개변수");
+                Console.WriteLine($"  Code flags: {code.Flags} (CO_VARARGS={((code.Flags & PyCodeObject.CO_VARARGS) != 0)}, CO_VARKEYWORDS={((code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0)})");
+            }
+
+            bool hasVarArgs = (code.Flags & PyCodeObject.CO_VARARGS) != 0;
+            bool hasVarKeywords = (code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0;
+
+            // Phase 1: Bind positional arguments to regular parameters
+            int posArgIndex = 0;
+            for (int paramIndex = 0; paramIndex < code.ArgCount; paramIndex++)
+            {
+                var paramName = code.VarNames[paramIndex];
+
+                if (posArgIndex < positionalArgs.Length)
+                {
+                    // Bind positional argument
+                    frame.FastLocals[paramName] = positionalArgs[posArgIndex];
+                    frame.ScopeChain.AssignVariable(paramName, positionalArgs[posArgIndex]);
+                    posArgIndex++;
+
+                    if (SharpPyConfig.ShouldShowDebugInfo)
+                    {
+                        Console.WriteLine($"  → {paramName} = {positionalArgs[posArgIndex - 1]} (위치 인수 {posArgIndex - 1})");
+                    }
+                }
+                else if (keywordArgs.ContainsKey(paramName))
+                {
+                    // Bind keyword argument to parameter
+                    var keywordValue = keywordArgs[paramName];
+                    frame.FastLocals[paramName] = keywordValue;
+                    frame.ScopeChain.AssignVariable(paramName, keywordValue);
+                    keywordArgs.Remove(paramName); // Remove so it doesn't go into **kwargs
+
+                    if (SharpPyConfig.ShouldShowDebugInfo)
+                    {
+                        Console.WriteLine($"  → {paramName} = {keywordValue} (키워드 인수)");
+                    }
+                }
+                else
+                {
+                    // Check for default value
+                    int numRequiredParams = code.ArgCount - code.DefaultValues.Count;
+                    if (paramIndex >= numRequiredParams && paramIndex - numRequiredParams < code.DefaultValues.Count)
+                    {
+                        var defaultValue = code.DefaultValues[paramIndex - numRequiredParams];
+                        frame.FastLocals[paramName] = defaultValue;
+                        frame.ScopeChain.AssignVariable(paramName, defaultValue);
+
+                        if (SharpPyConfig.ShouldShowDebugInfo)
+                        {
+                            Console.WriteLine($"  → {paramName} = {defaultValue} (기본값)");
+                        }
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create($"missing required argument: '{paramName}'");
+                    }
+                }
+            }
+
+            // Phase 2: Handle *args parameter
+            if (hasVarArgs)
+            {
+                string argsParamName = code.ArgCount < code.VarNames.Count ? code.VarNames[code.ArgCount] : "args";
+                var remainingPositionalArgs = new List<PyObject>();
+
+                // Collect remaining positional arguments
+                for (int i = posArgIndex; i < positionalArgs.Length; i++)
+                {
+                    remainingPositionalArgs.Add(positionalArgs[i]);
+                }
+
+                var argsTuple = new PyTuple(remainingPositionalArgs.ToArray());
+                frame.FastLocals[argsParamName] = argsTuple;
+                frame.ScopeChain.AssignVariable(argsParamName, argsTuple);
+
+                if (SharpPyConfig.ShouldShowDebugInfo)
+                {
+                    Console.WriteLine($"  → *{argsParamName} = {argsTuple} ({remainingPositionalArgs.Count}개 인수)");
+                }
+            }
+            else if (posArgIndex < positionalArgs.Length)
+            {
+                // Too many positional arguments and no *args parameter
+                throw PyTypeError.Create($"{code.Name}() takes {code.ArgCount} positional arguments but {positionalArgs.Length} were given");
+            }
+
+            // Phase 3: Handle **kwargs parameter
+            if (hasVarKeywords)
+            {
+                string kwargsParamName = "kwargs";
+                int kwargsIndex = code.ArgCount + (hasVarArgs ? 1 : 0);
+                if (kwargsIndex < code.VarNames.Count)
+                {
+                    kwargsParamName = code.VarNames[kwargsIndex];
+                }
+
+                // Create kwargs dictionary with remaining keyword arguments
+                var kwargsDict = new PyDict();
+                foreach (var kvp in keywordArgs)
+                {
+                    kwargsDict.SetItem(new PyString(kvp.Key), kvp.Value);
+                }
+
+                frame.FastLocals[kwargsParamName] = kwargsDict;
+                frame.ScopeChain.AssignVariable(kwargsParamName, kwargsDict);
+
+                if (SharpPyConfig.ShouldShowDebugInfo)
+                {
+                    Console.WriteLine($"  → **{kwargsParamName} = {kwargsDict} ({keywordArgs.Count}개 키워드)");
+                }
+            }
+            else if (keywordArgs.Count > 0)
+            {
+                // Unexpected keyword arguments and no **kwargs parameter
+                var firstUnexpectedKwarg = keywordArgs.Keys.First();
+                throw PyTypeError.Create($"{code.Name}() got an unexpected keyword argument '{firstUnexpectedKwarg}'");
+            }
+        }
+
         /// <summary>
         /// Calculate cumulative byte offset for given instruction index (CPython 3.12 compatible)
         /// </summary>
