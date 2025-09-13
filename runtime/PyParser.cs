@@ -503,7 +503,7 @@ namespace SharpPy
             
             Consume(TokenType.COLON, "Expected ':' after class header");
 
-            var body = ParseBlock();
+            var body = ParseBlock(isClassBody: true);
 
             return new ClassDefStatement(name, bases, body, typeParams, metaclass);
         }
@@ -687,7 +687,7 @@ namespace SharpPy
         }
 
         // CPython PEG: block: NEWLINE INDENT statements DEDENT | simple_stmts
-        private List<Statement> ParseBlock()
+        private List<Statement> ParseBlock(bool isClassBody = false)
         {
             var statements = new List<Statement>();
             
@@ -723,49 +723,56 @@ namespace SharpPy
                     }
                     else
                     {
-                        // Enhanced DEDENT handling for class bodies
+                        // Enhanced DEDENT handling - only for class bodies
                         if (Check(TokenType.DEDENT))
                         {
-                            Console.WriteLine($"🔍 ParseBlock: Found DEDENT, checking if class body continues...");
-                            // Enhanced lookahead to see if class body continues
-                            var nextTokenIndex = _current + 1;
-                            Console.WriteLine($"🔍 ParseBlock: Looking ahead from token {nextTokenIndex}...");
-
-                            // Skip NEWLINE tokens to find the next meaningful token
-                            while (nextTokenIndex < _tokens.Count &&
-                                   (_tokens[nextTokenIndex].Type == TokenType.NEWLINE ||
-                                    _tokens[nextTokenIndex].Type == TokenType.NL))
+                            if (isClassBody)
                             {
-                                Console.WriteLine($"🔍 ParseBlock: Skipping {_tokens[nextTokenIndex].Type} at {_tokens[nextTokenIndex].Line}:{_tokens[nextTokenIndex].Column}");
-                                nextTokenIndex++;
-                            }
+                                Console.WriteLine($"🔍 ParseBlock: Found DEDENT, checking if class body continues...");
+                                // Enhanced lookahead to see if class body continues
+                                var nextTokenIndex = _current + 1;
+                                Console.WriteLine($"🔍 ParseBlock: Looking ahead from token {nextTokenIndex}...");
 
-                            if (nextTokenIndex < _tokens.Count)
-                            {
-                                var nextToken = _tokens[nextTokenIndex];
-                                Console.WriteLine($"🔍 ParseBlock: Next meaningful token after DEDENT: {nextToken.Type} at {nextToken.Line}:{nextToken.Column}");
-
-                                // If next meaningful token is DEF, continue parsing (class body continues)
-                                if (nextToken.Type == TokenType.DEF)
+                                // Skip NEWLINE tokens to find the next meaningful token
+                                while (nextTokenIndex < _tokens.Count &&
+                                       (_tokens[nextTokenIndex].Type == TokenType.NEWLINE ||
+                                        _tokens[nextTokenIndex].Type == TokenType.NL))
                                 {
-                                    Console.WriteLine("🔍 ParseBlock: Found DEF after DEDENT - continuing class body parsing");
-                                    Advance(); // consume the DEDENT
-                                    continue; // continue to parse the next method
+                                    Console.WriteLine($"🔍 ParseBlock: Skipping {_tokens[nextTokenIndex].Type} at {_tokens[nextTokenIndex].Line}:{_tokens[nextTokenIndex].Column}");
+                                    nextTokenIndex++;
                                 }
-                                // If next token is INDENT, look further to see if there's a DEF (method after empty lines)
-                                else if (nextToken.Type == TokenType.INDENT)
+
+                                if (nextTokenIndex < _tokens.Count)
                                 {
-                                    var afterIndentIndex = nextTokenIndex + 1;
-                                    if (afterIndentIndex < _tokens.Count && _tokens[afterIndentIndex].Type == TokenType.DEF)
+                                    var nextToken = _tokens[nextTokenIndex];
+                                    Console.WriteLine($"🔍 ParseBlock: Next meaningful token after DEDENT: {nextToken.Type} at {nextToken.Line}:{nextToken.Column}");
+
+                                    // If next meaningful token is DEF, continue parsing (class body continues)
+                                    if (nextToken.Type == TokenType.DEF)
                                     {
-                                        Console.WriteLine("🔍 ParseBlock: Found INDENT then DEF after DEDENT - continuing class body parsing");
+                                        Console.WriteLine("🔍 ParseBlock: Found DEF after DEDENT - continuing class body parsing");
                                         Advance(); // consume the DEDENT
                                         continue; // continue to parse the next method
                                     }
+                                    // If next token is INDENT, look further to see if there's a DEF (method after empty lines)
+                                    else if (nextToken.Type == TokenType.INDENT)
+                                    {
+                                        var afterIndentIndex = nextTokenIndex + 1;
+                                        if (afterIndentIndex < _tokens.Count && _tokens[afterIndentIndex].Type == TokenType.DEF)
+                                        {
+                                            Console.WriteLine("🔍 ParseBlock: Found INDENT then DEF after DEDENT - continuing class body parsing");
+                                            Advance(); // consume the DEDENT
+                                            continue; // continue to parse the next method
+                                        }
+                                    }
                                 }
-                            }
 
-                            Console.WriteLine("🔍 ParseBlock: Class body ended, breaking");
+                                Console.WriteLine("🔍 ParseBlock: Class body ended, breaking");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"🔍 ParseBlock: Found DEDENT in non-class context, breaking");
+                            }
                             break;
                         }
 
