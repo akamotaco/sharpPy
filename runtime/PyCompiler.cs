@@ -2445,12 +2445,9 @@ namespace SharpPy
             
             // 4. 클로저와 기본값은 나중에 MAKE_FUNCTION 직전에 로드
             
-            // 5. MAKE_FUNCTION을 위한 스택 준비 (CPython 순서: code, defaults, annotations, closure)
-            
-            // 6. 코드 객체를 상수로 로드 (이름은 이미 코드 객체에 포함됨)
-            EmitLoadConst(codeObject);
+            // 5. MAKE_FUNCTION을 위한 스택 준비 (CPython 순서: defaults, annotations, code)
 
-            // 7. 기본값들을 tuple로 만들어 스택에 로드 (CPython 3.12 호환)
+            // 6. 기본값들을 tuple로 만들어 스택에 로드 (CPython 3.12 호환)
             if (defaults.Any())
             {
                 foreach (var defaultValue in defaults)
@@ -2460,7 +2457,7 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, defaults.Count);
             }
 
-            // 8. annotations 튜플을 스택에 로드 (CPython 3.12 호환성)
+            // 7. annotations 튜플을 스택에 로드 (CPython 3.12 호환성)
             if (annotations.Any())
             {
                 foreach (var annotation in annotations)
@@ -2471,7 +2468,7 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, annotations.Count * 2);
             }
 
-            // 9. 클로저가 있으면 셀 변수들을 스택에 로드
+            // 8. 클로저가 있으면 셀 변수들을 스택에 로드
             if (freeVars.Any())
             {
                 foreach (var freeVar in freeVars)
@@ -2489,6 +2486,9 @@ namespace SharpPy
                 }
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, freeVars.Count);
             }
+
+            // 9. 코드 객체를 상수로 로드 (마지막에 - 스택 맨 위가 됨)
+            EmitLoadConst(codeObject);
 
             // 10. MAKE_FUNCTION 명령어 생성 (CPython 3.12와 동일한 플래그)
             var makeFlags = 0;

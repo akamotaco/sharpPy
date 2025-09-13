@@ -1149,13 +1149,12 @@ namespace SharpPy
                 case ByteCodeOp.MAKE_FUNCTION:
                     // CPython 3.12 compatible function creation with full flags support
                     var flags = instruction.Argument;
-                    var codeObject = frame.ValueStack.Pop();
-                    
+
                     PyCell[] closure = null;
                     PyTuple defaults = null;
                     PyTuple kwDefaults = null;
                     PyTuple annotations = null;
-                    
+
                     Console.WriteLine($"🔧 MAKE_FUNCTION with flags: {flags:X} (binary: {Convert.ToString(flags, 2)})");
                     Console.WriteLine($"🔧 MAKE_FUNCTION stack size before processing: {frame.ValueStack.Count}");
                     if (frame.ValueStack.Count > 0)
@@ -1174,9 +1173,13 @@ namespace SharpPy
                     // 0x08 - HAS_CLOSURE: function uses closure variables
                     // 0x10 - HAS_QUALNAME: function has qualified name (not used in basic implementation)
                     
-                    // Process in correct CPython 3.12 stack order: closure, annotations, kw_defaults, defaults
-                    
-                    // Check for closure flag (8 = HAS_CLOSURE) - processed first due to stack order
+                    // Process in correct stack order: code object first (TOS), then others as needed
+
+                    // First, pop the code object (always at TOS)
+                    var codeObject = frame.ValueStack.Pop();
+                    Console.WriteLine($"🔧 Popped code object: {codeObject?.GetType().Name} = {codeObject}");
+
+                    // Check for closure flag (8 = HAS_CLOSURE) - processed next if present
                     if ((flags & 8) != 0)
                     {
                         var closureTuple = frame.ValueStack.Pop();
@@ -1255,7 +1258,7 @@ namespace SharpPy
                             defaults = new PyTuple(new PyObject[0]);
                         }
                     }
-                    
+
                     if (codeObject is PyCodeObject pyCode)
                     {
                         // CPython 3.12: async def로 정의된 함수인지 확인
