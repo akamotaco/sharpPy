@@ -52,10 +52,9 @@ namespace SharpPy
         
         public PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope = null, PyCell[] closure = null, PyFrame parentFrame = null)
         {
-            if (SharpPyConfig.ShouldShowDebugInfo)
-            {
-                Console.WriteLine($"🆕 PyFrame 생성: {code.Name}, args={args.Length}개");
-            }
+#if DEBUG
+            Console.WriteLine($"🆕 PyFrame 생성: {code.Name}, args={args.Length}개");
+#endif
             
             Code = code;
             ValueStack = new Stack<PyObject>();
@@ -104,16 +103,15 @@ namespace SharpPy
         /// </summary>
         private void BindArgumentsToParameters(PyObject[] args, PyCodeObject code)
         {
-            if (SharpPyConfig.ShouldShowDebugInfo)
+#if DEBUG
+            Console.WriteLine($"🔗 매개변수 바인딩: {args.Length}개 인수, {code.ArgCount}개 매개변수");
+            Console.WriteLine($"  Code flags: {code.Flags} (CO_VARARGS={((code.Flags & PyCodeObject.CO_VARARGS) != 0)}, CO_VARKEYWORDS={((code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0)})");
+            Console.WriteLine($"  DefaultValues.Count: {code.DefaultValues.Count}");
+            for (int j = 0; j < code.DefaultValues.Count; j++)
             {
-                Console.WriteLine($"🔗 매개변수 바인딩: {args.Length}개 인수, {code.ArgCount}개 매개변수");
-                Console.WriteLine($"  Code flags: {code.Flags} (CO_VARARGS={((code.Flags & PyCodeObject.CO_VARARGS) != 0)}, CO_VARKEYWORDS={((code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0)})");
-                Console.WriteLine($"  DefaultValues.Count: {code.DefaultValues.Count}");
-                for (int j = 0; j < code.DefaultValues.Count; j++)
-                {
-                    Console.WriteLine($"    [{j}]: {code.DefaultValues[j]?.ToString() ?? "null"}");
-                }
+                Console.WriteLine($"    [{j}]: {code.DefaultValues[j]?.ToString() ?? "null"}");
             }
+#endif
 
             // Check for *args and **kwargs parameters
             bool hasVarArgs = (code.Flags & PyCodeObject.CO_VARARGS) != 0;
@@ -123,18 +121,16 @@ namespace SharpPy
             for (int i = 0; i < code.ArgCount; i++)
             {
                 var paramName = code.VarNames[i];
-                if (SharpPyConfig.ShouldShowDebugInfo)
-                {
-                    Console.WriteLine($"  처리중: 매개변수[{i}] = '{paramName}'");
-                }
+#if DEBUG
+                Console.WriteLine($"  처리중: 매개변수[{i}] = '{paramName}'");
+#endif
                 
                 if (i < args.Length)
                 {
                     // 제공된 위치 인수 사용
-                    if (SharpPyConfig.ShouldShowDebugInfo)
-                    {
-                        Console.WriteLine($"  → {paramName} = {args[i]} (위치 인수)");
-                    }
+#if DEBUG
+                    Console.WriteLine($"  → {paramName} = {args[i]} (위치 인수)");
+#endif
                     FastLocals[paramName] = args[i];
                     ScopeChain.AssignVariable(paramName, args[i]);
                 }
@@ -184,10 +180,9 @@ namespace SharpPy
                 FastLocals[argsParamName] = argsTuple;
                 ScopeChain.AssignVariable(argsParamName, argsTuple);
 
-                if (SharpPyConfig.ShouldShowDebugInfo)
-                {
-                    Console.WriteLine($"  → *{argsParamName} = {argsTuple} (*args with {remainingArgs.Count} items)");
-                }
+#if DEBUG
+                Console.WriteLine($"  → *{argsParamName} = {argsTuple} (*args with {remainingArgs.Count} items)");
+#endif
             }
             else
             {
@@ -214,10 +209,9 @@ namespace SharpPy
                 FastLocals[kwargsParamName] = kwargsDict;
                 ScopeChain.AssignVariable(kwargsParamName, kwargsDict);
 
-                if (SharpPyConfig.ShouldShowDebugInfo)
-                {
-                    Console.WriteLine($"  → **{kwargsParamName} = {{}} (**kwargs - empty for now)");
-                }
+#if DEBUG
+                Console.WriteLine($"  → **{kwargsParamName} = {{}} (**kwargs - empty for now)");
+#endif
             }
         }
         
@@ -526,11 +520,13 @@ namespace SharpPy
                         frame.CurrentFileName = instruction.FileName;
                     }
                     
-                    if (SharpPyConfig.ShouldShowDebugInfo && frame.ValueStack.Count <= 10) // 스택이 너무 크지 않을 때만 출력
+#if DEBUG
+                    if (frame.ValueStack.Count <= 10) // 스택이 너무 크지 않을 때만 출력
                     {
                         var stackContents = string.Join(", ", frame.ValueStack.Reverse().Take(5));
                         Console.WriteLine($"  {frame.InstructionPointer*2,3}: {instruction,-25} 스택:[{stackContents}]");
                     }
+#endif
                     
                     try
                     {
@@ -539,10 +535,9 @@ namespace SharpPy
                         // RETURN_VALUE인 경우 함수 종료
                         if (result != null)
                         {
-                            if (SharpPyConfig.ShouldShowDebugInfo)
-                            {
-                                Console.WriteLine($"✅ VM 완료: {result}");
-                            }
+#if DEBUG
+                            Console.WriteLine($"✅ VM 완료: {result}");
+#endif
                             return result;
                         }
                         
@@ -559,12 +554,11 @@ namespace SharpPy
                             pyEx.SourceLines = frame.Code.SourceLines; // Add source lines for context display
                             
                             // Debug: Show enriched exception info
-                            if (SharpPyConfig.ShouldShowDebugInfo)
-                            {
-                                Console.WriteLine($"🔍 Exception enriched: {pyEx.FileName}:{pyEx.LineNumber}:{pyEx.ColumnOffset}");
-                                Console.WriteLine($"🔍 Source lines available: {pyEx.SourceLines?.Count ?? 0}");
-                                Console.WriteLine($"🔍 Full exception: {pyEx}");
-                            }
+#if DEBUG
+                            Console.WriteLine($"🔍 Exception enriched: {pyEx.FileName}:{pyEx.LineNumber}:{pyEx.ColumnOffset}");
+                            Console.WriteLine($"🔍 Source lines available: {pyEx.SourceLines?.Count ?? 0}");
+                            Console.WriteLine($"🔍 Full exception: {pyEx}");
+#endif
                         }
                         
                         // Handle Python exceptions with proper exception handler routing
@@ -3118,10 +3112,9 @@ namespace SharpPy
             catch (Exception ex)
             {
                 // Debug: Show what kind of exception occurred
-                if (SharpPyConfig.ShouldShowDebugInfo)
-                {
-                    Console.WriteLine($"🔍 Exception in ExecuteBinaryOpType: {ex.GetType().Name}: {ex.Message}");
-                }
+#if DEBUG
+                Console.WriteLine($"🔍 Exception in ExecuteBinaryOpType: {ex.GetType().Name}: {ex.Message}");
+#endif
                 throw; // Re-throw for upper-level handling
             }
         }
@@ -4279,11 +4272,10 @@ namespace SharpPy
         /// </summary>
         private void BindArgumentsToParametersWithKeywords(PyFrame frame, PyObject[] positionalArgs, Dictionary<string, PyObject> keywordArgs, PyCodeObject code)
         {
-            if (SharpPyConfig.ShouldShowDebugInfo)
-            {
-                Console.WriteLine($"🔗 키워드 인수 매개변수 바인딩: {positionalArgs.Length}개 위치 인수, {keywordArgs.Count}개 키워드 인수, {code.ArgCount}개 매개변수");
-                Console.WriteLine($"  Code flags: {code.Flags} (CO_VARARGS={((code.Flags & PyCodeObject.CO_VARARGS) != 0)}, CO_VARKEYWORDS={((code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0)})");
-            }
+#if DEBUG
+            Console.WriteLine($"🔗 키워드 인수 매개변수 바인딩: {positionalArgs.Length}개 위치 인수, {keywordArgs.Count}개 키워드 인수, {code.ArgCount}개 매개변수");
+            Console.WriteLine($"  Code flags: {code.Flags} (CO_VARARGS={((code.Flags & PyCodeObject.CO_VARARGS) != 0)}, CO_VARKEYWORDS={((code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0)})");
+#endif
 
             bool hasVarArgs = (code.Flags & PyCodeObject.CO_VARARGS) != 0;
             bool hasVarKeywords = (code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0;
@@ -4301,10 +4293,9 @@ namespace SharpPy
                     frame.ScopeChain.AssignVariable(paramName, positionalArgs[posArgIndex]);
                     posArgIndex++;
 
-                    if (SharpPyConfig.ShouldShowDebugInfo)
-                    {
-                        Console.WriteLine($"  → {paramName} = {positionalArgs[posArgIndex - 1]} (위치 인수 {posArgIndex - 1})");
-                    }
+#if DEBUG
+                    Console.WriteLine($"  → {paramName} = {positionalArgs[posArgIndex - 1]} (위치 인수 {posArgIndex - 1})");
+#endif
                 }
                 else if (keywordArgs.ContainsKey(paramName))
                 {
@@ -4314,10 +4305,9 @@ namespace SharpPy
                     frame.ScopeChain.AssignVariable(paramName, keywordValue);
                     keywordArgs.Remove(paramName); // Remove so it doesn't go into **kwargs
 
-                    if (SharpPyConfig.ShouldShowDebugInfo)
-                    {
-                        Console.WriteLine($"  → {paramName} = {keywordValue} (키워드 인수)");
-                    }
+#if DEBUG
+                    Console.WriteLine($"  → {paramName} = {keywordValue} (키워드 인수)");
+#endif
                 }
                 else
                 {
@@ -4329,10 +4319,9 @@ namespace SharpPy
                         frame.FastLocals[paramName] = defaultValue;
                         frame.ScopeChain.AssignVariable(paramName, defaultValue);
 
-                        if (SharpPyConfig.ShouldShowDebugInfo)
-                        {
-                            Console.WriteLine($"  → {paramName} = {defaultValue} (기본값)");
-                        }
+#if DEBUG
+                        Console.WriteLine($"  → {paramName} = {defaultValue} (기본값)");
+#endif
                     }
                     else
                     {
@@ -4357,10 +4346,9 @@ namespace SharpPy
                 frame.FastLocals[argsParamName] = argsTuple;
                 frame.ScopeChain.AssignVariable(argsParamName, argsTuple);
 
-                if (SharpPyConfig.ShouldShowDebugInfo)
-                {
-                    Console.WriteLine($"  → *{argsParamName} = {argsTuple} ({remainingPositionalArgs.Count}개 인수)");
-                }
+#if DEBUG
+                Console.WriteLine($"  → *{argsParamName} = {argsTuple} ({remainingPositionalArgs.Count}개 인수)");
+#endif
             }
             else if (posArgIndex < positionalArgs.Length)
             {
@@ -4388,10 +4376,9 @@ namespace SharpPy
                 frame.FastLocals[kwargsParamName] = kwargsDict;
                 frame.ScopeChain.AssignVariable(kwargsParamName, kwargsDict);
 
-                if (SharpPyConfig.ShouldShowDebugInfo)
-                {
-                    Console.WriteLine($"  → **{kwargsParamName} = {kwargsDict} ({keywordArgs.Count}개 키워드)");
-                }
+#if DEBUG
+                Console.WriteLine($"  → **{kwargsParamName} = {kwargsDict} ({keywordArgs.Count}개 키워드)");
+#endif
             }
             else if (keywordArgs.Count > 0)
             {

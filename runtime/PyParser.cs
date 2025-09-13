@@ -474,16 +474,27 @@ namespace SharpPy
                 {
                     do
                     {
-                        // Check for metaclass= keyword
-                        if (Check(TokenType.IDENTIFIER) && Peek().Lexeme == "metaclass" && PeekNext().Type == TokenType.EQUAL)
+                        // CPython 3.12: Check for keyword arguments like metaclass=
+                        if (Check(TokenType.IDENTIFIER) && CheckNext(TokenType.EQUAL))
                         {
-                            Advance(); // consume 'metaclass'
+                            var keywordName = Peek().Lexeme;
+                            Advance(); // consume keyword name
                             Advance(); // consume '='
-                            metaclass = ParseExpression();
+                            var value = ParseConditionalExpression(); // 콤마 구분 표현식 피하기
+
+                            if (keywordName == "metaclass")
+                            {
+                                metaclass = value;
+                            }
+                            else
+                            {
+                                // 다른 키워드 인수들은 향후 확장 가능
+                                throw new Exception($"Unsupported class keyword argument: {keywordName}");
+                            }
                         }
                         else
                         {
-                            bases.Add(ParseExpression());
+                            bases.Add(ParseConditionalExpression()); // 콤마 구분 표현식 피하기
                         }
                     } while (Match(TokenType.COMMA));
                 }
@@ -653,10 +664,10 @@ namespace SharpPy
                         var param = Consume(TokenType.IDENTIFIER, "Expected parameter name").Lexeme;
                         var paramString = param;
                         
-                        // Type annotation 처리
+                        // Type annotation 처리 (CPython 3.12: 콤마 전까지만 파싱)
                         if (Match(TokenType.COLON))
                         {
-                            var typeAnnotation = ParseExpression();
+                            var typeAnnotation = ParseConditionalExpression(); // 콤마 구분 표현식 피하기
                             paramString += ":" + typeAnnotation?.ToString();
                         }
                         
@@ -1535,8 +1546,8 @@ namespace SharpPy
                 return new ListExpression(new List<Expression>());
             }
             
-            // Parse first element
-            var firstElement = ParseExpression();
+            // Parse first element - use ConditionalExpression to avoid tuple parsing
+            var firstElement = ParseConditionalExpression();
             
             // Check if this is a list comprehension
             if (Check(TokenType.FOR))
@@ -1558,8 +1569,8 @@ namespace SharpPy
                     SkipIndentationTokens();
                     
                     if (Check(TokenType.RIGHT_BRACKET)) break; // trailing comma
-                    
-                    elements.Add(ParseExpression());
+
+                    elements.Add(ParseConditionalExpression());
                     
                     // Skip any trailing whitespace/indentation
                     SkipNewlines();
@@ -1573,10 +1584,16 @@ namespace SharpPy
 
         private Expression ParseDictExpression()
         {
+            // CPython 3.12: In match pattern context, parse as mapping pattern
+            if (_inMatchPattern)
+            {
+                return ParseMappingPatternInDict();
+            }
+
             // CPython 3.12: Handle indentation in multiline dict/set properly
             SkipNewlines();
             SkipIndentationTokens();
-            
+
             // Empty dict/set
             if (Check(TokenType.RIGHT_BRACE))
             {
@@ -1584,12 +1601,12 @@ namespace SharpPy
                 return new DictExpression(new List<(Expression, Expression)>());
             }
             
-            var firstExpr = ParseExpression();
-            
+            var firstExpr = ParseConditionalExpression();
+
             if (Match(TokenType.COLON))
             {
                 // This might be a dictionary literal or dict comprehension
-                var firstValue = ParseExpression();
+                var firstValue = ParseConditionalExpression();
                 
                 // Check if this is a dict comprehension
                 if (Check(TokenType.FOR))
@@ -1615,9 +1632,9 @@ namespace SharpPy
                         
                         if (Check(TokenType.RIGHT_BRACE)) break; // trailing comma
                         
-                        var key = ParseExpression();
+                        var key = ParseConditionalExpression();
                         Consume(TokenType.COLON, "Expected ':' after dictionary key");
-                        var value = ParseExpression();
+                        var value = ParseConditionalExpression();
                         items.Add((key, value));
                         
                         // Skip any trailing whitespace/indentation
@@ -2611,13 +2628,14 @@ namespace SharpPy
             var items = new List<WithItem>();
             
             // Parse first with item: with expr [as var]
-            var contextExpr = ParseExpression();
+            // CPython 3.12: Use ConditionalExpression to avoid consuming commas
+            var contextExpr = ParseConditionalExpression();
             Expression? optionalVars = null;
-            
+
             if (Check(TokenType.AS))
             {
                 Advance(); // consume AS
-                optionalVars = ParseExpression(); // as target
+                optionalVars = ParseConditionalExpression(); // as target (avoid comma parsing)
             }
             
             items.Add(new WithItem(contextExpr, optionalVars));
@@ -2627,13 +2645,14 @@ namespace SharpPy
             {
                 Advance(); // consume comma
                 
-                var nextContextExpr = ParseExpression();
+                // CPython 3.12: Each context manager parsed individually (avoid comma consumption)
+                var nextContextExpr = ParseConditionalExpression();
                 Expression? nextOptionalVars = null;
-                
+
                 if (Check(TokenType.AS))
                 {
                     Advance(); // consume AS
-                    nextOptionalVars = ParseExpression();
+                    nextOptionalVars = ParseConditionalExpression(); // as target (avoid comma parsing)
                 }
                 
                 items.Add(new WithItem(nextContextExpr, nextOptionalVars));
@@ -2839,7 +2858,8 @@ namespace SharpPy
             }
             
             // Regular expression pattern
-            return ParseExpression();
+            // CPython 3.12: In match patterns, avoid parsing comma-separated expressions as tuples
+            return ParseConditionalExpression();
         }
         
         /// <summary>
@@ -2885,22 +2905,96 @@ namespace SharpPy
         private Expression ParseMappingPattern()
         {
             Consume(TokenType.LEFT_BRACE, "Expected '{'");
-            
+
             var patterns = new Dictionary<string, Expression>();
-            
+
             if (!Check(TokenType.RIGHT_BRACE))
             {
                 do
                 {
                     // Parse string key
-                    var key = Consume(TokenType.STRING, "Expected string key in mapping pattern").Lexeme;
+                    var keyToken = Consume(TokenType.STRING, "Expected string key in mapping pattern");
+                    var key = keyToken.Lexeme;
                     Consume(TokenType.COLON, "Expected ':' after key in mapping pattern");
                     var valuePattern = ParseSingleMatchPattern();
                     patterns[key] = valuePattern;
                 } while (Match(TokenType.COMMA) && !Check(TokenType.RIGHT_BRACE));
             }
-            
+
             Consume(TokenType.RIGHT_BRACE, "Expected '}'");
+            return new MappingPattern(patterns);
+        }
+
+        /// <summary>
+        /// CPython 3.12: Parse dict-style mapping pattern in match context
+        /// Handles both string and identifier keys like {"name": name, age: age}
+        /// </summary>
+        private Expression ParseMappingPatternInDict()
+        {
+            // Skip any newlines and indentation
+            SkipNewlines();
+            SkipIndentationTokens();
+
+            // Empty dict pattern
+            if (Check(TokenType.RIGHT_BRACE))
+            {
+                Advance(); // consume '}'
+                return new MappingPattern(new Dictionary<string, Expression>());
+            }
+
+            var patterns = new Dictionary<string, Expression>();
+
+            if (!Check(TokenType.RIGHT_BRACE))
+            {
+                do
+                {
+                    // CPython 3.12: Parse key - can be string literal or identifier
+                    string keyStr;
+
+                    if (Check(TokenType.STRING))
+                    {
+                        var stringToken = Advance();
+                        keyStr = stringToken.Lexeme.Trim('"').Trim('\''); // Remove quotes
+                    }
+                    else if (Check(TokenType.IDENTIFIER))
+                    {
+                        var identToken = Advance();
+                        keyStr = identToken.Lexeme;
+                    }
+                    else
+                    {
+                        throw new Exception($"Expected string or identifier for mapping pattern key, got {Peek().Type}");
+                    }
+
+                    Consume(TokenType.COLON, "Expected ':' after mapping pattern key");
+
+                    // CPython 3.12: Parse value pattern - usually an identifier for variable binding
+                    Expression valuePattern;
+                    if (Check(TokenType.IDENTIFIER))
+                    {
+                        var varName = Advance().Lexeme;
+                        valuePattern = new NameExpression(varName);
+                    }
+                    else
+                    {
+                        // Allow more complex patterns
+                        valuePattern = ParseSingleMatchPattern();
+                    }
+
+                    patterns[keyStr] = valuePattern;
+
+                    // Skip any trailing whitespace/indentation
+                    SkipNewlines();
+                    SkipIndentationTokens();
+
+                } while (Match(TokenType.COMMA) && !Check(TokenType.RIGHT_BRACE));
+            }
+
+            // Skip trailing DEDENT/newlines before closing brace
+            SkipDedentationTokens();
+            SkipNewlines();
+
+            Consume(TokenType.RIGHT_BRACE, "Expected '}' after mapping pattern");
             return new MappingPattern(patterns);
         }
         

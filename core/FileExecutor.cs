@@ -22,12 +22,11 @@ namespace SharpPy.Core
             }
 
             // 기본 모드 (Python-style): 깔끔한 출력
-            if (SharpPyConfig.ShouldShowDebugInfo)
-            {
-                Console.WriteLine("🐍 SharpPy - Python Interpreter in C#");
-                Console.WriteLine("=====================================\n");
-                Console.WriteLine($"📄 Python 파일 실행: {pythonFile}");
-            }
+#if DEBUG
+            Console.WriteLine("🐍 SharpPy - Python Interpreter in C#");
+            Console.WriteLine("=====================================\n");
+            Console.WriteLine($"📄 Python 파일 실행: {pythonFile}");
+#endif
             
             try
             {
@@ -62,11 +61,13 @@ namespace SharpPy.Core
             {
                 // PyInterpreter already handles and prints Python-style errors
                 // Only show additional details in debug mode
-                if (SharpPyConfig.VerboseMode && SharpPyConfig.ShouldShowErrors)
+#if DEBUG
+                if (SharpPyConfig.VerboseMode)
                 {
                     Console.WriteLine("--- Debug Information ---");
                     Console.WriteLine(ex.ToString());
                 }
+#endif
                 // Exit with non-zero code to indicate error
                 Environment.Exit(1);
             }
@@ -94,11 +95,13 @@ namespace SharpPy.Core
             {
                 // PyInterpreter already handles and prints Python-style errors
                 // Only show additional details in debug mode
-                if (SharpPyConfig.VerboseMode && SharpPyConfig.ShouldShowErrors)
+#if DEBUG
+                if (SharpPyConfig.VerboseMode)
                 {
                     Console.WriteLine("--- Debug Information ---");
                     Console.WriteLine(ex.ToString());
                 }
+#endif
                 // Exit with non-zero code to indicate error
                 Environment.Exit(1);
             }

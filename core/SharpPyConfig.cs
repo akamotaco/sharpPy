@@ -93,10 +93,9 @@ namespace SharpPy
         /// <param name="message">출력할 메시지</param>
         public static void DebugWrite(string message)
         {
-            if (ShouldShowDebugInfo)
-            {
-                Console.WriteLine(message);
-            }
+#if DEBUG
+            Console.WriteLine(message);
+#endif
         }
         
         /// <summary>
@@ -105,10 +104,9 @@ namespace SharpPy
         /// <param name="message">출력할 메시지</param>
         public static void DebugWriteInternal(string message)
         {
-            if (VerboseMode && !DisassemblyOnlyMode)
-            {
-                Console.WriteLine(message);
-            }
+#if DEBUG
+            Console.WriteLine(message);
+#endif
         }
     }
 }

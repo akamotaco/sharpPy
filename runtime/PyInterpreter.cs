@@ -51,89 +51,81 @@ namespace SharpPy
             _sourceLines = sourceCode.Split(new[] { '\r', '\n' }, StringSplitOptions.None);
             
             // Verbose 모드일 때만 상세 디버그 정보 출력
-            if (SharpPyConfig.ShouldShowDebugInfo)
+#if DEBUG
+            Console.WriteLine("🐍 통합 Python 인터프리터 실행");
+            Console.WriteLine(new string('=', 60));
+            Console.WriteLine($"소스:\n{sourceCode}");
+            if (!string.IsNullOrEmpty(fileName))
             {
-                Console.WriteLine("🐍 통합 Python 인터프리터 실행");
-                Console.WriteLine(new string('=', 60));
-                Console.WriteLine($"소스:\n{sourceCode}");
-                if (!string.IsNullOrEmpty(fileName))
-                {
-                    Console.WriteLine($"파일: {fileName}");
-                }
+                Console.WriteLine($"파일: {fileName}");
             }
+            Console.WriteLine(new string('=', 60));
+#endif
             
             try
             {
                 // 1단계: 파싱 (소스 → AST)
-                if (SharpPyConfig.ShouldShowStepInfo)
-                {
-                    Console.WriteLine("\n" + new string('=',30));
-                    Console.WriteLine("1️⃣ 파싱: 소스 → AST");
-                    Console.WriteLine(new string('=', 30));
-                }
+#if DEBUG
+                Console.WriteLine("\n" + new string('=',30));
+                Console.WriteLine("1️⃣ 파싱: 소스 → AST");
+                Console.WriteLine(new string('=', 30));
+#endif
                 var statements = _parser.Parse(sourceCode, fileName ?? "<string>");
                 
                 // 2단계: 컴파일 (AST → 바이트코드)
-                if (SharpPyConfig.ShouldShowStepInfo)
-                {
-                    Console.WriteLine("\n" + new string('=', 30));
-                    Console.WriteLine("2️⃣ 컴파일: AST → 바이트코드");
-                    Console.WriteLine(new string('=', 30));
-                }
+#if DEBUG
+                Console.WriteLine("\n" + new string('=', 30));
+                Console.WriteLine("2️⃣ 컴파일: AST → 바이트코드");
+                Console.WriteLine(new string('=', 30));
+#endif
                 var codeObject = _compiler.Compile(statements, "<module>", new List<string>(), fileName);
                 
-                if (SharpPyConfig.ShouldShowDebugInfo)
-                {
-                    Console.WriteLine($"🔍 컴파일 직후 Exception Table entries: {codeObject.ExceptionTable.Count}");
-                }
+#if DEBUG
+                Console.WriteLine($"🔍 컴파일 직후 Exception Table entries: {codeObject.ExceptionTable.Count}");
+#endif
                 
                 // 3단계: 바이트코드 확인 (ShowBytecode 또는 VerboseMode일 때)
-                if (SharpPyConfig.ShowBytecode || SharpPyConfig.ShouldShowStepInfo)
+                if (SharpPyConfig.ShowBytecode)
                 {
-                    if (SharpPyConfig.ShouldShowStepInfo)
-                    {
-                        Console.WriteLine("\n" + new string('=', 30));
-                        Console.WriteLine("3️⃣ 바이트코드 확인");
-                        Console.WriteLine(new string('=', 30));
-                    }
                     codeObject.Disassemble();
-                    
-                    if (SharpPyConfig.ShouldShowDebugInfo)
-                    {
-                        Console.WriteLine($"🔍 디스어셈블리 후 Exception Table entries: {codeObject.ExceptionTable.Count}");
-                    }
                 }
-                
-                // 4단계: VM 실행 (기존 시스템들과 연동)
-                if (SharpPyConfig.ShouldShowStepInfo)
+#if DEBUG
+                else
                 {
                     Console.WriteLine("\n" + new string('=', 30));
-                    Console.WriteLine("4️⃣ VM 실행 (기존 LEGB 시스템 사용)");
+                    Console.WriteLine("3️⃣ 바이트코드 확인");
                     Console.WriteLine(new string('=', 30));
+                    codeObject.Disassemble();
                 }
+                Console.WriteLine($"🔍 디스어셈블리 후 Exception Table entries: {codeObject.ExceptionTable.Count}");
+#endif
                 
-                if (SharpPyConfig.ShouldShowDebugInfo)
-                {
-                    Console.WriteLine($"🔍 VM 실행 직전 Exception Table entries: {codeObject.ExceptionTable.Count}");
-                }
+                // 4단계: VM 실행 (기존 시스템들과 연동)
+#if DEBUG
+                Console.WriteLine("\n" + new string('=', 30));
+                Console.WriteLine("4️⃣ VM 실행 (기존 LEGB 시스템 사용)");
+                Console.WriteLine(new string('=', 30));
+#endif
+                
+#if DEBUG
+                Console.WriteLine($"🔍 VM 실행 직전 Exception Table entries: {codeObject.ExceptionTable.Count}");
+#endif
                 
                 var result = _vm.ExecuteModule(codeObject, _globalScope);
                 
-                if (SharpPyConfig.ShouldShowDebugInfo)
-                {
-                    Console.WriteLine("\n" + new string('=', 60));
-                    Console.WriteLine($"🎉 최종 결과: {result}");
-                    Console.WriteLine(new string('=', 60));
-                }
+#if DEBUG
+                Console.WriteLine("\n" + new string('=', 60));
+                Console.WriteLine($"🎉 최종 결과: {result}");
+                Console.WriteLine(new string('=', 60));
+#endif
                 
                 return result;
             }
             catch (Exception e)
             {
-                if (SharpPyConfig.ShouldShowErrors)
-                {
-                    PrintPythonStyleTraceback(e);
-                }
+#if DEBUG
+                PrintPythonStyleTraceback(e);
+#endif
                 // Re-throw to let Program.cs handle exit code
                 throw;
             }

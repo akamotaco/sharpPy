@@ -727,10 +727,11 @@ namespace SharpPy
         /// <summary>
         /// CPython 호환: 매개변수 문자열에서 이름과 기본값 분리
         /// </summary>
-        private (List<string> paramNames, List<PyObject> defaults, int flags, int argCount) ParseFunctionParameters(List<string> parameters)
+        private (List<string> paramNames, List<PyObject> defaults, int flags, int argCount, Dictionary<string, string> annotations) ParseFunctionParameters(List<string> parameters)
         {
             var paramNames = new List<string>();
             var defaults = new List<PyObject>();
+            var annotations = new Dictionary<string, string>(); // CPython 3.12: 타입 어노테이션 수집
             int flags = PyCodeObject.CO_OPTIMIZED | PyCodeObject.CO_NEWLOCALS; // CPython 3.12 standard flags
 
             Console.WriteLine($"🔍 ParseFunctionParameters: Input parameters = [{string.Join(", ", parameters)}]");
@@ -748,10 +749,13 @@ namespace SharpPy
                     var nameTypePart = param.Substring(0, equalIndex).Trim();
                     var defaultValueStr = param.Substring(equalIndex + 1).Trim();
                     
-                    // 타입 주석 제거: name:type -> name  
+                    // CPython 3.12: 타입 주석 처리: name:type -> name + annotations
                     if (nameTypePart.Contains(":"))
                     {
-                        cleanName = nameTypePart.Substring(0, nameTypePart.IndexOf(':')).Trim();
+                        var colonIndex = nameTypePart.IndexOf(':');
+                        cleanName = nameTypePart.Substring(0, colonIndex).Trim();
+                        var typeAnnotation = nameTypePart.Substring(colonIndex + 1).Trim();
+                        annotations[cleanName] = typeAnnotation;
                     }
                     else
                     {
@@ -763,8 +767,11 @@ namespace SharpPy
                 }
                 else if (param.Contains(":"))
                 {
-                    // 타입 주석만 있는 경우: name:type
-                    cleanName = param.Substring(0, param.IndexOf(':')).Trim();
+                    // CPython 3.12: 타입 주석만 있는 경우: name:type
+                    var colonIndex = param.IndexOf(':');
+                    cleanName = param.Substring(0, colonIndex).Trim();
+                    var typeAnnotation = param.Substring(colonIndex + 1).Trim();
+                    annotations[cleanName] = typeAnnotation;
                 }
                 else
                 {
@@ -772,6 +779,20 @@ namespace SharpPy
                     cleanName = param.Trim();
                 }
                 
+                // CPython 3.12: 위치 전용 매개변수 구분자 처리
+                if (cleanName == "/")
+                {
+                    // "/" is a separator, not a parameter - skip adding to paramNames
+                    Console.WriteLine($"🔍 Found positional-only separator: / (skipped from parameters)");
+                    continue; // Skip adding "/" to parameter names
+                }
+                else if (cleanName == "*")
+                {
+                    // "*" is keyword-only separator, not a parameter - skip adding to paramNames
+                    Console.WriteLine($"🔍 Found keyword-only separator: * (skipped from parameters)");
+                    continue; // Skip adding "*" to parameter names
+                }
+
                 // CPython 방식: **kwargs 및 *args 플래그 설정
                 if (cleanName.StartsWith("**"))
                 {
@@ -785,7 +806,7 @@ namespace SharpPy
                     Console.WriteLine($"🔍 Found *args: {cleanName} -> flags = {flags}");
                     cleanName = cleanName.Substring(1); // * 제거
                 }
-                
+
                 paramNames.Add(cleanName);
                 // CPython 방식: null이 아닌 기본값만 defaults 리스트에 추가
                 if (defaultValue != null)
@@ -805,8 +826,8 @@ namespace SharpPy
                 }
             }
 
-            Console.WriteLine($"🔍 ParseFunctionParameters: Final flags = {flags}, paramNames = [{string.Join(", ", paramNames)}], argCount = {argCount}");
-            return (paramNames, defaults, flags, argCount);
+            Console.WriteLine($"🔍 ParseFunctionParameters: Final flags = {flags}, paramNames = [{string.Join(", ", paramNames)}], argCount = {argCount}, annotations = {annotations.Count}");
+            return (paramNames, defaults, flags, argCount, annotations);
         }
         
         /// <summary>
@@ -814,7 +835,8 @@ namespace SharpPy
         /// </summary>
         private (List<string> paramNames, List<PyObject> defaults, int flags, int argCount) ParseAsyncFunctionParameters(List<string> parameters)
         {
-            return ParseFunctionParameters(parameters); // 동일한 로직 재사용
+            var (paramNames, defaults, flags, argCount, annotations) = ParseFunctionParameters(parameters);
+            return (paramNames, defaults, flags, argCount); // 기존 호환성을 위해 annotations 제외
         }
         
         /// <summary>
@@ -1699,7 +1721,7 @@ namespace SharpPy
             Console.WriteLine($"  Updated Cell variables: [{string.Join(", ", cellVars)}]");
             
             // 2. 매개변수와 기본값 파싱 (FunctionDefStatement에서 수행하던 로직)
-            var (paramNames, defaults, flags, argCount) = ParseFunctionParameters(func.Parameters);
+            var (paramNames, defaults, flags, argCount, annotations) = ParseFunctionParameters(func.Parameters);
             
             // 3. 코드 객체 컴파일 (자유 변수 정보와 기본값 포함)
             var compiler = new PythonCompiler();
@@ -1716,7 +1738,21 @@ namespace SharpPy
                     EmitLoadConst(defaultValue);
                 }
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, defaults.Count);
-                makeFunctionFlags |= 1; // MAKE_FUNCTION_DEFAULTS flag
+                makeFunctionFlags |= MakeFunctionFlags.DEFAULTS;
+            }
+
+            // CPython 3.12: 타입 어노테이션이 있는 경우 어노테이션 튜플 생성
+            if (annotations.Count > 0)
+            {
+                // CPython 패턴: (key, value, key, value, ...) 형태의 튜플
+                foreach (var annotation in annotations)
+                {
+                    EmitLoadConst(new PyString(annotation.Key));    // key
+                    EmitLoadConst(new PyString(annotation.Value));  // value
+                }
+                EmitInstruction(ByteCodeOp.BUILD_TUPLE, annotations.Count * 2);
+                makeFunctionFlags |= MakeFunctionFlags.ANNOTATIONS;
+                Console.WriteLine($"  → Built annotations tuple: {annotations.Count} annotations");
             }
             
             // 4. 자유 변수가 있는 경우 클로저 생성 (defaults 위에 푸시)
@@ -1746,25 +1782,22 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, freeVars.Count);
             }
             
-            // 5. 함수 생성 (기본값 + 클로저 플래그 설정)
+            // 5. 함수 생성 (기본값 + 어노테이션 + 클로저 플래그 설정)
             if (freeVars.Count > 0)
             {
-                makeFunctionFlags |= 8; // MAKE_FUNCTION_CLOSURE flag
+                makeFunctionFlags |= MakeFunctionFlags.CLOSURE;
             }
             
-            // 6. 데코레이터 적용 (CPython 3.12 호환) - 역순으로 적용 먼저
+            // 6. CPython 3.12 exact pattern: Load decorators BEFORE function creation
             if (func.Decorators != null && func.Decorators.Count > 0)
             {
                 // 데코레이터는 역순으로 적용됩니다 (안쪽부터 바깥쪽으로)
                 for (int i = func.Decorators.Count - 1; i >= 0; i--)
                 {
                     var decorator = func.Decorators[i];
-                    
-                    // CPython pattern: Load decorator first
                     CompileExpression(decorator.DecoratorFunction);
-                    
+
                     // 데코레이터에 추가 인수가 있는 경우 처리 (@decorator(args))
-                    // Note: These go on the stack after the decorator but before function
                     if (decorator.Arguments.Count > 0)
                     {
                         foreach (var arg in decorator.Arguments)
@@ -1774,25 +1807,24 @@ namespace SharpPy
                     }
                 }
             }
-            
+
             // 7. Load function code and create function
             EmitLoadConst(funcCode);
+            Console.WriteLine($"  → MAKE_FUNCTION flags: {makeFunctionFlags} (defaults={defaults.Count > 0}, annotations={annotations.Count > 0}, closure={freeVars.Count > 0})");
             EmitInstruction(ByteCodeOp.MAKE_FUNCTION, makeFunctionFlags);
-            
-            // 8. Call decorators (they're already on the stack)
+
+            // 8. Call decorators (CPython 3.12 호환)
             if (func.Decorators != null && func.Decorators.Count > 0)
             {
                 for (int i = func.Decorators.Count - 1; i >= 0; i--)
                 {
                     var decorator = func.Decorators[i];
-                    int decoratorArgCount = decorator.Arguments.Count; // function is implicit
-
-                    // CPython 3.12: CALL calls decorator with function as implicit argument
+                    int decoratorArgCount = decorator.Arguments.Count; // Only decorator arguments
                     EmitInstruction(ByteCodeOp.CALL, decoratorArgCount);
-                    // Stack after: [decorated_function]
                 }
             }
             
+            // 8. Store the final function (decorated or original)
             EmitStoreName(func.Name);
         }
         
@@ -2541,7 +2573,7 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, typeParams.Count);
                 
                 // Create annotations tuple: complex parameter annotations
-                var (paramNames, defaults, flags, argCount) = ParseFunctionParameters(func.Parameters);
+                var (paramNames, defaults, flags, argCount, annotations) = ParseFunctionParameters(func.Parameters);
                 
                 // Build complex annotations tuple for all parameters and return type
                 var annotationCount = 0;
