@@ -3595,10 +3595,12 @@ namespace SharpPy
     {
         public override string NodeType => "MappingPattern";
         public Dictionary<string, Expression> Patterns { get; }
-        
-        public MappingPattern(Dictionary<string, Expression> patterns)
+        public string? RestVariable { get; }
+
+        public MappingPattern(Dictionary<string, Expression> patterns, string? restVariable = null)
         {
             Patterns = patterns;
+            RestVariable = restVariable;
         }
         
         public override PyObject Evaluate(PyScope scope)

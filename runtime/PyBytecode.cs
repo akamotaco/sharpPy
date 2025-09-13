@@ -357,6 +357,7 @@ namespace SharpPy
         public List<string> Names { get; }            // co_names (변수명들)
         public List<string> VarNames { get; }         // co_varnames (지역변수명들)
         public int ArgCount { get; }                  // 매개변수 개수
+        public int PosonlyArgCount { get; }           // co_posonlyargcount (positional-only 매개변수 개수)
         public int Flags { get; }                     // co_flags (CPython 호환)
         public bool IsOptimized { get; }              // 바이트코드 최적화 여부
         public string? FileName { get; }              // co_filename (CPython 호환)
@@ -383,9 +384,9 @@ namespace SharpPy
         // Line Number Table: instruction offset → source line number mapping
         public Dictionary<int, int> LineNumberTable { get; set; } = new Dictionary<int, int>();
         
-        public PyCodeObject(string name, List<ByteCodeInstruction> instructions, 
-                        List<PyObject> constants, List<string> names, 
-                        List<string> varNames, int argCount = 0,
+        public PyCodeObject(string name, List<ByteCodeInstruction> instructions,
+                        List<PyObject> constants, List<string> names,
+                        List<string> varNames, int argCount = 0, int posonlyArgCount = 0,
                         List<string> freeVars = null, List<string> cellVars = null,
                         List<PyObject> defaultValues = null, int flags = 0, string fileName = null,
                         List<string> sourceLines = null, bool isOptimized = false,
@@ -397,6 +398,7 @@ namespace SharpPy
             Names = names;
             VarNames = varNames;
             ArgCount = argCount;
+            PosonlyArgCount = posonlyArgCount;
             Flags = flags;
             IsOptimized = isOptimized;
             FileName = fileName;
@@ -408,29 +410,6 @@ namespace SharpPy
             LineNumberTable = lineNumberTable ?? new Dictionary<int, int>();
         }
         
-        // ExceptionTable을 포함한 생성자
-        public PyCodeObject(string name, List<ByteCodeInstruction> instructions,
-                        List<PyObject> constants, List<string> names,
-                        List<string> varNames, int argCount,
-                        int flags, string fileName,
-                        List<string> freeVars, List<string> cellVars,
-                        List<ExceptionTableEntry> exceptionTable, bool isOptimized = false)
-        {
-            Name = name;
-            Instructions = instructions;
-            Constants = constants;
-            Names = names;
-            VarNames = varNames;
-            ArgCount = argCount;
-            Flags = flags;
-            IsOptimized = isOptimized;
-            FileName = fileName;
-            FreeVars = freeVars ?? new List<string>();
-            CellVars = cellVars ?? new List<string>();
-            ExceptionTable = exceptionTable ?? new List<ExceptionTableEntry>();
-            DefaultValues = new List<PyObject>();
-            SourceLines = null;
-        }
         
         public override string GetTypeName() => "code";
 
@@ -563,7 +542,7 @@ namespace SharpPy
         
         public PyCodeObject Build(string name = "<module>", int argCount = 0)
         {
-            return new PyCodeObject(name, instructions, constants, names, varNames, argCount);
+            return new PyCodeObject(name, instructions, constants, names, varNames, argCount, 0);
         }
         
         // Evaluate 메서드 - 나중에 구현

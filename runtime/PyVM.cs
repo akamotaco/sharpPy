@@ -3804,7 +3804,7 @@ namespace SharpPy
             var boundArgs = new PyObject[code.ArgCount];
             
             Console.WriteLine($"🔧 키워드 인수 포함 매개변수 바인딩: {args.Length}개 위치인수, {kwargs.Count}개 키워드인수, {code.ArgCount}개 매개변수");
-            Console.WriteLine($"  Flags: 0x{code.Flags:X8}, VarNames count: {code.VarNames.Count}");
+            Console.WriteLine($"  Flags: 0x{code.Flags:X8}, VarNames count: {code.VarNames.Count}, PosonlyArgCount: {code.PosonlyArgCount}");
             
             // CPython 방식: 플래그 기반 **kwargs 탐지
             bool hasKwargs = (code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0;
@@ -3815,7 +3815,7 @@ namespace SharpPy
             Console.WriteLine($"  hasKwargs: {hasKwargs}, hasVarargs: {hasVarargs}, kwargsIndex: {kwargsParamIndex}");
             
             // 실제 필수/선택적 매개변수 개수 계산 (**kwargs 제외)
-            int regularParamCount = hasKwargs ? code.ArgCount : code.ArgCount;
+            int regularParamCount = hasKwargs ? code.ArgCount - 1 : code.ArgCount;
             
             // 1. 위치 인수 바인딩
             for (int i = 0; i < Math.Min(args.Length, regularParamCount); i++)
@@ -3849,12 +3849,18 @@ namespace SharpPy
                 
                 if (paramIndex != -1)
                 {
+                    // CPython 3.12: positional-only 매개변수에 키워드 인수 사용 시 에러
+                    if (paramIndex < code.PosonlyArgCount)
+                    {
+                        throw PyTypeError.Create($"{code.Name}() got some positional-only arguments passed as keyword arguments: '{paramName}'");
+                    }
+
                     // 일반 매개변수에 바인딩
                     if (boundArgs[paramIndex] != null)
                     {
                         throw PyTypeError.Create($"'{code.Name}() got multiple values for argument '{paramName}'");
                     }
-                    
+
                     boundArgs[paramIndex] = paramValue;
                     Console.WriteLine($"  → 매개변수[{paramIndex}] '{paramName}' = {paramValue} (키워드인수)");
                 }

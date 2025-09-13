@@ -85,6 +85,7 @@ namespace SharpPy
                 _names,
                 originalCode.VarNames,
                 originalCode.ArgCount,
+                originalCode.PosonlyArgCount,
                 originalCode.FreeVars,
                 originalCode.CellVars,
                 originalCode.DefaultValues,

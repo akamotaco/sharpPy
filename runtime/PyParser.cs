@@ -2907,22 +2907,33 @@ namespace SharpPy
             Consume(TokenType.LEFT_BRACE, "Expected '{'");
 
             var patterns = new Dictionary<string, Expression>();
+            string? restVariable = null;
 
             if (!Check(TokenType.RIGHT_BRACE))
             {
                 do
                 {
-                    // Parse string key
-                    var keyToken = Consume(TokenType.STRING, "Expected string key in mapping pattern");
-                    var key = keyToken.Lexeme;
-                    Consume(TokenType.COLON, "Expected ':' after key in mapping pattern");
-                    var valuePattern = ParseSingleMatchPattern();
-                    patterns[key] = valuePattern;
+                    // Check for **rest pattern
+                    if (Check(TokenType.STAR_STAR))
+                    {
+                        Advance(); // consume **
+                        var restToken = Consume(TokenType.IDENTIFIER, "Expected identifier after ** in mapping pattern");
+                        restVariable = restToken.Lexeme;
+                    }
+                    else
+                    {
+                        // Parse string key
+                        var keyToken = Consume(TokenType.STRING, "Expected string key in mapping pattern");
+                        var key = keyToken.Lexeme;
+                        Consume(TokenType.COLON, "Expected ':' after key in mapping pattern");
+                        var valuePattern = ParseSingleMatchPattern();
+                        patterns[key] = valuePattern;
+                    }
                 } while (Match(TokenType.COMMA) && !Check(TokenType.RIGHT_BRACE));
             }
 
             Consume(TokenType.RIGHT_BRACE, "Expected '}'");
-            return new MappingPattern(patterns);
+            return new MappingPattern(patterns, restVariable);
         }
 
         /// <summary>
@@ -2939,49 +2950,60 @@ namespace SharpPy
             if (Check(TokenType.RIGHT_BRACE))
             {
                 Advance(); // consume '}'
-                return new MappingPattern(new Dictionary<string, Expression>());
+                return new MappingPattern(new Dictionary<string, Expression>(), null);
             }
 
             var patterns = new Dictionary<string, Expression>();
+            string? restVariable = null;
 
             if (!Check(TokenType.RIGHT_BRACE))
             {
                 do
                 {
-                    // CPython 3.12: Parse key - can be string literal or identifier
-                    string keyStr;
-
-                    if (Check(TokenType.STRING))
+                    // Check for **rest pattern
+                    if (Check(TokenType.STAR_STAR))
                     {
-                        var stringToken = Advance();
-                        keyStr = stringToken.Lexeme.Trim('"').Trim('\''); // Remove quotes
-                    }
-                    else if (Check(TokenType.IDENTIFIER))
-                    {
-                        var identToken = Advance();
-                        keyStr = identToken.Lexeme;
+                        Advance(); // consume **
+                        var restToken = Consume(TokenType.IDENTIFIER, "Expected identifier after ** in mapping pattern");
+                        restVariable = restToken.Lexeme;
                     }
                     else
                     {
-                        throw new Exception($"Expected string or identifier for mapping pattern key, got {Peek().Type}");
-                    }
+                        // CPython 3.12: Parse key - can be string literal or identifier
+                        string keyStr;
 
-                    Consume(TokenType.COLON, "Expected ':' after mapping pattern key");
+                        if (Check(TokenType.STRING))
+                        {
+                            var stringToken = Advance();
+                            keyStr = stringToken.Lexeme.Trim('"').Trim('\''); // Remove quotes
+                        }
+                        else if (Check(TokenType.IDENTIFIER))
+                        {
+                            var identToken = Advance();
+                            keyStr = identToken.Lexeme;
+                        }
+                        else
+                        {
+                            throw new Exception($"Expected string or identifier for mapping pattern key, got {Peek().Type}");
+                        }
 
-                    // CPython 3.12: Parse value pattern - usually an identifier for variable binding
-                    Expression valuePattern;
-                    if (Check(TokenType.IDENTIFIER))
-                    {
-                        var varName = Advance().Lexeme;
-                        valuePattern = new NameExpression(varName);
-                    }
-                    else
-                    {
-                        // Allow more complex patterns
-                        valuePattern = ParseSingleMatchPattern();
-                    }
+                        Consume(TokenType.COLON, "Expected ':' after mapping pattern key");
 
-                    patterns[keyStr] = valuePattern;
+                        // CPython 3.12: Parse value pattern - usually an identifier for variable binding
+                        Expression valuePattern;
+                        if (Check(TokenType.IDENTIFIER))
+                        {
+                            var varName = Advance().Lexeme;
+                            valuePattern = new NameExpression(varName);
+                        }
+                        else
+                        {
+                            // Allow more complex patterns
+                            valuePattern = ParseSingleMatchPattern();
+                        }
+
+                        patterns[keyStr] = valuePattern;
+                    }
 
                     // Skip any trailing whitespace/indentation
                     SkipNewlines();
@@ -2995,7 +3017,7 @@ namespace SharpPy
             SkipNewlines();
 
             Consume(TokenType.RIGHT_BRACE, "Expected '}' after mapping pattern");
-            return new MappingPattern(patterns);
+            return new MappingPattern(patterns, restVariable);
         }
         
         private Statement ParseReturnStatement()

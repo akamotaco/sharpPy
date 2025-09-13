@@ -215,7 +215,7 @@ namespace SharpPy
                 return new PyCodeObject(
                     code.Name, instructions,
                     code.Constants, code.Names, code.VarNames,
-                    code.ArgCount
+                    code.ArgCount, code.PosonlyArgCount
                 );
             }
 
