@@ -2165,7 +2165,7 @@ namespace SharpPy
         {
             Console.WriteLine($"🔍 PySuperProxy.GetAttribute: Looking for '{name}' in super({Type.Name})");
             Console.WriteLine($"   Type.BaseTypes: {(Type.BaseTypes != null ? $"[{string.Join(", ", Type.BaseTypes.Select(t => t.Name))}]" : "null")}");
-            
+
             // CPython 3.12: Use MRO to find the method in parent classes
             // Skip the current class and look in its parents
             if (Type.BaseTypes != null && Type.BaseTypes.Length > 0)
@@ -2174,20 +2174,20 @@ namespace SharpPy
                 foreach (var baseType in Type.BaseTypes)
                 {
                     Console.WriteLine($"   → Checking base type: {baseType.Name}");
-                    
+
                     try
                     {
                         var attr = baseType.GetAttribute(name);
                         if (attr != null)
                         {
                             Console.WriteLine($"   ✅ Found '{name}' in {baseType.Name}: {attr.GetType().Name}");
-                            
+
                             // Special handling for metaclass methods like __new__
                             if (attr is PyFunction function && Object != null)
                             {
                                 // Check if we're in a metaclass context (Object is a class)
                                 bool isMetaclassContext = Object is PyClass || Object is PyTypeMetaclass;
-                                
+
                                 if (isMetaclassContext && (name == "__new__" || name == "__init__" || name == "__init_subclass__"))
                                 {
                                     // Return unbound function for class methods in metaclass context
@@ -2210,7 +2210,30 @@ namespace SharpPy
                     }
                 }
             }
-            
+            else
+            {
+                // CPython 3.12: If no explicit base classes, implicitly inherit from object
+                Console.WriteLine($"   → No base types, checking implicit 'object' base class");
+
+                // For object.__init__, return a no-op function (object's __init__ does nothing)
+                if (name == "__init__" && Object != null)
+                {
+                    Console.WriteLine($"   ✅ Found implicit object.__init__: returning bound method");
+
+                    // Create a no-op __init__ function that matches object.__init__
+                    // We need to wrap PyBuiltinFunction as PyFunction for binding
+                    var objectInitBuiltin = new PyBuiltinFunction("__init__", args => PyNone.Instance);
+
+                    // Convert PyBuiltinFunction to PyFunction-compatible form
+                    var objectInitFunction = new PyFunction("__init__", args => PyNone.Instance);
+
+                    return new PyMethod(Object, objectInitFunction);
+                }
+
+                // For other object methods, we could add them here if needed
+                // For now, let's see if __init__ is enough
+            }
+
             Console.WriteLine($"   ❌ '{name}' not found in any parent class");
             throw PyAttributeError.Create($"'super' object has no attribute '{name}'");
         }

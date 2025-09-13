@@ -1738,7 +1738,75 @@ namespace SharpPy
             compiler.SetupClosureCompilation(cellVars, freeVars); // 셀 변수와 자유 변수 설정
             var funcCode = compiler.CompileWithClosureAndDefaults(func.Body, func.Name, paramNames, defaults, freeVars, cellVars, flags, argCount, posonlyArgCount);
             
-            // 3. CPython 3.12 호환: MAKE_FUNCTION 스택 순서 맞추기
+            // 3. CPython 3.12 exact pattern: Load decorators in REVERSE order (bottom to top in source)
+            if (func.Decorators != null && func.Decorators.Count > 0)
+            {
+                // Load decorators in reverse order (bottom-most decorator first)
+                for (int i = func.Decorators.Count - 1; i >= 0; i--)
+                {
+                    var decorator = func.Decorators[i];
+
+                    if (decorator.Arguments.Count > 0)
+                    {
+                        // Parametric decorator: @decorator(args) - needs PUSH_NULL
+                        EmitInstruction(ByteCodeOp.PUSH_NULL);
+                        CompileExpression(decorator.DecoratorFunction);
+
+                        // Separate positional and keyword arguments
+                        var positionalArgs = new List<Expression>();
+                        var keywordArgs = new List<KeywordExpression>();
+
+                        foreach (var arg in decorator.Arguments)
+                        {
+                            if (arg is KeywordExpression keyword)
+                            {
+                                keywordArgs.Add(keyword);
+                            }
+                            else
+                            {
+                                positionalArgs.Add(arg);
+                            }
+                        }
+
+                        // Compile positional arguments first
+                        foreach (var arg in positionalArgs)
+                        {
+                            CompileExpression(arg);
+                        }
+
+                        // Compile keyword argument values
+                        foreach (var keyword in keywordArgs)
+                        {
+                            CompileExpression(keyword.Value);
+                        }
+
+                        // Handle keyword arguments with KW_NAMES (CPython 3.12 pattern)
+                        if (keywordArgs.Count > 0)
+                        {
+                            // Create keyword names tuple and add to constants
+                            var kwNames = keywordArgs.Select(kw => new PyString(kw.Arg ?? "")).ToArray();
+                            var kwNamesTuple = new PyTuple(kwNames);
+                            var kwNamesIndex = GetOrAddConstant(kwNamesTuple);
+
+                            // CPython 3.12: KW_NAMES + CALL pattern
+                            EmitInstruction(ByteCodeOp.KW_NAMES, kwNamesIndex);
+                            EmitInstruction(ByteCodeOp.CALL, positionalArgs.Count + keywordArgs.Count);
+                        }
+                        else
+                        {
+                            // Only positional arguments
+                            EmitInstruction(ByteCodeOp.CALL, positionalArgs.Count);
+                        }
+                    }
+                    else
+                    {
+                        // Simple decorator: @decorator - just load the function
+                        CompileExpression(decorator.DecoratorFunction);
+                    }
+                }
+            }
+
+            // 4. MAKE_FUNCTION 스택 순서 맞추기 (CPython 3.12 compatible)
             // 기본값이 있는 경우 기본값 튜플을 먼저 푸시 (스택 맨 아래)
             int makeFunctionFlags = 0;
             if (defaults.Count > 0)
@@ -1764,12 +1832,12 @@ namespace SharpPy
                 makeFunctionFlags |= MakeFunctionFlags.ANNOTATIONS;
                 Console.WriteLine($"  → Built annotations tuple: {annotations.Count} annotations");
             }
-            
-            // 4. 자유 변수가 있는 경우 클로저 생성 (defaults 위에 푸시)
+
+            // 5. 자유 변수가 있는 경우 클로저 생성 (defaults/annotations 위에 푸시)
             if (freeVars.Count > 0)
             {
                 Console.WriteLine($"  → Creating closure for {freeVars.Count} free variables");
-                
+
                 // 각 자유 변수에 대해 LOAD_CLOSURE 발행
                 foreach (var freeVar in freeVars)
                 {
@@ -1787,50 +1855,25 @@ namespace SharpPy
                         EmitInstruction(ByteCodeOp.LOAD_CLOSURE, 0);
                     }
                 }
-                
+
                 // 클로저 튜플 생성
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, freeVars.Count);
-            }
-            
-            // 5. 함수 생성 (기본값 + 어노테이션 + 클로저 플래그 설정)
-            if (freeVars.Count > 0)
-            {
                 makeFunctionFlags |= MakeFunctionFlags.CLOSURE;
             }
-            
-            // 6. CPython 3.12 exact pattern: Load decorators BEFORE function creation
-            if (func.Decorators != null && func.Decorators.Count > 0)
-            {
-                // 데코레이터는 역순으로 적용됩니다 (안쪽부터 바깥쪽으로)
-                for (int i = func.Decorators.Count - 1; i >= 0; i--)
-                {
-                    var decorator = func.Decorators[i];
-                    CompileExpression(decorator.DecoratorFunction);
 
-                    // 데코레이터에 추가 인수가 있는 경우 처리 (@decorator(args))
-                    if (decorator.Arguments.Count > 0)
-                    {
-                        foreach (var arg in decorator.Arguments)
-                        {
-                            CompileExpression(arg);
-                        }
-                    }
-                }
-            }
-
-            // 7. Load function code and create function
+            // 6. Load function code and create function (AFTER decorators and annotations)
             EmitLoadConst(funcCode);
             Console.WriteLine($"  → MAKE_FUNCTION flags: {makeFunctionFlags} (defaults={defaults.Count > 0}, annotations={annotations.Count > 0}, closure={freeVars.Count > 0})");
             EmitInstruction(ByteCodeOp.MAKE_FUNCTION, makeFunctionFlags);
 
-            // 8. Call decorators (CPython 3.12 호환)
+            // 8. Call decorators in forward order (CPython 3.12 compatible)
             if (func.Decorators != null && func.Decorators.Count > 0)
             {
-                for (int i = func.Decorators.Count - 1; i >= 0; i--)
+                // Apply decorators in forward order: each decorator gets called with 0 arguments (the function)
+                for (int i = 0; i < func.Decorators.Count; i++)
                 {
-                    var decorator = func.Decorators[i];
-                    int decoratorArgCount = decorator.Arguments.Count; // Only decorator arguments
-                    EmitInstruction(ByteCodeOp.CALL, decoratorArgCount);
+                    // Call decorator with function (no arguments - they were already processed above)
+                    EmitInstruction(ByteCodeOp.CALL, 0);
                 }
             }
             
