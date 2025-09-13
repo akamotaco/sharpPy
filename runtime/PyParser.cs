@@ -2665,10 +2665,33 @@ namespace SharpPy
             
             return new WithStatement(items, body);
         }
+        /// <summary>
+        /// Parse match subject expression that supports walrus operator (:=)
+        /// CPython 3.12: match subject can be an assignment expression
+        /// </summary>
+        private Expression ParseMatchSubjectExpression()
+        {
+            var expr = ParseExpression();
+
+            // Check for walrus operator in match subject
+            if (Check(TokenType.WALRUS))
+            {
+                if (expr is NameExpression nameExpr)
+                {
+                    Advance(); // consume WALRUS
+                    var value = ParseExpression();
+                    return new WalrusExpression(nameExpr.Name, value);
+                }
+                throw new Exception("Invalid walrus operator target in match subject");
+            }
+
+            return expr;
+        }
+
         private Statement ParseMatchStatement()
         {
             // Console.WriteLine($"🔍 ParseMatchStatement called");
-            var subject = ParseExpression(); // match subject
+            var subject = ParseMatchSubjectExpression(); // match subject (supports walrus operator)
             Consume(TokenType.COLON, "Expected ':' after match subject");
             
             // match 문도 INDENT/DEDENT 구조를 사용
