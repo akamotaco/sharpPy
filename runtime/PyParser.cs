@@ -206,13 +206,13 @@ namespace SharpPy
                 // CPython 3.12: Handle unexpected INDENT tokens that might be part of expressions
                 if (Check(TokenType.INDENT))
                 {
-                    // This might be an INDENT within a multiline expression, not a block
-                    // Skip it for now and try to continue parsing
+                    // This might be an INDENT that should be handled by the parent block parser
+                    // Don't consume it here, just return null to let the caller handle it
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
-                        Console.WriteLine("⚠️ Warning: Encountered INDENT in statement context - might be multiline expression");
+                        Console.WriteLine("⚠️ Warning: Encountered INDENT in statement context - returning control to block parser");
                     }
-                    SkipIndentationTokens();
+                    return null;
                 }
                 
                 // CPython 3.12: Handle unexpected DEDENT tokens gracefully
@@ -491,9 +491,9 @@ namespace SharpPy
             }
             
             Consume(TokenType.COLON, "Expected ':' after class header");
-            
-            var body = ParseBlockOrSingleStatement();
-            
+
+            var body = ParseBlock();
+
             return new ClassDefStatement(name, bases, body, typeParams, metaclass);
         }
 
@@ -690,12 +690,18 @@ namespace SharpPy
                 }
                 Advance(); // consume INDENT
                 
-                // Parse statements until DEDENT
-                while (!IsAtEnd() && !Check(TokenType.DEDENT) && !Check(TokenType.EOF))
+                // Parse statements until final DEDENT (class body termination)
+                while (!IsAtEnd() && !Check(TokenType.EOF))
                 {
-                    // Skip empty lines
+                    // Skip empty lines - Enhanced CPython 3.12 compatible handling
                     if (Match(TokenType.NEWLINE))
                     {
+                        Console.WriteLine($"🔍 ParseBlock: Found NEWLINE, next token: {Peek().Type} at {Peek().Line}:{Peek().Column}");
+                        // Check if this is followed by meaningful content
+                        if (Check(TokenType.NEWLINE) || Check(TokenType.NL))
+                        {
+                            Console.WriteLine("🔍 ParseBlock: Skipping empty line (NEWLINE followed by NEWLINE/NL)");
+                        }
                         continue;
                     }
                     
@@ -706,11 +712,58 @@ namespace SharpPy
                     }
                     else
                     {
-                        // Check for block-ending tokens
-                        if (Check(TokenType.DEDENT) || Check(TokenType.EXCEPT) || Check(TokenType.FINALLY) || Check(TokenType.ELSE))
+                        // Enhanced DEDENT handling for class bodies
+                        if (Check(TokenType.DEDENT))
+                        {
+                            Console.WriteLine($"🔍 ParseBlock: Found DEDENT, checking if class body continues...");
+                            // Enhanced lookahead to see if class body continues
+                            var nextTokenIndex = _current + 1;
+                            Console.WriteLine($"🔍 ParseBlock: Looking ahead from token {nextTokenIndex}...");
+
+                            // Skip NEWLINE tokens to find the next meaningful token
+                            while (nextTokenIndex < _tokens.Count &&
+                                   (_tokens[nextTokenIndex].Type == TokenType.NEWLINE ||
+                                    _tokens[nextTokenIndex].Type == TokenType.NL))
+                            {
+                                Console.WriteLine($"🔍 ParseBlock: Skipping {_tokens[nextTokenIndex].Type} at {_tokens[nextTokenIndex].Line}:{_tokens[nextTokenIndex].Column}");
+                                nextTokenIndex++;
+                            }
+
+                            if (nextTokenIndex < _tokens.Count)
+                            {
+                                var nextToken = _tokens[nextTokenIndex];
+                                Console.WriteLine($"🔍 ParseBlock: Next meaningful token after DEDENT: {nextToken.Type} at {nextToken.Line}:{nextToken.Column}");
+
+                                // If next meaningful token is DEF, continue parsing (class body continues)
+                                if (nextToken.Type == TokenType.DEF)
+                                {
+                                    Console.WriteLine("🔍 ParseBlock: Found DEF after DEDENT - continuing class body parsing");
+                                    Advance(); // consume the DEDENT
+                                    continue; // continue to parse the next method
+                                }
+                                // If next token is INDENT, look further to see if there's a DEF (method after empty lines)
+                                else if (nextToken.Type == TokenType.INDENT)
+                                {
+                                    var afterIndentIndex = nextTokenIndex + 1;
+                                    if (afterIndentIndex < _tokens.Count && _tokens[afterIndentIndex].Type == TokenType.DEF)
+                                    {
+                                        Console.WriteLine("🔍 ParseBlock: Found INDENT then DEF after DEDENT - continuing class body parsing");
+                                        Advance(); // consume the DEDENT
+                                        continue; // continue to parse the next method
+                                    }
+                                }
+                            }
+
+                            Console.WriteLine("🔍 ParseBlock: Class body ended, breaking");
+                            break;
+                        }
+
+                        // Check for other block-ending tokens
+                        if (Check(TokenType.EXCEPT) || Check(TokenType.FINALLY) || Check(TokenType.ELSE))
                         {
                             break;
                         }
+
                         // Skip unexpected tokens
                         if (!IsAtEnd() && !Check(TokenType.EOF))
                         {

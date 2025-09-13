@@ -312,9 +312,92 @@ namespace SharpPy
         // Special attributes
         public override PyObject GetAttribute(string name)
         {
-            if (name == "__class__") return InstanceType;
-            if (name == "__dict__") return new PyDict(InstanceDict);
+            Console.WriteLine($"🔍 PyClassInstance.GetAttribute: {InstanceType.Name} instance.{name}");
 
+            // 특별한 속성들 먼저 처리
+            if (name == "__class__")
+            {
+                Console.WriteLine($"   → returning __class__ = {InstanceType.Name}");
+                return InstanceType;
+            }
+            if (name == "__dict__")
+            {
+                Console.WriteLine($"   → returning instance __dict__ (count: {InstanceDict.Count})");
+                return new PyDict(InstanceDict);
+            }
+
+            // 1. 인스턴스 딕셔너리에서 먼저 검색
+            Console.WriteLine($"   → checking instance dict (count: {InstanceDict.Count})");
+            if (InstanceDict.TryGetValue(name, out PyObject instanceValue))
+            {
+                Console.WriteLine($"   ✅ found '{name}' in instance dict: {instanceValue?.GetType().Name}");
+                return instanceValue;
+            }
+
+            // 2. 클래스의 MRO에서 검색 (Python의 표준 attribute resolution order)
+            Console.WriteLine($"   → searching class MRO (count: {InstanceType.MRO.Count})");
+            foreach (var mroType in InstanceType.MRO)
+            {
+                Console.WriteLine($"     - checking {mroType.Name}");
+
+                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject classValue))
+                {
+                    Console.WriteLine($"   ✅ found '{name}' in {mroType.Name}: {classValue?.GetType().Name}");
+
+                    // Descriptor 처리
+                    if (classValue is IDescriptor desc)
+                    {
+                        Console.WriteLine($"   🔧 calling descriptor.Get(this, {InstanceType.Name}) for '{name}'");
+                        var result = desc.Get(this, InstanceType);
+                        Console.WriteLine($"   🔧 descriptor returned: {result?.GetType().Name}");
+                        return result;
+                    }
+                    // 함수를 bound method로 변환
+                    else if (classValue is PyFunction func)
+                    {
+                        Console.WriteLine($"   🔧 converting function to bound method for '{name}'");
+                        return new PyMethod(this, func);
+                    }
+
+                    return classValue;
+                }
+
+                // PyType의 내장 속성들도 확인 (예: object 클래스의 메서드들)
+                try
+                {
+                    var builtinAttr = mroType.GetAttribute(name);
+                    if (builtinAttr != null)
+                    {
+                        Console.WriteLine($"   ✅ found builtin attribute '{name}' in {mroType.Name}: {builtinAttr?.GetType().Name}");
+                        if (builtinAttr is PyFunction builtinFunc)
+                        {
+                            return new PyMethod(this, builtinFunc);
+                        }
+                        return builtinAttr;
+                    }
+                }
+                catch (Exception ex) when (ex.GetType().Name.Contains("PyAttributeError"))
+                {
+                    // 속성이 없으면 계속 진행
+                }
+            }
+
+            Console.WriteLine($"   ❌ attribute '{name}' not found in MRO");
+
+            // 3. __getattr__ 커스텀 핸들러 호출 (있다면)
+            if (HasCustomGetAttr())
+            {
+                Console.WriteLine($"   → trying custom __getattr__ for '{name}'");
+                var customResult = CallGetAttr(name);
+                if (customResult != null)
+                {
+                    Console.WriteLine($"   ✅ custom __getattr__ returned: {customResult?.GetType().Name}");
+                    return customResult;
+                }
+            }
+
+            // 4. 기본 처리 (PyObject의 기본 구현)
+            Console.WriteLine($"   → falling back to base.GetAttribute for '{name}'");
             return base.GetAttribute(name);
         }
 

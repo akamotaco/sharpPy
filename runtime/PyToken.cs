@@ -84,6 +84,7 @@ namespace SharpPy
 
         // Special
         NEWLINE,
+        NL,          // Non-logical newline (empty lines)
         INDENT,
         DEDENT,
         EOF

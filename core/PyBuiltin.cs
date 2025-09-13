@@ -58,6 +58,8 @@ namespace SharpPy
                 "hash" => CallHash(args),
                 "super" => CallSuper(args),
                 "property" => CallProperty(args),
+                "classmethod" => CallClassmethod(args),
+                "staticmethod" => CallStaticmethod(args),
                 "type.__new__" => CallTypeNew(args),
                 "str" => CallStr(args),
                 "repr" => CallRepr(args),
@@ -1727,6 +1729,36 @@ namespace SharpPy
             }
 
             return new PyProperty(getter, setter, deleter);
+        }
+
+        private PyObject CallClassmethod(PyObject[] args)
+        {
+            if (args.Length != 1)
+            {
+                throw PyTypeError.Create($"classmethod expected 1 argument ({args.Length} given)");
+            }
+
+            if (!(args[0] is PyFunction function))
+            {
+                throw PyTypeError.Create("classmethod() argument must be callable");
+            }
+
+            return new PyClassmethod(function);
+        }
+
+        private PyObject CallStaticmethod(PyObject[] args)
+        {
+            if (args.Length != 1)
+            {
+                throw PyTypeError.Create($"staticmethod expected 1 argument ({args.Length} given)");
+            }
+
+            if (!(args[0] is PyFunction function))
+            {
+                throw PyTypeError.Create("staticmethod() argument must be callable");
+            }
+
+            return new PyStaticmethod(function);
         }
 
         /// <summary>
