@@ -308,8 +308,8 @@ namespace SharpPy
             {
                 Advance(); // consume MINUS
                 Advance(); // consume GREATER
-                // Parse return type annotation (currently just skip it)
-                var returnType = ParseExpression();
+                // Parse return type annotation (Python 3.12 Type Union 지원)
+                var returnType = ParseBitwiseOrExpression();
             }
             
             Consume(TokenType.COLON, "Expected ':' after function signature");
@@ -342,8 +342,8 @@ namespace SharpPy
             {
                 Advance(); // consume MINUS
                 Advance(); // consume GREATER
-                // Parse return type annotation (currently just skip it)
-                var returnType = ParseExpression();
+                // Parse return type annotation (Python 3.12 Type Union 지원)
+                var returnType = ParseBitwiseOrExpression();
             }
             
             Consume(TokenType.COLON, "Expected ':' after function signature");
@@ -629,8 +629,8 @@ namespace SharpPy
                         // PEP 692: **kwargs 타입 주석 처리
                         if (Match(TokenType.COLON))
                         {
-                            // **kwargs: Unpack[TypedDict] 파싱
-                            var typeAnnotation = ParseExpression();
+                            // **kwargs: Unpack[TypedDict] 파싱 (Python 3.12 Type Union 지원)
+                            var typeAnnotation = ParseBitwiseOrExpression();
                             // 향후 타입 검증을 위해 매개변수에 타입 정보 저장 (현재는 단순 저장)
                             parameters.Add("**" + kwargsParam + ":" + typeAnnotation?.ToString());
                         }
@@ -664,10 +664,10 @@ namespace SharpPy
                         var param = Consume(TokenType.IDENTIFIER, "Expected parameter name").Lexeme;
                         var paramString = param;
                         
-                        // Type annotation 처리 (CPython 3.12: 콤마 전까지만 파싱)
+                        // Type annotation 처리 (CPython 3.12: union syntax 지원)
                         if (Match(TokenType.COLON))
                         {
-                            var typeAnnotation = ParseConditionalExpression(); // 콤마 구분 표현식 피하기
+                            var typeAnnotation = ParseBitwiseOrExpression(); // Python 3.12 Type Union 지원 (str | int)
                             paramString += ":" + typeAnnotation?.ToString();
                         }
                         
@@ -966,7 +966,7 @@ namespace SharpPy
                 // CPython 3.12: Check for annotated assignment (target: type = value)
                 if (Match(TokenType.COLON))
                 {
-                    var annotation = ParseExpression();
+                    var annotation = ParseBitwiseOrExpression(); // Python 3.12 Type Union 지원
                     
                     // Check if there's an assignment as well
                     if (Match(TokenType.EQUAL))
@@ -1220,14 +1220,14 @@ namespace SharpPy
         private Expression ParseBitwiseOrExpression()
         {
             var expr = ParseBitwiseXorExpression();
-            
+
             while (Match(TokenType.PIPE))
             {
                 var op = Previous().Lexeme;
                 var right = ParseBitwiseXorExpression();
                 expr = new BinaryOpExpression(expr, op, right);
             }
-            
+
             return expr;
         }
 
@@ -1322,7 +1322,7 @@ namespace SharpPy
                 return new AwaitExpression(expr);
             }
             
-            return ParseBitwiseOrExpression();
+            return ParsePowerExpression();
         }
 
         private Expression ParsePowerExpression()

@@ -268,6 +268,125 @@ namespace SharpPy
         // 인스턴스 생성 (기본 구현)
         public virtual PyObject CreateInstance(params PyObject[] args)
         {
+            // 예외 타입들에 대한 특별 처리
+            string message = args.Length > 0 && args[0] is PyString pyStr ? pyStr.Value : "";
+
+            switch (Name)
+            {
+                case "BaseException":
+                    return new PyBaseException(message);
+                case "Exception":
+                    return new PyException(message);
+                case "ValueError":
+                    return new PyValueError(message);
+                case "TypeError":
+                    return new PyTypeError(message);
+                case "AttributeError":
+                    return new PyAttributeError(message);
+                case "NameError":
+                    return new PyNameError(message);
+                case "UnboundLocalError":
+                    return new PyUnboundLocalError(message);
+                case "ArithmeticError":
+                    return new PyArithmeticError(message);
+                case "ZeroDivisionError":
+                    return new PyZeroDivisionError(message);
+                case "OverflowError":
+                    return new PyOverflowError(message);
+                case "LookupError":
+                    return new PyLookupError(message);
+                case "IndexError":
+                    return new PyIndexError(message);
+                case "KeyError":
+                    return new PyKeyError(message);
+                case "RuntimeError":
+                    return new PyRuntimeError(message);
+                case "NotImplementedError":
+                    return new PyNotImplementedError(message);
+                case "RecursionError":
+                    return new PyRecursionError(message);
+                case "ImportError":
+                    return new PyImportError(message);
+                case "ModuleNotFoundError":
+                    return new PyModuleNotFoundError(message);
+                case "SyntaxError":
+                    return new PySyntaxError(message);
+                case "IndentationError":
+                    return new PyIndentationError(message);
+                case "SystemExit":
+                    return new PySystemExit(0);
+                case "KeyboardInterrupt":
+                    return new PyKeyboardInterrupt();
+                case "GeneratorExit":
+                    return new PyGeneratorExit();
+                case "StopIteration":
+                    return new PyStopIteration();
+                case "AssertionError":
+                    return new PyAssertionError(message);
+                case "OSError":
+                    return new PyOSError(message);
+                case "FileNotFoundError":
+                    return new PyFileNotFoundError(message);
+                case "BaseExceptionGroup":
+                    {
+                        // BaseExceptionGroup(message, exceptions) - handle the special constructor
+                        if (args.Length >= 2)
+                        {
+                            string msg = args[0] is PyString msgStr ? msgStr.Value : "";
+                            var exceptions = new List<PyException>();
+
+                            if (args[1] is PyList exceptionList)
+                            {
+                                foreach (var item in exceptionList.Items)
+                                {
+                                    if (item is PyException exc)
+                                        exceptions.Add(exc);
+                                }
+                            }
+                            else if (args[1] is PyTuple exceptionTuple)
+                            {
+                                foreach (var item in exceptionTuple.Items)
+                                {
+                                    if (item is PyException exc)
+                                        exceptions.Add(exc);
+                                }
+                            }
+
+                            return new PyBaseExceptionGroup(msg, exceptions);
+                        }
+                        return new PyBaseExceptionGroup(message, new List<PyException>());
+                    }
+                case "ExceptionGroup":
+                    {
+                        // ExceptionGroup(message, exceptions) - handle the special constructor
+                        if (args.Length >= 2)
+                        {
+                            string msg = args[0] is PyString msgStr ? msgStr.Value : "";
+                            var exceptions = new List<PyException>();
+
+                            if (args[1] is PyList exceptionList)
+                            {
+                                foreach (var item in exceptionList.Items)
+                                {
+                                    if (item is PyException exc)
+                                        exceptions.Add(exc);
+                                }
+                            }
+                            else if (args[1] is PyTuple exceptionTuple)
+                            {
+                                foreach (var item in exceptionTuple.Items)
+                                {
+                                    if (item is PyException exc)
+                                        exceptions.Add(exc);
+                                }
+                            }
+
+                            return new PyExceptionGroup(msg, exceptions);
+                        }
+                        return new PyExceptionGroup(message, new List<PyException>());
+                    }
+            }
+
             // 내장 타입들에 대한 특별 처리 (타입 변환) - PyBuiltinFunction 위임
             var builtinFunc = new PyBuiltinFunction(Name);
             return builtinFunc.Call(args);

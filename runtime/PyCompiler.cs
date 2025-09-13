@@ -1623,6 +1623,11 @@ namespace SharpPy
                     CompileExpression(starred.Value);
                     // 별표 처리는 문맥에 따라 다름
                     break;
+
+                case StarExpression star:
+                    CompileExpression(star.Value);
+                    // Star unpacking은 리스트/튜플 컨텍스트에서 처리됨
+                    break;
                     
                 // Type-aware optimized expressions (Phase 2)
                 case TypeSpecializedBinaryOpExpression specializedBinOp:
