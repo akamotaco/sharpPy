@@ -605,31 +605,73 @@ namespace SharpPy
             
             // CPython 호환: 매개변수와 기본값 분리
             var (paramNames, defaults) = ParseParametersAndDefaults(Parameters, scope);
-            
-            // 일반 함수 정의
-            var function = new PyFunction(Name, args =>
+
+            // Check if function has *args or **kwargs - if so, use VM execution
+            bool hasStarArgs = Parameters.Any(p => p.StartsWith("*") && !p.StartsWith("**"));
+            bool hasKwArgs = Parameters.Any(p => p.StartsWith("**"));
+
+            PyFunction function;
+
+            if (hasStarArgs || hasKwArgs)
             {
-                // 함수 스코프 생성
-                var funcScope = new PyScope(ScopeType.Local, scope, Name);
-                
-                // CPython 호환: 매개변수 바인딩 (기본값 처리 포함)
-                BindArgumentsToParameters(paramNames, defaults, args, funcScope);
-                
-                // 함수 몸체 실행
-                try
+                // Use bytecode compilation and VM's MAKE_FUNCTION for *args/**kwargs functions
+                var compiler = new PythonCompiler();
+
+                // Set the appropriate flags for *args/**kwargs
+                int flags = 0;
+                if (hasStarArgs) flags |= PyCodeObject.CO_VARARGS;
+                if (hasKwArgs) flags |= PyCodeObject.CO_VARKEYWORDS;
+
+                var funcCode = compiler.CompileFunction(Body, Name, paramNames, defaults, flags);
+
+                // Create a simple implementation that properly executes the function using VM frame
+                function = new PyFunction(Name, args =>
                 {
-                    PyObject result = PyNone.Instance;
-                    foreach (var stmt in Body)
+                    // Create a proper scope chain for VM execution
+                    var scopeChain = new PyScopeChain();
+
+                    // Add the current scope to the chain
+                    if (scope != null && scope.Type == ScopeType.Global)
                     {
-                        result = stmt.Evaluate(funcScope);
+                        // If we're already in global scope, use it as the base
+                        foreach (var variable in scope.Variables)
+                        {
+                            scopeChain.AssignVariable(variable.Key, variable.Value);
+                        }
                     }
-                    return result;
-                }
-                catch (PyReturnException ret)
+
+                    // Create and execute a frame for this function call
+                    var frame = new PyFrame(funcCode, args, scopeChain);
+                    return PyVM.Instance.ExecuteFrame(frame);
+                }, codeObject: funcCode);
+            }
+            else
+            {
+                // Use direct AST evaluation for simple functions
+                function = new PyFunction(Name, args =>
                 {
-                    return ret.Value;
-                }
-            });
+                    // 함수 스코프 생성
+                    var funcScope = new PyScope(ScopeType.Local, scope, Name);
+
+                    // CPython 호환: 매개변수 바인딩 (기본값 처리 포함)
+                    BindArgumentsToParameters(paramNames, defaults, args, funcScope);
+
+                    // 함수 몸체 실행
+                    try
+                    {
+                        PyObject result = PyNone.Instance;
+                        foreach (var stmt in Body)
+                        {
+                            result = stmt.Evaluate(funcScope);
+                        }
+                        return result;
+                    }
+                    catch (PyReturnException ret)
+                    {
+                        return ret.Value;
+                    }
+                });
+            }
             
             // 데코레이터 적용 (역순으로 적용)
             PyObject decoratedFunction = function;
@@ -661,12 +703,12 @@ namespace SharpPy
         {
             var paramNames = new List<string>();
             var defaults = new List<PyObject>();
-            
+
             foreach (var param in parameters)
             {
                 string cleanName = param;
                 PyObject defaultValue = null;
-                
+
                 // CPython 방식: 매개변수 문자열 파싱
                 if (param.Contains("="))
                 {
@@ -674,35 +716,73 @@ namespace SharpPy
                     var equalIndex = param.LastIndexOf('=');
                     var nameTypePart = param.Substring(0, equalIndex).Trim();
                     var defaultValueStr = param.Substring(equalIndex + 1).Trim();
-                    
-                    // 타입 주석 제거: name:type -> name  
-                    if (nameTypePart.Contains(":"))
+
+                    // *args/**kwargs 처리: *name=value, **name=value
+                    if (nameTypePart.StartsWith("**"))
                     {
-                        cleanName = nameTypePart.Substring(0, nameTypePart.IndexOf(':')).Trim();
+                        cleanName = nameTypePart.Substring(2).Trim();
+                        if (cleanName.Contains(":"))
+                        {
+                            cleanName = cleanName.Substring(0, cleanName.IndexOf(':')).Trim();
+                        }
+                        cleanName = "**" + cleanName; // Keep ** prefix for identification
+                    }
+                    else if (nameTypePart.StartsWith("*"))
+                    {
+                        cleanName = nameTypePart.Substring(1).Trim();
+                        if (cleanName.Contains(":"))
+                        {
+                            cleanName = cleanName.Substring(0, cleanName.IndexOf(':')).Trim();
+                        }
+                        cleanName = "*" + cleanName; // Keep * prefix for identification
                     }
                     else
                     {
-                        cleanName = nameTypePart;
+                        // 타입 주석 제거: name:type -> name
+                        if (nameTypePart.Contains(":"))
+                        {
+                            cleanName = nameTypePart.Substring(0, nameTypePart.IndexOf(':')).Trim();
+                        }
+                        else
+                        {
+                            cleanName = nameTypePart;
+                        }
                     }
-                    
+
                     // CPython 호환: 기본값을 실행 시점이 아닌 정의 시점에서 평가
                     defaultValue = ParseAndEvaluateDefaultValue(defaultValueStr, scope);
                 }
                 else if (param.Contains(":"))
                 {
-                    // 타입 주석만 있는 경우: name:type
-                    cleanName = param.Substring(0, param.IndexOf(':')).Trim();
+                    // 타입 주석만 있는 경우: name:type, *name:type, **name:type
+                    if (param.StartsWith("**"))
+                    {
+                        var nameType = param.Substring(2).Trim();
+                        cleanName = nameType.Substring(0, nameType.IndexOf(':')).Trim();
+                        cleanName = "**" + cleanName;
+                    }
+                    else if (param.StartsWith("*"))
+                    {
+                        var nameType = param.Substring(1).Trim();
+                        cleanName = nameType.Substring(0, nameType.IndexOf(':')).Trim();
+                        cleanName = "*" + cleanName;
+                    }
+                    else
+                    {
+                        cleanName = param.Substring(0, param.IndexOf(':')).Trim();
+                    }
                 }
                 else
                 {
-                    // 단순 매개변수 이름
+                    // 단순 매개변수 이름: name, *name, **name
                     cleanName = param.Trim();
+                    // Keep */** prefixes for *args/**kwargs identification
                 }
-                
+
                 paramNames.Add(cleanName);
                 defaults.Add(defaultValue); // null if no default
             }
-            
+
             return (paramNames, defaults);
         }
         
@@ -717,33 +797,86 @@ namespace SharpPy
             {
                 Console.WriteLine($"    [{j}]: {defaults[j]?.ToString() ?? "null"}");
             }
-            
-            // CPython처럼 위치 인수 먼저 처리
+
+            var regularParams = new List<(string name, int index)>();
+            string starArgsParam = null;
+            string kwArgsParam = null;
+            var starArgsValues = new List<PyObject>();
+
+            // Separate regular parameters, *args, and **kwargs
             for (int i = 0; i < paramNames.Count; i++)
             {
-                Console.WriteLine($"  처리중: 매개변수[{i}] = '{paramNames[i]}'");
-                
-                if (i < args.Length)
+                var paramName = paramNames[i];
+                Console.WriteLine($"  분석중: 매개변수[{i}] = '{paramName}'");
+
+                if (paramName.StartsWith("**"))
                 {
-                    // 제공된 위치 인수 사용
-                    funcScope.SetVariable(paramNames[i], args[i]);
+                    kwArgsParam = paramName.Substring(2);
+                    Console.WriteLine($"    **kwargs 매개변수 발견: '{kwArgsParam}'");
                 }
-                else if (defaults[i] != null)
+                else if (paramName.StartsWith("*"))
                 {
-                    // 기본값 사용
-                    funcScope.SetVariable(paramNames[i], defaults[i]);
+                    starArgsParam = paramName.Substring(1);
+                    Console.WriteLine($"    *args 매개변수 발견: '{starArgsParam}'");
                 }
                 else
                 {
-                    // 필수 매개변수가 누락됨
-                    throw PyTypeError.Create($"missing required argument: '{paramNames[i]}'");
+                    regularParams.Add((paramName, i));
+                    Console.WriteLine($"    일반 매개변수: '{paramName}'");
                 }
             }
-            
-            // 너무 많은 인수가 제공된 경우 (CPython 호환)
-            if (args.Length > paramNames.Count)
+
+            // Bind regular positional arguments
+            int argIndex = 0;
+            for (int i = 0; i < regularParams.Count && argIndex < args.Length; i++)
             {
-                throw PyTypeError.Create($"{Name}() takes {paramNames.Count} positional argument{(paramNames.Count != 1 ? "s" : "")} but {args.Length} {(args.Length != 1 ? "were" : "was")} given");
+                var (paramName, paramIndex) = regularParams[i];
+                Console.WriteLine($"  위치인수 바인딩: '{paramName}' = {args[argIndex]}");
+                funcScope.SetVariable(paramName, args[argIndex]);
+                argIndex++;
+            }
+
+            // Handle remaining arguments for *args
+            if (starArgsParam != null)
+            {
+                for (int i = argIndex; i < args.Length; i++)
+                {
+                    starArgsValues.Add(args[i]);
+                }
+                var argsTuple = new PyTuple(starArgsValues.ToArray());
+                Console.WriteLine($"  *args 바인딩: '{starArgsParam}' = {argsTuple}");
+                funcScope.SetVariable(starArgsParam, argsTuple);
+            }
+            else
+            {
+                // Check for too many arguments when no *args
+                if (argIndex < args.Length)
+                {
+                    throw PyTypeError.Create($"{Name}() takes {regularParams.Count} positional argument{(regularParams.Count != 1 ? "s" : "")} but {args.Length} {(args.Length != 1 ? "were" : "was")} given");
+                }
+            }
+
+            // Handle default values for unbound regular parameters
+            for (int i = argIndex; i < regularParams.Count; i++)
+            {
+                var (paramName, paramIndex) = regularParams[i];
+                if (paramIndex < defaults.Count && defaults[paramIndex] != null)
+                {
+                    Console.WriteLine($"  기본값 바인딩: '{paramName}' = {defaults[paramIndex]}");
+                    funcScope.SetVariable(paramName, defaults[paramIndex]);
+                }
+                else
+                {
+                    throw PyTypeError.Create($"missing required argument: '{paramName}'");
+                }
+            }
+
+            // Handle **kwargs (empty dict for now - keyword args would be handled in compiler)
+            if (kwArgsParam != null)
+            {
+                var kwargsDict = new PyDict();
+                Console.WriteLine($"  **kwargs 바인딩: '{kwArgsParam}' = {{}}");
+                funcScope.SetVariable(kwArgsParam, kwargsDict);
             }
         }
         

@@ -727,11 +727,13 @@ namespace SharpPy
         /// <summary>
         /// CPython 호환: 매개변수 문자열에서 이름과 기본값 분리
         /// </summary>
-        private (List<string> paramNames, List<PyObject> defaults, int flags) ParseFunctionParameters(List<string> parameters)
+        private (List<string> paramNames, List<PyObject> defaults, int flags, int argCount) ParseFunctionParameters(List<string> parameters)
         {
             var paramNames = new List<string>();
             var defaults = new List<PyObject>();
-            int flags = 0;
+            int flags = PyCodeObject.CO_OPTIMIZED | PyCodeObject.CO_NEWLOCALS; // CPython 3.12 standard flags
+
+            Console.WriteLine($"🔍 ParseFunctionParameters: Input parameters = [{string.Join(", ", parameters)}]");
             
             foreach (var param in parameters)
             {
@@ -774,11 +776,13 @@ namespace SharpPy
                 if (cleanName.StartsWith("**"))
                 {
                     flags |= PyCodeObject.CO_VARKEYWORDS;
+                    Console.WriteLine($"🔍 Found **kwargs: {cleanName} -> flags = {flags}");
                     cleanName = cleanName.Substring(2); // ** 제거
                 }
                 else if (cleanName.StartsWith("*"))
                 {
                     flags |= PyCodeObject.CO_VARARGS;
+                    Console.WriteLine($"🔍 Found *args: {cleanName} -> flags = {flags}");
                     cleanName = cleanName.Substring(1); // * 제거
                 }
                 
@@ -790,13 +794,25 @@ namespace SharpPy
                 }
             }
             
-            return (paramNames, defaults, flags);
+            // CPython 호환: argCount는 일반 위치 매개변수만 포함 (*args/**kwargs 제외)
+            int argCount = 0;
+            for (int i = 0; i < parameters.Count; i++)
+            {
+                var originalParam = parameters[i].Trim();
+                if (!originalParam.StartsWith("*")) // *args나 **kwargs가 아닌 일반 매개변수만 카운트
+                {
+                    argCount++;
+                }
+            }
+
+            Console.WriteLine($"🔍 ParseFunctionParameters: Final flags = {flags}, paramNames = [{string.Join(", ", paramNames)}], argCount = {argCount}");
+            return (paramNames, defaults, flags, argCount);
         }
         
         /// <summary>
         /// Async function 매개변수 파싱 - 일반 함수와 동일한 로직
         /// </summary>
-        private (List<string> paramNames, List<PyObject> defaults, int flags) ParseAsyncFunctionParameters(List<string> parameters)
+        private (List<string> paramNames, List<PyObject> defaults, int flags, int argCount) ParseAsyncFunctionParameters(List<string> parameters)
         {
             return ParseFunctionParameters(parameters); // 동일한 로직 재사용
         }
@@ -806,7 +822,7 @@ namespace SharpPy
         /// </summary>
         private PyCodeObject CompileAsyncFunctionBody(AsyncFunctionDefStatement asyncFunc, List<string> freeVars, List<string> cellVars)
         {
-            var (paramNames, defaults, flags) = ParseAsyncFunctionParameters(asyncFunc.Parameters);
+            var (paramNames, defaults, flags, argCount) = ParseAsyncFunctionParameters(asyncFunc.Parameters);
             
             // CO_COROUTINE 플래그 추가
             flags |= PyCodeObject.CO_COROUTINE;
@@ -902,7 +918,7 @@ namespace SharpPy
         /// <summary>
         /// CPython 호환: 클로저와 기본값을 모두 지원하는 컴파일
         /// </summary>
-        public PyCodeObject CompileWithClosureAndDefaults(List<Statement> statements, string name, List<string> paramNames, List<PyObject> defaults, List<string> freeVars, List<string> cellVars, int flags = 0)
+        public PyCodeObject CompileWithClosureAndDefaults(List<Statement> statements, string name, List<string> paramNames, List<PyObject> defaults, List<string> freeVars, List<string> cellVars, int flags = 0, int argCount = -1)
         {
             _instructions = new List<ByteCodeInstruction>();
             _constants = new List<PyObject>();
@@ -911,6 +927,9 @@ namespace SharpPy
             _exceptionTable = new List<ExceptionTableEntry>(); // Reset Exception Table
             _isInFunction = true; // We are now compiling inside a function
             _currentFunctionName = name; // Track function name for module level detection
+
+            // Calculate correct argCount for CPython 3.12 compatibility early
+            int finalArgCount = (argCount >= 0) ? argCount : paramNames.Count;
             
             // 함수 매개변수를 _varNames에 추가 (LOAD_FAST/STORE_FAST용)
             foreach (var param in paramNames)
@@ -994,8 +1013,8 @@ namespace SharpPy
             EmitLoadConst(PyNone.Instance);
             EmitInstruction(ByteCodeOp.RETURN_VALUE);
             
-            var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, 
-                                            paramNames.Count, freeVars, cellVars, defaults, flags, _currentFileName, _sourceLines);
+            var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames,
+                                            finalArgCount, freeVars, cellVars, defaults, flags, _currentFileName, _sourceLines);
             
             // Resolve Exception Table labels to offsets (CPython 3.12 compatible)
             ResolveExceptionTable();
@@ -1086,7 +1105,17 @@ namespace SharpPy
             _exceptionTable = new List<ExceptionTableEntry>(); // Reset Exception Table
             _isInFunction = true; // We are now compiling inside a function
             _currentFunctionName = name; // Track function name for module level detection
-            
+
+            // Calculate correct argCount for CPython 3.12 compatibility
+            int finalArgCount = 0;
+            foreach (var param in paramNames)
+            {
+                if (!param.StartsWith("*")) // Count only regular parameters, exclude *args and **kwargs
+                {
+                    finalArgCount++;
+                }
+            }
+
             // 함수 매개변수를 _varNames에 추가
             foreach (var param in paramNames)
             {
@@ -1108,8 +1137,8 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.RETURN_VALUE);
             
             // CPython 3.12: Generator 함수 감지 - 임시 객체로 체크
-            var tempCodeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, 
-                                                paramNames.Count, null, null, defaults, flags, _currentFileName, _sourceLines);
+            var tempCodeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames,
+                                                finalArgCount, null, null, defaults, flags, _currentFileName, _sourceLines);
             
             // Generator 함수 감지 및 수정
             if (tempCodeObject.IsGenerator())
@@ -1126,8 +1155,8 @@ namespace SharpPy
             }
             
             // 최종 PyCodeObject 생성 (수정된 flags 포함)
-            var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, 
-                                            paramNames.Count, null, null, defaults, flags, _currentFileName, _sourceLines);
+            var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames,
+                                            finalArgCount, null, null, defaults, flags, _currentFileName, _sourceLines);
             
             // Add Exception Table entries (CPython 3.12)
             codeObject.ExceptionTable.AddRange(_exceptionTable);
@@ -1670,12 +1699,12 @@ namespace SharpPy
             Console.WriteLine($"  Updated Cell variables: [{string.Join(", ", cellVars)}]");
             
             // 2. 매개변수와 기본값 파싱 (FunctionDefStatement에서 수행하던 로직)
-            var (paramNames, defaults, flags) = ParseFunctionParameters(func.Parameters);
+            var (paramNames, defaults, flags, argCount) = ParseFunctionParameters(func.Parameters);
             
             // 3. 코드 객체 컴파일 (자유 변수 정보와 기본값 포함)
             var compiler = new PythonCompiler();
             compiler.SetupClosureCompilation(cellVars, freeVars); // 셀 변수와 자유 변수 설정
-            var funcCode = compiler.CompileWithClosureAndDefaults(func.Body, func.Name, paramNames, defaults, freeVars, cellVars, flags);
+            var funcCode = compiler.CompileWithClosureAndDefaults(func.Body, func.Name, paramNames, defaults, freeVars, cellVars, flags, argCount);
             
             // 3. CPython 3.12 호환: MAKE_FUNCTION 스택 순서 맞추기
             // 기본값이 있는 경우 기본값 튜플을 먼저 푸시 (스택 맨 아래)
@@ -1756,10 +1785,10 @@ namespace SharpPy
                 for (int i = func.Decorators.Count - 1; i >= 0; i--)
                 {
                     var decorator = func.Decorators[i];
-                    int argCount = decorator.Arguments.Count; // function is implicit
-                    
+                    int decoratorArgCount = decorator.Arguments.Count; // function is implicit
+
                     // CPython 3.12: CALL calls decorator with function as implicit argument
-                    EmitInstruction(ByteCodeOp.CALL, argCount);
+                    EmitInstruction(ByteCodeOp.CALL, decoratorArgCount);
                     // Stack after: [decorated_function]
                 }
             }
@@ -2372,7 +2401,7 @@ namespace SharpPy
             Console.WriteLine($"  Cell variables: [{string.Join(", ", cellVars)}]");
             
             // 2. 매개변수와 기본값 파싱
-            var (paramNames, defaults, flags) = ParseAsyncFunctionParameters(asyncFunc.Parameters);
+            var (paramNames, defaults, flags, argCount) = ParseAsyncFunctionParameters(asyncFunc.Parameters);
             
             // 3. 코드 객체 컴파일 (async 함수 전용)
             var codeObject = CompileAsyncFunctionBody(asyncFunc, freeVars, cellVars);
@@ -2512,7 +2541,7 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, typeParams.Count);
                 
                 // Create annotations tuple: complex parameter annotations
-                var (paramNames, defaults, flags) = ParseFunctionParameters(func.Parameters);
+                var (paramNames, defaults, flags, argCount) = ParseFunctionParameters(func.Parameters);
                 
                 // Build complex annotations tuple for all parameters and return type
                 var annotationCount = 0;

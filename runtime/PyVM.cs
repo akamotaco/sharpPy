@@ -107,12 +107,17 @@ namespace SharpPy
             if (SharpPyConfig.ShouldShowDebugInfo)
             {
                 Console.WriteLine($"🔗 매개변수 바인딩: {args.Length}개 인수, {code.ArgCount}개 매개변수");
+                Console.WriteLine($"  Code flags: {code.Flags} (CO_VARARGS={((code.Flags & PyCodeObject.CO_VARARGS) != 0)}, CO_VARKEYWORDS={((code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0)})");
                 Console.WriteLine($"  DefaultValues.Count: {code.DefaultValues.Count}");
                 for (int j = 0; j < code.DefaultValues.Count; j++)
                 {
                     Console.WriteLine($"    [{j}]: {code.DefaultValues[j]?.ToString() ?? "null"}");
                 }
             }
+
+            // Check for *args and **kwargs parameters
+            bool hasVarArgs = (code.Flags & PyCodeObject.CO_VARARGS) != 0;
+            bool hasVarKeywords = (code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0;
             
             // CPython처럼 위치 인수 먼저 처리
             for (int i = 0; i < code.ArgCount; i++)
@@ -162,10 +167,57 @@ namespace SharpPy
                 }
             }
             
-            // 너무 많은 인수가 제공된 경우 (CPython 호환)
-            if (args.Length > code.ArgCount)
+            // Handle remaining arguments for *args parameter
+            if (hasVarArgs)
             {
-                throw PyTypeError.Create($"{code.Name}() takes {code.ArgCount} positional argument{(code.ArgCount != 1 ? "s" : "")} but {args.Length} {(args.Length != 1 ? "were" : "was")} given");
+                // Find *args parameter name (should be at code.ArgCount index in VarNames)
+                string argsParamName = code.ArgCount < code.VarNames.Count ? code.VarNames[code.ArgCount] : "args";
+                var remainingArgs = new List<PyObject>();
+
+                // Collect remaining positional arguments
+                for (int i = code.ArgCount; i < args.Length; i++)
+                {
+                    remainingArgs.Add(args[i]);
+                }
+
+                var argsTuple = new PyTuple(remainingArgs.ToArray());
+                FastLocals[argsParamName] = argsTuple;
+                ScopeChain.AssignVariable(argsParamName, argsTuple);
+
+                if (SharpPyConfig.ShouldShowDebugInfo)
+                {
+                    Console.WriteLine($"  → *{argsParamName} = {argsTuple} (*args with {remainingArgs.Count} items)");
+                }
+            }
+            else
+            {
+                // 너무 많은 인수가 제공된 경우 (CPython 호환)
+                if (args.Length > code.ArgCount)
+                {
+                    throw PyTypeError.Create($"{code.Name}() takes {code.ArgCount} positional argument{(code.ArgCount != 1 ? "s" : "")} but {args.Length} {(args.Length != 1 ? "were" : "was")} given");
+                }
+            }
+
+            // Handle **kwargs parameter
+            if (hasVarKeywords)
+            {
+                // Find **kwargs parameter name (should be at the end of VarNames)
+                string kwargsParamName = "kwargs";
+                int kwargsIndex = code.ArgCount + (hasVarArgs ? 1 : 0);
+                if (kwargsIndex < code.VarNames.Count)
+                {
+                    kwargsParamName = code.VarNames[kwargsIndex];
+                }
+
+                // Create empty kwargs dict (keyword arguments would be handled separately)
+                var kwargsDict = new PyDict();
+                FastLocals[kwargsParamName] = kwargsDict;
+                ScopeChain.AssignVariable(kwargsParamName, kwargsDict);
+
+                if (SharpPyConfig.ShouldShowDebugInfo)
+                {
+                    Console.WriteLine($"  → **{kwargsParamName} = {{}} (**kwargs - empty for now)");
+                }
             }
         }
         

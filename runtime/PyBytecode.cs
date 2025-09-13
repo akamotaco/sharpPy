@@ -433,6 +433,24 @@ namespace SharpPy
         }
         
         public override string GetTypeName() => "code";
+
+        // CPython 3.12 호환: co_* 속성들 지원
+        public override PyObject GetAttribute(string name)
+        {
+            return name switch
+            {
+                "co_flags" => new PyInt(Flags),
+                "co_name" => new PyString(Name),
+                "co_argcount" => new PyInt(ArgCount),
+                "co_varnames" => new PyTuple(VarNames.Select(n => new PyString(n) as PyObject).ToArray()),
+                "co_names" => new PyTuple(Names.Select(n => new PyString(n) as PyObject).ToArray()),
+                "co_consts" => new PyTuple(Constants.ToArray()),
+                "co_freevars" => new PyTuple(FreeVars.Select(n => new PyString(n) as PyObject).ToArray()),
+                "co_cellvars" => new PyTuple(CellVars.Select(n => new PyString(n) as PyObject).ToArray()),
+                "co_filename" => new PyString(FileName ?? "<unknown>"),
+                _ => base.GetAttribute(name)
+            };
+        }
         
         public void Disassemble()
         {
