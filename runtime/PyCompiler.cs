@@ -1792,7 +1792,13 @@ namespace SharpPy
                 case FormattedValue formatted:
                     CompileFormattedValue(formatted);
                     break;
-                    
+
+                case FormatExpression formatExpr:
+                    // FormatExpression을 FormattedValue로 처리
+                    var formattedValue = new FormattedValue(formatExpr.Value, formatExpr.FormatSpec);
+                    CompileFormattedValue(formattedValue);
+                    break;
+
                 case StarredExpression starred:
                     CompileExpression(starred.Value);
                     // 별표 처리는 문맥에 따라 다름
@@ -1981,6 +1987,12 @@ namespace SharpPy
             
             // 2. 매개변수와 기본값 파싱 (FunctionDefStatement에서 수행하던 로직)
             var (paramNames, defaults, flags, argCount, posonlyArgCount, annotations) = ParseFunctionParameters(func.Parameters);
+
+            // 3. Return type annotation 처리 (CPython 3.12)
+            if (func.ReturnTypeAnnotation != null)
+            {
+                annotations["return"] = func.ReturnTypeAnnotation.ToString();
+            }
             
             // 3. CPython 3.12 compatible: Multi-level closure chain analysis
             if (freeVars.Count == 0)
@@ -2138,11 +2150,20 @@ namespace SharpPy
             // CPython 3.12: 타입 어노테이션이 있는 경우 어노테이션 튜플 생성
             if (annotations.Count > 0)
             {
-                // CPython 패턴: (key, value, key, value, ...) 형태의 튜플
+                // CPython 패턴: BUILD_TUPLE로 튜플 생성 후 BUILD_TUPLE로 최종 래핑
                 foreach (var annotation in annotations)
                 {
-                    EmitLoadConst(new PyString(annotation.Key));    // key
-                    EmitLoadConst(new PyString(annotation.Value));  // value
+                    EmitLoadConst(new PyString(annotation.Key));    // key (예: 'return')
+                    // 어노테이션 값은 실제 타입 객체가 아닌 이름으로 저장
+                    if (annotation.Key == "return")
+                    {
+                        // return 타입 어노테이션: 타입 이름을 로드
+                        EmitLoadName(annotation.Value); // 'int', 'str' 등
+                    }
+                    else
+                    {
+                        EmitLoadConst(new PyString(annotation.Value));  // 매개변수 타입
+                    }
                 }
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, annotations.Count * 2);
                 makeFunctionFlags |= MakeFunctionFlags.ANNOTATIONS;
@@ -5868,7 +5889,8 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.FORMAT_VALUE, 0);
             }
         }
-        
+
+
         // Evaluate 메서드 - 나중에 구현
         public PyObject Evaluate(PyScope scope)
         {

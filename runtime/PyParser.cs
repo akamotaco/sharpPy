@@ -283,8 +283,8 @@ namespace SharpPy
                     return null;
                 }
                 
-                // Check for decorators first
-                if (Check(TokenType.OP))
+                // Check for decorators first (specifically @ symbol)
+                if (Check(TokenType.OP) && Peek().Lexeme == "@")
                 {
                     return ParseDecoratedStatement();
                 }
@@ -345,25 +345,25 @@ namespace SharpPy
                 typeParams = ParseTypeParameters();
                 ConsumeClosingBracket("Expected ']' after type parameters");
             }
-            
+
             ConsumeOp("(", "Expected '(' after function name");
             var parameters = ParseParameterList();
             ConsumeOp(")", "Expected ')' after parameters");
-            
+
             // Check for return type annotation (->)
-            if (CheckOp("-") && CheckNextOp(">"))
+            Expression? returnTypeAnnotation = null;
+            if (CheckOp("->"))
             {
-                Advance(); // consume MINUS
-                Advance(); // consume GREATER
+                Advance(); // consume ARROW
                 // Parse return type annotation (Python 3.12 Type Union 지원)
-                var returnType = ParseBitwiseOrExpression();
+                returnTypeAnnotation = ParseTypeAnnotation();
             }
-            
+
             ConsumeColon("Expected ':' after function signature");
 
             var body = ParseBlockOrSingleStatement();
-            
-            return new FunctionDefStatement(name, parameters, body, typeParams, decorators);
+
+            return new FunctionDefStatement(name, parameters, body, typeParams, decorators, returnTypeAnnotation);
         }
 
         private Statement ParseAsyncFunctionDef()
@@ -383,16 +383,16 @@ namespace SharpPy
             ConsumeOp("(", "Expected '(' after function name");
             var parameters = ParseParameterList();
             ConsumeOp(")", "Expected ')' after parameters");
-            
+
             // Check for return type annotation (->)
-            if (CheckOp("-") && CheckNextOp(">"))
+            Expression? returnTypeAnnotation = null;
+            if (CheckOp("->"))
             {
-                Advance(); // consume MINUS
-                Advance(); // consume GREATER
+                Advance(); // consume ARROW
                 // Parse return type annotation (Python 3.12 Type Union 지원)
-                var returnType = ParseBitwiseOrExpression();
+                returnTypeAnnotation = ParseTypeAnnotation();
             }
-            
+
             ConsumeColon("Expected ':' after function signature");
             
             // CPython 3.12: async function 내부에서 await 사용 가능
@@ -714,7 +714,7 @@ namespace SharpPy
                         // Type annotation 처리 (CPython 3.12: union syntax 지원)
                         if (MatchOp(":"))
                         {
-                            var typeAnnotation = ParseBitwiseOrExpression(); // Python 3.12 Type Union 지원 (str | int)
+                            var typeAnnotation = ParseTypeAnnotation(); // 타입 어노테이션 전용 파서
                             paramString += ":" + typeAnnotation?.ToString();
                         }
                         
@@ -913,7 +913,13 @@ namespace SharpPy
             if (Match(TokenType.NEWLINE))
             {
                 // 블록 구문 - 들여쓰기된 문장들
-                
+
+                // 주석과 NL 토큰들을 건너뛰고 INDENT 토큰 찾기
+                while (Match(TokenType.COMMENT) || Match(TokenType.NL))
+                {
+                    // 주석과 개행은 건너뛰기
+                }
+
                 // INDENT 토큰을 기대
                 if (!Check(TokenType.INDENT))
                 {
@@ -1257,8 +1263,8 @@ namespace SharpPy
         /// </summary>
         private Expression ParseComparisonExpression()
         {
-            // Parse left operand first - same as CPython's bitwise_or
-            var expr = ParseUnaryExpression();
+            // Parse left operand first - CPython 3.12: comparison should parse bitwise_or first
+            var expr = ParseBitwiseOrExpression();
             
             // CPython 3.12 Grammar: comparison: expr (comp_op expr)*
             // Handle compound operators with PEG-style pattern matching
@@ -1266,8 +1272,8 @@ namespace SharpPy
             {
                 string op = TryMatchComparisonOperator();
                 if (op == null) break;
-                
-                var right = ParseUnaryExpression();
+
+                var right = ParseBitwiseOrExpression();
                 expr = new CompareExpression(expr, op, right);
             }
             
@@ -1828,7 +1834,47 @@ namespace SharpPy
 
                     // Parse the expression inside the braces
                     var expr = ParseExpression();
-                    parts.Add(expr);
+
+                    // Check for format specifier: : format_spec
+                    string? formatSpec = null;
+                    if (Check(TokenType.OP) && Peek().Lexeme == ":")
+                    {
+                        Advance(); // consume ':'
+
+                        // Parse format specifier until '}'
+                        var formatTokens = new List<string>();
+                        while (!Check(TokenType.OP) || Peek().Lexeme != "}")
+                        {
+                            if (Check(TokenType.FSTRING_MIDDLE))
+                            {
+                                formatTokens.Add(Advance().Lexeme);
+                            }
+                            else if (Check(TokenType.NAME) || Check(TokenType.NUMBER))
+                            {
+                                formatTokens.Add(Advance().Lexeme);
+                            }
+                            else if (Check(TokenType.OP))
+                            {
+                                formatTokens.Add(Advance().Lexeme);
+                            }
+                            else
+                            {
+                                break;
+                            }
+                        }
+                        formatSpec = string.Join("", formatTokens);
+                    }
+
+                    // Create formatted expression if format spec exists
+                    if (!string.IsNullOrEmpty(formatSpec))
+                    {
+                        // Create a format expression with the format specifier
+                        parts.Add(new FormatExpression(expr, formatSpec));
+                    }
+                    else
+                    {
+                        parts.Add(expr);
+                    }
 
                     // Consume closing '}'
                     if (Check(TokenType.OP) && Peek().Lexeme == "}")
@@ -3627,21 +3673,20 @@ namespace SharpPy
         private Expression ParseBinaryExpression(int minPrecedence = 0)
         {
             var left = ParseUnaryOrAtom();
-            
-            while (!IsAtEnd() && GetPrecedence(Peek().Type) >= minPrecedence)
+
+            while (!IsAtEnd() && GetPrecedence(Peek()) >= minPrecedence)
             {
-                
+
                 var opToken = Advance();
-                var opType = opToken.Type;
-                var precedence = GetPrecedence(opType);
-                
+                var precedence = GetPrecedence(opToken);
+
                 // Handle right associativity (like **)
                 var nextMinPrec = opToken.IsRightAssociative()
                     ? precedence
                     : precedence + 1;
-                
+
                 var right = ParseBinaryExpression(nextMinPrec);
-                
+
                 // Create appropriate expression type based on operator
                 if (IsComparisonOperator(opToken))
                 {
@@ -3658,17 +3703,16 @@ namespace SharpPy
                     left = new BinaryOpExpression(left, opToken.Lexeme, right);
                 }
             }
-            
+
             return left;
         }
         
-        private int GetPrecedence(TokenType type)
+        private int GetPrecedence(PyToken token)
         {
             // CPython 3.12: All operators are OP tokens, distinguished by lexeme
-            if (type == TokenType.OP)
+            if (token.Type == TokenType.OP)
             {
-                var lexeme = Peek().Lexeme;
-                return lexeme switch
+                return token.Lexeme switch
                 {
                     "+" => 8,         // Addition
                     "-" => 8,         // Subtraction
@@ -3694,10 +3738,9 @@ namespace SharpPy
             }
 
             // Handle NAME tokens for keywords like 'and', 'or', 'in', 'is', 'not'
-            if (type == TokenType.NAME)
+            if (token.Type == TokenType.NAME)
             {
-                var lexeme = Peek().Lexeme;
-                return lexeme switch
+                return token.Lexeme switch
                 {
                     "or" => 1,        // Boolean OR (lowest precedence)
                     "and" => 2,       // Boolean AND
@@ -4395,6 +4438,22 @@ namespace SharpPy
                 
                 Advance();
             }
+        }
+
+        /// <summary>
+        /// Parse type annotation with proper termination conditions
+        /// Stops at: ',', ')', '=', '->', ':' tokens
+        /// </summary>
+        private Expression? ParseTypeAnnotation()
+        {
+            // Simple type annotation parser that stops at parameter delimiters
+            if (Check(TokenType.NAME))
+            {
+                var typeName = Advance().Lexeme;
+                return new NameExpression(typeName);
+            }
+
+            return null;
         }
     }
 

@@ -349,6 +349,12 @@ namespace SharpPy
                     var evaluated = formattedValue.Evaluate(scope);
                     parts.Add(evaluated.ToStr());
                 }
+                else if (value is FormatExpression formatExpr)
+                {
+                    // FormatExpression는 포맷 지정자를 적용함
+                    var evaluated = ExecuteFormattedValue(formatExpr, scope);
+                    parts.Add(evaluated.ToStr());
+                }
                 else
                 {
                     var evaluated = value.Evaluate(scope);
@@ -359,7 +365,39 @@ namespace SharpPy
             var result = string.Join("", parts);
             return new PyString(result);
         }
-        
+
+        /// <summary>
+        /// FormatExpression 실행 (f-string 포맷 지정자 처리)
+        /// </summary>
+        public static PyObject ExecuteFormattedValue(FormatExpression expr, PyScope scope)
+        {
+            var value = expr.Value.Evaluate(scope);
+            var formatSpec = expr.FormatSpec;
+
+            // 간단한 포맷 지정자 처리
+            if (value is PyFloat floatValue)
+            {
+                // .2f 같은 소수점 포맷 처리
+                if (formatSpec.EndsWith("f") && formatSpec.Contains("."))
+                {
+                    var decimalPlaces = int.Parse(formatSpec.Substring(1, formatSpec.Length - 2));
+                    var formatted = floatValue.Value.ToString($"F{decimalPlaces}");
+                    return new PyString(formatted);
+                }
+            }
+            else if (value is PyInt intValue)
+            {
+                // d 같은 정수 포맷 처리
+                if (formatSpec == "d")
+                {
+                    return new PyString(intValue.Value.ToString());
+                }
+            }
+
+            // 기본적으로 ToString() 사용
+            return new PyString(value.ToStr());
+        }
+
         #endregion
         
         #region Python-Style Comprehension Execution
