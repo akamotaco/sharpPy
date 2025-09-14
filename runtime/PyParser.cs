@@ -28,41 +28,36 @@ namespace SharpPy
         private readonly string _filename;
         private readonly string _sourceCode;
         
-        // CPython-style precedence table
+        // CPython 3.12 style precedence table
         private static readonly Dictionary<TokenType, int> OperatorPrecedence = new()
         {
-            { TokenType.OR, 1 },           // or
-            { TokenType.AND, 2 },          // and  
+            // Note: Keywords 'or', 'and', 'not', 'in', 'is' are NAME tokens handled separately
             // Comparison operators - all same precedence (CPython style)
-            { TokenType.EQUAL_EQUAL, 3 },  // ==
-            { TokenType.BANG_EQUAL, 3 },   // !=
+            { TokenType.EQEQUAL, 3 },      // ==
+            { TokenType.NOTEQUAL, 3 },     // !=
             { TokenType.LESS, 3 },         // <
             { TokenType.GREATER, 3 },      // >
-            { TokenType.LESS_EQUAL, 3 },   // <=
-            { TokenType.GREATER_EQUAL, 3 }, // >=
-            { TokenType.IN, 3 },           // in ✅ Added
-            { TokenType.IS, 3 },           // is ✅ Added
-            { TokenType.NOT_IN, 3 },       // not in ✅ CPython 3.12
-            { TokenType.IS_NOT, 3 },       // is not ✅ CPython 3.12
+            { TokenType.LESSEQUAL, 3 },    // <=
+            { TokenType.GREATEREQUAL, 3 }, // >=
             // Bitwise operators
-            { TokenType.PIPE, 4 },         // |
-            { TokenType.CARET, 5 },        // ^
-            { TokenType.AMPERSAND, 6 },    // &
-            { TokenType.LEFT_SHIFT, 7 },   // <<
-            { TokenType.RIGHT_SHIFT, 7 },  // >>
+            { TokenType.VBAR, 4 },         // |
+            { TokenType.CIRCUMFLEX, 5 },   // ^
+            { TokenType.AMPER, 6 },        // &
+            { TokenType.LEFTSHIFT, 7 },    // <<
+            { TokenType.RIGHTSHIFT, 7 },   // >>
             // Arithmetic operators
             { TokenType.PLUS, 8 },         // +
             { TokenType.MINUS, 8 },        // -
             { TokenType.STAR, 9 },         // *
             { TokenType.SLASH, 9 },        // /
-            { TokenType.SLASH_SLASH, 9 },  // //
+            { TokenType.DOUBLESLASH, 9 },  // //
             { TokenType.PERCENT, 9 },      // %
-            { TokenType.STAR_STAR, 10 },   // ** (highest)
+            { TokenType.DOUBLESTAR, 10 },  // ** (highest)
         };
         
         private static readonly Dictionary<TokenType, bool> RightAssociative = new()
         {
-            { TokenType.STAR_STAR, true }, // ** is right-associative
+            { TokenType.DOUBLESTAR, true }, // ** is right-associative
         };
         
         // Memoization cache for complex expressions
@@ -82,6 +77,57 @@ namespace SharpPy
             _current = 0;
             _filename = filename;
             _sourceCode = sourceCode;
+        }
+
+        /// <summary>
+        /// CPython 3.12: Check if current token is a NAME token with specific keyword lexeme
+        /// </summary>
+        private bool CheckKeyword(string keyword)
+        {
+            return Check(TokenType.NAME) && Peek().Lexeme == keyword;
+        }
+
+        /// <summary>
+        /// CPython 3.12: Match a NAME token with specific keyword lexeme
+        /// </summary>
+        private bool MatchKeyword(string keyword)
+        {
+            if (CheckKeyword(keyword))
+            {
+                Advance();
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// CPython 3.12: Get next token without advancing
+        /// </summary>
+        private PyToken PeekNext()
+        {
+            if (_current + 1 >= _tokens.Count) return _tokens[_tokens.Count - 1];
+            return _tokens[_current + 1];
+        }
+
+        /// <summary>
+        /// CPython 3.12: Check if next token is of specific type
+        /// </summary>
+        private bool CheckNext(TokenType type)
+        {
+            if (_current + 1 >= _tokens.Count) return false;
+            return _tokens[_current + 1].Type == type;
+        }
+
+        /// <summary>
+        /// CPython 3.12: Consume a keyword (NAME token with specific lexeme) or throw error
+        /// </summary>
+        private PyToken ConsumeKeyword(string keyword, string message)
+        {
+            if (CheckKeyword(keyword))
+            {
+                return Advance();
+            }
+            throw new PySyntaxErrorException($"{message}. Got {Peek().Type}({Peek().Lexeme}) at line {Peek().Line}");
         }
 
         /// <summary>
@@ -125,7 +171,7 @@ namespace SharpPy
                 }
 
                 // CPython 3.12: Skip semicolons as statement separators (like newlines)
-                if (Check(TokenType.SEMICOLON))
+                if (Check(TokenType.SEMI))
                 {
                     Advance();
                     continue;
@@ -143,7 +189,7 @@ namespace SharpPy
                         }
                         
                         // CPython 3.12: After parsing a statement, consume optional semicolon
-                        if (Check(TokenType.SEMICOLON))
+                        if (Check(TokenType.SEMI))
                         {
                             Advance(); // consume semicolon as statement terminator
                         }
@@ -161,7 +207,7 @@ namespace SharpPy
                             }
                             Advance();
                         }
-                        else if (!IsAtEnd() && !Check(TokenType.EOF))
+                        else if (!IsAtEnd() && !Check(TokenType.ENDMARKER))
                         {
                             // For other unexpected tokens, advance to prevent infinite loop
                             if (!SharpPyConfig.DisassemblyOnlyMode)
@@ -230,7 +276,7 @@ namespace SharpPy
                 }
                 
                 // CPython 3.12: Handle block-ending tokens gracefully
-                if (Check(TokenType.EXCEPT) || Check(TokenType.FINALLY) || Check(TokenType.ELSE))
+                if (CheckKeyword("except") || CheckKeyword("finally") || CheckKeyword("else"))
                 {
                     // These tokens signal end of current block and should be handled by the parent parser
                     // Don't consume them here, just return null to let the caller handle it
@@ -247,22 +293,25 @@ namespace SharpPy
                     return ParseDecoratedStatement();
                 }
             
-            // Function definition
-            if (Match(TokenType.DEF)) return ParseFunctionDef();
-            if (Match(TokenType.ASYNC) && Check(TokenType.DEF)) return ParseAsyncFunctionDef();
-            
+            // Function definition (CPython 3.12: keywords are NAME tokens)
+            if (MatchKeyword("def")) return ParseFunctionDef();
+            if (CheckKeyword("async") && CheckNext(TokenType.NAME) && PeekNext().Lexeme == "def")
+            {
+                return ParseAsyncFunctionDef();
+            }
+
             // Class definition
-            if (Match(TokenType.CLASS)) return ParseClassDef();
-            
+            if (MatchKeyword("class")) return ParseClassDef();
+
             // Type alias (Python 3.12)
-            if (Match(TokenType.TYPE)) return ParseTypeAlias();
-            
+            if (MatchKeyword("type")) return ParseTypeAlias();
+
             // Control flow
-            if (Match(TokenType.IF)) return ParseIfStatement();
-            if (Match(TokenType.WHILE)) return ParseWhileStatement();
-            if (Match(TokenType.FOR)) return ParseForStatement();
-            if (Match(TokenType.TRY)) return ParseTryStatement();
-            if (Match(TokenType.WITH)) return ParseWithStatement();
+            if (MatchKeyword("if")) return ParseIfStatement();
+            if (MatchKeyword("while")) return ParseWhileStatement();
+            if (MatchKeyword("for")) return ParseForStatement();
+            if (MatchKeyword("try")) return ParseTryStatement();
+            if (MatchKeyword("with")) return ParseWithStatement();
             // CPython 3.12: match is a soft keyword, check context
             if (IsMatchStatementStart())
             {
@@ -271,18 +320,18 @@ namespace SharpPy
             }
             
             // Simple statements
-            if (Match(TokenType.RETURN)) return ParseReturnStatement();
-            if (Match(TokenType.YIELD)) return ParseYieldStatement();
-            if (Match(TokenType.BREAK)) return ParseBreakStatement();
-            if (Match(TokenType.CONTINUE)) return ParseContinueStatement();
-            if (Match(TokenType.PASS)) return ParsePassStatement();
-            if (Match(TokenType.ASSERT)) return ParseAssertStatement();
-            if (Match(TokenType.RAISE)) return ParseRaiseStatement();
-            if (Match(TokenType.DEL)) return ParseDeleteStatement();
-            if (Match(TokenType.GLOBAL)) return ParseGlobalStatement();
-            if (Match(TokenType.NONLOCAL)) return ParseNonlocalStatement();
-            if (Match(TokenType.IMPORT)) return ParseImportStatement();
-            if (Match(TokenType.FROM)) return ParseFromImportStatement();
+            if (MatchKeyword("return")) return ParseReturnStatement();
+            if (MatchKeyword("yield")) return ParseYieldStatement();
+            if (MatchKeyword("break")) return ParseBreakStatement();
+            if (MatchKeyword("continue")) return ParseContinueStatement();
+            if (MatchKeyword("pass")) return ParsePassStatement();
+            if (MatchKeyword("assert")) return ParseAssertStatement();
+            if (MatchKeyword("raise")) return ParseRaiseStatement();
+            if (MatchKeyword("del")) return ParseDeleteStatement();
+            if (MatchKeyword("global")) return ParseGlobalStatement();
+            if (MatchKeyword("nonlocal")) return ParseNonlocalStatement();
+            if (MatchKeyword("import")) return ParseImportStatement();
+            if (MatchKeyword("from")) return ParseFromImportStatement();
             
                 // Expression statement or assignment
                 return ParseExpressionOrAssignment();
@@ -291,19 +340,19 @@ namespace SharpPy
 
         private Statement ParseFunctionDef(List<DecoratorExpression>? decorators = null)
         {
-            var name = Consume(TokenType.IDENTIFIER, "Expected function name").Lexeme;
+            var name = Consume(TokenType.NAME, "Expected function name").Lexeme;
             
             // Type parameters (Python 3.12)
             var typeParams = new List<string>();
-            if (Match(TokenType.LEFT_BRACKET))
+            if (Match(TokenType.LSQB))
             {
                 typeParams = ParseTypeParameters();
-                Consume(TokenType.RIGHT_BRACKET, "Expected ']' after type parameters");
+                Consume(TokenType.RSQB, "Expected ']' after type parameters");
             }
             
-            Consume(TokenType.LEFT_PAREN, "Expected '(' after function name");
+            Consume(TokenType.LPAR, "Expected '(' after function name");
             var parameters = ParseParameterList();
-            Consume(TokenType.RIGHT_PAREN, "Expected ')' after parameters");
+            Consume(TokenType.RPAR, "Expected ')' after parameters");
             
             // Check for return type annotation (->)
             if (Check(TokenType.MINUS) && CheckNext(TokenType.GREATER))
@@ -323,21 +372,21 @@ namespace SharpPy
 
         private Statement ParseAsyncFunctionDef()
         {
-            Consume(TokenType.DEF, "Expected 'def' after 'async'");
+            ConsumeKeyword("def", "Expected 'def' after 'async'");
             
-            var name = Consume(TokenType.IDENTIFIER, "Expected function name").Lexeme;
+            var name = Consume(TokenType.NAME, "Expected function name").Lexeme;
             
             // Type parameters (Python 3.12)
             var typeParams = new List<string>();
-            if (Match(TokenType.LEFT_BRACKET))
+            if (Match(TokenType.LSQB))
             {
                 typeParams = ParseTypeParameters();
-                Consume(TokenType.RIGHT_BRACKET, "Expected ']' after type parameters");
+                Consume(TokenType.RSQB, "Expected ']' after type parameters");
             }
             
-            Consume(TokenType.LEFT_PAREN, "Expected '(' after function name");
+            Consume(TokenType.LPAR, "Expected '(' after function name");
             var parameters = ParseParameterList();
-            Consume(TokenType.RIGHT_PAREN, "Expected ')' after parameters");
+            Consume(TokenType.RPAR, "Expected ')' after parameters");
             
             // Check for return type annotation (->)
             if (Check(TokenType.MINUS) && CheckNext(TokenType.GREATER))
@@ -373,16 +422,16 @@ namespace SharpPy
             var decorators = ParseDecorators();
             
             // 데코레이터 다음에는 함수나 클래스 정의만 올 수 있음
-            if (Match(TokenType.DEF))
+            if (MatchKeyword("def"))
             {
                 return ParseFunctionDef(decorators);
             }
-            else if (Match(TokenType.ASYNC) && Check(TokenType.DEF))
+            else if (MatchKeyword("async") && CheckKeyword("def"))
             {
-                Consume(TokenType.DEF, "Expected 'def' after 'async'");
+                ConsumeKeyword("def", "Expected 'def' after 'async'");
                 return ParseAsyncFunctionDef(); // TODO: async 함수도 데코레이터 지원 필요
             }
-            else if (Match(TokenType.CLASS))
+            else if (MatchKeyword("class"))
             {
                 return ParseClassDef(); // TODO: 클래스도 데코레이터 지원 필요
             }
@@ -420,11 +469,11 @@ namespace SharpPy
             
             // 데코레이터에 인수가 있는 경우
             List<Expression>? arguments = null;
-            if (Match(TokenType.LEFT_PAREN))
+            if (Match(TokenType.LPAR))
             {
                 // 함수 호출과 동일한 방식으로 인자 파싱 (키워드 인자 지원)
                 var (args, keywords) = ParseFunctionCallArguments();
-                ConsumeEnhanced(TokenType.RIGHT_PAREN, "after decorator arguments");
+                ConsumeEnhanced(TokenType.RPAR, "after decorator arguments");
                 
                 // 데코레이터의 경우 키워드 인자도 일반 arguments 리스트에 포함시킴
                 arguments = new List<Expression>(args);
@@ -442,12 +491,12 @@ namespace SharpPy
         /// </summary>
         private Expression ParseDottedName()
         {
-            var name = Consume(TokenType.IDENTIFIER, "Expected decorator name").Lexeme;
+            var name = Consume(TokenType.NAME, "Expected decorator name").Lexeme;
             Expression expr = new NameExpression(name);
             
             while (Match(TokenType.DOT))
             {
-                var attrName = Consume(TokenType.IDENTIFIER, "Expected attribute name after '.'").Lexeme;
+                var attrName = Consume(TokenType.NAME, "Expected attribute name after '.'").Lexeme;
                 expr = new AttributeExpression(expr, attrName);
             }
             
@@ -456,28 +505,28 @@ namespace SharpPy
 
         private Statement ParseClassDef()
         {
-            var name = Consume(TokenType.IDENTIFIER, "Expected class name").Lexeme;
+            var name = Consume(TokenType.NAME, "Expected class name").Lexeme;
             
             // Type parameters (Python 3.12)
             var typeParams = new List<string>();
-            if (Match(TokenType.LEFT_BRACKET))
+            if (Match(TokenType.LSQB))
             {
                 typeParams = ParseTypeParameters();
-                Consume(TokenType.RIGHT_BRACKET, "Expected ']' after type parameters");
+                Consume(TokenType.RSQB, "Expected ']' after type parameters");
             }
             
             // Base classes and metaclass
             var bases = new List<Expression>();
             Expression? metaclass = null;
             
-            if (Match(TokenType.LEFT_PAREN))
+            if (Match(TokenType.LPAR))
             {
-                if (!Check(TokenType.RIGHT_PAREN))
+                if (!Check(TokenType.RPAR))
                 {
                     do
                     {
                         // CPython 3.12: Check for keyword arguments like metaclass=
-                        if (Check(TokenType.IDENTIFIER) && CheckNext(TokenType.EQUAL))
+                        if (Check(TokenType.NAME) && CheckNext(TokenType.EQUAL))
                         {
                             var keywordName = Peek().Lexeme;
                             Advance(); // consume keyword name
@@ -500,7 +549,7 @@ namespace SharpPy
                         }
                     } while (Match(TokenType.COMMA));
                 }
-                Consume(TokenType.RIGHT_PAREN, "Expected ')' after base classes");
+                Consume(TokenType.RPAR, "Expected ')' after base classes");
             }
             
             Consume(TokenType.COLON, "Expected ':' after class header");
@@ -512,14 +561,14 @@ namespace SharpPy
 
         private Statement ParseTypeAlias()
         {
-            var name = Consume(TokenType.IDENTIFIER, "Expected type alias name").Lexeme;
+            var name = Consume(TokenType.NAME, "Expected type alias name").Lexeme;
             
             // Type parameters (Python 3.12)
             var typeParams = new List<string>();
-            if (Match(TokenType.LEFT_BRACKET))
+            if (Match(TokenType.LSQB))
             {
                 typeParams = ParseTypeParameters();
-                Consume(TokenType.RIGHT_BRACKET, "Expected ']' after type parameters");
+                Consume(TokenType.RSQB, "Expected ']' after type parameters");
             }
             
             Consume(TokenType.EQUAL, "Expected '=' in type alias");
@@ -549,24 +598,24 @@ namespace SharpPy
                     string param;
                     
                     // Handle *Ts (TypeVarTuple) and **P (ParamSpec)
-                    if (Check(TokenType.STAR_STAR))
+                    if (Check(TokenType.DOUBLESTAR))
                     {
                         // **P (ParamSpec) - PEP 612
                         Advance(); // consume **
-                        var paramName = Consume(TokenType.IDENTIFIER, "Expected type parameter name after **").Lexeme;
+                        var paramName = Consume(TokenType.NAME, "Expected type parameter name after **").Lexeme;
                         param = "**" + paramName;
                     }
                     else if (Check(TokenType.STAR))
                     {
                         // *Ts (TypeVarTuple) - PEP 646
                         Advance(); // consume *
-                        var paramName = Consume(TokenType.IDENTIFIER, "Expected type parameter name after *").Lexeme;
+                        var paramName = Consume(TokenType.NAME, "Expected type parameter name after *").Lexeme;
                         param = "*" + paramName;
                     }
                     else
                     {
                         // Regular type parameter T
-                        param = Consume(TokenType.IDENTIFIER, "Expected type parameter name").Lexeme;
+                        param = Consume(TokenType.NAME, "Expected type parameter name").Lexeme;
                         
                         // Handle type constraints (T: int) - PEP 695
                         if (Check(TokenType.COLON))
@@ -608,7 +657,7 @@ namespace SharpPy
             bool seenPositionalOnlySeparator = false;
             bool seenKeywordOnlyMarker = false;
             
-            if (!Check(TokenType.RIGHT_PAREN))
+            if (!Check(TokenType.RPAR))
             {
                 do
                 {
@@ -622,11 +671,11 @@ namespace SharpPy
                     }
                     
                     // Handle *args and **kwargs (CPython style)
-                    if (Check(TokenType.STAR_STAR))
+                    if (Check(TokenType.DOUBLESTAR))
                     {
                         // **kwargs
                         Advance(); // consume **
-                        var kwargsParam = Consume(TokenType.IDENTIFIER, "Expected parameter name after **").Lexeme;
+                        var kwargsParam = Consume(TokenType.NAME, "Expected parameter name after **").Lexeme;
                         
                         // PEP 692: **kwargs 타입 주석 처리
                         if (Match(TokenType.COLON))
@@ -646,7 +695,7 @@ namespace SharpPy
                         // Check for bare * (keyword-only marker)
                         Advance(); // consume *
                         
-                        if (Check(TokenType.COMMA) || Check(TokenType.RIGHT_PAREN))
+                        if (Check(TokenType.COMMA) || Check(TokenType.RPAR))
                         {
                             // Bare * - keyword-only marker (PEP 3102)
                             seenKeywordOnlyMarker = true;
@@ -655,7 +704,7 @@ namespace SharpPy
                         else
                         {
                             // *args
-                            var argsParam = Consume(TokenType.IDENTIFIER, "Expected parameter name after *").Lexeme;
+                            var argsParam = Consume(TokenType.NAME, "Expected parameter name after *").Lexeme;
                             parameters.Add("*" + argsParam);
                             seenKeywordOnlyMarker = true;
                         }
@@ -663,7 +712,7 @@ namespace SharpPy
                     else
                     {
                         // Regular parameter (CPython 호환 방식)
-                        var param = Consume(TokenType.IDENTIFIER, "Expected parameter name").Lexeme;
+                        var param = Consume(TokenType.NAME, "Expected parameter name").Lexeme;
                         var paramString = param;
                         
                         // Type annotation 처리 (CPython 3.12: union syntax 지원)
@@ -704,7 +753,7 @@ namespace SharpPy
                 Advance(); // consume INDENT
                 
                 // Parse statements until final DEDENT (class body termination)
-                while (!IsAtEnd() && !Check(TokenType.EOF))
+                while (!IsAtEnd() && !Check(TokenType.ENDMARKER))
                 {
                     // Skip empty lines - Enhanced CPython 3.12 compatible handling
                     if (Match(TokenType.NEWLINE) || Match(TokenType.NL))
@@ -750,7 +799,7 @@ namespace SharpPy
                                     Console.WriteLine($"🔍 ParseBlock: Next meaningful token after DEDENT: {nextToken.Type} at {nextToken.Line}:{nextToken.Column}");
 
                                     // If next meaningful token is DEF, CLASS, or decorator (@), check indent level
-                                    if (nextToken.Type == TokenType.DEF || nextToken.Type == TokenType.CLASS || nextToken.Type == TokenType.AT)
+                                    if ((nextToken.Type == TokenType.NAME && (nextToken.Lexeme == "def" || nextToken.Lexeme == "class")) || nextToken.Type == TokenType.AT)
                                     {
                                         // Check if token is at module level (Column 1) or class level (indented)
                                         if (nextToken.Column == 1)
@@ -773,18 +822,16 @@ namespace SharpPy
                                         {
                                             var tokenAfterIndent = _tokens[afterIndentIndex];
                                             // Check if there's method content (statements, not DEF)
-                                            if (tokenAfterIndent.Type == TokenType.DEF)
+                                            if (tokenAfterIndent.Type == TokenType.NAME && tokenAfterIndent.Lexeme == "def")
                                             {
                                                 Console.WriteLine("🔍 ParseBlock: Found INDENT then DEF after DEDENT - continuing class body parsing");
                                                 Advance(); // consume the DEDENT
                                                 continue; // continue to parse the next method
                                             }
-                                            else if (tokenAfterIndent.Type == TokenType.IDENTIFIER ||
-                                                    tokenAfterIndent.Type == TokenType.RETURN ||
-                                                    tokenAfterIndent.Type == TokenType.IF ||
-                                                    tokenAfterIndent.Type == TokenType.FOR ||
-                                                    tokenAfterIndent.Type == TokenType.WHILE ||
-                                                    tokenAfterIndent.Type == TokenType.TRY)
+                                            else if (tokenAfterIndent.Type == TokenType.NAME ||
+                                                    (tokenAfterIndent.Type == TokenType.NAME && (tokenAfterIndent.Lexeme == "return" ||
+                                                     tokenAfterIndent.Lexeme == "if" || tokenAfterIndent.Lexeme == "for" ||
+                                                     tokenAfterIndent.Lexeme == "while" || tokenAfterIndent.Lexeme == "try")))
                                             {
                                                 Console.WriteLine($"🔍 ParseBlock: Found INDENT then {tokenAfterIndent.Type} after DEDENT - method body continues, consuming DEDENT");
                                                 Advance(); // consume the DEDENT
@@ -793,7 +840,7 @@ namespace SharpPy
                                         }
                                     }
                                     // Check if this is an IDENTIFIER at the same indent level as class body
-                                    else if (nextToken.Type == TokenType.IDENTIFIER)
+                                    else if (nextToken.Type == TokenType.NAME)
                                     {
                                         // If we're in a class body and see an identifier at class level, it might be method body
                                         if (nextToken.Column > 1) // indented, so still class content
@@ -820,13 +867,13 @@ namespace SharpPy
                         }
 
                         // Check for other block-ending tokens
-                        if (Check(TokenType.EXCEPT) || Check(TokenType.FINALLY) || Check(TokenType.ELSE))
+                        if (CheckKeyword("except") || CheckKeyword("finally") || CheckKeyword("else"))
                         {
                             break;
                         }
 
                         // Skip unexpected tokens
-                        if (!IsAtEnd() && !Check(TokenType.EOF))
+                        if (!IsAtEnd() && !Check(TokenType.ENDMARKER))
                         {
                             Advance();
                         }
@@ -881,7 +928,7 @@ namespace SharpPy
                 Advance();
                 
                 // DEDENT 토큰이 나올 때까지 문장들을 파싱
-                while (!IsAtEnd() && !Check(TokenType.DEDENT) && !Check(TokenType.EOF))
+                while (!IsAtEnd() && !Check(TokenType.DEDENT) && !Check(TokenType.ENDMARKER))
                 {
                     // 빈 줄은 건너뛰기 (both NEWLINE and NL)
                     if (Match(TokenType.NEWLINE) || Match(TokenType.NL))
@@ -897,13 +944,13 @@ namespace SharpPy
                     else
                     {
                         // If ParseStatement returns null, check if we've hit a DEDENT or block-ending tokens
-                        if (Check(TokenType.DEDENT) || Check(TokenType.EXCEPT) || Check(TokenType.FINALLY) || Check(TokenType.ELSE))
+                        if (Check(TokenType.DEDENT) || CheckKeyword("except") || CheckKeyword("finally") || CheckKeyword("else"))
                         {
                             break; // These tokens signal end of current block
                         }
                         // If not a block-ending token, this might be another parsing issue
                         // Advance to avoid infinite loop on other unexpected tokens
-                        if (!IsAtEnd() && !Check(TokenType.EOF))
+                        if (!IsAtEnd() && !Check(TokenType.ENDMARKER))
                         {
                             Advance();
                         }
@@ -944,15 +991,15 @@ namespace SharpPy
             if (IsAtEnd()) return true;
             
             // INDENT/DEDENT 토큰을 사용하므로 DEDENT만 체크
-            return Check(TokenType.DEDENT) || Check(TokenType.EOF);
+            return Check(TokenType.DEDENT) || Check(TokenType.ENDMARKER);
         }
 
         private Statement ParseExpressionOrAssignment()
         {
             // CPython 3.12: 블록 구조 토큰들은 표현식이 아니므로 건너뛰기
             if (Check(TokenType.INDENT) || Check(TokenType.DEDENT) || 
-                Check(TokenType.EXCEPT) || Check(TokenType.FINALLY) ||
-                Check(TokenType.ELSE) || Check(TokenType.ELIF))
+                CheckKeyword("except") || CheckKeyword("finally") ||
+                CheckKeyword("else") || CheckKeyword("elif"))
             {
                 return null;
             }
@@ -1079,7 +1126,7 @@ namespace SharpPy
                 }
                 
                 // Check for walrus operator
-                if (Match(TokenType.WALRUS))
+                if (Match(TokenType.COLONEQUAL))
                 {
                     if (expr is NameExpression nameExpr)
                     {
@@ -1100,7 +1147,7 @@ namespace SharpPy
         private Expression ParseExpression()
         {
             // Lambda expressions have lowest precedence
-            if (Check(TokenType.LAMBDA))
+            if (CheckKeyword("lambda"))
             {
                 return ParseLambdaExpression();
             }
@@ -1116,9 +1163,9 @@ namespace SharpPy
                 while (Match(TokenType.COMMA))
                 {
                     // Handle trailing comma (e.g., "1, 2,")
-                    if (Check(TokenType.NEWLINE) || Check(TokenType.EOF) ||
-                        Check(TokenType.RIGHT_PAREN) || Check(TokenType.RIGHT_BRACKET) ||
-                        Check(TokenType.COLON) || Check(TokenType.SEMICOLON))
+                    if (Check(TokenType.NEWLINE) || Check(TokenType.ENDMARKER) ||
+                        Check(TokenType.RPAR) || Check(TokenType.RSQB) ||
+                        Check(TokenType.COLON) || Check(TokenType.SEMI))
                     {
                         break;
                     }
@@ -1144,7 +1191,7 @@ namespace SharpPy
         private Expression ParseConditionalExpression()
         {
             // Lambda expressions have lowest precedence, allow them in lambda bodies
-            if (Check(TokenType.LAMBDA))
+            if (CheckKeyword("lambda"))
             {
                 return ParseLambdaExpression();
             }
@@ -1154,18 +1201,18 @@ namespace SharpPy
             
             // Check for conditional: expr if condition else alternative  
             // Skip conditional expression parsing when inside comprehension or match pattern
-            if (Check(TokenType.IF) && !_inComprehension && !_inMatchPattern)
+            if (CheckKeyword("if") && !_inComprehension && !_inMatchPattern)
             {
                 Advance(); // consume IF
                 var condition = ParseBinaryExpression();
                 
-                if (!Check(TokenType.ELSE))
+                if (!CheckKeyword("else"))
                 {
                     // Better error handling - might be incomplete conditional
                     return expr; // Return partial expression instead of failing
                 }
                 
-                Consume(TokenType.ELSE, "Expected 'else' in conditional expression");
+                ConsumeKeyword("else", "Expected 'else' in conditional expression");
                 var alternative = ParseConditionalExpression(); // Right-associative
                 
                 return new ConditionalExpression(expr, condition, alternative);
@@ -1178,7 +1225,7 @@ namespace SharpPy
         {
             var expr = ParseAndExpression();
             
-            while (Match(TokenType.OR))
+            while (MatchKeyword("or"))
             {
                 var op = Previous().Lexeme;
                 var right = ParseAndExpression();
@@ -1194,7 +1241,7 @@ namespace SharpPy
         {
             var expr = ParseComparisonExpression();
             
-            while (Match(TokenType.AND))
+            while (MatchKeyword("and"))
             {
                 var op = Previous().Lexeme;
                 var right = ParseComparisonExpression();
@@ -1255,14 +1302,14 @@ namespace SharpPy
             }
             
             // Single token operators
-            if (Match(TokenType.EQUAL_EQUAL)) return "==";
-            if (Match(TokenType.BANG_EQUAL)) return "!=";
-            if (Match(TokenType.LESS_EQUAL)) return "<=";
-            if (Match(TokenType.GREATER_EQUAL)) return ">=";
+            if (Match(TokenType.EQEQUAL)) return "==";
+            if (Match(TokenType.NOTEQUAL)) return "!=";
+            if (Match(TokenType.LESSEQUAL)) return "<=";
+            if (Match(TokenType.GREATEREQUAL)) return ">=";
             if (Match(TokenType.LESS)) return "<";
             if (Match(TokenType.GREATER)) return ">";
-            if (Match(TokenType.IN)) return "in";
-            if (Match(TokenType.IS)) return "is";
+            if (MatchKeyword("in")) return "in";
+            if (MatchKeyword("is")) return "is";
             
             return null; // No comparison operator found
         }
@@ -1271,7 +1318,7 @@ namespace SharpPy
         {
             var expr = ParseBitwiseXorExpression();
 
-            while (Match(TokenType.PIPE))
+            while (Match(TokenType.VBAR))
             {
                 var op = Previous().Lexeme;
                 var right = ParseBitwiseXorExpression();
@@ -1285,7 +1332,7 @@ namespace SharpPy
         {
             var expr = ParseBitwiseAndExpression();
             
-            while (Match(TokenType.CARET))
+            while (Match(TokenType.CIRCUMFLEX))
             {
                 var op = Previous().Lexeme;
                 var right = ParseBitwiseAndExpression();
@@ -1299,7 +1346,7 @@ namespace SharpPy
         {
             var expr = ParseShiftExpression();
             
-            while (Match(TokenType.AMPERSAND))
+            while (Match(TokenType.AMPER))
             {
                 var op = Previous().Lexeme;
                 var right = ParseShiftExpression();
@@ -1313,7 +1360,7 @@ namespace SharpPy
         {
             var expr = ParseAdditionExpression();
             
-            while (Match(TokenType.LEFT_SHIFT, TokenType.RIGHT_SHIFT))
+            while (Match(TokenType.LEFTSHIFT, TokenType.RIGHTSHIFT))
             {
                 var op = Previous().Lexeme;
                 var right = ParseAdditionExpression();
@@ -1341,7 +1388,7 @@ namespace SharpPy
         {
             var expr = ParseUnaryExpression();
             
-            while (Match(TokenType.STAR, TokenType.SLASH, TokenType.SLASH_SLASH, TokenType.PERCENT))
+            while (Match(TokenType.STAR, TokenType.SLASH, TokenType.DOUBLESLASH, TokenType.PERCENT))
             {
                 var op = Previous().Lexeme;
                 var right = ParseUnaryExpression();
@@ -1353,7 +1400,7 @@ namespace SharpPy
 
         private Expression ParseUnaryExpression()
         {
-            if (Match(TokenType.PLUS, TokenType.MINUS, TokenType.TILDE, TokenType.NOT))
+            if (Match(TokenType.PLUS, TokenType.MINUS, TokenType.TILDE) || MatchKeyword("not"))
             {
                 var op = Previous().Lexeme;
                 var expr = ParseUnaryExpression();
@@ -1379,7 +1426,7 @@ namespace SharpPy
         {
             var expr = ParsePostfixExpression();
             
-            if (Match(TokenType.STAR_STAR))
+            if (Match(TokenType.DOUBLESTAR))
             {
                 var op = Previous().Lexeme;
                 var right = ParseUnaryExpression(); // Right-associative
@@ -1395,12 +1442,12 @@ namespace SharpPy
             
             while (true)
             {
-                if (Match(TokenType.LEFT_PAREN))
+                if (Match(TokenType.LPAR))
                 {
                     // Function call: func(args)
                     var args = new List<Expression>();
                     
-                    if (!Check(TokenType.RIGHT_PAREN))
+                    if (!Check(TokenType.RPAR))
                     {
                         do
                         {
@@ -1409,22 +1456,22 @@ namespace SharpPy
                         } while (Match(TokenType.COMMA));
                     }
                     
-                    Consume(TokenType.RIGHT_PAREN, "Expected ')' after function arguments");
+                    Consume(TokenType.RPAR, "Expected ')' after function arguments");
                     expr = new CallExpression(expr, args);
                 }
-                else if (Match(TokenType.LEFT_BRACKET))
+                else if (Match(TokenType.LSQB))
                 {
                     // Parse slice or subscript
                     var sliceOrIndex = ParseSliceOrIndex();
                     
-                    Consume(TokenType.RIGHT_BRACKET, "Expected ']' after subscript");
+                    Consume(TokenType.RSQB, "Expected ']' after subscript");
                     
                     expr = new SubscriptExpression(expr, sliceOrIndex);
                 }
                 else if (Match(TokenType.DOT))
                 {
                     // Attribute access: obj.attr
-                    var name = Consume(TokenType.IDENTIFIER, "Expected attribute name after '.'").Lexeme;
+                    var name = Consume(TokenType.NAME, "Expected attribute name after '.'").Lexeme;
                     expr = new AttributeExpression(expr, name);
                 }
                 else
@@ -1449,21 +1496,48 @@ namespace SharpPy
                 return new StarExpression(expr);
             }
             
-            // Literals
-            if (Match(TokenType.TRUE)) return new ConstantExpression(PyBool.True);
-            if (Match(TokenType.FALSE)) return new ConstantExpression(PyBool.False);
-            if (Match(TokenType.NONE)) return new ConstantExpression(PyNone.Instance);
-            
-            if (Match(TokenType.INTEGER))
+            // CPython 3.12: True, False, None are NAME tokens
+            if (Check(TokenType.NAME))
             {
-                var value = int.Parse(Previous().Lexeme);
-                return new ConstantExpression(new PyInt(value));
+                var token = Peek();
+                if (token.Lexeme == "True")
+                {
+                    Advance();
+                    return new ConstantExpression(PyBool.True);
+                }
+                if (token.Lexeme == "False")
+                {
+                    Advance();
+                    return new ConstantExpression(PyBool.False);
+                }
+                if (token.Lexeme == "None")
+                {
+                    Advance();
+                    return new ConstantExpression(PyNone.Instance);
+                }
             }
-            
-            if (Match(TokenType.FLOAT))
+
+            // CPython 3.12: All numbers are NUMBER tokens
+            if (Match(TokenType.NUMBER))
             {
-                var value = double.Parse(Previous().Lexeme);
-                return new ConstantExpression(new PyFloat(value));
+                var lexeme = Previous().Lexeme;
+
+                // Parse different number types
+                if (lexeme.Contains('.') || lexeme.ToLower().Contains('e'))
+                {
+                    var value = double.Parse(lexeme);
+                    return new ConstantExpression(new PyFloat(value));
+                }
+                else if (lexeme.ToLower().EndsWith('j'))
+                {
+                    // Complex number - for now, treat as string
+                    return new ConstantExpression(new PyString(lexeme));
+                }
+                else
+                {
+                    var value = int.Parse(lexeme);
+                    return new ConstantExpression(new PyInt(value));
+                }
             }
             
             if (Match(TokenType.STRING))
@@ -1472,30 +1546,10 @@ namespace SharpPy
                 return new ConstantExpression(new PyString(value));
             }
             
-            if (Match(TokenType.RAW_STRING))
-            {
-                var value = Previous().Lexeme;
-                // Raw strings don't process escape sequences
-                return new ConstantExpression(new PyString(value));
-            }
+            // CPython 3.12: All string types are handled as STRING tokens
+            // String prefix information (r, b, f, u) is preserved in the lexeme
             
-            // F-String support (PEP 701 enhanced)
-            if (Match(TokenType.F_STRING))
-            {
-                var fstringContent = Previous().Lexeme;
-                return ParseFString(fstringContent);
-            }
-            
-            // CPython 3.12: Binary string literals (b'...')
-            if (Match(TokenType.BYTES_STRING))
-            {
-                var bytesLexeme = Previous().Lexeme;
-                // Convert string to byte array (CPython 3.12 compatible)
-                var bytes = System.Text.Encoding.UTF8.GetBytes(bytesLexeme);
-                return new ConstantExpression(new PyBytes(bytes));
-            }
-            
-            if (Match(TokenType.IDENTIFIER))
+            if (Match(TokenType.NAME))
             {
                 var identifierToken = Previous();
                 var identifierName = identifierToken.Lexeme;
@@ -1515,15 +1569,15 @@ namespace SharpPy
             }
             
             // Handle 'type' keyword as identifier in expressions (for metaclass usage)
-            if (Match(TokenType.TYPE))
+            if (MatchKeyword("type"))
             {
                 return new NameExpression("type");
             }
             
             // Parentheses, Tuples, or Generator Expressions
-            if (Match(TokenType.LEFT_PAREN))
+            if (Match(TokenType.LPAR))
             {
-                if (Check(TokenType.RIGHT_PAREN))
+                if (Check(TokenType.RPAR))
                 {
                     Advance(); // empty tuple
                     return new TupleExpression(new List<Expression>());
@@ -1532,23 +1586,23 @@ namespace SharpPy
                 var first = ParseExpression();
                 
                 // Check for walrus operator inside parentheses
-                if (Check(TokenType.WALRUS))
+                if (Check(TokenType.COLONEQUAL))
                 {
                     if (first is NameExpression nameExpr)
                     {
                         Advance(); // consume WALRUS
                         var value = ParseExpression();
-                        Consume(TokenType.RIGHT_PAREN, "Expected ')' after walrus expression");
+                        Consume(TokenType.RPAR, "Expected ')' after walrus expression");
                         return new WalrusExpression(nameExpr.Name, value);
                     }
                     throw new Exception("Invalid walrus operator target in parentheses");
                 }
                 // Check if this is a generator expression
-                else if (Check(TokenType.FOR))
+                else if (CheckKeyword("for"))
                 {
                     // This is a generator expression: (expr for ...)
                     var generators = ParseComprehensionGenerators();
-                    Consume(TokenType.RIGHT_PAREN, "Expected ')' after generator expression");
+                    Consume(TokenType.RPAR, "Expected ')' after generator expression");
                     return new GeneratorExpression(first, generators);
                 }
                 else if (Match(TokenType.COMMA))
@@ -1556,33 +1610,33 @@ namespace SharpPy
                     // This is a tuple
                     var elements = new List<Expression> { first };
                     
-                    if (!Check(TokenType.RIGHT_PAREN)) // Handle trailing comma
+                    if (!Check(TokenType.RPAR)) // Handle trailing comma
                     {
                         do
                         {
                             elements.Add(ParseExpression());
-                        } while (Match(TokenType.COMMA) && !Check(TokenType.RIGHT_PAREN));
+                        } while (Match(TokenType.COMMA) && !Check(TokenType.RPAR));
                     }
                     
-                    Consume(TokenType.RIGHT_PAREN, "Expected ')' after tuple elements");
+                    Consume(TokenType.RPAR, "Expected ')' after tuple elements");
                     return new TupleExpression(elements);
                 }
                 else
                 {
                     // Just parentheses
-                    Consume(TokenType.RIGHT_PAREN, "Expected ')' after expression");
+                    Consume(TokenType.RPAR, "Expected ')' after expression");
                     return first;
                 }
             }
             
             // Lists
-            if (Match(TokenType.LEFT_BRACKET))
+            if (Match(TokenType.LSQB))
             {
                 return ParseListExpression();
             }
             
             // Dictionaries
-            if (Match(TokenType.LEFT_BRACE))
+            if (Match(TokenType.LBRACE))
             {
                 return ParseDictExpression();
             }
@@ -1593,9 +1647,9 @@ namespace SharpPy
         private Expression ParseListExpression()
         {
             // Empty list
-            if (Check(TokenType.RIGHT_BRACKET))
+            if (Check(TokenType.RSQB))
             {
-                Consume(TokenType.RIGHT_BRACKET, "Expected ']'");
+                Consume(TokenType.RSQB, "Expected ']'");
                 return new ListExpression(new List<Expression>());
             }
             
@@ -1603,11 +1657,11 @@ namespace SharpPy
             var firstElement = ParseConditionalExpression();
             
             // Check if this is a list comprehension
-            if (Check(TokenType.FOR))
+            if (CheckKeyword("for"))
             {
                 // This is a list comprehension: [expr for ...]
                 var generators = ParseComprehensionGenerators();
-                Consume(TokenType.RIGHT_BRACKET, "Expected ']' after list comprehension");
+                Consume(TokenType.RSQB, "Expected ']' after list comprehension");
                 return new ListComprehension(firstElement, generators);
             }
             else
@@ -1615,13 +1669,13 @@ namespace SharpPy
                 // This is a regular list literal
                 var elements = new List<Expression> { firstElement };
                 
-                while (Match(TokenType.COMMA) && !Check(TokenType.RIGHT_BRACKET))
+                while (Match(TokenType.COMMA) && !Check(TokenType.RSQB))
                 {
                     // CPython 3.12: Skip newlines and indentation after comma in multiline lists
                     SkipNewlines();
                     SkipIndentationTokens();
                     
-                    if (Check(TokenType.RIGHT_BRACKET)) break; // trailing comma
+                    if (Check(TokenType.RSQB)) break; // trailing comma
 
                     elements.Add(ParseConditionalExpression());
                     
@@ -1630,7 +1684,7 @@ namespace SharpPy
                     SkipDedentationTokens();
                 }
                 
-                Consume(TokenType.RIGHT_BRACKET, "Expected ']' after list elements");
+                Consume(TokenType.RSQB, "Expected ']' after list elements");
                 return new ListExpression(elements);
             }
         }
@@ -1648,7 +1702,7 @@ namespace SharpPy
             SkipIndentationTokens();
 
             // Empty dict/set
-            if (Check(TokenType.RIGHT_BRACE))
+            if (Check(TokenType.RBRACE))
             {
                 Advance(); // empty dict
                 return new DictExpression(new List<(Expression, Expression)>());
@@ -1662,13 +1716,13 @@ namespace SharpPy
                 var firstValue = ParseConditionalExpression();
                 
                 // Check if this is a dict comprehension
-                if (Check(TokenType.FOR))
+                if (CheckKeyword("for"))
                 {
                     // This is a dict comprehension: {key: value for ...}
                     var generators = ParseComprehensionGenerators();
                     while (Match(TokenType.DEDENT)) { }
                     SkipNewlines();
-                    Consume(TokenType.RIGHT_BRACE, "Expected '}' after dict comprehension");
+                    Consume(TokenType.RBRACE, "Expected '}' after dict comprehension");
                     return new DictComprehension(firstExpr, firstValue, generators);
                 }
                 else
@@ -1677,13 +1731,13 @@ namespace SharpPy
                     var items = new List<(Expression Key, Expression Value)>();
                     items.Add((firstExpr, firstValue));
                     
-                    while (Match(TokenType.COMMA) && !Check(TokenType.RIGHT_BRACE))
+                    while (Match(TokenType.COMMA) && !Check(TokenType.RBRACE))
                     {
                         // CPython 3.12: Skip newlines and indentation after comma in multiline dictionaries
                         SkipNewlines();
                         SkipIndentationTokens();
                         
-                        if (Check(TokenType.RIGHT_BRACE)) break; // trailing comma
+                        if (Check(TokenType.RBRACE)) break; // trailing comma
                         
                         var key = ParseConditionalExpression();
                         Consume(TokenType.COLON, "Expected ':' after dictionary key");
@@ -1699,20 +1753,20 @@ namespace SharpPy
                     SkipDedentationTokens();
                     SkipNewlines();
                     
-                    Consume(TokenType.RIGHT_BRACE, "Expected '}' after dictionary items");
+                    Consume(TokenType.RBRACE, "Expected '}' after dictionary items");
                     return new DictExpression(items);
                 }
             }
             else
             {
                 // This might be a set literal or set comprehension
-                if (Check(TokenType.FOR))
+                if (CheckKeyword("for"))
                 {
                     // This is a set comprehension: {expr for ...}
                     var generators = ParseComprehensionGenerators();
                     while (Match(TokenType.DEDENT)) { }
                     SkipNewlines();
-                    Consume(TokenType.RIGHT_BRACE, "Expected '}' after set comprehension");
+                    Consume(TokenType.RBRACE, "Expected '}' after set comprehension");
                     return new SetComprehension(firstExpr, generators);
                 }
                 else
@@ -1721,13 +1775,13 @@ namespace SharpPy
                     var elements = new List<Expression>();
                     elements.Add(firstExpr);
                     
-                    while (Match(TokenType.COMMA) && !Check(TokenType.RIGHT_BRACE))
+                    while (Match(TokenType.COMMA) && !Check(TokenType.RBRACE))
                     {
                         // CPython 3.12: Skip newlines and indentation after comma in multiline sets
                         SkipNewlines();
                         SkipIndentationTokens();
                         
-                        if (Check(TokenType.RIGHT_BRACE)) break; // trailing comma
+                        if (Check(TokenType.RBRACE)) break; // trailing comma
                         
                         elements.Add(ParseExpression());
                         
@@ -1740,7 +1794,7 @@ namespace SharpPy
                     SkipDedentationTokens();
                     SkipNewlines();
                     
-                    Consume(TokenType.RIGHT_BRACE, "Expected '}' after set elements");
+                    Consume(TokenType.RBRACE, "Expected '}' after set elements");
                     return new SetExpression(elements);
                 }
             }
@@ -1757,7 +1811,7 @@ namespace SharpPy
             generators.Add(ParseSingleComprehension());
             
             // Parse additional generators (optional)
-            while (Check(TokenType.FOR))
+            while (CheckKeyword("for"))
             {
                 generators.Add(ParseSingleComprehension());
             }
@@ -1775,19 +1829,19 @@ namespace SharpPy
             
             try
             {
-                Consume(TokenType.FOR, "Expected 'for' in comprehension");
+                ConsumeKeyword("for", "Expected 'for' in comprehension");
                 
                 // Parse target (can be simple name or tuple/list unpacking)
                 var target = ParseComprehensionTarget();
                 
-                Consume(TokenType.IN, "Expected 'in' after comprehension target");
+                ConsumeKeyword("in", "Expected 'in' after comprehension target");
                 
                 // Parse iterable expression
                 var iter = ParseExpression();
                 
                 // Parse optional if conditions
                 var ifs = new List<Expression>();
-                while (Match(TokenType.IF))
+                while (MatchKeyword("if"))
                 {
                     var condition = ParseExpression();
                     ifs.Add(condition);
@@ -2260,13 +2314,13 @@ namespace SharpPy
         /// </summary>
         private Expression ParseComprehensionTarget()
         {
-            if (Check(TokenType.LEFT_PAREN))
+            if (Check(TokenType.LPAR))
             {
                 // Tuple unpacking: (x, y)
                 Advance(); // consume '('
                 var elements = new List<Expression>();
                 
-                if (!Check(TokenType.RIGHT_PAREN))
+                if (!Check(TokenType.RPAR))
                 {
                     do
                     {
@@ -2274,16 +2328,16 @@ namespace SharpPy
                     } while (Match(TokenType.COMMA));
                 }
                 
-                Consume(TokenType.RIGHT_PAREN, "Expected ')' after tuple target");
+                Consume(TokenType.RPAR, "Expected ')' after tuple target");
                 return new TupleExpression(elements);
             }
-            else if (Check(TokenType.LEFT_BRACKET))
+            else if (Check(TokenType.LSQB))
             {
                 // List unpacking: [x, y]
                 Advance(); // consume '['
                 var elements = new List<Expression>();
                 
-                if (!Check(TokenType.RIGHT_BRACKET))
+                if (!Check(TokenType.RSQB))
                 {
                     do
                     {
@@ -2291,10 +2345,10 @@ namespace SharpPy
                     } while (Match(TokenType.COMMA));
                 }
                 
-                Consume(TokenType.RIGHT_BRACKET, "Expected ']' after list target");
+                Consume(TokenType.RSQB, "Expected ']' after list target");
                 return new ListExpression(elements);
             }
-            else if (Check(TokenType.IDENTIFIER))
+            else if (Check(TokenType.NAME))
             {
                 // Simple name or start of comma-separated tuple
                 var name = Advance().Lexeme;
@@ -2307,7 +2361,7 @@ namespace SharpPy
                     
                     while (Match(TokenType.COMMA))
                     {
-                        if (Check(TokenType.IDENTIFIER))
+                        if (Check(TokenType.NAME))
                         {
                             var nextName = Advance().Lexeme;
                             elements.Add(new NameExpression(nextName));
@@ -2339,7 +2393,7 @@ namespace SharpPy
             var orElse = new List<Statement>();
             
             // Handle elif and else clauses
-            while (Match(TokenType.ELIF))
+            while (MatchKeyword("elif"))
             {
                 var elifCondition = ParseExpression();
                 Consume(TokenType.COLON, "Expected ':' after elif condition");
@@ -2350,7 +2404,7 @@ namespace SharpPy
                 orElse.Add(nestedIf);
             }
             
-            if (Match(TokenType.ELSE))
+            if (MatchKeyword("else"))
             {
                 Consume(TokenType.COLON, "Expected ':' after else");
                 var elseBody = ParseBlockOrSingleStatement();
@@ -2379,7 +2433,7 @@ namespace SharpPy
             
             // Check for optional else clause
             List<Statement>? elseClause = null;
-            if (Check(TokenType.ELSE))
+            if (CheckKeyword("else"))
             {
                 Advance(); // consume 'else'
                 Consume(TokenType.COLON, "Expected ':' after 'else'");
@@ -2392,7 +2446,7 @@ namespace SharpPy
         {
             // Parse for target (left side of 'in') - support both simple names and tuple unpacking
             var target = ParseForTarget();
-            Consume(TokenType.IN, "Expected 'in' in for statement");
+            ConsumeKeyword("in", "Expected 'in' in for statement");
             var iterable = ParseExpression(); // in iterable  
             Consume(TokenType.COLON, "Expected ':' after for clause");
             
@@ -2400,7 +2454,7 @@ namespace SharpPy
             
             // Check for optional else clause
             List<Statement>? elseClause = null;
-            if (Check(TokenType.ELSE))
+            if (CheckKeyword("else"))
             {
                 Advance(); // consume 'else'
                 Consume(TokenType.COLON, "Expected ':' after 'else'");
@@ -2483,11 +2537,11 @@ namespace SharpPy
         private Expression ParseForTargetExpression()
         {
             // Handle parenthesized expressions: (a, b) or ((a, b), c)
-            if (Check(TokenType.LEFT_PAREN))
+            if (Check(TokenType.LPAR))
             {
                 Advance(); // consume '('
                 
-                if (Check(TokenType.RIGHT_PAREN))
+                if (Check(TokenType.RPAR))
                 {
                     Advance(); // empty tuple
                     return new TupleExpression(new List<Expression>());
@@ -2497,15 +2551,15 @@ namespace SharpPy
                 do
                 {
                     elements.Add(ParseForTargetExpression());
-                } while (Match(TokenType.COMMA) && !Check(TokenType.RIGHT_PAREN));
+                } while (Match(TokenType.COMMA) && !Check(TokenType.RPAR));
                 
-                Consume(TokenType.RIGHT_PAREN, "Expected ')' after tuple unpacking target");
+                Consume(TokenType.RPAR, "Expected ')' after tuple unpacking target");
                 
                 return elements.Count == 1 ? elements[0] : new TupleExpression(elements);
             }
             
             // Handle simple identifiers
-            if (Check(TokenType.IDENTIFIER))
+            if (Check(TokenType.NAME))
             {
                 var name = Advance().Lexeme;
                 return new NameExpression(name);
@@ -2526,7 +2580,7 @@ namespace SharpPy
             // Pattern 2: 'try' ':' b=block ex=except_block+ el=[else_block] f=[finally_block]
             
             // Try Pattern 1: Check for finally block first
-            if (Check(TokenType.FINALLY))
+            if (CheckKeyword("finally"))
             {
                 Advance(); // consume 'finally'
                 Consume(TokenType.COLON, "Expected ':' after finally");
@@ -2539,7 +2593,7 @@ namespace SharpPy
             
             // CPython 3.12: Skip remaining tokens until we reach EXCEPT/FINALLY/ELSE
             // This handles the case where try block has remaining unparsed statements  
-            while (!Check(TokenType.EXCEPT) && !Check(TokenType.FINALLY) && !Check(TokenType.ELSE) && !IsAtEnd())
+            while (!CheckKeyword("except") && !CheckKeyword("finally") && !CheckKeyword("else") && !IsAtEnd())
             {
                 if (Check(TokenType.NEWLINE))
                 {
@@ -2576,7 +2630,7 @@ namespace SharpPy
             
             // Must have at least one except handler for this pattern
             Console.WriteLine($"🔍 ParseTryStatement: After try block and whitespace skip, current token: {Peek().Type} at {Peek().Line}:{Peek().Column}");
-            if (!Check(TokenType.EXCEPT))
+            if (!CheckKeyword("except"))
             {
                 Console.WriteLine($"⚠️  Expected EXCEPT but found {Peek().Type}. Available tokens:");
                 for (int i = 0; i < Math.Min(15, _tokens.Count - _current); i++)
@@ -2588,7 +2642,7 @@ namespace SharpPy
             }
             
             // Parse except_block+
-            while (Check(TokenType.EXCEPT))
+            while (CheckKeyword("except"))
             {
                 Console.WriteLine($"🔍 ParseTryStatement: Found EXCEPT #{handlers.Count + 1} at {Peek().Line}:{Peek().Column}");
                 Advance(); // consume 'except'
@@ -2606,7 +2660,7 @@ namespace SharpPy
             
             // Parse optional else_block
             List<Statement>? elseBody = null;
-            if (Check(TokenType.ELSE))
+            if (CheckKeyword("else"))
             {
                 Advance(); // consume 'else'
                 Consume(TokenType.COLON, "Expected ':' after else");
@@ -2615,7 +2669,7 @@ namespace SharpPy
             
             // Parse optional finally_block
             List<Statement>? finallyBody = null;
-            if (Check(TokenType.FINALLY))
+            if (CheckKeyword("finally"))
             {
                 Advance(); // consume 'finally'
                 Consume(TokenType.COLON, "Expected ':' after finally");
@@ -2658,10 +2712,10 @@ namespace SharpPy
                 }
                 
                 // Parse "as name" clause (optional)
-                if (Match(TokenType.AS))
+                if (MatchKeyword("as"))
                 {
                     Console.WriteLine($"🔍 ParseExceptHandler: Found AS, parsing identifier");
-                    if (!Check(TokenType.IDENTIFIER))
+                    if (!Check(TokenType.NAME))
                     {
                         throw new Exception("Expected identifier after 'as'");
                     }
@@ -2685,7 +2739,7 @@ namespace SharpPy
             var contextExpr = ParseConditionalExpression();
             Expression? optionalVars = null;
 
-            if (Check(TokenType.AS))
+            if (CheckKeyword("as"))
             {
                 Advance(); // consume AS
                 optionalVars = ParseConditionalExpression(); // as target (avoid comma parsing)
@@ -2702,7 +2756,7 @@ namespace SharpPy
                 var nextContextExpr = ParseConditionalExpression();
                 Expression? nextOptionalVars = null;
 
-                if (Check(TokenType.AS))
+                if (CheckKeyword("as"))
                 {
                     Advance(); // consume AS
                     nextOptionalVars = ParseConditionalExpression(); // as target (avoid comma parsing)
@@ -2727,7 +2781,7 @@ namespace SharpPy
             var expr = ParseExpression();
 
             // Check for walrus operator in match subject
-            if (Check(TokenType.WALRUS))
+            if (Check(TokenType.COLONEQUAL))
             {
                 if (expr is NameExpression nameExpr)
                 {
@@ -2773,7 +2827,7 @@ namespace SharpPy
                 }
                 
                 // CPython 3.12: case is a soft keyword
-                if (!(Check(TokenType.IDENTIFIER) && Peek().Lexeme == "case"))
+                if (!(Check(TokenType.NAME) && Peek().Lexeme == "case"))
                 {
                     throw new Exception("Expected 'case' in match statement");
                 }
@@ -2801,7 +2855,7 @@ namespace SharpPy
         private MatchCase ParseMatchCase()
         {
             // CPython 3.12: case is a soft keyword, consume as identifier
-            if (!(Check(TokenType.IDENTIFIER) && Peek().Lexeme == "case"))
+            if (!(Check(TokenType.NAME) && Peek().Lexeme == "case"))
             {
                 throw new Exception("Expected 'case'");
             }
@@ -2813,7 +2867,7 @@ namespace SharpPy
             // Parse optional guard (if condition)
             Expression? guard = null;
             // Console.WriteLine($"🔍 Parsing Guard: Current token = {Peek().Type} ({Peek().Lexeme})");
-            if (Match(TokenType.IF))
+            if (MatchKeyword("if"))
             {
                 // Console.WriteLine($"🔍 Guard IF token matched, parsing expression...");
                 guard = ParseExpression();
@@ -2849,12 +2903,12 @@ namespace SharpPy
                 const int MAX_OR_PATTERNS = 1000;
                 
                 // Check for or patterns (|)
-                while (Match(TokenType.PIPE) && patterns.Count < MAX_OR_PATTERNS)
+                while (Match(TokenType.VBAR) && patterns.Count < MAX_OR_PATTERNS)
                 {
                     var prevPos = _current;
                     
                     // CPython 3.12: Check for invalid syntax after '|'
-                    if (IsAtEnd() || Check(TokenType.COLON) || Check(TokenType.IF) || Check(TokenType.NEWLINE))
+                    if (IsAtEnd() || Check(TokenType.COLON) || CheckKeyword("if") || Check(TokenType.NEWLINE))
                     {
                         throw PyRuntimeError.Create("invalid syntax: expected pattern after '|'");
                     }
@@ -2893,9 +2947,9 @@ namespace SharpPy
                 }
                 
                 // CPython 3.12: Check for 'as' pattern (pattern as name)
-                if (Match(TokenType.AS))
+                if (MatchKeyword("as"))
                 {
-                    var name = Consume(TokenType.IDENTIFIER, "Expected identifier after 'as' in pattern").Lexeme;
+                    var name = Consume(TokenType.NAME, "Expected identifier after 'as' in pattern").Lexeme;
                     return new AsPattern(basePattern, name);
                 }
                 
@@ -2914,13 +2968,13 @@ namespace SharpPy
         private Expression ParseSingleMatchPattern()
         {
             // Handle sequence patterns like [1, 2, *rest]
-            if (Check(TokenType.LEFT_BRACKET))
+            if (Check(TokenType.LSQB))
             {
                 return ParseSequencePattern();
             }
             
             // Handle mapping patterns like {"key": value}
-            if (Check(TokenType.LEFT_BRACE))
+            if (Check(TokenType.LBRACE))
             {
                 return ParseMappingPattern();
             }
@@ -2929,7 +2983,7 @@ namespace SharpPy
             if (Check(TokenType.STAR))
             {
                 Advance(); // consume STAR
-                var name = Consume(TokenType.IDENTIFIER, "Expected identifier after * in pattern");
+                var name = Consume(TokenType.NAME, "Expected identifier after * in pattern");
                 return new StarPattern(name.Lexeme);
             }
             
@@ -2943,12 +2997,12 @@ namespace SharpPy
         /// </summary>
         private Expression ParseSequencePattern()
         {
-            Consume(TokenType.LEFT_BRACKET, "Expected '['");
+            Consume(TokenType.LSQB, "Expected '['");
             
             var patterns = new List<Expression>();
             bool hasStarPattern = false;
             
-            if (!Check(TokenType.RIGHT_BRACKET))
+            if (!Check(TokenType.RSQB))
             {
                 do
                 {
@@ -2961,17 +3015,17 @@ namespace SharpPy
                         hasStarPattern = true;
                         
                         Advance(); // consume STAR
-                        var name = Consume(TokenType.IDENTIFIER, "Expected identifier after * in pattern");
+                        var name = Consume(TokenType.NAME, "Expected identifier after * in pattern");
                         patterns.Add(new StarPattern(name.Lexeme));
                     }
                     else
                     {
                         patterns.Add(ParseSingleMatchPattern());
                     }
-                } while (Match(TokenType.COMMA) && !Check(TokenType.RIGHT_BRACKET));
+                } while (Match(TokenType.COMMA) && !Check(TokenType.RSQB));
             }
             
-            Consume(TokenType.RIGHT_BRACKET, "Expected ']'");
+            Consume(TokenType.RSQB, "Expected ']'");
             return new SequencePattern(patterns);
         }
         
@@ -2980,20 +3034,20 @@ namespace SharpPy
         /// </summary>
         private Expression ParseMappingPattern()
         {
-            Consume(TokenType.LEFT_BRACE, "Expected '{'");
+            Consume(TokenType.LBRACE, "Expected '{'");
 
             var patterns = new Dictionary<string, Expression>();
             string? restVariable = null;
 
-            if (!Check(TokenType.RIGHT_BRACE))
+            if (!Check(TokenType.RBRACE))
             {
                 do
                 {
                     // Check for **rest pattern
-                    if (Check(TokenType.STAR_STAR))
+                    if (Check(TokenType.DOUBLESTAR))
                     {
                         Advance(); // consume **
-                        var restToken = Consume(TokenType.IDENTIFIER, "Expected identifier after ** in mapping pattern");
+                        var restToken = Consume(TokenType.NAME, "Expected identifier after ** in mapping pattern");
                         restVariable = restToken.Lexeme;
                     }
                     else
@@ -3005,10 +3059,10 @@ namespace SharpPy
                         var valuePattern = ParseSingleMatchPattern();
                         patterns[key] = valuePattern;
                     }
-                } while (Match(TokenType.COMMA) && !Check(TokenType.RIGHT_BRACE));
+                } while (Match(TokenType.COMMA) && !Check(TokenType.RBRACE));
             }
 
-            Consume(TokenType.RIGHT_BRACE, "Expected '}'");
+            Consume(TokenType.RBRACE, "Expected '}'");
             return new MappingPattern(patterns, restVariable);
         }
 
@@ -3023,7 +3077,7 @@ namespace SharpPy
             SkipIndentationTokens();
 
             // Empty dict pattern
-            if (Check(TokenType.RIGHT_BRACE))
+            if (Check(TokenType.RBRACE))
             {
                 Advance(); // consume '}'
                 return new MappingPattern(new Dictionary<string, Expression>(), null);
@@ -3032,15 +3086,15 @@ namespace SharpPy
             var patterns = new Dictionary<string, Expression>();
             string? restVariable = null;
 
-            if (!Check(TokenType.RIGHT_BRACE))
+            if (!Check(TokenType.RBRACE))
             {
                 do
                 {
                     // Check for **rest pattern
-                    if (Check(TokenType.STAR_STAR))
+                    if (Check(TokenType.DOUBLESTAR))
                     {
                         Advance(); // consume **
-                        var restToken = Consume(TokenType.IDENTIFIER, "Expected identifier after ** in mapping pattern");
+                        var restToken = Consume(TokenType.NAME, "Expected identifier after ** in mapping pattern");
                         restVariable = restToken.Lexeme;
                     }
                     else
@@ -3053,7 +3107,7 @@ namespace SharpPy
                             var stringToken = Advance();
                             keyStr = stringToken.Lexeme.Trim('"').Trim('\''); // Remove quotes
                         }
-                        else if (Check(TokenType.IDENTIFIER))
+                        else if (Check(TokenType.NAME))
                         {
                             var identToken = Advance();
                             keyStr = identToken.Lexeme;
@@ -3067,7 +3121,7 @@ namespace SharpPy
 
                         // CPython 3.12: Parse value pattern - usually an identifier for variable binding
                         Expression valuePattern;
-                        if (Check(TokenType.IDENTIFIER))
+                        if (Check(TokenType.NAME))
                         {
                             var varName = Advance().Lexeme;
                             valuePattern = new NameExpression(varName);
@@ -3085,14 +3139,14 @@ namespace SharpPy
                     SkipNewlines();
                     SkipIndentationTokens();
 
-                } while (Match(TokenType.COMMA) && !Check(TokenType.RIGHT_BRACE));
+                } while (Match(TokenType.COMMA) && !Check(TokenType.RBRACE));
             }
 
             // Skip trailing DEDENT/newlines before closing brace
             SkipDedentationTokens();
             SkipNewlines();
 
-            Consume(TokenType.RIGHT_BRACE, "Expected '}' after mapping pattern");
+            Consume(TokenType.RBRACE, "Expected '}' after mapping pattern");
             return new MappingPattern(patterns, restVariable);
         }
         
@@ -3100,7 +3154,7 @@ namespace SharpPy
         {
             // return 뒤에 표현식이 있으면 파싱, 없으면 None
             Expression? value = null;
-            if (!Check(TokenType.NEWLINE) && !IsAtEnd() && !Check(TokenType.EOF))
+            if (!Check(TokenType.NEWLINE) && !IsAtEnd() && !Check(TokenType.ENDMARKER))
             {
                 value = ParseExpression();
             }
@@ -3109,7 +3163,7 @@ namespace SharpPy
         private Statement ParseYieldStatement()
         {
             // Check for 'yield from' (CPython style)
-            if (Match(TokenType.FROM))
+            if (MatchKeyword("from"))
             {
                 var value = ParseExpression();
                 return new YieldFromStatement(value);
@@ -3118,7 +3172,7 @@ namespace SharpPy
             {
                 // Regular yield
                 Expression? value = null;
-                if (!Check(TokenType.NEWLINE) && !Check(TokenType.EOF))
+                if (!Check(TokenType.NEWLINE) && !Check(TokenType.ENDMARKER))
                 {
                     value = ParseExpression();
                 }
@@ -3147,12 +3201,12 @@ namespace SharpPy
             Expression? cause = null;
             
             // raise 문 뒤에 표현식이 있는지 확인
-            if (!Check(TokenType.NEWLINE) && !Check(TokenType.EOF) && !IsAtEnd())
+            if (!Check(TokenType.NEWLINE) && !Check(TokenType.ENDMARKER) && !IsAtEnd())
             {
                 exc = ParseExpression();
                 
                 // from 절이 있는지 확인 (raise ... from ...)
-                if (Match(TokenType.FROM))
+                if (MatchKeyword("from"))
                 {
                     cause = ParseExpression();
                 }
@@ -3179,7 +3233,7 @@ namespace SharpPy
             
             do
             {
-                var name = Consume(TokenType.IDENTIFIER, "Expected variable name after 'global'").Lexeme;
+                var name = Consume(TokenType.NAME, "Expected variable name after 'global'").Lexeme;
                 names.Add(name);
             } while (Match(TokenType.COMMA));
             
@@ -3192,7 +3246,7 @@ namespace SharpPy
             
             do
             {
-                var name = Consume(TokenType.IDENTIFIER, "Expected variable name after 'nonlocal'").Lexeme;
+                var name = Consume(TokenType.NAME, "Expected variable name after 'nonlocal'").Lexeme;
                 names.Add(name);
             } while (Match(TokenType.COMMA));
             
@@ -3209,10 +3263,10 @@ namespace SharpPy
                 var moduleName = ParseDottedModuleName();
                 
                 // Handle "import module as alias"
-                if (Check(TokenType.AS))
+                if (CheckKeyword("as"))
                 {
                     Advance(); // consume AS
-                    var alias = Consume(TokenType.IDENTIFIER, "Expected alias name").Lexeme;
+                    var alias = Consume(TokenType.NAME, "Expected alias name").Lexeme;
                     modules.Add($"{moduleName} as {alias}");
                 }
                 else
@@ -3233,20 +3287,20 @@ namespace SharpPy
             var parts = new List<string>();
             
             // First part must be identifier
-            parts.Add(Consume(TokenType.IDENTIFIER, "Expected module name").Lexeme);
+            parts.Add(Consume(TokenType.NAME, "Expected module name").Lexeme);
             
             // Parse additional dotted parts
             while (Match(TokenType.DOT))
             {
-                parts.Add(Consume(TokenType.IDENTIFIER, "Expected identifier after '.'").Lexeme);
+                parts.Add(Consume(TokenType.NAME, "Expected identifier after '.'").Lexeme);
             }
             
             return string.Join(".", parts);
         }
         private Statement ParseFromImportStatement()
         {
-            var moduleName = Consume(TokenType.IDENTIFIER, "Expected module name after 'from'").Lexeme;
-            Consume(TokenType.IMPORT, "Expected 'import' after module name");
+            var moduleName = Consume(TokenType.NAME, "Expected module name after 'from'").Lexeme;
+            ConsumeKeyword("import", "Expected 'import' after module name");
             
             // Check for wildcard import: from module import *
             if (Check(TokenType.STAR))
@@ -3260,13 +3314,13 @@ namespace SharpPy
             
             do
             {
-                var itemName = Consume(TokenType.IDENTIFIER, "Expected import item name").Lexeme;
+                var itemName = Consume(TokenType.NAME, "Expected import item name").Lexeme;
                 
                 // Handle "from module import item as alias"
-                if (Check(TokenType.AS))
+                if (CheckKeyword("as"))
                 {
                     Advance(); // consume AS
-                    var alias = Consume(TokenType.IDENTIFIER, "Expected alias name").Lexeme;
+                    var alias = Consume(TokenType.NAME, "Expected alias name").Lexeme;
                     imports.Add($"{itemName} as {alias}");
                 }
                 else
@@ -3289,13 +3343,13 @@ namespace SharpPy
             {
                 // Empty start
                 Advance(); // consume COLON
-                var stop = Check(TokenType.COLON) || Check(TokenType.RIGHT_BRACKET) ? null : ParseExpression();
+                var stop = Check(TokenType.COLON) || Check(TokenType.RSQB) ? null : ParseExpression();
                 
                 // Check for step
                 Expression? step = null;
                 if (Match(TokenType.COLON))
                 {
-                    step = Check(TokenType.RIGHT_BRACKET) ? null : ParseExpression();
+                    step = Check(TokenType.RSQB) ? null : ParseExpression();
                 }
                 
                 return new SliceExpression(null, stop, step);
@@ -3309,13 +3363,13 @@ namespace SharpPy
             {
                 Advance(); // consume COLON
                 
-                var stop = Check(TokenType.COLON) || Check(TokenType.RIGHT_BRACKET) ? null : ParseExpression();
+                var stop = Check(TokenType.COLON) || Check(TokenType.RSQB) ? null : ParseExpression();
                 
                 // Check for step
                 Expression? step = null;
                 if (Match(TokenType.COLON))
                 {
-                    step = Check(TokenType.RIGHT_BRACKET) ? null : ParseExpression();
+                    step = Check(TokenType.RSQB) ? null : ParseExpression();
                 }
                 
                 return new SliceExpression(first, stop, step);
@@ -3346,18 +3400,18 @@ namespace SharpPy
         {
             var currentToken = Peek().Type;
             
-            return currentToken == TokenType.PLUS_EQUAL ||    // +=
-                   currentToken == TokenType.MINUS_EQUAL ||   // -=
-                   currentToken == TokenType.STAR_EQUAL ||    // *=
-                   currentToken == TokenType.SLASH_EQUAL ||   // /=
-                   currentToken == TokenType.PERCENT_EQUAL || // %=
-                   currentToken == TokenType.SLASH_SLASH_EQUAL || // //=
-                   currentToken == TokenType.STAR_STAR_EQUAL ||   // **=
-                   currentToken == TokenType.PIPE_EQUAL ||        // |=
-                   currentToken == TokenType.AMPERSAND_EQUAL ||   // &=
-                   currentToken == TokenType.CARET_EQUAL ||       // ^=
-                   currentToken == TokenType.LEFT_SHIFT_EQUAL ||  // <<=
-                   currentToken == TokenType.RIGHT_SHIFT_EQUAL;   // >>=
+            return currentToken == TokenType.PLUSEQUAL ||       // +=
+                   currentToken == TokenType.MINEQUAL ||        // -=
+                   currentToken == TokenType.STAREQUAL ||       // *=
+                   currentToken == TokenType.SLASHEQUAL ||      // /=
+                   currentToken == TokenType.PERCENTEQUAL ||    // %=
+                   currentToken == TokenType.DOUBLESLASHEQUAL || // //=
+                   currentToken == TokenType.DOUBLESTAREQUAL ||  // **=
+                   currentToken == TokenType.VBAREQUAL ||        // |=
+                   currentToken == TokenType.AMPEREQUAL ||       // &=
+                   currentToken == TokenType.CIRCUMFLEXEQUAL ||  // ^=
+                   currentToken == TokenType.LEFTSHIFTEQUAL ||   // <<=
+                   currentToken == TokenType.RIGHTSHIFTEQUAL;    // >>=
         }
         
         /// <summary>
@@ -3377,18 +3431,18 @@ namespace SharpPy
             // Convert to equivalent binary operation: x += y becomes x = x + y
             var opString = opToken.Type switch
             {
-                TokenType.PLUS_EQUAL => "+",
-                TokenType.MINUS_EQUAL => "-", 
-                TokenType.STAR_EQUAL => "*",
-                TokenType.SLASH_EQUAL => "/",
-                TokenType.PERCENT_EQUAL => "%",
-                TokenType.SLASH_SLASH_EQUAL => "//",
-                TokenType.STAR_STAR_EQUAL => "**",
-                TokenType.PIPE_EQUAL => "|",
-                TokenType.AMPERSAND_EQUAL => "&",
-                TokenType.CARET_EQUAL => "^",
-                TokenType.LEFT_SHIFT_EQUAL => "<<",
-                TokenType.RIGHT_SHIFT_EQUAL => ">>",
+                TokenType.PLUSEQUAL => "+",
+                TokenType.MINEQUAL => "-",
+                TokenType.STAREQUAL => "*",
+                TokenType.SLASHEQUAL => "/",
+                TokenType.PERCENTEQUAL => "%",
+                TokenType.DOUBLESLASHEQUAL => "//",
+                TokenType.DOUBLESTAREQUAL => "**",
+                TokenType.VBAREQUAL => "|",
+                TokenType.AMPEREQUAL => "&",
+                TokenType.CIRCUMFLEXEQUAL => "^",
+                TokenType.LEFTSHIFTEQUAL => "<<",
+                TokenType.RIGHTSHIFTEQUAL => ">>",
                 _ => throw new Exception($"Unknown augmented assignment operator: {opToken.Type}")
             };
             
@@ -3401,7 +3455,7 @@ namespace SharpPy
         /// </summary>
         private Expression ParseLambdaExpression()
         {
-            Consume(TokenType.LAMBDA, "Expected 'lambda'");
+            ConsumeKeyword("lambda", "Expected 'lambda'");
             
             var args = new List<string>();
             
@@ -3409,7 +3463,7 @@ namespace SharpPy
             if (!Check(TokenType.COLON))
             {
                 // Parse first parameter
-                if (Check(TokenType.IDENTIFIER))
+                if (Check(TokenType.NAME))
                 {
                     var param = Advance().Lexeme;
                     var paramString = param;
@@ -3426,7 +3480,7 @@ namespace SharpPy
                     // Parse remaining parameters
                     while (Match(TokenType.COMMA))
                     {
-                        if (Check(TokenType.IDENTIFIER))
+                        if (Check(TokenType.NAME))
                         {
                             param = Advance().Lexeme;
                             paramString = param;
@@ -3562,23 +3616,24 @@ namespace SharpPy
         
         private bool IsComparisonOperator(TokenType type)
         {
-            return type == TokenType.EQUAL_EQUAL || type == TokenType.BANG_EQUAL ||
+            var currentToken = Peek();
+            return type == TokenType.EQEQUAL || type == TokenType.NOTEQUAL ||
                    type == TokenType.LESS || type == TokenType.GREATER ||
-                   type == TokenType.LESS_EQUAL || type == TokenType.GREATER_EQUAL ||
-                   type == TokenType.IN || type == TokenType.IS ||
-                   type == TokenType.NOT_IN || type == TokenType.IS_NOT; // CPython 3.12
+                   type == TokenType.LESSEQUAL || type == TokenType.GREATEREQUAL ||
+                   (type == TokenType.NAME && (currentToken.Lexeme == "in" || currentToken.Lexeme == "is"));
         }
-        
+
         private bool IsBooleanOperator(TokenType type)
         {
             // CPython 3.12: Boolean logical operators
-            return type == TokenType.AND || type == TokenType.OR;
+            var currentToken = Peek();
+            return type == TokenType.NAME && (currentToken.Lexeme == "and" || currentToken.Lexeme == "or");
         }
         
         private Expression ParseUnaryOrAtom()
         {
             // Handle unary operators - CPython style
-            if (Match(TokenType.NOT))
+            if (MatchKeyword("not"))
             {
                 var expr = ParseUnaryOrAtom(); // Recursive for 'not not x'
                 return new UnaryOpExpression("not", expr);
@@ -3612,24 +3667,24 @@ namespace SharpPy
             // Handle postfix operations (calls, subscripts, attribute access)
             while (true)
             {
-                if (Match(TokenType.LEFT_PAREN))
+                if (Match(TokenType.LPAR))
                 {
                     // Function call - CPython 호환 키워드 인수 지원
                     var (args, keywords) = ParseFunctionCallArguments();
-                    ConsumeEnhanced(TokenType.RIGHT_PAREN, "after function arguments");
+                    ConsumeEnhanced(TokenType.RPAR, "after function arguments");
                     expr = new CallExpression(expr, args, keywords);
                 }
-                else if (Match(TokenType.LEFT_BRACKET))
+                else if (Match(TokenType.LSQB))
                 {
                     // Subscript or slice
                     var sliceOrIndex = ParseSliceOrIndex();
-                    ConsumeEnhanced(TokenType.RIGHT_BRACKET, "after subscript");
+                    ConsumeEnhanced(TokenType.RSQB, "after subscript");
                     expr = new SubscriptExpression(expr, sliceOrIndex);
                 }
                 else if (Match(TokenType.DOT))
                 {
                     // Attribute access
-                    var attr = ConsumeEnhanced(TokenType.IDENTIFIER, "after '.'");
+                    var attr = ConsumeEnhanced(TokenType.NAME, "after '.'");
                     expr = new AttributeExpression(expr, attr.Lexeme);
                 }
                 else
@@ -3649,12 +3704,12 @@ namespace SharpPy
             var args = new List<Expression>();
             var keywords = new List<KeywordExpression>();
             
-            if (!Check(TokenType.RIGHT_PAREN))
+            if (!Check(TokenType.RPAR))
             {
                 do
                 {
                     // **kwargs 처리  
-                    if (Match(TokenType.STAR_STAR))
+                    if (Match(TokenType.DOUBLESTAR))
                     {
                         var expr = ParseExpression();
                         if (expr != null)
@@ -3663,7 +3718,7 @@ namespace SharpPy
                         }
                     }
                     // 키워드 인수 체크: name=value
-                    else if (Check(TokenType.IDENTIFIER) && CheckNext(TokenType.EQUAL))
+                    else if (Check(TokenType.NAME) && CheckNext(TokenType.EQUAL))
                     {
                         var keywordName = Advance().Lexeme;
                         Consume(TokenType.EQUAL, "Expected '=' after keyword argument name");
@@ -3705,7 +3760,7 @@ namespace SharpPy
             var firstExpr = ParseConditionalExpression();
 
             // FOR 키워드가 오면 generator expression
-            if (Check(TokenType.FOR))
+            if (CheckKeyword("for"))
             {
                 var generators = ParseComprehensionGenerators();
                 return new GeneratorExpression(firstExpr, generators);
@@ -3734,12 +3789,6 @@ namespace SharpPy
             return Peek().Type == type;
         }
 
-        private bool CheckNext(TokenType type)
-        {
-            if (_current + 1 >= _tokens.Count) return false;
-            return _tokens[_current + 1].Type == type;
-        }
-        
         /// <summary>
         /// CPython-style compound operator detection with proper lookahead
         /// Based on CPython's Grammar/python.gram PEG parser approach
@@ -3748,7 +3797,7 @@ namespace SharpPy
         {
             if (startPos >= _tokens.Count - 1) return false;
             
-            if (_tokens[startPos].Type != TokenType.NOT) return false;
+            if (!(_tokens[startPos].Type == TokenType.NAME && _tokens[startPos].Lexeme == "not")) return false;
             
             // CPython approach: check immediate next token for 'in'
             int nextPos = startPos + 1;
@@ -3757,7 +3806,7 @@ namespace SharpPy
             // Here we check the direct next token
             if (nextPos >= _tokens.Count) return false;
             
-            return _tokens[nextPos].Type == TokenType.IN;
+            return _tokens[nextPos].Type == TokenType.NAME && _tokens[nextPos].Lexeme == "in";
         }
         
         /// <summary>
@@ -3777,8 +3826,8 @@ namespace SharpPy
         {
             if (_current >= _tokens.Count - 1) return false;
             
-            return _tokens[_current].Type == TokenType.IS && 
-                   _tokens[_current + 1].Type == TokenType.NOT;
+            return _tokens[_current].Type == TokenType.NAME && _tokens[_current].Lexeme == "is" &&
+                   _tokens[_current + 1].Type == TokenType.NAME && _tokens[_current + 1].Lexeme == "not";
         }
 
         private PyToken Advance()
@@ -3789,18 +3838,12 @@ namespace SharpPy
 
         private bool IsAtEnd()
         {
-            return Peek().Type == TokenType.EOF;
+            return Peek().Type == TokenType.ENDMARKER;
         }
 
         private PyToken Peek()
         {
             return _tokens[_current];
-        }
-
-        private PyToken PeekNext()
-        {
-            if (_current + 1 >= _tokens.Count) return _tokens[_tokens.Count - 1];
-            return _tokens[_current + 1];
         }
 
         private PyToken Previous()
@@ -3993,7 +4036,7 @@ namespace SharpPy
         private bool IsMatchStatementStart()
         {
             // Console.WriteLine($"🔍 IsMatchStatementStart: Current={Peek().Type} ({Peek().Lexeme})");
-            if (!(Check(TokenType.IDENTIFIER) && Peek().Lexeme == "match"))
+            if (!(Check(TokenType.NAME) && Peek().Lexeme == "match"))
             {
                 // Console.WriteLine($"🔍 IsMatchStatementStart: Not a match statement");
                 return false;
@@ -4015,12 +4058,12 @@ namespace SharpPy
                     var token = Peek();
                     
                     // Track nested structures
-                    if (token.Type == TokenType.LEFT_PAREN) parenDepth++;
-                    else if (token.Type == TokenType.RIGHT_PAREN) parenDepth--;
-                    else if (token.Type == TokenType.LEFT_BRACKET) bracketDepth++;
-                    else if (token.Type == TokenType.RIGHT_BRACKET) bracketDepth--;
-                    else if (token.Type == TokenType.LEFT_BRACE) braceDepth++;
-                    else if (token.Type == TokenType.RIGHT_BRACE) braceDepth--;
+                    if (token.Type == TokenType.LPAR) parenDepth++;
+                    else if (token.Type == TokenType.RPAR) parenDepth--;
+                    else if (token.Type == TokenType.LSQB) bracketDepth++;
+                    else if (token.Type == TokenType.RSQB) bracketDepth--;
+                    else if (token.Type == TokenType.LBRACE) braceDepth++;
+                    else if (token.Type == TokenType.RBRACE) braceDepth--;
                     
                     // If we're at top level and find colon, it's a match statement
                     if (parenDepth == 0 && bracketDepth == 0 && braceDepth == 0)
@@ -4097,12 +4140,12 @@ namespace SharpPy
                 
                 switch (Peek().Type)
                 {
-                    case TokenType.CLASS:
-                    case TokenType.DEF:
-                    case TokenType.IF:
-                    case TokenType.WHILE:
-                    case TokenType.FOR:
-                    case TokenType.RETURN:
+                    case TokenType.NAME when Peek().Lexeme == "class":
+                    case TokenType.NAME when Peek().Lexeme == "def":
+                    case TokenType.NAME when Peek().Lexeme == "if":
+                    case TokenType.NAME when Peek().Lexeme == "while":
+                    case TokenType.NAME when Peek().Lexeme == "for":
+                    case TokenType.NAME when Peek().Lexeme == "return":
                         return;
                 }
                 

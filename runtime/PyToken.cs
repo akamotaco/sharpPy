@@ -5,89 +5,101 @@ namespace SharpPy
     #region Token System
 
     /// <summary>
-    /// 토큰 타입 열거형
+    /// CPython 3.12 compatible token type definitions
+    /// Auto-generated equivalent to CPython's Include/internal/pycore_token.h
     /// </summary>
     public enum TokenType
     {
-        // Literals
-        INTEGER,
-        FLOAT,
-        COMPLEX,      // 3+4j
-        STRING,       // "regular"
-        RAW_STRING,   // r"raw"
-        BYTES_STRING, // b"bytes"
-        F_STRING,     // f"formatted"
-        IDENTIFIER,
+        // Basic tokens (0-26)
+        ENDMARKER = 0,
+        NAME = 1,
+        NUMBER = 2,
+        STRING = 3,
+        NEWLINE = 4,
+        INDENT = 5,
+        DEDENT = 6,
+        LPAR = 7,           // (
+        RPAR = 8,           // )
+        LSQB = 9,           // [
+        RSQB = 10,          // ]
+        COLON = 11,         // :
+        COMMA = 12,         // ,
+        SEMI = 13,          // ;
+        PLUS = 14,          // +
+        MINUS = 15,         // -
+        STAR = 16,          // *
+        SLASH = 17,         // /
+        VBAR = 18,          // |
+        AMPER = 19,         // &
+        LESS = 20,          // <
+        GREATER = 21,       // >
+        EQUAL = 22,         // =
+        DOT = 23,           // .
+        PERCENT = 24,       // %
+        LBRACE = 25,        // {
+        RBRACE = 26,        // }
 
-        // Keywords
-        AND, AS, ASSERT, ASYNC, AWAIT, BREAK, CASE, CLASS, CONTINUE,
-        DEF, DEL, ELIF, ELSE, EXCEPT, FALSE, FINALLY, FOR, FROM,
-        GLOBAL, IF, IMPORT, IN, IS, LAMBDA, MATCH, NONE, NONLOCAL,
-        NOT, OR, PASS, RAISE, RETURN, TRUE, TRY, TYPE, WHILE, WITH, YIELD,
-        
-        // CPython 3.12: Compound operators
-        NOT_IN,     // not in
-        IS_NOT,     // is not
+        // Comparison and assignment operators (27-46)
+        EQEQUAL = 27,       // ==
+        NOTEQUAL = 28,      // !=
+        LESSEQUAL = 29,     // <=
+        GREATEREQUAL = 30,  // >=
+        TILDE = 31,         // ~
+        CIRCUMFLEX = 32,    // ^
+        LEFTSHIFT = 33,     // <<
+        RIGHTSHIFT = 34,    // >>
+        DOUBLESTAR = 35,    // **
+        PLUSEQUAL = 36,     // +=
+        MINEQUAL = 37,      // -=
+        STAREQUAL = 38,     // *=
+        SLASHEQUAL = 39,    // /=
+        PERCENTEQUAL = 40,  // %=
+        AMPEREQUAL = 41,    // &=
+        VBAREQUAL = 42,     // |=
+        CIRCUMFLEXEQUAL = 43, // ^=
+        LEFTSHIFTEQUAL = 44,  // <<=
+        RIGHTSHIFTEQUAL = 45, // >>=
+        DOUBLESTAREQUAL = 46, // **=
 
-        // Single character tokens
-        LEFT_PAREN,    // (
-        RIGHT_PAREN,   // )
-        LEFT_BRACKET,  // [
-        RIGHT_BRACKET, // ]
-        LEFT_BRACE,    // {
-        RIGHT_BRACE,   // }
-        COMMA,         // ,
-        DOT,           // .
-        SEMICOLON,     // ;
-        COLON,         // :
-        AT,            // @
+        // Additional operators and special tokens (47-63)
+        DOUBLESLASH = 47,   // //
+        DOUBLESLASHEQUAL = 48, // //=
+        AT = 49,            // @
+        ATEQUAL = 50,       // @=
+        RARROW = 51,        // ->
+        ELLIPSIS = 52,      // ...
+        COLONEQUAL = 53,    // :=
+        EXCLAMATION = 54,   // !
+        OP = 55,
+        AWAIT = 56,
+        ASYNC = 57,
+        TYPE_IGNORE = 58,
+        TYPE_COMMENT = 59,
+        SOFT_KEYWORD = 60,
+        FSTRING_START = 61,
+        FSTRING_MIDDLE = 62,
+        FSTRING_END = 63,
 
-        // Operators
-        PLUS,          // +
-        MINUS,         // -
-        STAR,          // *
-        STAR_STAR,     // **
-        SLASH,         // /
-        SLASH_SLASH,   // //
-        PERCENT,       // %
-        AMPERSAND,     // &
-        PIPE,          // |
-        CARET,         // ^
-        TILDE,         // ~
-        LEFT_SHIFT,    // <<
-        RIGHT_SHIFT,   // >>
+        // Additional tokens for tokenize module compatibility
+        COMMENT = 64,
+        NL = 65,           // Non-logical newline
+        ERRORTOKEN = 66,
+        ENCODING = 67,
+        N_TOKENS = 68,
 
-        // Comparison
-        EQUAL,         // =
-        EQUAL_EQUAL,   // ==
-        BANG,          // !
-        BANG_EQUAL,    // !=
-        LESS,          // <
-        LESS_EQUAL,    // <=
-        GREATER,       // >
-        GREATER_EQUAL, // >=
-        WALRUS,        // := (Python 3.8+)
+        // Special constants
+        NT_OFFSET = 256,
 
-        // Augmented Assignment (CPython style)
-        PLUS_EQUAL,    // +=
-        MINUS_EQUAL,   // -=
-        STAR_EQUAL,    // *=
-        SLASH_EQUAL,   // /=
-        PERCENT_EQUAL, // %=
-        STAR_STAR_EQUAL, // **=
-        SLASH_SLASH_EQUAL, // //=
-        AMPERSAND_EQUAL, // &=
-        PIPE_EQUAL,    // |=
-        CARET_EQUAL,   // ^=
-        LEFT_SHIFT_EQUAL,  // <<=
-        RIGHT_SHIFT_EQUAL, // >>=
+        // Python keywords (handled as NAME tokens with special lexeme values)
+        // These will be identified by lexeme content, not separate token types
+        // Keywords: and, as, assert, async, await, break, case, class, continue,
+        //          def, del, elif, else, except, False, finally, for, from,
+        //          global, if, import, in, is, lambda, match, None, nonlocal,
+        //          not, or, pass, raise, return, True, try, type, while, with, yield
 
-        // Special
-        NEWLINE,
-        NL,          // Non-logical newline (empty lines)
-        INDENT,
-        DEDENT,
-        EOF
+        // Compound operators (handled as combinations)
+        // NOT_IN => parsed as NOT + IN
+        // IS_NOT => parsed as IS + NOT
     }
 
     /// <summary>
@@ -127,76 +139,107 @@ namespace SharpPy
             return HashCode.Combine(Type, Lexeme);
         }
 
-        // Helper methods for token checking
+        // Helper methods for token checking (CPython 3.12 compatible)
         public bool IsKeyword()
         {
-            return Type >= TokenType.AND && Type <= TokenType.YIELD;
+            // In CPython 3.12, keywords are NAME tokens with specific lexeme values
+            return Type == TokenType.NAME && IsKeywordLexeme(Lexeme);
         }
 
         public bool IsLiteral()
         {
-            return Type == TokenType.INTEGER || Type == TokenType.FLOAT || 
-                   Type == TokenType.STRING || Type == TokenType.TRUE || 
-                   Type == TokenType.FALSE || Type == TokenType.NONE;
+            return Type == TokenType.NUMBER || Type == TokenType.STRING || IsKeywordLiteral();
+        }
+
+        private bool IsKeywordLiteral()
+        {
+            return Type == TokenType.NAME && (Lexeme == "True" || Lexeme == "False" || Lexeme == "None");
+        }
+
+        private static readonly HashSet<string> KeywordLexemes = new()
+        {
+            "and", "as", "assert", "async", "await", "break", "case", "class", "continue",
+            "def", "del", "elif", "else", "except", "False", "finally", "for", "from",
+            "global", "if", "import", "in", "is", "lambda", "match", "None", "nonlocal",
+            "not", "or", "pass", "raise", "return", "True", "try", "type", "while", "with", "yield"
+        };
+
+        private static bool IsKeywordLexeme(string lexeme)
+        {
+            return KeywordLexemes.Contains(lexeme);
         }
 
         public bool IsOperator()
         {
-            return Type >= TokenType.PLUS && Type <= TokenType.WALRUS;
+            return Type >= TokenType.PLUS && Type <= TokenType.DOUBLESTAREQUAL ||
+                   Type == TokenType.DOUBLESLASH || Type == TokenType.DOUBLESLASHEQUAL ||
+                   Type == TokenType.AT || Type == TokenType.ATEQUAL ||
+                   Type == TokenType.RARROW || Type == TokenType.COLONEQUAL ||
+                   Type == TokenType.EXCLAMATION;
         }
 
         public bool IsBinaryOperator()
         {
             return Type == TokenType.PLUS || Type == TokenType.MINUS ||
                    Type == TokenType.STAR || Type == TokenType.SLASH ||
-                   Type == TokenType.SLASH_SLASH || Type == TokenType.STAR_STAR ||
-                   Type == TokenType.PERCENT || Type == TokenType.AMPERSAND ||
-                   Type == TokenType.PIPE || Type == TokenType.CARET ||
-                   Type == TokenType.LEFT_SHIFT || Type == TokenType.RIGHT_SHIFT;
+                   Type == TokenType.DOUBLESLASH || Type == TokenType.DOUBLESTAR ||
+                   Type == TokenType.PERCENT || Type == TokenType.AMPER ||
+                   Type == TokenType.VBAR || Type == TokenType.CIRCUMFLEX ||
+                   Type == TokenType.LEFTSHIFT || Type == TokenType.RIGHTSHIFT;
         }
 
         public bool IsComparisonOperator()
         {
-            return Type == TokenType.EQUAL_EQUAL || Type == TokenType.BANG_EQUAL ||
-                   Type == TokenType.LESS || Type == TokenType.LESS_EQUAL ||
-                   Type == TokenType.GREATER || Type == TokenType.GREATER_EQUAL ||
-                   Type == TokenType.IS || Type == TokenType.IN;
+            return Type == TokenType.EQEQUAL || Type == TokenType.NOTEQUAL ||
+                   Type == TokenType.LESS || Type == TokenType.LESSEQUAL ||
+                   Type == TokenType.GREATER || Type == TokenType.GREATEREQUAL ||
+                   (Type == TokenType.NAME && (Lexeme == "is" || Lexeme == "in"));
         }
 
         public bool IsUnaryOperator()
         {
             return Type == TokenType.PLUS || Type == TokenType.MINUS ||
-                   Type == TokenType.NOT || Type == TokenType.TILDE;
+                   Type == TokenType.TILDE || (Type == TokenType.NAME && Lexeme == "not");
         }
 
         public bool IsAssignmentOperator()
         {
-            return Type == TokenType.EQUAL || Type == TokenType.WALRUS;
+            return Type == TokenType.EQUAL || Type == TokenType.COLONEQUAL;
         }
 
         /// <summary>
         /// 연산자 우선순위를 반환 (높을수록 우선순위가 높음)
+        /// CPython 3.12 compatible precedence
         /// </summary>
         public int GetPrecedence()
         {
+            // Handle keyword operators
+            if (Type == TokenType.NAME)
+            {
+                return Lexeme switch
+                {
+                    "or" => 1,
+                    "and" => 2,
+                    "not" => 3,
+                    "in" or "is" => 4,
+                    _ => 0
+                };
+            }
+
             return Type switch
             {
-                TokenType.OR => 1,
-                TokenType.AND => 2,
-                TokenType.NOT => 3,
-                TokenType.IN or TokenType.IS or 
-                TokenType.LESS or TokenType.LESS_EQUAL or
-                TokenType.GREATER or TokenType.GREATER_EQUAL or
-                TokenType.EQUAL_EQUAL or TokenType.BANG_EQUAL => 4,
-                TokenType.PIPE => 5,
-                TokenType.CARET => 6,
-                TokenType.AMPERSAND => 7,
-                TokenType.LEFT_SHIFT or TokenType.RIGHT_SHIFT => 8,
+                TokenType.LESS or TokenType.LESSEQUAL or
+                TokenType.GREATER or TokenType.GREATEREQUAL or
+                TokenType.EQEQUAL or TokenType.NOTEQUAL => 4,
+                TokenType.VBAR => 5,
+                TokenType.CIRCUMFLEX => 6,
+                TokenType.AMPER => 7,
+                TokenType.LEFTSHIFT or TokenType.RIGHTSHIFT => 8,
                 TokenType.PLUS or TokenType.MINUS => 9,
-                TokenType.STAR or TokenType.SLASH or 
-                TokenType.SLASH_SLASH or TokenType.PERCENT => 10,
+                TokenType.STAR or TokenType.SLASH or
+                TokenType.DOUBLESLASH or TokenType.PERCENT => 10,
                 TokenType.TILDE => 11,  // Unary operators
-                TokenType.STAR_STAR => 12,  // Exponentiation (right-associative)
+                TokenType.DOUBLESTAR => 12,  // Exponentiation (right-associative)
                 _ => 0
             };
         }
@@ -206,7 +249,7 @@ namespace SharpPy
         /// </summary>
         public bool IsRightAssociative()
         {
-            return Type == TokenType.STAR_STAR;  // ** is right-associative in Python
+            return Type == TokenType.DOUBLESTAR;  // ** is right-associative in Python
         }
     }
 
