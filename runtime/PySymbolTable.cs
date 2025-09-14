@@ -218,6 +218,10 @@ namespace SharpPy
                     AnalyzeAssignment(assign);
                     break;
 
+                case AssignTargetStatement assignTarget:
+                    AnalyzeAssignTarget(assignTarget);
+                    break;
+
                 case GlobalStatement global:
                     foreach (var name in global.Names)
                     {
@@ -322,13 +326,22 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython 3.12: Find symbol in enclosing scopes
+        /// CPython 3.12: Find symbol in enclosing scopes (excluding module scope)
+        /// Module-level variables should always be accessed as GLOBAL, not FREE
         /// </summary>
         private Symbol? FindInEnclosingScope(SymbolTable currentTable, string name)
         {
             var parent = currentTable.GetParent();
             while (parent != null)
             {
+                // CPython 3.12: Module-level variables are always GLOBAL, never FREE
+                if (parent.Type == SymbolTableType.Module)
+                {
+                    // Skip module scope - variables there should be GLOBAL
+                    parent = parent.GetParent();
+                    continue;
+                }
+
                 if (parent.GetSymbols().TryGetValue(name, out var symbol))
                 {
                     return symbol;
@@ -345,13 +358,42 @@ namespace SharpPy
         {
             Console.WriteLine($"🔍 Resolving free variables in scope: {table.GetName()}");
 
-            // Resolve this scope
-            ResolveFreeVariables(table);
-
-            // Recursively resolve child scopes
+            // First recursively resolve child scopes (depth-first)
             foreach (var child in table.GetChildren())
             {
                 ResolveFreeVariablesRecursive(child);
+
+                // After child is resolved, propagate its free variables to current scope
+                PropagateChildFreeVariables(table, child);
+            }
+
+            // Then resolve this scope
+            ResolveFreeVariables(table);
+        }
+
+        /// <summary>
+        /// CPython 3.12: Propagate free variables from child scope to parent scope
+        /// If child needs a variable that parent doesn't have, parent should also need it as free
+        /// </summary>
+        private void PropagateChildFreeVariables(SymbolTable parent, SymbolTable child)
+        {
+            var childFreeVars = child.FindFreeVariables();
+            Console.WriteLine($"  🔄 Propagating free vars from {child.GetName()} to {parent.GetName()}: [{string.Join(", ", childFreeVars)}]");
+
+            foreach (var freeVar in childFreeVars)
+            {
+                // Check if parent has this variable
+                var parentSymbol = parent.Lookup(freeVar);
+                if (parentSymbol == null)
+                {
+                    // Parent doesn't have this variable, so parent also needs it as free variable
+                    parent.DefineSymbol(freeVar, SymbolFlags.None);
+                    Console.WriteLine($"    → Added {freeVar} as free variable to {parent.GetName()}");
+                }
+                else
+                {
+                    Console.WriteLine($"    → {freeVar} already available in {parent.GetName()} (scope: {parentSymbol.Scope})");
+                }
             }
         }
 
@@ -462,6 +504,53 @@ namespace SharpPy
             if (assign.Value != null)
             {
                 AnalyzeExpression(assign.Value);
+            }
+        }
+
+        private void AnalyzeAssignTarget(AssignTargetStatement assignTarget)
+        {
+            // For tuple assignments like "a, b = value" or "a, b = b, a + b"
+            // CRITICAL: Analyze TARGET first to define assignment variables,
+            // THEN analyze VALUE that may reference them
+
+            AnalyzeAssignmentTarget(assignTarget.Target);
+
+            // Then analyze the right-hand side expression
+            if (assignTarget.Value != null)
+            {
+                AnalyzeExpression(assignTarget.Value);
+            }
+        }
+
+        private void AnalyzeAssignmentTarget(Expression target)
+        {
+            switch (target)
+            {
+                case NameExpression name:
+                    // Simple assignment target: mark as assigned
+                    _currentTable?.DefineSymbol(name.Name, SymbolFlags.Assigned);
+                    break;
+
+                case TupleExpression tuple:
+                    // Tuple unpacking: a, b = value
+                    foreach (var element in tuple.Elements)
+                    {
+                        AnalyzeAssignmentTarget(element);
+                    }
+                    break;
+
+                case ListExpression list:
+                    // List unpacking: [a, b] = value
+                    foreach (var element in list.Elements)
+                    {
+                        AnalyzeAssignmentTarget(element);
+                    }
+                    break;
+
+                default:
+                    // For other assignment targets, just analyze as expression
+                    AnalyzeExpression(target);
+                    break;
             }
         }
     }

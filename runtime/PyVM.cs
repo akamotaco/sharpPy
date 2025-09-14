@@ -1028,7 +1028,11 @@ namespace SharpPy
                     // CPython 3.12 정확한 CALL 동작
                     var callArgCount = instruction.Argument;
                     var callArgs = new PyObject[callArgCount];
-                    
+
+                    // CPython 3.12: Save current scope depth before function call for proper restoration
+                    var savedScopeCount = frame.ScopeChain?.ScopeCount ?? 0;
+                    var savedCurrentScopeName = frame.ScopeChain?.CurrentScope?.Name;
+
                     // CPython 3.12: Check for keyword arguments from KW_NAMES
                     var kwNames = frame.KeywordNamesForNextCall;
                     
@@ -1092,7 +1096,15 @@ namespace SharpPy
                     }
                     
                     frame.ValueStack.Push(newCallResult);
-                    
+
+                    // CPython 3.12: Restore scope depth after function call (especially important for metaclass)
+                    if (frame.ScopeChain != null && frame.ScopeChain.ScopeCount != savedScopeCount)
+                    {
+                        Console.WriteLine($"🔧 Restoring scope depth after function call: {frame.ScopeChain.CurrentScope?.Name} (depth={frame.ScopeChain.ScopeCount}) → {savedCurrentScopeName} (depth={savedScopeCount})");
+                        frame.ScopeChain.RestoreScopeDepth(savedScopeCount);
+                        Console.WriteLine($"✅ Scope depth restored successfully to: {frame.ScopeChain.CurrentScope?.Name}");
+                    }
+
                     // CPython 3.12: Clear keyword names after call
                     frame.KeywordNamesForNextCall = null;
                     break;
@@ -2798,16 +2810,18 @@ namespace SharpPy
                     }
                     else
                     {
-                        // 로컬 셀 (현재 미구현 - Phase 2에서 구현)
-                        var localIndex = cellIndex - frame.Closure.Length;
-                        if (localIndex < frame.Cells.Length)
+                        // CPython 3.12: Cell variables are at offset FreeVars.Count in the cell array
+                        var loadCellVarIndex = cellIndex - frame.Closure.Length;
+                        var loadActualCellIndex = frame.Code.FreeVars.Count + loadCellVarIndex;
+
+                        if (loadActualCellIndex < frame.Cells.Length)
                         {
-                            cell = frame.Cells[localIndex];
-                            Console.WriteLine($"   → Using local cell[{localIndex}]: {(cell.HasValue ? cell.Value : "empty")}");
+                            cell = frame.Cells[loadActualCellIndex];
+                            Console.WriteLine($"   → Using local cell[{loadActualCellIndex}]: {(cell.HasValue ? cell.Value : "empty")}");
                         }
                         else
                         {
-                            throw new Exception($"LOAD_DEREF: invalid cell index {cellIndex}");
+                            throw new Exception($"LOAD_DEREF: invalid actual cell index {loadActualCellIndex}");
                         }
                     }
                     
@@ -2836,15 +2850,17 @@ namespace SharpPy
                     }
                     else
                     {
-                        // 로컬 셀 (현재 미구현 - Phase 2에서 구현)
-                        var localStoreIndex = storeCellIndex - frame.Closure.Length;
-                        if (localStoreIndex < frame.Cells.Length)
+                        // CPython 3.12: Cell variables are at offset FreeVars.Count in the cell array
+                        var storeCellVarIndex = storeCellIndex - frame.Closure.Length;
+                        var storeActualStoreIndex = frame.Code.FreeVars.Count + storeCellVarIndex;
+
+                        if (storeActualStoreIndex < frame.Cells.Length)
                         {
-                            storeCell = frame.Cells[localStoreIndex];
+                            storeCell = frame.Cells[storeActualStoreIndex];
                         }
                         else
                         {
-                            throw new Exception($"STORE_DEREF: invalid cell index {storeCellIndex}");
+                            throw new Exception($"STORE_DEREF: invalid actual cell index {storeActualStoreIndex}");
                         }
                     }
                     
@@ -2892,17 +2908,22 @@ namespace SharpPy
                     }
                     else
                     {
-                        var localClosureIndex = closureCellIndex - frame.Closure.Length;
-                        if (localClosureIndex < frame.Cells.Length)
+                        // CPython 3.12: Cell variables are at offset FreeVars.Count in the cell array
+                        var closureCellVarIndex = closureCellIndex - frame.Closure.Length;
+                        var closureActualCellIndex = frame.Code.FreeVars.Count + closureCellVarIndex;
+
+                        Console.WriteLine($"   → Cell var index {closureCellVarIndex} → actual cell index {closureActualCellIndex}");
+
+                        if (closureActualCellIndex < frame.Cells.Length)
                         {
-                            closureCell = frame.Cells[localClosureIndex];
-                            Console.WriteLine($"   → Using local cell[{localClosureIndex}]: {(closureCell.HasValue ? closureCell.Value : "empty")}");
+                            closureCell = frame.Cells[closureActualCellIndex];
+                            Console.WriteLine($"   → Using local cell[{closureActualCellIndex}]: {(closureCell.HasValue ? closureCell.Value : "empty")}");
                         }
                         else
                         {
                             // 새 셀 생성 (Phase 1 임시 구현)
                             closureCell = new PyCell();
-                            Console.WriteLine($"   ⚠️  Creating new empty cell - local index {localClosureIndex} >= {frame.Cells.Length}");
+                            Console.WriteLine($"   ⚠️  Creating new empty cell - actual cell index {closureActualCellIndex} >= {frame.Cells.Length}");
                         }
                     }
                     
@@ -2940,19 +2961,23 @@ namespace SharpPy
                 case ByteCodeOp.MAKE_CELL:
                     // CPython 3.12: MAKE_CELL uses direct CellVars indexing (no longer VarNames offset)
                     var cellVarIndex = instruction.Argument;
-                    
+
                     // Bounds checking for CellVars
                     if (cellVarIndex >= frame.Code.CellVars.Count)
                     {
                         throw new IndexOutOfRangeException($"MAKE_CELL: Cell index {cellVarIndex} out of range. CellVars count: {frame.Code.CellVars.Count}, CellVars: [{string.Join(", ", frame.Code.CellVars)}]");
                     }
-                    
+
                     var cellVarName = frame.Code.CellVars[cellVarIndex];
-                    
-                    Console.WriteLine($"🔧 MAKE_CELL for '{cellVarName}' at cell index {cellVarIndex}");
+
+                    // CPython 3.12: Cell variables come after free variables in the cell array
+                    var actualCellIndex = frame.Code.FreeVars.Count + cellVarIndex;
+
+                    Console.WriteLine($"🔧 MAKE_CELL for '{cellVarName}' at cell index {cellVarIndex} → actual index {actualCellIndex}");
                     Console.WriteLine($"   CellVars: [{string.Join(", ", frame.Code.CellVars)}]");
+                    Console.WriteLine($"   FreeVars: [{string.Join(", ", frame.Code.FreeVars)}] (offset: {frame.Code.FreeVars.Count})");
                     Console.WriteLine($"   FastLocals contains '{cellVarName}': {frame.FastLocals.ContainsKey(cellVarName)}");
-                    
+
                     // CPython 3.12: Create cell variable (initially None for type parameters)
                     PyObject? cellValue = null;
                     if (frame.FastLocals.TryGetValue(cellVarName, out var localValue))
@@ -2966,16 +2991,16 @@ namespace SharpPy
                         cellValue = PyNone.Instance;
                         Console.WriteLine($"   Initializing '{cellVarName}' cell with None (Generic Parameters standard)");
                     }
-                    
-                    // CPython 3.12: Use cellVarIndex (converted from unified index) for actual cell access
-                    if (cellVarIndex < frame.Cells.Length)
+
+                    // CPython 3.12: Use actualCellIndex (offset by free var count) for cell access
+                    if (actualCellIndex < frame.Cells.Length)
                     {
-                        frame.Cells[cellVarIndex].SetValue(cellValue);
-                        Console.WriteLine($"   ✅ Set cell[{cellVarIndex}] '{cellVarName}' = {cellValue}");
+                        frame.Cells[actualCellIndex].SetValue(cellValue);
+                        Console.WriteLine($"   ✅ Set cell[{actualCellIndex}] '{cellVarName}' = {cellValue}");
                     }
                     else
                     {
-                        Console.WriteLine($"   ❌ Invalid cell index {cellVarIndex}, Cells.Length: {frame.Cells.Length}");
+                        Console.WriteLine($"   ❌ Invalid actual cell index {actualCellIndex}, Cells.Length: {frame.Cells.Length}");
                     }
                     break;
                     

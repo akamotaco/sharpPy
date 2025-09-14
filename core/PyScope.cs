@@ -335,6 +335,7 @@ public class PyScope
         public PyScope CurrentScope => _normalScopes.LastOrDefault();
         public PyScope GlobalScope => _normalScopes.FirstOrDefault();
         public PyBuiltinsModule BuiltinModule => _builtinModule;
+        public int ScopeCount => _normalScopes.Count;
 
         public PyScopeChain()
         {
@@ -379,6 +380,15 @@ public class PyScope
             else
             {
                 Console.WriteLine($"📂 PopScope 스킵: 최소 스코프 수준 (count={_normalScopes.Count})");
+            }
+        }
+
+        public void RestoreScopeDepth(int targetDepth)
+        {
+            Console.WriteLine($"🔧 RestoreScopeDepth: Current={_normalScopes.Count}, Target={targetDepth}");
+            while (_normalScopes.Count > targetDepth && _normalScopes.Count > 1) // Keep at least Global
+            {
+                PopScope();
             }
         }
 

@@ -204,21 +204,32 @@ namespace SharpPy
             return WithRecursionProtection("ParseStatement", () =>
             {
                 // CPython 3.12: INDENT/DEDENT should be handled by block parsers, not statement parsers
-                // If we encounter them here, it's a parsing error or misaligned context
+                // Handle INDENT/DEDENT tokens properly to avoid breaking block structure
                 if (Check(TokenType.INDENT))
                 {
+                    // CPython 3.12: INDENT in ParseStatement indicates block structure issue
+                    // This should only happen if ParseBlockOrSingleStatement missed it
+                    // Skip this INDENT and continue - the block parser will handle structure
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
-                        Console.WriteLine("⚠️ ParseStatement: Unexpected INDENT - should be handled by block parser");
+                        Console.WriteLine("⚠️ ParseStatement: Handling unexpected INDENT (block structure issue)");
                     }
-                    return null; // Let block parser handle this
+                    Advance(); // Consume the problematic INDENT
+
+                    // Try to parse the next statement after consuming INDENT
+                    if (!IsAtEnd() && !Check(TokenType.EOF))
+                    {
+                        return ParseStatement(); // Recursive call to parse the actual statement
+                    }
+                    return null;
                 }
 
                 if (Check(TokenType.DEDENT))
                 {
+                    // DEDENT signals end of current block - don't consume it here
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
-                        Console.WriteLine("⚠️ ParseStatement: Unexpected DEDENT - should be handled by block parser");
+                        Console.WriteLine("⚠️ ParseStatement: Hit DEDENT - ending block");
                     }
                     return null; // Let block parser handle this
                 }
@@ -309,7 +320,7 @@ namespace SharpPy
             }
             
             Consume(TokenType.COLON, "Expected ':' after function signature");
-            
+
             var body = ParseBlockOrSingleStatement();
             
             return new FunctionDefStatement(name, parameters, body, typeParams, decorators);
@@ -825,9 +836,9 @@ namespace SharpPy
         private List<Statement> ParseBlockOrSingleStatement()
         {
             var statements = new List<Statement>();
-            
+
             // CPython 3.12 방식: 정확한 블록 파싱
-            
+
             // NEWLINE 토큰이 있다면 소비 (블록이 시작됨을 의미)
             if (Match(TokenType.NEWLINE))
             {
@@ -838,7 +849,7 @@ namespace SharpPy
                 {
                     throw new Exception("Expected an indented block after ':'");
                 }
-                
+
                 // INDENT 토큰 소비
                 Advance();
                 

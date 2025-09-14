@@ -148,21 +148,24 @@ namespace SharpPy
                         Console.WriteLine($"   → returning direct value: {value}");
                         return value;
                     }
-                    Console.WriteLine($"   ❌ '{name}' not found in ClassDict, checking base classes");
-                    
-                    // Check base classes (MRO)
-                    foreach (var baseClass in BaseTypes)
+                    Console.WriteLine($"   ❌ '{name}' not found in ClassDict, checking MRO");
+
+                    // Check MRO (Method Resolution Order) - skip self (index 0)
+                    for (int i = 1; i < MRO.Count; i++)
                     {
-                        if (baseClass is PyClass pyBaseClass)
+                        var baseClass = MRO[i];
+
+                        // Handle both PyClass and PyType in MRO
+                        if (baseClass is PyClass pyClass)
                         {
-                            Console.WriteLine($"   → Checking base class: {pyBaseClass.Name}");
-                            if (pyBaseClass.ClassDict.TryGetValue(name, out PyObject baseValue))
+                            Console.WriteLine($"   → Checking MRO class: {pyClass.Name}");
+                            if (pyClass.ClassDict.TryGetValue(name, out PyObject baseValue))
                             {
-                                Console.WriteLine($"   ✅ found '{name}' in base class {pyBaseClass.Name}: {baseValue?.GetType().Name}");
+                                Console.WriteLine($"   ✅ found '{name}' in MRO class {pyClass.Name}: {baseValue?.GetType().Name}");
                                 // Descriptor 처리
                                 if (baseValue is IDescriptor baseDesc)
                                 {
-                                    Console.WriteLine($"   🔧 calling descriptor.Get(null, {Name}) for '{name}' from base");
+                                    Console.WriteLine($"   🔧 calling descriptor.Get(null, {Name}) for '{name}' from MRO");
                                     var result = baseDesc.Get(null, this);
                                     Console.WriteLine($"   → descriptor returned: {result?.GetType().Name}");
                                     return result;
@@ -170,9 +173,21 @@ namespace SharpPy
                                 return baseValue;
                             }
                         }
+                        else if (baseClass is PyType pyType)
+                        {
+                            Console.WriteLine($"   → Checking MRO type: {pyType.Name}");
+                            // CPython 3.12: PyType의 속성을 직접 체크
+                            // 재귀 방지를 위해 PyType의 internal attribute lookup 사용
+                            var typeAttribute = GetTypeAttribute(pyType, name);
+                            if (typeAttribute != null)
+                            {
+                                Console.WriteLine($"   ✅ found '{name}' in MRO type {pyType.Name}: {typeAttribute?.GetType().Name}");
+                                return typeAttribute;
+                            }
+                        }
                     }
                     
-                    Console.WriteLine($"   ❌ '{name}' not found in any base class, calling PyObject.GetAttribute");
+                    Console.WriteLine($"   ❌ '{name}' not found in MRO, calling PyObject.GetAttribute");
                     var baseResult = base.GetAttribute(name);
                     Console.WriteLine($"   → base.GetAttribute returned: {baseResult?.GetType().Name}");
                     return baseResult;
@@ -266,6 +281,56 @@ namespace SharpPy
             catch
             {
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// CPython 3.12 compatible: Safe type attribute lookup without recursion
+        /// </summary>
+        private static PyObject? GetTypeAttribute(PyType pyType, string name)
+        {
+            // CPython 3.12: 내장 타입의 속성을 직접 조회
+            // 재귀를 방지하기 위해 PyType의 내부 구조를 직접 사용
+
+            try
+            {
+                // object 타입의 기본 속성들
+                if (pyType == PyType.ObjectType)
+                {
+                    return name switch
+                    {
+                        "__class__" => PyType.TypeType,
+                        "__str__" => new PyBuiltinFunction("__str__", args => new PyString(args[0].ToString())),
+                        "__repr__" => new PyBuiltinFunction("__repr__", args => new PyString(args[0].ToString())),
+                        "__hash__" => new PyBuiltinFunction("__hash__", args => new PyInt(args[0].GetHashCode())),
+                        "__eq__" => new PyBuiltinFunction("__eq__", args => PyBool.FromBool(args[0].Equals(args[1]))),
+                        "__ne__" => new PyBuiltinFunction("__ne__", args => PyBool.FromBool(!args[0].Equals(args[1]))),
+                        _ => null
+                    };
+                }
+
+                // type 타입의 기본 속성들
+                if (pyType == PyType.TypeType)
+                {
+                    return name switch
+                    {
+                        "__mro__" => null, // 이미 PyClass.GetAttribute에서 처리됨
+                        "__bases__" => null, // 이미 PyClass.GetAttribute에서 처리됨
+                        "__name__" => null, // 이미 PyClass.GetAttribute에서 처리됨
+                        _ => null
+                    };
+                }
+
+                // 다른 내장 타입들은 기본적으로 object의 속성을 상속
+                if (pyType.Name == "object")
+                    return null;
+
+                // 기본적으로는 null 반환 (속성 없음)
+                return null;
+            }
+            catch
+            {
+                return null;
             }
         }
     }

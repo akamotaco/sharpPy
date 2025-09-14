@@ -482,37 +482,48 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython 3.12: 중첩 함수들이 필요로 하는 모든 자유 변수를 재귀적으로 수집
+        /// CPython 3.12: 중첩 함수들이 필요로 하는 자유 변수를 수집 (현재 함수에서 정의되지 않은 것만)
         /// </summary>
-        private List<string> CollectPropagatedFreeVariables(SymbolTable functionTable)
+        private List<string> CollectNestedFreeVariables(SymbolTable functionTable)
         {
-            var propagatedVars = new List<string>();
+            var nestedVars = new List<string>();
 
-            // 직접 자식 함수들의 자유 변수 수집
-            foreach (var child in functionTable.GetChildren())
+            // 현재 함수의 로컬 심볼들 수집 (셀 변수와 로컬 변수)
+            var currentLocalVars = new HashSet<string>();
+            foreach (var symbol in functionTable.GetSymbols().Values)
             {
-                var childFreeVars = child.FindFreeVariables();
-                foreach (var freeVar in childFreeVars)
+                if (symbol.IsAssigned() || symbol.IsCell())
                 {
-                    if (!propagatedVars.Contains(freeVar))
-                    {
-                        propagatedVars.Add(freeVar);
-                    }
-                }
-
-                // 재귀적으로 손자 함수들의 자유 변수도 수집
-                var grandchildFreeVars = CollectPropagatedFreeVariables(child);
-                foreach (var freeVar in grandchildFreeVars)
-                {
-                    if (!propagatedVars.Contains(freeVar))
-                    {
-                        propagatedVars.Add(freeVar);
-                    }
+                    currentLocalVars.Add(symbol.Name);
                 }
             }
 
-            Console.WriteLine($"  🔄 Collected propagated free vars for {functionTable.GetName()}: [{string.Join(", ", propagatedVars)}]");
-            return propagatedVars;
+            // 모든 하위 함수들의 자유 변수를 재귀적으로 수집
+            CollectNestedFreeVariablesRecursive(functionTable, currentLocalVars, nestedVars);
+
+            Console.WriteLine($"  🔄 Collected nested free vars for {functionTable.GetName()}: [{string.Join(", ", nestedVars)}]");
+            return nestedVars;
+        }
+
+        private void CollectNestedFreeVariablesRecursive(SymbolTable table, HashSet<string> currentLocalVars, List<string> nestedVars)
+        {
+            foreach (var child in table.GetChildren())
+            {
+                // 자식 함수의 자유 변수들 중 현재 함수에서 정의된 것들만 (현재 함수가 제공할 수 있는 변수들)
+                var childFreeVars = child.FindFreeVariables();
+                foreach (var freeVar in childFreeVars)
+                {
+                    // 현재 함수에서 정의되었고(currentLocalVars에 있고), 아직 nestedVars에 없는 경우만 추가
+                    if (currentLocalVars.Contains(freeVar) && !nestedVars.Contains(freeVar))
+                    {
+                        nestedVars.Add(freeVar);
+                        Console.WriteLine($"    → Found nested free var: {freeVar} (from {child.GetName()}) - available in current scope");
+                    }
+                }
+
+                // 재귀적으로 손자 함수들도 확인
+                CollectNestedFreeVariablesRecursive(child, currentLocalVars, nestedVars);
+            }
         }
         
         /// <summary>
@@ -1840,8 +1851,16 @@ namespace SharpPy
                     Console.WriteLine($"  Symbol table analysis - Free vars: [{string.Join(", ", freeVars)}]");
                     Console.WriteLine($"  Symbol table analysis - Cell vars: [{string.Join(", ", cellVars)}]");
 
-                    // CPython 3.12: 심플한 접근 - 전파하지 않고 직접 사용하는 것만
-                    Console.WriteLine($"  🎯 Direct free/cell vars only (no propagation)");
+                    // CPython 3.12: 중첩 함수를 위한 자유 변수 전파
+                    var nestedFreeVars = CollectNestedFreeVariables(funcSymbolTable);
+                    foreach (var nestedVar in nestedFreeVars)
+                    {
+                        if (!freeVars.Contains(nestedVar) && !cellVars.Contains(nestedVar))
+                        {
+                            freeVars.Add(nestedVar);
+                            Console.WriteLine($"  → Added nested free var: {nestedVar}");
+                        }
+                    }
 
                     // CPython 3.12: Update symbol table context for nested function compilation
                     savedSymbolTable = _currentSymbolTable;
@@ -2048,32 +2067,46 @@ namespace SharpPy
             {
                 Console.WriteLine($"  → Creating closure for {freeVars.Count} free variables");
 
-                // 각 자유 변수에 대해 LOAD_CLOSURE 발행
+                // CPython 호환: 클로저를 자유 변수 순서대로 생성
+                Console.WriteLine($"    🔍 Building closure for {freeVars.Count} variables: [{string.Join(", ", freeVars)}]");
+                Console.WriteLine($"    📋 Available cells: [{string.Join(", ", _cellVars)}], frees: [{string.Join(", ", _freeVars)}]");
+
+                // 자유 변수들을 순서대로 LOAD_CLOSURE
                 foreach (var freeVar in freeVars)
                 {
-                    // 1. 먼저 현재 스코프의 cell 변수에서 찾기
-                    var cellIndex = _cellVars.IndexOf(freeVar);
-                    if (cellIndex >= 0)
+                    int closureIndex = -1;
+                    string source = "";
+
+                    // 먼저 자유 변수에서 찾기 (closure에서 가져오는 변수들)
+                    var freeVarIndex = _freeVars.IndexOf(freeVar);
+                    if (freeVarIndex >= 0)
                     {
-                        EmitInstruction(ByteCodeOp.LOAD_CLOSURE, cellIndex);
-                        Console.WriteLine($"    → LOAD_CLOSURE for {freeVar} (cell index {cellIndex})");
+                        // free variable: closure index는 0부터 시작
+                        closureIndex = freeVarIndex;
+                        source = "free";
                     }
-                    // 2. 현재 스코프의 free 변수에서 찾기 (부모에서 받은 클로저)
                     else
                     {
-                        var freeIndex = _freeVars.IndexOf(freeVar);
-                        if (freeIndex >= 0)
+                        // 셀 변수에서 찾기 (현재 함수의 로컬 셀들)
+                        var cellVarIndex = _cellVars.IndexOf(freeVar);
+                        if (cellVarIndex >= 0)
                         {
-                            // Free 변수는 클로저에서 받은 것이므로, 다시 전달
-                            EmitInstruction(ByteCodeOp.LOAD_CLOSURE, _cellVars.Count + freeIndex);
-                            Console.WriteLine($"    → LOAD_CLOSURE for {freeVar} (free index {freeIndex}, adjusted index {_cellVars.Count + freeIndex})");
+                            // cell variable: closure index는 free vars 뒤에 위치
+                            closureIndex = _freeVars.Count + cellVarIndex;
+                            source = "cell";
                         }
-                        else
-                        {
-                            Console.WriteLine($"    ⚠️ Warning: Free variable {freeVar} not found in current scope (cells: {string.Join(",", _cellVars)}, frees: {string.Join(",", _freeVars)})");
-                            // Fallback: 첫 번째 셀 사용
-                            EmitInstruction(ByteCodeOp.LOAD_CLOSURE, 0);
-                        }
+                    }
+
+                    if (closureIndex >= 0)
+                    {
+                        EmitInstruction(ByteCodeOp.LOAD_CLOSURE, closureIndex);
+                        Console.WriteLine($"    → LOAD_CLOSURE for {freeVar} ({source} index {closureIndex})");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"    ⚠️ Warning: Free variable {freeVar} not available (cells: [{string.Join(",", _cellVars)}], frees: [{string.Join(",", _freeVars)}])");
+                        // Fallback: 빈 셀 생성
+                        EmitInstruction(ByteCodeOp.LOAD_CLOSURE, 0);
                     }
                 }
 
@@ -2293,8 +2326,10 @@ namespace SharpPy
                 {
                     // Cell 변수는 LOAD_DEREF로 접근
                     var cellIndex = _cellVars.IndexOf(name);
-                    EmitInstruction(ByteCodeOp.LOAD_DEREF, cellIndex);
-                    Console.WriteLine($"    → LOAD_DEREF for cell var: {name} (index {cellIndex})");
+                    // CPython 3.12: Cell variables come after free variables in instruction indices
+                    var instructionIndex = _freeVars.Count + cellIndex;
+                    EmitInstruction(ByteCodeOp.LOAD_DEREF, instructionIndex);
+                    Console.WriteLine($"    → LOAD_DEREF for cell var: {name} (cell index {cellIndex} → instruction index {instructionIndex})");
                 }
                 else
                 {
@@ -2377,8 +2412,10 @@ namespace SharpPy
                 if (_cellVars.Contains(name))
                 {
                     var cellIndex = _cellVars.IndexOf(name);
-                    EmitInstruction(ByteCodeOp.STORE_DEREF, cellIndex);
-                    Console.WriteLine($"    → STORE_DEREF for cell var: {name} (index {cellIndex})");
+                    // CPython 3.12: Cell variables come after free variables in instruction indices
+                    var instructionIndex = _freeVars.Count + cellIndex;
+                    EmitInstruction(ByteCodeOp.STORE_DEREF, instructionIndex);
+                    Console.WriteLine($"    → STORE_DEREF for cell var: {name} (cell index {cellIndex} → instruction index {instructionIndex})");
                     return;
                 }
                 
@@ -4364,16 +4401,8 @@ namespace SharpPy
             // 3. CPython 3.12: Handle __enter__ result immediately after BEFORE_WITH
             if (item.OptionalVars != null)
             {
-                // For simple variables, just emit STORE_NAME
-                if (item.OptionalVars is NameExpression varExpr)
-                {
-                    EmitInstruction(ByteCodeOp.STORE_NAME, AddName(varExpr.Name));
-                }
-                else
-                {
-                    // Complex assignment target not supported yet
-                    EmitInstruction(ByteCodeOp.POP_TOP);
-                }
+                // Use proper assignment target compilation for correct scoping
+                CompileAssignmentTarget(item.OptionalVars);
             }
             else
             {
