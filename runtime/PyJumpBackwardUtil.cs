@@ -93,21 +93,31 @@ namespace SharpPy
         /// </summary>
         public static int CalculateJumpBackwardTarget(int currentInstrPos, int opArg, List<ByteCodeInstruction> instructions)
         {
-            // 현재 instruction의 바이트 오프셋 계산
-            int currentByteOffset = CalculateByteOffset(currentInstrPos, instructions);
-            
-            // CPython 공식: target_offset = current_offset + 2 - (oparg * 2)
-            // +2는 현재 instruction을 넘어서 다음 instruction으로 가는 것
-            // oparg * 2는 instruction units를 byte units로 변환
-            int targetByteOffset = currentByteOffset + 2 - (opArg * 2);
-            
-            Console.WriteLine($"🔍 JUMP_BACKWARD 타겟 계산: currentInstr={currentInstrPos}, opArg={opArg}");
-            Console.WriteLine($"    currentByteOffset={currentByteOffset}, targetByteOffset={targetByteOffset}");
-            
-            // 바이트 오프셋을 instruction index로 변환
-            int targetIndex = ByteOffsetToInstructionIndex(targetByteOffset, instructions);
-            Console.WriteLine($"    targetIndex={targetIndex}");
-            return targetIndex;
+            // 최적화된 코드에서는 instruction 단위 계산
+            if (SharpPyConfig._enable_optimizer)
+            {
+                // CPython 3.12 최적화 모드: instruction 단위 계산
+                // oparg = current_position - target_position + 1
+                // 따라서: target_position = current_position - oparg + 1
+                int targetIndex = currentInstrPos - opArg + 1;
+
+                Console.WriteLine($"🔍 JUMP_BACKWARD 타겟 계산 (최적화): currentInstr={currentInstrPos}, opArg={opArg}");
+                Console.WriteLine($"    targetIndex={targetIndex}");
+                return targetIndex;
+            }
+            else
+            {
+                // 최적화 비활성화: 기존 바이트 단위 계산
+                int currentByteOffset = CalculateByteOffset(currentInstrPos, instructions);
+                int targetByteOffset = currentByteOffset + 2 - (opArg * 2);
+
+                Console.WriteLine($"🔍 JUMP_BACKWARD 타겟 계산 (바이트): currentInstr={currentInstrPos}, opArg={opArg}");
+                Console.WriteLine($"    currentByteOffset={currentByteOffset}, targetByteOffset={targetByteOffset}");
+
+                int targetIndex = ByteOffsetToInstructionIndex(targetByteOffset, instructions);
+                Console.WriteLine($"    targetIndex={targetIndex}");
+                return targetIndex;
+            }
         }
 
         /// <summary>

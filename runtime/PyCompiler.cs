@@ -4299,13 +4299,16 @@ namespace SharpPy
             // CPython 3.12: Exception path starts with PUSH_EXC_INFO
             EmitInstruction(ByteCodeOp.PUSH_EXC_INFO);
             
+            // Pre-create the reraise label once
+            var reraiseLabel = CreateLabel("reraise");
+
             // Compile exception handlers sequentially
             for (int i = 0; i < tryStmt.Handlers.Count; i++)
             {
                 var handler = tryStmt.Handlers[i];
-                var nextHandlerLabel = (i < tryStmt.Handlers.Count - 1) 
+                var nextHandlerLabel = (i < tryStmt.Handlers.Count - 1)
                     ? CreateLabel($"handler_{i+1}")
-                    : CreateLabel("reraise");
+                    : reraiseLabel;
                 
                 if (handler.Type != null)
                 {
@@ -4423,7 +4426,6 @@ namespace SharpPy
             // Reraise if no handler matched (before continuation point)
             if (tryStmt.Handlers.Count > 0)
             {
-                var reraiseLabel = CreateLabel("reraise");
                 MarkLabel(reraiseLabel);
                 EmitInstruction(ByteCodeOp.RERAISE, 1);
             }

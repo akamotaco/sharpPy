@@ -590,8 +590,9 @@ namespace SharpPy
                             
                             if (correctForIterPos >= 0)
                             {
-                                // 올바른 FOR_ITER 위치로 점프하도록 오프셋 재계산
-                                int correctOffset = PyJumpBackwardUtil.CalculateJumpBackwardOpArg(jumpPos, correctForIterPos, _instructions);
+                                // CPython 3.12 호환: JUMP_BACKWARD는 instruction 단위 오프셋 사용 (바이트가 아님)
+                                // CPython 공식: oparg = current_position - target_position + 1
+                                int correctOffset = jumpPos - correctForIterPos + 1;
                                 
                                 if (currentOffset != correctOffset)
                                 {
@@ -721,15 +722,15 @@ namespace SharpPy
                         int targetEndFor = FindMatchingEndFor(i);
                         if (targetEndFor >= 0)
                         {
-                            // CPython 3.12 호환: FOR_ITER는 바이트 단위 오프셋 사용
-                            // FOR_ITER current position에서 END_FOR position까지의 바이트 차이
-                            int bytesFromCurrentToTarget = CalculateByteOffsetBetweenInstructions(i, targetEndFor);
-                            if (bytesFromCurrentToTarget != instruction.Argument)
+                            // CPython 3.12 호환: FOR_ITER는 instruction 단위 오프셋 사용 (바이트가 아님)
+                            // FOR_ITER current position에서 END_FOR position까지의 instruction 차이
+                            int instructionOffsetToTarget = targetEndFor - i;
+                            if (instructionOffsetToTarget != instruction.Argument)
                             {
-                                _instructions[i] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, bytesFromCurrentToTarget);
+                                _instructions[i] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, instructionOffsetToTarget);
                                 if (!SharpPyConfig.DisassemblyOnlyMode)
                                 {
-                                    Console.WriteLine($"  🔧 FOR_ITER[{i}]: 오프셋 {instruction.Argument} → {bytesFromCurrentToTarget} (END_FOR at {targetEndFor})");
+                                    Console.WriteLine($"  🔧 FOR_ITER[{i}]: 오프셋 {instruction.Argument} → {instructionOffsetToTarget} (END_FOR at {targetEndFor})");
                                 }
                                 recalculated++;
                             }

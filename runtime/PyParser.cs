@@ -525,6 +525,18 @@ namespace SharpPy
                 {
                     do
                     {
+                        // Skip NEWLINE, NL, and COMMENT tokens for multi-line class definitions (CPython 3.12 compatibility)
+                        while (Check(TokenType.NEWLINE) || Check(TokenType.NL) || Check(TokenType.COMMENT))
+                        {
+                            Advance();
+                        }
+
+                        // Check for trailing comma - if we see closing parenthesis, break
+                        if (CheckOp(")"))
+                        {
+                            break;
+                        }
+
                         // CPython 3.12: Check for keyword arguments like metaclass=
                         if (Check(TokenType.NAME) && CheckNextOp("="))
                         {
@@ -547,6 +559,7 @@ namespace SharpPy
                         {
                             bases.Add(ParseConditionalExpression()); // 콤마 구분 표현식 피하기
                         }
+
                     } while (MatchOp(","));
                 }
                 ConsumeOp(")", "Expected ')' after base classes");
@@ -656,11 +669,23 @@ namespace SharpPy
             var parameters = new List<string>();
             bool seenPositionalOnlySeparator = false;
             bool seenKeywordOnlyMarker = false;
-            
+
             if (!CheckRParen())
             {
                 do
                 {
+                    // Skip NEWLINE, NL, and COMMENT tokens for multi-line function definitions (CPython 3.12 compatibility)
+                    while (Check(TokenType.NEWLINE) || Check(TokenType.NL) || Check(TokenType.COMMENT))
+                    {
+                        Advance();
+                    }
+
+                    // Check if we've reached the end of parameters after skipping newlines
+                    if (CheckRParen())
+                    {
+                        break;
+                    }
+
                     // Handle positional-only separator (/) - PEP 570
                     if (CheckOp("/"))
                     {
@@ -731,9 +756,16 @@ namespace SharpPy
                         
                         parameters.Add(paramString);
                     }
+
+                    // Skip NEWLINE, NL, and COMMENT tokens after processing a parameter
+                    while (Check(TokenType.NEWLINE) || Check(TokenType.NL) || Check(TokenType.COMMENT))
+                    {
+                        Advance();
+                    }
+
                 } while (MatchOp(","));
             }
-            
+
             return parameters;
         }
 
@@ -842,17 +874,30 @@ namespace SharpPy
                                     // Check if this is an IDENTIFIER at the same indent level as class body
                                     else if (nextToken.Type == TokenType.NAME)
                                     {
-                                        // If we're in a class body and see an identifier at class level, it might be method body
-                                        if (nextToken.Column > 1) // indented, so still class content
+                                        // CPython 3.12: Check relative indentation level to determine if still in class body
+                                        // Find the class definition's base indentation level
+                                        var classIndentLevel = 0;
+                                        for (int i = _current - 1; i >= 0; i--)
                                         {
-                                            Console.WriteLine($"🔍 ParseBlock: Found IDENTIFIER '{nextToken.Lexeme}' at column {nextToken.Column} after DEDENT - method body continues");
-                                            Advance(); // consume the DEDENT
-                                            continue; // continue parsing method body
+                                            var token = _tokens[i];
+                                            if (token.Type == TokenType.NAME && token.Lexeme == "class")
+                                            {
+                                                classIndentLevel = token.Column;
+                                                break;
+                                            }
+                                        }
+
+                                        // If next token is at the same level or less indented than class definition, class body ended
+                                        if (nextToken.Column <= classIndentLevel)
+                                        {
+                                            Console.WriteLine($"🔍 ParseBlock: Found IDENTIFIER '{nextToken.Lexeme}' at column {nextToken.Column} (class at {classIndentLevel}) - class body ended");
+                                            break; // Class body is done
                                         }
                                         else
                                         {
-                                            Console.WriteLine($"🔍 ParseBlock: Found IDENTIFIER '{nextToken.Lexeme}' at module level - class body ended");
-                                            break; // Module level - class body is done
+                                            Console.WriteLine($"🔍 ParseBlock: Found IDENTIFIER '{nextToken.Lexeme}' at column {nextToken.Column} (class at {classIndentLevel}) - method body continues");
+                                            Advance(); // consume the DEDENT
+                                            continue; // continue parsing method body
                                         }
                                     }
                                 }
@@ -3891,6 +3936,18 @@ namespace SharpPy
             {
                 do
                 {
+                    // Skip NEWLINE, NL, and COMMENT tokens for multi-line function calls (CPython 3.12 compatibility)
+                    while (Check(TokenType.NEWLINE) || Check(TokenType.NL) || Check(TokenType.COMMENT))
+                    {
+                        Advance();
+                    }
+
+                    // Check if we've reached the end of arguments after skipping tokens
+                    if (CheckRParen())
+                    {
+                        break;
+                    }
+
                     // **kwargs 처리  
                     if (MatchOp("**"))
                     {
@@ -3930,6 +3987,13 @@ namespace SharpPy
                             args.Add(arg);
                         }
                     }
+
+                    // Skip NEWLINE, NL, and COMMENT tokens after processing an argument
+                    while (Check(TokenType.NEWLINE) || Check(TokenType.NL) || Check(TokenType.COMMENT))
+                    {
+                        Advance();
+                    }
+
                 } while (MatchOp(","));
             }
             
@@ -3971,6 +4035,9 @@ namespace SharpPy
         /// </summary>
         private bool MatchOp(string op)
         {
+            // CPython 3.12: Skip COMMENT tokens before checking operators
+            SkipNewlines();
+
             if (CheckOp(op))
             {
                 Advance();
@@ -4014,6 +4081,9 @@ namespace SharpPy
         /// </summary>
         private PyToken ConsumeOp(string op, string message)
         {
+            // CPython 3.12: Skip COMMENT tokens before consuming operators
+            SkipNewlines();
+
             if (CheckOp(op))
             {
                 return Advance();
@@ -4247,8 +4317,8 @@ namespace SharpPy
 
         private void SkipNewlines()
         {
-            // CPython 3.12: Skip both NEWLINE and NL tokens
-            while (Match(TokenType.NEWLINE) || Match(TokenType.NL)) { }
+            // CPython 3.12: Skip NEWLINE, NL, and COMMENT tokens for multi-line constructs
+            while (Match(TokenType.NEWLINE) || Match(TokenType.NL) || Match(TokenType.COMMENT)) { }
         }
 
         /// <summary>

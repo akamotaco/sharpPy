@@ -2612,7 +2612,8 @@ namespace SharpPy
                     // Stack: [..., exception_instance, exception_type] -> [..., exception_instance, bool]
                     var expectedType = frame.ValueStack.Pop();
                     var stackTop = frame.ValueStack.Peek(); // Don't pop, will be used later
-                    
+
+                    // Console.WriteLine($"🔍 CHECK_EXC_MATCH Entry: expectedType={expectedType}, stackTop={stackTop}");
                     bool matches = false;
                     
                     // Handle PyExceptionInfo case (from PUSH_EXC_INFO)
@@ -2625,9 +2626,16 @@ namespace SharpPy
                         frame.ValueStack.Pop(); // Remove PyExceptionInfo
                         frame.ValueStack.Push(actualException); // Push actual exception
                         
-                        if (actualException is PyException pyException && expectedType is PyBuiltinType builtinType)
+                        if (actualException is PyException pyException)
                         {
-                            matches = pyException.GetTypeName() == builtinType.Name;
+                            if (expectedType is PyBuiltinType builtinType)
+                            {
+                                matches = IsExceptionInstanceOf(pyException, builtinType.Name);
+                            }
+                            else if (expectedType is PyType pyType)
+                            {
+                                matches = IsExceptionInstanceOf(pyException, pyType.Name);
+                            }
                         }
                     }
                     else if (stackTop is PyException pyException)
@@ -4517,6 +4525,58 @@ namespace SharpPy
                 byteOffset += PyJumpBackwardUtil.GetCPythonInstructionSize(instruction.OpCode, instruction.Argument);
             }
             return byteOffset;
+        }
+
+        /// <summary>
+        /// Check if an exception is an instance of the expected exception type or its parent types
+        /// </summary>
+        private static bool IsExceptionInstanceOf(PyException exception, string expectedTypeName)
+        {
+            // Direct type match
+            if (exception.GetTypeName() == expectedTypeName)
+                return true;
+
+            // Check inheritance hierarchy
+            switch (exception.GetTypeName())
+            {
+                case "ValueError":
+                    return expectedTypeName == "Exception" || expectedTypeName == "BaseException";
+                case "TypeError":
+                    return expectedTypeName == "Exception" || expectedTypeName == "BaseException";
+                case "RuntimeError":
+                    return expectedTypeName == "Exception" || expectedTypeName == "BaseException";
+                case "AttributeError":
+                    return expectedTypeName == "Exception" || expectedTypeName == "BaseException";
+                case "KeyError":
+                    return expectedTypeName == "LookupError" || expectedTypeName == "Exception" || expectedTypeName == "BaseException";
+                case "IndexError":
+                    return expectedTypeName == "LookupError" || expectedTypeName == "Exception" || expectedTypeName == "BaseException";
+                case "NameError":
+                    return expectedTypeName == "Exception" || expectedTypeName == "BaseException";
+                case "ImportError":
+                    return expectedTypeName == "Exception" || expectedTypeName == "BaseException";
+                case "OSError":
+                    return expectedTypeName == "Exception" || expectedTypeName == "BaseException";
+                case "IOError":
+                    return expectedTypeName == "OSError" || expectedTypeName == "Exception" || expectedTypeName == "BaseException";
+                case "ZeroDivisionError":
+                    return expectedTypeName == "ArithmeticError" || expectedTypeName == "Exception" || expectedTypeName == "BaseException";
+                case "OverflowError":
+                    return expectedTypeName == "ArithmeticError" || expectedTypeName == "Exception" || expectedTypeName == "BaseException";
+                case "StopIteration":
+                    return expectedTypeName == "Exception" || expectedTypeName == "BaseException";
+                case "AssertionError":
+                    return expectedTypeName == "Exception" || expectedTypeName == "BaseException";
+                case "SystemExit":
+                    return expectedTypeName == "BaseException";
+                case "KeyboardInterrupt":
+                    return expectedTypeName == "BaseException";
+                case "GeneratorExit":
+                    return expectedTypeName == "BaseException";
+                default:
+                    // For unknown exceptions, assume they inherit from Exception
+                    return expectedTypeName == "Exception" || expectedTypeName == "BaseException";
+            }
         }
     }
 
