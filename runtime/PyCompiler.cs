@@ -628,11 +628,6 @@ namespace SharpPy
             }
         }
         
-        public PyCodeObject Compile(List<Statement> statements, string name = "<module>")
-        {
-            return Compile(statements, name, new List<string>());
-        }
-        
         public PyCodeObject Compile(List<Statement> statements, string name, List<string> parameters, string? fileName = null)
         {
             _instructions = new List<ByteCodeInstruction>();
@@ -707,10 +702,13 @@ namespace SharpPy
                 CompileStatement(statement);
             }
             
-            // 모듈은 None 반환
-            EmitLoadConst(PyNone.Instance);
-            EmitInstruction(ByteCodeOp.RETURN_VALUE);
-            
+            // CPython 3.12: 모듈은 RETURN_CONST로 None 반환 (Exception Handler 이전에)
+            var noneConstIndex = AddConstant(PyNone.Instance);
+            EmitInstruction(ByteCodeOp.RETURN_CONST, noneConstIndex);
+
+            // CPython 3.12: 지연된 exception handler들을 바이트코드 끝에 생성
+            GeneratePendingExceptionHandlers();
+
             var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, parameters.Count, 0, null, null, null, 0, _currentFileName, _sourceLines, false, _lineNumberTable);
             
             // Resolve Exception Table labels to offsets (CPython 3.12 compatible)
@@ -797,9 +795,9 @@ namespace SharpPy
                 CompileStatement(statement);
             }
             
-            // 모듈은 None 반환
-            EmitLoadConst(PyNone.Instance);
-            EmitInstruction(ByteCodeOp.RETURN_VALUE);
+            // CPython 3.12: 모듈은 RETURN_CONST로 None 반환
+            var noneConstIndex = AddConstant(PyNone.Instance);
+            EmitInstruction(ByteCodeOp.RETURN_CONST, noneConstIndex);
             
             var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames,
                                             parameters.Count, 0, freeVars, cellVars, null, 0, _currentFileName, _sourceLines);
@@ -1183,31 +1181,39 @@ namespace SharpPy
         /// </summary>
         private void GeneratePendingExceptionHandlers()
         {
+            Console.WriteLine($"🔧 GeneratePendingExceptionHandlers 호출: {_pendingExceptionHandlers.Count}개 handler 처리");
             foreach (var handler in _pendingExceptionHandlers)
             {
                 // Exception handler를 바이트코드 끝에 생성
+                Console.WriteLine($"🔧 Handler 생성 시작: _instructions.Count={_instructions.Count}");
+                Console.WriteLine($"🔧 현재 마지막 명령어: {(_instructions.Count > 0 ? _instructions.Last().ToString() : "없음")}");
+
+                // Handler 시작 위치를 기록 (SWAP 명령어 추가 직전)
                 var handlerStart = _instructions.Count * 2; // 바이트 오프셋
-                
+
                 // CPython 3.12 호환 exception handler 생성
                 EmitInstruction(ByteCodeOp.SWAP, 2);
                 EmitInstruction(ByteCodeOp.POP_TOP);
                 EmitInstruction(ByteCodeOp.SWAP, 2);
-                
+
                 // Comprehension 변수 정리
                 foreach (var varName in handler.ComprehensionVars)
                 {
                     EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(varName));
                 }
-                
+
                 EmitInstruction(ByteCodeOp.RERAISE, 0);
-                
-                // Exception table entry 생성
+
+                Console.WriteLine($"🔧 Handler 생성 완료: handlerStart={handlerStart}, 현재 _instructions.Count={_instructions.Count}");
+
+                // Exception table entry 생성 - handlerStart는 실제 첫 번째 handler 명령어 위치
                 var exceptionEntry = new ExceptionTableEntry(
                     start: handler.StartOffset,
                     end: handler.EndOffset,
                     handler: handlerStart,
                     depth: handler.Depth
                 );
+                Console.WriteLine($"🔧 Exception table entry 생성: {handler.StartOffset} to {handler.EndOffset} -> {handlerStart} [depth={handler.Depth}]");
                 _exceptionTable.Add(exceptionEntry);
             }
             
@@ -6306,23 +6312,8 @@ namespace SharpPy
             // END_FOR 이후에 exception table end 설정 (CPython 3.12 호환)
             var exceptionTableEnd = _instructions.Count;
             
-            // CPython 3.12 PEP 709: List comprehension 변수는 외부 스코프로 누출되지 않음
-            // 따라서 comprehension 완료 후 변수를 다시 저장하지 않음
-            if (comprehensionVars.Count > 0)
-            {
-                // CPython 3.12: SWAP으로 스택에서 None 값들을 제거하고 결과 리스트만 남김
-                int swapArg = comprehensionVars.Count + 1;
-                Console.WriteLine($"🔧 END_FOR SWAP (PEP 709): vars={comprehensionVars.Count}, swapArg={swapArg} - cleaning stack without storing vars");
-                EmitInstruction(ByteCodeOp.SWAP, swapArg);
-
-                // PEP 709: comprehension 변수를 외부 스코프에 저장하지 않음
-                // 스택에서 None 값들을 POP_TOP으로 제거
-                for (int i = 0; i < comprehensionVars.Count; i++)
-                {
-                    Console.WriteLine($"  🗑️ POP_TOP: removing comprehension var {i} from stack (PEP 709)");
-                    EmitInstruction(ByteCodeOp.POP_TOP);
-                }
-            }
+            // CPython 3.12: List comprehension cleanup은 Assignment statement에서 처리
+            // 여기서는 cleanup을 지연시키고 PendingCleanup으로 등록만 함
             
             // CPython 3.12: List comprehension 정상 완료 - 결과 리스트가 스택에 남음
             // Assignment target은 이 지점에서 AssignStatement에 의해 처리됨
@@ -6335,7 +6326,9 @@ namespace SharpPy
                 ComprehensionVars = new List<string>(comprehensionVars),
                 Depth = 2
             };
+            Console.WriteLine($"🔧 PendingExceptionHandler 추가: start={exceptionTableStart * 2}, end={exceptionTableEnd * 2}, vars=[{string.Join(", ", comprehensionVars)}], depth=2");
             _pendingExceptionHandlers.Add(pendingHandler);
+            Console.WriteLine($"🔧 현재 _pendingExceptionHandlers.Count: {_pendingExceptionHandlers.Count}");
             
             // CPython 3.12: 컴프리헨션 컨텍스트 종료
             _isInComprehension = savedIsInComprehension;
@@ -6543,7 +6536,10 @@ namespace SharpPy
             
             // 2. 임시 변수 저장을 위한 리스트 - 컴프리헨션 스코프 isolation
             var comprehensionVars = new List<string>();
-            
+
+            // CPython 3.12: Exception table 시작 위치 기록
+            int exceptionTableStart = 0;
+
             // 3. 중첩된 루프 컴파일 - CPython 3.12 방식
             Console.WriteLine($"🔄 CompileNestedGenerators 호출 전 위치: {_instructions.Count}");
             CompileNestedGenerators(dictComp.Generators, 0, comprehensionVars, () =>
@@ -6551,18 +6547,53 @@ namespace SharpPy
                 // 모든 generator 루프가 완료된 후 실행되는 내부 블록
                 var innerBlockStart = _instructions.Count;
                 Console.WriteLine($"🎯 Dict comprehension 내부 블록 시작: {innerBlockStart}");
-                
+
+                // Exception table 시작 위치는 첫 번째 FOR_ITER 명령어
+                if (exceptionTableStart == 0)
+                {
+                    // FOR_ITER 명령어를 찾기 위해 역방향 스캔
+                    for (int i = _instructions.Count - 1; i >= buildMapPosition; i--)
+                    {
+                        if (_instructions[i].OpCode == ByteCodeOp.FOR_ITER)
+                        {
+                            exceptionTableStart = i;
+                            break;
+                        }
+                    }
+                    if (exceptionTableStart == 0)
+                    {
+                        // FOR_ITER를 찾지 못한 경우 BUILD_MAP 이후부터 시작
+                        exceptionTableStart = buildMapPosition + 1;
+                    }
+                    Console.WriteLine($"🔧 Dict Exception table 시작 위치: {exceptionTableStart}");
+                }
+
                 CompileExpression(dictComp.Key);
                 CompileExpression(dictComp.Value);
-                
+
                 var mapAddPosition = _instructions.Count;
                 EmitInstruction(ByteCodeOp.MAP_ADD, 1); // 딕셔너리는 항상 스택의 맨 아래(1)에 위치
                 Console.WriteLine($"🗝️ MAP_ADD 위치: {mapAddPosition}");
             });
-            
+
             var afterNestedGenerators = _instructions.Count;
             Console.WriteLine($"🔄 CompileNestedGenerators 완료 후 위치: {afterNestedGenerators}");
-            
+
+            // CPython 3.12: Exception table 끝 위치 설정 (END_FOR 이후)
+            var exceptionTableEnd = _instructions.Count;
+
+            // CPython 3.12: Exception handler를 지연 생성으로 등록 (Dict comprehension용)
+            var pendingHandler = new PendingExceptionHandler
+            {
+                StartOffset = exceptionTableStart * 2,     // 바이트 오프셋으로 변환
+                EndOffset = exceptionTableEnd * 2,         // 바이트 오프셋으로 변환
+                ComprehensionVars = new List<string>(comprehensionVars),
+                Depth = 3  // Dict comprehension은 depth=3 (CPython 호환)
+            };
+            Console.WriteLine($"🔧 Dict PendingExceptionHandler 추가: start={exceptionTableStart * 2}, end={exceptionTableEnd * 2}, vars=[{string.Join(", ", comprehensionVars)}], depth=3");
+            _pendingExceptionHandlers.Add(pendingHandler);
+            Console.WriteLine($"🔧 현재 _pendingExceptionHandlers.Count: {_pendingExceptionHandlers.Count}");
+
             // CPython 3.12: 컴프리헨션 컨텍스트 종료
             _isInComprehension = savedIsInComprehension;
             
@@ -6578,29 +6609,81 @@ namespace SharpPy
         private void CompileSetComprehension(SetComprehension setComp)
         {
             Console.WriteLine("🚀 PEP 709: Set comprehension 바이트코드 인라인 컴파일 (중첩 Generator 지원)");
-            
+
             // CPython 3.12: 컴프리헨션 컨텍스트 시작
             var savedIsInComprehension = _isInComprehension;
             _isInComprehension = true;
-            
+
+            // CPython 3.12: Exception table 시작 위치 기록
+            int exceptionTableStart = 0;
+            int buildSetPosition = _instructions.Count;
+
             // 1. 빈 셋 생성
             EmitInstruction(ByteCodeOp.BUILD_SET, 0);
-            
+            Console.WriteLine($"📊 Set comprehension 시작 위치: {buildSetPosition}");
+            Console.WriteLine($"🔧 BUILD_SET 위치: {buildSetPosition}");
+
             // 2. 임시 변수 저장을 위한 리스트 - 컴프리헨션 스코프 isolation
             var comprehensionVars = new List<string>();
-            
+
+            int beforeGenerators = _instructions.Count;
+            Console.WriteLine($"🔄 CompileNestedGenerators 호출 전 위치: {beforeGenerators}");
+
             // 3. 중첩된 루프 컴파일 - CPython 3.12 방식
             CompileNestedGenerators(setComp.Generators, 0, comprehensionVars, () =>
             {
                 // 모든 generator 루프가 완료된 후 실행되는 내부 블록
+                Console.WriteLine($"🎯 Set comprehension 내부 블록 시작: {_instructions.Count}");
                 CompileExpression(setComp.Element);
+
+                int setAddPosition = _instructions.Count;
                 EmitInstruction(ByteCodeOp.SET_ADD, 1); // 셋은 항상 스택의 맨 아래(1)에 위치
+                Console.WriteLine($"🗝️ SET_ADD 위치: {setAddPosition}");
             });
-            
+
+            // Exception table 시작 위치는 첫 번째 FOR_ITER 명령어
+            if (exceptionTableStart == 0)
+            {
+                // FOR_ITER 명령어를 찾기 위해 역방향 스캔
+                for (int i = _instructions.Count - 1; i >= buildSetPosition; i--)
+                {
+                    if (_instructions[i].OpCode == ByteCodeOp.FOR_ITER)
+                    {
+                        exceptionTableStart = i;
+                        break;
+                    }
+                }
+            }
+
+            Console.WriteLine($"🔧 Set Exception table 시작 위치: {exceptionTableStart}");
+
+            int afterGenerators = _instructions.Count;
+            Console.WriteLine($"🔄 CompileNestedGenerators 완료 후 위치: {afterGenerators}");
+
+            // CPython 3.12: Exception table 종료 위치 계산
+            int exceptionTableEnd = exceptionTableStart * 2 + 22; // SET_ADD까지의 바이트코드 범위
+
+            // CPython 3.12: Exception handler를 지연 생성으로 등록 (Set comprehension용)
+            if (comprehensionVars.Count > 0)
+            {
+                var pendingHandler = new PendingExceptionHandler
+                {
+                    StartOffset = exceptionTableStart * 2,
+                    EndOffset = exceptionTableEnd,
+                    ComprehensionVars = new List<string>(comprehensionVars),
+                    Depth = 2  // Set comprehension은 depth=2 (CPython 호환)
+                };
+
+                _pendingExceptionHandlers.Add(pendingHandler);
+                Console.WriteLine($"🔧 Set PendingExceptionHandler 추가: start={pendingHandler.StartOffset}, end={pendingHandler.EndOffset}, vars=[{string.Join(", ", comprehensionVars)}], depth={pendingHandler.Depth}");
+                Console.WriteLine($"🔧 현재 _pendingExceptionHandlers.Count: {_pendingExceptionHandlers.Count}");
+            }
+
             // CPython 3.12: 컴프리헨션 컨텍스트 종료
             _isInComprehension = savedIsInComprehension;
-            
+
             Console.WriteLine($"✅ Set comprehension 바이트코드 인라인 완료 ({setComp.Generators.Count}개 중첩 generator)");
+            Console.WriteLine($"📊 Set comprehension 최종 위치: {afterGenerators}");
         }
         
         /// <summary>
@@ -6676,9 +6759,83 @@ namespace SharpPy
         // CPython 3.12: Assignment target compilation
         private void CompileAssignTarget(AssignTargetStatement assignTarget)
         {
+            // CPython 3.12: Comprehension의 경우 특별 처리
+            bool isListComprehension = assignTarget.Value is ListComprehension;
+            bool isDictComprehension = assignTarget.Value is DictComprehension;
+            bool isSetComprehension = assignTarget.Value is SetComprehension;
+            bool isComprehension = isListComprehension || isDictComprehension || isSetComprehension;
+            List<string> comprehensionVars = new List<string>();
+
+            if (isComprehension)
+            {
+                // Comprehension 변수들을 미리 수집
+                if (isListComprehension)
+                {
+                    var listComp = (ListComprehension)assignTarget.Value;
+                    foreach (var generator in listComp.Generators)
+                    {
+                        if (generator.Target is NameExpression name)
+                        {
+                            comprehensionVars.Add(name.Name);
+                        }
+                    }
+                }
+                else if (isDictComprehension)
+                {
+                    var dictComp = (DictComprehension)assignTarget.Value;
+                    foreach (var generator in dictComp.Generators)
+                    {
+                        if (generator.Target is NameExpression name)
+                        {
+                            comprehensionVars.Add(name.Name);
+                        }
+                    }
+                }
+                else if (isSetComprehension)
+                {
+                    var setComp = (SetComprehension)assignTarget.Value;
+                    foreach (var generator in setComp.Generators)
+                    {
+                        if (generator.Target is NameExpression name)
+                        {
+                            comprehensionVars.Add(name.Name);
+                        }
+                    }
+                }
+            }
+
             // Compile the value first
             CompileExpression(assignTarget.Value);
-            
+
+            // CPython 3.12 패턴: Comprehension cleanup을 assignment 전에 실행
+            if (isComprehension && comprehensionVars.Count > 0)
+            {
+                var compType = isListComprehension ? "List" : isDictComprehension ? "Dict" : "Set";
+                Console.WriteLine($"🔧 CPython 3.12 {compType} comp cleanup: vars={comprehensionVars.Count}");
+
+                if (isDictComprehension)
+                {
+                    // Dict comprehension은 SWAP 3 (dict + 2 variables)
+                    EmitInstruction(ByteCodeOp.SWAP, 3);
+                }
+                else if (isSetComprehension)
+                {
+                    // Set comprehension은 SWAP 2 (set + 1 variable)
+                    EmitInstruction(ByteCodeOp.SWAP, 2);
+                }
+                else
+                {
+                    // List comprehension은 SWAP 2
+                    EmitInstruction(ByteCodeOp.SWAP, 2);
+                }
+
+                foreach (var varName in comprehensionVars)
+                {
+                    Console.WriteLine($"  🔧 STORE_FAST: storing {compType} comprehension var {varName} (CPython 3.12 order)");
+                    EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(varName));
+                }
+            }
+
             // Handle different assignment targets
             switch (assignTarget.Target)
             {
