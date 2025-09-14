@@ -117,8 +117,8 @@ namespace SharpPy
                 // Infinite loop prevention
                 CheckParsingProgress();
                 
-                // Skip newlines at statement level
-                if (Check(TokenType.NEWLINE))
+                // Skip newlines at statement level (both NEWLINE and NL)
+                if (Check(TokenType.NEWLINE) || Check(TokenType.NL))
                 {
                     Advance();
                     continue;
@@ -203,24 +203,19 @@ namespace SharpPy
         {
             return WithRecursionProtection("ParseStatement", () =>
             {
-                // CPython 3.12: INDENT/DEDENT should be handled by block parsers, not statement parsers
-                // Handle INDENT/DEDENT tokens properly to avoid breaking block structure
+                // CPython 3.12: INDENT should be handled by block parsers, not statement parsers
+                // If we encounter INDENT in statement parsing, it means we're not in proper block context
                 if (Check(TokenType.INDENT))
                 {
-                    // CPython 3.12: INDENT in ParseStatement indicates block structure issue
-                    // This should only happen if ParseBlockOrSingleStatement missed it
-                    // Skip this INDENT and continue - the block parser will handle structure
+                    // CPython 3.12: INDENT in ParseStatement indicates improper block handling
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
-                        Console.WriteLine("⚠️ ParseStatement: Handling unexpected INDENT (block structure issue)");
+                        Console.WriteLine($"⚠️ ParseStatement: Found INDENT at position {_current} - should be handled by block parser");
+                        Console.WriteLine($"   Previous token: {(_current > 0 ? _tokens[_current-1].Type.ToString() : "N/A")}");
+                        Console.WriteLine($"   Current token: {_tokens[_current].Type} '{_tokens[_current].Lexeme}'");
+                        Console.WriteLine($"   Next token: {(_current+1 < _tokens.Count ? _tokens[_current+1].Type.ToString() : "N/A")}");
                     }
-                    Advance(); // Consume the problematic INDENT
-
-                    // Try to parse the next statement after consuming INDENT
-                    if (!IsAtEnd() && !Check(TokenType.EOF))
-                    {
-                        return ParseStatement(); // Recursive call to parse the actual statement
-                    }
+                    // Don't consume INDENT here - let the caller handle it properly
                     return null;
                 }
 
@@ -712,13 +707,13 @@ namespace SharpPy
                 while (!IsAtEnd() && !Check(TokenType.EOF))
                 {
                     // Skip empty lines - Enhanced CPython 3.12 compatible handling
-                    if (Match(TokenType.NEWLINE))
+                    if (Match(TokenType.NEWLINE) || Match(TokenType.NL))
                     {
-                        Console.WriteLine($"🔍 ParseBlock: Found NEWLINE, next token: {Peek().Type} at {Peek().Line}:{Peek().Column}");
+                        Console.WriteLine($"🔍 ParseBlock: Found {_tokens[_current-1].Type}, next token: {Peek().Type} at {Peek().Line}:{Peek().Column}");
                         // Check if this is followed by meaningful content
                         if (Check(TokenType.NEWLINE) || Check(TokenType.NL))
                         {
-                            Console.WriteLine("🔍 ParseBlock: Skipping empty line (NEWLINE followed by NEWLINE/NL)");
+                            Console.WriteLine("🔍 ParseBlock: Skipping empty line (followed by NEWLINE/NL)");
                         }
                         continue;
                     }
@@ -770,15 +765,47 @@ namespace SharpPy
                                             continue; // continue to parse the next method/class
                                         }
                                     }
-                                    // If next token is INDENT, look further to see if there's a DEF (method after empty lines)
+                                    // If next token is INDENT, look further to see what comes after it
                                     else if (nextToken.Type == TokenType.INDENT)
                                     {
                                         var afterIndentIndex = nextTokenIndex + 1;
-                                        if (afterIndentIndex < _tokens.Count && _tokens[afterIndentIndex].Type == TokenType.DEF)
+                                        if (afterIndentIndex < _tokens.Count)
                                         {
-                                            Console.WriteLine("🔍 ParseBlock: Found INDENT then DEF after DEDENT - continuing class body parsing");
+                                            var tokenAfterIndent = _tokens[afterIndentIndex];
+                                            // Check if there's method content (statements, not DEF)
+                                            if (tokenAfterIndent.Type == TokenType.DEF)
+                                            {
+                                                Console.WriteLine("🔍 ParseBlock: Found INDENT then DEF after DEDENT - continuing class body parsing");
+                                                Advance(); // consume the DEDENT
+                                                continue; // continue to parse the next method
+                                            }
+                                            else if (tokenAfterIndent.Type == TokenType.IDENTIFIER ||
+                                                    tokenAfterIndent.Type == TokenType.RETURN ||
+                                                    tokenAfterIndent.Type == TokenType.IF ||
+                                                    tokenAfterIndent.Type == TokenType.FOR ||
+                                                    tokenAfterIndent.Type == TokenType.WHILE ||
+                                                    tokenAfterIndent.Type == TokenType.TRY)
+                                            {
+                                                Console.WriteLine($"🔍 ParseBlock: Found INDENT then {tokenAfterIndent.Type} after DEDENT - method body continues, consuming DEDENT");
+                                                Advance(); // consume the DEDENT
+                                                continue; // continue parsing method body
+                                            }
+                                        }
+                                    }
+                                    // Check if this is an IDENTIFIER at the same indent level as class body
+                                    else if (nextToken.Type == TokenType.IDENTIFIER)
+                                    {
+                                        // If we're in a class body and see an identifier at class level, it might be method body
+                                        if (nextToken.Column > 1) // indented, so still class content
+                                        {
+                                            Console.WriteLine($"🔍 ParseBlock: Found IDENTIFIER '{nextToken.Lexeme}' at column {nextToken.Column} after DEDENT - method body continues");
                                             Advance(); // consume the DEDENT
-                                            continue; // continue to parse the next method
+                                            continue; // continue parsing method body
+                                        }
+                                        else
+                                        {
+                                            Console.WriteLine($"🔍 ParseBlock: Found IDENTIFIER '{nextToken.Lexeme}' at module level - class body ended");
+                                            break; // Module level - class body is done
                                         }
                                     }
                                 }
@@ -856,8 +883,8 @@ namespace SharpPy
                 // DEDENT 토큰이 나올 때까지 문장들을 파싱
                 while (!IsAtEnd() && !Check(TokenType.DEDENT) && !Check(TokenType.EOF))
                 {
-                    // 빈 줄은 건너뛰기
-                    if (Match(TokenType.NEWLINE))
+                    // 빈 줄은 건너뛰기 (both NEWLINE and NL)
+                    if (Match(TokenType.NEWLINE) || Match(TokenType.NL))
                     {
                         continue;
                     }
@@ -1412,6 +1439,9 @@ namespace SharpPy
 
         private Expression ParsePrimaryExpression()
         {
+            // CPython 3.12: Skip NL tokens before parsing primary expressions
+            SkipNewlines();
+
             // Starred expression: *variable (for unpacking)
             if (Match(TokenType.STAR))
             {
@@ -3869,7 +3899,8 @@ namespace SharpPy
 
         private void SkipNewlines()
         {
-            while (Match(TokenType.NEWLINE)) { }
+            // CPython 3.12: Skip both NEWLINE and NL tokens
+            while (Match(TokenType.NEWLINE) || Match(TokenType.NL)) { }
         }
 
         /// <summary>

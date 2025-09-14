@@ -42,7 +42,11 @@ namespace SharpPy.Core
                     case "--no-optimize":
                         options["--no-optimize"] = "true";
                         break;
-                        
+
+                    case "--tokens":
+                        options["--tokens"] = "true";
+                        break;
+
                     case "-c":
                         if (i + 1 < args.Length)
                         {

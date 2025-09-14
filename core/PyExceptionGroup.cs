@@ -56,7 +56,12 @@ namespace SharpPy
         /// </summary>
         public override PyObject GetAttribute(string name)
         {
-            if (name == "subgroup")
+            if (name == "exceptions")
+            {
+                // Return the exceptions list as a PyTuple (read-only like CPython)
+                return new PyTuple(Exceptions.Cast<PyObject>().ToArray());
+            }
+            else if (name == "subgroup")
             {
                 return new PyBuiltinFunction("subgroup", args =>
                 {

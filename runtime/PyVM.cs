@@ -94,126 +94,161 @@ namespace SharpPy
             // 함수 스코프 생성
             ScopeChain.PushScope(ScopeType.Local, code.Name);
             
-            // CPython 호환: 매개변수 바인딩 (기본값 처리 포함)
-            BindArgumentsToParameters(args, code);
+            // CPython 3.12 호환: 매개변수 바인딩 (키워드 인수 지원)
+            BindArgumentsToParametersCPython312(args, code, parentFrame);
         }
-        
+
         /// <summary>
-        /// CPython 호환: 인수를 매개변수에 바인딩 (기본값 처리 포함)
+        /// CPython 3.12 호환: 키워드 인수를 지원하는 매개변수 바인딩
         /// </summary>
-        private void BindArgumentsToParameters(PyObject[] args, PyCodeObject code)
+        private void BindArgumentsToParametersCPython312(PyObject[] args, PyCodeObject code, PyFrame parentFrame)
         {
-#if DEBUG
-            Console.WriteLine($"🔗 매개변수 바인딩: {args.Length}개 인수, {code.ArgCount}개 매개변수");
-            Console.WriteLine($"  Code flags: {code.Flags} (CO_VARARGS={((code.Flags & PyCodeObject.CO_VARARGS) != 0)}, CO_VARKEYWORDS={((code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0)})");
-            Console.WriteLine($"  DefaultValues.Count: {code.DefaultValues.Count}");
-            for (int j = 0; j < code.DefaultValues.Count; j++)
+            // CPython 3.12: Check for keyword arguments from parent frame
+            PyTuple kwNames = null;
+            Dictionary<string, PyObject> keywordArgs = null;
+            PyObject[] positionalArgs = args;
+
+            if (parentFrame?.KeywordNamesForNextCall != null && parentFrame.KeywordNamesForNextCall.Items.Length > 0)
             {
-                Console.WriteLine($"    [{j}]: {code.DefaultValues[j]?.ToString() ?? "null"}");
-            }
+                kwNames = parentFrame.KeywordNamesForNextCall;
+                var kwNamesList = kwNames.Items.Select(name => ((PyString)name).Value).ToArray();
+                var numKwArgs = kwNamesList.Length;
+                var numPosArgs = args.Length - numKwArgs;
+
+                // Split positional and keyword arguments (CPython 3.12 way)
+                positionalArgs = new PyObject[numPosArgs];
+                keywordArgs = new Dictionary<string, PyObject>();
+
+                Array.Copy(args, 0, positionalArgs, 0, numPosArgs);
+
+                for (int i = 0; i < numKwArgs; i++)
+                {
+                    keywordArgs[kwNamesList[i]] = args[numPosArgs + i];
+                }
+
+#if DEBUG
+                Console.WriteLine($"🔗 키워드 인수 매개변수 바인딩: {positionalArgs.Length}개 위치 인수, {keywordArgs.Count}개 키워드 인수, {code.ArgCount}개 매개변수");
+                Console.WriteLine($"  Code flags: {code.Flags} (CO_VARARGS={((code.Flags & PyCodeObject.CO_VARARGS) != 0)}, CO_VARKEYWORDS={((code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0)})");
 #endif
 
-            // Check for *args and **kwargs parameters
+                // Clear keyword names to prevent reuse
+                parentFrame.KeywordNamesForNextCall = null;
+            }
+            else
+            {
+#if DEBUG
+                Console.WriteLine($"🔗 매개변수 바인딩: {args.Length}개 인수, {code.ArgCount}개 매개변수");
+                Console.WriteLine($"  Code flags: {code.Flags} (CO_VARARGS={((code.Flags & PyCodeObject.CO_VARARGS) != 0)}, CO_VARKEYWORDS={((code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0)})");
+                Console.WriteLine($"  DefaultValues.Count: {code.DefaultValues.Count}");
+#endif
+            }
+
             bool hasVarArgs = (code.Flags & PyCodeObject.CO_VARARGS) != 0;
             bool hasVarKeywords = (code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0;
-            
-            // CPython처럼 위치 인수 먼저 처리
-            for (int i = 0; i < code.ArgCount; i++)
+
+            // Phase 1: Bind positional arguments to regular parameters
+            int posArgIndex = 0;
+            for (int paramIndex = 0; paramIndex < code.ArgCount; paramIndex++)
             {
-                var paramName = code.VarNames[i];
-#if DEBUG
-                Console.WriteLine($"  처리중: 매개변수[{i}] = '{paramName}'");
-#endif
-                
-                if (i < args.Length)
+                var paramName = code.VarNames[paramIndex];
+
+                if (posArgIndex < positionalArgs.Length)
                 {
-                    // 제공된 위치 인수 사용
+                    // Bind positional argument
+                    FastLocals[paramName] = positionalArgs[posArgIndex];
+                    ScopeChain.AssignVariable(paramName, positionalArgs[posArgIndex]);
+                    posArgIndex++;
+
 #if DEBUG
-                    Console.WriteLine($"  → {paramName} = {args[i]} (위치 인수)");
+                    Console.WriteLine($"  → {paramName} = {positionalArgs[posArgIndex - 1]} (위치 인수)");
 #endif
-                    FastLocals[paramName] = args[i];
-                    ScopeChain.AssignVariable(paramName, args[i]);
+                }
+                else if (keywordArgs != null && keywordArgs.ContainsKey(paramName))
+                {
+                    // Bind keyword argument to parameter
+                    var keywordValue = keywordArgs[paramName];
+                    FastLocals[paramName] = keywordValue;
+                    ScopeChain.AssignVariable(paramName, keywordValue);
+                    keywordArgs.Remove(paramName); // Remove so it doesn't go into **kwargs
+
+#if DEBUG
+                    Console.WriteLine($"  → {paramName} = {keywordValue} (키워드 인수)");
+#endif
                 }
                 else
                 {
-                    // Check if this parameter has a default value
-                    // Default values are stored for the last N parameters where N = DefaultValues.Count
+                    // Check for default value
                     int numRequiredParams = code.ArgCount - code.DefaultValues.Count;
-                    if (i >= numRequiredParams && i - numRequiredParams < code.DefaultValues.Count)
+                    if (paramIndex >= numRequiredParams && paramIndex - numRequiredParams < code.DefaultValues.Count)
                     {
-                        var defaultValue = code.DefaultValues[i - numRequiredParams];
-                        if (defaultValue != null)
-                        {
-                            Console.WriteLine($"  → {paramName} = {defaultValue} (기본값, index {i - numRequiredParams})");
-                            FastLocals[paramName] = defaultValue;
-                            ScopeChain.AssignVariable(paramName, defaultValue);
-                        }
-                        else
-                        {
-                            Console.WriteLine($"  ❌ Default value at index {i - numRequiredParams} is null");
-                            throw PyTypeError.Create($"[PyFrame] missing required argument: '{paramName}'");
-                        }
+                        var defaultValue = code.DefaultValues[paramIndex - numRequiredParams];
+                        FastLocals[paramName] = defaultValue;
+                        ScopeChain.AssignVariable(paramName, defaultValue);
+
+#if DEBUG
+                        Console.WriteLine($"  → {paramName} = {defaultValue} (기본값, index {paramIndex - numRequiredParams})");
+#endif
                     }
                     else
                     {
-                        // 필수 매개변수가 누락됨
-                        Console.WriteLine($"  ❌ No default available: param {i}, required={numRequiredParams}, defaults={code.DefaultValues.Count}");
+                        // Missing required argument
                         throw PyTypeError.Create($"[PyFrame] missing required argument: '{paramName}'");
                     }
                 }
             }
-            
-            // Handle remaining arguments for *args parameter
+
+            // Phase 2: Handle *args (if function has varargs) - CPython 3.12 compatible
             if (hasVarArgs)
             {
-                // Find *args parameter name (should be at code.ArgCount index in VarNames)
-                string argsParamName = code.ArgCount < code.VarNames.Count ? code.VarNames[code.ArgCount] : "args";
-                var remainingArgs = new List<PyObject>();
+                var varargsName = code.VarNames[code.ArgCount]; // *args parameter
 
-                // Collect remaining positional arguments
-                for (int i = code.ArgCount; i < args.Length; i++)
+                // Collect remaining positional arguments into *args tuple
+                var extraArgs = new PyObject[Math.Max(0, positionalArgs.Length - posArgIndex)];
+                if (posArgIndex < positionalArgs.Length)
                 {
-                    remainingArgs.Add(args[i]);
+                    Array.Copy(positionalArgs, posArgIndex, extraArgs, 0, extraArgs.Length);
                 }
+                var argsTuple = new PyTuple(extraArgs);
 
-                var argsTuple = new PyTuple(remainingArgs.ToArray());
-                FastLocals[argsParamName] = argsTuple;
-                ScopeChain.AssignVariable(argsParamName, argsTuple);
+                FastLocals[varargsName] = argsTuple;
+                ScopeChain.AssignVariable(varargsName, argsTuple);
 
 #if DEBUG
-                Console.WriteLine($"  → *{argsParamName} = {argsTuple} (*args with {remainingArgs.Count} items)");
+                Console.WriteLine($"  → {varargsName} = {argsTuple} (*args with {extraArgs.Length} items)");
 #endif
             }
-            else
-            {
-                // 너무 많은 인수가 제공된 경우 (CPython 호환)
-                if (args.Length > code.ArgCount)
-                {
-                    throw PyTypeError.Create($"{code.Name}() takes {code.ArgCount} positional argument{(code.ArgCount != 1 ? "s" : "")} but {args.Length} {(args.Length != 1 ? "were" : "was")} given");
-                }
-            }
 
-            // Handle **kwargs parameter
+            // Phase 3: Handle **kwargs (if function has varkeywords)
             if (hasVarKeywords)
             {
-                // Find **kwargs parameter name (should be at the end of VarNames)
-                string kwargsParamName = "kwargs";
-                int kwargsIndex = code.ArgCount + (hasVarArgs ? 1 : 0);
-                if (kwargsIndex < code.VarNames.Count)
+                var varkwargsName = code.VarNames[code.ArgCount + (hasVarArgs ? 1 : 0)]; // **kwargs parameter
+                var kwargsDict = new PyDict();
+
+                // Add keyword arguments to **kwargs dict if they exist
+                if (keywordArgs != null && keywordArgs.Count > 0)
                 {
-                    kwargsParamName = code.VarNames[kwargsIndex];
+                    foreach (var kvp in keywordArgs)
+                    {
+                        kwargsDict.SetItem(new PyString(kvp.Key), kvp.Value);
+                    }
                 }
 
-                // Create empty kwargs dict (keyword arguments would be handled separately)
-                var kwargsDict = new PyDict();
-                FastLocals[kwargsParamName] = kwargsDict;
-                ScopeChain.AssignVariable(kwargsParamName, kwargsDict);
+                FastLocals[varkwargsName] = kwargsDict;
+                ScopeChain.AssignVariable(varkwargsName, kwargsDict);
 
 #if DEBUG
-                Console.WriteLine($"  → **{kwargsParamName} = {{}} (**kwargs - empty for now)");
+                var itemCount = keywordArgs?.Count ?? 0;
+                Console.WriteLine($"  → {varkwargsName} = {kwargsDict} (**kwargs with {itemCount} items)");
 #endif
             }
+            else if (keywordArgs != null && keywordArgs.Count > 0)
+            {
+                // Unexpected keyword arguments
+                var unexpectedKey = keywordArgs.Keys.First();
+                throw PyTypeError.Create($"[PyFrame] {code.Name}() got an unexpected keyword argument '{unexpectedKey}'");
+            }
         }
+
         
         /// <summary>
         /// CPython-style exception handler management
@@ -1035,6 +1070,9 @@ namespace SharpPy
 
                     // CPython 3.12: Check for keyword arguments from KW_NAMES
                     var kwNames = frame.KeywordNamesForNextCall;
+#if DEBUG
+                    Console.WriteLine($"🔧 CALL Debug: kwNames = {(kwNames == null ? "null" : $"length {kwNames.Items.Length}")}, callArgCount = {callArgCount}");
+#endif
                     
                     // 명시적 인수들을 스택에서 팝 (역순으로) - 스택 최상위부터
                     for (int i = callArgCount - 1; i >= 0; i--)
@@ -1150,7 +1188,112 @@ namespace SharpPy
                     frame.ValueStack.Pop(); // Pop the null (PUSH_NULL)
                     frame.ValueStack.Push(new PyInt(lenStr.Value.Length));
                     break;
-                    
+
+                case ByteCodeOp.CALL_FUNCTION_EX:
+                    // CPython 3.12: Extended function call with *args and **kwargs
+                    var hasKwargs = (instruction.Argument & 1) != 0;
+
+                    PyObject kwargsDict = null;
+                    if (hasKwargs)
+                    {
+                        kwargsDict = frame.ValueStack.Pop(); // kwargs dictionary
+                    }
+
+                    var argsIterable = frame.ValueStack.Pop(); // args iterable
+                    var functionToCall = frame.ValueStack.Pop(); // function
+                    frame.ValueStack.Pop(); // Pop the null (PUSH_NULL)
+
+                    // Convert args iterable to list
+                    var argsList = new List<PyObject>();
+                    if (argsIterable is PyTuple argsTuple)
+                    {
+                        argsList.AddRange(argsTuple.Items);
+                    }
+                    else if (argsIterable is PyList argsListObj)
+                    {
+                        for (int i = 0; i < argsListObj.Length(); i++)
+                        {
+                            argsList.Add(argsListObj.GetItem(i));
+                        }
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create("argument after * must be an iterable");
+                    }
+
+                    // Convert kwargs dict to keyword arguments
+                    var keywordArgs = new List<(string name, PyObject value)>();
+                    if (hasKwargs && kwargsDict is PyDict kwargsPyDict)
+                    {
+                        foreach (var kvp in kwargsPyDict.InternalDict)
+                        {
+                            if (kvp.Key is PyString keyStr)
+                            {
+                                keywordArgs.Add((keyStr.Value, kvp.Value));
+                            }
+                            else
+                            {
+                                throw PyTypeError.Create("keywords must be strings");
+                            }
+                        }
+                    }
+
+                    // Call function with unpacked arguments
+                    if (functionToCall is PyFunction function)
+                    {
+                        var kwDict = new Dictionary<string, PyObject>();
+                        foreach (var kw in keywordArgs)
+                        {
+                            kwDict[kw.name] = kw.value;
+                        }
+                        var unpackedResult = ExecuteFunctionCallWithKeywords(function, argsList.ToArray(), kwDict, frame.ScopeChain);
+                        frame.ValueStack.Push(unpackedResult);
+                    }
+                    else if (functionToCall is PyBuiltinFunction builtinFunc)
+                    {
+                        var unpackedResult = builtinFunc.Call(argsList.ToArray());
+                        frame.ValueStack.Push(unpackedResult);
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create($"'{functionToCall.GetTypeName()}' object is not callable");
+                    }
+                    break;
+
+                case ByteCodeOp.DICT_MERGE:
+                    // CPython 3.12: Merge dictionaries for **kwargs unpacking
+                    // Stack before: [target_dict, source_dict]
+                    // Stack after: [merged_dict]
+                    var mergeCount = instruction.Argument;
+
+                    // Get the source dictionary from stack (TOS)
+                    var sourceDict = frame.ValueStack.Pop();
+
+                    // Get the target dictionary from stack (TOS-1)
+                    var targetDict = frame.ValueStack.Pop();
+
+                    if (!(targetDict is PyDict targetPyDict))
+                    {
+                        throw PyTypeError.Create($"DICT_MERGE: target must be dict, got {targetDict.GetType().Name}");
+                    }
+
+                    // Merge sourceDict into targetDict
+                    if (sourceDict is PyDict sourcePyDict)
+                    {
+                        foreach (var kvp in sourcePyDict.InternalDict)
+                        {
+                            targetPyDict.SetItem(kvp.Key, kvp.Value);
+                        }
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create("DICT_MERGE: source must be dictionary");
+                    }
+
+                    // Push the merged dictionary back onto the stack
+                    frame.ValueStack.Push(targetPyDict);
+                    break;
+
                 case ByteCodeOp.RESUME:
                     // Python 3.12: 모든 코드 시작점에 있는 명령어
                     // 실제로는 아무것도 하지 않음 (단순 마커)
@@ -1171,10 +1314,10 @@ namespace SharpPy
                     Console.WriteLine($"🔧 MAKE_FUNCTION stack size before processing: {frame.ValueStack.Count}");
                     if (frame.ValueStack.Count > 0)
                     {
-                        var stackItems = frame.ValueStack.ToArray();
-                        for (int i = 0; i < Math.Min(stackItems.Length, 5); i++)
+                        var debugStackItems = frame.ValueStack.ToArray();
+                        for (int i = 0; i < Math.Min(debugStackItems.Length, 5); i++)
                         {
-                            Console.WriteLine($"   Stack[{i}]: {stackItems[i]?.GetType().Name} = {stackItems[i]}");
+                            Console.WriteLine($"   Stack[{i}]: {debugStackItems[i]?.GetType().Name} = {debugStackItems[i]}");
                         }
                     }
                     
@@ -1279,10 +1422,9 @@ namespace SharpPy
                             // Async generator: 호출 시 PyAsyncGenerator 객체 반환
                             var asyncGenImpl = new Func<PyObject[], PyObject>(args =>
                             {
-                                var boundArgs = BindFunctionArguments(args, pyCode, defaults);
-                                var asyncGenFrame = closure != null && closure.Length > 0 
-                                    ? new PyFrame(pyCode, boundArgs, frame.ScopeChain, closure, frame)
-                                    : new PyFrame(pyCode, boundArgs, frame.ScopeChain, null, frame);
+                                var asyncGenFrame = closure != null && closure.Length > 0
+                                    ? new PyFrame(pyCode, args, frame.ScopeChain, closure, frame)
+                                    : new PyFrame(pyCode, args, frame.ScopeChain, null, frame);
                                 
                                 // Async generator 생성
                                 var enumerator = new FrameGeneratorEnumerator(asyncGenFrame, this);
@@ -1309,10 +1451,9 @@ namespace SharpPy
                             // Async function: 호출 시 PyCoroutine 객체 반환
                             var asyncImpl = new Func<PyObject[], PyObject>(args =>
                             {
-                                var boundArgs = BindFunctionArguments(args, pyCode, defaults);
-                                var asyncFrame = closure != null && closure.Length > 0 
-                                    ? new PyFrame(pyCode, boundArgs, frame.ScopeChain, closure, frame)
-                                    : new PyFrame(pyCode, boundArgs, frame.ScopeChain, null, frame);
+                                var asyncFrame = closure != null && closure.Length > 0
+                                    ? new PyFrame(pyCode, args, frame.ScopeChain, closure, frame)
+                                    : new PyFrame(pyCode, args, frame.ScopeChain, null, frame);
                                 
                                 // Native coroutine 생성
                                 return new SharpPy.Core.PyCoroutine(asyncFrame, this, pyCode.Name);
@@ -1345,12 +1486,10 @@ namespace SharpPy
                             // Create function implementation with proper parameter binding
                             Func<PyObject[], PyObject> implementation = args =>
                             {
-                            // Apply CPython-style parameter binding with defaults
-                            var boundArgs = BindFunctionArguments(args, pyCode, defaults);
                             // Create frame with closure support if needed - CPython 3.12: include parent frame
-                            var functionFrame = closure != null && closure.Length > 0 
-                                ? new PyFrame(pyCode, boundArgs, frame.ScopeChain, closure, frame)
-                                : new PyFrame(pyCode, boundArgs, frame.ScopeChain, null, frame);
+                            var functionFrame = closure != null && closure.Length > 0
+                                ? new PyFrame(pyCode, args, frame.ScopeChain, closure, frame)
+                                : new PyFrame(pyCode, args, frame.ScopeChain, null, frame);
                             return ExecuteFrame(functionFrame);
                         };
                         
@@ -2776,14 +2915,14 @@ namespace SharpPy
                     
                     if (instruction.Argument > 0 && instruction.Argument <= dictStackArray.Length)
                     {
-                        var targetDict = dictStackArray[instruction.Argument - 1];
-                        if (targetDict is PyDict targetPyDict)
+                        var mapAddTarget = dictStackArray[instruction.Argument - 1];
+                        if (mapAddTarget is PyDict mapAddDict)
                         {
-                            targetPyDict.InternalDict[dictKey] = dictValue;
+                            mapAddDict.InternalDict[dictKey] = dictValue;
                         }
                         else
                         {
-                            throw new Exception($"MAP_ADD: target is not a dict, got {targetDict.GetType().Name}");
+                            throw new Exception($"MAP_ADD: target is not a dict, got {mapAddTarget.GetType().Name}");
                         }
                     }
                     else
@@ -2959,16 +3098,23 @@ namespace SharpPy
                     break;
                     
                 case ByteCodeOp.MAKE_CELL:
-                    // CPython 3.12: MAKE_CELL uses direct CellVars indexing (no longer VarNames offset)
-                    var cellVarIndex = instruction.Argument;
+                    // CPython 3.12: MAKE_CELL uses varnames index to find variable name
+                    var varnameIndex = instruction.Argument;
 
-                    // Bounds checking for CellVars
-                    if (cellVarIndex >= frame.Code.CellVars.Count)
+                    // Bounds checking for VarNames
+                    if (varnameIndex >= frame.Code.VarNames.Count)
                     {
-                        throw new IndexOutOfRangeException($"MAKE_CELL: Cell index {cellVarIndex} out of range. CellVars count: {frame.Code.CellVars.Count}, CellVars: [{string.Join(", ", frame.Code.CellVars)}]");
+                        throw new IndexOutOfRangeException($"MAKE_CELL: VarName index {varnameIndex} out of range. VarNames count: {frame.Code.VarNames.Count}, VarNames: [{string.Join(", ", frame.Code.VarNames)}]");
                     }
 
-                    var cellVarName = frame.Code.CellVars[cellVarIndex];
+                    var cellVarName = frame.Code.VarNames[varnameIndex];
+
+                    // Find the cell index in CellVars
+                    var cellVarIndex = frame.Code.CellVars.IndexOf(cellVarName);
+                    if (cellVarIndex == -1)
+                    {
+                        throw new IndexOutOfRangeException($"MAKE_CELL: Variable '{cellVarName}' not found in CellVars. CellVars: [{string.Join(", ", frame.Code.CellVars)}]");
+                    }
 
                     // CPython 3.12: Cell variables come after free variables in the cell array
                     var actualCellIndex = frame.Code.FreeVars.Count + cellVarIndex;
@@ -3706,86 +3852,6 @@ namespace SharpPy
         /// CPython-style function argument binding with default parameters
         /// Used by MAKE_FUNCTION bytecode implementation
         /// </summary>
-        private PyObject[] BindFunctionArguments(PyObject[] args, PyCodeObject code, PyTuple defaults)
-        {
-            Console.WriteLine($"🔗 함수 호출 매개변수 바인딩: {args.Length}개 인수, {code.ArgCount}개 매개변수");
-            
-            // Calculate required vs provided arguments
-            int defaultCount = defaults?.Items?.Length ?? 0;
-            int requiredArgCount = code.ArgCount - defaultCount;
-            
-            Console.WriteLine($"  필수 매개변수: {requiredArgCount}, 기본값 매개변수: {defaultCount}");
-            
-            // Check if we have enough arguments
-            if (args.Length < requiredArgCount)
-            {
-                throw PyTypeError.Create($"{code.Name}() missing {requiredArgCount - args.Length} required positional argument(s)");
-            }
-            
-            // Check if function accepts *args or **kwargs
-            bool hasVarArgs = (code.Flags & PyCodeObject.CO_VARARGS) != 0;
-            bool hasVarKeywords = (code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0;
-            
-            // Check if we have too many arguments (only if no *args)
-            if (!hasVarArgs && args.Length > code.ArgCount)
-            {
-                throw PyTypeError.Create($"{code.Name}() takes {code.ArgCount} positional argument(s) but {args.Length} were given");
-            }
-            
-            // Calculate total parameter count including *args and **kwargs
-            int totalParamCount = code.ArgCount;
-            if (hasVarArgs) totalParamCount++;
-            if (hasVarKeywords) totalParamCount++;
-            
-            // Create bound arguments array
-            var boundArgs = new PyObject[totalParamCount];
-            
-            // Bind positional arguments to regular parameters
-            int regularParamCount = Math.Min(args.Length, code.ArgCount);
-            for (int i = 0; i < regularParamCount; i++)
-            {
-                boundArgs[i] = args[i];
-                Console.WriteLine($"  → 매개변수[{i}] = {args[i]} (제공된 인수)");
-            }
-            
-            // Handle *args if present
-            if (hasVarArgs)
-            {
-                // Pack extra positional arguments into tuple
-                var extraArgs = new List<PyObject>();
-                for (int i = code.ArgCount; i < args.Length; i++)
-                {
-                    extraArgs.Add(args[i]);
-                }
-                var argsTuple = new PyTuple(extraArgs.ToArray());
-                boundArgs[code.ArgCount] = argsTuple;
-                Console.WriteLine($"  → *args[{code.ArgCount}] = {argsTuple} (패킹된 인수 {extraArgs.Count}개)");
-            }
-            
-            // Handle **kwargs if present (for now, empty dict)
-            if (hasVarKeywords)
-            {
-                var kwargsIndex = code.ArgCount + (hasVarArgs ? 1 : 0);
-                boundArgs[kwargsIndex] = new PyDict();
-                Console.WriteLine($"  → **kwargs[{kwargsIndex}] = {{}} (빈 딕셔너리)");
-            }
-            
-            // Bind default values for missing regular arguments (not *args or **kwargs)
-            if (defaults != null && defaults.Items.Length > 0)
-            {
-                for (int i = regularParamCount; i < code.ArgCount; i++)
-                {
-                    int defaultIndex = i - requiredArgCount;
-                    if (defaultIndex >= 0 && defaultIndex < defaults.Items.Length)
-                    {
-                        boundArgs[i] = defaults.Items[defaultIndex];
-                        Console.WriteLine($"  → 매개변수[{i}] = {defaults.Items[defaultIndex]} (기본값)");
-                    }
-                }
-            }
-            
-            return boundArgs;
-        }
         
         /// <summary>
         /// 키워드 인수를 지원하는 함수 호출
@@ -4072,7 +4138,7 @@ namespace SharpPy
             {
                 return pyFunc.Call(args);
             }
-            
+
             var code = pyFunc.CodeObject;
             
             // For simple functions with no complex features, use direct execution
@@ -4287,8 +4353,18 @@ namespace SharpPy
 
             try
             {
-                // Create frame with proper keyword argument binding
-                var frame = new PyFrame(code, positionalArgs, parentScope, pyFunc.Closure, CurrentFrame);
+                // CPython 3.12: Combine positional and keyword arguments into single array for frame
+                var allArgs = new PyObject[positionalArgs.Length + keywordArgs.Count];
+                Array.Copy(positionalArgs, 0, allArgs, 0, positionalArgs.Length);
+
+                int keywordIndex = positionalArgs.Length;
+                foreach (var kvp in keywordArgs)
+                {
+                    allArgs[keywordIndex++] = kvp.Value;
+                }
+
+                // Create frame with all arguments
+                var frame = new PyFrame(code, allArgs, parentScope, pyFunc.Closure, CurrentFrame);
 
                 // CPython 3.12: Bind keyword arguments to parameters
                 BindArgumentsToParametersWithKeywords(frame, positionalArgs, keywordArgs, code);

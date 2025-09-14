@@ -1105,6 +1105,7 @@ namespace SharpPy
             }
 
             // Phase 2: Cell 변수들을 위한 MAKE_CELL 명령어 발행 (CPython 3.12 호환)
+            // CPython 3.12: MAKE_CELL uses varnames index order, not cellvars index
             foreach (var cellVar in cellVars)
             {
                 var varIndex = _varNames.IndexOf(cellVar);
@@ -1112,7 +1113,7 @@ namespace SharpPy
                 {
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
-                        Console.WriteLine($"  → Making cell for variable: {cellVar} (var index {varIndex})");
+                        Console.WriteLine($"  → Making cell for variable: {cellVar} (varnames index {varIndex})");
                     }
                     EmitInstruction(ByteCodeOp.MAKE_CELL, varIndex);
                 }
@@ -1345,10 +1346,29 @@ namespace SharpPy
                     
                 case ReturnStatement ret:
                     if (ret.Value != null)
-                        CompileExpression(ret.Value);
+                    {
+                        // CPython 3.12: 상수 표현식이면 RETURN_CONST 직접 생성
+                        if (ret.Value is ConstantExpression literal)
+                        {
+                            var constIndex = AddConstant(literal.Value);
+                            EmitInstruction(ByteCodeOp.RETURN_CONST, constIndex);
+                        }
+                        else if (ret.Value is NameExpression name && name.Name == "None")
+                        {
+                            var constIndex = AddConstant(PyNone.Instance);
+                            EmitInstruction(ByteCodeOp.RETURN_CONST, constIndex);
+                        }
+                        else
+                        {
+                            CompileExpression(ret.Value);
+                            EmitInstruction(ByteCodeOp.RETURN_VALUE);
+                        }
+                    }
                     else
-                        EmitLoadConst(PyNone.Instance);
-                    EmitInstruction(ByteCodeOp.RETURN_VALUE);
+                    {
+                        var constIndex = AddConstant(PyNone.Instance);
+                        EmitInstruction(ByteCodeOp.RETURN_CONST, constIndex);
+                    }
                     break;
                     
                 case YieldStatement yield:
@@ -1530,39 +1550,93 @@ namespace SharpPy
                     break;
                     
                 case CallExpression call:
-                    // CPython 3.12: PUSH_NULL을 먼저
-                    EmitInstruction(ByteCodeOp.PUSH_NULL);
-                    
-                    CompileExpression(call.Function);
-                    
-                    // 위치 인수 컴파일
-                    foreach (var arg in call.Arguments)
+                    // CPython 3.12: Check for *args/**kwargs unpacking
+                    bool hasStarArgs = call.Arguments.Any(arg => arg is StarredExpression);
+                    bool hasKwargUnpacking = call.Keywords.Any(kw => kw.Arg == null); // **kwargs has null Arg
+
+                    if (hasStarArgs || hasKwargUnpacking)
                     {
-                        CompileExpression(arg);
-                    }
-                    
-                    // 키워드 인수가 있는 경우
-                    if (call.Keywords.Count > 0)
-                    {
-                        // 키워드 인수 값들을 스택에 푸시
-                        foreach (var keyword in call.Keywords)
+                        // Use CALL_FUNCTION_EX for unpacking
+                        EmitInstruction(ByteCodeOp.PUSH_NULL);
+                        CompileExpression(call.Function);
+
+                        // Handle *args: find StarredExpression and compile as args tuple
+                        var starredArg = call.Arguments.FirstOrDefault(arg => arg is StarredExpression) as StarredExpression;
+                        if (starredArg != null)
                         {
-                            CompileExpression(keyword.Value);
+                            CompileExpression(starredArg.Value); // Compile the args iterable
                         }
-                        
-                        // CPython 3.12: Create keyword names tuple and add to constants
-                        var kwNames = call.Keywords.Select(kw => new PyString(kw.Arg ?? "")).ToArray();
-                        var kwNamesTuple = new PyTuple(kwNames);
-                        var kwNamesIndex = GetOrAddConstant(kwNamesTuple);
-                        
-                        // CPython 3.12: KW_NAMES + CALL pattern
-                        EmitInstruction(ByteCodeOp.KW_NAMES, kwNamesIndex);
-                        EmitInstruction(ByteCodeOp.CALL, call.Arguments.Count + call.Keywords.Count);
+                        else
+                        {
+                            // No *args, create empty tuple
+                            EmitLoadConst(new PyTuple(new PyObject[0]));
+                        }
+
+                        // Handle **kwargs
+                        if (hasKwargUnpacking)
+                        {
+                            // Create empty dict first
+                            EmitInstruction(ByteCodeOp.BUILD_MAP, 0);
+
+                            // Add each kwargs dict
+                            var kwargsKeywords = call.Keywords.Where(kw => kw.Arg == null);
+                            foreach (var kwarg in kwargsKeywords)
+                            {
+                                CompileExpression(kwarg.Value); // This should be a dict
+                                EmitInstruction(ByteCodeOp.DICT_MERGE, 1);
+                            }
+
+                            // Regular keyword arguments
+                            var regularKeywords = call.Keywords.Where(kw => kw.Arg != null);
+                            foreach (var kw in regularKeywords)
+                            {
+                                EmitLoadConst(new PyString(kw.Arg));
+                                CompileExpression(kw.Value);
+                                EmitInstruction(ByteCodeOp.DICT_MERGE, 1);
+                            }
+
+                            EmitInstruction(ByteCodeOp.CALL_FUNCTION_EX, 1); // 1 = has kwargs
+                        }
+                        else
+                        {
+                            EmitInstruction(ByteCodeOp.CALL_FUNCTION_EX, 0); // 0 = no kwargs
+                        }
                     }
                     else
                     {
-                        // 키워드 인수가 없는 경우 Python 3.12 방식
-                        EmitInstruction(ByteCodeOp.CALL, call.Arguments.Count);
+                        // Regular call without unpacking
+                        EmitInstruction(ByteCodeOp.PUSH_NULL);
+                        CompileExpression(call.Function);
+
+                        // 위치 인수 컴파일
+                        foreach (var arg in call.Arguments)
+                        {
+                            CompileExpression(arg);
+                        }
+
+                        // 키워드 인수가 있는 경우
+                        if (call.Keywords.Count > 0)
+                        {
+                            // 키워드 인수 값들을 스택에 푸시
+                            foreach (var keyword in call.Keywords)
+                            {
+                                CompileExpression(keyword.Value);
+                            }
+
+                            // CPython 3.12: Create keyword names tuple and add to constants
+                            var kwNames = call.Keywords.Select(kw => new PyString(kw.Arg ?? "")).ToArray();
+                            var kwNamesTuple = new PyTuple(kwNames);
+                            var kwNamesIndex = GetOrAddConstant(kwNamesTuple);
+
+                            // CPython 3.12: KW_NAMES + CALL pattern
+                            EmitInstruction(ByteCodeOp.KW_NAMES, kwNamesIndex);
+                            EmitInstruction(ByteCodeOp.CALL, call.Arguments.Count + call.Keywords.Count);
+                        }
+                        else
+                        {
+                            // 키워드 인수가 없는 경우 Python 3.12 방식
+                            EmitInstruction(ByteCodeOp.CALL, call.Arguments.Count);
+                        }
                     }
                     break;
                     
@@ -1939,6 +2013,13 @@ namespace SharpPy
                 availableOuterVars.UnionWith(_cellVars);   // Current function's cells
                 availableOuterVars.UnionWith(_freeVars);   // Current function's free vars
                 Console.WriteLine($"   Available from outer scopes: [{string.Join(", ", availableOuterVars)}]");
+
+                // CPython 3.12: Check for zero-argument super() calls and add __class__ as referenced variable
+                if (ContainsSuperCalls(func.Body) && availableOuterVars.Contains("__class__"))
+                {
+                    Console.WriteLine($"   Function contains super() calls - adding __class__ as referenced variable");
+                    referencedVars.Add("__class__");
+                }
 
                 // Variables that are referenced but not defined locally become free variables
                 foreach (var refVar in referencedVars)

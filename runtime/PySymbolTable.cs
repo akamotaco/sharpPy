@@ -57,6 +57,7 @@ namespace SharpPy
         public bool IsFree() => Scope == SymbolScope.Free;
         public bool IsCell() => Scope == SymbolScope.Cell;
         public bool IsParameter() => (Flags & SymbolFlags.Parameter) != 0;
+        public bool IsNonlocal() => (Flags & SymbolFlags.Nonlocal) != 0;
     }
 
     /// <summary>
@@ -222,6 +223,14 @@ namespace SharpPy
                     AnalyzeAssignTarget(assignTarget);
                     break;
 
+                case AugmentedAssignStatement augAssign:
+                    AnalyzeAugmentedAssignment(augAssign);
+                    break;
+
+                case AugAssignStatement augAssign:
+                    AnalyzeAugAssignment(augAssign);
+                    break;
+
                 case GlobalStatement global:
                     foreach (var name in global.Names)
                     {
@@ -293,6 +302,31 @@ namespace SharpPy
             foreach (var symbol in table.GetSymbols().Values)
             {
                 Console.WriteLine($"    Symbol: {symbol.Name}, Scope: {symbol.Scope}, Flags: {symbol.Flags}");
+
+                // Special handling for nonlocal variables
+                if (symbol.IsNonlocal())
+                {
+                    Console.WriteLine($"      ↳ Processing NONLOCAL variable: {symbol.Name}");
+                    // nonlocal variables must be found in enclosing scope
+                    var parentSymbol = FindInEnclosingScope(table, symbol.Name);
+                    if (parentSymbol != null)
+                    {
+                        // Mark as free variable (needs closure)
+                        symbol.Scope = SymbolScope.Free;
+
+                        // Mark the parent symbol as cell variable (needs to be captured)
+                        parentSymbol.Scope = SymbolScope.Cell;
+
+                        Console.WriteLine($"      ↳ NONLOCAL marked as FREE (found in parent: {parentSymbol.Name})");
+                    }
+                    else
+                    {
+                        // nonlocal variable not found in parent scope - this is an error
+                        Console.WriteLine($"      ⚠️ NONLOCAL variable '{symbol.Name}' not found in enclosing scope");
+                        symbol.Scope = SymbolScope.Global; // fallback
+                    }
+                    continue;
+                }
 
                 // Skip if already resolved or is parameter/assigned locally
                 if (symbol.Scope != SymbolScope.Unknown ||
@@ -520,6 +554,27 @@ namespace SharpPy
             {
                 AnalyzeExpression(assignTarget.Value);
             }
+        }
+
+        private void AnalyzeAugmentedAssignment(AugmentedAssignStatement augAssign)
+        {
+            // For compound assignments like "current += step * value"
+            // The target is already defined (as nonlocal in this case)
+            // We need to analyze the right-hand side expression to find variable references
+            AnalyzeExpression(augAssign.Target);
+            AnalyzeExpression(augAssign.Value);
+        }
+
+        private void AnalyzeAugAssignment(AugAssignStatement augAssign)
+        {
+            // For compound assignments like "current += step * value"
+            // The target is already defined (as nonlocal in this case)
+            // We need to analyze the right-hand side expression to find variable references
+            if (augAssign.Target != null)
+            {
+                _currentTable?.DefineSymbol(augAssign.Target, SymbolFlags.Assigned);
+            }
+            AnalyzeExpression(augAssign.Value);
         }
 
         private void AnalyzeAssignmentTarget(Expression target)
