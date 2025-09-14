@@ -130,7 +130,7 @@ namespace SharpPy
 
                     if (result != null)
                     {
-                        int constIndex = AddConstant(result);
+                        int constIndex = GetOrAddConstant(result);
                         
                         // 3개 명령어를 1개로 교체
                         _instructions[i] = new ByteCodeInstruction(ByteCodeOp.LOAD_CONST, constIndex);
@@ -189,7 +189,7 @@ namespace SharpPy
                 {
                     // Create tuple constant
                     var tupleConstant = new PyTuple(tupleElements.ToArray());
-                    int tupleConstIndex = AddConstant(tupleConstant);
+                    int tupleConstIndex = GetOrAddConstant(tupleConstant);
                     
                     // Replace n LOAD_CONST + BUILD_TUPLE with single LOAD_CONST
                     _instructions[i - tupleSize] = new ByteCodeInstruction(ByteCodeOp.LOAD_CONST, tupleConstIndex);
@@ -483,7 +483,7 @@ namespace SharpPy
         /// <summary>
         /// 상수 풀에 새 상수 추가
         /// </summary>
-        private int AddConstant(PyObject constant)
+        private int GetOrAddConstant(PyObject constant)
         {
             // 이미 존재하는 상수인지 확인
             for (int i = 0; i < _constants.Count; i++)

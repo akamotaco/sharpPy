@@ -330,6 +330,10 @@ namespace SharpPy
             if (MatchKeyword("from")) return ParseFromImportStatement();
             
                 // Expression statement or assignment
+                if (!SharpPyConfig.DisassemblyOnlyMode)
+                {
+                    Console.WriteLine($"🔍 ParseStatement: About to call ParseExpressionOrAssignment with token {Peek().Type} at {Peek().Line}:{Peek().Column}");
+                }
                 return ParseExpressionOrAssignment();
             });
         }
@@ -797,8 +801,8 @@ namespace SharpPy
                                     // If next meaningful token is DEF, CLASS, or decorator (@), check indent level
                                     if ((nextToken.Type == TokenType.NAME && (nextToken.Lexeme == "def" || nextToken.Lexeme == "class")) || nextToken.Type == TokenType.OP)
                                     {
-                                        // Check if token is at module level (Column 1) or class level (indented)
-                                        if (nextToken.Column == 1)
+                                        // Check if token is at module level (Column 0) or class level (indented)
+                                        if (nextToken.Column == 0)
                                         {
                                             Console.WriteLine($"🔍 ParseBlock: Found {nextToken.Type} at module level (Column {nextToken.Column}) - class body ended");
                                             break; // Module level token - class body is done
@@ -998,17 +1002,30 @@ namespace SharpPy
 
         private Statement ParseExpressionOrAssignment()
         {
-            // CPython 3.12: 블록 구조 토큰들은 표현식이 아니므로 건너뛰기
-            if (Check(TokenType.INDENT) || Check(TokenType.DEDENT) || 
+            // CPython 3.12: 블록 구조 토큰들과 빈 라인들은 표현식이 아니므로 건너뛰기
+            if (Check(TokenType.INDENT) || Check(TokenType.DEDENT) ||
+                Check(TokenType.NL) || Check(TokenType.NEWLINE) ||
                 CheckKeyword("except") || CheckKeyword("finally") ||
                 CheckKeyword("else") || CheckKeyword("elif"))
             {
+                if (!SharpPyConfig.DisassemblyOnlyMode)
+                {
+                    Console.WriteLine($"🔍 ParseExpressionOrAssignment: Detected block structure token {Peek().Type} at {Peek().Line}:{Peek().Column} - returning null");
+                }
                 return null;
             }
-            
+
             try
             {
+                if (!SharpPyConfig.DisassemblyOnlyMode)
+                {
+                    Console.WriteLine($"🔍 ParseExpressionOrAssignment: About to call ParseExpression with token {Peek().Type} at {Peek().Line}:{Peek().Column}");
+                }
                 var expr = ParseExpression();
+                if (!SharpPyConfig.DisassemblyOnlyMode)
+                {
+                    Console.WriteLine($"🔍 ParseExpressionOrAssignment: ParseExpression completed, current token: {Peek().Type}");
+                }
                 
                 // CPython 3.12: Check for comma-separated assignment targets (tuple unpacking)
                 // This handles cases like: x, y = (1, 2)
@@ -1544,7 +1561,19 @@ namespace SharpPy
             
             if (Match(TokenType.STRING))
             {
-                var value = Previous().Lexeme;
+                var lexeme = Previous().Lexeme;
+                // Strip quotes from string literals - CPython compatibility
+                var value = lexeme;
+                if ((lexeme.StartsWith("'") && lexeme.EndsWith("'")) ||
+                    (lexeme.StartsWith("\"") && lexeme.EndsWith("\"")))
+                {
+                    value = lexeme.Substring(1, lexeme.Length - 2);
+                }
+                else if ((lexeme.StartsWith("'''") && lexeme.EndsWith("'''")) ||
+                         (lexeme.StartsWith("\"\"\"") && lexeme.EndsWith("\"\"\"")))
+                {
+                    value = lexeme.Substring(3, lexeme.Length - 6);
+                }
                 return new ConstantExpression(new PyString(value));
             }
             

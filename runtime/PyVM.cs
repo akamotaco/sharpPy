@@ -1717,12 +1717,18 @@ namespace SharpPy
                     {
                         // Check isinstance(subject, classToMatch) - supports both built-in and custom types
                         bool isInstance = false;
-                        
+
+                        // Handle custom classes FIRST (PyClass inherits from PyType, so check this first)
+                        if (classToMatch is PyClass targetClass && classSubject is PyClassInstance instance)
+                        {
+                            Console.WriteLine($"🔍 MATCH_CLASS: Checking custom class {targetClass.Name}");
+                            isInstance = (instance.InstanceType == targetClass);
+                        }
                         // Handle built-in types (int, str, list, etc.)
-                        if (classToMatch is PyType builtinType)
+                        else if (classToMatch is PyType builtinType)
                         {
                             Console.WriteLine($"🔍 MATCH_CLASS: Checking built-in type {builtinType.Name}");
-                            
+
                             if (builtinType.Name == "int" && classSubject is PyInt)
                                 isInstance = true;
                             else if (builtinType.Name == "str" && classSubject is PyString)
@@ -1738,45 +1744,53 @@ namespace SharpPy
                             else if (builtinType.Name == "bool" && classSubject is PyBool)
                                 isInstance = true;
                         }
-                        // Handle custom classes
-                        else if (classToMatch is PyClass targetClass && classSubject is PyClassInstance instance)
-                        {
-                            isInstance = (instance.InstanceType == targetClass);
-                        }
                         
                         Console.WriteLine($"🔍 MATCH_CLASS: isInstance = {isInstance}");
                         
                         if (isInstance)
                         {
-                            // For built-in types, we don't extract attributes - just return empty tuple
                             var positionalCount = instruction.Argument;
-                            
-                            if (classToMatch is PyType && positionalCount == 0)
+
+                            // CPython 3.12 behavior: Extract attribute values based on keyword names tuple
+                            if (classKwNames is PyTuple classKwNamesTuple && classKwNamesTuple.Items.Length > 0 &&
+                                classSubject is PyClassInstance classSubjectInstance)
                             {
-                                // Built-in types like int(), str() without positional args
-                                frame.ValueStack.Push(new PyTuple(new PyObject[0]));
+                                Console.WriteLine($"🔍 MATCH_CLASS: Extracting {classKwNamesTuple.Items.Length} attributes");
+
+                                // Extract attribute values in the order specified by keyword names
+                                var attrs = new List<PyObject>();
+                                for (int i = 0; i < classKwNamesTuple.Items.Length; i++)
+                                {
+                                    var classAttrName = classKwNamesTuple.Items[i].ToStr();
+                                    var classAttrValue = classSubjectInstance.GetAttribute(classAttrName);
+                                    attrs.Add(classAttrValue ?? PyNone.Instance);
+                                    Console.WriteLine($"🔍 MATCH_CLASS: Extracted {classAttrName} = {classAttrValue}");
+                                }
+
+                                frame.ValueStack.Push(new PyTuple(attrs.ToArray()));
                             }
-                            else if (classToMatch is PyClass cls && cls.GetAttribute("__match_args__") is PyTuple matchArgs)
+                            else if (classToMatch is PyClass cls && positionalCount > 0 &&
+                                     cls.GetAttribute("__match_args__") is PyTuple matchArgs)
                             {
                                 // Extract positional attributes for custom classes
                                 var attrs = new List<PyObject>();
-                                
+
                                 for (int i = 0; i < Math.Min(positionalCount, matchArgs.Items.Length); i++)
                                 {
                                     var matchArgName = matchArgs.Items[i].ToStr();
-                                    
-                                    if (classSubject is PyClassInstance subjectInstance)
+
+                                    if (classSubject is PyClassInstance matchSubjectInstance)
                                     {
-                                        var attrValue = subjectInstance.GetAttribute(matchArgName);
-                                        attrs.Add(attrValue ?? PyNone.Instance);
+                                        var matchAttrValue = matchSubjectInstance.GetAttribute(matchArgName);
+                                        attrs.Add(matchAttrValue ?? PyNone.Instance);
                                     }
                                 }
-                                
-                                var resultTuple = new PyTuple(attrs.ToArray());
-                                frame.ValueStack.Push(resultTuple);
+
+                                frame.ValueStack.Push(new PyTuple(attrs.ToArray()));
                             }
                             else
                             {
+                                // No attributes to extract, return empty tuple
                                 frame.ValueStack.Push(new PyTuple(new PyObject[0]));
                             }
                         }
@@ -3098,23 +3112,16 @@ namespace SharpPy
                     break;
                     
                 case ByteCodeOp.MAKE_CELL:
-                    // CPython 3.12: MAKE_CELL uses varnames index to find variable name
-                    var varnameIndex = instruction.Argument;
+                    // CPython 3.12: MAKE_CELL uses CellVars index directly (not VarNames index)
+                    var cellVarIndex = instruction.Argument;
 
-                    // Bounds checking for VarNames
-                    if (varnameIndex >= frame.Code.VarNames.Count)
+                    // Bounds checking for CellVars
+                    if (cellVarIndex >= frame.Code.CellVars.Count)
                     {
-                        throw new IndexOutOfRangeException($"MAKE_CELL: VarName index {varnameIndex} out of range. VarNames count: {frame.Code.VarNames.Count}, VarNames: [{string.Join(", ", frame.Code.VarNames)}]");
+                        throw new IndexOutOfRangeException($"MAKE_CELL: CellVar index {cellVarIndex} out of range. CellVars count: {frame.Code.CellVars.Count}, CellVars: [{string.Join(", ", frame.Code.CellVars)}]");
                     }
 
-                    var cellVarName = frame.Code.VarNames[varnameIndex];
-
-                    // Find the cell index in CellVars
-                    var cellVarIndex = frame.Code.CellVars.IndexOf(cellVarName);
-                    if (cellVarIndex == -1)
-                    {
-                        throw new IndexOutOfRangeException($"MAKE_CELL: Variable '{cellVarName}' not found in CellVars. CellVars: [{string.Join(", ", frame.Code.CellVars)}]");
-                    }
+                    var cellVarName = frame.Code.CellVars[cellVarIndex];
 
                     // CPython 3.12: Cell variables come after free variables in the cell array
                     var actualCellIndex = frame.Code.FreeVars.Count + cellVarIndex;

@@ -132,8 +132,17 @@ namespace SharpPy
                 case "__call__":
                     Console.WriteLine($"   → returning self for __call__");
                     return this; // 클래스 자체가 __call__
+                case "__module__":
+                    Console.WriteLine($"   → returning __module__ = __main__");
+                    return new PyString("__main__"); // CPython 호환성을 위해 __main__ 반환
+                case "mro":
+                    Console.WriteLine($"   → returning mro method");
+                    return new PyBuiltinFunction("mro", (args) => {
+                        return new PyList(MRO.Cast<PyObject>().ToList());
+                    });
                 default:
                     Console.WriteLine($"   → searching for '{name}' in ClassDict ({ClassDict.Count} items)");
+
                     if (ClassDict.TryGetValue(name, out PyObject value))
                     {
                         Console.WriteLine($"   ✅ found '{name}' in ClassDict: {value?.GetType().Name}");

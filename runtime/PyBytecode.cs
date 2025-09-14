@@ -2,7 +2,6 @@ using System.Linq;
 
 namespace SharpPy
 {
-    
 #region Exception Table System (CPython 3.12)
 
     // CPython 3.12 Exception Table Entry
@@ -607,12 +606,12 @@ namespace SharpPy
             for (int i = 0; i < code.Instructions.Count; i++)
             {
                 var inst = code.Instructions[i];
-                var extra = GetInstructionExtra(inst, code);
+                var extra = GetInstructionExtra(inst, code, i);
                 Console.WriteLine($"  {i,3}: {inst.OpCode,-25} {inst.Argument,3} {extra}");
             }
         }
         
-        private static string GetInstructionExtra(ByteCodeInstruction inst, PyCodeObject code)
+        private static string GetInstructionExtra(ByteCodeInstruction inst, PyCodeObject code, int instructionIndex)
         {
             switch (inst.OpCode)
             {
@@ -658,7 +657,7 @@ namespace SharpPy
                 case ByteCodeOp.CALL_INTRINSIC_1:
                 case ByteCodeOp.CALL_INTRINSIC_2:
                     // CPython 3.12 정확한 intrinsic function 이름들
-                    var intrinsics = new[] { 
+                    var intrinsics = new[] {
                         "INVALID",              // 0: INTRINSIC_1_INVALID
                         "PRINT",                // 1: INTRINSIC_PRINT
                         "IMPORT_STAR",          // 2: INTRINSIC_IMPORT_STAR
@@ -675,6 +674,21 @@ namespace SharpPy
                     if (inst.Argument < intrinsics.Length)
                         return $"({intrinsics[inst.Argument]})";
                     break;
+
+                // Jump instructions - calculate actual target instruction index
+                case ByteCodeOp.POP_JUMP_IF_FALSE:
+                case ByteCodeOp.POP_JUMP_IF_TRUE:
+                case ByteCodeOp.POP_JUMP_IF_NOT_NONE:
+                case ByteCodeOp.POP_JUMP_IF_NONE:
+                case ByteCodeOp.JUMP_FORWARD:
+                case ByteCodeOp.JUMP_BACKWARD:
+                case ByteCodeOp.JUMP_BACKWARD_NO_INTERRUPT:
+                    // Use VM's exact calculation: currentPosJump + 1 + relativeOffset
+                    // Match VM's InstructionPointer calculation for consistency
+                    var currentPosJump = instructionIndex;
+                    var targetInstructionIndex = currentPosJump + 1 + inst.Argument;
+                    var targetByteOffset = targetInstructionIndex * 2; // Each instruction is 2 bytes
+                    return $"(to {targetByteOffset})";
             }
             return "";
         }

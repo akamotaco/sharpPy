@@ -703,7 +703,7 @@ namespace SharpPy
             }
             
             // CPython 3.12: 모듈은 RETURN_CONST로 None 반환 (Exception Handler 이전에)
-            var noneConstIndex = AddConstant(PyNone.Instance);
+            var noneConstIndex = GetOrAddConstant(PyNone.Instance);
             EmitInstruction(ByteCodeOp.RETURN_CONST, noneConstIndex);
 
             // CPython 3.12: 지연된 exception handler들을 바이트코드 끝에 생성
@@ -796,7 +796,7 @@ namespace SharpPy
             }
             
             // CPython 3.12: 모듈은 RETURN_CONST로 None 반환
-            var noneConstIndex = AddConstant(PyNone.Instance);
+            var noneConstIndex = GetOrAddConstant(PyNone.Instance);
             EmitInstruction(ByteCodeOp.RETURN_CONST, noneConstIndex);
             
             var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames,
@@ -1356,12 +1356,12 @@ namespace SharpPy
                         // CPython 3.12: 상수 표현식이면 RETURN_CONST 직접 생성
                         if (ret.Value is ConstantExpression literal)
                         {
-                            var constIndex = AddConstant(literal.Value);
+                            var constIndex = GetOrAddConstant(literal.Value);
                             EmitInstruction(ByteCodeOp.RETURN_CONST, constIndex);
                         }
                         else if (ret.Value is NameExpression name && name.Name == "None")
                         {
-                            var constIndex = AddConstant(PyNone.Instance);
+                            var constIndex = GetOrAddConstant(PyNone.Instance);
                             EmitInstruction(ByteCodeOp.RETURN_CONST, constIndex);
                         }
                         else
@@ -1372,7 +1372,7 @@ namespace SharpPy
                     }
                     else
                     {
-                        var constIndex = AddConstant(PyNone.Instance);
+                        var constIndex = GetOrAddConstant(PyNone.Instance);
                         EmitInstruction(ByteCodeOp.RETURN_CONST, constIndex);
                     }
                     break;
@@ -2394,7 +2394,7 @@ namespace SharpPy
         
         private void EmitLoadConst(PyObject value)
         {
-            var index = AddConstant(value);
+            var index = GetOrAddConstant(value);
             EmitInstruction(ByteCodeOp.LOAD_CONST, index);
         }
         
@@ -2643,8 +2643,19 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.BINARY_OP, (int)operation);
         }
         
-        private int AddConstant(PyObject value)
+        private int GetOrAddConstant(PyObject value)
         {
+            // Use object reference equality for constants
+            for (int i = 0; i < _constants.Count; i++)
+            {
+                if (ReferenceEquals(_constants[i], value) ||
+                    (value is PyInt intConst && _constants[i] is PyInt existingInt && intConst.Value == existingInt.Value) ||
+                    (value is PyString strConst && _constants[i] is PyString existingStr && strConst.Value == existingStr.Value))
+                {
+                    return i;
+                }
+            }
+
             _constants.Add(value);
             return _constants.Count - 1;
         }
@@ -3629,7 +3640,7 @@ namespace SharpPy
                 }
                 
                 // Emit IMPORT_NAME bytecode
-                var moduleIndex = AddConstant(new PyString(actualModule));
+                var moduleIndex = GetOrAddConstant(new PyString(actualModule));
                 EmitInstruction(ByteCodeOp.IMPORT_NAME, moduleIndex);
                 
                 // Store the imported module in the correct variable name
@@ -3648,7 +3659,7 @@ namespace SharpPy
         private void CompileImportFrom(ImportFromStatement importFrom)
         {
             // Load the module first
-            var moduleIndex = AddConstant(new PyString(importFrom.Module));
+            var moduleIndex = GetOrAddConstant(new PyString(importFrom.Module));
             EmitInstruction(ByteCodeOp.IMPORT_NAME, moduleIndex);
             
             foreach (var itemName in importFrom.Names)
@@ -3668,7 +3679,7 @@ namespace SharpPy
                 }
                 
                 // Emit IMPORT_FROM bytecode
-                var itemIndex = AddConstant(new PyString(actualItem));
+                var itemIndex = GetOrAddConstant(new PyString(actualItem));
                 EmitInstruction(ByteCodeOp.IMPORT_FROM, itemIndex);
                 
                 // Store the imported item in the correct variable name
@@ -4325,7 +4336,7 @@ namespace SharpPy
                         }
                         
                         EmitInstruction(ByteCodeOp.COPY, 1);
-                        EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(PyNone.Instance));
+                        EmitInstruction(ByteCodeOp.LOAD_CONST, GetOrAddConstant(PyNone.Instance));
                         EmitInstruction(ByteCodeOp.COMPARE_OP, 3); // IS_NOT
                         
                         EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0);
@@ -4384,7 +4395,7 @@ namespace SharpPy
                 // Delete variable binding (for 'as' variable) if needed
                 if (handler.Name != null)
                 {
-                    EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(PyNone.Instance));
+                    EmitInstruction(ByteCodeOp.LOAD_CONST, GetOrAddConstant(PyNone.Instance));
                     if (_isInFunction)
                     {
                         EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(handler.Name));
@@ -4550,7 +4561,7 @@ namespace SharpPy
             
             // 7. Normal exit: call __exit__(None, None, None) - no POP_EXCEPT needed
             // CPython 3.12: 동일한 None 상수를 재사용 (상수 풀 효율성)
-            var noneConstIndex = AddConstant(PyNone.Instance);
+            var noneConstIndex = GetOrAddConstant(PyNone.Instance);
             EmitInstruction(ByteCodeOp.LOAD_CONST, noneConstIndex);
             EmitInstruction(ByteCodeOp.LOAD_CONST, noneConstIndex); 
             EmitInstruction(ByteCodeOp.LOAD_CONST, noneConstIndex);
@@ -4631,7 +4642,14 @@ namespace SharpPy
         private void CompileMatch(MatchStatement matchStmt)
         {
             // CPython 3.12: Match statement compilation - exact pattern placement
-            
+
+            // Special optimization for simple constant patterns (like CPython)
+            if (IsSimpleConstantMatch(matchStmt))
+            {
+                CompileSimpleConstantMatch(matchStmt);
+                return;
+            }
+
             // FOR 루프 컨텍스트 내에서 패턴 매칭인지 확인
             bool inForLoop = IsInForLoopContext();
             if (inForLoop)
@@ -4760,14 +4778,13 @@ namespace SharpPy
             switch (pattern)
             {
                 case ConstantExpression constExpr:
-                    // CPython 3.12: Direct constant comparison
-                    // Stack: [subject] -> [subject, constant] -> [subject, result]
-                    EmitInstruction(ByteCodeOp.COPY, 1); // Duplicate subject for comparison
+                    // CPython 3.12: Direct constant comparison without COPY
+                    // Stack: [subject] -> [subject, constant] -> [comparison_result]
                     CompileExpression(constExpr);
                     EmitComparison(CompareOp.EQ);
-                    // Stack: [subject, comparison_result]
+                    // Stack: [comparison_result]
                     EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
-                    // Stack: [subject] (comparison result popped, subject preserved)
+                    // Stack: [] (comparison result consumed by jump)
                     return true;
                 
                 case NameExpression nameExpr when nameExpr.Name == "_":
@@ -5167,9 +5184,30 @@ namespace SharpPy
             // Stack: [subject, subject] -> [subject, subject, class]
             CompileExpression(callExpr.Function); // Load Point class
             
-            // 3. Load keyword names tuple (empty for positional-only patterns)
-            // Stack: [subject, subject, class] -> [subject, subject, class, kw_names]
-            EmitLoadConst(new PyTuple()); // Empty tuple for now (no keyword matching)
+            // 3. Handle keyword arguments - extract keyword names for MATCH_CLASS
+            var keywordArgs = new List<KeywordExpression>();
+            var keywordNames = new List<PyObject>();
+
+            // Process keyword arguments from the separate Keywords property
+            foreach (var kwExpr in callExpr.Keywords)
+            {
+                keywordArgs.Add(kwExpr);
+                keywordNames.Add(new PyString(kwExpr.Arg ?? ""));
+            }
+
+            // Also check Arguments list in case keywords are stored there (fallback)
+            foreach (var arg in callExpr.Arguments)
+            {
+                if (arg is KeywordExpression kwExpr)
+                {
+                    keywordArgs.Add(kwExpr);
+                    keywordNames.Add(new PyString(kwExpr.Arg ?? ""));
+                }
+            }
+
+            // Load keyword names tuple - CPython 3.12 compatible
+            var keywordTuple = new PyTuple(keywordNames.ToArray());
+            EmitLoadConst(keywordTuple);
             
             // 4. Use MATCH_CLASS with argument count (consumes subject, class, kw_names)
             // Stack: [subject, subject, class, kw_names] -> [subject, result_tuple_or_none]
@@ -5181,30 +5219,42 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.COPY, 1); // Duplicate result for check
             EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_NONE, failLabel);
             
-            // 6. If successful, unpack the attributes and bind to variables
-            // Stack: [subject, result_tuple] -> [subject, attr1, attr2, ...]
-            if (argumentCount > 0)
+            // 6. Handle keyword arguments - CPython 3.12 approach
+            if (keywordArgs.Count > 0)
             {
-                EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, argumentCount);
-                
-                // Bind each argument to its corresponding variable (forward order to match CPython)
-                for (int i = 0; i < argumentCount; i++)
+                // Unpack the attribute values extracted by MATCH_CLASS
+                // Stack: [subject, result_tuple] -> [subject, attr1, attr2, ...]
+                EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, keywordArgs.Count);
+
+                // Process each keyword argument in forward order (CPython 3.12 compatible)
+                // UNPACK_SEQUENCE pushes items in reverse order, so we process forward to match CPython
+                for (int i = 0; i < keywordArgs.Count; i++)
                 {
-                    var arg = callExpr.Arguments[i];
-                    if (arg is NameExpression nameExpr)
+                    var kwExpr = keywordArgs[i];
+
+                    if (kwExpr.Value is NameExpression nameExpr && nameExpr.Name == kwExpr.Arg)
                     {
+                        // Case: Point(x=x, y=y) - capture pattern, store the value to variable
+                        // Stack: [subject, ..., attrValue] -> [subject, ...]
                         EmitStoreName(nameExpr.Name);
                     }
                     else
                     {
-                        // Non-name patterns not supported yet, just pop
-                        EmitInstruction(ByteCodeOp.POP_TOP);
+                        // Case: Point(x=0, y=0) - literal pattern, compare with expected value
+                        // Stack: [subject, ..., attrValue] -> [subject, ..., attrValue, expectedValue]
+                        CompileExpression(kwExpr.Value);
+
+                        // Stack: [subject, ..., attrValue, expectedValue] -> [subject, ..., comparisonResult]
+                        EmitInstruction(ByteCodeOp.COMPARE_OP, (int)CompareOp.EQ); // CPython 3.12: == is EQ(40)
+
+                        // Stack: [subject, ..., comparisonResult] -> [subject, ...]
+                        EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
                     }
                 }
             }
             else
             {
-                // No arguments, just pop the result
+                // No keyword arguments, just pop the result tuple
                 EmitInstruction(ByteCodeOp.POP_TOP);
             }
             
@@ -5765,7 +5815,7 @@ namespace SharpPy
             }
             
             // Load the function code object
-            EmitInstruction(ByteCodeOp.LOAD_CONST, AddConstant(functionCode));
+            EmitInstruction(ByteCodeOp.LOAD_CONST, GetOrAddConstant(functionCode));
             
             // CPython 3.12: MAKE_FUNCTION 플래그 동적 계산
             int flags = 0;
@@ -6135,22 +6185,6 @@ namespace SharpPy
             return index;
         }
         
-        private int GetOrAddConstant(PyObject constant)
-        {
-            // Use object reference equality for constants
-            for (int i = 0; i < _constants.Count; i++)
-            {
-                if (ReferenceEquals(_constants[i], constant) || 
-                    (constant is PyInt intConst && _constants[i] is PyInt existingInt && intConst.Value == existingInt.Value) ||
-                    (constant is PyString strConst && _constants[i] is PyString existingStr && strConst.Value == existingStr.Value))
-                {
-                    return i;
-                }
-            }
-            
-            _constants.Add(constant);
-            return _constants.Count - 1;
-        }
         
         #endregion
         
@@ -7199,7 +7233,53 @@ namespace SharpPy
             // Phase 2 테스트를 위해 TypeAware 레벨 사용
             return OptimizationLevel.TypeAware;
         }
-        
+
+        /// <summary>
+        /// CPython 3.12 호환: 간단한 상수 매칭인지 확인
+        /// </summary>
+        private bool IsSimpleConstantMatch(MatchStatement matchStmt)
+        {
+            // 2개 케이스: 상수 패턴 + wildcard 패턴, 가드 없음
+            return matchStmt.Cases.Count == 2 &&
+                   matchStmt.Cases[0].Pattern is ConstantExpression &&
+                   matchStmt.Cases[0].Guard == null &&
+                   matchStmt.Cases[1].Pattern is NameExpression name && name.Name == "_" &&
+                   matchStmt.Cases[1].Guard == null;
+        }
+
+        /// <summary>
+        /// CPython 3.12 방식: 간단한 상수 매칭 컴파일
+        /// </summary>
+        private void CompileSimpleConstantMatch(MatchStatement matchStmt)
+        {
+            // CPython 방식: subject 한 번만 로드, 상수와 직접 비교, 실패시 wildcard 케이스로
+            CompileExpression(matchStmt.Subject);
+
+            var constExpr = (ConstantExpression)matchStmt.Cases[0].Pattern;
+            CompileExpression(constExpr);
+            EmitComparison(CompareOp.EQ);
+
+            var wildcardLabel = CreateLabel($"match_wildcard_{_labelCounter++}");
+            EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, wildcardLabel);
+
+            // 첫 번째 케이스 (상수 매칭) 컴파일
+            foreach (var stmt in matchStmt.Cases[0].Body)
+            {
+                CompileStatement(stmt);
+            }
+            EmitInstruction(ByteCodeOp.RETURN_CONST, GetOrAddConstant(PyNone.Instance));
+
+            // wildcard 케이스 - CPython과 동일한 구조
+            PlaceLabel(wildcardLabel);
+            EmitInstruction(ByteCodeOp.NOP); // CPython 호환
+
+            foreach (var stmt in matchStmt.Cases[1].Body)
+            {
+                CompileStatement(stmt);
+            }
+            EmitInstruction(ByteCodeOp.RETURN_CONST, GetOrAddConstant(PyNone.Instance));
+        }
+
         #endregion
     }
 
