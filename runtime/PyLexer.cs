@@ -36,7 +36,7 @@ namespace SharpPy
             _source = source ?? throw new ArgumentNullException(nameof(source));
             _position = 0;
             _line = 1;
-            _column = 1;
+            _column = 0;  // CPython 3.12: 0-based column indexing
             
             // 들여쓰기 추적 초기화
             _indentStack = new Stack<int>();
@@ -141,7 +141,17 @@ namespace SharpPy
             }
 
             // ENDMARKER 토큰 추가 (CPython 3.12)
-            var eofToken = new PyToken(TokenType.ENDMARKER, "", _line, _column);
+            // CPython behavior: ENDMARKER goes to the next line if file doesn't end with newline
+            var endLine = _line;
+            var endColumn = 0;
+
+            // If file doesn't end with newline, CPython puts ENDMARKER on next line
+            if (_position > 0 && _source[_position - 1] != '\n')
+            {
+                endLine++;
+            }
+
+            var eofToken = new PyToken(TokenType.ENDMARKER, "", endLine, endColumn);
             tokens.Add(eofToken);
 
             if (debugOutput)
@@ -183,115 +193,129 @@ namespace SharpPy
                 // Single character tokens - CPython 3.12: bracket stack management
                 case '(':
                     _bracketStack.Push('(');
-                    return new PyToken(TokenType.LPAR, "(", line, column);
+                    return new PyToken(TokenType.OP, "(", line, column);
                 case ')':
                     if (_bracketStack.Count > 0 && _bracketStack.Peek() == '(')
                         _bracketStack.Pop();
-                    return new PyToken(TokenType.RPAR, ")", line, column);
+                    return new PyToken(TokenType.OP, ")", line, column);
                 case '[':
                     _bracketStack.Push('[');
-                    return new PyToken(TokenType.LSQB, "[", line, column);
+                    return new PyToken(TokenType.OP, "[", line, column);
                 case ']':
                     if (_bracketStack.Count > 0 && _bracketStack.Peek() == '[')
                         _bracketStack.Pop();
-                    return new PyToken(TokenType.RSQB, "]", line, column);
+                    return new PyToken(TokenType.OP, "]", line, column);
                 case '{':
                     _bracketStack.Push('{');
-                    return new PyToken(TokenType.LBRACE, "{", line, column);
+                    return new PyToken(TokenType.OP, "{", line, column);
                 case '}':
                     if (_bracketStack.Count > 0 && _bracketStack.Peek() == '{')
                         _bracketStack.Pop();
-                    return new PyToken(TokenType.RBRACE, "}", line, column);
-                case ',': return new PyToken(TokenType.COMMA, ",", line, column);
-                case '.': return new PyToken(TokenType.DOT, ".", line, column);
-                case ';': return new PyToken(TokenType.SEMI, ";", line, column);
+                    return new PyToken(TokenType.OP, "}", line, column);
+                case ',': return new PyToken(TokenType.OP, ",", line, column);
+                case '.':
+                    // CPython 3.12: Check for ellipsis (...)
+                    if (_position < _source.Length - 1 &&
+                        _source[_position] == '.' && _source[_position + 1] == '.')
+                    {
+                        Advance(); // consume second .
+                        Advance(); // consume third .
+                        return new PyToken(TokenType.OP, "...", line, column);
+                    }
+                    return new PyToken(TokenType.OP, ".", line, column);
+                case ';': return new PyToken(TokenType.OP, ";", line, column);
                 case '+':
-                    if (Match('=')) return new PyToken(TokenType.PLUSEQUAL, "+=", line, column);
-                    return new PyToken(TokenType.PLUS, "+", line, column);
+                    if (Match('=')) return new PyToken(TokenType.OP, "+=", line, column);
+                    return new PyToken(TokenType.OP, "+", line, column);
                 case '-':
-                    if (Match('=')) return new PyToken(TokenType.MINEQUAL, "-=", line, column);
-                    return new PyToken(TokenType.MINUS, "-", line, column);
+                    if (Match('=')) return new PyToken(TokenType.OP, "-=", line, column);
+                    if (Match('>')) return new PyToken(TokenType.OP, "->", line, column);
+                    return new PyToken(TokenType.OP, "-", line, column);
                 case '*':
                     if (Match('*'))
                     {
-                        if (Match('=')) return new PyToken(TokenType.DOUBLESTAREQUAL, "**=", line, column);
-                        return new PyToken(TokenType.DOUBLESTAR, "**", line, column);
+                        if (Match('=')) return new PyToken(TokenType.OP, "**=", line, column);
+                        return new PyToken(TokenType.OP, "**", line, column);
                     }
-                    if (Match('=')) return new PyToken(TokenType.STAREQUAL, "*=", line, column);
-                    return new PyToken(TokenType.STAR, "*", line, column);
+                    if (Match('=')) return new PyToken(TokenType.OP, "*=", line, column);
+                    return new PyToken(TokenType.OP, "*", line, column);
                 case '/':
                     if (Match('/'))
                     {
-                        if (Match('=')) return new PyToken(TokenType.DOUBLESLASHEQUAL, "//=", line, column);
-                        return new PyToken(TokenType.DOUBLESLASH, "//", line, column);
+                        if (Match('=')) return new PyToken(TokenType.OP, "//=", line, column);
+                        return new PyToken(TokenType.OP, "//", line, column);
                     }
-                    if (Match('=')) return new PyToken(TokenType.SLASHEQUAL, "/=", line, column);
-                    return new PyToken(TokenType.SLASH, "/", line, column);
+                    if (Match('=')) return new PyToken(TokenType.OP, "/=", line, column);
+                    return new PyToken(TokenType.OP, "/", line, column);
                 case '%':
-                    if (Match('=')) return new PyToken(TokenType.PERCENTEQUAL, "%=", line, column);
-                    return new PyToken(TokenType.PERCENT, "%", line, column);
+                    if (Match('=')) return new PyToken(TokenType.OP, "%=", line, column);
+                    return new PyToken(TokenType.OP, "%", line, column);
                 case '&':
-                    if (Match('=')) return new PyToken(TokenType.AMPEREQUAL, "&=", line, column);
-                    return new PyToken(TokenType.AMPER, "&", line, column);
+                    if (Match('=')) return new PyToken(TokenType.OP, "&=", line, column);
+                    return new PyToken(TokenType.OP, "&", line, column);
                 case '|':
-                    if (Match('=')) return new PyToken(TokenType.VBAREQUAL, "|=", line, column);
-                    return new PyToken(TokenType.VBAR, "|", line, column);
+                    if (Match('=')) return new PyToken(TokenType.OP, "|=", line, column);
+                    return new PyToken(TokenType.OP, "|", line, column);
                 case '^':
-                    if (Match('=')) return new PyToken(TokenType.CIRCUMFLEXEQUAL, "^=", line, column);
-                    return new PyToken(TokenType.CIRCUMFLEX, "^", line, column);
-                case '~': return new PyToken(TokenType.TILDE, "~", line, column);
+                    if (Match('=')) return new PyToken(TokenType.OP, "^=", line, column);
+                    return new PyToken(TokenType.OP, "^", line, column);
+                case '~': return new PyToken(TokenType.OP, "~", line, column);
 
                 // Comparison operators
                 case '<':
                     if (Match('<'))
                     {
-                        if (Match('=')) return new PyToken(TokenType.LEFTSHIFTEQUAL, "<<=", line, column);
-                        return new PyToken(TokenType.LEFTSHIFT, "<<", line, column);
+                        if (Match('=')) return new PyToken(TokenType.OP, "<<=", line, column);
+                        return new PyToken(TokenType.OP, "<<", line, column);
                     }
-                    if (Match('=')) return new PyToken(TokenType.LESSEQUAL, "<=", line, column);
-                    return new PyToken(TokenType.LESS, "<", line, column);
+                    if (Match('=')) return new PyToken(TokenType.OP, "<=", line, column);
+                    return new PyToken(TokenType.OP, "<", line, column);
 
                 case '>':
                     if (Match('>'))
                     {
-                        if (Match('=')) return new PyToken(TokenType.RIGHTSHIFTEQUAL, ">>=", line, column);
-                        return new PyToken(TokenType.RIGHTSHIFT, ">>", line, column);
+                        if (Match('=')) return new PyToken(TokenType.OP, ">>=", line, column);
+                        return new PyToken(TokenType.OP, ">>", line, column);
                     }
-                    if (Match('=')) return new PyToken(TokenType.GREATEREQUAL, ">=", line, column);
-                    return new PyToken(TokenType.GREATER, ">", line, column);
+                    if (Match('=')) return new PyToken(TokenType.OP, ">=", line, column);
+                    return new PyToken(TokenType.OP, ">", line, column);
 
                 case '=':
-                    if (Match('=')) return new PyToken(TokenType.EQEQUAL, "==", line, column);
-                    return new PyToken(TokenType.EQUAL, "=", line, column);
+                    if (Match('=')) return new PyToken(TokenType.OP, "==", line, column);
+                    return new PyToken(TokenType.OP, "=", line, column);
 
                 case '!':
-                    if (Match('=')) return new PyToken(TokenType.NOTEQUAL, "!=", line, column);
-                    return new PyToken(TokenType.EXCLAMATION, "!", line, column);
+                    if (Match('=')) return new PyToken(TokenType.OP, "!=", line, column);
+                    return new PyToken(TokenType.OP, "!", line, column);
 
                 case ':':
-                    if (Match('=')) return new PyToken(TokenType.COLONEQUAL, ":=", line, column);
-                    return new PyToken(TokenType.COLON, ":", line, column);
+                    if (Match('=')) return new PyToken(TokenType.OP, ":=", line, column);
+                    return new PyToken(TokenType.OP, ":", line, column);
 
                 case '@':
-                    if (Match('=')) return new PyToken(TokenType.ATEQUAL, "@=", line, column);
-                    return new PyToken(TokenType.AT, "@", line, column);
+                    if (Match('=')) return new PyToken(TokenType.OP, "@=", line, column);
+                    return new PyToken(TokenType.OP, "@", line, column);
 
                 // Newline - CPython 3.12: NEWLINE vs NL distinction
                 case '\n':
-                    var savedLine = _line;
-                    var savedColumn = _column;
+                    // Use position before advancing, like other tokens
+                    var savedLine = line;
+                    var savedColumn = column;
                     _line++;
-                    _column = 1;
+                    _column = 0;  // CPython 3.12: 0-based column indexing
 
-                    // CPython 3.12: No tokens in implicit continuation lines
+                    // CPython 3.12: In implicit continuation, generate NL tokens for physical lines
+                    TokenType tokenType;
                     if (IsInImplicitContinuation)
                     {
-                        _atLineStart = true;
-                        return HandleIndentation() ?? NextToken() ?? new PyToken(TokenType.ENDMARKER, "", savedLine, savedColumn);
+                        // In multiline structures, always generate NL for physical line breaks
+                        tokenType = TokenType.NL;
                     }
-
-                    // CPython 3.12: NEWLINE for logical lines, NL for physical lines
-                    var tokenType = _lineHasTokens ? TokenType.NEWLINE : TokenType.NL;
+                    else
+                    {
+                        // NEWLINE for logical lines, NL for physical lines
+                        tokenType = _lineHasTokens ? TokenType.NEWLINE : TokenType.NL;
+                    }
                     _atLineStart = true;
                     _lineHasTokens = false; // 새 줄 시작
 
@@ -299,7 +323,7 @@ namespace SharpPy
 
                 // Comments
                 case '#':
-                    return ScanComment();
+                    return ScanComment(line, column);
 
                 // Strings
                 case '"':
@@ -336,7 +360,7 @@ namespace SharpPy
         private PyToken ScanString(char quote)
         {
             var line = _line;
-            var column = _column - 1;
+            var column = _column - 1;  // CPython 3.12: 토큰 시작 위치 (첫 quote 소비 전)
             var pos = _position - 1; // Current position is at opening quote
             
             // Check for triple quotes
@@ -358,7 +382,7 @@ namespace SharpPy
                 if (Peek() == '\n')
                 {
                     _line++;
-                    _column = 1;
+                    _column = 0;  // CPython 3.12: 0-based column indexing
                 }
                 else if (Peek() == '\\')
                 {
@@ -393,7 +417,9 @@ namespace SharpPy
             // Consume closing quote
             Advance();
 
-            return new PyToken(TokenType.STRING, stringValue.ToString(), line, column);
+            // CPython 3.12: Include quotes in the token lexeme
+            var fullString = quote + stringValue.ToString() + quote;
+            return new PyToken(TokenType.STRING, fullString, line, column);
         }
 
         /// <summary>
@@ -406,7 +432,7 @@ namespace SharpPy
         private PyToken ScanNumber()
         {
             var line = _line;
-            var column = _column - 1;
+            var column = _column - 1;  // CPython 3.12: 토큰 시작 위치 (첫 숫자 소비 전)
             var start = _position - 1;
             var firstChar = _source[start];
             
@@ -521,7 +547,7 @@ namespace SharpPy
         private PyToken ScanIdentifier()
         {
             var line = _line;
-            var column = _column - 1;
+            var column = _column - 1;  // CPython 3.12: 토큰 시작 위치 (첫 문자 소비 전)
             var start = _position - 1;
 
             while (IsAlphaNumeric(Peek())) Advance();
@@ -585,13 +611,14 @@ namespace SharpPy
             }
         }
 
-        private PyToken ScanComment()
+        private PyToken ScanComment(int line, int column)
         {
-            var line = _line;
-            var column = _column;
 
             // '#' 문자부터 줄 끝까지 모든 내용을 주석으로 처리
+            // CPython 3.12: 주석 토큰은 '#' 문자를 포함해야 함
             var comment = new StringBuilder();
+            comment.Append('#'); // # 문자 포함 (이미 NextToken에서 확인했지만 토큰에 포함해야 함)
+
             while (!IsAtEnd() && Peek() != '\n')
             {
                 comment.Append(Advance());
@@ -613,7 +640,7 @@ namespace SharpPy
         private PyToken? ScanPossibleString()
         {
             var line = _line;
-            var column = _column - 1;
+            var column = _column;
             var startPos = _position - 1;
             
             // Collect potential string prefixes
@@ -671,10 +698,10 @@ namespace SharpPy
             bool hasRaw = prefixes.Contains('r');
             bool hasFormat = prefixes.Contains('f');
 
-            if (hasFormat && !isTripleQuoted)
+            if (hasFormat)
             {
-                // CPython 3.12 방식: f-string을 여러 토큰으로 분할
-                return ScanFStringTokens(quote);
+                // CPython 3.12 방식: f-string을 여러 토큰으로 분할 (triple-quoted 포함)
+                return ScanFStringTokens(quote, isTripleQuoted);
             }
 
             var value = isTripleQuoted ?
@@ -704,6 +731,12 @@ namespace SharpPy
         private string ScanTripleQuotedString(char quote, bool hasRaw)
         {
             var value = new StringBuilder();
+
+            // CPython 3.12: Include opening triple quotes in token lexeme
+            value.Append(quote);
+            value.Append(quote);
+            value.Append(quote);
+
             const int quoteSize = 3; // We know it's triple quotes
             int endQuoteSize = 0; // Track matching closing quotes
             
@@ -714,8 +747,9 @@ namespace SharpPy
                 if (ch == quote)
                 {
                     endQuoteSize++;
-                    Advance();
-                    
+                    ch = Advance();
+                    value.Append(ch);
+
                     // Check if we have enough closing quotes
                     if (endQuoteSize == quoteSize)
                     {
@@ -740,7 +774,7 @@ namespace SharpPy
                     if (ch == '\n')
                     {
                         _line++;
-                        _column = 1;
+                        _column = 0;  // CPython 3.12: 0-based column indexing
                     }
                     
                     value.Append(ch);
@@ -753,13 +787,17 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12 호환: f-string을 FSTRING_START, FSTRING_MIDDLE, FSTRING_END 토큰으로 분할
         /// </summary>
-        private PyToken ScanFStringTokens(char quote)
+        private PyToken ScanFStringTokens(char quote, bool isTripleQuoted)
         {
             var startLine = _line;
             var startColumn = _column;
 
-            // f" 또는 f' 부분을 FSTRING_START로 생성 (f 프리픽스는 이미 소비됨)
-            var prefix = "f" + quote;
+#if DEBUG
+            Console.WriteLine($"[DEBUG] ScanFStringTokens called: quote='{quote}', isTripleQuoted={isTripleQuoted}");
+#endif
+
+            // f" 또는 f""" 부분을 FSTRING_START로 생성
+            var prefix = isTripleQuoted ? $"f{quote}{quote}{quote}" : $"f{quote}";
             var fstringStart = new PyToken(TokenType.FSTRING_START, prefix, startLine, startColumn - 1); // f까지 포함
 
 #if DEBUG
@@ -775,8 +813,8 @@ namespace SharpPy
             var textStartLine = _line;
             var textStartColumn = _column;
 
-            // f-string 내부 파싱
-            while (!IsAtEnd() && Peek() != quote)
+            // f-string 내부 파싱 (triple-quoted 고려)
+            while (!IsAtEnd() && !IsEndOfFString(quote, isTripleQuoted))
             {
                 char c = Peek();
 #if DEBUG
@@ -793,29 +831,96 @@ namespace SharpPy
                     }
 
                     // { 토큰 추가 (CPython은 LBRACE=25가 아닌 OP=55 사용)
-                    tokens.Add(new PyToken(TokenType.LBRACE, "{", _line, _column));
+                    tokens.Add(new PyToken(TokenType.OP, "{", _line, _column));
                     Advance();
 
-                    // {} 내부의 표현식을 파싱
+                    // {} 내부의 표현식을 재귀적으로 토큰화
+                    var exprStartPos = _position;
                     var exprStartLine = _line;
                     var exprStartColumn = _column;
                     var expr = new StringBuilder();
 
+                    // 표현식과 포맷 지시자 분리
+                    var formatSpecStart = -1;
+                    var braceDepth = 0;
+                    var parenDepth = 0;
+                    var bracketDepth = 0;
+                    var exprContent = new StringBuilder();
+
+                    // 표현식 부분과 포맷 지시자 부분 구분
                     while (!IsAtEnd() && Peek() != '}')
                     {
-                        expr.Append(Advance());
+                        var ch = Peek();
+                        if (ch == '{') braceDepth++;
+                        else if (ch == '}') braceDepth--;
+                        else if (ch == '(') parenDepth++;
+                        else if (ch == ')') parenDepth--;
+                        else if (ch == '[') bracketDepth++;
+                        else if (ch == ']') bracketDepth--;
+                        else if (ch == ':' && braceDepth == 0 && parenDepth == 0 && bracketDepth == 0 && formatSpecStart == -1)
+                        {
+                            formatSpecStart = exprContent.Length;
+                        }
+                        exprContent.Append(Advance());
                     }
 
-                    if (expr.Length > 0)
+                    if (exprContent.Length > 0)
                     {
-                        // 식별자를 NAME 토큰으로 추가
-                        tokens.Add(new PyToken(TokenType.NAME, expr.ToString(), exprStartLine, exprStartColumn));
+                        string exprPart, formatPart = null;
+
+                        if (formatSpecStart >= 0)
+                        {
+                            // 표현식과 포맷 지시자 분리
+                            exprPart = exprContent.ToString().Substring(0, formatSpecStart);
+                            formatPart = exprContent.ToString().Substring(formatSpecStart + 1); // ':' 제외
+                        }
+                        else
+                        {
+                            exprPart = exprContent.ToString();
+                        }
+
+                        // 표현식 부분 토큰화
+                        if (!string.IsNullOrEmpty(exprPart))
+                        {
+                            var exprLexer = new PyLexer(exprPart);
+                            var exprTokens = exprLexer.Tokenize();
+
+                            foreach (var token in exprTokens)
+                            {
+                                if (token.Type != TokenType.ENDMARKER &&
+                                    !(token.Type == TokenType.NEWLINE && string.IsNullOrEmpty(token.Lexeme)))
+                                {
+                                    var adjustedToken = new PyToken(
+                                        token.Type,
+                                        token.Lexeme,
+                                        exprStartLine + token.Line - 1,
+                                        exprStartColumn + token.Column
+                                    );
+                                    tokens.Add(adjustedToken);
+                                }
+                            }
+                        }
+
+                        // 포맷 지시자가 있으면 `:` 토큰과 FSTRING_MIDDLE 토큰 추가
+                        if (formatPart != null)
+                        {
+                            // ':' 토큰 추가
+                            tokens.Add(new PyToken(TokenType.OP, ":", exprStartLine,
+                                exprStartColumn + exprPart.Length));
+
+                            // 포맷 지시자를 FSTRING_MIDDLE로 추가 (CPython 방식)
+                            if (!string.IsNullOrEmpty(formatPart))
+                            {
+                                tokens.Add(new PyToken(TokenType.FSTRING_MIDDLE, formatPart, exprStartLine,
+                                    exprStartColumn + exprPart.Length + 1));
+                            }
+                        }
                     }
 
                     // } 토큰 추가
                     if (!IsAtEnd() && Peek() == '}')
                     {
-                        tokens.Add(new PyToken(TokenType.RBRACE, "}", _line, _column));
+                        tokens.Add(new PyToken(TokenType.OP, "}", _line, _column));
                         Advance();
                     }
 
@@ -841,11 +946,26 @@ namespace SharpPy
                 tokens.Add(new PyToken(TokenType.FSTRING_MIDDLE, currentText.ToString(), textStartLine, textStartColumn));
             }
 
-            // 마지막 인용부호를 FSTRING_END로 추가
-            if (!IsAtEnd() && Peek() == quote)
+            // 마지막 인용부호를 FSTRING_END로 추가 (triple-quoted 고려)
+            if (!IsAtEnd() && IsEndOfFString(quote, isTripleQuoted))
             {
-                tokens.Add(new PyToken(TokenType.FSTRING_END, quote.ToString(), _line, _column));
-                Advance();
+                var endToken = isTripleQuoted ? $"{quote}{quote}{quote}" : quote.ToString();
+#if DEBUG
+                Console.WriteLine($"[DEBUG] Creating FSTRING_END: isTripleQuoted={isTripleQuoted}, endToken='{endToken}'");
+#endif
+                tokens.Add(new PyToken(TokenType.FSTRING_END, endToken, _line, _column));
+
+                // 종료 인용부호들 소비
+                if (isTripleQuoted)
+                {
+                    Advance(); // 첫 번째 quote
+                    Advance(); // 두 번째 quote
+                    Advance(); // 세 번째 quote
+                }
+                else
+                {
+                    Advance(); // single quote
+                }
             }
 
             // 첫 번째 토큰을 제외한 나머지는 pending tokens에 추가
@@ -952,7 +1072,7 @@ namespace SharpPy
                 if (c == '\n')
                 {
                     _line++;
-                    _column = 1;
+                    _column = 0;  // CPython 3.12: 0-based column indexing
                 }
                 
                 value.Append(Advance());
@@ -1142,6 +1262,24 @@ namespace SharpPy
                 '0' => '\0',  // null
                 _ => escaped  // literal character
             };
+        }
+
+        /// <summary>
+        /// f-string 종료 조건 확인 (triple-quoted 고려)
+        /// </summary>
+        private bool IsEndOfFString(char quote, bool isTripleQuoted)
+        {
+            if (isTripleQuoted)
+            {
+                return _position + 2 <= _source.Length &&
+                       _position < _source.Length && _source[_position] == quote &&
+                       _position + 1 < _source.Length && _source[_position + 1] == quote &&
+                       _position + 2 < _source.Length && _source[_position + 2] == quote;
+            }
+            else
+            {
+                return Peek() == quote;
+            }
         }
     }
 
