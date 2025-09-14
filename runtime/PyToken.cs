@@ -5,12 +5,12 @@ namespace SharpPy
     #region Token System
 
     /// <summary>
-    /// CPython 3.12 compatible token type definitions
-    /// Auto-generated equivalent to CPython's Include/internal/pycore_token.h
+    /// CPython 3.12 compatible token type definitions - Unified OP Token System
+    /// All operators and delimiters are represented as OP tokens with lexeme-based identification
     /// </summary>
     public enum TokenType
     {
-        // Basic tokens (0-26)
+        // Core tokens - CPython 3.12 standard
         ENDMARKER = 0,
         NAME = 1,
         NUMBER = 2,
@@ -18,69 +18,30 @@ namespace SharpPy
         NEWLINE = 4,
         INDENT = 5,
         DEDENT = 6,
-        LPAR = 7,           // (
-        RPAR = 8,           // )
-        LSQB = 9,           // [
-        RSQB = 10,          // ]
-        COLON = 11,         // :
-        COMMA = 12,         // ,
-        SEMI = 13,          // ;
-        PLUS = 14,          // +
-        MINUS = 15,         // -
-        STAR = 16,          // *
-        SLASH = 17,         // /
-        VBAR = 18,          // |
-        AMPER = 19,         // &
-        LESS = 20,          // <
-        GREATER = 21,       // >
-        EQUAL = 22,         // =
-        DOT = 23,           // .
-        PERCENT = 24,       // %
-        LBRACE = 25,        // {
-        RBRACE = 26,        // }
 
-        // Comparison and assignment operators (27-46)
-        EQEQUAL = 27,       // ==
-        NOTEQUAL = 28,      // !=
-        LESSEQUAL = 29,     // <=
-        GREATEREQUAL = 30,  // >=
-        TILDE = 31,         // ~
-        CIRCUMFLEX = 32,    // ^
-        LEFTSHIFT = 33,     // <<
-        RIGHTSHIFT = 34,    // >>
-        DOUBLESTAR = 35,    // **
-        PLUSEQUAL = 36,     // +=
-        MINEQUAL = 37,      // -=
-        STAREQUAL = 38,     // *=
-        SLASHEQUAL = 39,    // /=
-        PERCENTEQUAL = 40,  // %=
-        AMPEREQUAL = 41,    // &=
-        VBAREQUAL = 42,     // |=
-        CIRCUMFLEXEQUAL = 43, // ^=
-        LEFTSHIFTEQUAL = 44,  // <<=
-        RIGHTSHIFTEQUAL = 45, // >>=
-        DOUBLESTAREQUAL = 46, // **=
-
-        // Additional operators and special tokens (47-63)
-        DOUBLESLASH = 47,   // //
-        DOUBLESLASHEQUAL = 48, // //=
-        AT = 49,            // @
-        ATEQUAL = 50,       // @=
-        RARROW = 51,        // ->
-        ELLIPSIS = 52,      // ...
-        COLONEQUAL = 53,    // :=
-        EXCLAMATION = 54,   // !
+        // Unified operator token - CPython 3.12 style
+        // All operators, delimiters, brackets are OP tokens identified by lexeme:
+        // Operators: +, -, *, /, //, **, %, &, |, ^, <<, >>, ~, @
+        // Comparisons: ==, !=, <, <=, >, >=
+        // Assignments: =, :=, +=, -=, *=, /=, //=, %=, **=, &=, |=, ^=, <<=, >>=, @=
+        // Delimiters: (, ), [, ], {, }, :, ,, ;, ., ->, ..., !
         OP = 55,
+
+        // Python 3.12 async/await support
         AWAIT = 56,
         ASYNC = 57,
+
+        // Type system support
         TYPE_IGNORE = 58,
         TYPE_COMMENT = 59,
         SOFT_KEYWORD = 60,
+
+        // Enhanced F-strings (PEP 701)
         FSTRING_START = 61,
         FSTRING_MIDDLE = 62,
         FSTRING_END = 63,
 
-        // Additional tokens for tokenize module compatibility
+        // Tokenize module compatibility
         COMMENT = 64,
         NL = 65,           // Non-logical newline
         ERRORTOKEN = 66,
@@ -90,16 +51,15 @@ namespace SharpPy
         // Special constants
         NT_OFFSET = 256,
 
-        // Python keywords (handled as NAME tokens with special lexeme values)
-        // These will be identified by lexeme content, not separate token types
+        // Python keywords are handled as NAME tokens with specific lexeme values:
         // Keywords: and, as, assert, async, await, break, case, class, continue,
         //          def, del, elif, else, except, False, finally, for, from,
         //          global, if, import, in, is, lambda, match, None, nonlocal,
         //          not, or, pass, raise, return, True, try, type, while, with, yield
 
-        // Compound operators (handled as combinations)
-        // NOT_IN => parsed as NOT + IN
-        // IS_NOT => parsed as IS + NOT
+        // Compound operators are handled as separate OP tokens:
+        // NOT_IN => parsed as OP("not") + OP("in")
+        // IS_NOT => parsed as OP("is") + OP("not")
     }
 
     /// <summary>
@@ -169,47 +129,80 @@ namespace SharpPy
             return KeywordLexemes.Contains(lexeme);
         }
 
+        /// <summary>
+        /// CPython 3.12: Check if token is an operator (all operators are OP tokens)
+        /// </summary>
         public bool IsOperator()
         {
-            return Type >= TokenType.PLUS && Type <= TokenType.DOUBLESTAREQUAL ||
-                   Type == TokenType.DOUBLESLASH || Type == TokenType.DOUBLESLASHEQUAL ||
-                   Type == TokenType.AT || Type == TokenType.ATEQUAL ||
-                   Type == TokenType.RARROW || Type == TokenType.COLONEQUAL ||
-                   Type == TokenType.EXCLAMATION;
+            return Type == TokenType.OP;
         }
 
+        /// <summary>
+        /// CPython 3.12: Check if OP token is a binary operator
+        /// </summary>
         public bool IsBinaryOperator()
         {
-            return Type == TokenType.PLUS || Type == TokenType.MINUS ||
-                   Type == TokenType.STAR || Type == TokenType.SLASH ||
-                   Type == TokenType.DOUBLESLASH || Type == TokenType.DOUBLESTAR ||
-                   Type == TokenType.PERCENT || Type == TokenType.AMPER ||
-                   Type == TokenType.VBAR || Type == TokenType.CIRCUMFLEX ||
-                   Type == TokenType.LEFTSHIFT || Type == TokenType.RIGHTSHIFT;
+            if (Type != TokenType.OP) return false;
+            return Lexeme switch
+            {
+                "+" or "-" or "*" or "/" or "//" or "**" or "%" or
+                "&" or "|" or "^" or "<<" or ">>" => true,
+                _ => false
+            };
         }
 
+        /// <summary>
+        /// CPython 3.12: Check if token is a comparison operator
+        /// </summary>
         public bool IsComparisonOperator()
         {
-            return Type == TokenType.EQEQUAL || Type == TokenType.NOTEQUAL ||
-                   Type == TokenType.LESS || Type == TokenType.LESSEQUAL ||
-                   Type == TokenType.GREATER || Type == TokenType.GREATEREQUAL ||
-                   (Type == TokenType.NAME && (Lexeme == "is" || Lexeme == "in"));
+            if (Type == TokenType.OP)
+            {
+                return Lexeme switch
+                {
+                    "==" or "!=" or "<" or "<=" or ">" or ">=" => true,
+                    _ => false
+                };
+            }
+            return Type == TokenType.NAME && (Lexeme == "is" || Lexeme == "in" || Lexeme == "not");
         }
 
+        /// <summary>
+        /// CPython 3.12: Check if token is a unary operator
+        /// </summary>
         public bool IsUnaryOperator()
         {
-            return Type == TokenType.PLUS || Type == TokenType.MINUS ||
-                   Type == TokenType.TILDE || (Type == TokenType.NAME && Lexeme == "not");
+            if (Type == TokenType.OP)
+            {
+                return Lexeme switch
+                {
+                    "+" or "-" or "~" => true,
+                    _ => false
+                };
+            }
+            return Type == TokenType.NAME && Lexeme == "not";
         }
 
+        /// <summary>
+        /// CPython 3.12: Check if token is an assignment operator
+        /// </summary>
         public bool IsAssignmentOperator()
         {
-            return Type == TokenType.EQUAL || Type == TokenType.COLONEQUAL;
+            if (Type == TokenType.OP)
+            {
+                return Lexeme switch
+                {
+                    "=" or ":=" or "+=" or "-=" or "*=" or "/=" or "//=" or "%=" or
+                    "**=" or "&=" or "|=" or "^=" or "<<=" or ">>=" or "@=" => true,
+                    _ => false
+                };
+            }
+            return false;
         }
 
         /// <summary>
         /// 연산자 우선순위를 반환 (높을수록 우선순위가 높음)
-        /// CPython 3.12 compatible precedence
+        /// CPython 3.12 compatible precedence - OP token based
         /// </summary>
         public int GetPrecedence()
         {
@@ -226,30 +219,42 @@ namespace SharpPy
                 };
             }
 
-            return Type switch
+            // CPython 3.12: All operators are OP tokens, distinguished by lexeme
+            if (Type == TokenType.OP)
             {
-                TokenType.LESS or TokenType.LESSEQUAL or
-                TokenType.GREATER or TokenType.GREATEREQUAL or
-                TokenType.EQEQUAL or TokenType.NOTEQUAL => 4,
-                TokenType.VBAR => 5,
-                TokenType.CIRCUMFLEX => 6,
-                TokenType.AMPER => 7,
-                TokenType.LEFTSHIFT or TokenType.RIGHTSHIFT => 8,
-                TokenType.PLUS or TokenType.MINUS => 9,
-                TokenType.STAR or TokenType.SLASH or
-                TokenType.DOUBLESLASH or TokenType.PERCENT => 10,
-                TokenType.TILDE => 11,  // Unary operators
-                TokenType.DOUBLESTAR => 12,  // Exponentiation (right-associative)
-                _ => 0
-            };
+                return Lexeme switch
+                {
+                    // Comparison operators
+                    "<" or "<=" or ">" or ">=" or "==" or "!=" => 4,
+                    // Bitwise OR
+                    "|" => 5,
+                    // Bitwise XOR
+                    "^" => 6,
+                    // Bitwise AND
+                    "&" => 7,
+                    // Shifts
+                    "<<" or ">>" => 8,
+                    // Addition and subtraction
+                    "+" or "-" => 9,
+                    // Multiplication, division, modulo
+                    "*" or "/" or "//" or "%" => 10,
+                    // Unary operators
+                    "~" => 11,
+                    // Exponentiation (right-associative)
+                    "**" => 12,
+                    _ => 0
+                };
+            }
+
+            return 0; // Default precedence
         }
 
         /// <summary>
-        /// 오른쪽 결합 연산자인지 확인
+        /// CPython 3.12: 오른쪽 결합 연산자인지 확인 (OP token based)
         /// </summary>
         public bool IsRightAssociative()
         {
-            return Type == TokenType.DOUBLESTAR;  // ** is right-associative in Python
+            return Type == TokenType.OP && Lexeme == "**";  // ** is right-associative in Python
         }
     }
 
