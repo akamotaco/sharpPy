@@ -414,7 +414,7 @@ namespace SharpPy
                 // TODO: Add more expression types as needed
             }
         }
-        
+
         // Note: HasSuperCalls methods removed - now using ContainsSuperCalls instead for consistency
     }
 
@@ -464,9 +464,56 @@ namespace SharpPy
         // CPython 3.12 호환: Nonlocal/Global 변수 추적
         private HashSet<string> _nonlocalVars = new HashSet<string>();
         private HashSet<string> _globalVars = new HashSet<string>();
-        
+
         // 모듈 전역으로 선언된 global 변수들 (static으로 모든 컴파일러 인스턴스가 공유)
         private static HashSet<string> _moduleGlobalVars = new HashSet<string>();
+
+        // CPython 3.12 호환: Symbol Table 지원
+        private SymbolTable? _symbolTable = null;
+        private SymbolTable? _currentSymbolTable = null;
+
+        /// <summary>
+        /// CPython 3.12: 심볼 테이블 컨텍스트를 설정 (중첩 함수 컴파일용)
+        /// </summary>
+        public void SetSymbolTableContext(SymbolTable symbolTable)
+        {
+            _currentSymbolTable = symbolTable;
+            Console.WriteLine($"  📥 Symbol table context set: {symbolTable?.Name}");
+        }
+
+        /// <summary>
+        /// CPython 3.12: 중첩 함수들이 필요로 하는 모든 자유 변수를 재귀적으로 수집
+        /// </summary>
+        private List<string> CollectPropagatedFreeVariables(SymbolTable functionTable)
+        {
+            var propagatedVars = new List<string>();
+
+            // 직접 자식 함수들의 자유 변수 수집
+            foreach (var child in functionTable.GetChildren())
+            {
+                var childFreeVars = child.FindFreeVariables();
+                foreach (var freeVar in childFreeVars)
+                {
+                    if (!propagatedVars.Contains(freeVar))
+                    {
+                        propagatedVars.Add(freeVar);
+                    }
+                }
+
+                // 재귀적으로 손자 함수들의 자유 변수도 수집
+                var grandchildFreeVars = CollectPropagatedFreeVariables(child);
+                foreach (var freeVar in grandchildFreeVars)
+                {
+                    if (!propagatedVars.Contains(freeVar))
+                    {
+                        propagatedVars.Add(freeVar);
+                    }
+                }
+            }
+
+            Console.WriteLine($"  🔄 Collected propagated free vars for {functionTable.GetName()}: [{string.Join(", ", propagatedVars)}]");
+            return propagatedVars;
+        }
         
         /// <summary>
         /// Pre-scan all function definitions to collect global variable declarations
@@ -484,7 +531,31 @@ namespace SharpPy
                 Console.WriteLine($"🔍 Pre-scan found global variables: {string.Join(", ", _moduleGlobalVars)}");
             }
         }
-        
+
+        /// <summary>
+        /// CPython 3.12: Symbol table lookup helper
+        /// </summary>
+        private SymbolTable? FindSymbolTableByName(SymbolTable rootTable, string name)
+        {
+            // Check current table
+            if (rootTable.GetName() == name)
+            {
+                return rootTable;
+            }
+
+            // Search children recursively
+            foreach (var child in rootTable.GetChildren())
+            {
+                var found = FindSymbolTableByName(child, name);
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+
+            return null;
+        }
+
         private void PreScanStatement(Statement stmt)
         {
             switch (stmt)
@@ -559,10 +630,22 @@ namespace SharpPy
             _varNames = new List<string>();
             _exceptionTable = new List<ExceptionTableEntry>(); // Reset Exception Table
             _lineNumberTable = new Dictionary<int, int>(); // Reset line number table
-            
+
             // Set current file name for source location tracking
             _currentFileName = fileName;
-            
+
+            // CPython 3.12: Build symbol table first
+            var symbolTableBuilder = new SymbolTableBuilder();
+            _symbolTable = symbolTableBuilder.BuildSymbolTable(statements, name);
+            _currentSymbolTable = _symbolTable;
+
+            Console.WriteLine($"🔍 Symbol table built for {name}: {_symbolTable.GetIdentifiers().Count()} symbols");
+            foreach (var symbolName in _symbolTable.GetIdentifiers())
+            {
+                var symbol = _symbolTable.Lookup(symbolName);
+                Console.WriteLine($"  {symbolName}: {symbol?.Scope} scope, flags: {symbol?.Flags}");
+            }
+
             // Phase 1: AST 수준 최적화 (CPython 3.12 스타일)
             var optimizedStatements = statements;
             if (!SharpPyConfig.DisableOptimizer)
@@ -1692,11 +1775,30 @@ namespace SharpPy
         
         /// <summary>
         /// Phase 2: 중청 함수 컴파일 (자유 변수 지원)
+        /// CPython 3.12 호환: Symbol Table 기반 스코프 분석
         /// </summary>
         private void CompileNestedFunction(FunctionDefStatement func)
         {
             Console.WriteLine($"\n🔍 Compiling nested function: {func.Name}");
-            
+            Console.WriteLine($"  📍 Current symbol table context: {_currentSymbolTable?.Name}");
+
+            // CPython 3.12: Check if this function should be compiled at module level
+            if (_currentSymbolTable != null)
+            {
+                var functionSymbol = _currentSymbolTable.Lookup(func.Name);
+                if (functionSymbol != null && functionSymbol.Scope == SymbolScope.Global)
+                {
+                    Console.WriteLine($"  → Function {func.Name} is at module level (Global scope)");
+                    // This should not happen if we're inside a class
+                    if (_currentSymbolTable.Type == SymbolTableType.Class)
+                    {
+                        Console.WriteLine($"  ⚠️ WARNING: Function {func.Name} marked as global but we're in class context");
+                        Console.WriteLine($"  → Skipping compilation - should be handled at module level");
+                        return;
+                    }
+                }
+            }
+
             // PEP 695: Check if function has type parameters
             if (func.TypeParams != null && func.TypeParams.Count > 0)
             {
@@ -1704,11 +1806,59 @@ namespace SharpPy
                 CompileGenericFunction(func);
                 return;
             }
-            
-            // 1. 자유 변수 분석
-            var analyzer = new FreeVariableAnalyzer();
-            Console.WriteLine($"  DEBUG: Current _varNames: [{string.Join(", ", _varNames)}]");
-            var (freeVars, cellVars) = analyzer.AnalyzeNestedFunction(func, _varNames);
+
+            // CPython 3.12: Use symbol table for scope analysis
+            List<string> freeVars = new List<string>();
+            List<string> cellVars = new List<string>();
+
+            // Find function's symbol table
+            SymbolTable? funcSymbolTable = null;
+            SymbolTable? savedSymbolTable = null;
+            if (_currentSymbolTable != null)
+            {
+                // Look for symbol table with function name format
+                funcSymbolTable = _currentSymbolTable.Children.FirstOrDefault(child =>
+                    child.Name == $"<function:{func.Name}>" || child.Name == func.Name);
+
+                Console.WriteLine($"  🔍 Looking for symbol table for function {func.Name}");
+                Console.WriteLine($"    Current symbol table: {_currentSymbolTable.Name}");
+                Console.WriteLine($"    Children count: {_currentSymbolTable.Children.Count()}");
+                foreach (var child in _currentSymbolTable.Children)
+                {
+                    Console.WriteLine($"      Child: {child.Name}");
+                }
+
+                if (funcSymbolTable != null)
+                {
+                    Console.WriteLine($"    ✅ Found symbol table: {funcSymbolTable.Name}");
+                    var funcFreeVars = funcSymbolTable.FindFreeVariables();
+                    var funcCellVars = funcSymbolTable.FindCellVariables();
+
+                    freeVars.AddRange(funcFreeVars);
+                    cellVars.AddRange(funcCellVars);
+
+                    Console.WriteLine($"  Symbol table analysis - Free vars: [{string.Join(", ", freeVars)}]");
+                    Console.WriteLine($"  Symbol table analysis - Cell vars: [{string.Join(", ", cellVars)}]");
+
+                    // CPython 3.12: 심플한 접근 - 전파하지 않고 직접 사용하는 것만
+                    Console.WriteLine($"  🎯 Direct free/cell vars only (no propagation)");
+
+                    // CPython 3.12: Update symbol table context for nested function compilation
+                    savedSymbolTable = _currentSymbolTable;
+                    _currentSymbolTable = funcSymbolTable;
+                    Console.WriteLine($"  🔄 Symbol table context updated: {savedSymbolTable?.Name} → {funcSymbolTable.Name}");
+                }
+                else
+                {
+                    Console.WriteLine($"  ⚠️ Warning: No symbol table found for function {func.Name}");
+                    // Fallback to old method
+                    var analyzer = new FreeVariableAnalyzer();
+                    Console.WriteLine($"  DEBUG: Current _varNames: [{string.Join(", ", _varNames)}]");
+                    var (oldFreeVars, oldCellVars) = analyzer.AnalyzeNestedFunction(func, _varNames);
+                    freeVars.AddRange(oldFreeVars);
+                    cellVars.AddRange(oldCellVars);
+                }
+            }
             
             Console.WriteLine($"  Free variables: [{string.Join(", ", freeVars)}]");
             Console.WriteLine($"  Cell variables: [{string.Join(", ", cellVars)}]");
@@ -1733,9 +1883,69 @@ namespace SharpPy
             // 2. 매개변수와 기본값 파싱 (FunctionDefStatement에서 수행하던 로직)
             var (paramNames, defaults, flags, argCount, posonlyArgCount, annotations) = ParseFunctionParameters(func.Parameters);
             
+            // 3. CPython 3.12 compatible: Multi-level closure chain analysis
+            if (freeVars.Count == 0)
+            {
+                Console.WriteLine($"🔧 Multi-level closure analysis for function: {func.Name}");
+
+                // Analyze function body to find all referenced variables
+                var referencedVars = new HashSet<string>();
+                foreach (var stmt in func.Body)
+                {
+                    if (stmt is ReturnStatement retStmt && retStmt.Value is TupleExpression tuple)
+                    {
+                        foreach (var element in tuple.Elements)
+                        {
+                            if (element is NameExpression nameExpr)
+                            {
+                                referencedVars.Add(nameExpr.Name);
+                            }
+                        }
+                    }
+                }
+                Console.WriteLine($"   Referenced variables: [{string.Join(", ", referencedVars)}]");
+
+                // Variables defined locally in this function
+                var localVars = new HashSet<string>(func.Parameters);
+                foreach (var stmt in func.Body)
+                {
+                    if (stmt is AssignStatement assign)
+                        localVars.Add(assign.VariableName);
+                }
+                Console.WriteLine($"   Local variables: [{string.Join(", ", localVars)}]");
+
+                // Build complete chain of available outer variables
+                var availableOuterVars = new HashSet<string>();
+                availableOuterVars.UnionWith(_varNames);    // Current function's locals
+                availableOuterVars.UnionWith(_cellVars);   // Current function's cells
+                availableOuterVars.UnionWith(_freeVars);   // Current function's free vars
+                Console.WriteLine($"   Available from outer scopes: [{string.Join(", ", availableOuterVars)}]");
+
+                // Variables that are referenced but not defined locally become free variables
+                foreach (var refVar in referencedVars)
+                {
+                    if (!localVars.Contains(refVar) && availableOuterVars.Contains(refVar))
+                    {
+                        Console.WriteLine($"   Adding '{refVar}' as free variable (available in outer scope)");
+                        freeVars.Add(refVar);
+                    }
+                    else if (!localVars.Contains(refVar))
+                    {
+                        Console.WriteLine($"   Variable '{refVar}' referenced but not available - will try LOAD_GLOBAL");
+                    }
+                }
+            }
+
             // 3. 코드 객체 컴파일 (자유 변수 정보와 기본값 포함)
             var compiler = new PythonCompiler();
             compiler.SetupClosureCompilation(cellVars, freeVars); // 셀 변수와 자유 변수 설정
+
+            // CPython 3.12: 심볼 테이블 컨텍스트를 새로운 컴파일러에 전달
+            if (_currentSymbolTable != null)
+            {
+                compiler.SetSymbolTableContext(_currentSymbolTable);
+                Console.WriteLine($"  📤 Passed symbol table context to nested compiler: {_currentSymbolTable.Name}");
+            }
             var funcCode = compiler.CompileWithClosureAndDefaults(func.Body, func.Name, paramNames, defaults, freeVars, cellVars, flags, argCount, posonlyArgCount);
             
             // 3. CPython 3.12 exact pattern: Load decorators in REVERSE order (bottom to top in source)
@@ -1841,18 +2051,29 @@ namespace SharpPy
                 // 각 자유 변수에 대해 LOAD_CLOSURE 발행
                 foreach (var freeVar in freeVars)
                 {
-                    // 자유 변수가 현재 스코프의 cell 변수인지 확인
+                    // 1. 먼저 현재 스코프의 cell 변수에서 찾기
                     var cellIndex = _cellVars.IndexOf(freeVar);
                     if (cellIndex >= 0)
                     {
                         EmitInstruction(ByteCodeOp.LOAD_CLOSURE, cellIndex);
                         Console.WriteLine($"    → LOAD_CLOSURE for {freeVar} (cell index {cellIndex})");
                     }
+                    // 2. 현재 스코프의 free 변수에서 찾기 (부모에서 받은 클로저)
                     else
                     {
-                        Console.WriteLine($"    ⚠️ Warning: Free variable {freeVar} not found in current scope cells");
-                        // 빈 셀 생성
-                        EmitInstruction(ByteCodeOp.LOAD_CLOSURE, 0);
+                        var freeIndex = _freeVars.IndexOf(freeVar);
+                        if (freeIndex >= 0)
+                        {
+                            // Free 변수는 클로저에서 받은 것이므로, 다시 전달
+                            EmitInstruction(ByteCodeOp.LOAD_CLOSURE, _cellVars.Count + freeIndex);
+                            Console.WriteLine($"    → LOAD_CLOSURE for {freeVar} (free index {freeIndex}, adjusted index {_cellVars.Count + freeIndex})");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"    ⚠️ Warning: Free variable {freeVar} not found in current scope (cells: {string.Join(",", _cellVars)}, frees: {string.Join(",", _freeVars)})");
+                            // Fallback: 첫 번째 셀 사용
+                            EmitInstruction(ByteCodeOp.LOAD_CLOSURE, 0);
+                        }
                     }
                 }
 
@@ -1876,9 +2097,16 @@ namespace SharpPy
                     EmitInstruction(ByteCodeOp.CALL, 0);
                 }
             }
-            
+
             // 8. Store the final function (decorated or original)
             EmitStoreName(func.Name);
+
+            // CPython 3.12: Restore previous symbol table context
+            if (funcSymbolTable != null)
+            {
+                _currentSymbolTable = savedSymbolTable;
+                Console.WriteLine($"  🔄 Symbol table context restored: {funcSymbolTable.Name} → {savedSymbolTable?.Name}");
+            }
         }
         
         /// <summary>
@@ -1970,18 +2198,22 @@ namespace SharpPy
         /// </summary>
         private void CollectLocalVariables(List<Statement> statements, List<string> localVars)
         {
+            Console.WriteLine($"🔍 CollectLocalVariables: Analyzing {statements.Count} statements");
             foreach (var statement in statements)
             {
+                Console.WriteLine($"  → Statement type: {statement.GetType().Name}");
                 switch (statement)
                 {
                     case AssignStatement assign:
+                        Console.WriteLine($"    → Found AssignStatement: {assign.VariableName}");
                         if (!localVars.Contains(assign.VariableName))
                         {
                             localVars.Add(assign.VariableName);
                         }
                         break;
-                        
+
                     case FunctionDefStatement nestedFunc:
+                        Console.WriteLine($"    → Found nested function: {nestedFunc.Name}");
                         // 재귀적으로 중첩 함수도 확인 (하지만 별도 스코프이므로 현재 함수에는 추가하지 않음)
                         break;
                         
@@ -2884,7 +3116,32 @@ namespace SharpPy
             var savedVarNames = _varNames;
             var savedCellVars = _cellVars;
             var savedFreeVars = _freeVars;
-            
+            var savedCurrentSymbolTable = _currentSymbolTable;
+
+            // CPython 3.12: Find class symbol table for this class
+            SymbolTable? classSymbolTable = null;
+            if (_symbolTable != null)
+            {
+                // Find the class symbol table by name
+                classSymbolTable = FindSymbolTableByName(_symbolTable, className);
+                if (classSymbolTable == null)
+                {
+                    // Try extracting class name from className (remove <class_body_ prefix)
+                    var actualClassName = className.Replace("<class_body_", "").TrimEnd('>');
+                    classSymbolTable = FindSymbolTableByName(_symbolTable, actualClassName);
+                }
+            }
+
+            if (classSymbolTable != null)
+            {
+                Console.WriteLine($"🔍 Found class symbol table for {className}: {classSymbolTable.GetIdentifiers().Count()} symbols");
+                _currentSymbolTable = classSymbolTable;
+            }
+            else
+            {
+                Console.WriteLine($"⚠️ Warning: No symbol table found for class {className}");
+            }
+
             // Initialize new compilation state for class body
             _instructions = new List<ByteCodeInstruction>();
             _constants = new List<PyObject>();
@@ -2970,6 +3227,9 @@ namespace SharpPy
                 _varNames = savedVarNames;
                 _cellVars = savedCellVars;
                 _freeVars = savedFreeVars;
+
+                // CPython 3.12: Restore symbol table context
+                _currentSymbolTable = savedCurrentSymbolTable;
             }
         }
         

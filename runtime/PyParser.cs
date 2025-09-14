@@ -203,28 +203,24 @@ namespace SharpPy
         {
             return WithRecursionProtection("ParseStatement", () =>
             {
-                // CPython 3.12: Handle unexpected INDENT tokens that might be part of expressions
+                // CPython 3.12: INDENT/DEDENT should be handled by block parsers, not statement parsers
+                // If we encounter them here, it's a parsing error or misaligned context
                 if (Check(TokenType.INDENT))
                 {
-                    // This might be an INDENT that should be handled by the parent block parser
-                    // Don't consume it here, just return null to let the caller handle it
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
-                        Console.WriteLine("⚠️ Warning: Encountered INDENT in statement context - returning control to block parser");
+                        Console.WriteLine("⚠️ ParseStatement: Unexpected INDENT - should be handled by block parser");
                     }
-                    return null;
+                    return null; // Let block parser handle this
                 }
-                
-                // CPython 3.12: Handle unexpected DEDENT tokens gracefully
+
                 if (Check(TokenType.DEDENT))
                 {
-                    // This might be a DEDENT that should be handled by the parent block parser
-                    // Don't consume it here, just return null to let the caller handle it
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
-                        Console.WriteLine("⚠️ Warning: Encountered DEDENT in statement context - returning control to block parser");
+                        Console.WriteLine("⚠️ ParseStatement: Unexpected DEDENT - should be handled by block parser");
                     }
-                    return null;
+                    return null; // Let block parser handle this
                 }
                 
                 // CPython 3.12: Handle block-ending tokens gracefully
@@ -747,12 +743,21 @@ namespace SharpPy
                                     var nextToken = _tokens[nextTokenIndex];
                                     Console.WriteLine($"🔍 ParseBlock: Next meaningful token after DEDENT: {nextToken.Type} at {nextToken.Line}:{nextToken.Column}");
 
-                                    // If next meaningful token is DEF, continue parsing (class body continues)
-                                    if (nextToken.Type == TokenType.DEF)
+                                    // If next meaningful token is DEF, CLASS, or decorator (@), check indent level
+                                    if (nextToken.Type == TokenType.DEF || nextToken.Type == TokenType.CLASS || nextToken.Type == TokenType.AT)
                                     {
-                                        Console.WriteLine("🔍 ParseBlock: Found DEF after DEDENT - continuing class body parsing");
-                                        Advance(); // consume the DEDENT
-                                        continue; // continue to parse the next method
+                                        // Check if token is at module level (Column 1) or class level (indented)
+                                        if (nextToken.Column == 1)
+                                        {
+                                            Console.WriteLine($"🔍 ParseBlock: Found {nextToken.Type} at module level (Column {nextToken.Column}) - class body ended");
+                                            break; // Module level token - class body is done
+                                        }
+                                        else
+                                        {
+                                            Console.WriteLine($"🔍 ParseBlock: Found {nextToken.Type} at indented level (Column {nextToken.Column}) - continuing class body parsing");
+                                            Advance(); // consume the DEDENT
+                                            continue; // continue to parse the next method/class
+                                        }
                                     }
                                     // If next token is INDENT, look further to see if there's a DEF (method after empty lines)
                                     else if (nextToken.Type == TokenType.INDENT)
