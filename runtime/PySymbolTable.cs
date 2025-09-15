@@ -113,8 +113,8 @@ namespace SharpPy
             }
             symbol.Flags |= flags;
 
-            // If it's assigned locally, mark as local scope
-            if ((flags & SymbolFlags.Assigned) != 0)
+            // If it's assigned locally, mark as local scope (unless already classified as Cell or Global)
+            if ((flags & SymbolFlags.Assigned) != 0 && symbol.Scope != SymbolScope.Cell && !symbol.IsGlobal())
             {
                 symbol.Scope = SymbolScope.Local;
             }
@@ -412,27 +412,43 @@ namespace SharpPy
                 }
 
                 // This is a name that was referenced but not defined locally
-                // Look for it in enclosing scopes
-                var foundInParent = FindInEnclosingScope(table, symbol.Name);
-                if (foundInParent != null)
+                // Check if it's declared as global first
+                if (symbol.IsGlobal())
                 {
-                    // Mark as free variable (needs closure)
-                    symbol.Scope = SymbolScope.Free;
-
-                    // Mark the parent symbol as cell variable (needs to be captured)
-                    foundInParent.Scope = SymbolScope.Cell;
-
+                    // Variable explicitly declared as global - don't make it a free variable
+                    symbol.Scope = SymbolScope.Global;
 #if DEBUG_LOG
-                    Console.WriteLine($"      ↳ Marked as FREE (found in parent: {foundInParent.Name})");
+                    Console.WriteLine($"      ↳ Marked as GLOBAL (explicitly declared with 'global' statement)");
 #endif
                 }
                 else
                 {
-                    // Not found in any parent scope, assume global
-                    symbol.Scope = SymbolScope.Global;
+                    // Look for it in enclosing scopes
+                    var foundInParent = FindInEnclosingScope(table, symbol.Name);
+                    if (foundInParent != null)
+                    {
+                        // Mark as free variable (needs closure)
+                        symbol.Scope = SymbolScope.Free;
+
+                        // Mark the parent symbol as cell variable ONLY if it's assigned in that scope
+                        // CPython 3.12: Variables that are only used (not assigned) should not become Cell
+                        if (foundInParent.IsAssigned())
+                        {
+                            foundInParent.Scope = SymbolScope.Cell;
+                        }
+
 #if DEBUG_LOG
-                    Console.WriteLine($"      ↳ Marked as GLOBAL (not found in parents)");
+                        Console.WriteLine($"      ↳ Marked as FREE (found in parent: {foundInParent.Name})");
 #endif
+                    }
+                    else
+                    {
+                        // Not found in any parent scope, assume global
+                        symbol.Scope = SymbolScope.Global;
+#if DEBUG_LOG
+                        Console.WriteLine($"      ↳ Marked as GLOBAL (not found in parents)");
+#endif
+                    }
                 }
             }
         }
@@ -469,6 +485,16 @@ namespace SharpPy
 #if DEBUG_LOG
                     Console.WriteLine($"      ↳ Found {name} in enclosing scope {parent.GetName()}");
 #endif
+                    // CPython 3.12: If the symbol is declared as global in the parent scope,
+                    // it should not be treated as a free variable in the current scope
+                    if (symbol.IsGlobal())
+                    {
+#if DEBUG_LOG
+                        Console.WriteLine($"      ↳ Symbol {name} is marked as GLOBAL in parent scope - skipping");
+#endif
+                        parent = parent.GetParent();
+                        continue;
+                    }
                     return symbol;
                 }
                 parent = parent.GetParent();
@@ -530,6 +556,11 @@ namespace SharpPy
         {
 #if DEBUG_LOG
             Console.WriteLine($"🔄 Post-processing cell variables for scope: {table.GetName()}");
+            Console.WriteLine($"    Current symbols in {table.GetName()}:");
+            foreach (var kvp in table.GetSymbols())
+            {
+                Console.WriteLine($"      {kvp.Key}: Scope={kvp.Value.Scope}, Flags={kvp.Value.Flags}");
+            }
 #endif
 
             foreach (var child in table.GetChildren())
@@ -537,22 +568,68 @@ namespace SharpPy
                 // Skip class scopes for now - they have different rules
                 if (child.Type == SymbolTableType.Class) continue;
 
+#if DEBUG_LOG
+                Console.WriteLine($"    Checking child scope: {child.GetName()}");
+#endif
                 foreach (var childSymbol in child.GetSymbols().Values)
                 {
-                    // If child has a free variable, parent should have it as cell variable
-                    if (childSymbol.IsFree())
+#if DEBUG_LOG
+                    Console.WriteLine($"      Symbol {childSymbol.Name}: Scope={childSymbol.Scope}, IsFree={childSymbol.IsFree()}");
+#endif
+                    // If child has a free or cell variable, parent should have it as cell variable
+                    // BUT ONLY if the parent actually defines/owns this variable
+                    // CPython 3.12: Cell variables in child scopes also need parent cells
+                    if (childSymbol.IsFree() || childSymbol.Scope == SymbolScope.Cell)
                     {
                         var parentSymbol = table.Lookup(childSymbol.Name);
-                        if (parentSymbol != null && parentSymbol.IsAssigned())
+#if DEBUG_LOG
+                        Console.WriteLine($"        → Looking for {childSymbol.Name} in parent {table.GetName()}: found={parentSymbol != null}");
+                        if (parentSymbol != null)
+                        {
+                            Console.WriteLine($"          Parent scope: {parentSymbol.Scope}, Flags: {parentSymbol.Flags}");
+                        }
+#endif
+                        if (parentSymbol != null &&
+                            (parentSymbol.Scope == SymbolScope.Local || parentSymbol.Scope == SymbolScope.Cell) &&
+                            parentSymbol.IsAssigned())
                         {
 #if DEBUG_LOG
-                            Console.WriteLine($"    → Marking {childSymbol.Name} as CELL in {table.GetName()} (used as FREE in {child.GetName()})");
+                            Console.WriteLine($"    → ✅ Marking {childSymbol.Name} as CELL in {table.GetName()} (used as FREE in {child.GetName()})");
 #endif
                             parentSymbol.Scope = SymbolScope.Cell;
+                        }
+                        else if (parentSymbol != null &&
+                                 (parentSymbol.Scope == SymbolScope.Free ||
+                                  parentSymbol.Scope == SymbolScope.Unknown))
+                        {
+                            // Parent also treats this as Free/Unknown variable - don't change to Cell
+#if DEBUG_LOG
+                            Console.WriteLine($"    → ❌ Skipping {childSymbol.Name} - parent scope is {parentSymbol.Scope}, not owner");
+#endif
+                        }
+                        else if (parentSymbol != null)
+                        {
+#if DEBUG_LOG
+                            Console.WriteLine($"    → ⚠️ Checking {childSymbol.Name} - parent scope: {parentSymbol.Scope}, assigned: {parentSymbol.IsAssigned()}");
+#endif
+                        }
+                        else
+                        {
+#if DEBUG_LOG
+                            Console.WriteLine($"    → ❓ {childSymbol.Name} not found in parent {table.GetName()}");
+#endif
                         }
                     }
                 }
             }
+
+#if DEBUG_LOG
+            Console.WriteLine($"    Final symbols in {table.GetName()} after processing:");
+            foreach (var kvp in table.GetSymbols())
+            {
+                Console.WriteLine($"      {kvp.Key}: Scope={kvp.Value.Scope}, Flags={kvp.Value.Flags}");
+            }
+#endif
         }
 
         /// <summary>

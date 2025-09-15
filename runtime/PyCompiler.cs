@@ -21,6 +21,7 @@ namespace SharpPy
         private readonly HashSet<string> _definedVars = new HashSet<string>();
         private readonly HashSet<string> _usedVars = new HashSet<string>();
         private readonly HashSet<string> _parameters = new HashSet<string>();
+        private readonly HashSet<string> _globalVars = new HashSet<string>();
         
         /// <summary>
         /// Analyze function/lambda for free variables
@@ -30,6 +31,7 @@ namespace SharpPy
             _definedVars.Clear();
             _usedVars.Clear();
             _parameters.Clear();
+            _globalVars.Clear();
             
             // Parameters are always defined in local scope
             foreach (var param in parameters)
@@ -69,6 +71,7 @@ namespace SharpPy
             _definedVars.Clear();
             _usedVars.Clear();
             _parameters.Clear();
+            _globalVars.Clear();
             
             // Function parameters are defined locally
             foreach (var param in func.Parameters)
@@ -107,7 +110,9 @@ namespace SharpPy
             
             // Free variables: used but not defined locally AND exist in outer scope (CPython 3.12 방식)
             // Only variables that exist in the outer scope can be free variables
+            // Exclude global variables - they should use LOAD_GLOBAL, not LOAD_DEREF
             var freeVars = _usedVars.Except(_definedVars)
+                                   .Except(_globalVars)  // CPython 3.12: global 변수는 자유 변수가 아님
                                    .Where(var => outerVarNames.Contains(var))
                                    .ToList();
             
@@ -231,7 +236,16 @@ namespace SharpPy
                         // _definedVars에는 추가하지 않음 (외부 스코프에 정의되어 있음)
                     }
                     break;
-                    
+
+                case GlobalStatement globalStmt:
+                    // CPython 3.12: global 변수는 전역 스코프에서 참조함
+                    // 자유 변수로 분류되지 않도록 global 변수로 추적
+                    foreach (var name in globalStmt.Names)
+                    {
+                        _globalVars.Add(name);
+                    }
+                    break;
+
                 // TODO: 다른 statement 타입들 추가 가능
             }
         }
@@ -525,20 +539,46 @@ namespace SharpPy
             {
                 // 자식 함수의 자유 변수들 중 현재 함수에서 정의된 것들만 (현재 함수가 제공할 수 있는 변수들)
                 var childFreeVars = child.FindFreeVariables();
+#if DEBUG_LOG
+                Console.WriteLine($"    🔍 Checking child {child.GetName()} free vars: [{string.Join(", ", childFreeVars)}]");
+#endif
                 foreach (var freeVar in childFreeVars)
                 {
-                    // 현재 함수에서 정의되었고(currentLocalVars에 있고), 아직 nestedVars에 없는 경우만 추가
-                    if (currentLocalVars.Contains(freeVar) && !nestedVars.Contains(freeVar))
+                    // 현재 함수에서 실제로 할당/정의된 변수인지 Symbol Table에서 확인
+                    var symbol = table.Lookup(freeVar);
+#if DEBUG_LOG
+                    Console.WriteLine($"      → Checking {freeVar} in {table.GetName()}: found={symbol != null}");
+                    if (symbol != null)
+                    {
+                        Console.WriteLine($"        Symbol scope: {symbol.Scope}, assigned: {symbol.IsAssigned()}, flags: {symbol.Flags}");
+                    }
+#endif
+                    if (symbol != null && symbol.IsAssigned() &&
+                        (symbol.Scope == SymbolScope.Local || symbol.Scope == SymbolScope.Cell) &&
+                        !nestedVars.Contains(freeVar))
                     {
                         nestedVars.Add(freeVar);
 #if DEBUG_LOG
-                        Console.WriteLine($"    → Found nested free var: {freeVar} (from {child.GetName()}) - available in current scope");
+                        Console.WriteLine($"    → ✅ Found nested free var: {freeVar} (from {child.GetName()}) - assigned in current scope");
+#endif
+                    }
+                    else if (symbol != null)
+                    {
+#if DEBUG_LOG
+                        Console.WriteLine($"    → ❌ Skipping {freeVar} - scope: {symbol.Scope}, assigned: {symbol.IsAssigned()} - not owner");
+#endif
+                    }
+                    else
+                    {
+#if DEBUG_LOG
+                        Console.WriteLine($"    → ❓ {freeVar} not found in {table.GetName()}");
 #endif
                     }
                 }
 
-                // 재귀적으로 손자 함수들도 확인
-                CollectNestedFreeVariablesRecursive(child, currentLocalVars, nestedVars);
+                // 재귀적으로 손자 함수들도 확인 (단, 직접 할당된 변수만)
+                // NOTE: 손자의 자유변수를 현재 함수에서 수집하지 않음 - 중간 함수가 제공해야 함
+                // CollectNestedFreeVariablesRecursive(child, currentLocalVars, nestedVars);
             }
         }
         
@@ -2464,13 +2504,22 @@ namespace SharpPy
                     foreach (var freeVar in freeVars)
                     {
                         allFreeVars.Add(freeVar);
-                        
-                        // 이 변수가 현재 함수의 매개변수이거나 지역변수이면 Cell로 만들어야 함
-                        if ((parameters.Contains(freeVar) || _varNames.Contains(freeVar)) && !cellVars.Contains(freeVar))
+
+                        // 현재 함수에서 실제로 할당/정의된 변수인지 Symbol Table에서 확인
+                        var symbol = _currentSymbolTable?.Lookup(freeVar);
+                        if (symbol != null && symbol.IsAssigned() &&
+                            (symbol.Scope == SymbolScope.Local || symbol.Scope == SymbolScope.Cell) &&
+                            !cellVars.Contains(freeVar))
                         {
                             cellVars.Add(freeVar);
                             #if DEBUG_LOG
-                            Console.WriteLine($"🔍 Variable '{freeVar}' needs cell (referenced by nested function '{nestedFunc.Name}')");
+                            Console.WriteLine($"🔍 Variable '{freeVar}' needs cell (referenced by nested function '{nestedFunc.Name}') - assigned in current scope");
+                            #endif
+                        }
+                        else if (symbol != null)
+                        {
+                            #if DEBUG_LOG
+                            Console.WriteLine($"🔍 Skipping '{freeVar}' - scope: {symbol.Scope}, assigned: {symbol.IsAssigned()} - not owner");
                             #endif
                         }
                     }
@@ -2621,8 +2670,73 @@ namespace SharpPy
         private void EmitLoadName(string name)
         {
             // Phase 2: 클로저 지원 - 자유 변수 처리 개선
-            
-            // 0. CPython 3.12: global 변수를 먼저 체크
+
+            // 0. CPython 3.12: Symbol Table을 먼저 확인 (우선순위)
+            if (_currentSymbolTable != null)
+            {
+                var symbol = _currentSymbolTable.Lookup(name);
+                if (symbol != null)
+                {
+                    #if DEBUG_LOG
+                    Console.WriteLine($"    🔍 Symbol Table lookup: {name} → Scope: {symbol.Scope}");
+                    #endif
+
+                    // Symbol Table에서 분석된 스코프에 따라 적절한 명령어 생성
+                    switch (symbol.Scope)
+                    {
+                        case SymbolScope.Free:
+                            // Free variable: LOAD_DEREF 사용
+                            if (_freeVars.Contains(name))
+                            {
+                                var freeIndex = _freeVars.IndexOf(name);
+                                EmitInstruction(ByteCodeOp.LOAD_DEREF, freeIndex);
+                                #if DEBUG_LOG
+                                Console.WriteLine($"    → LOAD_DEREF for free var: {name} (index {freeIndex})");
+                                #endif
+                                return;
+                            }
+                            break;
+
+                        case SymbolScope.Cell:
+                            // Cell variable: LOAD_DEREF 사용 (offset 계산)
+                            if (_cellVars.Contains(name))
+                            {
+                                var cellIndex = _cellVars.IndexOf(name);
+                                var instructionIndex = _freeVars.Count + cellIndex;
+                                EmitInstruction(ByteCodeOp.LOAD_DEREF, instructionIndex);
+                                #if DEBUG_LOG
+                                Console.WriteLine($"    → LOAD_DEREF for cell var: {name} (cell index {cellIndex} → instruction index {instructionIndex})");
+                                #endif
+                                return;
+                            }
+                            break;
+
+                        case SymbolScope.Global:
+                            // Global variable: LOAD_GLOBAL 사용
+                            var globalIndex = AddName(name);
+                            EmitInstruction(ByteCodeOp.LOAD_GLOBAL, globalIndex);
+                            #if DEBUG_LOG
+                            Console.WriteLine($"    → LOAD_GLOBAL for global var: {name} (global index {globalIndex})");
+                            #endif
+                            return;
+
+                        case SymbolScope.Local:
+                            // Local variable: LOAD_FAST 사용
+                            var localIndex = _varNames.IndexOf(name);
+                            if (localIndex >= 0)
+                            {
+                                EmitInstruction(ByteCodeOp.LOAD_FAST, localIndex);
+                                #if DEBUG_LOG
+                                Console.WriteLine($"    → LOAD_FAST for local var: {name} (index {localIndex})");
+                                #endif
+                                return;
+                            }
+                            break;
+                    }
+                }
+            }
+
+            // 1. CPython 3.12: global 변수를 먼저 체크 (fallback)
             if (_globalVars.Contains(name))
             {
                 var globalIndex = AddName(name);
@@ -2723,7 +2837,55 @@ namespace SharpPy
             // 함수 내부에서는 지역변수로 등록하고 STORE_FAST 사용
             if (_isInFunction)
             {
-                // CPython 3.12: global 변수는 STORE_GLOBAL 사용
+                // 0. CPython 3.12: Symbol Table을 먼저 확인 (우선순위)
+                if (_currentSymbolTable != null)
+                {
+                    var symbol = _currentSymbolTable.Lookup(name);
+                    if (symbol != null)
+                    {
+                        #if DEBUG_LOG
+                        Console.WriteLine($"    🔍 Symbol Table lookup for store: {name} → Scope: {symbol.Scope}");
+                        #endif
+
+                        // Symbol Table에서 분석된 스코프에 따라 적절한 명령어 생성
+                        switch (symbol.Scope)
+                        {
+                            case SymbolScope.Cell:
+                                // Cell variable: STORE_DEREF 사용 (offset 계산)
+                                if (_cellVars.Contains(name))
+                                {
+                                    var cellIndex = _cellVars.IndexOf(name);
+                                    var instructionIndex = _freeVars.Count + cellIndex;
+                                    EmitInstruction(ByteCodeOp.STORE_DEREF, instructionIndex);
+                                    #if DEBUG_LOG
+                                    Console.WriteLine($"    → STORE_DEREF for cell var: {name} (cell index {cellIndex} → instruction index {instructionIndex})");
+                                    #endif
+                                    return;
+                                }
+                                break;
+
+                            case SymbolScope.Global:
+                                // Global variable: STORE_GLOBAL 사용
+                                var globalIndex = AddName(name);
+                                EmitInstruction(ByteCodeOp.STORE_GLOBAL, globalIndex);
+                                #if DEBUG_LOG
+                                Console.WriteLine($"    → STORE_GLOBAL for global var: {name} (global index {globalIndex})");
+                                #endif
+                                return;
+
+                            case SymbolScope.Local:
+                                // Local variable: STORE_FAST 사용
+                                var localIndex = GetOrAddVarName(name);
+                                EmitInstruction(ByteCodeOp.STORE_FAST, localIndex);
+                                #if DEBUG_LOG
+                                Console.WriteLine($"    → STORE_FAST for local var: {name} (index {localIndex})");
+                                #endif
+                                return;
+                        }
+                    }
+                }
+
+                // 1. CPython 3.12: global 변수는 STORE_GLOBAL 사용 (fallback)
                 if (_globalVars.Contains(name))
                 {
                     var globalIndex = AddName(name);
