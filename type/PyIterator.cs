@@ -120,10 +120,24 @@ namespace SharpPy
 
         public override PyObject Next()
         {
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 PyTupleIterator.Next(): _index={_index}, _tuple.Length()={_tuple.Length()}");
+            #endif
+
             if (_index >= _tuple.Length())
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"🔚 PyTupleIterator.Next(): StopIteration (_index={_index} >= length={_tuple.Length()})");
+                #endif
                 throw PyStopIteration.Create();
-            
-            return _tuple.Items[_index++];
+            }
+
+            var result = _tuple.Items[_index++];
+            #if DEBUG_LOG
+            Console.WriteLine($"✅ PyTupleIterator.Next(): 반환값={result}, 새로운 _index={_index}");
+            #endif
+
+            return result;
         }
 
         public override string ToRepr() => $"<tuple_iterator object>";

@@ -833,53 +833,33 @@ namespace SharpPy
                     frame.ValueStack.Push(valueToCopy);
                     break;
 
-                case ByteCodeOp.SWAP:
-                    // CPython 3.12: SWAP i - Exchange TOS with TOS-i
-                    var swapCount = instruction.Argument;
-
-
-                    var requiredItems = swapCount; // CPython 3.12: SWAP i requires i items
-
-                    if (frame.ValueStack.Count < requiredItems)
+                case ByteCodeOp.SWAP: // SWAP(n) - TOS와 TOS-(n-1) 교환
+                    var oparg = instruction.Argument;
+                    if (frame.ValueStack.Count < oparg)
                     {
-                        throw PyRuntimeError.Create($"SWAP: Not enough items on stack (need {requiredItems}, got {frame.ValueStack.Count})");
+                        throw PyRuntimeError.Create($"SWAP({oparg}): Not enough items on stack (need {oparg}, got {frame.ValueStack.Count})");
                     }
 
-                    // CPython 3.12 SWAP behavior: SWAP i exchanges TOS with TOS-i
-                    // Simple implementation for the common case
-                    if (swapCount == 2)
-                    {
-                        // SWAP 2: Exchange top 2 elements
-                        var tos = frame.ValueStack.Pop();      // Get TOS (STACK[-1])
-                        var second = frame.ValueStack.Pop();   // Get TOS-1 (STACK[-2])
-                        frame.ValueStack.Push(tos);            // Push old TOS to TOS-1 position
-                        frame.ValueStack.Push(second);         // Push old TOS-1 to TOS position
-                    }
-                    else
-                    {
-                        // General SWAP i implementation
-                        var elements = new PyObject[swapCount];
-                        for (int j = 0; j < swapCount; j++)
-                        {
-                            elements[j] = frame.ValueStack.Pop();
-                        }
+                    var stackArray = frame.ValueStack.ToArray(); // Stack을 임시 배열로 변환
 
-                        // elements[0] = TOS, elements[1] = TOS-1, ..., elements[swapCount-1] = TOS-(swapCount-1)
-                        // We want to swap elements[0] (TOS) with elements[swapCount-1] (TOS-swapCount)
-                        var temp = elements[0];
-                        elements[0] = elements[swapCount - 1];
-                        elements[swapCount - 1] = temp;
+                    var temp = stackArray[0];
+                    stackArray[0] = stackArray[oparg - 1];
+                    stackArray[oparg - 1] = temp;
 
-                        // Push back in reverse order
-                        for (int j = swapCount - 1; j >= 0; j--)
-                        {
-                            frame.ValueStack.Push(elements[j]);
-                        }
+                    frame.ValueStack.Clear();
+                    for (int i = stackArray.Length - 1; i >= 0; i--)
+                    {
+                        frame.ValueStack.Push(stackArray[i]);
                     }
+
                     break;
 
                 case ByteCodeOp.LOAD_CONST:
                     var constant = frame.Code.Constants[instruction.Argument];
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔍 LOAD_CONST: 인덱스 {instruction.Argument}, 값 {constant} (타입: {constant?.GetType().Name})");
+                    Console.WriteLine($"🔍 Constants 배열 전체: [{string.Join(", ", frame.Code.Constants.Select((c, i) => $"{i}:{c}"))}]");
+                    #endif
                     frame.ValueStack.Push(constant);
                     break;
 
@@ -2096,9 +2076,31 @@ namespace SharpPy
                     return null; // Continue execution from new position
 
                 case ByteCodeOp.JUMP_BACKWARD:
-                    // CPython 3.12 호환: 통합된 JUMP_BACKWARD 유틸리티 사용
+                    // CPython 3.12 호환: QuickenedCodeObject 방식으로 JUMP_BACKWARD 계산
                     int currentInstrPos = frame.InstructionPointer;
-                    int targetInstrPos = PyJumpBackwardUtil.CalculateJumpBackwardTarget(currentInstrPos, instruction.Argument, frame.Code.Instructions);
+                    int targetInstrPos;
+
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔧 JUMP_BACKWARD Debug: currentInstrPos={currentInstrPos}, instruction.Argument={instruction.Argument}");
+                    Console.WriteLine($"    현재 instruction: {frame.Code.Instructions[currentInstrPos].OpCode} (arg: {frame.Code.Instructions[currentInstrPos].Argument})");
+                    #endif
+
+                    if (frame.Code is PyQuickenedCodeObject quickenedJumpCode)
+                    {
+                        // Quickened Code: instruction offset 사용
+                        targetInstrPos = quickenedJumpCode.CalculateJumpBackwardTarget(currentInstrPos, instruction.Argument);
+                        #if DEBUG_LOG
+                        Console.WriteLine($"🔙 JUMP_BACKWARD: QuickenedCode {currentInstrPos} → {targetInstrPos}");
+                        #endif
+                    }
+                    else
+                    {
+                        // 레거시 방식: PyJumpBackwardUtil 사용
+                        targetInstrPos = PyJumpBackwardUtil.CalculateJumpBackwardTarget(currentInstrPos, instruction.Argument, frame.Code.Instructions);
+                        #if DEBUG_LOG
+                        Console.WriteLine($"🔙 JUMP_BACKWARD: Legacy {currentInstrPos} → {targetInstrPos}");
+                        #endif
+                    }
 
                     // Validate target instruction position
                     if (targetInstrPos < 0 || targetInstrPos >= frame.Code.Instructions.Count)
@@ -2353,6 +2355,18 @@ namespace SharpPy
                 // CPython-style Iterator Opcodes
                 case ByteCodeOp.GET_ITER:
                     var iterable = frame.ValueStack.Pop();
+                    if (iterable is PyTuple iterTuple)
+                    {
+                        Console.WriteLine($"🔍 GET_ITER: 튜플 길이 = {iterTuple.Items.Length}");
+                        for (int i = 0; i < iterTuple.Items.Length; i++)
+                        {
+                            Console.WriteLine($"  튜플[{i}] = {iterTuple.Items[i]}");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"🔍 GET_ITER: iterable 타입 = {iterable.GetType().Name}, 값 = {iterable}");
+                    }
                     var iterator = iterable.GetIterator();
                     frame.ValueStack.Push(iterator);
                     break;
@@ -2360,6 +2374,10 @@ namespace SharpPy
                 case ByteCodeOp.FOR_ITER:
                     // CPython 3.12 compatible FOR_ITER implementation
                     var iter = frame.ValueStack.Peek(); // Keep iterator on stack for inspection
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔧 FOR_ITER: iterator type = {iter.GetType().Name}, calling Next()...");
+                    Console.WriteLine($"    InstructionPointer = {frame.InstructionPointer}");
+                    #endif
                     try
                     {
                         var nextItem = iter.Next();
@@ -2373,12 +2391,38 @@ namespace SharpPy
                     {
                         #if DEBUG_LOG
                         Console.WriteLine($"🔚 FOR_ITER: StopIteration - loop finished");
+                        Console.WriteLine($"    스택 상태 (pop 전): count={frame.ValueStack.Count}");
+                        var stackContents = frame.ValueStack.ToArray();
+                        for (int i = 0; i < stackContents.Length; i++)
+                        {
+                            Console.WriteLine($"      스택[{i}] = {stackContents[i]} ({stackContents[i].GetType().Name})");
+                        }
                         #endif
-                        frame.ValueStack.Pop(); // Remove iterator from stack
+                        // FOR_ITER 스택 구조: [..., value, iterator] (CPython 호환)
+                        // StopIteration 시: iterator를 제거하고 value를 유지
+                        var removedIterator = frame.ValueStack.Pop(); // iterator 제거 (TOS)
+                        #if DEBUG_LOG
+                        Console.WriteLine($"    제거된 객체: {removedIterator} ({removedIterator.GetType().Name})");
+                        Console.WriteLine($"    스택 상태 (pop 후): count={frame.ValueStack.Count}");
+                        var stackContentsAfter = frame.ValueStack.ToArray();
+                        for (int i = 0; i < stackContentsAfter.Length; i++)
+                        {
+                            Console.WriteLine($"      스택[{i}] = {stackContentsAfter[i]} ({stackContentsAfter[i].GetType().Name})");
+                        }
+                        #endif
 
-                        // CPython 3.12: Jump forward by delta (relative jump from next instruction)
-                        // 최적화 상태에 따라 argument 해석이 다름
-                        if (!frame.Code.IsOptimized)
+                        // CPython 3.12: QuickenedCodeObject 방식으로 점프 계산
+                        if (frame.Code is PyQuickenedCodeObject quickenedCode)
+                        {
+                            // Quickened Code: instruction offset 사용
+                            int forIterQuickenedTarget = quickenedCode.CalculateForIterTarget(frame.InstructionPointer, instruction.Argument);
+
+                            #if DEBUG_LOG
+                            Console.WriteLine($"🔚 FOR_ITER: Jumping to position {forIterQuickenedTarget} (QuickenedCode)");
+                            #endif
+                            frame.InstructionPointer = forIterQuickenedTarget - 1; // main loop will increment
+                        }
+                        else if (!frame.Code.IsOptimized)
                         {
                             // 최적화 OFF: argument는 instruction 단위
                             frame.InstructionPointer += instruction.Argument;
@@ -2388,13 +2432,13 @@ namespace SharpPy
                         }
                         else
                         {
-                            // 최적화 ON: argument는 바이트 오프셋 단위
+                            // 레거시 최적화 방식: 바이트 오프셋 사용
                             int forIterCurrentByteOffset = PyJumpBackwardUtil.CalculateByteOffset(frame.InstructionPointer, frame.Code.Instructions);
                             int forIterTargetByteOffset = forIterCurrentByteOffset + instruction.Argument;
                             int forIterTargetInstrPos = PyJumpBackwardUtil.ByteOffsetToInstructionIndex(forIterTargetByteOffset, frame.Code.Instructions);
 
                             #if DEBUG_LOG
-                            Console.WriteLine($"🔚 FOR_ITER: Jumping to position {forIterTargetInstrPos} (optimized)");
+                            Console.WriteLine($"🔚 FOR_ITER: Jumping to position {forIterTargetInstrPos} (legacy optimized)");
                             #endif
                             frame.InstructionPointer = forIterTargetInstrPos - 1; // main loop will increment
                         }
@@ -2431,15 +2475,29 @@ namespace SharpPy
                             #endif
                             frame.ValueStack.Pop(); // Remove exhausted iterator
 
-                            // Jump to END_FOR position
-                            int forIterCurrentByteOffset = PyJumpBackwardUtil.CalculateByteOffset(frame.InstructionPointer, frame.Code.Instructions);
-                            int forIterTargetByteOffset = forIterCurrentByteOffset + instruction.Argument;
-                            int forIterTargetInstrPos = PyJumpBackwardUtil.ByteOffsetToInstructionIndex(forIterTargetByteOffset, frame.Code.Instructions);
+                            // CPython 3.12: QuickenedCodeObject 방식으로 점프 계산
+                            if (frame.Code is PyQuickenedCodeObject quickenedListCode)
+                            {
+                                // Quickened Code: instruction offset 사용
+                                int listQuickenedTarget = quickenedListCode.CalculateForIterTarget(frame.InstructionPointer, instruction.Argument);
 
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔚 FOR_ITER_LIST: Jumping to position {forIterTargetInstrPos} (optimized)");
-                            #endif
-                            frame.InstructionPointer = forIterTargetInstrPos - 1;
+                                #if DEBUG_LOG
+                                Console.WriteLine($"🔚 FOR_ITER_LIST: Jumping to position {listQuickenedTarget} (QuickenedCode)");
+                                #endif
+                                frame.InstructionPointer = listQuickenedTarget - 1;
+                            }
+                            else
+                            {
+                                // 레거시 방식: 바이트 오프셋 사용
+                                int listIterCurrentByteOffset = PyJumpBackwardUtil.CalculateByteOffset(frame.InstructionPointer, frame.Code.Instructions);
+                                int listIterTargetByteOffset = listIterCurrentByteOffset + instruction.Argument;
+                                int listIterTargetInstrPos = PyJumpBackwardUtil.ByteOffsetToInstructionIndex(listIterTargetByteOffset, frame.Code.Instructions);
+
+                                #if DEBUG_LOG
+                                Console.WriteLine($"🔚 FOR_ITER_LIST: Jumping to position {listIterTargetInstrPos} (legacy)");
+                                #endif
+                                frame.InstructionPointer = listIterTargetInstrPos - 1;
+                            }
                         }
                     }
                     else
@@ -2469,11 +2527,29 @@ namespace SharpPy
                             #endif
                             frame.ValueStack.Pop();
 
-                            int forIterCurrentByteOffset = PyJumpBackwardUtil.CalculateByteOffset(frame.InstructionPointer, frame.Code.Instructions);
-                            int forIterTargetByteOffset = forIterCurrentByteOffset + instruction.Argument;
-                            int forIterTargetInstrPos = PyJumpBackwardUtil.ByteOffsetToInstructionIndex(forIterTargetByteOffset, frame.Code.Instructions);
+                            // CPython 3.12: QuickenedCodeObject 방식으로 점프 계산
+                            if (frame.Code is PyQuickenedCodeObject quickenedTupleCode)
+                            {
+                                // Quickened Code: instruction offset 사용
+                                int tupleQuickenedTarget = quickenedTupleCode.CalculateForIterTarget(frame.InstructionPointer, instruction.Argument);
 
-                            frame.InstructionPointer = forIterTargetInstrPos - 1;
+                                #if DEBUG_LOG
+                                Console.WriteLine($"🔚 FOR_ITER_TUPLE: Jumping to position {tupleQuickenedTarget} (QuickenedCode)");
+                                #endif
+                                frame.InstructionPointer = tupleQuickenedTarget - 1;
+                            }
+                            else
+                            {
+                                // 레거시 방식: 바이트 오프셋 사용
+                                int tupleIterCurrentByteOffset = PyJumpBackwardUtil.CalculateByteOffset(frame.InstructionPointer, frame.Code.Instructions);
+                                int tupleIterTargetByteOffset = tupleIterCurrentByteOffset + instruction.Argument;
+                                int tupleIterTargetInstrPos = PyJumpBackwardUtil.ByteOffsetToInstructionIndex(tupleIterTargetByteOffset, frame.Code.Instructions);
+
+                                #if DEBUG_LOG
+                                Console.WriteLine($"🔚 FOR_ITER_TUPLE: Jumping to position {tupleIterTargetInstrPos} (legacy)");
+                                #endif
+                                frame.InstructionPointer = tupleIterTargetInstrPos - 1;
+                            }
                         }
                     }
                     else
@@ -3175,44 +3251,23 @@ namespace SharpPy
                         throw new Exception($"LIST_APPEND: not enough items on stack (need {targetDepth + 1}, got {frame.ValueStack.Count})");
                     }
 
-                    // LIST_APPEND 정상 동작
-
-                    // 스택에서 targetDepth만큼 아래에 있는 아이템 접근
-                    // 임시 수정: 실제 리스트가 있는 위치로 수정 (리스트[1])
-                    var stackList = frame.ValueStack.ToList();
-
-                    // 리스트를 찾아서 사용
-                    PyObject targetList = null;
-                    for (int i = 0; i < stackList.Count; i++)
-                    {
-                        if (stackList[i] is PyList)
-                        {
-                            targetList = stackList[i];
-                            #if DEBUG_LOG
-                            Console.WriteLine($"   리스트 발견! 인덱스: {i}");
-                            #endif
-                            break;
-                        }
-                    }
-
-                    if (targetList == null)
-                    {
-                        // 원래 방식으로 fallback
-                        var correctStackIndex = stackList.Count - 1 - targetDepth;
-                        targetList = stackList[correctStackIndex];
-                    }
+                    // CPython 3.12 호환: 정확한 스택 위치에서 리스트 가져오기
+                    // LIST_APPEND i: TOS-i 위치의 리스트에 TOS를 append
+                    // ElementAt(0) = TOS-1, ElementAt(1) = TOS-2, ...
+                    // 따라서 ElementAt(i-1)이 타겟 리스트
+                    var targetList = frame.ValueStack.ElementAt(instruction.Argument - 1);
 
                     // 리스트 타겟 확정
 
                     if (targetList is PyList targetPyList)
                     {
-                        #if DEBUG_LOG
+#if DEBUG_LOG
                         Console.WriteLine($"   LIST_APPEND: {itemToAppend?.GetTypeName() ?? "null"} 값={itemToAppend?.ToString() ?? "null"} 추가 → 리스트 크기: {targetPyList.Count}");
-                        #endif
+#endif
                         targetPyList.Append(itemToAppend);
-                        #if DEBUG_LOG
+#if DEBUG_LOG
                         Console.WriteLine($"   LIST_APPEND 완료: 리스트 크기: {targetPyList.Count}, 내용: [{string.Join(", ", targetPyList.Items.Select(x => x?.ToString() ?? "null"))}]");
-                        #endif
+#endif
                     }
                     else
                     {

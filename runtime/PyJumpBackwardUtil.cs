@@ -88,7 +88,97 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// CPython 3.12 호환 FOR_ITER 타겟 위치 계산 (VM 실행 시 사용)
+        /// QuickenedCodeObject 지원을 위한 통합 메서드
+        /// </summary>
+        public static int CalculateForIterTarget(int currentInstrPos, int opArg, PyCodeObject codeObject)
+        {
+            if (codeObject is PyQuickenedCodeObject quickenedCode)
+            {
+                // CPython 3.12 Quickened Code: instruction offset 사용
+                int targetIndex = quickenedCode.CalculateForIterTarget(currentInstrPos, opArg);
+
+                Console.WriteLine($"🔍 FOR_ITER 타겟 계산 (Quickened): currentInstr={currentInstrPos}, opArg={opArg}");
+                Console.WriteLine($"    targetIndex={targetIndex}");
+                return targetIndex;
+            }
+            else
+            {
+                // 일반 CodeObject: byte offset 사용
+                int currentByteOffset = CalculateByteOffset(currentInstrPos, codeObject.Instructions);
+                int targetByteOffset = currentByteOffset + (opArg * 2);
+
+                Console.WriteLine($"🔍 FOR_ITER 타겟 계산 (바이트): currentInstr={currentInstrPos}, opArg={opArg}");
+                Console.WriteLine($"    currentByteOffset={currentByteOffset}, targetByteOffset={targetByteOffset}");
+
+                int targetIndex = ByteOffsetToInstructionIndex(targetByteOffset, codeObject.Instructions);
+                Console.WriteLine($"    targetIndex={targetIndex}");
+                return targetIndex;
+            }
+        }
+
+        /// <summary>
+        /// 레거시 호환성을 위한 메서드 (List<ByteCodeInstruction> 사용)
+        /// </summary>
+        public static int CalculateForIterTarget(int currentInstrPos, int opArg, List<ByteCodeInstruction> instructions)
+        {
+            // 레거시: SharpPyConfig._enable_optimizer 조건 사용
+            if (SharpPyConfig._enable_optimizer)
+            {
+                // CPython 3.12 최적화 모드: instruction 단위 계산
+                int targetIndex = currentInstrPos + opArg;
+
+                Console.WriteLine($"🔍 FOR_ITER 타겟 계산 (레거시 최적화): currentInstr={currentInstrPos}, opArg={opArg}");
+                Console.WriteLine($"    targetIndex={targetIndex}");
+                return targetIndex;
+            }
+            else
+            {
+                // 최적화 비활성화: 바이트 단위 계산
+                int currentByteOffset = CalculateByteOffset(currentInstrPos, instructions);
+                int targetByteOffset = currentByteOffset + (opArg * 2);
+
+                Console.WriteLine($"🔍 FOR_ITER 타겟 계산 (레거시 바이트): currentInstr={currentInstrPos}, opArg={opArg}");
+                Console.WriteLine($"    currentByteOffset={currentByteOffset}, targetByteOffset={targetByteOffset}");
+
+                int targetIndex = ByteOffsetToInstructionIndex(targetByteOffset, instructions);
+                Console.WriteLine($"    targetIndex={targetIndex}");
+                return targetIndex;
+            }
+        }
+
+        /// <summary>
         /// CPython 3.12 호환 JUMP_BACKWARD 타겟 위치 계산 (VM 실행 시 사용)
+        /// QuickenedCodeObject 지원을 위한 통합 메서드
+        /// </summary>
+        public static int CalculateJumpBackwardTarget(int currentInstrPos, int opArg, PyCodeObject codeObject)
+        {
+            if (codeObject is PyQuickenedCodeObject quickenedCode)
+            {
+                // CPython 3.12 Quickened Code: instruction offset 사용
+                int targetIndex = quickenedCode.CalculateJumpBackwardTarget(currentInstrPos, opArg);
+
+                Console.WriteLine($"🔍 JUMP_BACKWARD 타겟 계산 (Quickened): currentInstr={currentInstrPos}, opArg={opArg}");
+                Console.WriteLine($"    targetIndex={targetIndex}");
+                return targetIndex;
+            }
+            else
+            {
+                // 일반 CodeObject: byte offset 사용
+                int currentByteOffset = CalculateByteOffset(currentInstrPos, codeObject.Instructions);
+                int targetByteOffset = currentByteOffset + 2 - (opArg * 2);
+
+                Console.WriteLine($"🔍 JUMP_BACKWARD 타겟 계산 (바이트): currentInstr={currentInstrPos}, opArg={opArg}");
+                Console.WriteLine($"    currentByteOffset={currentByteOffset}, targetByteOffset={targetByteOffset}");
+
+                int targetIndex = ByteOffsetToInstructionIndex(targetByteOffset, codeObject.Instructions);
+                Console.WriteLine($"    targetIndex={targetIndex}");
+                return targetIndex;
+            }
+        }
+
+        /// <summary>
+        /// 레거시 호환성을 위한 메서드 (List<ByteCodeInstruction> 사용)
         /// CPython: next_instr -= oparg (where oparg is instruction units)
         /// </summary>
         public static int CalculateJumpBackwardTarget(int currentInstrPos, int opArg, List<ByteCodeInstruction> instructions)
@@ -121,7 +211,29 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// 바이트 오프셋을 instruction index로 변환
+        /// CPython 3.12 호환: QuickenedCodeObject를 위한 오프셋 변환
+        /// QuickenedCodeObject일 때는 바이트 오프셋 대신 instruction offset 직접 사용
+        /// </summary>
+        public static int ByteOffsetToInstructionIndex(int targetByteOffset, PyCodeObject codeObject)
+        {
+            if (codeObject is PyQuickenedCodeObject)
+            {
+                // Quickened Code: targetByteOffset는 실제로는 instruction offset
+                // 바이트 오프셋 계산을 우회하고 직접 instruction index 반환
+                int instructionOffset = targetByteOffset / 2; // 대부분의 instruction은 2바이트
+
+                Console.WriteLine($"🔍 QuickenedCode: 바이트 오프셋 {targetByteOffset} → instruction index {instructionOffset}");
+                return Math.Max(0, Math.Min(instructionOffset, codeObject.Instructions.Count - 1));
+            }
+            else
+            {
+                // 일반 CodeObject: 기존 바이트 오프셋 계산 사용
+                return ByteOffsetToInstructionIndex(targetByteOffset, codeObject.Instructions);
+            }
+        }
+
+        /// <summary>
+        /// 레거시 바이트 오프셋을 instruction index로 변환 (기존 방식)
         /// </summary>
         public static int ByteOffsetToInstructionIndex(int targetByteOffset, List<ByteCodeInstruction> instructions)
         {

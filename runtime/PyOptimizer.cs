@@ -86,22 +86,49 @@ namespace SharpPy
 #endif
             }
 
-            var optimizedCode = new PyCodeObject(
-                originalCode.Name,
-                _instructions,
-                _constants,
-                _names,
-                originalCode.VarNames,
-                originalCode.ArgCount,
-                originalCode.PosonlyArgCount,
-                originalCode.FreeVars,
-                originalCode.CellVars,
-                originalCode.DefaultValues,
-                originalCode.Flags,
-                originalCode.FileName,
-                originalCode.SourceLines,
-                isOptimized: !SharpPyConfig.DisableOptimizer
-            );
+            // CPython 3.12 방식: 최적화 시 QuickenedCodeObject 생성
+            PyCodeObject optimizedCode;
+            if (!SharpPyConfig.DisableOptimizer)
+            {
+                // Quickened Code Object 생성 (instruction offset 사용)
+                optimizedCode = new PyQuickenedCodeObject(
+                    originalCode,
+                    _instructions,
+                    originalCode.Name,
+                    _constants,
+                    _names,
+                    originalCode.VarNames,
+                    originalCode.ArgCount,
+                    originalCode.PosonlyArgCount,
+                    originalCode.FreeVars,
+                    originalCode.CellVars,
+                    originalCode.DefaultValues,
+                    originalCode.Flags,
+                    originalCode.FileName,
+                    originalCode.SourceLines,
+                    originalCode.LineNumberTable
+                );
+            }
+            else
+            {
+                // 최적화 비활성화 시 일반 CodeObject (byte offset 사용)
+                optimizedCode = new PyCodeObject(
+                    originalCode.Name,
+                    _instructions,
+                    _constants,
+                    _names,
+                    originalCode.VarNames,
+                    originalCode.ArgCount,
+                    originalCode.PosonlyArgCount,
+                    originalCode.FreeVars,
+                    originalCode.CellVars,
+                    originalCode.DefaultValues,
+                    originalCode.Flags,
+                    originalCode.FileName,
+                    originalCode.SourceLines,
+                    isOptimized: false
+                );
+            }
             
             // CPython 3.12: Exception Table 동기화 (최적화로 변경된 오프셋 반영)
             RecalculateExceptionTableOffsets(originalCode.ExceptionTable, optimizedCode);
@@ -626,9 +653,11 @@ namespace SharpPy
                             
                             if (correctForIterPos >= 0)
                             {
-                                // CPython 3.12 호환: JUMP_BACKWARD는 instruction 단위 오프셋 사용 (바이트가 아님)
-                                // CPython 공식: oparg = current_position - target_position + 1
-                                int correctOffset = jumpPos - correctForIterPos + 1;
+                                // CPython 3.12 호환: JUMP_BACKWARD는 CACHE를 포함한 논리적 instruction 위치 기준
+                                // CPython 공식: oparg = current_logical_pos - target_logical_pos + 1
+                                int currentLogicalPos = CalculateLogicalInstructionPosition(jumpPos);
+                                int targetLogicalPos = CalculateLogicalInstructionPosition(correctForIterPos);
+                                int correctOffset = currentLogicalPos - targetLogicalPos + 1;
                                 
                                 if (currentOffset != correctOffset)
                                 {
@@ -769,8 +798,8 @@ namespace SharpPy
                         if (targetEndFor >= 0)
                         {
                             // CPython 3.12 호환: FOR_ITER는 instruction 단위 오프셋 사용 (바이트가 아님)
-                            // FOR_ITER current position에서 END_FOR position까지의 instruction 차이
-                            int instructionOffsetToTarget = targetEndFor - i;
+                            // FOR_ITER 다음 instruction부터 END_FOR까지의 instruction 개수
+                            int instructionOffsetToTarget = targetEndFor - i - 1;
                             if (instructionOffsetToTarget != instruction.Argument)
                             {
                                 _instructions[i] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, instructionOffsetToTarget);
@@ -1119,23 +1148,41 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// CPython 3.12 FOR_ITER argument 계산 (인라인 캐시 엔트리 포함 명령어 개수)
-        /// FOR_ITER의 argument는 CACHE 명령어를 포함한 논리적 명령어 개수
+        /// CPython 3.12 논리적 instruction position 계산 (CACHE 포함)
+        /// 각 명령어는 1 + 인라인 캐시 엔트리 수만큼 논리적 공간을 차지
+        /// </summary>
+        private int CalculateLogicalInstructionPosition(int instructionIndex)
+        {
+            int logicalPosition = 0;
+
+            for (int i = 0; i < instructionIndex; i++)
+            {
+                var instruction = _instructions[i];
+                // 각 명령어는 1 + 인라인 캐시 엔트리 개수만큼 논리적 공간을 차지
+                logicalPosition += 1 + PyJumpBackwardUtil.GetInlineCacheEntries(instruction.OpCode);
+            }
+
+            return logicalPosition;
+        }
+
+        /// <summary>
+        /// CPython 3.12 FOR_ITER argument 계산 (실제 instruction 개수만)
+        /// FOR_ITER의 argument는 CACHE 명령어를 제외한 실제 instruction 개수
         /// </summary>
         private int CalculateInstructionOffsetWithCache(int fromIndex, int toIndex)
         {
             int instructionCount = 0;
             int startIndex = Math.Min(fromIndex, toIndex);
             int endIndex = Math.Max(fromIndex, toIndex);
-            
-            // fromIndex부터 toIndex까지의 논리적 명령어 개수 계산 (CACHE 포함)
+
+            // fromIndex부터 toIndex까지의 실제 명령어 개수 계산 (CACHE 제외)
             for (int i = startIndex; i < endIndex; i++)
             {
                 var instruction = _instructions[i];
-                // 각 명령어는 1 + 인라인 캐시 엔트리 개수만큼 논리적 명령어를 차지
-                instructionCount += 1 + PyJumpBackwardUtil.GetInlineCacheEntries(instruction.OpCode);
+                // CPython 3.12: FOR_ITER oparg는 실제 instruction 개수만 계산 (CACHE 제외)
+                instructionCount += 1;
             }
-            
+
             return instructionCount;
         }
         

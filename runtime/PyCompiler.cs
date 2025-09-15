@@ -1838,7 +1838,21 @@ namespace SharpPy
                         var constantElements = list.Elements.Cast<ConstantExpression>()
                                                            .Select(c => c.Value)
                                                            .ToArray();
+#if DEBUG_LOG
+                        Console.WriteLine($"🔍 LIST_EXTEND 최적화: {constantElements.Length}개 상수 요소");
+                        for (int i = 0; i < constantElements.Length; i++)
+                        {
+                            Console.WriteLine($"  constantElements[{i}] = {constantElements[i]} (타입: {constantElements[i]?.GetType().Name})");
+                        }
+#endif
                         var tupleConstant = new PyTuple(constantElements);
+#if DEBUG_LOG
+                        Console.WriteLine($"🔍 tupleConstant 생성: {tupleConstant.Items.Length}개 아이템");
+                        for (int i = 0; i < tupleConstant.Items.Length; i++)
+                        {
+                            Console.WriteLine($"  tupleConstant.Items[{i}] = {tupleConstant.Items[i]} (타입: {tupleConstant.Items[i]?.GetType().Name})");
+                        }
+#endif
                         EmitLoadConst(tupleConstant);
                         
                         // Extend the list with the tuple
@@ -2597,6 +2611,10 @@ namespace SharpPy
         private void EmitLoadConst(PyObject value)
         {
             var index = GetOrAddConstant(value);
+#if DEBUG_LOG
+            Console.WriteLine($"🔍 EmitLoadConst: 인덱스 {index}에 값 {value} (타입: {value?.GetType().Name}) 저장");
+            Console.WriteLine($"🔍 현재 Constants 배열 크기: {_constants.Count}");
+#endif
             EmitInstruction(ByteCodeOp.LOAD_CONST, index);
         }
         
@@ -2878,7 +2896,8 @@ namespace SharpPy
             {
                 if (ReferenceEquals(_constants[i], value) ||
                     (value is PyInt intConst && _constants[i] is PyInt existingInt && intConst.Value == existingInt.Value) ||
-                    (value is PyString strConst && _constants[i] is PyString existingStr && strConst.Value == existingStr.Value))
+                    (value is PyString strConst && _constants[i] is PyString existingStr && strConst.Value == existingStr.Value) ||
+                    (value is PyTuple tupleConst && _constants[i] is PyTuple existingTuple && TupleEquals(tupleConst, existingTuple)))
                 {
                     return i;
                 }
@@ -2886,6 +2905,28 @@ namespace SharpPy
 
             _constants.Add(value);
             return _constants.Count - 1;
+        }
+
+        private bool TupleEquals(PyTuple tuple1, PyTuple tuple2)
+        {
+            if (tuple1.Items.Length != tuple2.Items.Length)
+                return false;
+
+            for (int i = 0; i < tuple1.Items.Length; i++)
+            {
+                var elem1 = tuple1.Items[i];
+                var elem2 = tuple2.Items[i];
+
+                if (!ReferenceEquals(elem1, elem2))
+                {
+                    if (elem1 is PyInt int1 && elem2 is PyInt int2 && int1.Value == int2.Value)
+                        continue;
+                    if (elem1 is PyString str1 && elem2 is PyString str2 && str1.Value == str2.Value)
+                        continue;
+                    return false;
+                }
+            }
+            return true;
         }
         
         private int AddName(string name)
@@ -6634,7 +6675,27 @@ namespace SharpPy
             
             // 1. First compile the iterator source (CPython 3.12 pattern)
             var firstGenerator = listComp.Generators[0];
-            CompileExpression(firstGenerator.Iter);
+
+            // CPython 3.12 호환: 상수 리스트는 튜플로 직접 로드
+            if (firstGenerator.Iter is ListExpression iterList &&
+                iterList.Elements.All(e => e is ConstantExpression))
+            {
+                // 상수 리스트 → 상수 튜플로 변환 (CPython 3.12 패턴)
+                var constantElements = iterList.Elements.Cast<ConstantExpression>()
+                                                      .Select(c => c.Value)
+                                                      .ToArray();
+                var tupleConstant = new PyTuple(constantElements);
+                EmitLoadConst(tupleConstant);
+                #if DEBUG_LOG
+                Console.WriteLine($"🔧 리스트 컴프리헨션: 상수 리스트를 튜플로 변환 {tupleConstant}");
+                #endif
+            }
+            else
+            {
+                // 일반적인 경우
+                CompileExpression(firstGenerator.Iter);
+            }
+
             EmitInstruction(ByteCodeOp.GET_ITER);
             
             // 2. LOAD_FAST_AND_CLEAR: 모든 컴프리헨션 변수 초기화 (CPython 3.12 패턴)  
@@ -6791,7 +6852,17 @@ namespace SharpPy
             
             // CPython 3.12: List comprehension 정상 완료 - 결과 리스트가 스택에 남음
             // Assignment target은 이 지점에서 AssignStatement에 의해 처리됨
-            
+
+            // CPython 3.12 PEP 709: 정상 종료 시 컴프리헨션 변수 복원
+            foreach (var varName in comprehensionVars)
+            {
+                EmitInstruction(ByteCodeOp.SWAP, 2);
+                EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(varName));
+                #if DEBUG_LOG
+                Console.WriteLine($"🔄 정상 종료 시 컴프리헨션 변수 복원: {varName} (SWAP + STORE_FAST)");
+                #endif
+            }
+
             // CPython 3.12: Exception handler를 지연 생성으로 등록
             var pendingHandler = new PendingExceptionHandler
             {
