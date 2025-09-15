@@ -178,7 +178,9 @@ namespace SharpPy
                         statements.Add(statement);
                         if (!SharpPyConfig.DisassemblyOnlyMode)
                         {
+                            #if DEBUG_LOG
                             Console.WriteLine($"  → {statement}");
+                            #endif
                         }
 
                         // CPython 3.12: After parsing a statement, consume optional semicolon
@@ -196,7 +198,9 @@ namespace SharpPy
                             // Skip unexpected DEDENT tokens at top level
                             if (!SharpPyConfig.DisassemblyOnlyMode)
                             {
+                                #if DEBUG_LOG
                                 Console.WriteLine("⚠️ Warning: Skipping unexpected DEDENT token at top level");
+                                #endif
                             }
                             Advance();
                         }
@@ -205,7 +209,9 @@ namespace SharpPy
                             // For other unexpected tokens, advance to prevent infinite loop
                             if (!SharpPyConfig.DisassemblyOnlyMode)
                             {
+                                #if DEBUG_LOG
                                 Console.WriteLine($"⚠️ Warning: Skipping unexpected token {Peek()?.Type} at top level");
+                                #endif
                             }
                             Advance();
                         }
@@ -216,7 +222,9 @@ namespace SharpPy
                     // CPython 3.12 스타일: SyntaxError는 즉시 중단
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"  ❌ SyntaxError: {ex.Message}");
+                        #endif
                     }
                     throw; // 즉시 중단
                 }
@@ -224,7 +232,9 @@ namespace SharpPy
                 {
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"  ❌ 파싱 에러: {ex.Message}");
+                        #endif
                     }
                     // Skip to next statement
                     Synchronize();
@@ -233,7 +243,9 @@ namespace SharpPy
 
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"✅ 파싱 완료: {statements.Count}개 문장");
+                #endif
             }
             return statements;
         }
@@ -253,10 +265,18 @@ namespace SharpPy
                     // CPython 3.12: INDENT in ParseStatement indicates improper block handling
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"⚠️ ParseStatement: Found INDENT at position {_current} - should be handled by block parser");
+                        #endif
+                        #if DEBUG_LOG
                         Console.WriteLine($"   Previous token: {(_current > 0 ? _tokens[_current-1].Type.ToString() : "N/A")}");
+                        #endif
+                        #if DEBUG_LOG
                         Console.WriteLine($"   Current token: {_tokens[_current].Type} '{_tokens[_current].Lexeme}'");
+                        #endif
+                        #if DEBUG_LOG
                         Console.WriteLine($"   Next token: {(_current+1 < _tokens.Count ? _tokens[_current+1].Type.ToString() : "N/A")}");
+                        #endif
                     }
                     // Don't consume INDENT here - let the caller handle it properly
                     return null;
@@ -267,7 +287,9 @@ namespace SharpPy
                     // DEDENT signals end of current block - don't consume it here
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine("⚠️ ParseStatement: Hit DEDENT - ending block");
+                        #endif
                     }
                     return null; // Let block parser handle this
                 }
@@ -279,7 +301,9 @@ namespace SharpPy
                     // Don't consume them here, just return null to let the caller handle it
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"⚠️ Warning: Encountered block-ending token {Peek().Type} - returning control to block parser");
+                        #endif
                     }
                     return null;
                 }
@@ -647,7 +671,9 @@ namespace SharpPy
                             {
                                 if (!SharpPyConfig.DisassemblyOnlyMode)
                                 {
+                                    #if DEBUG_LOG
                                     Console.WriteLine($"⚠️ Type constraint parsing failed: {ex.Message}");
+                                    #endif
                                 }
                                 // Continue parsing without constraint
                             }
@@ -793,12 +819,9 @@ namespace SharpPy
                     // Skip empty lines - Enhanced CPython 3.12 compatible handling
                     if (Match(TokenType.NEWLINE) || Match(TokenType.NL))
                     {
-                        Console.WriteLine($"🔍 ParseBlock: Found {_tokens[_current-1].Type}, next token: {Peek().Type} at {Peek().Line}:{Peek().Column}");
                         // Check if this is followed by meaningful content
                         if (Check(TokenType.NEWLINE) || Check(TokenType.NL))
-                        {
-                            Console.WriteLine("🔍 ParseBlock: Skipping empty line (followed by NEWLINE/NL)");
-                        }
+                        {                        }
                         continue;
                     }
                     
@@ -814,24 +837,20 @@ namespace SharpPy
                         {
                             if (isClassBody)
                             {
-                                Console.WriteLine($"🔍 ParseBlock: Found DEDENT, checking if class body continues...");
                                 // Enhanced lookahead to see if class body continues
                                 var nextTokenIndex = _current + 1;
-                                Console.WriteLine($"🔍 ParseBlock: Looking ahead from token {nextTokenIndex}...");
 
                                 // Skip NEWLINE tokens to find the next meaningful token
                                 while (nextTokenIndex < _tokens.Count &&
                                        (_tokens[nextTokenIndex].Type == TokenType.NEWLINE ||
                                         _tokens[nextTokenIndex].Type == TokenType.NL))
                                 {
-                                    Console.WriteLine($"🔍 ParseBlock: Skipping {_tokens[nextTokenIndex].Type} at {_tokens[nextTokenIndex].Line}:{_tokens[nextTokenIndex].Column}");
                                     nextTokenIndex++;
                                 }
 
                                 if (nextTokenIndex < _tokens.Count)
                                 {
                                     var nextToken = _tokens[nextTokenIndex];
-                                    Console.WriteLine($"🔍 ParseBlock: Next meaningful token after DEDENT: {nextToken.Type} at {nextToken.Line}:{nextToken.Column}");
 
                                     // If next meaningful token is DEF, CLASS, or decorator (@), check indent level
                                     if ((nextToken.Type == TokenType.NAME && (nextToken.Lexeme == "def" || nextToken.Lexeme == "class")) || nextToken.Type == TokenType.OP)
@@ -839,12 +858,10 @@ namespace SharpPy
                                         // Check if token is at module level (Column 0) or class level (indented)
                                         if (nextToken.Column == 0)
                                         {
-                                            Console.WriteLine($"🔍 ParseBlock: Found {nextToken.Type} at module level (Column {nextToken.Column}) - class body ended");
                                             break; // Module level token - class body is done
                                         }
                                         else
                                         {
-                                            Console.WriteLine($"🔍 ParseBlock: Found {nextToken.Type} at indented level (Column {nextToken.Column}) - continuing class body parsing");
                                             Advance(); // consume the DEDENT
                                             continue; // continue to parse the next method/class
                                         }
@@ -859,7 +876,6 @@ namespace SharpPy
                                             // Check if there's method content (statements, not DEF)
                                             if (tokenAfterIndent.Type == TokenType.NAME && tokenAfterIndent.Lexeme == "def")
                                             {
-                                                Console.WriteLine("🔍 ParseBlock: Found INDENT then DEF after DEDENT - continuing class body parsing");
                                                 Advance(); // consume the DEDENT
                                                 continue; // continue to parse the next method
                                             }
@@ -868,7 +884,6 @@ namespace SharpPy
                                                      tokenAfterIndent.Lexeme == "if" || tokenAfterIndent.Lexeme == "for" ||
                                                      tokenAfterIndent.Lexeme == "while" || tokenAfterIndent.Lexeme == "try")))
                                             {
-                                                Console.WriteLine($"🔍 ParseBlock: Found INDENT then {tokenAfterIndent.Type} after DEDENT - method body continues, consuming DEDENT");
                                                 Advance(); // consume the DEDENT
                                                 continue; // continue parsing method body
                                             }
@@ -893,23 +908,19 @@ namespace SharpPy
                                         // If next token is at the same level or less indented than class definition, class body ended
                                         if (nextToken.Column <= classIndentLevel)
                                         {
-                                            Console.WriteLine($"🔍 ParseBlock: Found IDENTIFIER '{nextToken.Lexeme}' at column {nextToken.Column} (class at {classIndentLevel}) - class body ended");
                                             break; // Class body is done
                                         }
                                         else
                                         {
-                                            Console.WriteLine($"🔍 ParseBlock: Found IDENTIFIER '{nextToken.Lexeme}' at column {nextToken.Column} (class at {classIndentLevel}) - method body continues");
                                             Advance(); // consume the DEDENT
                                             continue; // continue parsing method body
                                         }
                                     }
                                 }
 
-                                Console.WriteLine("🔍 ParseBlock: Class body ended, breaking");
                             }
                             else
                             {
-                                Console.WriteLine($"🔍 ParseBlock: Found DEDENT in non-class context, breaking");
                             }
                             break;
                         }
@@ -931,9 +942,7 @@ namespace SharpPy
                 // Consume DEDENT
                 if (Check(TokenType.DEDENT))
                 {
-                    Console.WriteLine($"🔍 ParseBlock: Consuming DEDENT, next token will be: {_tokens[_current + 1].Type}");
                     Advance();
-                    Console.WriteLine($"🔍 ParseBlock: After DEDENT, current token: {Peek().Type} at {Peek().Line}:{Peek().Column}");
                 }
             }
             else
@@ -1055,7 +1064,6 @@ namespace SharpPy
                 CheckKeyword("except") || CheckKeyword("finally") ||
                 CheckKeyword("else") || CheckKeyword("elif"))
             {
-                Console.WriteLine($"🔍 ParseExpressionOrAssignment: Skipping block structure token {Peek().Type}");
                 return null;
             }
 
@@ -2824,14 +2832,17 @@ namespace SharpPy
             }
             
             // Must have at least one except handler for this pattern
-            Console.WriteLine($"🔍 ParseTryStatement: After try block and whitespace skip, current token: {Peek().Type} at {Peek().Line}:{Peek().Column}");
             if (!CheckKeyword("except"))
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"⚠️  Expected EXCEPT but found {Peek().Type}. Available tokens:");
+                #endif
                 for (int i = 0; i < Math.Min(15, _tokens.Count - _current); i++)
                 {
                     var token = _tokens[_current + i];
+                    #if DEBUG_LOG
                     Console.WriteLine($"   [{i}] {token.Type}: '{token.Lexeme}' at {token.Line}:{token.Column}");
+                    #endif
                 }
                 throw new Exception("'try' statement must have either 'except' or 'finally' clause");
             }
@@ -2839,10 +2850,8 @@ namespace SharpPy
             // Parse except_block+
             while (CheckKeyword("except"))
             {
-                Console.WriteLine($"🔍 ParseTryStatement: Found EXCEPT #{handlers.Count + 1} at {Peek().Line}:{Peek().Column}");
                 Advance(); // consume 'except'
                 handlers.Add(ParseExceptHandler());
-                Console.WriteLine($"🔍 ParseTryStatement: After ParseExceptHandler #{handlers.Count}, current token: {Peek().Type} at {Peek().Line}:{Peek().Column}");
                 
                 // Skip any whitespace before checking for next EXCEPT
                 while (Check(TokenType.NEWLINE))
@@ -2850,7 +2859,6 @@ namespace SharpPy
                     Advance();
                 }
                 
-                Console.WriteLine($"🔍 ParseTryStatement: After whitespace skip, checking for next EXCEPT. Current token: {Peek().Type} at {Peek().Line}:{Peek().Column}");
             }
             
             // Parse optional else_block
@@ -2880,7 +2888,6 @@ namespace SharpPy
             string? exceptionName = null;
             bool isStar = false;
             
-            Console.WriteLine($"🔍 ParseExceptHandler: Starting, current token: {Peek().Type} at {Peek().Line}:{Peek().Column}");
             
             // Check for except* syntax (PEP 654)
             if (CheckOp("*"))
@@ -2892,30 +2899,30 @@ namespace SharpPy
             // Parse exception type (optional)
             if (!CheckColon())
             {
-                Console.WriteLine($"🔍 ParseExceptHandler: Parsing exception type, current token: {Peek().Type}");
                 
                 try 
                 {
                     exceptionType = ParseExpression();
-                    Console.WriteLine($"🔍 ParseExceptHandler: After ParseExpression SUCCESS, current token: {Peek().Type} at {Peek().Line}:{Peek().Column}");
                 }
                 catch (Exception ex)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"💥 ParseExceptHandler: ParseExpression FAILED: {ex.Message}");
+                    #endif
+                    #if DEBUG_LOG
                     Console.WriteLine($"   Current token when failed: {Peek().Type} at {Peek().Line}:{Peek().Column}");
+                    #endif
                     throw;
                 }
                 
                 // Parse "as name" clause (optional)
                 if (MatchKeyword("as"))
                 {
-                    Console.WriteLine($"🔍 ParseExceptHandler: Found AS, parsing identifier");
                     if (!Check(TokenType.NAME))
                     {
                         throw new Exception("Expected identifier after 'as'");
                     }
                     exceptionName = Advance().Lexeme;
-                    Console.WriteLine($"🔍 ParseExceptHandler: Exception name: {exceptionName}");
                 }
             }
             
@@ -2992,7 +2999,6 @@ namespace SharpPy
 
         private Statement ParseMatchStatement()
         {
-            // Console.WriteLine($"🔍 ParseMatchStatement called");
             var subject = ParseMatchSubjectExpression(); // match subject (supports walrus operator)
             ConsumeColon( "Expected ':' after match subject");
             
@@ -3061,12 +3067,9 @@ namespace SharpPy
             
             // Parse optional guard (if condition)
             Expression? guard = null;
-            // Console.WriteLine($"🔍 Parsing Guard: Current token = {Peek().Type} ({Peek().Lexeme})");
             if (MatchKeyword("if"))
             {
-                // Console.WriteLine($"🔍 Guard IF token matched, parsing expression...");
                 guard = ParseExpression();
-                // Console.WriteLine($"🔍 Guard expression parsed: {guard?.GetType().Name} - {guard}");
             }
             
             ConsumeColon( "Expected ':' after case pattern");
@@ -4358,7 +4361,9 @@ namespace SharpPy
             {
                 if (!SharpPyConfig.DisassemblyOnlyMode)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine("⚠️ Warning: Skipped too many INDENT tokens - possible infinite loop prevented");
+                    #endif
                 }
             }
         }
@@ -4390,7 +4395,9 @@ namespace SharpPy
             {
                 if (!SharpPyConfig.DisassemblyOnlyMode)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine("⚠️ Warning: Skipped too many DEDENT tokens - possible infinite loop prevented");
+                    #endif
                 }
             }
         }
@@ -4442,10 +4449,8 @@ namespace SharpPy
         /// </summary>
         private bool IsMatchStatementStart()
         {
-            // Console.WriteLine($"🔍 IsMatchStatementStart: Current={Peek().Type} ({Peek().Lexeme})");
             if (!(Check(TokenType.NAME) && Peek().Lexeme == "match"))
             {
-                // Console.WriteLine($"🔍 IsMatchStatementStart: Not a match statement");
                 return false;
             }
             

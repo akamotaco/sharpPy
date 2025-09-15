@@ -93,71 +93,107 @@ namespace SharpPy
         // CPython 3.12: Override GetPyType to return metaclass if set
         public override PyType GetPyType()
         {
+            #if DEBUG_LOG
             Console.WriteLine($"🔍 PyClass.GetPyType() called for {Name}");
             Console.WriteLine($"   Metaclass: {Metaclass}");
             Console.WriteLine($"   Metaclass != null: {Metaclass != null}");
+            #endif
             
             // If this class was created with a metaclass, return the metaclass
             if (Metaclass != null)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"   → Returning Metaclass: {Metaclass}");
+                #endif
                 return Metaclass;
             }
             // Otherwise, return the default type (which is 'type')
+            #if DEBUG_LOG
             Console.WriteLine($"   → Returning base.GetPyType()");
+            #endif
             var baseType = base.GetPyType();
+            #if DEBUG_LOG
             Console.WriteLine($"   → base.GetPyType() returned: {baseType}");
+            #endif
             return baseType;
         }
 
         // 클래스 attribute 접근
         public override PyObject GetAttribute(string name)
         {
+            #if DEBUG_LOG
             Console.WriteLine($"🔍 PyClass.GetAttribute: {Name}.{name}");
+            #endif
             
             switch (name)
             {
                 case "__name__":
+                    #if DEBUG_LOG
                     Console.WriteLine($"   → returning __name__ = {Name}");
+                    #endif
                     return new PyString(Name);
                 case "__bases__":
+                    #if DEBUG_LOG
                     Console.WriteLine($"   → returning __bases__ (count: {BaseTypes.Length})");
+                    #endif
                     return new PyTuple(BaseTypes);
                 case "__mro__":
+                    #if DEBUG_LOG
                     Console.WriteLine($"   → returning __mro__ (count: {MRO.Count})");
+                    #endif
                     return new PyTuple(MRO.Cast<PyObject>().ToArray());
                 case "__dict__":
+                    #if DEBUG_LOG
                     Console.WriteLine($"   → returning __dict__ (count: {ClassDict.Count})");
+                    #endif
                     return new PyDict(ClassDict);
                 case "__call__":
+                    #if DEBUG_LOG
                     Console.WriteLine($"   → returning self for __call__");
+                    #endif
                     return this; // 클래스 자체가 __call__
                 case "__module__":
+                    #if DEBUG_LOG
                     Console.WriteLine($"   → returning __module__ = __main__");
+                    #endif
                     return new PyString("__main__"); // CPython 호환성을 위해 __main__ 반환
                 case "mro":
+                    #if DEBUG_LOG
                     Console.WriteLine($"   → returning mro method");
+                    #endif
                     return new PyBuiltinFunction("mro", (args) => {
                         return new PyList(MRO.Cast<PyObject>().ToList());
                     });
                 default:
+                    #if DEBUG_LOG
                     Console.WriteLine($"   → searching for '{name}' in ClassDict ({ClassDict.Count} items)");
+                    #endif
 
                     if (ClassDict.TryGetValue(name, out PyObject value))
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"   ✅ found '{name}' in ClassDict: {value?.GetType().Name}");
+                        #endif
                         // Descriptor 처리
                         if (value is IDescriptor desc)
                         {
+                            #if DEBUG_LOG
                             Console.WriteLine($"   🔧 calling descriptor.Get(null, {Name}) for '{name}'");
+                            #endif
                             var result = desc.Get(null, this);
+                            #if DEBUG_LOG
                             Console.WriteLine($"   → descriptor returned: {result?.GetType().Name}");
+                            #endif
                             return result;
                         }
+                        #if DEBUG_LOG
                         Console.WriteLine($"   → returning direct value: {value}");
+                        #endif
                         return value;
                     }
+                    #if DEBUG_LOG
                     Console.WriteLine($"   ❌ '{name}' not found in ClassDict, checking MRO");
+                    #endif
 
                     // Check MRO (Method Resolution Order) - skip self (index 0)
                     for (int i = 1; i < MRO.Count; i++)
@@ -167,16 +203,24 @@ namespace SharpPy
                         // Handle both PyClass and PyType in MRO
                         if (baseClass is PyClass pyClass)
                         {
+                            #if DEBUG_LOG
                             Console.WriteLine($"   → Checking MRO class: {pyClass.Name}");
+                            #endif
                             if (pyClass.ClassDict.TryGetValue(name, out PyObject baseValue))
                             {
+                                #if DEBUG_LOG
                                 Console.WriteLine($"   ✅ found '{name}' in MRO class {pyClass.Name}: {baseValue?.GetType().Name}");
+                                #endif
                                 // Descriptor 처리
                                 if (baseValue is IDescriptor baseDesc)
                                 {
+                                    #if DEBUG_LOG
                                     Console.WriteLine($"   🔧 calling descriptor.Get(null, {Name}) for '{name}' from MRO");
+                                    #endif
                                     var result = baseDesc.Get(null, this);
+                                    #if DEBUG_LOG
                                     Console.WriteLine($"   → descriptor returned: {result?.GetType().Name}");
+                                    #endif
                                     return result;
                                 }
                                 return baseValue;
@@ -184,21 +228,29 @@ namespace SharpPy
                         }
                         else if (baseClass is PyType pyType)
                         {
+                            #if DEBUG_LOG
                             Console.WriteLine($"   → Checking MRO type: {pyType.Name}");
+                            #endif
                             // CPython 3.12: PyType의 속성을 직접 체크
                             // 재귀 방지를 위해 PyType의 internal attribute lookup 사용
                             var typeAttribute = GetTypeAttribute(pyType, name);
                             if (typeAttribute != null)
                             {
+                                #if DEBUG_LOG
                                 Console.WriteLine($"   ✅ found '{name}' in MRO type {pyType.Name}: {typeAttribute?.GetType().Name}");
+                                #endif
                                 return typeAttribute;
                             }
                         }
                     }
                     
+                    #if DEBUG_LOG
                     Console.WriteLine($"   ❌ '{name}' not found in MRO, calling PyObject.GetAttribute");
+                    #endif
                     var baseResult = base.GetAttribute(name);
+                    #if DEBUG_LOG
                     Console.WriteLine($"   → base.GetAttribute returned: {baseResult?.GetType().Name}");
+                    #endif
                     return baseResult;
             }
         }
@@ -386,50 +438,72 @@ namespace SharpPy
         // Special attributes
         public override PyObject GetAttribute(string name)
         {
+            #if DEBUG_LOG
             Console.WriteLine($"🔍 PyClassInstance.GetAttribute: {InstanceType.Name} instance.{name}");
+            #endif
 
             // 특별한 속성들 먼저 처리
             if (name == "__class__")
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"   → returning __class__ = {InstanceType.Name}");
+                #endif
                 return InstanceType;
             }
             if (name == "__dict__")
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"   → returning instance __dict__ (count: {InstanceDict.Count})");
+                #endif
                 return new PyDict(InstanceDict);
             }
 
             // 1. 인스턴스 딕셔너리에서 먼저 검색
+            #if DEBUG_LOG
             Console.WriteLine($"   → checking instance dict (count: {InstanceDict.Count})");
+            #endif
             if (InstanceDict.TryGetValue(name, out PyObject instanceValue))
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"   ✅ found '{name}' in instance dict: {instanceValue?.GetType().Name}");
+                #endif
                 return instanceValue;
             }
 
             // 2. 클래스의 MRO에서 검색 (Python의 표준 attribute resolution order)
+            #if DEBUG_LOG
             Console.WriteLine($"   → searching class MRO (count: {InstanceType.MRO.Count})");
+            #endif
             foreach (var mroType in InstanceType.MRO)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"     - checking {mroType.Name}");
+                #endif
 
                 if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject classValue))
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"   ✅ found '{name}' in {mroType.Name}: {classValue?.GetType().Name}");
+                    #endif
 
                     // Descriptor 처리
                     if (classValue is IDescriptor desc)
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"   🔧 calling descriptor.Get(this, {InstanceType.Name}) for '{name}'");
+                        #endif
                         var result = desc.Get(this, InstanceType);
+                        #if DEBUG_LOG
                         Console.WriteLine($"   🔧 descriptor returned: {result?.GetType().Name}");
+                        #endif
                         return result;
                     }
                     // 함수를 bound method로 변환
                     else if (classValue is PyFunction func)
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"   🔧 converting function to bound method for '{name}'");
+                        #endif
                         return new PyMethod(this, func);
                     }
 
@@ -442,7 +516,9 @@ namespace SharpPy
                     var builtinAttr = mroType.GetAttribute(name);
                     if (builtinAttr != null)
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"   ✅ found builtin attribute '{name}' in {mroType.Name}: {builtinAttr?.GetType().Name}");
+                        #endif
                         if (builtinAttr is PyFunction builtinFunc)
                         {
                             return new PyMethod(this, builtinFunc);
@@ -456,22 +532,30 @@ namespace SharpPy
                 }
             }
 
+            #if DEBUG_LOG
             Console.WriteLine($"   ❌ attribute '{name}' not found in MRO");
+            #endif
 
             // 3. __getattr__ 커스텀 핸들러 호출 (있다면)
             if (HasCustomGetAttr())
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"   → trying custom __getattr__ for '{name}'");
+                #endif
                 var customResult = CallGetAttr(name);
                 if (customResult != null)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"   ✅ custom __getattr__ returned: {customResult?.GetType().Name}");
+                    #endif
                     return customResult;
                 }
             }
 
             // 4. 기본 처리 (PyObject의 기본 구현)
+            #if DEBUG_LOG
             Console.WriteLine($"   → falling back to base.GetAttribute for '{name}'");
+            #endif
             return base.GetAttribute(name);
         }
 

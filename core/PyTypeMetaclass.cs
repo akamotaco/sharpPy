@@ -46,14 +46,18 @@ namespace SharpPy
         /// </summary>
         private static PyTypeMetaclass CreateTypeMetaclass()
         {
+            #if DEBUG_LOG
             Console.WriteLine("🏗️ Creating global 'type' metaclass");
+            #endif
             
             var classDict = new Dictionary<string, PyObject>();
 
             // type.__init__(cls, name, bases, namespace) 
             classDict["__init__"] = new PyBuiltinMethod("__init__", (self, args) => 
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"🔧 type.__init__ called with {args.Length} args");
+                #endif
                 
                 // type.__init__ doesn't need to do much - just exist for super() calls
                 // The real work is done in type.__new__
@@ -63,7 +67,9 @@ namespace SharpPy
             // type.__new__(cls, name, bases, namespace)
             classDict["__new__"] = new PyBuiltinMethod("__new__", (self, args) => 
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"🔧 type.__new__ called with {args.Length} args");
+                #endif
                 
                 if (args.Length == 1)
                 {
@@ -91,7 +97,9 @@ namespace SharpPy
             // type.__call__(cls, *args, **kwargs) - class instantiation
             classDict["__call__"] = new PyBuiltinMethod("__call__", (self, args) => 
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"🔧 type.__call__ called: instantiating {self}");
+                #endif
                 
                 if (self is PyClass pyClass)
                 {
@@ -130,7 +138,9 @@ namespace SharpPy
 
             var typeClass = new PyTypeMetaclass("type", baseTypes, classDict);
             
+            #if DEBUG_LOG
             Console.WriteLine("✅ Global 'type' metaclass created successfully");
+            #endif
             return typeClass;
         }
 
@@ -144,7 +154,9 @@ namespace SharpPy
             var bases = args[2];      // base classes tuple
             var namespaceDict = args[3];  // class namespace dict
 
+            #if DEBUG_LOG
             Console.WriteLine($"🏗️ type.__new__ creating class: {name}");
+            #endif
 
             // Convert arguments
             if (!(name is PyString nameStr))
@@ -186,7 +198,9 @@ namespace SharpPy
                 newClass.Metaclass = Instance; // default to type
             }
 
+            #if DEBUG_LOG
             Console.WriteLine($"✅ Created class {nameStr.Value} with metaclass {newClass.Metaclass?.Name}");
+            #endif
             return newClass;
         }
 
@@ -203,10 +217,14 @@ namespace SharpPy
         /// </summary>
         public override PyObject Call(PyObject[] args)
         {
+            #if DEBUG_LOG
             Console.WriteLine($"🔧 PyTypeMetaclass.Call called with {args.Length} args");
+            #endif
             for (int i = 0; i < args.Length; i++)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"   arg[{i}]: {args[i]?.GetType().Name} = {args[i]}");
+                #endif
             }
             
             if (args.Length == 1)

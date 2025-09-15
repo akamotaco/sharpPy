@@ -21,6 +21,10 @@ namespace SharpPy
             {
                 new BytecodeDisassembler().RunDirectDisassembly(pythonFile);
             }
+            else if (parsedArgs.ContainsKey("--tokens"))
+            {
+                new TokenDebugger().OutputTokens(pythonFile);
+            }
             else if (parsedArgs.ContainsKey("-c"))
             {
                 new FileExecutor().ExecuteCodeString(parsedArgs["-c"]);

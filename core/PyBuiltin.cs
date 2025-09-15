@@ -1027,7 +1027,9 @@ namespace SharpPy
                 bool directlyInheritsFromType = pyClass.BaseTypes.Any(t => t == PyType.TypeType || t.Name == "type");
                 if (directlyInheritsFromType)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"   ✅ BaseTypes에서 직접 'type' 상속 확인: [{string.Join(", ", pyClass.BaseTypes.Select(t => t.Name))}]");
+                    #endif
                     return true;
                 }
                 
@@ -1036,18 +1038,24 @@ namespace SharpPy
                     t is PyClass baseClass && IsMetaclassRecursive(baseClass));
                 if (inheritsFromMetaclass)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"   ✅ BaseTypes에서 메타클래스 상속 확인: [{string.Join(", ", pyClass.BaseTypes.Select(t => t.Name))}]");
+                    #endif
                     return true;
                 }
             }
 
+            #if DEBUG_LOG
             Console.WriteLine($"   ❌ 메타클래스가 아님: Name={pyClass.Name}, BaseTypes=[{string.Join(", ", pyClass.BaseTypes?.Select(t => t.Name) ?? new string[0])}]");
+            #endif
             return false;
         }
 
         private PyObject CallBuildClass(PyObject[] args)
         {
+            #if DEBUG_LOG
             Console.WriteLine($"🚀 === __build_class__ called with {args.Length} args ===");
+            #endif
             if (args.Length < 2)
                 throw PyTypeError.Create($"__build_class__() missing required arguments");
             var func = args[0];
@@ -1056,15 +1064,21 @@ namespace SharpPy
             
             try
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"🔍 func: {func?.GetType().Name}, name: {name?.ToString()}");
+                #endif
                 for (int i = 2; i < args.Length; i++)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"🔍 arg[{i}]: {args[i]?.GetType().Name} = {args[i]}");
+                    #endif
                 }
             }
             catch (Exception ex)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"❌ Error printing func/name: {ex.Message}");
+                #endif
             }
             
             // Parse args to separate bases and metaclass
@@ -1087,12 +1101,16 @@ namespace SharpPy
                     hasExplicitMetaclass = true;
                     metaclass = args[args.Length - 1];  // Last arg is metaclass
                     hasMetaclass = true;
+                    #if DEBUG_LOG
                     Console.WriteLine($"   ✅ Explicit metaclass detected: {metaclass}");
+                    #endif
                     
                     // Process all args before marker as bases
                     for (int i = 2; i < markerIndex; i++)
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"   Processing arg[{i}] as base class: {args[i]}");
+                        #endif
                         if (args[i] is PyType pyType)
                             bases.Add(pyType);
                         else if (args[i] is PyClass baseClass)
@@ -1108,7 +1126,9 @@ namespace SharpPy
                 // Traditional logic: all args from index 2 onwards are bases
                 for (int i = 2; i < args.Length; i++)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"   Processing arg[{i}] as base class: {args[i]}");
+                    #endif
                     if (args[i] is PyType pyType)
                         bases.Add(pyType);
                     else if (args[i] is PyClass baseClass)
@@ -1127,7 +1147,9 @@ namespace SharpPy
                     if (baseClass is PyClass baseAsClass && baseAsClass.Metaclass != null)
                     {
                         metaclass = baseAsClass.Metaclass;
+                        #if DEBUG_LOG
                         Console.WriteLine($"Inherited metaclass from base {baseClass.Name}: {metaclass}");
+                        #endif
                         hasMetaclass = true;
                         break;
                     }
@@ -1142,50 +1164,70 @@ namespace SharpPy
             // Execute the class body function to populate the class namespace
             if (func is PyFunction classBodyFunc)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"Found class body function for {className}: {classBodyFunc.Name}");
+                #endif
                 try
                 {
                     // CPython 3.12: Execute class body with namespace capture
                     if (classBodyFunc.CodeObject != null)
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"Executing class body with namespace capture...");
+                        #endif
                         var vm = PyVM.Instance;
                         classNamespace = vm.ExecuteClassBody(classBodyFunc.CodeObject);
                         
+                        #if DEBUG_LOG
                         Console.WriteLine($"Class body executed for {className}, captured {classNamespace.Count} variables");
+                        #endif
                     }
                     else
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine("Class body function has no CodeObject, falling back to direct call");
+                        #endif
                         var result = classBodyFunc.Call();
+                        #if DEBUG_LOG
                         Console.WriteLine($"Class body executed for {className}, result: {result}");
+                        #endif
                     }
                 }
                 catch (Exception ex)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"Error executing class body for {className}: {ex.Message}");
+                    #endif
                 }
             }
             else
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"Class body function is not PyFunction: {func?.GetType().Name}");
+                #endif
             }
             
             // CPython 3.12: Handle __classcell__ mechanism
             PyCell classcell = null;
             if (classNamespace.ContainsKey("__classcell__"))
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"🔍 Found __classcell__ in class namespace for {className}");
+                #endif
                 if (classNamespace["__classcell__"] is PyCell cell)
                 {
                     classcell = cell;
+                    #if DEBUG_LOG
                     Console.WriteLine($"✅ Extracted __classcell__ for later update");
+                    #endif
                     // Remove __classcell__ from namespace as it's not a class attribute
                     classNamespace.Remove("__classcell__");
                 }
                 else
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"⚠️  __classcell__ is not a PyCell: {classNamespace["__classcell__"]?.GetType().Name}");
+                    #endif
                 }
             }
             
@@ -1194,12 +1236,16 @@ namespace SharpPy
             
             if (hasMetaclass)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"Creating class with metaclass: {metaclass}");
+                #endif
                 
                 // CPython 3.12: Execute the custom metaclass to create the class
                 try
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine("Executing custom metaclass to create class");
+                    #endif
                     
                     // Create a PyDict from the class namespace for the metaclass call
                     var namespaceDict = new PyDict();
@@ -1209,32 +1255,52 @@ namespace SharpPy
                     }
                     
                     // CPython 3.12: Execute metaclass.__new__ which modifies namespace and calls type.__new__ 
+                    #if DEBUG_LOG
                     Console.WriteLine("Executing metaclass.__new__ with namespace modification support");
+                    #endif
                     
                     // CPython 3.12: Do NOT pre-update __classcell__ here!
                     // The __class__ cell should point to the class being created (TopMeta), not the metaclass (MiddleMeta)
                     // We'll update it AFTER the class is created
                     if (classcell != null)
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"🎯 CPython 3.12: __classcell__ found, will update AFTER class creation");
+                        #endif
+                        #if DEBUG_LOG
                         Console.WriteLine($"   Current __classcell__.Value: {classcell.Value}");
+                        #endif
+                        #if DEBUG_LOG
                         Console.WriteLine($"   Target class name: {className}");
+                        #endif
                     }
                     
                     // Get the __new__ method from the metaclass
                     var newMethod = metaclass.GetAttribute("__new__");
                     if (newMethod != null && newMethod.IsCallable())
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine("Found metaclass.__new__ method, executing it");
+                        #endif
+                        #if DEBUG_LOG
                         Console.WriteLine($"   newMethod type: {newMethod.GetType().Name}");
+                        #endif
+                        #if DEBUG_LOG
                         Console.WriteLine($"   newMethod is PyFunction: {newMethod is PyFunction}");
+                        #endif
                         
                         // CPython 3.12: Dynamic __class__ cell binding for inherited metaclass methods
                         if (newMethod is PyFunction pyFunc && pyFunc.CodeObject?.FreeVars?.Contains("__class__") == true)
                         {
+                            #if DEBUG_LOG
                             Console.WriteLine($"🔧 CPython 3.12: Adjusting __class__ cell for inherited metaclass method");
+                            #endif
+                            #if DEBUG_LOG
                             Console.WriteLine($"   Method: {pyFunc.Name}");
+                            #endif
+                            #if DEBUG_LOG
                             Console.WriteLine($"   Target metaclass: {metaclass}");
+                            #endif
                             
                             // Create a copy of the closure and update the __class__ cell
                             if (pyFunc.Closure != null && pyFunc.Closure.Length > 0)
@@ -1245,9 +1311,13 @@ namespace SharpPy
                                 var classIndex = pyFunc.CodeObject.FreeVars.IndexOf("__class__");
                                 if (classIndex >= 0 && classIndex < adjustedClosure.Length)
                                 {
+                                    #if DEBUG_LOG
                                     Console.WriteLine($"   Original __class__ cell: {adjustedClosure[classIndex]?.Value}");
+                                    #endif
                                     adjustedClosure[classIndex] = new PyCell(metaclass);
+                                    #if DEBUG_LOG
                                     Console.WriteLine($"   ✅ Updated __class__ cell[{classIndex}] to {metaclass}");
+                                    #endif
                                     
                                     // Create a new function with the adjusted closure
                                     newMethod = new PyFunction(pyFunc.Name, pyFunc.Implementation, 
@@ -1271,7 +1341,9 @@ namespace SharpPy
                         if (globalScope != null && metaclass is PyClass metaclassForScope)
                         {
                             string metaclassName = metaclassForScope.Name;
+                            #if DEBUG_LOG
                             Console.WriteLine($"🔧 CPython 3.12: Temporarily adding {metaclassName} to global scope for explicit super()");
+                            #endif
                             
                             // Save any existing value
                             if (globalScope.Variables.ContainsKey(metaclassName))
@@ -1299,27 +1371,39 @@ namespace SharpPy
                                 if (hadPreviousValue)
                                 {
                                     globalScope.SetVariable(metaclassName, previousValue!);
+                                    #if DEBUG_LOG
                                     Console.WriteLine($"🔧 Restored {metaclassName} to previous value in global scope");
+                                    #endif
                                 }
                                 else
                                 {
                                     globalScope.Variables.Remove(metaclassName);
+                                    #if DEBUG_LOG
                                     Console.WriteLine($"🔧 Removed {metaclassName} from global scope");
+                                    #endif
                                 }
                             }
                         }
+                        #if DEBUG_LOG
                         Console.WriteLine($"Metaclass.__new__ returned: {result?.GetType().Name}");
+                        #endif
                         
                         if (result is PyClass createdClass)
                         {
                             pyClass = createdClass;
+                            #if DEBUG_LOG
                             Console.WriteLine($"🔍 Setting Metaclass: {metaclass?.GetType().Name}, is PyClass: {metaclass is PyClass}");
+                            #endif
                             pyClass.Metaclass = metaclass as PyClass;
+                            #if DEBUG_LOG
                             Console.WriteLine($"🔍 After setting: pyClass.Metaclass = {pyClass.Metaclass}");
+                            #endif
                             
                             // CPython 3.12: The metaclass.__new__ should have already set all attributes
                             // But let's ensure any additional attributes from the modified namespace are set
+                            #if DEBUG_LOG
                             Console.WriteLine("Ensuring all namespace attributes are set on metaclass-created class");
+                            #endif
                             var items = namespaceDict.Items();
                             for (int i = 0; i < items.Items.Length; i++)
                             {
@@ -1328,7 +1412,9 @@ namespace SharpPy
                                     if (kvp.Items[0] is PyString keyStr)
                                     {
                                         pyClass.SetAttribute(keyStr.Value, kvp.Items[1]);
+                                        #if DEBUG_LOG
                                         Console.WriteLine($"  Set attribute from namespace: {keyStr.Value} = {kvp.Items[1].GetType().Name}");
+                                        #endif
                                     }
                                 }
                             }
@@ -1336,23 +1422,37 @@ namespace SharpPy
                             // CPython 3.12: NOW update __classcell__ to point to the created class
                             if (classcell != null)
                             {
+                                #if DEBUG_LOG
                                 Console.WriteLine($"🎯 CPython 3.12: Updating __classcell__ to point to created class");
+                                #endif
+                                #if DEBUG_LOG
                                 Console.WriteLine($"   Before: __classcell__.Value = {classcell.Value}");
+                                #endif
                                 classcell.Value = pyClass;  // Set to the newly created class
+                                #if DEBUG_LOG
                                 Console.WriteLine($"   After: __classcell__.Value = {classcell.Value}");
+                                #endif
+                                #if DEBUG_LOG
                                 Console.WriteLine($"✅ __classcell__ correctly updated to created class");
+                                #endif
                             }
                             
+                            #if DEBUG_LOG
                             Console.WriteLine($"✅ Metaclass created class successfully: {createdClass}");
+                            #endif
                             
                             // CPython 3.12: Call metaclass.__init__ after __new__
+                            #if DEBUG_LOG
                             Console.WriteLine($"🔍 Calling metaclass.__init__: metaclass={metaclass}, type={metaclass?.GetType().Name}");
+                            #endif
                             try
                             {
                                 var initMethod = metaclass.GetAttribute("__init__");
                                 if (initMethod != null && initMethod.IsCallable())
                                 {
+                                    #if DEBUG_LOG
                                     Console.WriteLine("Found metaclass.__init__ method, executing it");
+                                    #endif
                                 try 
                                 {
                                     var initArgs = new PyObject[] {
@@ -1362,23 +1462,31 @@ namespace SharpPy
                                         namespaceDict              // namespace
                                     };
                                     initMethod.Call(initArgs);
+                                    #if DEBUG_LOG
                                     Console.WriteLine("Metaclass.__init__ executed successfully");
+                                    #endif
                                 }
                                 catch (Exception initEx)
                                 {
+                                    #if DEBUG_LOG
                                     Console.WriteLine($"Error calling metaclass.__init__: {initEx.Message}");
+                                    #endif
                                 }
                                 }
                             }
                             catch (Exception ex) when (ex.Message.Contains("has no attribute"))
                             {
+                                #if DEBUG_LOG
                                 Console.WriteLine("No __init__ method found on metaclass, skipping initialization");
+                                #endif
                             }
                         }
                         else
                         {
                             // If metaclass.__new__ didn't return a class, fall back to direct type.__new__ call
+                            #if DEBUG_LOG
                             Console.WriteLine("Metaclass.__new__ didn't return a class, falling back to type.__new__");
+                            #endif
                             var typeResult = CallTypeNew(new PyObject[] { metaclass, new PyString(className), new PyTuple(bases.Cast<PyObject>().ToArray()), namespaceDict });
                             pyClass = typeResult as PyClass ?? new PyClass(className, bases.ToArray());
                             pyClass.Metaclass = metaclass as PyClass;
@@ -1386,15 +1494,21 @@ namespace SharpPy
                             // CPython 3.12: Update __classcell__ for fallback case too
                             if (classcell != null)
                             {
+                                #if DEBUG_LOG
                                 Console.WriteLine($"🎯 CPython 3.12: Updating __classcell__ in fallback case");
+                                #endif
                                 classcell.Value = pyClass;
+                                #if DEBUG_LOG
                                 Console.WriteLine($"✅ __classcell__ updated in fallback case");
+                                #endif
                             }
                         }
                     }
                     else
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine("No callable __new__ method found on metaclass, using type.__new__ directly");
+                        #endif
                         var typeResult = CallTypeNew(new PyObject[] { metaclass, new PyString(className), new PyTuple(bases.Cast<PyObject>().ToArray()), namespaceDict });
                         pyClass = typeResult as PyClass ?? new PyClass(className, bases.ToArray());
                         pyClass.Metaclass = metaclass as PyClass;
@@ -1402,24 +1516,34 @@ namespace SharpPy
                         // CPython 3.12: Update __classcell__ for no callable __new__ case
                         if (classcell != null)
                         {
+                            #if DEBUG_LOG
                             Console.WriteLine($"🎯 CPython 3.12: Updating __classcell__ in no callable __new__ case");
+                            #endif
                             classcell.Value = pyClass;
+                            #if DEBUG_LOG
                             Console.WriteLine($"✅ __classcell__ updated in no callable __new__ case");
+                            #endif
                         }
                     }
                 }
                 catch (Exception ex)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"Error calling metaclass.__new__: {ex.Message}");
+                    #endif
                     pyClass = new PyClass(className, bases.ToArray());
                     pyClass.SetAttribute("__metaclass__", metaclass);
                     
                     // CPython 3.12: Update __classcell__ even in exception case
                     if (classcell != null)
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"🎯 CPython 3.12: Updating __classcell__ in exception case");
+                        #endif
                         classcell.Value = pyClass;
+                        #if DEBUG_LOG
                         Console.WriteLine($"✅ __classcell__ updated in exception case");
+                        #endif
                     }
                 }
             }
@@ -1430,11 +1554,19 @@ namespace SharpPy
                 // CPython 3.12: Update __classcell__ for non-metaclass case too
                 if (classcell != null)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"🎯 CPython 3.12: Updating __classcell__ in non-metaclass case");
+                    #endif
+                    #if DEBUG_LOG
                     Console.WriteLine($"   Before: __classcell__.Value = {classcell.Value}");
+                    #endif
                     classcell.Value = pyClass;
+                    #if DEBUG_LOG
                     Console.WriteLine($"   After: __classcell__.Value = {classcell.Value}");
+                    #endif
+                    #if DEBUG_LOG
                     Console.WriteLine($"✅ __classcell__ updated in non-metaclass case");
+                    #endif
                 }
             }
             
@@ -1454,13 +1586,19 @@ namespace SharpPy
                 // After metaclass execution, the namespaceDict should contain any additions
                 // But we need to get the updated dict from the metaclass result
                 // For now, let's try to get the attributes from the created class itself
+                #if DEBUG_LOG
                 Console.WriteLine($"Setting attributes for metaclass-created class");
+                #endif
 
                 // CPython 3.12: Ensure all namespace attributes are set on metaclass-created class
+                #if DEBUG_LOG
                 Console.WriteLine($"Ensuring all namespace attributes are set on metaclass-created class");
+                #endif
                 foreach (var kvp in classNamespace)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"  Set attribute from namespace: {kvp.Key} = {kvp.Value.GetType().Name}");
+                    #endif
                     pyClass.SetAttribute(kvp.Key, kvp.Value);
                 }
             }
@@ -1468,7 +1606,9 @@ namespace SharpPy
             {
                 foreach (var kvp in classNamespace)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"  Setting class attribute: {kvp.Key} = {kvp.Value.GetType().Name}");
+                    #endif
                     pyClass.SetAttribute(kvp.Key, kvp.Value);
                 }
             }
@@ -1476,21 +1616,33 @@ namespace SharpPy
             // CPython 3.12: Update __classcell__ with created class
             if (classcell != null)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"🎯 CPython 3.12: Updating __classcell__ with created class {pyClass}");
+                #endif
                 classcell.Value = pyClass;
+                #if DEBUG_LOG
                 Console.WriteLine($"✅ __classcell__ updated successfully");
+                #endif
             }
             
             
             // Debug: Check final class attributes
+            #if DEBUG_LOG
             Console.WriteLine($"🔍 Final class attributes: {pyClass?.Name}");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"   Metaclass: {pyClass?.Metaclass}");
+            #endif
             if (pyClass?.ClassDict != null)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"   ClassDict has {pyClass.ClassDict.Count} items:");
+                #endif
                 foreach (var attr in pyClass.ClassDict)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"     {attr.Key}: {attr.Value?.GetType().Name}");
+                    #endif
                 }
             }
             
@@ -1592,7 +1744,9 @@ namespace SharpPy
             {
                 // super() with no arguments - try to use __class__ cell variable
                 // This is a simplified implementation - in CPython, this requires frame introspection
+                #if DEBUG_LOG
                 Console.WriteLine("🔍 super() called with no arguments, attempting __class__ cell lookup");
+                #endif
                 
                 // CPython 3.12: Look for __class__ cell variable in current frame
                 var currentFrame = PyVM.CurrentFrame;
@@ -1606,7 +1760,9 @@ namespace SharpPy
                     if (freeVarIndex >= 0)
                     {
                         classIndex = freeVarIndex; // FreeVars start at index 0
+                        #if DEBUG_LOG
                         Console.WriteLine($"🔍 Found __class__ in FreeVars at index {classIndex}");
+                        #endif
                     }
                     else
                     {
@@ -1615,7 +1771,9 @@ namespace SharpPy
                         if (cellVarIndex >= 0)
                         {
                             classIndex = (currentFrame.Code.FreeVars?.Count ?? 0) + cellVarIndex;
+                            #if DEBUG_LOG
                             Console.WriteLine($"🔍 Found __class__ in CellVars at combined index {classIndex}");
+                            #endif
                         }
                     }
                     
@@ -1628,14 +1786,18 @@ namespace SharpPy
                             if (classCell != null && classCell.Value != null)
                             {
                                 var classValue = classCell.Value;
+                                #if DEBUG_LOG
                                 Console.WriteLine($"🔍 Retrieved __class__ from cell[{classIndex}]: {classValue}");
+                                #endif
                                 
                                 // CPython 3.12: Dynamic __class__ resolution for metaclass inheritance
                                 // When TopMeta class is being created, its inherited __new__ method should use TopMeta, not MiddleMeta
                                 var actualClassValue = ResolveActualClass(classValue, currentFrame);
                                 if (actualClassValue != classValue)
                                 {
+                                    #if DEBUG_LOG
                                     Console.WriteLine($"🎯 CPython 3.12: Dynamic __class__ resolution: {classValue} → {actualClassValue}");
+                                    #endif
                                     classValue = actualClassValue;
                                 }
                                 
@@ -1648,12 +1810,16 @@ namespace SharpPy
                                     if (firstParam == "self" && currentFrame.FastLocals.TryGetValue("self", out var selfValue))
                                     {
                                         instance = selfValue;
+                                        #if DEBUG_LOG
                                         Console.WriteLine($"🔍 Found 'self' parameter: {instance}");
+                                        #endif
                                     }
                                     else if (firstParam == "cls" && currentFrame.FastLocals.TryGetValue("cls", out var clsValue))
                                     {
                                         instance = clsValue;
+                                        #if DEBUG_LOG
                                         Console.WriteLine($"🔍 Found 'cls' parameter: {instance}");
+                                        #endif
                                     }
                                 }
                                 
@@ -1670,18 +1836,28 @@ namespace SharpPy
                                 }
                                 else
                                 {
+                                    #if DEBUG_LOG
                                     Console.WriteLine($"🔍 __class__ cell contains non-type value: {classValue.GetType().Name}");
+                                    #endif
                                 }
                             }
                         }
                         
+                        #if DEBUG_LOG
                         Console.WriteLine($"🔍 __class__ cell found but not initialized (cell[{classIndex}])");
+                        #endif
                     }
                     else
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"🔍 No __class__ found in current frame");
+                        #endif
+                        #if DEBUG_LOG
                         Console.WriteLine($"   FreeVars: [{string.Join(", ", currentFrame.Code.FreeVars)}]");
+                        #endif
+                        #if DEBUG_LOG
                         Console.WriteLine($"   CellVars: [{string.Join(", ", currentFrame.Code.CellVars)}]");
+                        #endif
                     }
                 }
                 
@@ -1901,15 +2077,21 @@ namespace SharpPy
         /// </summary>
         private PyObject ResolveActualClass(PyObject cellClassValue, PyFrame currentFrame)
         {
+            #if DEBUG_LOG
             Console.WriteLine($"🔍 ResolveActualClass: cellClassValue = {cellClassValue}");
+            #endif
             
             // CPython 3.12 correct behavior: Each method should see its own class as __class__
             // The __class__ cell value is already correct - don't try to resolve to a different class
             
             if (cellClassValue is PyClass cellClass)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"   ✅ Using cell class as-is: {cellClass.Name}");
+                #endif
+                #if DEBUG_LOG
                 Console.WriteLine($"   🎯 CPython 3.12: Each metaclass method sees its own class in __class__");
+                #endif
             }
             
             return cellClassValue; // Use the original cell value - it's already correct
@@ -1922,14 +2104,18 @@ namespace SharpPy
         {
             try
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"🔍 FindOrCreateTargetClass: target='{targetClassName}', basedOn='{basedOnClass.Name}'");
+                #endif
                 
                 // For metaclass inheritance, the target class should have the same base types as the cell class
                 // but with the target name. This creates a "future reference" to the class being created.
                 
                 // Create a temporary class that inherits from the same base as the cell class
                 var targetBaseTypes = basedOnClass.BaseTypes ?? new PyType[] { PyType.TypeType };
+                #if DEBUG_LOG
                 Console.WriteLine($"   Creating target class with base types: [{string.Join(", ", targetBaseTypes.Select(t => t.Name))}]");
+                #endif
                 
                 // Create the target class with the correct name and base types
                 var targetClass = new PyClass(targetClassName, targetBaseTypes);
@@ -1940,16 +2126,22 @@ namespace SharpPy
                     if (attr.Key != "__name__" && attr.Key != "__qualname__")
                     {
                         targetClass.SetAttribute(attr.Key, attr.Value);
+                        #if DEBUG_LOG
                         Console.WriteLine($"   Copied attribute: {attr.Key}");
+                        #endif
                     }
                 }
                 
+                #if DEBUG_LOG
                 Console.WriteLine($"✅ Created target class reference: {targetClass}");
+                #endif
                 return targetClass;
             }
             catch (Exception ex)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"❌ Error in FindOrCreateTargetClass: {ex.Message}");
+                #endif
                 // Fallback to original class
                 return basedOnClass;
             }
@@ -2163,8 +2355,12 @@ namespace SharpPy
         
         public override PyObject GetAttribute(string name)
         {
+            #if DEBUG_LOG
             Console.WriteLine($"🔍 PySuperProxy.GetAttribute: Looking for '{name}' in super({Type.Name})");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"   Type.BaseTypes: {(Type.BaseTypes != null ? $"[{string.Join(", ", Type.BaseTypes.Select(t => t.Name))}]" : "null")}");
+            #endif
 
             // CPython 3.12: Use MRO to find the method in parent classes
             // Skip the current class and look in its parents
@@ -2173,14 +2369,18 @@ namespace SharpPy
                 // Check each base type in order (MRO)
                 foreach (var baseType in Type.BaseTypes)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"   → Checking base type: {baseType.Name}");
+                    #endif
 
                     try
                     {
                         var attr = baseType.GetAttribute(name);
                         if (attr != null)
                         {
+                            #if DEBUG_LOG
                             Console.WriteLine($"   ✅ Found '{name}' in {baseType.Name}: {attr.GetType().Name}");
+                            #endif
 
                             // Special handling for metaclass methods like __new__
                             if (attr is PyFunction function && Object != null)
@@ -2191,13 +2391,17 @@ namespace SharpPy
                                 if (isMetaclassContext && (name == "__new__" || name == "__init__" || name == "__init_subclass__"))
                                 {
                                     // Return unbound function for class methods in metaclass context
+                                    #if DEBUG_LOG
                                     Console.WriteLine($"   🔧 Metaclass context: returning unbound {name}");
+                                    #endif
                                     return function;
                                 }
                                 else
                                 {
                                     // Regular instance method binding
+                                    #if DEBUG_LOG
                                     Console.WriteLine($"   🔧 Instance context: binding {name} to {Object.GetType().Name}");
+                                    #endif
                                     return new PyMethod(Object, function);
                                 }
                             }
@@ -2206,19 +2410,25 @@ namespace SharpPy
                     }
                     catch (Exception ex)
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"   ⚠️ Error checking {baseType.Name}: {ex.Message}");
+                        #endif
                     }
                 }
             }
             else
             {
                 // CPython 3.12: If no explicit base classes, implicitly inherit from object
+                #if DEBUG_LOG
                 Console.WriteLine($"   → No base types, checking implicit 'object' base class");
+                #endif
 
                 // For object.__init__, return a no-op function (object's __init__ does nothing)
                 if (name == "__init__" && Object != null)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"   ✅ Found implicit object.__init__: returning bound method");
+                    #endif
 
                     // Create a no-op __init__ function that matches object.__init__
                     // We need to wrap PyBuiltinFunction as PyFunction for binding
@@ -2234,7 +2444,9 @@ namespace SharpPy
                 // For now, let's see if __init__ is enough
             }
 
+            #if DEBUG_LOG
             Console.WriteLine($"   ❌ '{name}' not found in any parent class");
+            #endif
             throw PyAttributeError.Create($"'super' object has no attribute '{name}'");
         }
         

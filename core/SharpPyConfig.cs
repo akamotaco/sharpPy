@@ -93,7 +93,7 @@ namespace SharpPy
         /// <param name="message">출력할 메시지</param>
         public static void DebugWrite(string message)
         {
-#if DEBUG
+#if DEBUG_LOG
             Console.WriteLine(message);
 #endif
         }
@@ -104,7 +104,7 @@ namespace SharpPy
         /// <param name="message">출력할 메시지</param>
         public static void DebugWriteInternal(string message)
         {
-#if DEBUG
+#if DEBUG_LOG
             Console.WriteLine(message);
 #endif
         }

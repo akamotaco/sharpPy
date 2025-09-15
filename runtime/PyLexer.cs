@@ -1,5 +1,3 @@
-// #define DEBUG  // Disable debug output
-
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -792,7 +790,7 @@ namespace SharpPy
             var startLine = _line;
             var startColumn = _column;
 
-#if DEBUG
+#if DEBUG_LOG
             Console.WriteLine($"[DEBUG] ScanFStringTokens called: quote='{quote}', isTripleQuoted={isTripleQuoted}");
 #endif
 
@@ -800,7 +798,7 @@ namespace SharpPy
             var prefix = isTripleQuoted ? $"f{quote}{quote}{quote}" : $"f{quote}";
             var fstringStart = new PyToken(TokenType.FSTRING_START, prefix, startLine, startColumn - 1); // f까지 포함
 
-#if DEBUG
+#if DEBUG_LOG
             Console.WriteLine($"[DEBUG] Starting f-string parsing at position {_position}, line {_line}, column {_column}");
             Console.WriteLine($"[DEBUG] Looking for closing quote: '{quote}'");
 #endif
@@ -817,7 +815,7 @@ namespace SharpPy
             while (!IsAtEnd() && !IsEndOfFString(quote, isTripleQuoted))
             {
                 char c = Peek();
-#if DEBUG
+#if DEBUG_LOG
                 Console.WriteLine($"[DEBUG] Processing char '{c}' at position {_position}");
 #endif
 
@@ -950,7 +948,7 @@ namespace SharpPy
             if (!IsAtEnd() && IsEndOfFString(quote, isTripleQuoted))
             {
                 var endToken = isTripleQuoted ? $"{quote}{quote}{quote}" : quote.ToString();
-#if DEBUG
+#if DEBUG_LOG
                 Console.WriteLine($"[DEBUG] Creating FSTRING_END: isTripleQuoted={isTripleQuoted}, endToken='{endToken}'");
 #endif
                 tokens.Add(new PyToken(TokenType.FSTRING_END, endToken, _line, _column));
@@ -974,7 +972,7 @@ namespace SharpPy
                 _pendingTokens.Add(tokens[i]);
             }
 
-#if DEBUG
+#if DEBUG_LOG
             Console.WriteLine($"[DEBUG] Generated {tokens.Count} f-string tokens, {tokens.Count-1} added to pending queue");
             foreach (var token in tokens)
             {

@@ -26,16 +26,22 @@ namespace SharpPy
         /// </summary>
         public PyCodeObject OptimizeCode(PyCodeObject originalCode)
         {
+#if DEBUG_LOG
             Console.WriteLine($"🔧 ByteCodeOptimizer.OptimizeCode 호출: _optimizationEnabled={_optimizationEnabled}");
+#endif
             if (!_optimizationEnabled)
             {
-                Console.WriteLine($"🚫 최적화 비활성화됨 - 원본 코드 반환 (명령어 수: {originalCode.Instructions.Count})");
+    #if DEBUG_LOG
+            Console.WriteLine($"🚫 최적화 비활성화됨 - 원본 코드 반환 (명령어 수: {originalCode.Instructions.Count})");
+#endif
                 return originalCode;
             }
 
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
-                Console.WriteLine("\n🔧 바이트코드 최적화 시작");
+    #if DEBUG_LOG
+            Console.WriteLine("\n🔧 바이트코드 최적화 시작");
+#endif
             }
             
             _instructions = new List<ByteCodeInstruction>(originalCode.Instructions);
@@ -75,7 +81,9 @@ namespace SharpPy
             
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
-                Console.WriteLine($"✅ 최적화 완료: {originalCount} → {optimizedCount} ({saved} 명령어 절약, {(float)saved/originalCount*100:F1}% 개선)");
+    #if DEBUG_LOG
+            Console.WriteLine($"✅ 최적화 완료: {originalCount} → {optimizedCount} ({saved} 명령어 절약, {(float)saved/originalCount*100:F1}% 개선)");
+#endif
             }
 
             var optimizedCode = new PyCodeObject(
@@ -99,7 +107,9 @@ namespace SharpPy
             RecalculateExceptionTableOffsets(originalCode.ExceptionTable, optimizedCode);
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
-                Console.WriteLine($"🔍 Exception Table 동기화: {originalCode.ExceptionTable.Count}개 엔트리 → 최적화된 코드");
+    #if DEBUG_LOG
+            Console.WriteLine($"🔍 Exception Table 동기화: {originalCode.ExceptionTable.Count}개 엔트리 → 최적화된 코드");
+#endif
             }
             
             return optimizedCode;
@@ -137,7 +147,9 @@ namespace SharpPy
                         _instructions.RemoveAt(i + 1);
                         _instructions.RemoveAt(i + 1); // RemoveAt 후 인덱스가 변경됨
                         
-                        Console.WriteLine($"🔄 상수 접기: {inst1.OpCode}+{inst2.OpCode}+{inst3.OpCode} → LOAD_CONST({result})");
+            #if DEBUG_LOG
+            Console.WriteLine($"🔄 상수 접기: {inst1.OpCode}+{inst2.OpCode}+{inst3.OpCode} → LOAD_CONST({result})");
+#endif
                         i--; // 다음 반복에서 현재 위치부터 다시 검사
                     }
                 }
@@ -200,7 +212,9 @@ namespace SharpPy
                         _instructions.RemoveAt(i - tupleSize + 1);
                     }
                     
-                    Console.WriteLine($"🔄 튤플 상수 접기: {tupleSize}개 LOAD_CONST + BUILD_TUPLE → LOAD_CONST({tupleConstant})");
+        #if DEBUG_LOG
+            Console.WriteLine($"🔄 튤플 상수 접기: {tupleSize}개 LOAD_CONST + BUILD_TUPLE → LOAD_CONST({tupleConstant})");
+#endif
                     i -= tupleSize; // Adjust index after removals
                 }
             }
@@ -222,7 +236,9 @@ namespace SharpPy
                     inst1.Argument == inst2.Argument)
                 {
                     _instructions[i + 1] = new ByteCodeInstruction(ByteCodeOp.COPY, 1);
-                    Console.WriteLine($"🔄 중복 로드 제거: LOAD_NAME({_names[inst1.Argument]}) 중복 → COPY");
+        #if DEBUG_LOG
+            Console.WriteLine($"🔄 중복 로드 제거: LOAD_NAME({_names[inst1.Argument]}) 중복 → COPY");
+#endif
                 }
 
                 // 패턴: LOAD_CONST x, LOAD_CONST x → LOAD_CONST x, COPY
@@ -231,7 +247,9 @@ namespace SharpPy
                     inst1.Argument == inst2.Argument)
                 {
                     _instructions[i + 1] = new ByteCodeInstruction(ByteCodeOp.COPY, 1);
-                    Console.WriteLine($"🔄 중복 상수 로드 제거: LOAD_CONST 중복 → COPY");
+        #if DEBUG_LOG
+            Console.WriteLine($"🔄 중복 상수 로드 제거: LOAD_CONST 중복 → COPY");
+#endif
                 }
             }
         }
@@ -253,7 +271,9 @@ namespace SharpPy
                 {
                     _instructions[i] = new ByteCodeInstruction(ByteCodeOp.NOP, 0);
                     _instructions[i + 1] = new ByteCodeInstruction(ByteCodeOp.NOP, 0);
-                    Console.WriteLine("🔄 무용 코드 제거: if True 최적화");
+        #if DEBUG_LOG
+            Console.WriteLine("🔄 무용 코드 제거: if True 최적화");
+#endif
                 }
 
                 // 패턴: LOAD_CONST False, POP_JUMP_IF_TRUE → NOP (항상 거짓이므로 점프하지 않음)
@@ -263,7 +283,9 @@ namespace SharpPy
                 {
                     _instructions[i] = new ByteCodeInstruction(ByteCodeOp.NOP, 0);
                     _instructions[i + 1] = new ByteCodeInstruction(ByteCodeOp.NOP, 0);
-                    Console.WriteLine("🔄 무용 코드 제거: if False 최적화");
+        #if DEBUG_LOG
+            Console.WriteLine("🔄 무용 코드 제거: if False 최적화");
+#endif
                 }
             }
         }
@@ -287,7 +309,9 @@ namespace SharpPy
                     _instructions[i + 1] = new ByteCodeInstruction(ByteCodeOp.NOP, 0); // 제거될 NOP로 마킹
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
-                        Console.WriteLine($"🔄 Peephole: LOAD_CONST+RETURN_VALUE → RETURN_CONST (const {inst1.Argument})");
+            #if DEBUG_LOG
+            Console.WriteLine($"🔄 Peephole: LOAD_CONST+RETURN_VALUE → RETURN_CONST (const {inst1.Argument})");
+#endif
                     }
                     continue;
                 }
@@ -299,7 +323,9 @@ namespace SharpPy
                 {
                     _instructions[i] = new ByteCodeInstruction(ByteCodeOp.NOP, 0);
                     _instructions[i + 1] = new ByteCodeInstruction(ByteCodeOp.NOP, 0);
-                    Console.WriteLine("🔄 Peephole: 불필요한 LOAD_CONST+POP_TOP 제거");
+        #if DEBUG_LOG
+            Console.WriteLine("🔄 Peephole: 불필요한 LOAD_CONST+POP_TOP 제거");
+#endif
                 }*/
             }
 
@@ -346,7 +372,9 @@ namespace SharpPy
             {
                 if (!SharpPyConfig.DisassemblyOnlyMode)
                 {
-                    Console.WriteLine($"🔄 최적화 NOP 제거: {indicesToRemove.Count}개 (try-except NOP 보존됨)");
+        #if DEBUG_LOG
+            Console.WriteLine($"🔄 최적화 NOP 제거: {indicesToRemove.Count}개 (try-except NOP 보존됨)");
+#endif
                 }
             }
         }
@@ -505,7 +533,9 @@ namespace SharpPy
         {
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
-                Console.WriteLine("🚀 CPython 3.12 Superinstructions 최적화 적용");
+    #if DEBUG_LOG
+            Console.WriteLine("🚀 CPython 3.12 Superinstructions 최적화 적용");
+#endif
             }
             
             for (int i = 0; i < _instructions.Count - 1; i++)
@@ -526,7 +556,9 @@ namespace SharpPy
         {
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
-                Console.WriteLine("🔄 점프 오프셋 재계산 중...");
+    #if DEBUG_LOG
+            Console.WriteLine("🔄 점프 오프셋 재계산 중...");
+#endif
             }
             int recalculated = 0;
             
@@ -540,7 +572,9 @@ namespace SharpPy
             {
                 if (!SharpPyConfig.DisassemblyOnlyMode)
                 {
-                    Console.WriteLine("✅ 루프 없음 - 점프 오프셋 재계산 불필요");
+        #if DEBUG_LOG
+            Console.WriteLine("✅ 루프 없음 - 점프 오프셋 재계산 불필요");
+#endif
                 }
                 // 루프가 없더라도 if-elif 체인의 점프 오프셋은 업데이트 필요 (최적화로 인한 변경 반영)
                 RecalculateIfElifJumps();
@@ -559,7 +593,9 @@ namespace SharpPy
             {
                 if (!SharpPyConfig.DisassemblyOnlyMode)
                 {
-                    Console.WriteLine($"✅ 점프 오프셋 재계산 완료: {recalculated}개 명령어 수정");
+        #if DEBUG_LOG
+            Console.WriteLine($"✅ 점프 오프셋 재계산 완료: {recalculated}개 명령어 수정");
+#endif
                 }
                 return;
             }
@@ -599,7 +635,9 @@ namespace SharpPy
                                     _instructions[j] = new ByteCodeInstruction(ByteCodeOp.JUMP_BACKWARD, correctOffset);
                                     if (!SharpPyConfig.DisassemblyOnlyMode)
                                     {
-                                        Console.WriteLine($"  🔧 중첩 FOR 루프 JUMP_BACKWARD[{j}]: {currentOffset} → {correctOffset} (FOR_ITER: {correctForIterPos})");
+                            #if DEBUG_LOG
+            Console.WriteLine($"  🔧 중첩 FOR 루프 JUMP_BACKWARD[{j}]: {currentOffset} → {correctOffset} (FOR_ITER: {correctForIterPos})");
+#endif
                                     }
                                     recalculated++;
                                 }
@@ -673,7 +711,9 @@ namespace SharpPy
                             if (shouldPointToForIter)
                             {
                                 _instructions[j] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, forIterPos);
-                                Console.WriteLine($"  🔧 조건부 점프 POP_JUMP_IF_FALSE[{j}]: {currentTarget} → {forIterPos} (FOR_ITER)");
+                    #if DEBUG_LOG
+            Console.WriteLine($"  🔧 조건부 점프 POP_JUMP_IF_FALSE[{j}]: {currentTarget} → {forIterPos} (FOR_ITER)");
+#endif
                                 recalculated++;
                             }
                         }
@@ -702,14 +742,20 @@ namespace SharpPy
             {
                 if (!SharpPyConfig.DisassemblyOnlyMode)
                 {
-                    Console.WriteLine("🔄 FOR_ITER → END_FOR 점프 오프셋 재계산 중...");
-                    Console.WriteLine("📋 모든 FOR_ITER와 END_FOR 위치:");
+        #if DEBUG_LOG
+            Console.WriteLine("🔄 FOR_ITER → END_FOR 점프 오프셋 재계산 중...");
+#endif
+        #if DEBUG_LOG
+            Console.WriteLine("📋 모든 FOR_ITER와 END_FOR 위치:");
+#endif
                     for (int i = 0; i < _instructions.Count; i++)
                     {
                         var inst = _instructions[i];
                         if (inst.OpCode == ByteCodeOp.FOR_ITER || inst.OpCode == ByteCodeOp.END_FOR)
                         {
-                            Console.WriteLine($"    {i}: {inst.OpCode} (arg: {inst.Argument})");
+                #if DEBUG_LOG
+            Console.WriteLine($"    {i}: {inst.OpCode} (arg: {inst.Argument})");
+#endif
                         }
                     }
                 }
@@ -730,7 +776,9 @@ namespace SharpPy
                                 _instructions[i] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, instructionOffsetToTarget);
                                 if (!SharpPyConfig.DisassemblyOnlyMode)
                                 {
-                                    Console.WriteLine($"  🔧 FOR_ITER[{i}]: 오프셋 {instruction.Argument} → {instructionOffsetToTarget} (END_FOR at {targetEndFor})");
+                        #if DEBUG_LOG
+            Console.WriteLine($"  🔧 FOR_ITER[{i}]: 오프셋 {instruction.Argument} → {instructionOffsetToTarget} (END_FOR at {targetEndFor})");
+#endif
                                 }
                                 recalculated++;
                             }
@@ -747,7 +795,9 @@ namespace SharpPy
             {
                 if (!SharpPyConfig.DisassemblyOnlyMode)
                 {
-                    Console.WriteLine("🔄 JUMP_FORWARD (break문) 점프 오프셋 재계산 중...");
+        #if DEBUG_LOG
+            Console.WriteLine("🔄 JUMP_FORWARD (break문) 점프 오프셋 재계산 중...");
+#endif
                 }
                 for (int i = 0; i < _instructions.Count; i++)
                 {
@@ -766,7 +816,9 @@ namespace SharpPy
                             {
                                 int correctOffset = targetEndFor - i - 1;
                                 _instructions[i] = new ByteCodeInstruction(ByteCodeOp.JUMP_FORWARD, correctOffset);
-                                Console.WriteLine($"  🔧 JUMP_FORWARD[{i}]: break문 0 오프셋 → {correctOffset} (END_FOR at {targetEndFor})");
+                    #if DEBUG_LOG
+            Console.WriteLine($"  🔧 JUMP_FORWARD[{i}]: break문 0 오프셋 → {correctOffset} (END_FOR at {targetEndFor})");
+#endif
                                 recalculated++;
                             }
                         }
@@ -778,14 +830,18 @@ namespace SharpPy
             {
                 if (!SharpPyConfig.DisassemblyOnlyMode)
                 {
-                    Console.WriteLine($"✅ 점프 오프셋 재계산 완료: {recalculated}개 명령어 수정");
+        #if DEBUG_LOG
+            Console.WriteLine($"✅ 점프 오프셋 재계산 완료: {recalculated}개 명령어 수정");
+#endif
                 }
             }
             else
             {
                 if (!SharpPyConfig.DisassemblyOnlyMode)
                 {
-                    Console.WriteLine("✅ 점프 오프셋 재계산 완료: 수정 필요 없음");
+        #if DEBUG_LOG
+            Console.WriteLine("✅ 점프 오프셋 재계산 완료: 수정 필요 없음");
+#endif
                 }
             }
         }
@@ -800,7 +856,9 @@ namespace SharpPy
         {
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
-                Console.WriteLine("🔄 WHILE 루프 점프 오프셋 재계산 중...");
+    #if DEBUG_LOG
+            Console.WriteLine("🔄 WHILE 루프 점프 오프셋 재계산 중...");
+#endif
             }
             
             // WHILE 루프 패턴 찾기: COMPARE_OP → POP_JUMP_IF_FALSE ... JUMP_BACKWARD ... POP_JUMP_IF_FALSE
@@ -819,10 +877,14 @@ namespace SharpPy
                     // 디버깅: 실제 루프 종료점 확인
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
-                        Console.WriteLine($"  🔍 JUMP_BACKWARD at {jumpBackwardPos}, 계산된 루프 종료점: {loopEndPos}");
+            #if DEBUG_LOG
+            Console.WriteLine($"  🔍 JUMP_BACKWARD at {jumpBackwardPos}, 계산된 루프 종료점: {loopEndPos}");
+#endif
                         if (loopEndPos < _instructions.Count)
                         {
-                            Console.WriteLine($"  🔍 루프 종료점 명령어: {_instructions[loopEndPos].OpCode}");
+                #if DEBUG_LOG
+            Console.WriteLine($"  🔍 루프 종료점 명령어: {_instructions[loopEndPos].OpCode}");
+#endif
                         }
                     }
                     
@@ -836,7 +898,9 @@ namespace SharpPy
                             popJumpCount++;
                             if (!SharpPyConfig.DisassemblyOnlyMode)
                             {
-                                Console.WriteLine($"  🔍 발견된 POP_JUMP_IF_FALSE #{popJumpCount} at [{j}]: {inst.Argument} (원래 타겟: {j + inst.Argument + 1})");
+                    #if DEBUG_LOG
+            Console.WriteLine($"  🔍 발견된 POP_JUMP_IF_FALSE #{popJumpCount} at [{j}]: {inst.Argument} (원래 타겟: {j + inst.Argument + 1})");
+#endif
                             }
                             // 올바른 루프 종료점으로 점프하도록 상대 오프셋 재계산
                             int correctRelativeOffset = loopEndPos - j - 1;
@@ -847,7 +911,9 @@ namespace SharpPy
                                 
                                 if (!SharpPyConfig.DisassemblyOnlyMode)
                                 {
-                                    Console.WriteLine($"  🔧 WHILE POP_JUMP_IF_FALSE[{j}]: {inst.Argument} → {correctRelativeOffset} (target: {loopEndPos})");
+                        #if DEBUG_LOG
+            Console.WriteLine($"  🔧 WHILE POP_JUMP_IF_FALSE[{j}]: {inst.Argument} → {correctRelativeOffset} (target: {loopEndPos})");
+#endif
                                 }
                             }
                         }
@@ -879,10 +945,12 @@ namespace SharpPy
                 {
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
-                        Console.WriteLine($"🔧 Exception Table 정확한 재매핑: " +
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 Exception Table 정확한 재매핑: " +
                             $"Start {entry.StartOffset}→{mappedStart}, " +
                             $"End {entry.EndOffset}→{mappedEnd}, " +
                             $"Handler {entry.HandlerOffset}→{mappedHandler}");
+#endif
                     }
                 }
                 
@@ -934,7 +1002,9 @@ namespace SharpPy
             
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
-                Console.WriteLine($"🔍 FindMatchingEndFor: FOR_ITER at {forIterPos} 에 대한 END_FOR 찾는 중...");
+    #if DEBUG_LOG
+            Console.WriteLine($"🔍 FindMatchingEndFor: FOR_ITER at {forIterPos} 에 대한 END_FOR 찾는 중...");
+#endif
             }
             
             for (int i = forIterPos + 1; i < _instructions.Count; i++)
@@ -946,7 +1016,9 @@ namespace SharpPy
                     nestedLevel++; // 중첩된 FOR_ITER 발견, 레벨 증가
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
-                        Console.WriteLine($"    FOR_ITER at {i}, level → {nestedLevel}");
+            #if DEBUG_LOG
+            Console.WriteLine($"    FOR_ITER at {i}, level → {nestedLevel}");
+#endif
                     }
                 }
                 else if (instruction.OpCode == ByteCodeOp.END_FOR)
@@ -954,14 +1026,18 @@ namespace SharpPy
                     nestedLevel--; // END_FOR 발견, 레벨 감소
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
-                        Console.WriteLine($"    END_FOR at {i}, level → {nestedLevel}");
+            #if DEBUG_LOG
+            Console.WriteLine($"    END_FOR at {i}, level → {nestedLevel}");
+#endif
                     }
                     if (nestedLevel == 0)
                     {
                         // 이것이 매칭되는 END_FOR (현재 FOR_ITER에 대응)
                         if (!SharpPyConfig.DisassemblyOnlyMode)
                         {
-                            Console.WriteLine($"✅ FOR_ITER[{forIterPos}] → END_FOR[{i}] 매칭 완료");
+                #if DEBUG_LOG
+            Console.WriteLine($"✅ FOR_ITER[{forIterPos}] → END_FOR[{i}] 매칭 완료");
+#endif
                         }
                         return i;
                     }
@@ -1077,8 +1153,12 @@ namespace SharpPy
         {
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
-                Console.WriteLine("🔄 if-elif 체인 점프 오프셋 재계산 중...");
-                Console.WriteLine("  ✅ 컴파일러가 이미 올바른 점프 오프셋을 계산했으므로 수정하지 않음");
+    #if DEBUG_LOG
+            Console.WriteLine("🔄 if-elif 체인 점프 오프셋 재계산 중...");
+#endif
+    #if DEBUG_LOG
+            Console.WriteLine("  ✅ 컴파일러가 이미 올바른 점프 오프셋을 계산했으므로 수정하지 않음");
+#endif
             }
             
             // 아무 작업도 하지 않음 - 원래 컴파일러의 바이트코드가 이미 올바름
@@ -1092,7 +1172,9 @@ namespace SharpPy
         {
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
-                Console.WriteLine($"🔍 FindNextIfElifElseBlock: currentPos={currentPos}에서 다음 블록 찾는 중...");
+    #if DEBUG_LOG
+            Console.WriteLine($"🔍 FindNextIfElifElseBlock: currentPos={currentPos}에서 다음 블록 찾는 중...");
+#endif
             }
             
             for (int i = currentPos + 1; i < _instructions.Count; i++)
@@ -1109,7 +1191,9 @@ namespace SharpPy
                     {
                         if (!SharpPyConfig.DisassemblyOnlyMode)
                         {
-                            Console.WriteLine($"    ✅ 다음 elif 조건 발견: {i} ({inst.OpCode})");
+                #if DEBUG_LOG
+            Console.WriteLine($"    ✅ 다음 elif 조건 발견: {i} ({inst.OpCode})");
+#endif
                         }
                         return i;
                     }
@@ -1120,7 +1204,9 @@ namespace SharpPy
                 {
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
-                        Console.WriteLine($"    ✅ else 블록(반환문) 발견: {i} ({inst.OpCode})");
+            #if DEBUG_LOG
+            Console.WriteLine($"    ✅ else 블록(반환문) 발견: {i} ({inst.OpCode})");
+#endif
                     }
                     return i;
                 }
@@ -1128,7 +1214,9 @@ namespace SharpPy
             
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
-                Console.WriteLine($"    ❌ 다음 블록을 찾을 수 없음");
+    #if DEBUG_LOG
+            Console.WriteLine($"    ❌ 다음 블록을 찾을 수 없음");
+#endif
             }
             return -1; // 찾을 수 없음
         }

@@ -56,7 +56,9 @@ public partial class PyFunction : PyObject, IDescriptor
     
     private PyObject DefaultImplementation(PyObject[] args)
     {
+        #if DEBUG_LOG
         Console.WriteLine($"Function {Name} called with {args.Length} arguments");
+        #endif
         return PyNone.Instance;
     }
 
@@ -134,30 +136,44 @@ public partial class PyFunction : PyObject, IDescriptor
     // Descriptor로서의 동작 (method binding)
     public PyObject Get(PyObject instance, PyType owner)
     {
+        #if DEBUG_LOG
         Console.WriteLine($"🔧 PyFunction.Get called:");
         Console.WriteLine($"   Function: {Name}");
         Console.WriteLine($"   Instance: {instance?.GetType().Name} = {instance}");
         Console.WriteLine($"   Owner: {owner?.Name}");
         Console.WriteLine($"   Has CodeObject: {CodeObject != null}");
+        #endif
         if (CodeObject != null)
         {
+            #if DEBUG_LOG
             Console.WriteLine($"   FreeVars: [{string.Join(", ", CodeObject.FreeVars ?? new List<string>())}]");
             Console.WriteLine($"   Has __class__ in FreeVars: {CodeObject.FreeVars?.Contains("__class__") == true}");
+            #endif
         }
+        #if DEBUG_LOG
         Console.WriteLine($"   Closure length: {Closure?.Length ?? 0}");
+        #endif
         
         if (instance == null)
         {
+            #if DEBUG_LOG
             Console.WriteLine($"   → returning unbound function (instance is null)");
+            #endif
             return this; // unbound function
         }
             
         // CPython 3.12: Handle __class__ cell dynamic binding for metaclass methods
         if (instance is PyClass metaclassInstance && CodeObject?.FreeVars?.Contains("__class__") == true)
         {
+            #if DEBUG_LOG
             Console.WriteLine($"🔧 CPython 3.12: Metaclass method binding detected");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"   Method: {Name}");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"   Binding to metaclass: {metaclassInstance}");
+            #endif
             
             // Create a copy of this function with adjusted __class__ cell for the target metaclass
             if (Closure != null && Closure.Length > 0)
@@ -168,22 +184,32 @@ public partial class PyFunction : PyObject, IDescriptor
                 var classIndex = CodeObject.FreeVars.IndexOf("__class__");
                 if (classIndex >= 0 && classIndex < adjustedClosure.Length)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"   Original __class__ cell: {adjustedClosure[classIndex]?.Value}");
+                    #endif
                     adjustedClosure[classIndex] = new PyCell(metaclassInstance);
+                    #if DEBUG_LOG
                     Console.WriteLine($"   ✅ Updated __class__ cell[{classIndex}] to {metaclassInstance}");
+                    #endif
                     
                     // Create a new function with the adjusted closure
                     var adjustedFunction = new PyFunction(Name, Implementation, DefiningModule, TypeParams, adjustedClosure, CodeObject);
                     var boundMethod = new PyMethod(instance, adjustedFunction);
+                    #if DEBUG_LOG
                     Console.WriteLine($"   → returning bound method with adjusted __class__ cell");
+                    #endif
                     return boundMethod; // bound method with correct __class__
                 }
             }
+            #if DEBUG_LOG
             Console.WriteLine($"   ⚠️  Could not adjust __class__ cell (no closure or invalid index)");
+            #endif
         }
         
         var normalBoundMethod = new PyMethod(instance, this);
+        #if DEBUG_LOG
         Console.WriteLine($"   → returning normal bound method");
+        #endif
         return normalBoundMethod; // bound method
     }
     

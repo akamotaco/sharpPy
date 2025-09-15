@@ -129,17 +129,25 @@ namespace SharpPy
         public List<string> FindFreeVariables()
         {
             var freeVars = new List<string>();
+#if DEBUG_LOG
             Console.WriteLine($"    🔍 FindFreeVariables in {_name}: checking {_symbols.Count} symbols");
+#endif
             foreach (var symbol in _symbols.Values)
             {
+#if DEBUG_LOG
                 Console.WriteLine($"      Symbol {symbol.Name}: Scope={symbol.Scope}, IsFree={symbol.IsFree()}");
+#endif
                 if (symbol.IsFree())
                 {
                     freeVars.Add(symbol.Name);
+#if DEBUG_LOG
                     Console.WriteLine($"        → Added to freeVars: {symbol.Name}");
+#endif
                 }
             }
+#if DEBUG_LOG
             Console.WriteLine($"    → FindFreeVariables result: [{string.Join(", ", freeVars)}]");
+#endif
             return freeVars;
         }
 
@@ -149,17 +157,25 @@ namespace SharpPy
         public List<string> FindCellVariables()
         {
             var cellVars = new List<string>();
+#if DEBUG_LOG
             Console.WriteLine($"    🔍 FindCellVariables in {_name}: checking {_symbols.Count} symbols");
+#endif
             foreach (var symbol in _symbols.Values)
             {
+#if DEBUG_LOG
                 Console.WriteLine($"      Symbol {symbol.Name}: Scope={symbol.Scope}, IsCell={symbol.IsCell()}");
+#endif
                 if (symbol.IsCell())
                 {
                     cellVars.Add(symbol.Name);
+#if DEBUG_LOG
                     Console.WriteLine($"        → Added to cellVars: {symbol.Name}");
+#endif
                 }
             }
+#if DEBUG_LOG
             Console.WriteLine($"    → FindCellVariables result: [{string.Join(", ", cellVars)}]");
+#endif
             return cellVars;
         }
 
@@ -175,7 +191,9 @@ namespace SharpPy
 
         public SymbolTable BuildSymbolTable(List<Statement> statements, string name = "<module>")
         {
+#if DEBUG_LOG
             Console.WriteLine($"🔧 Building symbol table for: {name}");
+#endif
 
             _rootTable = new SymbolTable(name, SymbolTableType.Module);
             _currentTable = _rootTable;
@@ -189,11 +207,15 @@ namespace SharpPy
             // Resolve free variables across all scopes after initial analysis
             ResolveFreeVariablesRecursive(_rootTable);
 
+#if DEBUG_LOG
             Console.WriteLine($"✅ Symbol table built: {_rootTable.GetIdentifiers().Count()} symbols");
+#endif
             foreach (var symbol in _rootTable.GetIdentifiers())
             {
                 var sym = _rootTable.Lookup(symbol);
+#if DEBUG_LOG
                 Console.WriteLine($"  {symbol}: {sym?.Scope} scope, flags: {sym?.Flags}");
+#endif
             }
 
             return _rootTable;
@@ -256,8 +278,50 @@ namespace SharpPy
                     AnalyzeExpression(exprStmt.Expression);
                     break;
 
+                case TryStatement tryStmt:
+#if DEBUG_LOG
+                    Console.WriteLine($"  AnalyzeStatement: TryStatement in scope '{_currentTable?.GetName()}'");
+#endif
+                    // Analyze try block
+                    foreach (var stmt in tryStmt.Body)
+                    {
+                        AnalyzeStatement(stmt);
+                    }
+                    // Analyze except handlers
+                    foreach (var handler in tryStmt.Handlers)
+                    {
+                        if (handler.Name != null)
+                        {
+                            _currentTable?.DefineSymbol(handler.Name, SymbolFlags.Assigned);
+                        }
+                        foreach (var stmt in handler.Body)
+                        {
+                            AnalyzeStatement(stmt);
+                        }
+                    }
+                    // Analyze else clause
+                    if (tryStmt.OrElse != null)
+                    {
+                        foreach (var stmt in tryStmt.OrElse)
+                        {
+                            AnalyzeStatement(stmt);
+                        }
+                    }
+                    // Analyze finally clause
+                    if (tryStmt.FinalBody != null)
+                    {
+                        foreach (var stmt in tryStmt.FinalBody)
+                        {
+                            AnalyzeStatement(stmt);
+                        }
+                    }
+                    break;
+
                 // For now, skip complex statement types
                 default:
+#if DEBUG_LOG
+                    Console.WriteLine($"  AnalyzeStatement: Unhandled statement type {statement.GetType().Name} in scope '{_currentTable?.GetName()}'");
+#endif
                     break;
             }
         }
@@ -297,16 +361,22 @@ namespace SharpPy
         /// </summary>
         private void ResolveFreeVariables(SymbolTable table)
         {
+#if DEBUG_LOG
             Console.WriteLine($"  🔍 ResolveFreeVariables: Processing {table.GetSymbols().Count} symbols in {table.GetName()}");
+#endif
 
             foreach (var symbol in table.GetSymbols().Values)
             {
+#if DEBUG_LOG
                 Console.WriteLine($"    Symbol: {symbol.Name}, Scope: {symbol.Scope}, Flags: {symbol.Flags}");
+#endif
 
                 // Special handling for nonlocal variables
                 if (symbol.IsNonlocal())
                 {
+#if DEBUG_LOG
                     Console.WriteLine($"      ↳ Processing NONLOCAL variable: {symbol.Name}");
+#endif
                     // nonlocal variables must be found in enclosing scope
                     var parentSymbol = FindInEnclosingScope(table, symbol.Name);
                     if (parentSymbol != null)
@@ -317,12 +387,16 @@ namespace SharpPy
                         // Mark the parent symbol as cell variable (needs to be captured)
                         parentSymbol.Scope = SymbolScope.Cell;
 
+#if DEBUG_LOG
                         Console.WriteLine($"      ↳ NONLOCAL marked as FREE (found in parent: {parentSymbol.Name})");
+#endif
                     }
                     else
                     {
                         // nonlocal variable not found in parent scope - this is an error
+#if DEBUG_LOG
                         Console.WriteLine($"      ⚠️ NONLOCAL variable '{symbol.Name}' not found in enclosing scope");
+#endif
                         symbol.Scope = SymbolScope.Global; // fallback
                     }
                     continue;
@@ -333,7 +407,9 @@ namespace SharpPy
                     symbol.IsParameter() ||
                     symbol.IsAssigned())
                 {
+#if DEBUG_LOG
                     Console.WriteLine($"      ↳ Skipped (already resolved or local)");
+#endif
                     continue;
                 }
 
@@ -348,13 +424,17 @@ namespace SharpPy
                     // Mark the parent symbol as cell variable (needs to be captured)
                     foundInParent.Scope = SymbolScope.Cell;
 
+#if DEBUG_LOG
                     Console.WriteLine($"      ↳ Marked as FREE (found in parent: {foundInParent.Name})");
+#endif
                 }
                 else
                 {
                     // Not found in any parent scope, assume global
                     symbol.Scope = SymbolScope.Global;
+#if DEBUG_LOG
                     Console.WriteLine($"      ↳ Marked as GLOBAL (not found in parents)");
+#endif
                 }
             }
         }
@@ -362,9 +442,19 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12: Find symbol in enclosing scopes (excluding module scope)
         /// Module-level variables should always be accessed as GLOBAL, not FREE
+        /// Built-in variables like 'print' should be accessed as GLOBAL, not FREE
         /// </summary>
         private Symbol? FindInEnclosingScope(SymbolTable currentTable, string name)
         {
+            // Check for built-in variables first - they should never be cell variables
+            if (IsBuiltinName(name))
+            {
+#if DEBUG_LOG
+                Console.WriteLine($"      ↳ {name} is a builtin - should be GLOBAL, not FREE/CELL");
+#endif
+                return null; // Built-ins should be accessed as GLOBAL
+            }
+
             var parent = currentTable.GetParent();
             while (parent != null)
             {
@@ -378,6 +468,9 @@ namespace SharpPy
 
                 if (parent.GetSymbols().TryGetValue(name, out var symbol))
                 {
+#if DEBUG_LOG
+                    Console.WriteLine($"      ↳ Found {name} in enclosing scope {parent.GetName()}");
+#endif
                     return symbol;
                 }
                 parent = parent.GetParent();
@@ -386,11 +479,34 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Check if a name is a Python built-in that should be accessed as GLOBAL
+        /// </summary>
+        private bool IsBuiltinName(string name)
+        {
+            // Common Python built-ins that should never be cell variables
+            var builtins = new HashSet<string>
+            {
+                "print", "len", "str", "int", "float", "bool", "list", "dict", "tuple", "set",
+                "range", "enumerate", "zip", "map", "filter", "sorted", "reversed", "sum",
+                "min", "max", "abs", "round", "type", "isinstance", "issubclass", "hasattr",
+                "getattr", "setattr", "delattr", "callable", "iter", "next", "open", "input",
+                "repr", "format", "exec", "eval", "compile", "globals", "locals", "vars",
+                "dir", "id", "hash", "ord", "chr", "bin", "oct", "hex", "any", "all",
+                "__import__", "super", "classmethod", "staticmethod", "property"
+            };
+            return builtins.Contains(name);
+        }
+
+        /// <summary>
         /// CPython 3.12: Recursively resolve free variables in all scopes
+        /// First pass: analyze which variables are referenced in nested scopes
+        /// Second pass: resolve variable scopes based on usage patterns
         /// </summary>
         private void ResolveFreeVariablesRecursive(SymbolTable table)
         {
+#if DEBUG_LOG
             Console.WriteLine($"🔍 Resolving free variables in scope: {table.GetName()}");
+#endif
 
             // First recursively resolve child scopes (depth-first)
             foreach (var child in table.GetChildren())
@@ -403,6 +519,42 @@ namespace SharpPy
 
             // Then resolve this scope
             ResolveFreeVariables(table);
+
+            // CPython 3.12: Post-process to ensure variables used in nested functions become cells
+            MarkCellVariablesBasedOnChildUsage(table);
+        }
+
+        /// <summary>
+        /// CPython 3.12: Mark variables as cell variables if they're used in child scopes
+        /// This is crucial for proper closure handling
+        /// </summary>
+        private void MarkCellVariablesBasedOnChildUsage(SymbolTable table)
+        {
+#if DEBUG_LOG
+            Console.WriteLine($"🔄 Post-processing cell variables for scope: {table.GetName()}");
+#endif
+
+            foreach (var child in table.GetChildren())
+            {
+                // Skip class scopes for now - they have different rules
+                if (child.Type == SymbolTableType.Class) continue;
+
+                foreach (var childSymbol in child.GetSymbols().Values)
+                {
+                    // If child has a free variable, parent should have it as cell variable
+                    if (childSymbol.IsFree())
+                    {
+                        var parentSymbol = table.Lookup(childSymbol.Name);
+                        if (parentSymbol != null && parentSymbol.IsAssigned())
+                        {
+#if DEBUG_LOG
+                            Console.WriteLine($"    → Marking {childSymbol.Name} as CELL in {table.GetName()} (used as FREE in {child.GetName()})");
+#endif
+                            parentSymbol.Scope = SymbolScope.Cell;
+                        }
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -412,7 +564,9 @@ namespace SharpPy
         private void PropagateChildFreeVariables(SymbolTable parent, SymbolTable child)
         {
             var childFreeVars = child.FindFreeVariables();
+#if DEBUG_LOG
             Console.WriteLine($"  🔄 Propagating free vars from {child.GetName()} to {parent.GetName()}: [{string.Join(", ", childFreeVars)}]");
+#endif
 
             foreach (var freeVar in childFreeVars)
             {
@@ -422,11 +576,15 @@ namespace SharpPy
                 {
                     // Parent doesn't have this variable, so parent also needs it as free variable
                     parent.DefineSymbol(freeVar, SymbolFlags.None);
+#if DEBUG_LOG
                     Console.WriteLine($"    → Added {freeVar} as free variable to {parent.GetName()}");
+#endif
                 }
                 else
                 {
+#if DEBUG_LOG
                     Console.WriteLine($"    → {freeVar} already available in {parent.GetName()} (scope: {parentSymbol.Scope})");
+#endif
                 }
             }
         }
@@ -440,7 +598,10 @@ namespace SharpPy
             {
                 case NameExpression name:
                     // Reference to a variable - define it if not already defined
-                    _currentTable?.DefineSymbol(name.Name, SymbolFlags.None);
+#if DEBUG_LOG
+                    Console.WriteLine($"      AnalyzeExpression: NameExpression '{name.Name}' in scope '{_currentTable?.GetName()}'");
+#endif
+                    _currentTable?.DefineSymbol(name.Name, SymbolFlags.Used);
                     break;
 
                 case TupleExpression tuple:
@@ -466,6 +627,9 @@ namespace SharpPy
                     break;
 
                 case AttributeExpression attr:
+#if DEBUG_LOG
+                    Console.WriteLine($"      AnalyzeExpression: AttributeExpression '{attr.Attr}' on object in scope '{_currentTable?.GetName()}'");
+#endif
                     AnalyzeExpression(attr.Value);
                     break;
 

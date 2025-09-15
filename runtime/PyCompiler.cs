@@ -84,17 +84,25 @@ namespace SharpPy
             }
             
             // CPython 3.12: Check for super() calls and add __class__ as free variable
+#if DEBUG_LOG
             Console.WriteLine($"  🔍 Checking function {func.Name} for super() calls...");
+#endif
             var hasSuperCalls = PythonCompiler.ContainsSuperCalls(func.Body);
+#if DEBUG_LOG
             Console.WriteLine($"  🔍 Super calls detection result for {func.Name}: {hasSuperCalls}");
+#endif
             if (hasSuperCalls && !_usedVars.Contains("__class__"))
             {
+#if DEBUG_LOG
                 Console.WriteLine($"  ✅ Found super() call in {func.Name}, adding __class__ as free variable");
+#endif
                 _usedVars.Add("__class__");
             }
             else if (hasSuperCalls)
             {
+#if DEBUG_LOG
                 Console.WriteLine($"  ⚠️ Super() calls found but __class__ already in _usedVars for {func.Name}");
+#endif
             }
             
             // Free variables: used but not defined locally AND exist in outer scope (CPython 3.12 방식)
@@ -425,7 +433,9 @@ namespace SharpPy
         private bool _enable_optimizer { 
             get {
                 bool result = !SharpPyConfig.DisableOptimizer;
+#if DEBUG_LOG
                 Console.WriteLine($"🔧 _enable_optimizer: {result} (DisableOptimizer: {SharpPyConfig.DisableOptimizer})");
+#endif
                 return result;
             }
         }   // CPython 3.12 compatibility with 2-byte addressing
@@ -478,7 +488,9 @@ namespace SharpPy
         public void SetSymbolTableContext(SymbolTable symbolTable)
         {
             _currentSymbolTable = symbolTable;
+#if DEBUG_LOG
             Console.WriteLine($"  📥 Symbol table context set: {symbolTable?.Name}");
+#endif
         }
 
         /// <summary>
@@ -501,7 +513,9 @@ namespace SharpPy
             // 모든 하위 함수들의 자유 변수를 재귀적으로 수집
             CollectNestedFreeVariablesRecursive(functionTable, currentLocalVars, nestedVars);
 
+#if DEBUG_LOG
             Console.WriteLine($"  🔄 Collected nested free vars for {functionTable.GetName()}: [{string.Join(", ", nestedVars)}]");
+#endif
             return nestedVars;
         }
 
@@ -517,7 +531,9 @@ namespace SharpPy
                     if (currentLocalVars.Contains(freeVar) && !nestedVars.Contains(freeVar))
                     {
                         nestedVars.Add(freeVar);
+#if DEBUG_LOG
                         Console.WriteLine($"    → Found nested free var: {freeVar} (from {child.GetName()}) - available in current scope");
+#endif
                     }
                 }
 
@@ -539,7 +555,9 @@ namespace SharpPy
             
             if (_moduleGlobalVars.Count > 0)
             {
+#if DEBUG_LOG
                 Console.WriteLine($"🔍 Pre-scan found global variables: {string.Join(", ", _moduleGlobalVars)}");
+#endif
             }
         }
 
@@ -645,12 +663,16 @@ namespace SharpPy
             _symbolTable = symbolTableBuilder.BuildSymbolTable(statements, name);
             _currentSymbolTable = _symbolTable;
 
+#if DEBUG_LOG
             Console.WriteLine($"🔍 Symbol table built for {name}: {_symbolTable.GetIdentifiers().Count()} symbols");
             foreach (var symbolName in _symbolTable.GetIdentifiers())
             {
                 var symbol = _symbolTable.Lookup(symbolName);
+#if DEBUG_LOG
                 Console.WriteLine($"  {symbolName}: {symbol?.Scope} scope, flags: {symbol?.Flags}");
+#endif
             }
+#endif
 
             // Phase 1: AST 수준 최적화 (CPython 3.12 스타일)
             var optimizedStatements = statements;
@@ -678,7 +700,9 @@ namespace SharpPy
                 catch (Exception ex)
                 {
                     // If we can't read the file, just continue without source lines
+#if DEBUG_LOG
                     Console.WriteLine($"Warning: Could not read source file {fileName}: {ex.Message}");
+#endif
                 }
             }
             
@@ -690,7 +714,9 @@ namespace SharpPy
             
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
+#if DEBUG_LOG
                 Console.WriteLine($"\n🔧 컴파일: {name}");
+#endif
             }
             
             // Python 3.12: 모든 코드는 RESUME으로 시작 (line 0)
@@ -720,21 +746,27 @@ namespace SharpPy
                 codeObject.ExceptionTable.AddRange(_exceptionTable);
                 if (!SharpPyConfig.DisassemblyOnlyMode)
                 {
+#if DEBUG_LOG
                     Console.WriteLine($"📋 Exception Table: {_exceptionTable.Count}개 엔트리 추가됨 (라벨 해석 완료)");
+#endif
                 }
             }
             else
             {
                 if (!SharpPyConfig.DisassemblyOnlyMode)
                 {
+#if DEBUG_LOG
                     Console.WriteLine($"📋 Exception Table: 비어있음 (CPython 3.12 compatible)");
+#endif
                 }
             }
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
                 if (!SharpPyConfig.DisassemblyOnlyMode)
             {
-                Console.WriteLine($"✅ 컴파일 완료: {_instructions.Count}개 명령어");
+    #if DEBUG_LOG
+            Console.WriteLine($"✅ 컴파일 완료: {_instructions.Count}개 명령어");
+#endif
             }
             }
             
@@ -765,15 +797,21 @@ namespace SharpPy
             
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
+#if DEBUG_LOG
                 Console.WriteLine($"\n🔧 컴파일 (클로저): {name}");
+#endif
             }
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
-                Console.WriteLine($"  FreeVars: [{string.Join(", ", freeVars)}]");
+    #if DEBUG_LOG
+            Console.WriteLine($"  FreeVars: [{string.Join(", ", freeVars)}]");
+#endif
             }
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
-                Console.WriteLine($"  CellVars: [{string.Join(", ", cellVars)}]");
+    #if DEBUG_LOG
+            Console.WriteLine($"  CellVars: [{string.Join(", ", cellVars)}]");
+#endif
             }
             
             // Phase 2: Cell 변수들을 위한 MAKE_CELL 명령어 발행
@@ -784,7 +822,9 @@ namespace SharpPy
                 {
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
+#if DEBUG_LOG
                         Console.WriteLine($"  → Making cell for parameter: {cellVar}");
+#endif
                     }
                     EmitInstruction(ByteCodeOp.MAKE_CELL, paramIndex);
                 }
@@ -806,7 +846,9 @@ namespace SharpPy
             codeObject.ExceptionTable.AddRange(_exceptionTable);
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
+#if DEBUG_LOG
                 Console.WriteLine($"\u2705 컴파일 완료: {_instructions.Count}개 명령어");
+#endif
             }
             
             // 바이트코드 최적화 적용
@@ -827,7 +869,9 @@ namespace SharpPy
             int flags = PyCodeObject.CO_OPTIMIZED | PyCodeObject.CO_NEWLOCALS; // CPython 3.12 standard flags
             int posonlyArgCount = 0; // CPython 3.12: positional-only 매개변수 개수
 
+            #if DEBUG_LOG
             Console.WriteLine($"🔍 ParseFunctionParameters: Input parameters = [{string.Join(", ", parameters)}]");
+            #endif
             
             foreach (var param in parameters)
             {
@@ -878,13 +922,17 @@ namespace SharpPy
                     // "/" is a separator, not a parameter - skip adding to paramNames
                     // 현재까지 추가된 매개변수들이 모두 positional-only
                     posonlyArgCount = paramNames.Count;
+                    #if DEBUG_LOG
                     Console.WriteLine($"🔍 Found positional-only separator: / (skipped from parameters, posonlyArgCount={posonlyArgCount})");
+                    #endif
                     continue; // Skip adding "/" to parameter names
                 }
                 else if (cleanName == "*")
                 {
                     // "*" is keyword-only separator, not a parameter - skip adding to paramNames
+                    #if DEBUG_LOG
                     Console.WriteLine($"🔍 Found keyword-only separator: * (skipped from parameters)");
+                    #endif
                     continue; // Skip adding "*" to parameter names
                 }
 
@@ -892,13 +940,17 @@ namespace SharpPy
                 if (cleanName.StartsWith("**"))
                 {
                     flags |= PyCodeObject.CO_VARKEYWORDS;
+                    #if DEBUG_LOG
                     Console.WriteLine($"🔍 Found **kwargs: {cleanName} -> flags = {flags}");
+                    #endif
                     cleanName = cleanName.Substring(2); // ** 제거
                 }
                 else if (cleanName.StartsWith("*"))
                 {
                     flags |= PyCodeObject.CO_VARARGS;
+                    #if DEBUG_LOG
                     Console.WriteLine($"🔍 Found *args: {cleanName} -> flags = {flags}");
+                    #endif
                     cleanName = cleanName.Substring(1); // * 제거
                 }
 
@@ -921,7 +973,9 @@ namespace SharpPy
                 }
             }
 
+            #if DEBUG_LOG
             Console.WriteLine($"🔍 ParseFunctionParameters: Final flags = {flags}, paramNames = [{string.Join(", ", paramNames)}], argCount = {argCount}, posonlyArgCount = {posonlyArgCount}, annotations = {annotations.Count}");
+            #endif
             return (paramNames, defaults, flags, argCount, posonlyArgCount, annotations);
         }
         
@@ -1029,7 +1083,9 @@ namespace SharpPy
             // 복합 표현식은 나중에 처리 (현재는 단순 리터럴만)
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"⚠️ Warning: Complex default value '{defaultValueStr}' not yet supported");
+                #endif
             }
             return PyNone.Instance;
         }
@@ -1080,16 +1136,26 @@ namespace SharpPy
                 }
             }
             
+#if DEBUG_LOG
             Console.WriteLine($"\n🔧 컴파일 (클로저+기본값): {name}");
+#endif
+#if DEBUG_LOG
             Console.WriteLine($"  매개변수: [{string.Join(", ", paramNames)}]");
+#endif
+            #if DEBUG_LOG
             Console.WriteLine($"  기본값: [{string.Join(", ", defaults.Select(d => d?.ToString() ?? "None"))}]");
+            #endif
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
-                Console.WriteLine($"  FreeVars: [{string.Join(", ", freeVars)}]");
+    #if DEBUG_LOG
+            Console.WriteLine($"  FreeVars: [{string.Join(", ", freeVars)}]");
+#endif
             }
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
-                Console.WriteLine($"  CellVars: [{string.Join(", ", cellVars)}]");
+    #if DEBUG_LOG
+            Console.WriteLine($"  CellVars: [{string.Join(", ", cellVars)}]");
+#endif
             }
             
             // CPython 3.12: COPY_FREE_VARS for functions with free variables (MUST be first instruction)
@@ -1097,7 +1163,9 @@ namespace SharpPy
             {
                 if (!SharpPyConfig.DisassemblyOnlyMode)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"  → Emitting COPY_FREE_VARS for {freeVars.Count} free variables");
+                    #endif
                 }
                 EmitCopyFreeVars(freeVars.Count);
             }
@@ -1111,7 +1179,9 @@ namespace SharpPy
                 {
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
+#if DEBUG_LOG
                         Console.WriteLine($"  → Making cell for variable: {cellVar} (varnames index {varIndex})");
+#endif
                     }
                     EmitInstruction(ByteCodeOp.MAKE_CELL, varIndex);
                 }
@@ -1119,7 +1189,9 @@ namespace SharpPy
                 {
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
+#if DEBUG_LOG
                         Console.WriteLine($"  ⚠️ Warning: Cell variable {cellVar} not found in _varNames");
+#endif
                     }
                 }
             }
@@ -1145,21 +1217,27 @@ namespace SharpPy
                 codeObject.ExceptionTable.AddRange(_exceptionTable);
                 if (!SharpPyConfig.DisassemblyOnlyMode)
                 {
+#if DEBUG_LOG
                     Console.WriteLine($"📋 Exception Table: {_exceptionTable.Count}개 엔트리 추가됨 (라벨 해석 완료)");
+#endif
                 }
             }
             else
             {
                 if (!SharpPyConfig.DisassemblyOnlyMode)
                 {
+#if DEBUG_LOG
                     Console.WriteLine($"📋 Exception Table: 비어있음 (CPython 3.12 compatible)");
+#endif
                 }
             }
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
                 if (!SharpPyConfig.DisassemblyOnlyMode)
             {
-                Console.WriteLine($"✅ 컴파일 완료: {_instructions.Count}개 명령어");
+    #if DEBUG_LOG
+            Console.WriteLine($"✅ 컴파일 완료: {_instructions.Count}개 명령어");
+#endif
             }
             }
             
@@ -1167,7 +1245,9 @@ namespace SharpPy
             GeneratePendingExceptionHandlers();
             
             // 바이트코드 최적화 적용
+#if DEBUG_LOG
             Console.WriteLine($"🔧 메인 컴파일러에서 최적화 호출: _enable_optimizer={_enable_optimizer}");
+#endif
             var optimizer = new ByteCodeOptimizer(_enable_optimizer);
             var optimizedCode = optimizer.OptimizeCode(codeObject);
             
@@ -1181,12 +1261,18 @@ namespace SharpPy
         /// </summary>
         private void GeneratePendingExceptionHandlers()
         {
+            #if DEBUG_LOG
             Console.WriteLine($"🔧 GeneratePendingExceptionHandlers 호출: {_pendingExceptionHandlers.Count}개 handler 처리");
+            #endif
             foreach (var handler in _pendingExceptionHandlers)
             {
                 // Exception handler를 바이트코드 끝에 생성
+                #if DEBUG_LOG
                 Console.WriteLine($"🔧 Handler 생성 시작: _instructions.Count={_instructions.Count}");
+                #endif
+                #if DEBUG_LOG
                 Console.WriteLine($"🔧 현재 마지막 명령어: {(_instructions.Count > 0 ? _instructions.Last().ToString() : "없음")}");
+                #endif
 
                 // Handler 시작 위치를 기록 (SWAP 명령어 추가 직전)
                 var handlerStart = _instructions.Count * 2; // 바이트 오프셋
@@ -1204,7 +1290,9 @@ namespace SharpPy
 
                 EmitInstruction(ByteCodeOp.RERAISE, 0);
 
+                #if DEBUG_LOG
                 Console.WriteLine($"🔧 Handler 생성 완료: handlerStart={handlerStart}, 현재 _instructions.Count={_instructions.Count}");
+                #endif
 
                 // Exception table entry 생성 - handlerStart는 실제 첫 번째 handler 명령어 위치
                 var exceptionEntry = new ExceptionTableEntry(
@@ -1213,7 +1301,9 @@ namespace SharpPy
                     handler: handlerStart,
                     depth: handler.Depth
                 );
+                #if DEBUG_LOG
                 Console.WriteLine($"🔧 Exception table entry 생성: {handler.StartOffset} to {handler.EndOffset} -> {handlerStart} [depth={handler.Depth}]");
+                #endif
                 _exceptionTable.Add(exceptionEntry);
             }
             
@@ -1250,9 +1340,15 @@ namespace SharpPy
                 _varNames.Add(param);
             }
             
+            #if DEBUG_LOG
             Console.WriteLine($"\n🔧 컴파일 함수: {name}");
+            #endif
+#if DEBUG_LOG
             Console.WriteLine($"  매개변수: [{string.Join(", ", paramNames)}]");
+#endif
+            #if DEBUG_LOG
             Console.WriteLine($"  기본값: [{string.Join(", ", defaults.Select(d => d?.ToString() ?? "None"))}]");
+            #endif
             
             // 함수 본문 컴파일
             foreach (var statement in statements)
@@ -1271,7 +1367,9 @@ namespace SharpPy
             // Generator 함수 감지 및 수정
             if (tempCodeObject.IsGenerator())
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"🔍 Generator 함수 감지: {name}, RETURN_GENERATOR 추가");
+                #endif
                 
                 // RETURN_GENERATOR를 첫 번째 명령어로 삽입
                 _instructions.Insert(0, new ByteCodeInstruction(ByteCodeOp.RETURN_GENERATOR, 0));
@@ -1279,7 +1377,9 @@ namespace SharpPy
                 
                 // CO_GENERATOR 플래그 추가
                 flags |= PyCodeObject.CO_GENERATOR;
+                #if DEBUG_LOG
                 Console.WriteLine($"✅ Generator 함수 설정 완료: CO_GENERATOR 플래그 추가");
+                #endif
             }
             
             // 최종 PyCodeObject 생성 (수정된 flags 포함)
@@ -1290,7 +1390,9 @@ namespace SharpPy
             codeObject.ExceptionTable.AddRange(_exceptionTable);
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"✅ 함수 컴파일 완료: {_instructions.Count}개 명령어");
+                #endif
             }
             
             _isInFunction = false; // Reset function context
@@ -1654,12 +1756,16 @@ namespace SharpPy
                         superCall.Arguments.Count == 0)
                     {
                         // super().method pattern: use LOAD_SUPER_ATTR
+                        #if DEBUG_LOG
                         Console.WriteLine($"🔍 Detected super().{attr.Attr} - generating LOAD_DEREF + LOAD_SUPER_ATTR");
+                        #endif
                         
                         // Load __class__ free variable using LOAD_DEREF
                         // Note: In methods, __class__ is a free variable, not a cell variable
                         var classIndex = _freeVars.IndexOf("__class__");
+                        #if DEBUG_LOG
                         Console.WriteLine($"🔍 Looking for __class__ in free variables: index={classIndex}, freeVars=[{string.Join(", ", _freeVars)}]");
+                        #endif
                         if (classIndex >= 0)
                         {
                             // Load super() (null + self)
@@ -1677,7 +1783,9 @@ namespace SharpPy
                         else
                         {
                             // Fallback to regular attribute access if no __class__ cell
+                            #if DEBUG_LOG
                             Console.WriteLine("⚠️  No __class__ cell variable found, falling back to LOAD_ATTR");
+                            #endif
                             CompileExpression(attr.Value);
                             EmitLoadAttr(attr.Attr);
                         }
@@ -1876,8 +1984,12 @@ namespace SharpPy
         /// </summary>
         private void CompileNestedFunction(FunctionDefStatement func)
         {
+            #if DEBUG_LOG
             Console.WriteLine($"\n🔍 Compiling nested function: {func.Name}");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"  📍 Current symbol table context: {_currentSymbolTable?.Name}");
+            #endif
 
             // CPython 3.12: Check if this function should be compiled at module level
             if (_currentSymbolTable != null)
@@ -1885,12 +1997,18 @@ namespace SharpPy
                 var functionSymbol = _currentSymbolTable.Lookup(func.Name);
                 if (functionSymbol != null && functionSymbol.Scope == SymbolScope.Global)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"  → Function {func.Name} is at module level (Global scope)");
+                    #endif
                     // This should not happen if we're inside a class
                     if (_currentSymbolTable.Type == SymbolTableType.Class)
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"  ⚠️ WARNING: Function {func.Name} marked as global but we're in class context");
+                        #endif
+                        #if DEBUG_LOG
                         Console.WriteLine($"  → Skipping compilation - should be handled at module level");
+                        #endif
                         return;
                     }
                 }
@@ -1899,7 +2017,9 @@ namespace SharpPy
             // PEP 695: Check if function has type parameters
             if (func.TypeParams != null && func.TypeParams.Count > 0)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"  → PEP 695 Generic function with type parameters: [{string.Join(", ", func.TypeParams)}]");
+                #endif
                 CompileGenericFunction(func);
                 return;
             }
@@ -1917,25 +2037,39 @@ namespace SharpPy
                 funcSymbolTable = _currentSymbolTable.Children.FirstOrDefault(child =>
                     child.Name == $"<function:{func.Name}>" || child.Name == func.Name);
 
+                #if DEBUG_LOG
                 Console.WriteLine($"  🔍 Looking for symbol table for function {func.Name}");
+                #endif
+                #if DEBUG_LOG
                 Console.WriteLine($"    Current symbol table: {_currentSymbolTable.Name}");
+                #endif
+                #if DEBUG_LOG
                 Console.WriteLine($"    Children count: {_currentSymbolTable.Children.Count()}");
+                #endif
                 foreach (var child in _currentSymbolTable.Children)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"      Child: {child.Name}");
+                    #endif
                 }
 
                 if (funcSymbolTable != null)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"    ✅ Found symbol table: {funcSymbolTable.Name}");
+                    #endif
                     var funcFreeVars = funcSymbolTable.FindFreeVariables();
                     var funcCellVars = funcSymbolTable.FindCellVariables();
 
                     freeVars.AddRange(funcFreeVars);
                     cellVars.AddRange(funcCellVars);
 
+                    #if DEBUG_LOG
                     Console.WriteLine($"  Symbol table analysis - Free vars: [{string.Join(", ", freeVars)}]");
+                    #endif
+                    #if DEBUG_LOG
                     Console.WriteLine($"  Symbol table analysis - Cell vars: [{string.Join(", ", cellVars)}]");
+                    #endif
 
                     // CPython 3.12: 중첩 함수를 위한 자유 변수 전파
                     var nestedFreeVars = CollectNestedFreeVariables(funcSymbolTable);
@@ -1944,29 +2078,41 @@ namespace SharpPy
                         if (!freeVars.Contains(nestedVar) && !cellVars.Contains(nestedVar))
                         {
                             freeVars.Add(nestedVar);
+                            #if DEBUG_LOG
                             Console.WriteLine($"  → Added nested free var: {nestedVar}");
+                            #endif
                         }
                     }
 
                     // CPython 3.12: Update symbol table context for nested function compilation
                     savedSymbolTable = _currentSymbolTable;
                     _currentSymbolTable = funcSymbolTable;
+                    #if DEBUG_LOG
                     Console.WriteLine($"  🔄 Symbol table context updated: {savedSymbolTable?.Name} → {funcSymbolTable.Name}");
+                    #endif
                 }
                 else
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"  ⚠️ Warning: No symbol table found for function {func.Name}");
+                    #endif
                     // Fallback to old method
                     var analyzer = new FreeVariableAnalyzer();
+                    #if DEBUG_LOG
                     Console.WriteLine($"  DEBUG: Current _varNames: [{string.Join(", ", _varNames)}]");
+                    #endif
                     var (oldFreeVars, oldCellVars) = analyzer.AnalyzeNestedFunction(func, _varNames);
                     freeVars.AddRange(oldFreeVars);
                     cellVars.AddRange(oldCellVars);
                 }
             }
             
+            #if DEBUG_LOG
             Console.WriteLine($"  Free variables: [{string.Join(", ", freeVars)}]");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"  Cell variables: [{string.Join(", ", cellVars)}]");
+            #endif
             
             // CPython 3.12: 내부 함수의 nonlocal 선언을 고려한 추가 cell 분석
             var additionalCellVars = new List<string>(cellVars);
@@ -1976,14 +2122,18 @@ namespace SharpPy
             var localVarNames = new List<string>(func.Parameters);
             CollectLocalVariables(func.Body, localVarNames);
             
+            #if DEBUG_LOG
             Console.WriteLine($"  Local variables found: [{string.Join(", ", localVarNames)}]");
+            #endif
             
             // 내부 함수들의 nonlocal 선언을 기반으로 cell 변수 추가 분석
             AnalyzeFunctionClosures(func.Body, localVarNames, allFreeVars, additionalCellVars);
             
             // 업데이트된 cell 변수들 사용
             cellVars = additionalCellVars;
+            #if DEBUG_LOG
             Console.WriteLine($"  Updated Cell variables: [{string.Join(", ", cellVars)}]");
+            #endif
             
             // 2. 매개변수와 기본값 파싱 (FunctionDefStatement에서 수행하던 로직)
             var (paramNames, defaults, flags, argCount, posonlyArgCount, annotations) = ParseFunctionParameters(func.Parameters);
@@ -1997,7 +2147,9 @@ namespace SharpPy
             // 3. CPython 3.12 compatible: Multi-level closure chain analysis
             if (freeVars.Count == 0)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"🔧 Multi-level closure analysis for function: {func.Name}");
+                #endif
 
                 // Analyze function body to find all referenced variables
                 var referencedVars = new HashSet<string>();
@@ -2014,7 +2166,9 @@ namespace SharpPy
                         }
                     }
                 }
+                #if DEBUG_LOG
                 Console.WriteLine($"   Referenced variables: [{string.Join(", ", referencedVars)}]");
+                #endif
 
                 // Variables defined locally in this function
                 var localVars = new HashSet<string>(func.Parameters);
@@ -2023,19 +2177,25 @@ namespace SharpPy
                     if (stmt is AssignStatement assign)
                         localVars.Add(assign.VariableName);
                 }
+                #if DEBUG_LOG
                 Console.WriteLine($"   Local variables: [{string.Join(", ", localVars)}]");
+                #endif
 
                 // Build complete chain of available outer variables
                 var availableOuterVars = new HashSet<string>();
                 availableOuterVars.UnionWith(_varNames);    // Current function's locals
                 availableOuterVars.UnionWith(_cellVars);   // Current function's cells
                 availableOuterVars.UnionWith(_freeVars);   // Current function's free vars
+                #if DEBUG_LOG
                 Console.WriteLine($"   Available from outer scopes: [{string.Join(", ", availableOuterVars)}]");
+                #endif
 
                 // CPython 3.12: Check for zero-argument super() calls and add __class__ as referenced variable
                 if (ContainsSuperCalls(func.Body) && availableOuterVars.Contains("__class__"))
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"   Function contains super() calls - adding __class__ as referenced variable");
+                    #endif
                     referencedVars.Add("__class__");
                 }
 
@@ -2044,12 +2204,16 @@ namespace SharpPy
                 {
                     if (!localVars.Contains(refVar) && availableOuterVars.Contains(refVar))
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"   Adding '{refVar}' as free variable (available in outer scope)");
+                        #endif
                         freeVars.Add(refVar);
                     }
                     else if (!localVars.Contains(refVar))
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"   Variable '{refVar}' referenced but not available - will try LOAD_GLOBAL");
+                        #endif
                     }
                 }
             }
@@ -2062,7 +2226,9 @@ namespace SharpPy
             if (_currentSymbolTable != null)
             {
                 compiler.SetSymbolTableContext(_currentSymbolTable);
+                #if DEBUG_LOG
                 Console.WriteLine($"  📤 Passed symbol table context to nested compiler: {_currentSymbolTable.Name}");
+                #endif
             }
             var funcCode = compiler.CompileWithClosureAndDefaults(func.Body, func.Name, paramNames, defaults, freeVars, cellVars, flags, argCount, posonlyArgCount);
             
@@ -2167,17 +2333,25 @@ namespace SharpPy
                 }
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, annotations.Count * 2);
                 makeFunctionFlags |= MakeFunctionFlags.ANNOTATIONS;
+                #if DEBUG_LOG
                 Console.WriteLine($"  → Built annotations tuple: {annotations.Count} annotations");
+                #endif
             }
 
             // 5. 자유 변수가 있는 경우 클로저 생성 (defaults/annotations 위에 푸시)
             if (freeVars.Count > 0)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"  → Creating closure for {freeVars.Count} free variables");
+                #endif
 
                 // CPython 호환: 클로저를 자유 변수 순서대로 생성
+                #if DEBUG_LOG
                 Console.WriteLine($"    🔍 Building closure for {freeVars.Count} variables: [{string.Join(", ", freeVars)}]");
+                #endif
+                #if DEBUG_LOG
                 Console.WriteLine($"    📋 Available cells: [{string.Join(", ", _cellVars)}], frees: [{string.Join(", ", _freeVars)}]");
+                #endif
 
                 // 자유 변수들을 순서대로 LOAD_CLOSURE
                 foreach (var freeVar in freeVars)
@@ -2208,11 +2382,15 @@ namespace SharpPy
                     if (closureIndex >= 0)
                     {
                         EmitInstruction(ByteCodeOp.LOAD_CLOSURE, closureIndex);
+                        #if DEBUG_LOG
                         Console.WriteLine($"    → LOAD_CLOSURE for {freeVar} ({source} index {closureIndex})");
+                        #endif
                     }
                     else
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"    ⚠️ Warning: Free variable {freeVar} not available (cells: [{string.Join(",", _cellVars)}], frees: [{string.Join(",", _freeVars)}])");
+                        #endif
                         // Fallback: 빈 셀 생성
                         EmitInstruction(ByteCodeOp.LOAD_CLOSURE, 0);
                     }
@@ -2225,7 +2403,9 @@ namespace SharpPy
 
             // 6. Load function code and create function (AFTER decorators and annotations)
             EmitLoadConst(funcCode);
+            #if DEBUG_LOG
             Console.WriteLine($"  → MAKE_FUNCTION flags: {makeFunctionFlags} (defaults={defaults.Count > 0}, annotations={annotations.Count > 0}, closure={freeVars.Count > 0})");
+            #endif
             EmitInstruction(ByteCodeOp.MAKE_FUNCTION, makeFunctionFlags);
 
             // 8. Call decorators in forward order (CPython 3.12 compatible)
@@ -2246,7 +2426,9 @@ namespace SharpPy
             if (funcSymbolTable != null)
             {
                 _currentSymbolTable = savedSymbolTable;
+                #if DEBUG_LOG
                 Console.WriteLine($"  🔄 Symbol table context restored: {funcSymbolTable.Name} → {savedSymbolTable?.Name}");
+                #endif
             }
         }
         
@@ -2273,15 +2455,23 @@ namespace SharpPy
                         if ((parameters.Contains(freeVar) || _varNames.Contains(freeVar)) && !cellVars.Contains(freeVar))
                         {
                             cellVars.Add(freeVar);
+                            #if DEBUG_LOG
                             Console.WriteLine($"🔍 Variable '{freeVar}' needs cell (referenced by nested function '{nestedFunc.Name}')");
+                            #endif
                         }
                     }
                     
                     // CPython 3.12: 중첩 함수의 nonlocal 선언도 확인
                     var nonlocalVars = AnalyzeNonlocalDeclarations(nestedFunc.Body);
+                    #if DEBUG_LOG
                     Console.WriteLine($"🔍 Found nonlocal vars in '{nestedFunc.Name}': [{string.Join(", ", nonlocalVars)}]");
+                    #endif
+                    #if DEBUG_LOG
                     Console.WriteLine($"🔍 Current parameters: [{string.Join(", ", parameters)}]");
+                    #endif
+                    #if DEBUG_LOG
                     Console.WriteLine($"🔍 Current _varNames: [{string.Join(", ", _varNames)}]");
+                    #endif
                     
                     foreach (var nonlocalVar in nonlocalVars)
                     {
@@ -2289,11 +2479,15 @@ namespace SharpPy
                         if ((parameters.Contains(nonlocalVar) || _varNames.Contains(nonlocalVar)) && !cellVars.Contains(nonlocalVar))
                         {
                             cellVars.Add(nonlocalVar);
+                            #if DEBUG_LOG
                             Console.WriteLine($"🔗 Variable '{nonlocalVar}' needs cell (nonlocal in nested function '{nestedFunc.Name}')");
+                            #endif
                         }
                         else
                         {
+                            #if DEBUG_LOG
                             Console.WriteLine($"⚠️ Nonlocal variable '{nonlocalVar}' not found in current scope");
+                            #endif
                         }
                     }
                     
@@ -2339,14 +2533,20 @@ namespace SharpPy
         /// </summary>
         private void CollectLocalVariables(List<Statement> statements, List<string> localVars)
         {
+            #if DEBUG_LOG
             Console.WriteLine($"🔍 CollectLocalVariables: Analyzing {statements.Count} statements");
+            #endif
             foreach (var statement in statements)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"  → Statement type: {statement.GetType().Name}");
+                #endif
                 switch (statement)
                 {
                     case AssignStatement assign:
+                        #if DEBUG_LOG
                         Console.WriteLine($"    → Found AssignStatement: {assign.VariableName}");
+                        #endif
                         if (!localVars.Contains(assign.VariableName))
                         {
                             localVars.Add(assign.VariableName);
@@ -2354,7 +2554,9 @@ namespace SharpPy
                         break;
 
                     case FunctionDefStatement nestedFunc:
+                        #if DEBUG_LOG
                         Console.WriteLine($"    → Found nested function: {nestedFunc.Name}");
+                        #endif
                         // 재귀적으로 중첩 함수도 확인 (하지만 별도 스코프이므로 현재 함수에는 추가하지 않음)
                         break;
                         
@@ -2407,7 +2609,9 @@ namespace SharpPy
             {
                 var globalIndex = AddName(name);
                 EmitInstruction(ByteCodeOp.LOAD_GLOBAL, globalIndex);
+                #if DEBUG_LOG
                 Console.WriteLine($"    → LOAD_GLOBAL for global var: {name} (global index {globalIndex})");
+                #endif
                 return;
             }
             
@@ -2421,7 +2625,9 @@ namespace SharpPy
                 }
                 var freeIndex = _freeVars.IndexOf(name);
                 EmitInstruction(ByteCodeOp.LOAD_DEREF, freeIndex);
+                #if DEBUG_LOG
                 Console.WriteLine($"    → LOAD_DEREF for nonlocal var: {name} (free index {freeIndex})");
+                #endif
                 return;
             }
             
@@ -2437,7 +2643,9 @@ namespace SharpPy
                     // CPython 3.12: Cell variables come after free variables in instruction indices
                     var instructionIndex = _freeVars.Count + cellIndex;
                     EmitInstruction(ByteCodeOp.LOAD_DEREF, instructionIndex);
+                    #if DEBUG_LOG
                     Console.WriteLine($"    → LOAD_DEREF for cell var: {name} (cell index {cellIndex} → instruction index {instructionIndex})");
+                    #endif
                 }
                 else
                 {
@@ -2451,7 +2659,9 @@ namespace SharpPy
             {
                 var freeIndex = _freeVars.IndexOf(name);
                 EmitInstruction(ByteCodeOp.LOAD_DEREF, freeIndex);
+                #if DEBUG_LOG
                 Console.WriteLine($"    → LOAD_DEREF for free var: {name} (index {freeIndex})");
+                #endif
                 return;
             }
             
@@ -2463,7 +2673,9 @@ namespace SharpPy
                 {
                     var globalIndex = AddName(name);
                     EmitInstruction(ByteCodeOp.LOAD_GLOBAL, globalIndex);
+                    #if DEBUG_LOG
                     Console.WriteLine($"    → Module level LOAD_GLOBAL for global var: {name} (global index {globalIndex})");
+                    #endif
                     return;
                 }
                 
@@ -2498,7 +2710,9 @@ namespace SharpPy
                 {
                     var globalIndex = AddName(name);
                     EmitInstruction(ByteCodeOp.STORE_GLOBAL, globalIndex);
+                    #if DEBUG_LOG
                     Console.WriteLine($"    → STORE_GLOBAL for global var: {name} (global index {globalIndex})");
+                    #endif
                     return;
                 }
                 
@@ -2512,7 +2726,9 @@ namespace SharpPy
                     }
                     var freeIndex = _freeVars.IndexOf(name);
                     EmitInstruction(ByteCodeOp.STORE_DEREF, freeIndex);
+                    #if DEBUG_LOG
                     Console.WriteLine($"    → STORE_DEREF for nonlocal var: {name} (free index {freeIndex})");
+                    #endif
                     return;
                 }
                 
@@ -2523,7 +2739,9 @@ namespace SharpPy
                     // CPython 3.12: Cell variables come after free variables in instruction indices
                     var instructionIndex = _freeVars.Count + cellIndex;
                     EmitInstruction(ByteCodeOp.STORE_DEREF, instructionIndex);
+                    #if DEBUG_LOG
                     Console.WriteLine($"    → STORE_DEREF for cell var: {name} (cell index {cellIndex} → instruction index {instructionIndex})");
+                    #endif
                     return;
                 }
                 
@@ -2532,7 +2750,9 @@ namespace SharpPy
                 {
                     var freeIndex = _freeVars.IndexOf(name);
                     EmitInstruction(ByteCodeOp.STORE_DEREF, freeIndex);
+                    #if DEBUG_LOG
                     Console.WriteLine($"    → STORE_DEREF for free var: {name} (index {freeIndex})");
+                    #endif
                     return;
                 }
                 
@@ -2548,7 +2768,9 @@ namespace SharpPy
             {
                 var globalIndex = AddName(name);
                 EmitInstruction(ByteCodeOp.STORE_GLOBAL, globalIndex);
+                #if DEBUG_LOG
                 Console.WriteLine($"    → Module level STORE_GLOBAL for global var: {name} (global index {globalIndex})");
+                #endif
                 return;
             }
             
@@ -2567,7 +2789,9 @@ namespace SharpPy
                 {
                     var globalIndex = AddName(name);
                     EmitInstruction(ByteCodeOp.DELETE_GLOBAL, globalIndex);
+                    #if DEBUG_LOG
                     Console.WriteLine($"    → DELETE_GLOBAL for global var: {name} (global index {globalIndex})");
+                    #endif
                     return;
                 }
                 
@@ -2578,7 +2802,9 @@ namespace SharpPy
                     if (freeIndex >= 0)
                     {
                         EmitInstruction(ByteCodeOp.DELETE_DEREF, freeIndex);
+                        #if DEBUG_LOG
                         Console.WriteLine($"    → DELETE_DEREF for nonlocal var: {name} (free index {freeIndex})");
+                        #endif
                         return;
                     }
                 }
@@ -2588,7 +2814,9 @@ namespace SharpPy
                 if (varIndex >= 0)
                 {
                     EmitInstruction(ByteCodeOp.DELETE_FAST, varIndex);
+                    #if DEBUG_LOG
                     Console.WriteLine($"    → DELETE_FAST for local var: {name} (var index {varIndex})");
+                    #endif
                     return;
                 }
             }
@@ -2863,15 +3091,23 @@ namespace SharpPy
         /// </summary>
         private void CompileAsyncFunction(AsyncFunctionDefStatement asyncFunc)
         {
+            #if DEBUG_LOG
             Console.WriteLine($"\n🔍 Compiling async function: {asyncFunc.Name}");
+            #endif
             
             // 1. 자유 변수 분석 (동일한 방식으로 분석)
             var analyzer = new FreeVariableAnalyzer();
+            #if DEBUG_LOG
             Console.WriteLine($"  DEBUG: Current _varNames: [{string.Join(", ", _varNames)}]");
+            #endif
             var (freeVars, cellVars) = analyzer.AnalyzeAsyncFunction(asyncFunc, _varNames);
             
+            #if DEBUG_LOG
             Console.WriteLine($"  Free variables: [{string.Join(", ", freeVars)}]");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"  Cell variables: [{string.Join(", ", cellVars)}]");
+            #endif
             
             // 2. 매개변수와 기본값 파싱
             var (paramNames, defaults, flags, argCount, posonlyArgCount, annotations) = ParseAsyncFunctionParameters(asyncFunc.Parameters);
@@ -2938,7 +3174,9 @@ namespace SharpPy
             // 9. 함수를 변수에 저장
             EmitStoreName(asyncFunc.Name);
             
+            #if DEBUG_LOG
             Console.WriteLine($"✅ Async function {asyncFunc.Name} compiled successfully");
+            #endif
         }
         private void CompileClass(ClassDefStatement cls)
         {
@@ -3125,10 +3363,14 @@ namespace SharpPy
             EmitLoadConst(new PyString(cls.Name));
             
             // Load base classes
+            #if DEBUG_LOG
             Console.WriteLine($"🔍 CompileRegularClass: {cls.Name} has {cls.Bases.Count} base classes:");
+            #endif
             foreach (var baseExpr in cls.Bases)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"   → Base class expression: {baseExpr.GetType().Name}");
+                #endif
                 CompileExpression(baseExpr);
             }
             
@@ -3290,12 +3532,16 @@ namespace SharpPy
 
             if (classSymbolTable != null)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"🔍 Found class symbol table for {className}: {classSymbolTable.GetIdentifiers().Count()} symbols");
+                #endif
                 _currentSymbolTable = classSymbolTable;
             }
             else
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"⚠️ Warning: No symbol table found for class {className}");
+                #endif
             }
 
             // Initialize new compilation state for class body
@@ -3310,13 +3556,17 @@ namespace SharpPy
             // Check if class body contains super() calls and add __class__ cell variable if needed
             if (ContainsSuperCalls(body))
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"🔍 Detected super() calls in class {className}, adding __class__ cell variable");
+                #endif
                 _cellVars.Add("__class__");
                 
                 // Generate MAKE_CELL instruction for __class__ cell variable
                 // CPython 3.12: __class__ cell variable uses index 0 (first cellVar)
                 var cellVarIndex = 0; // __class__ is always the first (index 0) cell variable
+                #if DEBUG_LOG
                 Console.WriteLine($"🔧 Generating MAKE_CELL for __class__ at cell index {cellVarIndex}");
+                #endif
                 EmitInstruction(ByteCodeOp.MAKE_CELL, cellVarIndex);
             }
             
@@ -3338,7 +3588,9 @@ namespace SharpPy
                 if (_cellVars.Contains("__class__"))
                 {
                     var classIndex = _cellVars.IndexOf("__class__");
+                    #if DEBUG_LOG
                     Console.WriteLine($"🔧 Generating __classcell__ store for __class__ cell at index {classIndex}");
+                    #endif
                     
                     // LOAD_CLOSURE __class__ (CPython: LOAD_CLOSURE 0 (__class__))
                     EmitInstruction(ByteCodeOp.LOAD_CLOSURE, classIndex);
@@ -3349,7 +3601,9 @@ namespace SharpPy
                     // STORE_NAME __classcell__ (CPython: STORE_NAME 4 (__classcell__))
                     var classcellIndex = AddName("__classcell__");
                     EmitInstruction(ByteCodeOp.STORE_NAME, classcellIndex);
+                    #if DEBUG_LOG
                     Console.WriteLine($"✅ Stored __classcell__ at name index {classcellIndex}");
+                    #endif
                 }
                 
                 // Return None at the end
@@ -3394,17 +3648,25 @@ namespace SharpPy
         /// </summary>
         public static bool ContainsSuperCalls(List<Statement> statements)
         {
+            #if DEBUG_LOG
             Console.WriteLine($"🔍 Checking {statements.Count} statements for super() calls");
+            #endif
             foreach (var stmt in statements)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"  - Checking statement: {stmt.GetType().Name}");
+                #endif
                 if (ContainsSuperCallsInStatement(stmt))
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"    ✅ Found super() call in {stmt.GetType().Name}");
+                    #endif
                     return true;
                 }
             }
+            #if DEBUG_LOG
             Console.WriteLine($"  ❌ No super() calls found in {statements.Count} statements");
+            #endif
             return false;
         }
         
@@ -3438,7 +3700,9 @@ namespace SharpPy
                     return false;
                     
                 default:
+                    #if DEBUG_LOG
                     Console.WriteLine($"  ⚠️  Unhandled statement type: {stmt.GetType().Name}");
+                    #endif
                     return false;
             }
         }
@@ -3454,7 +3718,9 @@ namespace SharpPy
                     // Check if this is a super() call
                     if (call.Function is NameExpression name && name.Name == "super" && call.Arguments.Count == 0)
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"    ✅ Found direct super() call");
+                        #endif
                         return true;
                     }
                     // Recursively check arguments
@@ -3469,9 +3735,13 @@ namespace SharpPy
                     return false;
 
                 case AttributeExpression attr:
+#if DEBUG_LOG
                     Console.WriteLine($"    🔍 Checking AttributeExpression: {attr.Attr}");
+#endif
                     bool result = ContainsSuperCallsInExpression(attr.Value);
+#if DEBUG_LOG
                     if (result) Console.WriteLine($"    ✅ Found super() in AttributeExpression.Value");
+#endif
                     return result;
 
                 case BinaryOpExpression binary:
@@ -3479,12 +3749,16 @@ namespace SharpPy
                            ContainsSuperCallsInExpression(binary.Right);
 
                 case FStringExpression fstring:
+                    #if DEBUG_LOG
                     Console.WriteLine($"    🔍 Checking FStringExpression with {fstring.Values.Count} values");
+                    #endif
                     foreach (var value in fstring.Values)
                     {
                         if (ContainsSuperCallsInExpression(value))
                         {
+                            #if DEBUG_LOG
                             Console.WriteLine($"    ✅ Found super() in FStringExpression.Value");
+                            #endif
                             return true;
                         }
                     }
@@ -3494,7 +3768,9 @@ namespace SharpPy
                     return false;
 
                 default:
+                    #if DEBUG_LOG
                     Console.WriteLine($"    ⚠️  Unhandled expression type: {expr.GetType().Name}");
+                    #endif
                     return false;
             }
         }
@@ -3811,7 +4087,9 @@ namespace SharpPy
         /// </summary>
         private void CompileWhileTrue(WhileStatement whileStmt)
         {
+            #if DEBUG_LOG
             Console.WriteLine("🔧 CPython 3.12 호환 while True 루프 컴파일");
+            #endif
             
             // Setup loop context for break/continue
             var breakLabel = CreateLabel("while_true_break");
@@ -3824,7 +4102,9 @@ namespace SharpPy
             // 루프 바디 시작점 (JUMP_BACKWARD 타겟) - continue target
             var bodyStart = _instructions.Count;
             MarkLabel(continueLabel); // continue는 루프 바디 시작으로
+            #if DEBUG_LOG
             Console.WriteLine($"  바디 시작점 = {bodyStart} (JUMP_BACKWARD 타겟)");
+            #endif
             
             // Compile loop body
             foreach (var stmt in whileStmt.Body)
@@ -3835,7 +4115,9 @@ namespace SharpPy
             // JUMP_BACKWARD to body start (no condition check)
             int currentPos = _instructions.Count;
             int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, bodyStart);
+            #if DEBUG_LOG
             Console.WriteLine($"  JUMP_BACKWARD {currentPos} → {bodyStart} (arg={jumpBackwardArg})");
+            #endif
             EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
             
             // Pop loop context
@@ -3843,7 +4125,9 @@ namespace SharpPy
             
             // Mark break label - break는 여기로 점프
             MarkLabel(breakLabel);
+            #if DEBUG_LOG
             Console.WriteLine("🔧 CPython 3.12 호환 while True 루프 컴파일 완료");
+            #endif
         }
         
         
@@ -3853,11 +4137,15 @@ namespace SharpPy
         /// </summary>
         private void CompileWhile(WhileStatement whileStmt)
         {
+            #if DEBUG_LOG
             Console.WriteLine("🔧 CPython 3.12 호환 while 루프 컴파일 시작");
+            #endif
             
             // Check if this is while True: case
             bool isWhileTrue = IsConstantTrue(whileStmt.Test);
+            #if DEBUG_LOG
             Console.WriteLine($"  while True 패턴: {isWhileTrue}");
+            #endif
             
             if (isWhileTrue)
             {
@@ -3866,7 +4154,9 @@ namespace SharpPy
             }
             
             // Phase 1: 초기 조건 체크 (CPython pattern)
+            #if DEBUG_LOG
             Console.WriteLine("  Phase 1: 초기 조건 체크");
+            #endif
             CompileExpression(whileStmt.Test);
             
             var initialJumpIfFalse = _instructions.Count;
@@ -3875,7 +4165,9 @@ namespace SharpPy
             // Phase 2: 루프 바디 컴파일 (JUMP_BACKWARD 타겟은 첫 번째 바디 명령어)
             // CPython 패턴: JUMP_BACKWARD는 실제 루프 바디 시작으로 점프
             var bodyStart = _instructions.Count; // 바디 첫 번째 명령어 위치
+            #if DEBUG_LOG
             Console.WriteLine($"  Phase 2: 바디 시작점 = {bodyStart} (JUMP_BACKWARD 타겟)");
+            #endif
             
             // Compile loop body
             foreach (var stmt in whileStmt.Body)
@@ -3884,7 +4176,9 @@ namespace SharpPy
             }
             
             // Phase 3: 루프 끝 조건 체크 (CPython pattern)
+            #if DEBUG_LOG
             Console.WriteLine("  Phase 3: 루프 끝 조건 체크");
+            #endif
             CompileExpression(whileStmt.Test);  // 조건을 두 번째로 체크
             
             var endJumpIfFalse = _instructions.Count;
@@ -3893,19 +4187,29 @@ namespace SharpPy
             // Phase 4: JUMP_BACKWARD (바디 시작점으로 - CPython 패턴 확인됨)
             int currentPos = _instructions.Count;
             int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, bodyStart);
+            #if DEBUG_LOG
             Console.WriteLine($"  Phase 4: JUMP_BACKWARD {currentPos} → {bodyStart} (arg={jumpBackwardArg})");
+            #endif
             EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
             
             // Phase 5: 루프 종료 지점
             var loopEnd = _instructions.Count;
+            #if DEBUG_LOG
             Console.WriteLine($"  Phase 5: 루프 종료점 = {loopEnd}");
+            #endif
             
             // 점프 주소 패치 (상대 오프셋 사용)
             var relativeOffsetInitial = loopEnd - initialJumpIfFalse - 1;
             var relativeOffsetEnd = loopEnd - endJumpIfFalse - 1;
+            #if DEBUG_LOG
             Console.WriteLine($"  Patching jump instructions:");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"    initialJumpIfFalse[{initialJumpIfFalse}] → {loopEnd} (relative offset: {relativeOffsetInitial})");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"    endJumpIfFalse[{endJumpIfFalse}] → {loopEnd} (relative offset: {relativeOffsetEnd})");
+            #endif
             _instructions[initialJumpIfFalse] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, relativeOffsetInitial);
             _instructions[endJumpIfFalse] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, relativeOffsetEnd);
             
@@ -3918,7 +4222,9 @@ namespace SharpPy
                 }
             }
             
+            #if DEBUG_LOG
             Console.WriteLine("🔧 CPython 3.12 호환 while 루프 컴파일 완료");
+            #endif
         }
         
         /// <summary>
@@ -4184,7 +4490,9 @@ namespace SharpPy
             {
                 // 특수화된 명령어 사용
                 EmitInstruction(opCode);
+                #if DEBUG_LOG
                 Console.WriteLine($"🚀 Type-specialized: {specializedBinOp.LeftType} {specializedBinOp.Operator} {specializedBinOp.RightType} → {opCode}");
+                #endif
             }
             else
             {
@@ -4239,7 +4547,9 @@ namespace SharpPy
             if (opCode != ByteCodeOp.NOP)
             {
                 EmitInstruction(opCode, inlinedCall.Arguments.Count);
+                #if DEBUG_LOG
                 Console.WriteLine($"🚀 Method inlined: {inlinedCall.ObjectType}.{inlinedCall.MethodName}() → {opCode}");
+                #endif
             }
             else
             {
@@ -4270,7 +4580,9 @@ namespace SharpPy
         private void CompileTry(TryStatement tryStmt)
         {
             // CPython 3.12: No SETUP_EXCEPT, use Exception Table instead
+            #if DEBUG_LOG
             Console.WriteLine($"🔧 Compiling try-except (CPython 3.12 style)");
+            #endif
             
             // Create label for continuation after entire try-except construct
             var continueLabel = CreateLabel("continue_after_try");
@@ -4472,17 +4784,25 @@ namespace SharpPy
                 );
                 _exceptionTable.Add(handlerBlockEntry);
                 
+                #if DEBUG_LOG
                 Console.WriteLine($"🔧 Handler Exception Table: {handlerStartOffset} to {handlerEndOffset} -> {handlerReraiseLabel.Name} [depth=1, lasti]");
+                #endif
             }
             
             // Mark continuation point AFTER all exception handling code - this is where normal execution continues after try-except
             MarkLabel(continueLabel);
             
+            #if DEBUG_LOG
             Console.WriteLine($"🔧 Exception Table Entries Created:");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"   Try Block: {tryStartOffset} to {tryEndOffset} -> {handlersStartLabel.Name}");
+            #endif
             if (tryStmt.Handlers.Count > 0)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"   Handler Block: handler range -> handler_reraise [lasti]");
+                #endif
             }
         }
         private void CompileWith(WithStatement withStmt)
@@ -4557,9 +4877,15 @@ namespace SharpPy
             );
             _exceptionTable.Add(entry);
             
+            #if DEBUG_LOG
             Console.WriteLine($"🔧 Exception Table Entry Created (Label-based):");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"   Start: {bodyStartOffset}, End: {bodyEndOffset}");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"   Handler Label: {withCleanupLabel.Name}, Depth: 1");
+            #endif
             
             // 7. Normal exit: call __exit__(None, None, None) - no POP_EXCEPT needed
             // CPython 3.12: 동일한 None 상수를 재사용 (상수 풀 효율성)
@@ -4656,7 +4982,9 @@ namespace SharpPy
             bool inForLoop = IsInForLoopContext();
             if (inForLoop)
             {
+#if DEBUG_LOG
                 Console.WriteLine("🔍 FOR 루프 컨텍스트 내 패턴 매칭 감지 - 스택 관리 특별 처리");
+#endif
             }
             
             // CPython 3.12: Don't keep subject on stack, load it per case
@@ -4702,10 +5030,14 @@ namespace SharpPy
                 // Console.WriteLine($"🔍 Case {i}: Fail jump target = {failLabel.Name}");
                 
                 // Handle Guard patterns specially - CPython 3.12 compatible
+                #if DEBUG_LOG
                 Console.WriteLine($"🔍 Checking Guard for case {i}: Guard={matchCase.Guard?.GetType().Name} - {matchCase.Guard}");
+                #endif
                 if (matchCase.Guard != null)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"🔍 Compiling Guard pattern case {i}: {matchCase.Pattern} if {matchCase.Guard}");
+                    #endif
                     
                     // Guard pattern: CPython 3.12 compatible - load subject per case
                     // Load subject fresh for this case
@@ -4714,19 +5046,25 @@ namespace SharpPy
                     // Compile pattern matching - this will bind the variable and consume subject
                     if (!CompilePatternMatch(matchCase.Pattern, failLabel))
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"🔍 Pattern match failed for case {i}, jumping to {failLabel.Name}");
+                        #endif
                         EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, failLabel);
                         continue;
                     }
                     
+                    #if DEBUG_LOG
                     Console.WriteLine($"🔍 Pattern matched for case {i}, now compiling guard: {matchCase.Guard}");
+                    #endif
                     
                     // Stack: [] (after pattern binding consumed subject)
                     // Now evaluate guard condition
                     CompileExpression(matchCase.Guard);
                     EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
                     
+                    #if DEBUG_LOG
                     Console.WriteLine($"🔍 Guard condition compiled for case {i}, will jump to {failLabel.Name} if false");
+                    #endif
                     
                     // No cleanup needed - each case is independent
                 }
@@ -4776,7 +5114,9 @@ namespace SharpPy
         /// </summary>
         private bool CompilePatternMatch(Expression pattern, Label failLabel)
         {
+            #if DEBUG_LOG
             Console.WriteLine($"🔍 CompilePatternMatch: {pattern?.GetType().Name} - {pattern}");
+            #endif
             switch (pattern)
             {
                 case ConstantExpression constExpr:
@@ -4801,7 +5141,9 @@ namespace SharpPy
                     
                 case AsPattern asPattern:
                     // CPython 3.12: As pattern (pattern as name)
+                    #if DEBUG_LOG
                     Console.WriteLine($"🔍 AsPattern: {asPattern.Pattern} as {asPattern.Name}");
+                    #endif
                     
                     // Stack: [subject] -> [subject] (preserve for variable binding)
                     EmitInstruction(ByteCodeOp.COPY, 1); // Copy subject for variable binding
@@ -4819,13 +5161,17 @@ namespace SharpPy
                 
                 case BinaryOpExpression binaryOp when binaryOp.Operator == "|":
                     // Handle BinaryOpExpression with OR operator as OrPattern
+                    #if DEBUG_LOG
                     Console.WriteLine($"🔍 BinaryOpExpression OR converted to OrPattern: {binaryOp.Left} | {binaryOp.Right}");
+                    #endif
                     var binaryPatterns = new List<Expression> { binaryOp.Left, binaryOp.Right };
                     return CompileOrPatternLogic(binaryPatterns, failLabel);
                     
                 case OrPattern orPattern:
                     // CPython 3.12: Or patterns (PEP 634)
+                    #if DEBUG_LOG
                     Console.WriteLine($"🔍 OrPattern detected with {orPattern.Patterns.Count} patterns");
+                    #endif
                     return CompileOrPatternLogic(orPattern.Patterns, failLabel);
                     
                     // For simple constant or patterns like: case 1 | 2 | 3:
@@ -4970,17 +5316,23 @@ namespace SharpPy
                     
                 case SequencePattern sequencePattern:
                     // CPython 3.12: Sequence pattern matching [1, 2, *rest]
+                    #if DEBUG_LOG
                     Console.WriteLine($"🔍 SequencePattern: {sequencePattern.Patterns.Count} patterns");
+                    #endif
                     return CompileSequencePattern(sequencePattern, failLabel);
                     
                 case MappingPattern mappingPattern:
                     // CPython 3.12: Dictionary pattern matching {"key": value}
+                    #if DEBUG_LOG
                     Console.WriteLine($"🔍 MappingPattern: {mappingPattern.Patterns.Count} patterns");
+                    #endif
                     return CompileMappingPattern(mappingPattern, failLabel);
                     
                 case CallExpression callExpr:
                     // CPython 3.12: Class pattern matching Point(x, y) -> MATCH_CLASS
+                    #if DEBUG_LOG
                     Console.WriteLine($"🔍 CallExpression (class pattern): {callExpr}");
+                    #endif
                     return CompileClassPattern(callExpr, failLabel);
                     
                 default:
@@ -5266,10 +5618,14 @@ namespace SharpPy
         
         private bool CompileOrPatternLogic(List<Expression> patterns, Label failLabel)
         {
+            #if DEBUG_LOG
             Console.WriteLine($"🔍 CompileOrPatternLogic: {patterns.Count} patterns");
+            #endif
             for (int i = 0; i < patterns.Count; i++)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"  Pattern {i}: {patterns[i]}");
+                #endif
             }
             
             if (patterns.Count == 1)
@@ -5282,10 +5638,14 @@ namespace SharpPy
             var flattenedPatterns = new List<Expression>();
             FlattenOrPatterns(patterns, flattenedPatterns);
             
+            #if DEBUG_LOG
             Console.WriteLine($"🔍 Flattened to {flattenedPatterns.Count} patterns:");
+            #endif
             for (int i = 0; i < flattenedPatterns.Count; i++)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"  Flattened Pattern {i}: {flattenedPatterns[i]}");
+                #endif
             }
             
             // CPython 3.12: OR pattern with proper jump logic
@@ -5598,7 +5958,9 @@ namespace SharpPy
             {
                 _globalVars.Add(name);
                 _moduleGlobalVars.Add(name); // 모듈 전역에도 추가
+                #if DEBUG_LOG
                 Console.WriteLine($"🌍 Global variable declared: {name}");
+                #endif
             }
         }
         private void CompileNonlocal(NonlocalStatement nonlocal)
@@ -5608,7 +5970,9 @@ namespace SharpPy
             foreach (var name in nonlocal.Names)
             {
                 _nonlocalVars.Add(name);
+                #if DEBUG_LOG
                 Console.WriteLine($"🔗 Nonlocal variable declared: {name}");
+                #endif
             }
         }
         private void CompileBoolOp(BoolOpExpression boolOp)
@@ -5685,13 +6049,17 @@ namespace SharpPy
                     var defaultValue = ParseAndEvaluateDefaultValue(defaultValueStr);
                     defaultValues.Add(defaultValue);
                     
+                    #if DEBUG_LOG
                     Console.WriteLine($"  → Parameter '{paramName}' with default value: {defaultValue}");
+                    #endif
                 }
                 else
                 {
                     // Parameter without default value
                     cleanParamNames.Add(arg.Trim());
+                    #if DEBUG_LOG
                     Console.WriteLine($"  → Parameter '{arg}' (no default)");
+                    #endif
                 }
             }
             
@@ -5699,11 +6067,21 @@ namespace SharpPy
             var analyzer = new FreeVariableAnalyzer();
             var (freeVars, cellVars) = analyzer.AnalyzeScope(lambda.Body, cleanParamNames);
             
+            #if DEBUG_LOG
             Console.WriteLine($"\n🔍 Lambda analysis: {lambdaName}");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"  Parameters: [{string.Join(", ", lambda.Args)}]");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"  Clean parameters: [{string.Join(", ", cleanParamNames)}]");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"  Free variables: [{string.Join(", ", freeVars)}]");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"  Cell variables: [{string.Join(", ", cellVars)}]");
+            #endif
             
             // Compile lambda body in a separate compiler context
             var lambdaInstructions = new List<ByteCodeInstruction>();
@@ -5726,7 +6104,9 @@ namespace SharpPy
             foreach (var paramName in cleanParamNames)
             {
                 _varNames.Add(paramName);
+                #if DEBUG_LOG
                 Console.WriteLine($"  → Added parameter '{paramName}' as FAST variable at index {_varNames.Count - 1}");
+                #endif
             }
             
             // Set up closure compilation if there are free variables
@@ -5741,7 +6121,9 @@ namespace SharpPy
                 var paramIndex = cleanParamNames.IndexOf(cellVar);
                 if (paramIndex >= 0)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"  → Making cell for lambda parameter: {cellVar}");
+                    #endif
                     EmitInstruction(ByteCodeOp.MAKE_CELL, paramIndex);
                 }
             }
@@ -5785,7 +6167,9 @@ namespace SharpPy
                 sourceLines: _sourceLines
             );
             
+            #if DEBUG_LOG
             Console.WriteLine($"  → Lambda code object created: {lambdaVarNames.Count} variables, {cleanParamNames.Count} parameters, {defaultValues.Count} defaults");
+            #endif
             
             // CPython 3.12: Handle default values if present (스택 순서 1)
             if (defaultValues.Count > 0)
@@ -5796,13 +6180,17 @@ namespace SharpPy
                     EmitLoadConst(defaultValue);
                 }
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, defaultValues.Count);
+                #if DEBUG_LOG
                 Console.WriteLine($"  → Built defaults tuple: {defaultValues.Count} defaults");
+                #endif
             }
             
             // Handle closure creation if there are free variables (스택 순서 2)
             if (freeVars.Count > 0)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"  → Creating closure with {freeVars.Count} free variables");
+                #endif
                 
                 // Load closure cells for free variables
                 foreach (var freeVar in freeVars)
@@ -5830,7 +6218,9 @@ namespace SharpPy
                 flags |= MakeFunctionFlags.CLOSURE;
             }
             
+            #if DEBUG_LOG
             Console.WriteLine($"  → MAKE_FUNCTION flags: {flags} (defaults={defaultValues.Count > 0}, closure={freeVars.Count > 0})");
+            #endif
             EmitInstruction(ByteCodeOp.MAKE_FUNCTION, flags);
         }
         
@@ -5981,13 +6371,17 @@ namespace SharpPy
         private void MarkLabel(Label label)
         {
             label.Offset = _instructions.Count;
+            #if DEBUG_LOG
             Console.WriteLine($"🔍 MarkLabel: {label.Name} → offset {label.Offset}, {label.References.Count} references");
+            #endif
             
             // Update all references to this label
             foreach (var refIndex in label.References)
             {
                 var oldInstruction = _instructions[refIndex];
+                #if DEBUG_LOG
                 Console.WriteLine($"🔍 Updating ref {refIndex}: {oldInstruction.OpCode} from arg {oldInstruction.Argument}");
+                #endif
                 int argument;
                 
                 // CPython 3.12 compatible jump addressing
@@ -6015,7 +6409,9 @@ namespace SharpPy
                     argument = label.Offset;
                 }
                 
+                #if DEBUG_LOG
                 Console.WriteLine($"🔍 Updated to arg {argument} (offset {label.Offset} - {refIndex} - 1 = {label.Offset - (refIndex + 1)})");
+                #endif
                 _instructions[refIndex] = new ByteCodeInstruction(oldInstruction.OpCode, argument);
             }
         }
@@ -6044,7 +6440,9 @@ namespace SharpPy
         {
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"🔧 Exception Table 해석: {_exceptionTable.Count}개 엔트리");
+                #endif
             }
             
             for (int i = 0; i < _exceptionTable.Count; i++)
@@ -6056,7 +6454,9 @@ namespace SharpPy
                     if (_labels.TryGetValue(entry.HandlerLabelName, out var label) && label.IsMarked)
                     {
                         entry.HandlerOffset = label.Offset;
+                        #if DEBUG_LOG
                         Console.WriteLine($"   ✅ 라벨 '{entry.HandlerLabelName}' → 오프셋 {entry.HandlerOffset}");
+                        #endif
                     }
                     else
                     {
@@ -6128,7 +6528,9 @@ namespace SharpPy
                     int endForPosition = _instructions.Count - 1; // 현재 END_FOR 위치
                     int relativeJump = endForPosition - context.ForIterInstruction - 1;
                     _instructions[context.ForIterInstruction] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, relativeJump);
+                    #if DEBUG_LOG
                     Console.WriteLine($"    → FOR_ITER 패치 (중첩 루프 지원): loop start {context.ForIterInstruction}, jump offset {relativeJump}, END_FOR at {endForPosition}");
+                    #endif
                 }
             }
         }
@@ -6198,7 +6600,9 @@ namespace SharpPy
         /// </summary>
         private void CompileListComprehension(ListComprehension listComp)
         {
+            #if DEBUG_LOG
             Console.WriteLine("🚀 PEP 709: List comprehension 바이트코드 인라인 컴파일 (CPython 3.12 호환)");
+            #endif
             
             // CPython 3.12: 컴프리헨션 컨텍스트 시작
             var savedIsInComprehension = _isInComprehension;
@@ -6224,7 +6628,9 @@ namespace SharpPy
                 }
             }
             
+            #if DEBUG_LOG
             Console.WriteLine($"🔧 List comprehension vars: {string.Join(", ", comprehensionVars)} (count: {comprehensionVars.Count})");
+            #endif
             
             // 1. First compile the iterator source (CPython 3.12 pattern)
             var firstGenerator = listComp.Generators[0];
@@ -6243,7 +6649,9 @@ namespace SharpPy
             {
                 // CPython 3.12: SWAP 값 = 실제 컴프리헨션 변수 개수 + 1
                 int swapArg = comprehensionVars.Count + 1;
+                #if DEBUG_LOG
                 Console.WriteLine($"🔧 Initial SWAP: vars={comprehensionVars.Count}, swapArg={swapArg}");
+                #endif
                 EmitInstruction(ByteCodeOp.SWAP, swapArg); // [iter, var_none] -> [var_none, iter]
             }
             
@@ -6269,14 +6677,18 @@ namespace SharpPy
             {
                 // CPython 3.12: 튜플 언패킹 패턴 (k, v) for k, v in items()
                 // UNPACK_SEQUENCE + STORE_FAST 패턴 사용
+                #if DEBUG_LOG
                 Console.WriteLine($"🔧 List comprehension: processing tuple unpacking with {tupleExpr.Elements.Count} elements");
+                #endif
                 EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, tupleExpr.Elements.Count);
                 
                 foreach (var element in tupleExpr.Elements)
                 {
                     if (element is NameExpression elemName)
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"    → unpacking element: {elemName.Name}");
+                        #endif
                         EmitStoreComprehensionVar(elemName.Name, comprehensionVars);
                     }
                     else
@@ -6326,8 +6738,12 @@ namespace SharpPy
             int currentPos = _instructions.Count;
             int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, loopStart);
             
+            #if DEBUG_LOG
             Console.WriteLine($"🔧 JUMP_BACKWARD 컴파일: currentPos={currentPos}, loopStart={loopStart}");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"   jumpBackwardArg={jumpBackwardArg}");
+            #endif
             
             // CPython 3.12: JUMP_BACKWARD는 바이트 단위 오프셋 사용 (명령어 단위가 아님)
             EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
@@ -6384,14 +6800,20 @@ namespace SharpPy
                 ComprehensionVars = new List<string>(comprehensionVars),
                 Depth = 2
             };
+            #if DEBUG_LOG
             Console.WriteLine($"🔧 PendingExceptionHandler 추가: start={exceptionTableStart * 2}, end={exceptionTableEnd * 2}, vars=[{string.Join(", ", comprehensionVars)}], depth=2");
+            #endif
             _pendingExceptionHandlers.Add(pendingHandler);
+            #if DEBUG_LOG
             Console.WriteLine($"🔧 현재 _pendingExceptionHandlers.Count: {_pendingExceptionHandlers.Count}");
+            #endif
             
             // CPython 3.12: 컴프리헨션 컨텍스트 종료
             _isInComprehension = savedIsInComprehension;
             
+            #if DEBUG_LOG
             Console.WriteLine($"✅ List comprehension 바이트코드 CPython 3.12 호환 완료 ({listComp.Generators.Count}개 중첩 generator)");
+            #endif
         }
         
         /// <summary>
@@ -6409,7 +6831,9 @@ namespace SharpPy
             }
             
             var generator = generators[currentIndex];
+            #if DEBUG_LOG
             Console.WriteLine($"  🔄 Generator [{currentIndex}]: {generator.Target} in {generator.Iter}");
+            #endif
             
             // 이터레이터 준비
             CompileExpression(generator.Iter);
@@ -6494,15 +6918,25 @@ namespace SharpPy
             // CPython 3.12 방식: FOR_ITER → END_FOR 점프 구조
             // END_FOR에서 루프 종료 시 정리 작업 수행
             
+            #if DEBUG_LOG
             Console.WriteLine($"🔧 FOR_ITER 패치 전 상태:");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"    Generator[{currentIndex}]: {generator.Target} in {generator.Iter}");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"    현재 바이트코드 길이: {_instructions.Count}");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"    FOR_ITER 위치: {loopStart}");
+            #endif
             
             // END_FOR 명령어 추가 (CPython 3.12 패턴)
             int endForPosition = _instructions.Count;
             EmitInstruction(ByteCodeOp.END_FOR, 0);
+            #if DEBUG_LOG
             Console.WriteLine($"    END_FOR 추가 위치: {endForPosition}");
+            #endif
             
             // CPython 3.12와 동일한 오프셋 계산
             // FOR_ITER 실행 시: InstructionPointer += argument, 그 후 메인 루프 +1
@@ -6513,21 +6947,35 @@ namespace SharpPy
                 ByteCodeOp.FOR_ITER, 
                 relativeJump
             );
+            #if DEBUG_LOG
             Console.WriteLine($"🔧 FOR_ITER 패치 완료:");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"    위치 {loopStart}: 원래 인수 {originalInstruction.Argument} → 새 인수 {relativeJump}");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"    점프 계산: END_FOR({endForPosition}) - FOR_ITER({loopStart}) - 1 = {relativeJump}");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"    VM 실행 시 점프될 위치: {loopStart + 1 + relativeJump}");
+            #endif
             
             // Dict comprehension의 경우 STORE_GLOBAL이 건너뛰어지는 문제 디버깅
             if (_isInComprehension)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"📋 Comprehension 컨텍스트에서 FOR_ITER 패치:");
+                #endif
+                #if DEBUG_LOG
                 Console.WriteLine($"    다음 명령어들 위치 예상:");
+                #endif
                 for (int i = endForPosition + 1; i < Math.Min(endForPosition + 5, _instructions.Count); i++)
                 {
                     if (i < _instructions.Count)
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"    위치 {i}: {_instructions[i].OpCode} {_instructions[i].Argument}");
+                        #endif
                     }
                 }
             }
@@ -6549,7 +6997,9 @@ namespace SharpPy
             // 모듈 레벨에서도 컴프리헨션은 별도의 지역 스코프를 가짐
             var varIndex = GetOrAddVarName(name);
             EmitInstruction(ByteCodeOp.STORE_FAST, varIndex);
+            #if DEBUG_LOG
             Console.WriteLine($"    → 컴프리헨션 변수 저장: {name} (STORE_FAST index {varIndex})");
+            #endif
         }
         
         /// <summary>
@@ -6564,7 +7014,9 @@ namespace SharpPy
                 if (varIndex >= 0)
                 {
                     EmitInstruction(ByteCodeOp.LOAD_FAST, varIndex);
+                    #if DEBUG_LOG
                     Console.WriteLine($"    → 컴프리헨션 변수 로드: {name} (LOAD_FAST index {varIndex})");
+                    #endif
                     return;
                 }
             }
@@ -6580,8 +7032,12 @@ namespace SharpPy
         /// </summary>
         private void CompileDictComprehension(DictComprehension dictComp)
         {
+            #if DEBUG_LOG
             Console.WriteLine("🚀 PEP 709: Dict comprehension 바이트코드 인라인 컴파일 (중첩 Generator 지원)");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"📊 Dict comprehension 시작 위치: {_instructions.Count}");
+            #endif
             
             // CPython 3.12: 컴프리헨션 컨텍스트 시작
             var savedIsInComprehension = _isInComprehension;
@@ -6590,7 +7046,9 @@ namespace SharpPy
             // 1. 빈 딕셔너리 생성
             var buildMapPosition = _instructions.Count;
             EmitInstruction(ByteCodeOp.BUILD_MAP, 0);
+            #if DEBUG_LOG
             Console.WriteLine($"🔧 BUILD_MAP 위치: {buildMapPosition}");
+            #endif
             
             // 2. 임시 변수 저장을 위한 리스트 - 컴프리헨션 스코프 isolation
             var comprehensionVars = new List<string>();
@@ -6599,12 +7057,16 @@ namespace SharpPy
             int exceptionTableStart = 0;
 
             // 3. 중첩된 루프 컴파일 - CPython 3.12 방식
+            #if DEBUG_LOG
             Console.WriteLine($"🔄 CompileNestedGenerators 호출 전 위치: {_instructions.Count}");
+            #endif
             CompileNestedGenerators(dictComp.Generators, 0, comprehensionVars, () =>
             {
                 // 모든 generator 루프가 완료된 후 실행되는 내부 블록
                 var innerBlockStart = _instructions.Count;
+                #if DEBUG_LOG
                 Console.WriteLine($"🎯 Dict comprehension 내부 블록 시작: {innerBlockStart}");
+                #endif
 
                 // Exception table 시작 위치는 첫 번째 FOR_ITER 명령어
                 if (exceptionTableStart == 0)
@@ -6623,7 +7085,9 @@ namespace SharpPy
                         // FOR_ITER를 찾지 못한 경우 BUILD_MAP 이후부터 시작
                         exceptionTableStart = buildMapPosition + 1;
                     }
+                    #if DEBUG_LOG
                     Console.WriteLine($"🔧 Dict Exception table 시작 위치: {exceptionTableStart}");
+                    #endif
                 }
 
                 CompileExpression(dictComp.Key);
@@ -6631,11 +7095,15 @@ namespace SharpPy
 
                 var mapAddPosition = _instructions.Count;
                 EmitInstruction(ByteCodeOp.MAP_ADD, 1); // 딕셔너리는 항상 스택의 맨 아래(1)에 위치
+                #if DEBUG_LOG
                 Console.WriteLine($"🗝️ MAP_ADD 위치: {mapAddPosition}");
+                #endif
             });
 
             var afterNestedGenerators = _instructions.Count;
+            #if DEBUG_LOG
             Console.WriteLine($"🔄 CompileNestedGenerators 완료 후 위치: {afterNestedGenerators}");
+            #endif
 
             // CPython 3.12: Exception table 끝 위치 설정 (END_FOR 이후)
             var exceptionTableEnd = _instructions.Count;
@@ -6648,15 +7116,23 @@ namespace SharpPy
                 ComprehensionVars = new List<string>(comprehensionVars),
                 Depth = 3  // Dict comprehension은 depth=3 (CPython 호환)
             };
+            #if DEBUG_LOG
             Console.WriteLine($"🔧 Dict PendingExceptionHandler 추가: start={exceptionTableStart * 2}, end={exceptionTableEnd * 2}, vars=[{string.Join(", ", comprehensionVars)}], depth=3");
+            #endif
             _pendingExceptionHandlers.Add(pendingHandler);
+            #if DEBUG_LOG
             Console.WriteLine($"🔧 현재 _pendingExceptionHandlers.Count: {_pendingExceptionHandlers.Count}");
+            #endif
 
             // CPython 3.12: 컴프리헨션 컨텍스트 종료
             _isInComprehension = savedIsInComprehension;
             
+            #if DEBUG_LOG
             Console.WriteLine($"✅ Dict comprehension 바이트코드 인라인 완료 ({dictComp.Generators.Count}개 중첩 generator)");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"📊 Dict comprehension 최종 위치: {_instructions.Count}");
+            #endif
         }
         
         /// <summary>
@@ -6666,7 +7142,9 @@ namespace SharpPy
         /// </summary>
         private void CompileSetComprehension(SetComprehension setComp)
         {
+            #if DEBUG_LOG
             Console.WriteLine("🚀 PEP 709: Set comprehension 바이트코드 인라인 컴파일 (중첩 Generator 지원)");
+            #endif
 
             // CPython 3.12: 컴프리헨션 컨텍스트 시작
             var savedIsInComprehension = _isInComprehension;
@@ -6678,25 +7156,35 @@ namespace SharpPy
 
             // 1. 빈 셋 생성
             EmitInstruction(ByteCodeOp.BUILD_SET, 0);
+            #if DEBUG_LOG
             Console.WriteLine($"📊 Set comprehension 시작 위치: {buildSetPosition}");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"🔧 BUILD_SET 위치: {buildSetPosition}");
+            #endif
 
             // 2. 임시 변수 저장을 위한 리스트 - 컴프리헨션 스코프 isolation
             var comprehensionVars = new List<string>();
 
             int beforeGenerators = _instructions.Count;
+            #if DEBUG_LOG
             Console.WriteLine($"🔄 CompileNestedGenerators 호출 전 위치: {beforeGenerators}");
+            #endif
 
             // 3. 중첩된 루프 컴파일 - CPython 3.12 방식
             CompileNestedGenerators(setComp.Generators, 0, comprehensionVars, () =>
             {
                 // 모든 generator 루프가 완료된 후 실행되는 내부 블록
+                #if DEBUG_LOG
                 Console.WriteLine($"🎯 Set comprehension 내부 블록 시작: {_instructions.Count}");
+                #endif
                 CompileExpression(setComp.Element);
 
                 int setAddPosition = _instructions.Count;
                 EmitInstruction(ByteCodeOp.SET_ADD, 1); // 셋은 항상 스택의 맨 아래(1)에 위치
+                #if DEBUG_LOG
                 Console.WriteLine($"🗝️ SET_ADD 위치: {setAddPosition}");
+                #endif
             });
 
             // Exception table 시작 위치는 첫 번째 FOR_ITER 명령어
@@ -6713,10 +7201,14 @@ namespace SharpPy
                 }
             }
 
+            #if DEBUG_LOG
             Console.WriteLine($"🔧 Set Exception table 시작 위치: {exceptionTableStart}");
+            #endif
 
             int afterGenerators = _instructions.Count;
+            #if DEBUG_LOG
             Console.WriteLine($"🔄 CompileNestedGenerators 완료 후 위치: {afterGenerators}");
+            #endif
 
             // CPython 3.12: Exception table 종료 위치 계산
             int exceptionTableEnd = exceptionTableStart * 2 + 22; // SET_ADD까지의 바이트코드 범위
@@ -6733,15 +7225,23 @@ namespace SharpPy
                 };
 
                 _pendingExceptionHandlers.Add(pendingHandler);
+                #if DEBUG_LOG
                 Console.WriteLine($"🔧 Set PendingExceptionHandler 추가: start={pendingHandler.StartOffset}, end={pendingHandler.EndOffset}, vars=[{string.Join(", ", comprehensionVars)}], depth={pendingHandler.Depth}");
+                #endif
+                #if DEBUG_LOG
                 Console.WriteLine($"🔧 현재 _pendingExceptionHandlers.Count: {_pendingExceptionHandlers.Count}");
+                #endif
             }
 
             // CPython 3.12: 컴프리헨션 컨텍스트 종료
             _isInComprehension = savedIsInComprehension;
 
+            #if DEBUG_LOG
             Console.WriteLine($"✅ Set comprehension 바이트코드 인라인 완료 ({setComp.Generators.Count}개 중첩 generator)");
+            #endif
+            #if DEBUG_LOG
             Console.WriteLine($"📊 Set comprehension 최종 위치: {afterGenerators}");
+            #endif
         }
         
         /// <summary>
@@ -6750,7 +7250,9 @@ namespace SharpPy
         /// </summary>
         private void CompileGeneratorExpression(GeneratorExpression genExp)
         {
+            #if DEBUG_LOG
             Console.WriteLine("🚀 PEP 709: Generator expression 바이트코드 인라인 컴파일");
+            #endif
             
             // 제너레이터는 별도 함수로 컴파일 필요
             var genCompiler = new PythonCompiler();
@@ -6811,7 +7313,9 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.GET_ITER);  // iterator 생성
             EmitInstruction(ByteCodeOp.CALL, 0);  // 제너레이터 함수 호출 (iterator는 특별 처리)
             
+            #if DEBUG_LOG
             Console.WriteLine("✅ Generator expression 바이트코드 인라인 완료");
+            #endif
         }
         
         // CPython 3.12: Assignment target compilation
@@ -6869,7 +7373,9 @@ namespace SharpPy
             if (isComprehension && comprehensionVars.Count > 0)
             {
                 var compType = isListComprehension ? "List" : isDictComprehension ? "Dict" : "Set";
+                #if DEBUG_LOG
                 Console.WriteLine($"🔧 CPython 3.12 {compType} comp cleanup: vars={comprehensionVars.Count}");
+                #endif
 
                 if (isDictComprehension)
                 {
@@ -6889,7 +7395,9 @@ namespace SharpPy
 
                 foreach (var varName in comprehensionVars)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"  🔧 STORE_FAST: storing {compType} comprehension var {varName} (CPython 3.12 order)");
+                    #endif
                     EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(varName));
                 }
             }

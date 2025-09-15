@@ -51,7 +51,7 @@ namespace SharpPy
             _sourceLines = sourceCode.Split(new[] { '\r', '\n' }, StringSplitOptions.None);
             
             // Verbose 모드일 때만 상세 디버그 정보 출력
-#if DEBUG
+#if DEBUG_LOG
             Console.WriteLine("🐍 통합 Python 인터프리터 실행");
             Console.WriteLine(new string('=', 60));
             Console.WriteLine($"소스:\n{sourceCode}");
@@ -65,7 +65,7 @@ namespace SharpPy
             try
             {
                 // 1단계: 파싱 (소스 → AST)
-#if DEBUG
+#if DEBUG_LOG
                 Console.WriteLine("\n" + new string('=',30));
                 Console.WriteLine("1️⃣ 파싱: 소스 → AST");
                 Console.WriteLine(new string('=', 30));
@@ -73,14 +73,14 @@ namespace SharpPy
                 var statements = _parser.Parse(sourceCode, fileName ?? "<string>");
                 
                 // 2단계: 컴파일 (AST → 바이트코드)
-#if DEBUG
+#if DEBUG_LOG
                 Console.WriteLine("\n" + new string('=', 30));
                 Console.WriteLine("2️⃣ 컴파일: AST → 바이트코드");
                 Console.WriteLine(new string('=', 30));
 #endif
                 var codeObject = _compiler.Compile(statements, "<module>", new List<string>(), fileName);
                 
-#if DEBUG
+#if DEBUG_LOG
                 Console.WriteLine($"🔍 컴파일 직후 Exception Table entries: {codeObject.ExceptionTable.Count}");
 #endif
                 
@@ -89,7 +89,7 @@ namespace SharpPy
                 {
                     codeObject.Disassemble();
                 }
-#if DEBUG
+#if DEBUG_LOG
                 else
                 {
                     Console.WriteLine("\n" + new string('=', 30));
@@ -101,19 +101,19 @@ namespace SharpPy
 #endif
                 
                 // 4단계: VM 실행 (기존 시스템들과 연동)
-#if DEBUG
+#if DEBUG_LOG
                 Console.WriteLine("\n" + new string('=', 30));
                 Console.WriteLine("4️⃣ VM 실행 (기존 LEGB 시스템 사용)");
                 Console.WriteLine(new string('=', 30));
 #endif
                 
-#if DEBUG
+#if DEBUG_LOG
                 Console.WriteLine($"🔍 VM 실행 직전 Exception Table entries: {codeObject.ExceptionTable.Count}");
 #endif
                 
                 var result = _vm.ExecuteModule(codeObject, _globalScope);
                 
-#if DEBUG
+#if DEBUG_LOG
                 Console.WriteLine("\n" + new string('=', 60));
                 Console.WriteLine($"🎉 최종 결과: {result}");
                 Console.WriteLine(new string('=', 60));
@@ -123,7 +123,7 @@ namespace SharpPy
             }
             catch (Exception e)
             {
-#if DEBUG
+#if DEBUG_LOG
                 PrintPythonStyleTraceback(e);
 #endif
                 // Re-throw to let Program.cs handle exit code

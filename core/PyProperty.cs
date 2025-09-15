@@ -14,9 +14,9 @@ public interface IDescriptor
     // Python의 property 구현
     public class PyProperty : PyObject, IDescriptor
     {
-        private readonly PyFunction _getter;
-        private readonly PyFunction _setter;
-        private readonly PyFunction _deleter;
+        protected readonly PyFunction _getter;
+        protected readonly PyFunction _setter;
+        protected readonly PyFunction _deleter;
 
         public PyProperty(PyFunction getter, PyFunction setter = null, PyFunction deleter = null)
         {
@@ -27,27 +27,119 @@ public interface IDescriptor
 
         public PyObject Get(PyObject instance, PyType owner)
         {
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 PyProperty.Get called: instance={instance?.GetType().Name}, owner={owner?.Name}");
+            #endif
+            #if DEBUG_LOG
+            Console.WriteLine($"   → getter={_getter?.Name}, setter={_setter?.Name}, deleter={_deleter?.Name}");
+            #endif
+
             if (_getter == null)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"   ❌ No getter available - throwing AttributeError");
+                #endif
                 throw PyAttributeError.Create("unreadable attribute");
+            }
 
             if (instance == null)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"   → Returning property object itself (class-level access)");
+                #endif
                 return this; // 클래스에서 접근할 때는 property 객체 자체 반환
+            }
 
-            return _getter.Call(instance);
+            #if DEBUG_LOG
+            Console.WriteLine($"   → Calling getter with instance: {instance.GetType().Name}");
+            #endif
+            try
+            {
+                var result = _getter.Call(instance);
+                #if DEBUG_LOG
+                Console.WriteLine($"   ✅ Getter returned: {result?.ToString()}");
+                #endif
+                return result;
+            }
+            catch (Exception ex)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"   ❌ Getter failed: {ex.Message}");
+                #endif
+                throw;
+            }
         }
 
         public void Set(PyObject instance, PyObject value)
         {
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 PyProperty.Set called: instance={instance?.GetType().Name}, value={value}");
+            #endif
+            #if DEBUG_LOG
+            Console.WriteLine($"   → setter={_setter?.Name}");
+            #endif
+
             if (_setter == null)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"   ❌ No setter available - throwing AttributeError");
+                #endif
                 throw PyAttributeError.Create("can't set attribute");
-            _setter.Call(instance, value);
+            }
+
+            #if DEBUG_LOG
+            Console.WriteLine($"   → Calling setter with value: {value}");
+            #endif
+            try
+            {
+                _setter.Call(instance, value);
+                #if DEBUG_LOG
+                Console.WriteLine($"   ✅ Setter completed successfully");
+                #endif
+            }
+            catch (Exception ex)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"   ❌ Setter failed: {ex.Message}");
+                #endif
+                throw;
+            }
         }
 
         public void Delete(PyObject instance)
         {
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 PyProperty.Delete called: instance={instance?.GetType().Name}");
+            #endif
+            #if DEBUG_LOG
+            Console.WriteLine($"   → deleter={_deleter?.Name}");
+            #endif
+
             if (_deleter == null)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"   ❌ No deleter available - throwing AttributeError");
+                #endif
                 throw PyAttributeError.Create("can't delete attribute");
-            _deleter.Call(instance);
+            }
+
+            #if DEBUG_LOG
+            Console.WriteLine($"   → Calling deleter");
+            #endif
+            try
+            {
+                _deleter.Call(instance);
+                #if DEBUG_LOG
+                Console.WriteLine($"   ✅ Deleter completed successfully");
+                #endif
+            }
+            catch (Exception ex)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"   ❌ Deleter failed: {ex.Message}");
+                #endif
+                throw;
+            }
         }
 
         public bool IsDataDescriptor() => _setter != null || _deleter != null;
@@ -59,15 +151,35 @@ public interface IDescriptor
             {
                 case "setter":
                     return new PyBuiltinFunction("setter", args => {
+                        #if DEBUG_LOG
+                        Console.WriteLine($"🔧 PyProperty.setter called with {args.Length} args");
+                        #endif
                         if (args.Length != 1) throw PyTypeError.Create($"setter() takes exactly one argument ({args.Length} given)");
                         if (args[0] is not PyFunction func) throw PyTypeError.Create("setter() argument must be a function");
-                        return new PyProperty(_getter, func, _deleter);
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   → Creating new PyProperty with setter: {func.Name}");
+                        #endif
+                        var newProperty = new PyProperty(_getter, func, _deleter);
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   → New property: getter={newProperty._getter?.Name}, setter={newProperty._setter?.Name}, deleter={newProperty._deleter?.Name}");
+                        #endif
+                        return newProperty;
                     });
                 case "deleter":
                     return new PyBuiltinFunction("deleter", args => {
+                        #if DEBUG_LOG
+                        Console.WriteLine($"🔧 PyProperty.deleter called with {args.Length} args");
+                        #endif
                         if (args.Length != 1) throw PyTypeError.Create($"deleter() takes exactly one argument ({args.Length} given)");
                         if (args[0] is not PyFunction func) throw PyTypeError.Create("deleter() argument must be a function");
-                        return new PyProperty(_getter, _setter, func);
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   → Creating new PyProperty with deleter: {func.Name}");
+                        #endif
+                        var newProperty = new PyProperty(_getter, _setter, func);
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   → New property: getter={newProperty._getter?.Name}, setter={newProperty._setter?.Name}, deleter={newProperty._deleter?.Name}");
+                        #endif
+                        return newProperty;
                     });
                 case "getter":
                     return new PyBuiltinFunction("getter", args => {
