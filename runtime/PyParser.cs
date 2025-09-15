@@ -180,7 +180,7 @@ namespace SharpPy
                         {
                             Console.WriteLine($"  → {statement}");
                         }
-                        
+
                         // CPython 3.12: After parsing a statement, consume optional semicolon
                         if (CheckSemicolon())
                         {
@@ -230,7 +230,7 @@ namespace SharpPy
                     Synchronize();
                 }
             }
-            
+
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
                 Console.WriteLine($"✅ 파싱 완료: {statements.Count}개 문장");
@@ -242,6 +242,7 @@ namespace SharpPy
         {
             return WithRecursionProtection("ParseStatement", () =>
             {
+
                 // CPython 3.12: Skip comment tokens
                 SkipCommentTokens();
 
@@ -303,6 +304,9 @@ namespace SharpPy
             if (MatchKeyword("type")) return ParseTypeAlias();
 
             // Control flow
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+            }
             if (MatchKeyword("if")) return ParseIfStatement();
             if (MatchKeyword("while")) return ParseWhileStatement();
             if (MatchKeyword("for")) return ParseForStatement();
@@ -332,7 +336,6 @@ namespace SharpPy
                 // Expression statement or assignment
                 if (!SharpPyConfig.DisassemblyOnlyMode)
                 {
-                    Console.WriteLine($"🔍 ParseStatement: About to call ParseExpressionOrAssignment with token {Peek().Type} at {Peek().Line}:{Peek().Column}");
                 }
                 return ParseExpressionOrAssignment();
             });
@@ -1047,30 +1050,30 @@ namespace SharpPy
 
         private Statement ParseExpressionOrAssignment()
         {
-            // CPython 3.12: 블록 구조 토큰들과 빈 라인들은 표현식이 아니므로 건너뛰기
+            // CPython 3.12: 블록 구조 토큰들은 표현식이 아니므로 건너뛰기
             if (Check(TokenType.INDENT) || Check(TokenType.DEDENT) ||
-                Check(TokenType.NL) || Check(TokenType.NEWLINE) ||
                 CheckKeyword("except") || CheckKeyword("finally") ||
                 CheckKeyword("else") || CheckKeyword("elif"))
             {
-                if (!SharpPyConfig.DisassemblyOnlyMode)
-                {
-                    Console.WriteLine($"🔍 ParseExpressionOrAssignment: Detected block structure token {Peek().Type} at {Peek().Line}:{Peek().Column} - returning null");
-                }
+                Console.WriteLine($"🔍 ParseExpressionOrAssignment: Skipping block structure token {Peek().Type}");
                 return null;
+            }
+
+            // CPython 3.12: NL과 NEWLINE 토큰들은 단순히 무시하고 다음 토큰으로 진행
+            while (Check(TokenType.NL) || Check(TokenType.NEWLINE))
+            {
+                Advance();
+
+                // 만약 모든 토큰을 소모했다면 null 반환
+                if (IsAtEnd())
+                {
+                    return null;
+                }
             }
 
             try
             {
-                if (!SharpPyConfig.DisassemblyOnlyMode)
-                {
-                    Console.WriteLine($"🔍 ParseExpressionOrAssignment: About to call ParseExpression with token {Peek().Type} at {Peek().Line}:{Peek().Column}");
-                }
                 var expr = ParseExpression();
-                if (!SharpPyConfig.DisassemblyOnlyMode)
-                {
-                    Console.WriteLine($"🔍 ParseExpressionOrAssignment: ParseExpression completed, current token: {Peek().Type}");
-                }
                 
                 // CPython 3.12: Check for comma-separated assignment targets (tuple unpacking)
                 // This handles cases like: x, y = (1, 2)
@@ -1263,23 +1266,41 @@ namespace SharpPy
             // Use new binary expression parser for better precedence handling
             var expr = ParseBinaryExpression();
             
-            // Check for conditional: expr if condition else alternative  
+            // Check for conditional: expr if condition else alternative
             // Skip conditional expression parsing when inside comprehension or match pattern
+            // Also skip if this looks like an if statement (has ':' before 'else')
             if (CheckKeyword("if") && !_inComprehension && !_inMatchPattern)
             {
+                // Look ahead to see if this is a conditional expression or if statement
+                var savePos = _current;
                 Advance(); // consume IF
-                var condition = ParseBinaryExpression();
-                
+
+                // Parse condition to find what comes after
+                var tempCondition = ParseBinaryExpression();
+
+                // If we find ':' before 'else', this is an if statement, not a conditional expression
+                if (CheckColon())
+                {
+                    // This is an if statement, not a conditional expression
+                    // Restore position and return the original expression
+                    _current = savePos;
+                    return expr;
+                }
+
+                // If we find 'else', this is a conditional expression
                 if (!CheckKeyword("else"))
                 {
-                    // Better error handling - might be incomplete conditional
-                    return expr; // Return partial expression instead of failing
+                    // This is likely an incomplete conditional or an if statement
+                    // Restore position and return the original expression
+                    _current = savePos;
+                    return expr;
                 }
-                
+
+                // This is a valid conditional expression: expr if condition else alternative
                 ConsumeKeyword("else", "Expected 'else' in conditional expression");
                 var alternative = ParseConditionalExpression(); // Right-associative
-                
-                return new ConditionalExpression(expr, condition, alternative);
+
+                return new ConditionalExpression(expr, tempCondition, alternative);
             }
             
             return expr;
