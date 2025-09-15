@@ -403,9 +403,7 @@ namespace SharpPy
                 }
 
                 // Skip if already resolved or is parameter/assigned locally
-                if (symbol.Scope != SymbolScope.Unknown ||
-                    symbol.IsParameter() ||
-                    symbol.IsAssigned())
+                if (symbol.Scope != SymbolScope.Unknown)
                 {
 #if DEBUG_LOG
                     Console.WriteLine($"      ↳ Skipped (already resolved or local)");
@@ -640,6 +638,14 @@ namespace SharpPy
 
                 case UnaryOpExpression unaryOp:
                     AnalyzeExpression(unaryOp.Operand);
+                    break;
+
+                case FStringExpression fstring:
+                    // Analyze all expressions within the f-string
+                    foreach (var value in fstring.Values)
+                    {
+                        AnalyzeExpression(value);
+                    }
                     break;
 
                 // Skip constants and other literal expressions

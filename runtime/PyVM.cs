@@ -1045,6 +1045,29 @@ namespace SharpPy
                     frame.ValueStack.Push(globalValue);
                     break;
 
+                case ByteCodeOp.LOAD_GLOBAL_BUILTIN:
+                    var globalBuiltinName = frame.Code.Names[instruction.Argument];
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔍 LOAD_GLOBAL_BUILTIN({globalBuiltinName}): Direct builtin lookup");
+                    #endif
+
+                    // LOAD_GLOBAL_BUILTIN은 최적화된 버전으로 builtin을 직접 조회
+                    var builtinValue = frame.ScopeChain.BuiltinModule.GetBuiltin(globalBuiltinName);
+                    if (builtinValue == null)
+                    {
+                        // builtin에 없으면 global에서 찾기
+                        builtinValue = frame.ScopeChain.GlobalScope?.GetVariable(globalBuiltinName);
+                    }
+
+                    if (builtinValue == null)
+                        throw PyNameError.Create($"name '{globalBuiltinName}' is not defined");
+
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔍 LOAD_GLOBAL_BUILTIN({globalBuiltinName}): loaded {builtinValue?.GetType().Name ?? "null"} value = {builtinValue}");
+                    #endif
+                    frame.ValueStack.Push(builtinValue);
+                    break;
+
                 case ByteCodeOp.LOAD_ASSERTION_ERROR:
                     // CPython 3.12: Load AssertionError class for assert statements
                     var assertionError = frame.ScopeChain.BuiltinModule.GetBuiltin("AssertionError");
