@@ -7331,21 +7331,25 @@ namespace SharpPy
                     CompileExpression(dictComp.Value);
                 }
 
-                // CPython 3.12 호환: Dict-in-Dict vs 단일 comprehension 구분
-                // Dict-in-Dict: 각 레벨이 독립적 → MAP_ADD 2 고정
-                // 단일 comprehension: 모든 변수 포함 → comprehensionVarCount + 1
+                // CPython 3.12 정확한 MAP_ADD 패턴
                 bool isNestedDictInDict = dictComp.Value is DictComprehension;
+                int forLoopCount = dictComp.Generators.Count;
                 int mapAddArg;
 
                 if (isNestedDictInDict || nestingLevel > 0)
                 {
-                    // Dict-in-Dict 중첩: CPython은 각 레벨에서 MAP_ADD 2 사용
+                    // Dict-in-Dict 중첩: 모든 레벨에서 MAP_ADD 2 고정
+                    mapAddArg = 2;
+                }
+                else if (forLoopCount == 1)
+                {
+                    // 단일 for loop: 변수 개수와 무관하게 MAP_ADD 2
                     mapAddArg = 2;
                 }
                 else
                 {
-                    // 단일 comprehension: 모든 변수 + dict
-                    mapAddArg = allVarsFromThisLevel.Count + 1;
+                    // 다중 for loop: MAP_ADD (for loop 개수 + 1)
+                    mapAddArg = forLoopCount + 1;
                 }
                 EmitInstruction(ByteCodeOp.MAP_ADD, mapAddArg);
                 #if DEBUG_LOG
