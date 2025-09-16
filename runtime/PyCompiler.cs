@@ -7507,30 +7507,39 @@ namespace SharpPy
         /// </summary>
         private int CalculateListAppendStackPosition(int comprehensionVarCount, int generatorCount)
         {
-            // CPython 3.12 정확한 스택 레이아웃 분석:
-            // LOAD_FAST_AND_CLEAR w,x,y,z + SWAP 5 + BUILD_LIST + SWAP 2
-            // 스택 상태: [backup_w, backup_x, backup_y, backup_z, list, iterator]
-            // LIST_APPEND arg = 백업된 변수 수 + 1 (list 포함)
-
+            // CPython 3.12 정확한 LIST_APPEND 패턴 (MAP_ADD와 동일)
             int nestingDepth = _comprehensionNestingDepth;
 
-            #if DEBUG_LOG
-            Console.WriteLine($"🔍 LIST_APPEND 스택 위치 계산: nestingDepth={nestingDepth}, comprehensionVarCount={comprehensionVarCount}, generatorCount={generatorCount}");
-            #endif
-
-            // CPython 3.12 실제 바이트코드 패턴 분석:
-            // 1중: [x for x in range(1)] → LOAD_FAST_AND_CLEAR 1개 → LIST_APPEND 2
-            // 2중: [x+y for x in range(1) for y in range(1)] → LOAD_FAST_AND_CLEAR 2개 → LIST_APPEND 3
-            // 3중: [x+y+z for x in range(1) for y in range(1) for z in range(1)] → LOAD_FAST_AND_CLEAR 3개 → LIST_APPEND 4
-            // 4중: [w+x+y+z for w in range(1) for x in range(1) for y in range(1) for z in range(1)] → LOAD_FAST_AND_CLEAR 4개 → LIST_APPEND 5
-
-            // 정확한 공식: comprehensionVarCount + 1 (백업된 변수들 + list)
-            int stackOffset = comprehensionVarCount + 1;
+            // 실제 List-in-List 여부 판단: nestingDepth > 1인 경우만 진짜 중첩
+            // nestingDepth = 1은 첫 번째 list comprehension, 2부터가 실제 중첩
+            bool isNestedListInList = nestingDepth > 1;
 
             #if DEBUG_LOG
-            Console.WriteLine($"🔍 LIST_APPEND 스택 오프셋 결정: {stackOffset} (CPython 3.12 호환: {comprehensionVarCount} vars + 1 list)");
+            Console.WriteLine($"🔍 LIST_APPEND 스택 위치 계산: nestingDepth={nestingDepth}, comprehensionVarCount={comprehensionVarCount}, generatorCount={generatorCount}, isNestedListInList={isNestedListInList}");
             #endif
-            return stackOffset;
+
+            int listAppendArg;
+
+            if (isNestedListInList)
+            {
+                // List-in-List 중첩: 모든 레벨에서 LIST_APPEND 2 고정
+                listAppendArg = 2;
+            }
+            else if (generatorCount == 1)
+            {
+                // 단일 for loop: 변수 개수와 무관하게 LIST_APPEND 2
+                listAppendArg = 2;
+            }
+            else
+            {
+                // 다중 for loop: LIST_APPEND (for loop 개수 + 1)
+                listAppendArg = generatorCount + 1;
+            }
+
+            #if DEBUG_LOG
+            Console.WriteLine($"🔍 LIST_APPEND 스택 오프셋 결정: {listAppendArg} (CPython 3.12 호환)");
+            #endif
+            return listAppendArg;
         }
 
         /// <summary>
