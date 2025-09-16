@@ -884,6 +884,11 @@ namespace SharpPy
                         var varName = frame.Code.VarNames[argIndex];
                         if (frame.FastLocals.TryGetValue(varName, out var fastValue))
                         {
+                            // CPython 3.12 호환: PyNull인 경우 UnboundLocalError 발생
+                            if (PyNull.IsNull(fastValue))
+                            {
+                                throw PyNameError.Create($"local variable '{varName}' referenced before assignment");
+                            }
                             frame.ValueStack.Push(fastValue);
                         }
                         else
@@ -975,16 +980,16 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.DELETE_FAST:
-                    // CPython 3.12: Delete fast local variable
+                    // CPython 3.12: Delete fast local variable - NULL 상태로 설정
                     var deleteFastIndex = instruction.Argument;
                     if (deleteFastIndex < frame.Code.VarNames.Count)
                     {
                         var deleteFastName = frame.Code.VarNames[deleteFastIndex];
-                        // Remove from fast locals
-                        frame.FastLocals.Remove(deleteFastName);
-                        // For now, just remove from fast locals (this handles most cases)
+                        // CPython 3.12 호환: 변수를 제거하는 대신 PyNull로 설정
+                        // 이렇게 하면 LOAD_FAST에서 PyNull을 반환할 수 있음
+                        frame.FastLocals[deleteFastName] = PyNull.Instance;
                         #if DEBUG_LOG
-                        Console.WriteLine($"🔧 DELETE_FAST: deleted variable '{deleteFastName}'");
+                        Console.WriteLine($"🔧 DELETE_FAST: set variable '{deleteFastName}' to NULL");
                         #endif
                     }
                     else
@@ -1097,6 +1102,22 @@ namespace SharpPy
                     var storeGlobalValue = frame.ValueStack.Pop();
                     // Use AssignVariable to handle scope issues consistently
                     frame.ScopeChain.AssignVariable(storeGlobalName, storeGlobalValue);
+                    break;
+
+                case ByteCodeOp.DELETE_GLOBAL:
+                    // CPython 3.12: Delete global variable
+                    var deleteGlobalName = frame.Code.Names[instruction.Argument];
+                    if (frame.ScopeChain.GlobalScope?.Variables.Remove(deleteGlobalName) == true)
+                    {
+                        #if DEBUG_LOG
+                        Console.WriteLine($"🔧 DELETE_GLOBAL: deleted global variable '{deleteGlobalName}'");
+                        #endif
+                    }
+                    else
+                    {
+                        // CPython behavior: NameError if variable doesn't exist
+                        throw PyNameError.Create($"name '{deleteGlobalName}' is not defined");
+                    }
                     break;
 
                 // Duplicate LOAD_GLOBAL case removed (was LOAD_GLOBAL_BUILTIN)
@@ -3503,7 +3524,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.DELETE_DEREF:
-                    // 클로저/자유 변수 삭제
+                    // CPython 3.12: 클로저/자유 변수 삭제 - NULL 상태로 설정
                     var deleteCellIndex = instruction.Argument;
 
                     PyCell deleteCell;
@@ -3524,7 +3545,11 @@ namespace SharpPy
                         }
                     }
 
+                    // CPython 3.12 호환: cell을 PyNull 상태로 설정
                     deleteCell.Clear();
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔧 DELETE_DEREF: cleared cell at index {deleteCellIndex} to NULL");
+                    #endif
                     break;
 
                 case ByteCodeOp.LOAD_CLOSURE:

@@ -20,9 +20,9 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// True if this cell contains a value
+        /// True if this cell contains a value (CPython 3.12: NULL은 빈 값으로 간주)
         /// </summary>
-        public bool HasValue => _value != null;
+        public bool HasValue => _value != null && !PyNull.IsNull(_value);
         
         public PyCell(PyObject? value = null)
         {
@@ -35,17 +35,17 @@ namespace SharpPy
         
         public override string ToString()
         {
-            if (_value == null)
+            if (_value == null || PyNull.IsNull(_value))
                 return "<cell: empty>";
             return $"<cell: {_value}>";
         }
         
         /// <summary>
-        /// Get the cell value, throwing UnboundLocalError if empty
+        /// Get the cell value, throwing UnboundLocalError if empty (CPython 3.12: NULL도 빈 값)
         /// </summary>
         public PyObject GetValue()
         {
-            if (_value == null)
+            if (_value == null || PyNull.IsNull(_value))
                 throw new PythonException(new PyUnboundLocalError("local variable referenced before assignment"));
             return _value;
         }
@@ -59,11 +59,11 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// Clear the cell value
+        /// Clear the cell value - CPython 3.12 호환: NULL 상태로 설정
         /// </summary>
         public void Clear()
         {
-            _value = null;
+            _value = PyNull.Instance;
         }
         
         /// <summary>
