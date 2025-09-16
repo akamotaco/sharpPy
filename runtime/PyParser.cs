@@ -2776,7 +2776,7 @@ namespace SharpPy
             ConsumeColon( "Expected ':' after try");
             
             // Parse try body
-            var tryBody = ParseBlock();
+            var tryBody = ParseBlockOrSingleStatement();
             
             // CPython PEG: Two patterns:
             // Pattern 1: 'try' ':' b=block f=finally_block
@@ -2787,49 +2787,12 @@ namespace SharpPy
             {
                 Advance(); // consume 'finally'
                 ConsumeColon( "Expected ':' after finally");
-                var finallyStmts = ParseBlock();
+                var finallyStmts = ParseBlockOrSingleStatement();
                 return new TryStatement(tryBody, new List<ExceptHandler>(), null, finallyStmts);
             }
             
             // Try Pattern 2: Parse except handlers
             var handlers = new List<ExceptHandler>();
-            
-            // CPython 3.12: Skip remaining tokens until we reach EXCEPT/FINALLY/ELSE
-            // This handles the case where try block has remaining unparsed statements  
-            while (!CheckKeyword("except") && !CheckKeyword("finally") && !CheckKeyword("else") && !IsAtEnd())
-            {
-                if (Check(TokenType.NEWLINE))
-                {
-                    Advance();
-                }
-                else if (Check(TokenType.INDENT))
-                {
-                    // Skip INDENT and find matching DEDENT
-                    Advance(); // consume INDENT
-                    int indentLevel = 1;
-                    while (indentLevel > 0 && !IsAtEnd())
-                    {
-                        if (Check(TokenType.INDENT))
-                        {
-                            indentLevel++;
-                        }
-                        else if (Check(TokenType.DEDENT))
-                        {
-                            indentLevel--;
-                        }
-                        Advance();
-                    }
-                }
-                else if (Check(TokenType.DEDENT))
-                {
-                    Advance();
-                }
-                else
-                {
-                    // Skip any other tokens until we find what we need
-                    Advance();
-                }
-            }
             
             // Must have at least one except handler for this pattern
             if (!CheckKeyword("except"))
@@ -2867,7 +2830,7 @@ namespace SharpPy
             {
                 Advance(); // consume 'else'
                 ConsumeColon( "Expected ':' after else");
-                elseBody = ParseBlock();
+                elseBody = ParseBlockOrSingleStatement();
             }
             
             // Parse optional finally_block
@@ -2876,7 +2839,7 @@ namespace SharpPy
             {
                 Advance(); // consume 'finally'
                 ConsumeColon( "Expected ':' after finally");
-                finallyBody = ParseBlock();
+                finallyBody = ParseBlockOrSingleStatement();
             }
             
             return new TryStatement(tryBody, handlers, elseBody, finallyBody);
