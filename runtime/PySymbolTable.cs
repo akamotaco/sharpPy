@@ -338,10 +338,18 @@ namespace SharpPy
             var savedTable = _currentTable;
             _currentTable = functionTable;
 
-            // Add parameters to function scope
+            // Add parameters to function scope - extract parameter names only
             foreach (var param in func.Parameters)
             {
-                _currentTable.DefineSymbol(param, SymbolFlags.Parameter | SymbolFlags.Assigned);
+                // Extract parameter name from "param=default" format
+                var paramName = param.Split('=')[0].Trim();
+                // Handle *args and **kwargs
+                if (paramName.StartsWith("**"))
+                    paramName = paramName.Substring(2);
+                else if (paramName.StartsWith("*"))
+                    paramName = paramName.Substring(1);
+
+                _currentTable.DefineSymbol(paramName, SymbolFlags.Parameter | SymbolFlags.Assigned);
             }
 
             // Analyze function body
@@ -744,7 +752,15 @@ namespace SharpPy
 
             foreach (var param in func.Parameters)
             {
-                _currentTable.DefineSymbol(param, SymbolFlags.Parameter | SymbolFlags.Assigned);
+                // Extract parameter name from "param=default" format
+                var paramName = param.Split('=')[0].Trim();
+                // Handle *args and **kwargs
+                if (paramName.StartsWith("**"))
+                    paramName = paramName.Substring(2);
+                else if (paramName.StartsWith("*"))
+                    paramName = paramName.Substring(1);
+
+                _currentTable.DefineSymbol(paramName, SymbolFlags.Parameter | SymbolFlags.Assigned);
             }
 
             foreach (var stmt in func.Body)

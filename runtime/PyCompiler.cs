@@ -7446,9 +7446,10 @@ namespace SharpPy
 
             // 복잡한 다중 for 패턴 (multiple generators)
             // 예: [j*2 for i, row in enumerate(matrix) for j in row]
-            if (comprehensionVarCount >= 3)
+            // 단, 중첩된 튜플 언패킹은 여전히 단일 generator이므로 LIST_APPEND 2 사용
+            if (comprehensionVarCount >= 3 && nestingDepth > 1)
             {
-                return 3; // CPython 3.12: LIST_APPEND 3 (복잡한 패턴)
+                return 3; // CPython 3.12: LIST_APPEND 3 (실제 다중 generator 패턴)
             }
 
             // 기타 케이스
@@ -8122,16 +8123,48 @@ namespace SharpPy
         /// </summary>
         private void CompileComprehensionTarget(Expression target, List<string> comprehensionVars)
         {
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 CompileComprehensionTarget called with: {target.GetType().Name}");
+            #endif
+
             if (target is NameExpression nameExpr)
             {
+                #if DEBUG_LOG
+                Console.WriteLine($"    → Name: {nameExpr.Name}");
+                #endif
                 EmitStoreComprehensionVar(nameExpr.Name, comprehensionVars);
             }
             else if (target is TupleExpression tupleExpr)
             {
-                // Emit UNPACK_SEQUENCE for the current level
+                // Check for wrapper tuple - single element tuple containing another tuple
+                if (tupleExpr.Elements.Count == 1 && tupleExpr.Elements[0] is TupleExpression innerTuple)
+                {
+                    #if DEBUG_LOG
+                    Console.WriteLine($"    → Detected wrapper tuple, unwrapping inner tuple with {innerTuple.Elements.Count} elements");
+                    #endif
+                    // Skip the wrapper and process the inner tuple directly
+                    CompileComprehensionTarget(innerTuple, comprehensionVars);
+                    return;
+                }
+
                 #if DEBUG_LOG
-                Console.WriteLine($"🔧 CompileComprehensionTarget: UNPACK_SEQUENCE {tupleExpr.Elements.Count} for tuple with elements: {string.Join(", ", tupleExpr.Elements.Select(e => e.GetType().Name))}");
+                Console.WriteLine($"    → Tuple with {tupleExpr.Elements.Count} elements:");
+                for (int i = 0; i < tupleExpr.Elements.Count; i++)
+                {
+                    var elem = tupleExpr.Elements[i];
+                    Console.WriteLine($"      [{i}]: {elem.GetType().Name} - {elem}");
+                    if (elem is TupleExpression innerTupleDebug)
+                    {
+                        Console.WriteLine($"          Inner tuple has {innerTupleDebug.Elements.Count} elements");
+                    }
+                    else if (elem is NameExpression innerName)
+                    {
+                        Console.WriteLine($"          Inner name: {innerName.Name}");
+                    }
+                }
+                Console.WriteLine($"    → Emitting UNPACK_SEQUENCE {tupleExpr.Elements.Count}");
                 #endif
+
                 EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, tupleExpr.Elements.Count);
 
                 // Process each element - may be names or nested tuples
