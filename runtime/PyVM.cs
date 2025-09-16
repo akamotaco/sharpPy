@@ -1100,8 +1100,11 @@ namespace SharpPy
                 case ByteCodeOp.STORE_GLOBAL:
                     var storeGlobalName = frame.Code.Names[instruction.Argument];
                     var storeGlobalValue = frame.ValueStack.Pop();
-                    // Use AssignVariable to handle scope issues consistently
-                    frame.ScopeChain.AssignVariable(storeGlobalName, storeGlobalValue);
+                    // STORE_GLOBAL must always store to GlobalScope, not CurrentScope
+                    frame.ScopeChain.GlobalScope.SetVariable(storeGlobalName, storeGlobalValue);
+#if DEBUG_LOG
+                    Console.WriteLine($"📝 STORE_GLOBAL: {storeGlobalName} = {storeGlobalValue}");
+#endif
                     break;
 
                 case ByteCodeOp.DELETE_GLOBAL:

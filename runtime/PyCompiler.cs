@@ -856,18 +856,19 @@ namespace SharpPy
             }
             
             // Phase 2: Cell 변수들을 위한 MAKE_CELL 명령어 발행
-            foreach (var cellVar in cellVars)
+            // CPython 3.12: MAKE_CELL uses CellVars index order (0, 1, 2...)
+            for (int cellIndex = 0; cellIndex < cellVars.Count; cellIndex++)
             {
-                var paramIndex = parameters.IndexOf(cellVar);
-                if (paramIndex >= 0)
+                var cellVar = cellVars[cellIndex];
+                if (parameters.Contains(cellVar))
                 {
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
 #if DEBUG_LOG
-                        Console.WriteLine($"  → Making cell for parameter: {cellVar}");
+                        Console.WriteLine($"  → Making cell for parameter: {cellVar} (cell index {cellIndex})");
 #endif
                     }
-                    EmitInstruction(ByteCodeOp.MAKE_CELL, paramIndex);
+                    EmitInstruction(ByteCodeOp.MAKE_CELL, cellIndex);
                 }
             }
             
@@ -1212,29 +1213,17 @@ namespace SharpPy
             }
 
             // Phase 2: Cell 변수들을 위한 MAKE_CELL 명령어 발행 (CPython 3.12 호환)
-            // CPython 3.12: MAKE_CELL uses varnames index order, not cellvars index
-            foreach (var cellVar in cellVars)
+            // CPython 3.12: MAKE_CELL uses CellVars index order (0, 1, 2...)
+            for (int cellIndex = 0; cellIndex < cellVars.Count; cellIndex++)
             {
-                var varIndex = _varNames.IndexOf(cellVar);
-                if (varIndex >= 0)
+                var cellVar = cellVars[cellIndex];
+                if (!SharpPyConfig.DisassemblyOnlyMode)
                 {
-                    if (!SharpPyConfig.DisassemblyOnlyMode)
-                    {
 #if DEBUG_LOG
-                        Console.WriteLine($"  → Making cell for variable: {cellVar} (varnames index {varIndex})");
+                    Console.WriteLine($"  → Making cell for variable: {cellVar} (cell index {cellIndex})");
 #endif
-                    }
-                    EmitInstruction(ByteCodeOp.MAKE_CELL, varIndex);
                 }
-                else
-                {
-                    if (!SharpPyConfig.DisassemblyOnlyMode)
-                    {
-#if DEBUG_LOG
-                        Console.WriteLine($"  ⚠️ Warning: Cell variable {cellVar} not found in _varNames");
-#endif
-                    }
-                }
+                EmitInstruction(ByteCodeOp.MAKE_CELL, cellIndex);
             }
             
             foreach (var statement in statements)
@@ -6336,15 +6325,16 @@ namespace SharpPy
             }
             
             // Phase 2: Cell 변수들을 위한 MAKE_CELL 명령어 발행 (람다 파라미터용)
-            foreach (var cellVar in cellVars)
+            // CPython 3.12: MAKE_CELL uses CellVars index order (0, 1, 2...)
+            for (int cellIndex = 0; cellIndex < cellVars.Count; cellIndex++)
             {
-                var paramIndex = cleanParamNames.IndexOf(cellVar);
-                if (paramIndex >= 0)
+                var cellVar = cellVars[cellIndex];
+                if (cleanParamNames.Contains(cellVar))
                 {
                     #if DEBUG_LOG
-                    Console.WriteLine($"  → Making cell for lambda parameter: {cellVar}");
+                    Console.WriteLine($"  → Making cell for lambda parameter: {cellVar} (cell index {cellIndex})");
                     #endif
-                    EmitInstruction(ByteCodeOp.MAKE_CELL, paramIndex);
+                    EmitInstruction(ByteCodeOp.MAKE_CELL, cellIndex);
                 }
             }
             

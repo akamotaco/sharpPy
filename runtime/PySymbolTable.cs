@@ -195,6 +195,12 @@ namespace SharpPy
             Console.WriteLine($"🔧 Building symbol table for: {name}");
 #endif
 
+            // Initialize/reset state to prevent issues from previous builds
+            _processedTables.Clear();
+            _propagationInProgress.Clear();
+            _cellProcessingInProgress.Clear();
+            _recursionDepth = 0;
+
             _rootTable = new SymbolTable(name, SymbolTableType.Module);
             _currentTable = _rootTable;
 
@@ -529,6 +535,11 @@ namespace SharpPy
             return builtins.Contains(name);
         }
 
+        // Track processed tables to prevent infinite recursion
+        private readonly HashSet<SymbolTable> _processedTables = new HashSet<SymbolTable>();
+        private int _recursionDepth = 0;
+        private const int MAX_RECURSION_DEPTH = 20;
+
         /// <summary>
         /// CPython 3.12: Recursively resolve free variables in all scopes
         /// First pass: analyze which variables are referenced in nested scopes
@@ -536,8 +547,29 @@ namespace SharpPy
         /// </summary>
         private void ResolveFreeVariablesRecursive(SymbolTable table)
         {
+            // Prevent infinite recursion
+            _recursionDepth++;
+            if (_recursionDepth > MAX_RECURSION_DEPTH)
+            {
+                Console.WriteLine($"❌ ERROR: Maximum recursion depth exceeded in ResolveFreeVariablesRecursive for {table.GetName()}");
+                _recursionDepth--;
+                return;
+            }
+
+            // Prevent processing the same table multiple times
+            if (_processedTables.Contains(table))
+            {
 #if DEBUG_LOG
-            Console.WriteLine($"🔍 Resolving free variables in scope: {table.GetName()}");
+                Console.WriteLine($"⚠️  Skipping already processed table: {table.GetName()}");
+#endif
+                _recursionDepth--;
+                return;
+            }
+
+            _processedTables.Add(table);
+
+#if DEBUG_LOG
+            Console.WriteLine($"🔍 Resolving free variables in scope: {table.GetName()} (depth: {_recursionDepth})");
 #endif
 
             // First recursively resolve child scopes (depth-first)
@@ -554,7 +586,12 @@ namespace SharpPy
 
             // CPython 3.12: Post-process to ensure variables used in nested functions become cells
             MarkCellVariablesBasedOnChildUsage(table);
+
+            _recursionDepth--;
         }
+
+        // Track cell variable processing to prevent multiple markings
+        private readonly HashSet<string> _cellProcessingInProgress = new HashSet<string>();
 
         /// <summary>
         /// CPython 3.12: Mark variables as cell variables if they're used in child scopes
@@ -562,47 +599,61 @@ namespace SharpPy
         /// </summary>
         private void MarkCellVariablesBasedOnChildUsage(SymbolTable table)
         {
-#if DEBUG_LOG
-            Console.WriteLine($"🔄 Post-processing cell variables for scope: {table.GetName()}");
-            Console.WriteLine($"    Current symbols in {table.GetName()}:");
-            foreach (var kvp in table.GetSymbols())
+            // Prevent reprocessing the same table
+            string tableKey = $"cell_process_{table.GetName()}";
+            if (_cellProcessingInProgress.Contains(tableKey))
             {
-                Console.WriteLine($"      {kvp.Key}: Scope={kvp.Value.Scope}, Flags={kvp.Value.Flags}");
+#if DEBUG_LOG
+                Console.WriteLine($"⚠️  Skipping already processed cell variables for: {table.GetName()}");
+#endif
+                return;
             }
-#endif
 
-            foreach (var child in table.GetChildren())
+            _cellProcessingInProgress.Add(tableKey);
+
+            try
             {
-                // Skip class scopes for now - they have different rules
-                if (child.Type == SymbolTableType.Class) continue;
+#if DEBUG_LOG
+                Console.WriteLine($"🔄 Post-processing cell variables for scope: {table.GetName()}");
+                Console.WriteLine($"    Current symbols in {table.GetName()}:");
+                foreach (var kvp in table.GetSymbols())
+                {
+                    Console.WriteLine($"      {kvp.Key}: Scope={kvp.Value.Scope}, Flags={kvp.Value.Flags}");
+                }
+#endif
+
+                foreach (var child in table.GetChildren())
+                {
+                    // Skip class scopes for now - they have different rules
+                    if (child.Type == SymbolTableType.Class) continue;
 
 #if DEBUG_LOG
-                Console.WriteLine($"    Checking child scope: {child.GetName()}");
+                    Console.WriteLine($"    Checking child scope: {child.GetName()}");
 #endif
-                foreach (var childSymbol in child.GetSymbols().Values)
-                {
-#if DEBUG_LOG
-                    Console.WriteLine($"      Symbol {childSymbol.Name}: Scope={childSymbol.Scope}, IsFree={childSymbol.IsFree()}");
-#endif
-                    // If child has a free or cell variable, parent should have it as cell variable
-                    // BUT ONLY if the parent actually defines/owns this variable
-                    // CPython 3.12: Cell variables in child scopes also need parent cells
-                    if (childSymbol.IsFree() || childSymbol.Scope == SymbolScope.Cell)
+                    foreach (var childSymbol in child.GetSymbols().Values)
                     {
-                        var parentSymbol = table.Lookup(childSymbol.Name);
 #if DEBUG_LOG
-                        Console.WriteLine($"        → Looking for {childSymbol.Name} in parent {table.GetName()}: found={parentSymbol != null}");
-                        if (parentSymbol != null)
-                        {
-                            Console.WriteLine($"          Parent scope: {parentSymbol.Scope}, Flags: {parentSymbol.Flags}");
-                        }
+                        Console.WriteLine($"      Symbol {childSymbol.Name}: Scope={childSymbol.Scope}, IsFree={childSymbol.IsFree()}");
 #endif
-                        if (parentSymbol != null &&
-                            (parentSymbol.Scope == SymbolScope.Local || parentSymbol.Scope == SymbolScope.Cell) &&
-                            parentSymbol.IsAssigned())
+                        // If child has a free or cell variable, parent should have it as cell variable
+                        // BUT ONLY if the parent actually defines/owns this variable
+                        // CPython 3.12: Cell variables in child scopes also need parent cells
+                        if (childSymbol.IsFree() || childSymbol.Scope == SymbolScope.Cell)
                         {
+                            var parentSymbol = table.Lookup(childSymbol.Name);
 #if DEBUG_LOG
-                            Console.WriteLine($"    → ✅ Marking {childSymbol.Name} as CELL in {table.GetName()} (used as FREE in {child.GetName()})");
+                            Console.WriteLine($"        → Looking for {childSymbol.Name} in parent {table.GetName()}: found={parentSymbol != null}");
+                            if (parentSymbol != null)
+                            {
+                                Console.WriteLine($"          Parent scope: {parentSymbol.Scope}, Flags: {parentSymbol.Flags}");
+                            }
+#endif
+                            if (parentSymbol != null &&
+                                (parentSymbol.Scope == SymbolScope.Local || parentSymbol.Scope == SymbolScope.Cell) &&
+                                parentSymbol.IsAssigned())
+                            {
+#if DEBUG_LOG
+                                Console.WriteLine($"    → ✅ Marking {childSymbol.Name} as CELL in {table.GetName()} (used as FREE in {child.GetName()})");
 #endif
                             parentSymbol.Scope = SymbolScope.Cell;
                         }
@@ -632,13 +683,21 @@ namespace SharpPy
             }
 
 #if DEBUG_LOG
-            Console.WriteLine($"    Final symbols in {table.GetName()} after processing:");
-            foreach (var kvp in table.GetSymbols())
-            {
-                Console.WriteLine($"      {kvp.Key}: Scope={kvp.Value.Scope}, Flags={kvp.Value.Flags}");
-            }
+                Console.WriteLine($"    Final symbols in {table.GetName()} after processing:");
+                foreach (var kvp in table.GetSymbols())
+                {
+                    Console.WriteLine($"      {kvp.Key}: Scope={kvp.Value.Scope}, Flags={kvp.Value.Flags}");
+                }
 #endif
+            }
+            finally
+            {
+                _cellProcessingInProgress.Remove(tableKey);
+            }
         }
+
+        // Track propagation operations to prevent circular propagation
+        private readonly HashSet<string> _propagationInProgress = new HashSet<string>();
 
         /// <summary>
         /// CPython 3.12: Propagate free variables from child scope to parent scope
@@ -646,29 +705,48 @@ namespace SharpPy
         /// </summary>
         private void PropagateChildFreeVariables(SymbolTable parent, SymbolTable child)
         {
-            var childFreeVars = child.FindFreeVariables();
+            // Prevent circular propagation
+            string propagationKey = $"{child.GetName()}→{parent.GetName()}";
+            if (_propagationInProgress.Contains(propagationKey))
+            {
 #if DEBUG_LOG
-            Console.WriteLine($"  🔄 Propagating free vars from {child.GetName()} to {parent.GetName()}: [{string.Join(", ", childFreeVars)}]");
+                Console.WriteLine($"⚠️  Skipping circular propagation: {propagationKey}");
+#endif
+                return;
+            }
+
+            _propagationInProgress.Add(propagationKey);
+
+            try
+            {
+                var childFreeVars = child.FindFreeVariables();
+#if DEBUG_LOG
+                Console.WriteLine($"  🔄 Propagating free vars from {child.GetName()} to {parent.GetName()}: [{string.Join(", ", childFreeVars)}]");
 #endif
 
-            foreach (var freeVar in childFreeVars)
+                foreach (var freeVar in childFreeVars)
+                {
+                    // Check if parent has this variable
+                    var parentSymbol = parent.Lookup(freeVar);
+                    if (parentSymbol == null)
+                    {
+                        // Parent doesn't have this variable, so parent also needs it as free variable
+                        parent.DefineSymbol(freeVar, SymbolFlags.None);
+#if DEBUG_LOG
+                        Console.WriteLine($"    → Added {freeVar} as free variable to {parent.GetName()}");
+#endif
+                    }
+                    else
+                    {
+#if DEBUG_LOG
+                        Console.WriteLine($"    → {freeVar} already available in {parent.GetName()} (scope: {parentSymbol.Scope})");
+#endif
+                    }
+                }
+            }
+            finally
             {
-                // Check if parent has this variable
-                var parentSymbol = parent.Lookup(freeVar);
-                if (parentSymbol == null)
-                {
-                    // Parent doesn't have this variable, so parent also needs it as free variable
-                    parent.DefineSymbol(freeVar, SymbolFlags.None);
-#if DEBUG_LOG
-                    Console.WriteLine($"    → Added {freeVar} as free variable to {parent.GetName()}");
-#endif
-                }
-                else
-                {
-#if DEBUG_LOG
-                    Console.WriteLine($"    → {freeVar} already available in {parent.GetName()} (scope: {parentSymbol.Scope})");
-#endif
-                }
+                _propagationInProgress.Remove(propagationKey);
             }
         }
 
