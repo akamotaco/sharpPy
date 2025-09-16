@@ -915,9 +915,9 @@ namespace SharpPy
                         else
                         {
                             // CPython 3.12: Load NULL if variable doesn't exist (for comprehensions)
-                            frame.ValueStack.Push(PyNone.Instance);
+                            frame.ValueStack.Push(PyNull.Instance);
                             #if DEBUG_LOG
-                            Console.WriteLine($"🧹 LOAD_FAST_AND_CLEAR: {clearVarName} not found, loaded NULL (None)");
+                            Console.WriteLine($"🧹 LOAD_FAST_AND_CLEAR: {clearVarName} not found, loaded NULL");
                             #endif
                         }
                     }
@@ -2279,6 +2279,11 @@ namespace SharpPy
                             // List indexing: list[int]
                             subscriptResult = subscriptList.GetItem(keyIntValue.Value);
                         }
+                        else if (subscriptObj is PyList subscriptList2 && subscriptKey is PySlice sliceKey)
+                        {
+                            // List slicing: list[slice] (CPython 3.12 compatible)
+                            subscriptResult = subscriptList2.GetItem(sliceKey);
+                        }
                         else if (subscriptObj is PyDict subscriptDict)
                         {
                             // Dictionary access: dict[key]
@@ -2468,15 +2473,14 @@ namespace SharpPy
                         }
                         else
                         {
-                            // 레거시 최적화 방식: 바이트 오프셋 사용
-                            int forIterCurrentByteOffset = PyJumpBackwardUtil.CalculateByteOffset(frame.InstructionPointer, frame.Code.Instructions);
-                            int forIterTargetByteOffset = forIterCurrentByteOffset + instruction.Argument;
-                            int forIterTargetInstrPos = PyJumpBackwardUtil.ByteOffsetToInstructionIndex(forIterTargetByteOffset, frame.Code.Instructions);
+                            // CPython 3.12 호환: FOR_ITER arg → current_instruction + arg + 1 위치로 점프
+                            // 메인 루프에서 +1하므로 실제로는 current + arg로 설정
+                            int forIterTargetInstrPos = frame.InstructionPointer + instruction.Argument;
 
                             #if DEBUG_LOG
-                            Console.WriteLine($"🔚 FOR_ITER: Jumping to position {forIterTargetInstrPos} (legacy optimized)");
+                            Console.WriteLine($"🔚 FOR_ITER: Jumping to position {forIterTargetInstrPos} (CPython 3.12 compatible)");
                             #endif
-                            frame.InstructionPointer = forIterTargetInstrPos - 1; // main loop will increment
+                            frame.InstructionPointer = forIterTargetInstrPos; // main loop will increment to correct position
                         }
 
                         // DON'T return null - continue execution
@@ -2524,15 +2528,13 @@ namespace SharpPy
                             }
                             else
                             {
-                                // 레거시 방식: 바이트 오프셋 사용
-                                int listIterCurrentByteOffset = PyJumpBackwardUtil.CalculateByteOffset(frame.InstructionPointer, frame.Code.Instructions);
-                                int listIterTargetByteOffset = listIterCurrentByteOffset + instruction.Argument;
-                                int listIterTargetInstrPos = PyJumpBackwardUtil.ByteOffsetToInstructionIndex(listIterTargetByteOffset, frame.Code.Instructions);
+                                // CPython 3.12 호환: FOR_ITER_LIST arg → current_instruction + arg + 1 위치로 점프
+                                int listIterTargetInstrPos = frame.InstructionPointer + instruction.Argument;
 
                                 #if DEBUG_LOG
-                                Console.WriteLine($"🔚 FOR_ITER_LIST: Jumping to position {listIterTargetInstrPos} (legacy)");
+                                Console.WriteLine($"🔚 FOR_ITER_LIST: Jumping to position {listIterTargetInstrPos} (CPython 3.12 compatible)");
                                 #endif
-                                frame.InstructionPointer = listIterTargetInstrPos - 1;
+                                frame.InstructionPointer = listIterTargetInstrPos; // main loop will increment to correct position
                             }
                         }
                     }
@@ -2576,15 +2578,13 @@ namespace SharpPy
                             }
                             else
                             {
-                                // 레거시 방식: 바이트 오프셋 사용
-                                int tupleIterCurrentByteOffset = PyJumpBackwardUtil.CalculateByteOffset(frame.InstructionPointer, frame.Code.Instructions);
-                                int tupleIterTargetByteOffset = tupleIterCurrentByteOffset + instruction.Argument;
-                                int tupleIterTargetInstrPos = PyJumpBackwardUtil.ByteOffsetToInstructionIndex(tupleIterTargetByteOffset, frame.Code.Instructions);
+                                // CPython 3.12 호환: FOR_ITER_TUPLE arg → current_instruction + arg + 1 위치로 점프
+                                int tupleIterTargetInstrPos = frame.InstructionPointer + instruction.Argument;
 
                                 #if DEBUG_LOG
-                                Console.WriteLine($"🔚 FOR_ITER_TUPLE: Jumping to position {tupleIterTargetInstrPos} (legacy)");
+                                Console.WriteLine($"🔚 FOR_ITER_TUPLE: Jumping to position {tupleIterTargetInstrPos} (CPython 3.12 compatible)");
                                 #endif
-                                frame.InstructionPointer = tupleIterTargetInstrPos - 1;
+                                frame.InstructionPointer = tupleIterTargetInstrPos; // main loop will increment to correct position
                             }
                         }
                     }
@@ -3274,12 +3274,10 @@ namespace SharpPy
                 // PEP 709 Comprehension Optimization - VM 구현
                 case ByteCodeOp.LIST_APPEND:
                     // CPython 3.12 호환: LIST_APPEND i
-                    // 1. TOS를 pop하여 append할 아이템 획득
-                    // 2. 현재 스택 TOS에서 i-1 인덱스 위치의 리스트에 append
                     // 스택: [..., list, ..., item] → [..., list, ...]
                     var itemToAppend = frame.ValueStack.Pop();
 
-                    // CPython 3.12: LIST_APPEND i에서 타겟은 (현재 TOS - (i-1))
+                    // CPython 3.12: LIST_APPEND i에서 타겟 리스트 찾기
                     var targetDepth = instruction.Argument - 1; // 0-based 인덱스
 
                     if (frame.ValueStack.Count <= targetDepth)
@@ -3287,13 +3285,23 @@ namespace SharpPy
                         throw new Exception($"LIST_APPEND: not enough items on stack (need {targetDepth + 1}, got {frame.ValueStack.Count})");
                     }
 
-                    // CPython 3.12 호환: 정확한 스택 위치에서 리스트 가져오기
-                    // LIST_APPEND i: TOS-i 위치의 리스트에 TOS를 append
-                    // ElementAt(0) = TOS-1, ElementAt(1) = TOS-2, ...
-                    // 따라서 ElementAt(i-1)이 타겟 리스트
-                    var targetList = frame.ValueStack.ElementAt(instruction.Argument - 1);
+                    // 스택 위치에서 리스트 찾기 - PyNull 건너뛰기
+                    var targetList = frame.ValueStack.ElementAt(targetDepth);
 
-                    // 리스트 타겟 확정
+                    // PyNull인 경우 실제 리스트를 찾기 위해 스택을 탐색
+                    if (PyNull.IsNull(targetList))
+                    {
+                        // PyNull들을 건너뛰고 실제 리스트 찾기
+                        for (int i = targetDepth; i < frame.ValueStack.Count; i++)
+                        {
+                            var candidate = frame.ValueStack.ElementAt(i);
+                            if (!PyNull.IsNull(candidate))
+                            {
+                                targetList = candidate;
+                                break;
+                            }
+                        }
+                    }
 
                     if (targetList is PyList targetPyList)
                     {
@@ -3305,9 +3313,13 @@ namespace SharpPy
                         Console.WriteLine($"   LIST_APPEND 완료: 리스트 크기: {targetPyList.Count}, 내용: [{string.Join(", ", targetPyList.Items.Select(x => x?.ToString() ?? "null"))}]");
 #endif
                     }
+                    else if (PyNull.IsNull(targetList))
+                    {
+                        throw new Exception($"LIST_APPEND: target is NULL at depth {targetDepth}");
+                    }
                     else
                     {
-                        throw new Exception($"LIST_APPEND: target is not a list, got {targetList?.GetTypeName() ?? "null"}");
+                        throw new Exception($"LIST_APPEND: target is not a list, got {targetList?.GetTypeName() ?? "null"} at depth {targetDepth}");
                     }
 
                     // 스택은 그대로 유지 (아이템만 제거됨)
@@ -3339,28 +3351,55 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.MAP_ADD:
-                    // CPython 호환: MAP_ADD i
+                    // CPython 3.12 호환: MAP_ADD i - 항상 PEEK(2)로 dict 찾기 (comprehension.md 분석)
                     // 스택: [..., dict, ..., key, value] → [..., dict, ...]
                     var dictValue = frame.ValueStack.Pop();
                     var dictKey = frame.ValueStack.Pop();
-                    var dictStackArray = frame.ValueStack.ToArray();
-                    Array.Reverse(dictStackArray); // CPython 호환 스택 순서
 
-                    if (instruction.Argument > 0 && instruction.Argument <= dictStackArray.Length)
+                    // CPython: comprehension에서 MAP_ADD는 항상 oparg=2 고정
+                    // PEEK(2)로 dict 찾기 (key, value 제거 후 2단계 아래)
+                    var peekDepth = 2;
+
+                    if (frame.ValueStack.Count >= peekDepth)
                     {
-                        var mapAddTarget = dictStackArray[instruction.Argument - 1];
+                        // ElementAt(0) = TOS-1, ElementAt(1) = TOS-2
+                        // PEEK(2) = ElementAt(1)
+                        var mapAddTarget = frame.ValueStack.ElementAt(1);
+
+                        // PyNull인 경우 역방향으로 스택을 탐색하여 dict 찾기
+                        if (PyNull.IsNull(mapAddTarget))
+                        {
+                            // 스택을 역방향으로 탐색하여 첫 번째 dict 찾기
+                            for (int i = 1; i < frame.ValueStack.Count; i++)
+                            {
+                                var candidate = frame.ValueStack.ElementAt(i);
+                                if (candidate is PyDict)
+                                {
+                                    mapAddTarget = candidate;
+                                    break;
+                                }
+                            }
+                        }
+
                         if (mapAddTarget is PyDict mapAddDict)
                         {
                             mapAddDict.InternalDict[dictKey] = dictValue;
+                            #if DEBUG_LOG
+                            Console.WriteLine($"   MAP_ADD: {dictKey}={dictValue} → dict (found at stack search)");
+                            #endif
+                        }
+                        else if (PyNull.IsNull(mapAddTarget))
+                        {
+                            throw new Exception($"MAP_ADD: no dict found in stack (all NULL)");
                         }
                         else
                         {
-                            throw new Exception($"MAP_ADD: target is not a dict, got {mapAddTarget.GetType().Name}");
+                            throw new Exception($"MAP_ADD: target is not a dict, got {mapAddTarget?.GetTypeName() ?? "null"}");
                         }
                     }
                     else
                     {
-                        throw new Exception($"MAP_ADD: invalid stack position {instruction.Argument}");
+                        throw new Exception($"MAP_ADD: not enough items on stack (need at least 2, got {frame.ValueStack.Count})");
                     }
                     break;
 

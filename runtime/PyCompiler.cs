@@ -1841,23 +1841,35 @@ namespace SharpPy
                     
                 case SubscriptExpression subscript:
                     CompileExpression(subscript.Value);
-                    
-                    // CPython 3.12: SliceExpression은 BINARY_SLICE 사용
+
+                    // CPython 3.12: SliceExpression은 BUILD_SLICE + BINARY_SUBSCR 사용
                     if (subscript.Slice is SliceExpression sliceExpr)
                     {
-                        // Start 값 로드 (None이면 0)
+                        // Start 값 로드 (None이면 None)
                         if (sliceExpr.Start != null)
                             CompileExpression(sliceExpr.Start);
                         else
                             EmitLoadConst(PyNone.Instance);
-                            
-                        // Stop 값 로드 (None이면 len)
+
+                        // Stop 값 로드 (None이면 None)
                         if (sliceExpr.Stop != null)
                             CompileExpression(sliceExpr.Stop);
                         else
                             EmitLoadConst(PyNone.Instance);
-                            
-                        EmitInstruction(ByteCodeOp.BINARY_SLICE);
+
+                        // Step 값 로드 및 BUILD_SLICE 생성
+                        if (sliceExpr.Step != null)
+                        {
+                            CompileExpression(sliceExpr.Step);
+                            EmitInstruction(ByteCodeOp.BUILD_SLICE, 3); // 3 arguments: start, stop, step
+                        }
+                        else
+                        {
+                            EmitInstruction(ByteCodeOp.BUILD_SLICE, 2); // 2 arguments: start, stop
+                        }
+
+                        // CPython 3.12: 슬라이스 객체로 subscript 수행
+                        EmitInstruction(ByteCodeOp.BINARY_SUBSCR);
                     }
                     else
                     {
@@ -6907,7 +6919,7 @@ namespace SharpPy
             
             // CPython 패턴: 조건이 참일 때의 타겟 - LIST_APPEND 준비
             // POP_JUMP_IF_TRUE는 여기로 점프함
-            var listAppendArg = CalculateListAppendStackPosition(comprehensionVars.Count);
+            var listAppendArg = CalculateListAppendStackPosition(comprehensionVars.Count, listComp.Generators.Count);
             int listAppendStart = _instructions.Count;
             
             if (listComp.Generators.Count > 1)
@@ -7045,21 +7057,41 @@ namespace SharpPy
             Console.WriteLine($"  🔄 Generator [{currentIndex}]: {generator.Target} in {generator.Iter}");
             #endif
             
-            // 이터레이터 준비
-            CompileExpression(generator.Iter);
-            EmitInstruction(ByteCodeOp.GET_ITER);
-            
-            // 루프 시작 라벨
-            var loopStart = _instructions.Count;
-            EmitInstruction(ByteCodeOp.FOR_ITER, 0); // 패치 대상
-            
-            // 루프 변수 저장 - 재귀 튜플 언패킹 지원
-            CompileComprehensionTarget(generator.Target, comprehensionVars);
-            
-            // 조건 검사 (if문이 있는 경우) - CPython 3.12 패턴: POP_JUMP_IF_TRUE 사용
-            List<int> conditionJumps = new List<int>();
-            foreach (var condition in generator.Ifs)
+            // CPython 3.12 호환성 최적화: 단일 요소 리스트는 직접 할당
+            if (IsSingleElementListExpression(generator.Iter))
             {
+                // [expression] 형태의 단일 요소 - CPython처럼 직접 할당
+                var listExpr = (ListExpression)generator.Iter;
+                CompileExpression(listExpr.Elements[0]);
+                CompileComprehensionTarget(generator.Target, comprehensionVars);
+
+                // 조건 검사 (if문이 있는 경우)
+                foreach (var condition in generator.Ifs)
+                {
+                    CompileExpression(condition);
+                    EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // 패치 대상
+                }
+
+                // 다음 generator 재귀 호출 (단일 요소이므로 루프 없음)
+                CompileNestedGenerators(generators, currentIndex + 1, comprehensionVars, innerBlock);
+            }
+            else
+            {
+                // 이터레이터 준비 - 중첩 컴프리헨션에서는 BUILD_LIST 최적화 없이 직접 이터레이터 생성
+                CompileGeneratorIterable(generator.Iter);
+                EmitInstruction(ByteCodeOp.GET_ITER);
+
+                // 루프 시작 라벨
+                var loopStart = _instructions.Count;
+                EmitInstruction(ByteCodeOp.FOR_ITER, 0); // 패치 대상
+
+                // 루프 변수 저장 - 재귀 튜플 언패킹 지원
+                CompileComprehensionTarget(generator.Target, comprehensionVars);
+
+                // 조건 검사 (if문이 있는 경우) - CPython 3.12 패턴: POP_JUMP_IF_TRUE 사용
+                List<int> conditionJumps = new List<int>();
+                foreach (var condition in generator.Ifs)
+                {
                 CompileExpression(condition);
                 conditionJumps.Add(_instructions.Count);
                 EmitInstruction(ByteCodeOp.POP_JUMP_IF_TRUE, 0); // 조건이 참이면 내부 블록으로 점프
@@ -7163,8 +7195,9 @@ namespace SharpPy
                     }
                 }
             }
+            } // Close else block for single-element list optimization
         }
-        
+
         /// <summary>
         /// CPython 3.12 호환 컴프리헨션 변수 저장
         /// 컴프리헨션 내부 변수는 격리된 스코프에서 관리
@@ -7217,246 +7250,281 @@ namespace SharpPy
         /// </summary>
         private void CompileDictComprehension(DictComprehension dictComp)
         {
+            CompileDictComprehensionRecursive(dictComp, 0);
+        }
+
+        /// <summary>
+        /// 재귀적 dict comprehension 컴파일 - CPython 3.12 패턴
+        /// </summary>
+        private void CompileDictComprehensionRecursive(DictComprehension dictComp, int nestingLevel)
+        {
             #if DEBUG_LOG
-            Console.WriteLine("🚀 PEP 709: Dict comprehension 바이트코드 인라인 컴파일 (중첩 Generator 지원, 스택 수정)");
-            #endif
-            #if DEBUG_LOG
-            Console.WriteLine($"📊 Dict comprehension 시작 위치: {_instructions.Count}");
+            Console.WriteLine($"🚀 재귀적 Dict Comprehension 컴파일 (Level {nestingLevel})");
             #endif
 
             // CPython 3.12: 컴프리헨션 컨텍스트 시작
             var savedIsInComprehension = _isInComprehension;
             _isInComprehension = true;
 
-            // 중첩 깊이 추적 시작
-            _comprehensionNestingDepth++;
+            // 1. 현재 레벨부터 최하위까지 모든 변수 수집 (CPython 3.12 패턴)
+            var allVarsFromThisLevel = CollectNestedVarsFromLevel(dictComp, nestingLevel);
+
             #if DEBUG_LOG
-            Console.WriteLine($"🔍 Dict comprehension 중첩 깊이 증가: {_comprehensionNestingDepth}");
+            Console.WriteLine($"🔧 Level {nestingLevel} vars: [{string.Join(", ", allVarsFromThisLevel)}] (count: {allVarsFromThisLevel.Count})");
             #endif
 
-            // 2. 첫 번째 generator의 iterable 컴파일 (CPython 3.12 패턴)
+            // 2. 첫 번째 generator의 iterable 컴파일
             var firstGenerator = dictComp.Generators[0];
-            var comprehensionVars = new List<string>();
-
-            // 첫 번째 generator의 iterable을 스택에 로드하고 iterator로 변환
             CompileExpression(firstGenerator.Iter);
             EmitInstruction(ByteCodeOp.GET_ITER);
 
-            // CPython 3.12: 컴프리헨션 변수들의 LOAD_FAST_AND_CLEAR - 재귀 튜플 언패킹 지원
-            CollectComprehensionVars(firstGenerator.Target, comprehensionVars);
-            foreach (var varName in comprehensionVars)
+            // 3. CPython 3.12 패턴: 현재 레벨부터 최하위까지 모든 변수를 LOAD_FAST_AND_CLEAR
+            foreach (var varName in allVarsFromThisLevel)
             {
                 EmitInstruction(ByteCodeOp.LOAD_FAST_AND_CLEAR, GetOrAddVarName(varName));
             }
 
-            // CPython 3.12: SWAP + BUILD_MAP + SWAP 패턴 (순서가 list와 다름)
-            if (comprehensionVars.Count > 0)
+            // 4. CPython 3.12: SWAP + BUILD_MAP + SWAP 패턴
+            if (allVarsFromThisLevel.Count > 0)
             {
-                int swapArg = comprehensionVars.Count + 1;
+                int swapArg = allVarsFromThisLevel.Count + 1;
                 EmitInstruction(ByteCodeOp.SWAP, swapArg);
+                #if DEBUG_LOG
+                Console.WriteLine($"🔧 Level {nestingLevel} Initial SWAP: vars={allVarsFromThisLevel.Count}, swapArg={swapArg}");
+                #endif
             }
 
-            var buildMapPosition = _instructions.Count;
             EmitInstruction(ByteCodeOp.BUILD_MAP, 0);
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 BUILD_MAP 위치: {buildMapPosition}");
-            #endif
 
-            if (comprehensionVars.Count > 0)
+            if (allVarsFromThisLevel.Count > 0)
             {
                 EmitInstruction(ByteCodeOp.SWAP, 2);
             }
 
-            // 3. 첫 번째 generator의 FOR_ITER 시작
+            // 5. 중첩된 루프 컴파일
             var exceptionTableStart = _instructions.Count;
             var loopStart = _instructions.Count;
             EmitInstruction(ByteCodeOp.FOR_ITER, 0); // 패치 대상
 
-            // 첫 번째 generator의 타겟 변수 저장 - 재귀 튜플 언패킹 지원
-            CompileComprehensionTarget(firstGenerator.Target, comprehensionVars);
+            // 현재 레벨 변수만 저장 (타겟 변수)
+            var currentLevelVars = new List<string>();
+            CollectComprehensionVars(firstGenerator.Target, currentLevelVars);
+            CompileComprehensionTarget(firstGenerator.Target, currentLevelVars);
 
-            // 4. 나머지 generator들과 내부 블록 처리
+            // 6. 나머지 generator들과 내부 블록 처리
             if (dictComp.Generators.Count > 1)
             {
-                CompileNestedGenerators(dictComp.Generators, 1, comprehensionVars, () =>
+                CompileNestedGenerators(dictComp.Generators, 1, currentLevelVars, () =>
                 {
-                    CompileDictComprehensionInnerBlock();
+                    CompileInnerBlock();
                 });
             }
             else
             {
-                CompileDictComprehensionInnerBlock();
+                CompileInnerBlock();
             }
 
-            void CompileDictComprehensionInnerBlock()
+            void CompileInnerBlock()
             {
-                // 모든 generator 루프가 완료된 후 실행되는 내부 블록
-                var innerBlockStart = _instructions.Count;
-                #if DEBUG_LOG
-                Console.WriteLine($"🎯 Dict comprehension 내부 블록 시작: {innerBlockStart}");
-                #endif
-
+                // Key 컴파일
                 CompileExpression(dictComp.Key);
-                CompileExpression(dictComp.Value);
 
-                // Fixed: 중첩 dict comprehension을 위한 동적 스택 계산
-                var mapAddArg = CalculateMapAddStackPosition(comprehensionVars.Count);
-                var mapAddPosition = _instructions.Count;
+                // Value 컴파일 - 중첩 comprehension이면 재귀 호출
+                if (dictComp.Value is DictComprehension nestedComp)
+                {
+                    // 재귀 호출: 중첩된 comprehension 컴파일
+                    CompileDictComprehensionRecursive(nestedComp, nestingLevel + 1);
+                }
+                else
+                {
+                    // 일반 표현식
+                    CompileExpression(dictComp.Value);
+                }
+
+                // CPython 3.12: 중첩 dict comprehension에서 MAP_ADD는 항상 2
+                int mapAddArg = 2;
                 EmitInstruction(ByteCodeOp.MAP_ADD, mapAddArg);
                 #if DEBUG_LOG
-                Console.WriteLine($"🗝️ MAP_ADD 위치: {mapAddPosition} (arg={mapAddArg}, 동적 계산)");
+                Console.WriteLine($"🗝️ Level {nestingLevel} MAP_ADD {mapAddArg} (allVars: {allVarsFromThisLevel.Count})");
                 #endif
             }
 
-            // 5. FOR_ITER 루프 마무리 (CPython 3.12 패턴)
+            // 7. FOR_ITER 루프 마무리
             var jumpBackwardArg = CalculateJumpBackwardArg(_instructions.Count, loopStart);
             EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
 
             // FOR_ITER 패치
             var endForPosition = _instructions.Count;
             EmitInstruction(ByteCodeOp.END_FOR);
-
-            // FOR_ITER 점프 거리 계산 및 패치
             var jumpDistance = endForPosition - loopStart - 1;
             _instructions[loopStart] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, jumpDistance);
 
-            // 6. 컴프리헨션 변수들 복원 (CPython 3.12 패턴)
-            for (int i = comprehensionVars.Count - 1; i >= 0; i--)
+            // 8. CPython 3.12: 변수들 복원 (SWAP + STORE_FAST 역순)
+            if (allVarsFromThisLevel.Count > 0)
             {
-                EmitInstruction(ByteCodeOp.SWAP, 2);
-                EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(comprehensionVars[i]));
+                int swapValue = allVarsFromThisLevel.Count + 1;
+                EmitInstruction(ByteCodeOp.SWAP, swapValue);
+
+                // 변수들을 역순으로 저장 (CPython 3.12 패턴)
+                for (int i = allVarsFromThisLevel.Count - 1; i >= 0; i--)
+                {
+                    EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(allVarsFromThisLevel[i]));
+                }
             }
 
-            var afterNestedGenerators = _instructions.Count;
-            #if DEBUG_LOG
-            Console.WriteLine($"🔄 CompileNestedGenerators 완료 후 위치: {afterNestedGenerators}");
-            #endif
-
-            // 7. Exception handler 등록 (간단한 버전)
+            // 9. Exception handler 등록
             var exceptionTableEnd = _instructions.Count;
             var pendingHandler = new PendingExceptionHandler
             {
                 StartOffset = exceptionTableStart,
                 EndOffset = exceptionTableEnd,
-                ComprehensionVars = new List<string>(comprehensionVars),
-                Depth = 2  // 간소화된 depth
+                ComprehensionVars = new List<string>(allVarsFromThisLevel),
+                Depth = allVarsFromThisLevel.Count + 1
             };
             _pendingExceptionHandlers.Add(pendingHandler);
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 Dict PendingExceptionHandler 추가: start={exceptionTableStart}, end={exceptionTableEnd}, vars=[{string.Join(", ", comprehensionVars)}], depth=2");
-            Console.WriteLine($"🔧 현재 _pendingExceptionHandlers.Count: {_pendingExceptionHandlers.Count}");
-            #endif
 
-            // CPython 3.12: 컴프리헨션 컨텍스트 종료
+            // 컴프리헨션 컨텍스트 종료
             _isInComprehension = savedIsInComprehension;
 
-            // 중첩 깊이 추적 종료
-            _comprehensionNestingDepth--;
             #if DEBUG_LOG
-            Console.WriteLine($"🔍 Dict comprehension 중첩 깊이 감소: {_comprehensionNestingDepth}");
-            #endif
-
-            #if DEBUG_LOG
-            Console.WriteLine($"✅ Dict comprehension 바이트코드 인라인 완료 ({dictComp.Generators.Count}개 중첩 generator)");
-            #endif
-            #if DEBUG_LOG
-            Console.WriteLine($"📊 Dict comprehension 최종 위치: {_instructions.Count}");
+            Console.WriteLine($"✅ 재귀적 Dict comprehension Level {nestingLevel} 완료 ({dictComp.Generators.Count}개 generator)");
             #endif
         }
 
+
         /// <summary>
-        /// 중첩 dict comprehension을 위한 MAP_ADD 스택 위치 계산
-        /// 중첩 깊이와 현재 스택 상태를 고려하여 올바른 argument 반환
+        /// MAP_ADD 스택 위치 계산 - CPython 3.12 호환
         /// </summary>
-        private int CalculateMapAddStackPosition(int comprehensionVarCount)
+        private int CalculateMapAddStackPosition(int comprehensionVarCount, int generatorCount)
         {
-            // CPython 3.12 호환성을 위한 정확한 MAP_ADD 스택 위치 계산
-            // LIST_APPEND와 동일한 패턴 적용
+            // CPython 3.12 정확한 공식: comprehensionVarCount + 1
+            return comprehensionVarCount + 1;
+        }
 
-            // 중첩 레벨을 추적하기 위해 현재 컴프리헨션 깊이 확인
-            int nestingDepth = _comprehensionNestingDepth;
+        /// <summary>
+        /// 중첩 dict comprehension에서 현재 레벨부터 최하위까지의 모든 변수 수집
+        /// CPython 3.12 패턴: Level N → [자신부터 최하위까지 모든 변수]
+        /// </summary>
+        private List<string> CollectNestedVarsFromLevel(DictComprehension dictComp, int currentLevel = 0)
+        {
+            var vars = new List<string>();
 
-            #if DEBUG_LOG
-            Console.WriteLine($"🔍 MAP_ADD 스택 위치 계산: nestingDepth={nestingDepth}, comprehensionVarCount={comprehensionVarCount}");
-            #endif
-
-            // CPython 3.12 분석 결과:
-            // - 기본 dict comprehension: MAP_ADD 2
-            // - 단순 튜플 언패킹: MAP_ADD 2 (comprehensionVarCount=2, single generator)
-            // - 복잡한 다중 for: MAP_ADD 다양한 값 (multiple generators or nesting)
-            // - 중첩 dict comprehension: MAP_ADD 2
-
-            // CPython 3.12 바이트코드 구조에 맞춘 올바른 MAP_ADD 스택 계산
-            // 튜플 언패킹의 경우 추가 변수들로 인해 스택 오프셋이 달라짐
-
-            int stackOffset;
-            if (comprehensionVarCount == 2)
+            // 현재 레벨 변수 수집
+            foreach (var generator in dictComp.Generators)
             {
-                // 튜플 언패킹: LOAD_FAST_AND_CLEAR k, v → 스택에 None 2개 추가
-                // 스택: [None, None, {}, <iterator>, key, value]
-                // MAP_ADD는 dict까지의 거리 = 3
-                stackOffset = 3;
+                CollectComprehensionVars(generator.Target, vars);
             }
-            else
+
+            // 중첩된 comprehension이 있으면 재귀적으로 수집
+            if (dictComp.Value is DictComprehension nestedComp)
             {
-                // 단일 변수: 스택: [None, {}, <iterator>, key, value]
-                // MAP_ADD는 dict까지의 거리 = 2
-                stackOffset = 2;
+                var nestedVars = CollectNestedVarsFromLevel(nestedComp, currentLevel + 1);
+                // 중복 제거하면서 추가
+                foreach (var nestedVar in nestedVars)
+                {
+                    if (!vars.Contains(nestedVar))
+                    {
+                        vars.Add(nestedVar);
+                    }
+                }
             }
 
             #if DEBUG_LOG
-            Console.WriteLine($"🔍 MAP_ADD 스택 오프셋 결정: {stackOffset} (comprehensionVarCount={comprehensionVarCount})");
+            Console.WriteLine($"🔍 CollectNestedVarsFromLevel({currentLevel}): [{string.Join(", ", vars)}]");
             #endif
-            return stackOffset;
+
+            return vars;
+        }
+
+        /// <summary>
+        /// 중첩 dict comprehension의 깊이 계산
+        /// </summary>
+        private int GetNestingDepth(DictComprehension dictComp)
+        {
+            if (dictComp.Value is DictComprehension nestedComp)
+            {
+                return 1 + GetNestingDepth(nestedComp);
+            }
+            return 1;
+        }
+
+        /// <summary>
+        /// 단일 요소 리스트 표현식인지 확인 ([expression] 형태)
+        /// </summary>
+        private bool IsSingleElementListExpression(Expression expr)
+        {
+            return expr is ListExpression list && list.Elements.Count == 1;
+        }
+
+        /// <summary>
+        /// Generator 컨텍스트에서 이터레이터 표현식 컴파일 - BUILD_LIST 최적화 없이
+        /// CPython 3.12와 호환성을 위해 중첩된 comprehension에서는 직접 튜플 상수 로드
+        /// </summary>
+        private void CompileGeneratorIterable(Expression iterExpr)
+        {
+            switch (iterExpr)
+            {
+                case ListExpression list:
+                    // 리스트 표현식을 튜플 상수로 변환 (BUILD_LIST 생성하지 않음)
+                    if (list.Elements.All(e => e is ConstantExpression))
+                    {
+                        // 모든 요소가 상수인 경우 - 튜플 상수로 직접 로드
+                        var constantElements = list.Elements.Cast<ConstantExpression>()
+                                                           .Select(c => c.Value)
+                                                           .ToArray();
+                        var tupleConstant = new PyTuple(constantElements);
+                        EmitLoadConst(tupleConstant);
+                    }
+                    else
+                    {
+                        // 비상수 요소가 있는 경우 - 각 요소를 개별적으로 로드 후 BUILD_TUPLE
+                        foreach (var element in list.Elements)
+                        {
+                            CompileExpression(element);
+                        }
+                        EmitInstruction(ByteCodeOp.BUILD_TUPLE, list.Elements.Count);
+                    }
+                    break;
+
+                default:
+                    // 다른 이터러블은 기본 컴파일 방식 사용
+                    CompileExpression(iterExpr);
+                    break;
+            }
         }
 
         /// <summary>
         /// 복잡한 리스트 컴프리헨션을 위한 LIST_APPEND 스택 위치 계산
         /// 중첩 깊이와 현재 스택 상태를 고려하여 올바른 argument 반환
         /// </summary>
-        private int CalculateListAppendStackPosition(int comprehensionVarCount)
+        private int CalculateListAppendStackPosition(int comprehensionVarCount, int generatorCount)
         {
             // CPython 3.12 호환성을 위한 정확한 스택 위치 계산
-            // 중첩된 list comprehension 분석 결과: 모든 경우에 LIST_APPEND 2 사용
+            // 중첩된 list comprehension 분석 결과: generator 수에 따라 달라짐
 
             // 중첩 레벨을 추적하기 위해 현재 컴프리헨션 깊이 확인
             int nestingDepth = _comprehensionNestingDepth;
 
             #if DEBUG_LOG
-            Console.WriteLine($"🔍 LIST_APPEND 스택 위치 계산: nestingDepth={nestingDepth}, comprehensionVarCount={comprehensionVarCount}");
+            Console.WriteLine($"🔍 LIST_APPEND 스택 위치 계산: nestingDepth={nestingDepth}, comprehensionVarCount={comprehensionVarCount}, generatorCount={generatorCount}");
             #endif
 
-            // CPython 3.12 실제 분석 결과:
-            // 1. 기본 패턴: [x for x in range(3)] → LIST_APPEND 2
-            // 2. 튜플 언패킹: [x + y for x, y in pairs] → LIST_APPEND 2
-            // 3. 중첩 패턴: [[row[i] for row in matrix] for i in range(len(matrix[0]))] → 모두 LIST_APPEND 2
-            // 4. 복잡한 패턴: [j*2 for i, row in enumerate(matrix) for j in row] → LIST_APPEND 3
+            // CPython 3.12 실제 분석 결과 (정확한 패턴 매칭):
+            // 1. 기본 패턴: [x for x in range(3)] → LIST_APPEND 2 (1 generator)
+            // 2. 튜플 언패킹: [x + y for x, y in pairs] → LIST_APPEND 2 (1 generator)
+            // 3. 중첩 패턴: [[row[i] for row in matrix] for i in range(len(matrix[0]))] → 모두 LIST_APPEND 2 (각각 1 generator)
+            // 4. 복잡한 패턴: [item for sublist in nested for item in sublist] → LIST_APPEND 2 (2 generators)
+            // 5. 깊게 중첩: [item for sublist in matrix_3d for sublist2 in sublist for item in sublist2] → LIST_APPEND 3 (3 generators)
 
-            // 단순한 단일 변수 패턴 (중첩 포함)
-            if (comprehensionVarCount == 1)
-            {
-                return 2; // CPython 3.12: 모든 단일 변수 패턴은 LIST_APPEND 2
-            }
+            // CPython 3.12 정확한 공식: Math.Max(2, generatorCount)
+            // - 1-2 generators: LIST_APPEND 2
+            // - 3+ generators: LIST_APPEND generatorCount
+            int stackOffset = Math.Max(2, generatorCount);
 
-            // 튜플 언패킹 패턴 (nestingDepth=1, comprehensionVarCount=2)
-            if (nestingDepth == 1 && comprehensionVarCount == 2)
-            {
-                return 2; // CPython 3.12: LIST_APPEND 2
-            }
-
-            // 복잡한 다중 for 패턴 (multiple generators)
-            // 예: [j*2 for i, row in enumerate(matrix) for j in row]
-            // 단, 중첩된 튜플 언패킹은 여전히 단일 generator이므로 LIST_APPEND 2 사용
-            if (comprehensionVarCount >= 3 && nestingDepth > 1)
-            {
-                return 3; // CPython 3.12: LIST_APPEND 3 (실제 다중 generator 패턴)
-            }
-
-            // 기타 케이스
             #if DEBUG_LOG
-            Console.WriteLine($"🔍 LIST_APPEND 스택 오프셋 결정: 2 (기본값 - CPython 3.12 호환)");
+            Console.WriteLine($"🔍 LIST_APPEND 스택 오프셋 결정: {stackOffset} (CPython 3.12 호환: Math.Max(2, {generatorCount}))");
             #endif
-            return 2;
+            return stackOffset;
         }
 
         /// <summary>

@@ -389,7 +389,8 @@ namespace SharpPy
                         List<string> freeVars = null, List<string> cellVars = null,
                         List<PyObject> defaultValues = null, int flags = 0, string fileName = null,
                         List<string> sourceLines = null, bool isOptimized = false,
-                        Dictionary<int, int> lineNumberTable = null)
+                        Dictionary<int, int> lineNumberTable = null,
+                        List<ExceptionTableEntry> exceptionTable = null)
         {
             Name = name;
             Instructions = instructions;
@@ -405,7 +406,7 @@ namespace SharpPy
             FreeVars = freeVars ?? new List<string>();
             CellVars = cellVars ?? new List<string>();
             DefaultValues = defaultValues ?? new List<PyObject>();
-            ExceptionTable = new List<ExceptionTableEntry>(); // 기본값 설정
+            ExceptionTable = exceptionTable ?? new List<ExceptionTableEntry>(); // 전달된 exception table 보존
             LineNumberTable = lineNumberTable ?? new Dictionary<int, int>();
         }
         

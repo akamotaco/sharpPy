@@ -44,6 +44,7 @@ namespace SharpPy
         // 기타 핵심 타입들
         public static readonly PyType ModuleType = new PyType("module", new[] { ObjectType });
         public static readonly PyType NoneType = new PyType("NoneType", new[] { ObjectType });
+        public static readonly PyType NullType = new PyType("NullType", new[] { ObjectType }); // CPython 내부 NULL
         public static readonly PyType GenericAliasType = new PyType("GenericAlias", new[] { ObjectType });
 
         // 예외 타입 계층 (PyException.cs와 연동)

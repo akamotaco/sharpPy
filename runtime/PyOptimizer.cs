@@ -126,7 +126,9 @@ namespace SharpPy
                     originalCode.Flags,
                     originalCode.FileName,
                     originalCode.SourceLines,
-                    isOptimized: false
+                    isOptimized: false,
+                    originalCode.LineNumberTable,
+                    new List<ExceptionTableEntry>() // 빈 exception table로 시작 - 최적화 후 재계산됨
                 );
             }
             
@@ -136,9 +138,10 @@ namespace SharpPy
             {
     #if DEBUG_LOG
             Console.WriteLine($"🔍 Exception Table 동기화: {originalCode.ExceptionTable.Count}개 엔트리 → 최적화된 코드");
+            Console.WriteLine($"🔧 ByteCodeOptimizer returning code with ExceptionTable.Count = {optimizedCode.ExceptionTable.Count}");
 #endif
             }
-            
+
             return optimizedCode;
         }
 
@@ -971,37 +974,48 @@ namespace SharpPy
         /// </summary>
         private void RecalculateExceptionTableOffsets(List<ExceptionTableEntry> originalTable, PyCodeObject optimizedCode)
         {
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+        #if DEBUG_LOG
+        Console.WriteLine($"🔧 RecalculateExceptionTableOffsets: originalTable.Count = {originalTable.Count}");
+        Console.WriteLine($"🔧 optimizedCode.ExceptionTable.Count (before) = {optimizedCode.ExceptionTable.Count}");
+#endif
+            }
+
             foreach (var entry in originalTable)
             {
                 // instruction mapping을 통한 정확한 오프셋 재계산
                 int mappedStart = MapOriginalOffset(entry.StartOffset, optimizedCode.Instructions.Count);
                 int mappedEnd = MapOriginalOffset(entry.EndOffset, optimizedCode.Instructions.Count);
                 int mappedHandler = MapOriginalOffset(entry.HandlerOffset, optimizedCode.Instructions.Count);
-                
-                // 오프셋이 변경된 경우 로그 출력
-                if (mappedStart != entry.StartOffset || mappedEnd != entry.EndOffset || mappedHandler != entry.HandlerOffset)
+
+                if (!SharpPyConfig.DisassemblyOnlyMode)
                 {
-                    if (!SharpPyConfig.DisassemblyOnlyMode)
-                    {
             #if DEBUG_LOG
             Console.WriteLine($"🔧 Exception Table 정확한 재매핑: " +
                             $"Start {entry.StartOffset}→{mappedStart}, " +
                             $"End {entry.EndOffset}→{mappedEnd}, " +
                             $"Handler {entry.HandlerOffset}→{mappedHandler}");
 #endif
-                    }
                 }
-                
+
                 // 정확하게 재매핑된 오프셋으로 새로운 Exception Table Entry 생성
                 var remappedEntry = new ExceptionTableEntry(
-                    mappedStart, 
-                    mappedEnd, 
-                    mappedHandler, 
+                    mappedStart,
+                    mappedEnd,
+                    mappedHandler,
                     entry.Depth,
                     entry.Lasti
                 );
-                
+
                 optimizedCode.ExceptionTable.Add(remappedEntry);
+            }
+
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+        #if DEBUG_LOG
+        Console.WriteLine($"🔧 optimizedCode.ExceptionTable.Count (after) = {optimizedCode.ExceptionTable.Count}");
+#endif
             }
         }
         

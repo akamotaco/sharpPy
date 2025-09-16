@@ -173,14 +173,24 @@ namespace SharpPy
             {
                 Console.WriteLine($"✅ Specialized {specializationCount} instructions in {originalCode.Name}");
                 
-                // 새로운 특수화된 코드 객체 생성
+                // 새로운 특수화된 코드 객체 생성 (Exception Table 보존)
                 return new PyCodeObject(
                     originalCode.Name,
                     instructions,
                     originalCode.Constants,
                     originalCode.Names,
                     originalCode.VarNames,
-                    originalCode.ArgCount
+                    originalCode.ArgCount,
+                    originalCode.PosonlyArgCount,
+                    originalCode.FreeVars,
+                    originalCode.CellVars,
+                    originalCode.DefaultValues,
+                    originalCode.Flags,
+                    originalCode.FileName,
+                    originalCode.SourceLines,
+                    originalCode.IsOptimized,
+                    originalCode.LineNumberTable,
+                    originalCode.ExceptionTable // Exception Table 보존
                 );
             }
 
