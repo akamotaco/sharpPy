@@ -7331,8 +7331,22 @@ namespace SharpPy
                     CompileExpression(dictComp.Value);
                 }
 
-                // CPython 3.12: 중첩 dict comprehension에서 MAP_ADD는 항상 2
-                int mapAddArg = 2;
+                // CPython 3.12 호환: Dict-in-Dict vs 단일 comprehension 구분
+                // Dict-in-Dict: 각 레벨이 독립적 → MAP_ADD 2 고정
+                // 단일 comprehension: 모든 변수 포함 → comprehensionVarCount + 1
+                bool isNestedDictInDict = dictComp.Value is DictComprehension;
+                int mapAddArg;
+
+                if (isNestedDictInDict || nestingLevel > 0)
+                {
+                    // Dict-in-Dict 중첩: CPython은 각 레벨에서 MAP_ADD 2 사용
+                    mapAddArg = 2;
+                }
+                else
+                {
+                    // 단일 comprehension: 모든 변수 + dict
+                    mapAddArg = allVarsFromThisLevel.Count + 1;
+                }
                 EmitInstruction(ByteCodeOp.MAP_ADD, mapAddArg);
                 #if DEBUG_LOG
                 Console.WriteLine($"🗝️ Level {nestingLevel} MAP_ADD {mapAddArg} (allVars: {allVarsFromThisLevel.Count})");
@@ -7485,34 +7499,32 @@ namespace SharpPy
 
         /// <summary>
         /// 복잡한 리스트 컴프리헨션을 위한 LIST_APPEND 스택 위치 계산
-        /// 중첩 깊이와 현재 스택 상태를 고려하여 올바른 argument 반환
+        /// CPython 3.12 정확한 스택 레이아웃 분석: LOAD_FAST_AND_CLEAR + SWAP 패턴 고려
         /// </summary>
         private int CalculateListAppendStackPosition(int comprehensionVarCount, int generatorCount)
         {
-            // CPython 3.12 호환성을 위한 정확한 스택 위치 계산
-            // 중첩된 list comprehension 분석 결과: generator 수에 따라 달라짐
+            // CPython 3.12 정확한 스택 레이아웃 분석:
+            // LOAD_FAST_AND_CLEAR w,x,y,z + SWAP 5 + BUILD_LIST + SWAP 2
+            // 스택 상태: [backup_w, backup_x, backup_y, backup_z, list, iterator]
+            // LIST_APPEND arg = 백업된 변수 수 + 1 (list 포함)
 
-            // 중첩 레벨을 추적하기 위해 현재 컴프리헨션 깊이 확인
             int nestingDepth = _comprehensionNestingDepth;
 
             #if DEBUG_LOG
             Console.WriteLine($"🔍 LIST_APPEND 스택 위치 계산: nestingDepth={nestingDepth}, comprehensionVarCount={comprehensionVarCount}, generatorCount={generatorCount}");
             #endif
 
-            // CPython 3.12 실제 분석 결과 (정확한 패턴 매칭):
-            // 1. 기본 패턴: [x for x in range(3)] → LIST_APPEND 2 (1 generator)
-            // 2. 튜플 언패킹: [x + y for x, y in pairs] → LIST_APPEND 2 (1 generator)
-            // 3. 중첩 패턴: [[row[i] for row in matrix] for i in range(len(matrix[0]))] → 모두 LIST_APPEND 2 (각각 1 generator)
-            // 4. 복잡한 패턴: [item for sublist in nested for item in sublist] → LIST_APPEND 2 (2 generators)
-            // 5. 깊게 중첩: [item for sublist in matrix_3d for sublist2 in sublist for item in sublist2] → LIST_APPEND 3 (3 generators)
+            // CPython 3.12 실제 바이트코드 패턴 분석:
+            // 1중: [x for x in range(1)] → LOAD_FAST_AND_CLEAR 1개 → LIST_APPEND 2
+            // 2중: [x+y for x in range(1) for y in range(1)] → LOAD_FAST_AND_CLEAR 2개 → LIST_APPEND 3
+            // 3중: [x+y+z for x in range(1) for y in range(1) for z in range(1)] → LOAD_FAST_AND_CLEAR 3개 → LIST_APPEND 4
+            // 4중: [w+x+y+z for w in range(1) for x in range(1) for y in range(1) for z in range(1)] → LOAD_FAST_AND_CLEAR 4개 → LIST_APPEND 5
 
-            // CPython 3.12 정확한 공식: Math.Max(2, generatorCount)
-            // - 1-2 generators: LIST_APPEND 2
-            // - 3+ generators: LIST_APPEND generatorCount
-            int stackOffset = Math.Max(2, generatorCount);
+            // 정확한 공식: comprehensionVarCount + 1 (백업된 변수들 + list)
+            int stackOffset = comprehensionVarCount + 1;
 
             #if DEBUG_LOG
-            Console.WriteLine($"🔍 LIST_APPEND 스택 오프셋 결정: {stackOffset} (CPython 3.12 호환: Math.Max(2, {generatorCount}))");
+            Console.WriteLine($"🔍 LIST_APPEND 스택 오프셋 결정: {stackOffset} (CPython 3.12 호환: {comprehensionVarCount} vars + 1 list)");
             #endif
             return stackOffset;
         }

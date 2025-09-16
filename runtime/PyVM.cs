@@ -3375,55 +3375,40 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.MAP_ADD:
-                    // CPython 3.12 호환: MAP_ADD i - 항상 PEEK(2)로 dict 찾기 (comprehension.md 분석)
+                    // CPython 3.12 호환: MAP_ADD i에서 dict는 스택의 i번째 깊이에 위치
                     // 스택: [..., dict, ..., key, value] → [..., dict, ...]
                     var dictValue = frame.ValueStack.Pop();
                     var dictKey = frame.ValueStack.Pop();
 
-                    // CPython: comprehension에서 MAP_ADD는 항상 oparg=2 고정
-                    // PEEK(2)로 dict 찾기 (key, value 제거 후 2단계 아래)
-                    var peekDepth = 2;
+                    // CPython: MAP_ADD oparg는 dict까지의 스택 거리
+                    // oparg=2: 2단계 아래, oparg=3: 3단계 아래, etc.
+                    var dictDepth = instruction.Argument;
 
-                    if (frame.ValueStack.Count >= peekDepth)
+                    if (frame.ValueStack.Count >= dictDepth)
                     {
-                        // ElementAt(0) = TOS-1, ElementAt(1) = TOS-2
-                        // PEEK(2) = ElementAt(1)
-                        var mapAddTarget = frame.ValueStack.ElementAt(1);
-
-                        // PyNull인 경우 역방향으로 스택을 탐색하여 dict 찾기
-                        if (PyNull.IsNull(mapAddTarget))
-                        {
-                            // 스택을 역방향으로 탐색하여 첫 번째 dict 찾기
-                            for (int i = 1; i < frame.ValueStack.Count; i++)
-                            {
-                                var candidate = frame.ValueStack.ElementAt(i);
-                                if (candidate is PyDict)
-                                {
-                                    mapAddTarget = candidate;
-                                    break;
-                                }
-                            }
-                        }
+                        // CPython PEEK 방식: ElementAt(dictDepth-1)
+                        // dictDepth=2 → ElementAt(1), dictDepth=3 → ElementAt(2), etc.
+                        var mapAddTarget = frame.ValueStack.ElementAt(dictDepth - 1);
 
                         if (mapAddTarget is PyDict mapAddDict)
                         {
                             mapAddDict.InternalDict[dictKey] = dictValue;
                             #if DEBUG_LOG
-                            Console.WriteLine($"   MAP_ADD: {dictKey}={dictValue} → dict (found at stack search)");
+                            Console.WriteLine($"   MAP_ADD: {dictKey}={dictValue} → dict (depth {dictDepth})");
                             #endif
                         }
                         else if (PyNull.IsNull(mapAddTarget))
                         {
-                            throw new Exception($"MAP_ADD: no dict found in stack (all NULL)");
+                            throw new Exception($"MAP_ADD: target is NULL at depth {dictDepth}");
                         }
                         else
                         {
-                            throw new Exception($"MAP_ADD: target is not a dict, got {mapAddTarget?.GetTypeName() ?? "null"}");
+                            throw new Exception($"MAP_ADD: target is not a dict, got {mapAddTarget?.GetTypeName() ?? "null"} at depth {dictDepth}");
                         }
                     }
                     else
                     {
-                        throw new Exception($"MAP_ADD: not enough items on stack (need at least 2, got {frame.ValueStack.Count})");
+                        throw new Exception($"MAP_ADD: not enough items on stack (need {dictDepth}, got {frame.ValueStack.Count})");
                     }
                     break;
 
