@@ -74,14 +74,14 @@ namespace SharpPy
             else
             {
                 // JUMP_BACKWARD 등 후진 점프
-                // PyJumpBackwardUtil과 동일한 바이트 오프셋 기반 계산 사용
-                int currentByteOffset = PyJumpBackwardUtil.CalculateByteOffset(currentInstrPos, Instructions);
-                int targetByteOffset = currentByteOffset + 2 - (opArg * 2);
-                var result = PyJumpBackwardUtil.ByteOffsetToInstructionIndex(targetByteOffset, Instructions);
+                // CPython 3.12 Quickened Code: instruction 단위 계산
+                // oparg = current_position - target_position + 1
+                // 따라서: target_position = current_position - oparg + 1
+                int result = currentInstrPos - opArg + 1;
 
                 #if DEBUG_LOG
-                Console.WriteLine($"🔧 CalculateJumpTarget(BACKWARD): currentPos={currentInstrPos}, opArg={opArg}");
-                Console.WriteLine($"    currentByteOffset={currentByteOffset}, targetByteOffset={targetByteOffset}, target={result}");
+                Console.WriteLine($"🔧 CalculateJumpTarget(BACKWARD/Quickened): currentPos={currentInstrPos}, opArg={opArg}");
+                Console.WriteLine($"    target={result} (instruction-based)");
                 #endif
                 return result;
             }

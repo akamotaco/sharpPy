@@ -2106,6 +2106,19 @@ namespace SharpPy
                     #if DEBUG_LOG
                     Console.WriteLine($"🔧 JUMP_BACKWARD Debug: currentInstrPos={currentInstrPos}, instruction.Argument={instruction.Argument}");
                     Console.WriteLine($"    현재 instruction: {frame.Code.Instructions[currentInstrPos].OpCode} (arg: {frame.Code.Instructions[currentInstrPos].Argument})");
+
+                    // 실제 바이트코드에서 JUMP_BACKWARD 위치 찾기
+                    for (int i = 0; i < frame.Code.Instructions.Count; i++)
+                    {
+                        if (frame.Code.Instructions[i].OpCode == ByteCodeOp.JUMP_BACKWARD)
+                        {
+                            Console.WriteLine($"    실제 JUMP_BACKWARD at instruction {i}: arg={frame.Code.Instructions[i].Argument}");
+                        }
+                        if (frame.Code.Instructions[i].OpCode == ByteCodeOp.FOR_ITER)
+                        {
+                            Console.WriteLine($"    실제 FOR_ITER at instruction {i}: arg={frame.Code.Instructions[i].Argument}");
+                        }
+                    }
                     #endif
 
                     if (frame.Code is PyQuickenedCodeObject quickenedJumpCode)

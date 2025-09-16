@@ -76,15 +76,28 @@ namespace SharpPy
         /// </summary>
         public static int CalculateJumpBackwardOpArg(int currentInstrPos, int targetInstrPos, List<ByteCodeInstruction> instructions)
         {
-            // next_instr_position: JUMP_BACKWARD 다음 명령어의 바이트 오프셋
-            int currentByteOffset = CalculateByteOffset(currentInstrPos, instructions);
-            currentByteOffset += 2; // JUMP_BACKWARD 명령어 자체 크기
+            // CPython 3.12: 최적화 사용 시 instruction 단위 계산
+            if (SharpPyConfig._enable_optimizer)
+            {
+                // oparg = current_position - target_position + 1
+                // 하지만 컴파일 시점에서는 다음 명령어 위치를 기준으로 계산
+                // VM: target = current - oparg + 1 이므로
+                // 컴파일: oparg = (current + 1) - target = current - target + 1
+                return currentInstrPos - targetInstrPos + 1;
+            }
+            else
+            {
+                // 최적화 비활성화: 바이트 기반 계산
+                // next_instr_position: JUMP_BACKWARD 다음 명령어의 바이트 오프셋
+                int currentByteOffset = CalculateByteOffset(currentInstrPos, instructions);
+                currentByteOffset += 2; // JUMP_BACKWARD 명령어 자체 크기
 
-            // target_position: 점프할 타겟의 바이트 오프셋
-            int targetByteOffset = CalculateByteOffset(targetInstrPos, instructions);
+                // target_position: 점프할 타겟의 바이트 오프셋
+                int targetByteOffset = CalculateByteOffset(targetInstrPos, instructions);
 
-            // CPython 3.12 공식: oparg = (next_instr_position - target_position) / 2
-            return (currentByteOffset - targetByteOffset) / 2;
+                // CPython 3.12 공식: oparg = (next_instr_position - target_position) / 2
+                return (currentByteOffset - targetByteOffset) / 2;
+            }
         }
 
         /// <summary>

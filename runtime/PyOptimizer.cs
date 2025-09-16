@@ -653,11 +653,20 @@ namespace SharpPy
                             
                             if (correctForIterPos >= 0)
                             {
-                                // CPython 3.12 호환: JUMP_BACKWARD는 CACHE를 포함한 논리적 instruction 위치 기준
-                                // CPython 공식: oparg = current_logical_pos - target_logical_pos + 1
-                                int currentLogicalPos = CalculateLogicalInstructionPosition(jumpPos);
-                                int targetLogicalPos = CalculateLogicalInstructionPosition(correctForIterPos);
-                                int correctOffset = currentLogicalPos - targetLogicalPos + 1;
+                                // CPython 3.12 호환: instruction 단위 계산 (compiler와 동일한 방식)
+                                int correctOffset;
+                                if (SharpPyConfig._enable_optimizer)
+                                {
+                                    // 최적화 활성화: instruction index 기반 계산 (컴파일러와 동일)
+                                    correctOffset = jumpPos - correctForIterPos + 1;
+                                }
+                                else
+                                {
+                                    // 최적화 비활성화: 논리적 위치 기반 계산
+                                    int currentLogicalPos = CalculateLogicalInstructionPosition(jumpPos);
+                                    int targetLogicalPos = CalculateLogicalInstructionPosition(correctForIterPos);
+                                    correctOffset = currentLogicalPos - targetLogicalPos + 1;
+                                }
                                 
                                 if (currentOffset != correctOffset)
                                 {
