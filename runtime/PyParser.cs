@@ -3735,8 +3735,26 @@ namespace SharpPy
         {
             var left = ParseUnaryOrAtom();
 
-            while (!IsAtEnd() && GetPrecedence(Peek()) >= minPrecedence)
+            while (!IsAtEnd())
             {
+                // Check for compound operators first (not in, is not)
+                string compoundOp = TryMatchCompoundOperator();
+                if (compoundOp != null)
+                {
+                    var compoundPrecedence = GetCompoundOperatorPrecedence(compoundOp);
+                    if (compoundPrecedence < minPrecedence) break;
+
+                    // Handle right associativity
+                    var compoundNextMinPrec = compoundPrecedence + 1;
+                    var compoundRight = ParseBinaryExpression(compoundNextMinPrec);
+
+                    // Compound operators are always comparison operators
+                    left = new CompareExpression(left, compoundOp, compoundRight);
+                    continue;
+                }
+
+                // Handle single token operators
+                if (GetPrecedence(Peek()) < minPrecedence) break;
 
                 var opToken = Advance();
                 var precedence = GetPrecedence(opToken);
@@ -3767,7 +3785,45 @@ namespace SharpPy
 
             return left;
         }
-        
+
+        /// <summary>
+        /// Try to match compound operators like 'not in' and 'is not'
+        /// Returns the compound operator string if found, null otherwise
+        /// </summary>
+        private string TryMatchCompoundOperator()
+        {
+            // Check for 'not in' compound operator
+            if (IsCurrentNotInOperator())
+            {
+                Advance(); // consume 'not'
+                Advance(); // consume 'in'
+                return "not in";
+            }
+
+            // Check for 'is not' compound operator
+            if (IsCurrentIsNotOperator())
+            {
+                Advance(); // consume 'is'
+                Advance(); // consume 'not'
+                return "is not";
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Get precedence for compound operators
+        /// </summary>
+        private int GetCompoundOperatorPrecedence(string compoundOp)
+        {
+            return compoundOp switch
+            {
+                "not in" => 3,  // Same as comparison operators
+                "is not" => 3,  // Same as comparison operators
+                _ => -1
+            };
+        }
+
         private int GetPrecedence(PyToken token)
         {
             // CPython 3.12: All operators are OP tokens, distinguished by lexeme
