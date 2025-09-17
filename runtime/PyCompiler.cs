@@ -493,6 +493,15 @@ namespace SharpPy
         // 모듈 전역으로 선언된 global 변수들 (static으로 모든 컴파일러 인스턴스가 공유)
         private static HashSet<string> _moduleGlobalVars = new HashSet<string>();
 
+        // 캐시된 builtin 변수 이름들 (성능 최적화 및 자동 동기화)
+        private static HashSet<string> _builtinNames;
+
+        // 정적 생성자: builtin 변수 이름들을 캐시
+        static PythonCompiler()
+        {
+            _builtinNames = new HashSet<string>(PyBuiltinsModule.Instance.BuiltinDict.Keys);
+        }
+
         // CPython 3.12 호환: Symbol Table 지원
         private SymbolTable? _symbolTable = null;
         private SymbolTable? _currentSymbolTable = null;
@@ -3873,7 +3882,8 @@ namespace SharpPy
 
         private bool IsBuiltinVariable(string varName)
         {
-            return varName == "self" || varName == "print" || varName == "len" || varName == "str" || varName == "int" || varName == "float" || varName == "bool" || varName == "list" || varName == "dict" || varName == "set" || varName == "tuple";
+            // 동적으로 PyBuiltinsModule에서 builtin 여부 확인 (자동 동기화)
+            return _builtinNames.Contains(varName);
         }
 
         #if DEBUG_LOG

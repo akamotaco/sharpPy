@@ -186,6 +186,15 @@ namespace SharpPy
     /// </summary>
     public class SymbolTableBuilder
     {
+        // 캐시된 builtin 변수 이름들 (성능 최적화 및 자동 동기화)
+        private static HashSet<string> _builtinNames;
+
+        // 정적 생성자: builtin 변수 이름들을 캐시
+        static SymbolTableBuilder()
+        {
+            _builtinNames = new HashSet<string>(PyBuiltinsModule.Instance.BuiltinDict.Keys);
+        }
+
         private SymbolTable? _rootTable;
         private SymbolTable? _currentTable;
         private int _lambdaCounter = 0;
@@ -568,18 +577,8 @@ namespace SharpPy
         /// </summary>
         private bool IsBuiltinName(string name)
         {
-            // Common Python built-ins that should never be cell variables
-            var builtins = new HashSet<string>
-            {
-                "print", "len", "str", "int", "float", "bool", "list", "dict", "tuple", "set",
-                "range", "enumerate", "zip", "map", "filter", "sorted", "reversed", "sum",
-                "min", "max", "abs", "round", "type", "isinstance", "issubclass", "hasattr",
-                "getattr", "setattr", "delattr", "callable", "iter", "next", "open", "input",
-                "repr", "format", "exec", "eval", "compile", "globals", "locals", "vars",
-                "dir", "id", "hash", "ord", "chr", "bin", "oct", "hex", "any", "all",
-                "__import__", "super", "classmethod", "staticmethod", "property"
-            };
-            return builtins.Contains(name);
+            // 동적으로 PyBuiltinsModule에서 builtin 여부 확인 (자동 동기화)
+            return _builtinNames.Contains(name);
         }
 
         // Track processed tables to prevent infinite recursion
