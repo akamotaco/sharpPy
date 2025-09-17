@@ -509,6 +509,17 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// CPython 3.12: 루트 심볼 테이블을 설정 (중첩 함수 컴파일용)
+        /// </summary>
+        public void SetRootSymbolTable(SymbolTable rootSymbolTable)
+        {
+            _symbolTable = rootSymbolTable;
+#if DEBUG_LOG
+            Console.WriteLine($"  📥 Root symbol table set: {rootSymbolTable?.Name}");
+#endif
+        }
+
+        /// <summary>
         /// CPython 3.12: 중첩 함수들이 필요로 하는 자유 변수를 수집 (현재 함수에서 정의되지 않은 것만)
         /// </summary>
         private List<string> CollectNestedFreeVariables(SymbolTable functionTable)
@@ -607,15 +618,25 @@ namespace SharpPy
         /// </summary>
         private SymbolTable? FindSymbolTableByName(SymbolTable rootTable, string name)
         {
+            #if DEBUG_LOG
+            Console.WriteLine($"🔍 FindSymbolTableByName: Searching for '{name}' in table '{rootTable.GetName()}' (type: {rootTable.GetType()})");
+            #endif
+
             // Check current table
             if (rootTable.GetName() == name)
             {
+                #if DEBUG_LOG
+                Console.WriteLine($"✅ Found matching table: {name}");
+                #endif
                 return rootTable;
             }
 
             // Search children recursively
             foreach (var child in rootTable.GetChildren())
             {
+                #if DEBUG_LOG
+                Console.WriteLine($"🔍 Checking child table: '{child.GetName()}' (type: {child.GetType()})");
+                #endif
                 var found = FindSymbolTableByName(child, name);
                 if (found != null)
                 {
@@ -623,6 +644,9 @@ namespace SharpPy
                 }
             }
 
+            #if DEBUG_LOG
+            Console.WriteLine($"❌ Table '{name}' not found in '{rootTable.GetName()}'");
+            #endif
             return null;
         }
 
@@ -2286,6 +2310,15 @@ namespace SharpPy
                 Console.WriteLine($"  📤 Passed symbol table context to nested compiler: {_currentSymbolTable.Name}");
                 #endif
             }
+
+            // CPython 3.12: 루트 심볼 테이블도 전달 (클래스 내 함수 컴파일을 위해 필요)
+            if (_symbolTable != null)
+            {
+                compiler.SetRootSymbolTable(_symbolTable);
+                #if DEBUG_LOG
+                Console.WriteLine($"  📤 Passed root symbol table to nested compiler: {_symbolTable.Name}");
+                #endif
+            }
             var funcCode = compiler.CompileWithClosureAndDefaults(func.Body, func.Name, paramNames, defaults, freeVars, cellVars, flags, argCount, posonlyArgCount);
             
             // 3. CPython 3.12 exact pattern: Load decorators in REVERSE order (bottom to top in source)
@@ -3389,13 +3422,23 @@ namespace SharpPy
         }
         private void CompileClass(ClassDefStatement cls)
         {
+            #if DEBUG_LOG
+            Console.WriteLine($"🔍 CompileClass called for: {cls.Name}, TypeParams.Count: {cls.TypeParams.Count}");
+            #endif
+
             // PEP 695: Generic class with type parameters requires special handling
             if (cls.TypeParams.Count > 0)
             {
+                #if DEBUG_LOG
+                Console.WriteLine($"🔍 Dispatching to CompileGenericClass for: {cls.Name}");
+                #endif
                 CompileGenericClass(cls);
             }
             else
             {
+                #if DEBUG_LOG
+                Console.WriteLine($"🔍 Dispatching to CompileRegularClass for: {cls.Name}");
+                #endif
                 CompileRegularClass(cls);
             }
         }
@@ -3555,18 +3598,69 @@ namespace SharpPy
         
         private void CompileRegularClass(ClassDefStatement cls)
         {
+            #if DEBUG_LOG
+            Console.WriteLine($"🔍 CompileRegularClass called for: {cls.Name}");
+            #endif
+
             // CPython 3.12: Regular class compilation (no type parameters)
             // PUSH_NULL 먼저, 그 다음 __build_class__ function 로드
             EmitInstruction(ByteCodeOp.PUSH_NULL);
             EmitLoadName("__build_class__");
-            
+
             // Compile class body into a function
             var classBodyName = $"<class_body_{cls.Name}>";
-            var classBodyCode = CompileClassBody(cls.Body, classBodyName);
-            
-            // Load the class body function code
-            EmitLoadConst(classBodyCode);
-            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, 0);
+
+            // Check if class has free variables (needs closure)
+            var classFreeVars = GetClassFreeVariables(cls.Name);
+            #if DEBUG_LOG
+            Console.WriteLine($"🔍 GetClassFreeVariables for {cls.Name}: {classFreeVars.Count} free vars [{string.Join(", ", classFreeVars)}]");
+            #endif
+
+            // Try alternative class body name if first attempt failed
+            if (classFreeVars.Count == 0)
+            {
+                var classBodyFreeVars = GetClassFreeVariables(classBodyName);
+                #if DEBUG_LOG
+                Console.WriteLine($"🔍 Alternative GetClassFreeVariables for {classBodyName}: {classBodyFreeVars.Count} free vars [{string.Join(", ", classBodyFreeVars)}]");
+                #endif
+                if (classBodyFreeVars.Count > 0)
+                {
+                    classFreeVars = classBodyFreeVars;
+                }
+                else
+                {
+                    // Fallback: Analyze class body directly to find free variables
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔍 Symbol table lookup failed, using direct class body analysis");
+                    #endif
+                    classFreeVars = GetClassFreeVariablesFromBody(cls.Body);
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔍 GetClassFreeVariablesFromBody for {cls.Name}: {classFreeVars.Count} free vars [{string.Join(", ", classFreeVars)}]");
+                    #endif
+                }
+            }
+
+            if (classFreeVars.Count > 0)
+            {
+                // Create closure: LOAD_CLOSURE + BUILD_TUPLE
+                foreach (var freeVar in classFreeVars)
+                {
+                    EmitLoadClosure(freeVar);
+                }
+                EmitInstruction(ByteCodeOp.BUILD_TUPLE, classFreeVars.Count);
+
+                // Compile class body with closure support
+                var classBodyCode = CompileClassBody(cls.Body, classBodyName);
+                EmitLoadConst(classBodyCode);
+                EmitInstruction(ByteCodeOp.MAKE_FUNCTION, 8); // 8 = closure flag
+            }
+            else
+            {
+                // No closure needed - original logic
+                var classBodyCode = CompileClassBody(cls.Body, classBodyName);
+                EmitLoadConst(classBodyCode);
+                EmitInstruction(ByteCodeOp.MAKE_FUNCTION, 0);
+            }
             
             // Load class name
             EmitLoadConst(new PyString(cls.Name));
@@ -3599,7 +3693,203 @@ namespace SharpPy
             // Store the created class
             EmitStoreName(cls.Name);
         }
-        
+
+        /// <summary>
+        /// Get the root symbol table by traversing up the hierarchy
+        /// </summary>
+        private SymbolTable GetRootSymbolTable(SymbolTable table)
+        {
+            var current = table;
+            while (current.GetParent() != null)
+            {
+                current = current.GetParent()!; // Non-null assertion since we checked it's not null
+            }
+            return current;
+        }
+
+        /// <summary>
+        /// Get free variables for a class from its symbol table or by analyzing class body
+        /// </summary>
+        private List<string> GetClassFreeVariables(string className)
+        {
+            if (_symbolTable == null)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"❌ _symbolTable is null, cannot look up class {className}");
+                #endif
+                return new List<string>();
+            }
+
+            // Search from the root of the symbol table hierarchy, not the current scope
+            var rootSymbolTable = GetRootSymbolTable(_symbolTable);
+
+            #if DEBUG_LOG
+            Console.WriteLine($"🔍 GetClassFreeVariables: Looking for class '{className}' from root table '{rootSymbolTable.GetName()}'");
+            #endif
+
+            var classSymbolTable = FindSymbolTableByName(rootSymbolTable, className);
+
+            #if DEBUG_LOG
+            Console.WriteLine($"🔍 FindSymbolTableByName({className}): {(classSymbolTable != null ? "Found" : "Not found")}");
+            if (classSymbolTable != null)
+            {
+                Console.WriteLine($"🔍 Class {className} symbol table has {classSymbolTable.GetSymbols().Count} symbols:");
+                foreach (var symbol in classSymbolTable.GetSymbols().Values)
+                {
+                    Console.WriteLine($"  Symbol {symbol.Name}: Scope={symbol.Scope}, IsFree={symbol.IsFree()}, Flags={symbol.Flags}");
+                }
+                var freeVars = classSymbolTable.FindFreeVariables();
+                Console.WriteLine($"🔍 Class {className} symbol table free vars: [{string.Join(", ", freeVars)}]");
+                return freeVars;
+            }
+            else
+            {
+                Console.WriteLine($"❌ Symbol table for class {className} not found even from root!");
+            }
+            #endif
+
+            if (classSymbolTable != null)
+            {
+                return classSymbolTable.FindFreeVariables();
+            }
+
+            return new List<string>();
+        }
+
+        /// <summary>
+        /// Alternative method: Extract free variables by analyzing class body functions
+        /// This is used when symbol table context is not available during compilation
+        /// </summary>
+        private List<string> GetClassFreeVariablesFromBody(List<Statement> classBody)
+        {
+            var freeVariables = new HashSet<string>();
+
+            #if DEBUG_LOG
+            Console.WriteLine($"🔍 GetClassFreeVariablesFromBody: Analyzing {classBody.Count} statements");
+            #endif
+
+            foreach (var statement in classBody)
+            {
+                if (statement is FunctionDefStatement funcDef)
+                {
+                    // For each method in the class, collect variables that are:
+                    // 1. Referenced but not defined locally
+                    // 2. Not parameters
+                    var referencedVars = CollectReferencedVariables(funcDef.Body);
+                    var localVars = CollectLocallyDefinedVariables(funcDef.Body);
+                    var parameters = funcDef.Parameters.ToHashSet();
+
+                    foreach (var varName in referencedVars)
+                    {
+                        if (!localVars.Contains(varName) && !parameters.Contains(varName) && !IsBuiltinVariable(varName))
+                        {
+                            freeVariables.Add(varName);
+                            #if DEBUG_LOG
+                            Console.WriteLine($"  Found potential free variable: {varName} in method {funcDef.Name}");
+                            #endif
+                        }
+                    }
+                }
+            }
+
+            var result = freeVariables.ToList();
+            #if DEBUG_LOG
+            Console.WriteLine($"🔍 GetClassFreeVariablesFromBody result: [{string.Join(", ", result)}]");
+            #endif
+
+            return result;
+        }
+
+        private HashSet<string> CollectReferencedVariables(List<Statement> statements)
+        {
+            var variables = new HashSet<string>();
+            foreach (var statement in statements)
+            {
+                CollectReferencedVariablesFromStatement(statement, variables);
+            }
+            return variables;
+        }
+
+        private void CollectReferencedVariablesFromStatement(Statement statement, HashSet<string> variables)
+        {
+            switch (statement)
+            {
+                case ExpressionStatement exprStmt:
+                    CollectReferencedVariablesFromExpression(exprStmt.Expression, variables);
+                    break;
+                case IfStatement ifStmt:
+                    CollectReferencedVariablesFromExpression(ifStmt.Test, variables);
+                    foreach (var stmt in ifStmt.Body)
+                        CollectReferencedVariablesFromStatement(stmt, variables);
+                    if (ifStmt.OrElse != null)
+                        foreach (var stmt in ifStmt.OrElse)
+                            CollectReferencedVariablesFromStatement(stmt, variables);
+                    break;
+                case ReturnStatement retStmt:
+                    if (retStmt.Value != null)
+                        CollectReferencedVariablesFromExpression(retStmt.Value, variables);
+                    break;
+                // Add more statement types as needed
+            }
+        }
+
+        private void CollectReferencedVariablesFromExpression(Expression expression, HashSet<string> variables)
+        {
+            switch (expression)
+            {
+                case NameExpression nameExpr:
+                    variables.Add(nameExpr.Name);
+                    break;
+                case AttributeExpression attrExpr:
+                    CollectReferencedVariablesFromExpression(attrExpr.Value, variables);
+                    break;
+                case CallExpression callExpr:
+                    CollectReferencedVariablesFromExpression(callExpr.Function, variables);
+                    foreach (var arg in callExpr.Arguments)
+                        CollectReferencedVariablesFromExpression(arg, variables);
+                    break;
+                case FStringExpression fstringExpr:
+                    foreach (var value in fstringExpr.Values)
+                        if (value is Expression expr)
+                            CollectReferencedVariablesFromExpression(expr, variables);
+                    break;
+                // Add more expression types as needed
+            }
+        }
+
+        private HashSet<string> CollectLocallyDefinedVariables(List<Statement> statements)
+        {
+            var variables = new HashSet<string>();
+            foreach (var statement in statements)
+            {
+                if (statement is AssignStatement assignStmt)
+                {
+                    // AssignStatement has VariableName property, not Targets
+                    variables.Add(assignStmt.VariableName);
+                }
+            }
+            return variables;
+        }
+
+        private bool IsBuiltinVariable(string varName)
+        {
+            return varName == "self" || varName == "print" || varName == "len" || varName == "str" || varName == "int" || varName == "float" || varName == "bool" || varName == "list" || varName == "dict" || varName == "set" || varName == "tuple";
+        }
+
+        #if DEBUG_LOG
+        private void PrintSymbolTableHierarchy(SymbolTable table, int depth)
+        {
+            var indent = new string(' ', depth * 2);
+            Console.WriteLine($"{indent}SymbolTable: {table.GetName()}");
+            var children = table.GetChildren();
+            Console.WriteLine($"{indent}  → {children.Count()} children");
+            foreach (var child in children)
+            {
+                PrintSymbolTableHierarchy(child, depth + 1);
+            }
+        }
+        #endif
+
         /// <summary>
         /// Compile simplified Generic Parameters function for PEP 695
         /// This creates a basic working version first
@@ -3729,14 +4019,32 @@ namespace SharpPy
             SymbolTable? classSymbolTable = null;
             if (_symbolTable != null)
             {
+                #if DEBUG_LOG
+                Console.WriteLine($"🔍 Searching for class symbol table: {className} in root table: {_symbolTable.Name}");
+                Console.WriteLine($"🔍 Root table children: {_symbolTable.Children.Count()}");
+                foreach (var child in _symbolTable.Children)
+                {
+                    Console.WriteLine($"  Child: {child.Name}");
+                }
+                #endif
+
                 // Find the class symbol table by name
                 classSymbolTable = FindSymbolTableByName(_symbolTable, className);
                 if (classSymbolTable == null)
                 {
                     // Try extracting class name from className (remove <class_body_ prefix)
                     var actualClassName = className.Replace("<class_body_", "").TrimEnd('>');
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔍 Trying actual class name: {actualClassName}");
+                    #endif
                     classSymbolTable = FindSymbolTableByName(_symbolTable, actualClassName);
                 }
+            }
+            else
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"❌ _symbolTable is null when compiling class body {className}");
+                #endif
             }
 
             if (classSymbolTable != null)
@@ -3761,6 +4069,19 @@ namespace SharpPy
             _cellVars = new List<string>();
             _freeVars = new List<string>();
             _exceptionTable = new List<ExceptionTableEntry>(); // Reset Exception Table
+
+            // Set up free variables if class symbol table is available
+            if (classSymbolTable != null)
+            {
+                var classFreeVars = classSymbolTable.FindFreeVariables();
+                _freeVars.AddRange(classFreeVars);
+                #if DEBUG_LOG
+                if (classFreeVars.Count > 0)
+                {
+                    Console.WriteLine($"🔍 Class {className} has {classFreeVars.Count} free variables: [{string.Join(", ", classFreeVars)}]");
+                }
+                #endif
+            }
             
             // Check if class body contains super() calls and add __class__ cell variable if needed
             if (ContainsSuperCalls(body))
@@ -3787,6 +4108,15 @@ namespace SharpPy
             
             try
             {
+                // CPython 3.12: Emit COPY_FREE_VARS if there are free variables
+                if (_freeVars.Count > 0)
+                {
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔧 Emitting COPY_FREE_VARS for {_freeVars.Count} free variables in class {className}");
+                    #endif
+                    EmitInstruction(ByteCodeOp.COPY_FREE_VARS, _freeVars.Count);
+                }
+
                 // Compile class body statements
                 foreach (var stmt in body)
                 {
@@ -8066,10 +8396,31 @@ namespace SharpPy
         /// </summary>
         private void EmitLoadClosure(string varName)
         {
-            var index = _cellVars.IndexOf(varName);
-            if (index == -1)
-                throw new Exception($"Variable '{varName}' not found in cell variables");
-            EmitInstruction(ByteCodeOp.LOAD_CLOSURE, index);
+            // Check free variables first (for class body compilation)
+            var freeIndex = _freeVars.IndexOf(varName);
+            if (freeIndex != -1)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"    📋 LOAD_CLOSURE for free var: {varName} (free index {freeIndex})");
+                #endif
+                EmitInstruction(ByteCodeOp.LOAD_CLOSURE, freeIndex);
+                return;
+            }
+
+            // Check cell variables (for regular function compilation)
+            var cellIndex = _cellVars.IndexOf(varName);
+            if (cellIndex != -1)
+            {
+                // CPython 3.12: Cell variables come after free variables in instruction indices
+                var instructionIndex = _freeVars.Count + cellIndex;
+                #if DEBUG_LOG
+                Console.WriteLine($"    📋 LOAD_CLOSURE for cell var: {varName} (cell index {cellIndex} → instruction index {instructionIndex})");
+                #endif
+                EmitInstruction(ByteCodeOp.LOAD_CLOSURE, instructionIndex);
+                return;
+            }
+
+            throw new Exception($"Variable '{varName}' not found in cell or free variables");
         }
         
         /// <summary>

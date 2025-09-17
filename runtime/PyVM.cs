@@ -509,7 +509,7 @@ namespace SharpPy
 
         // 프레임 실행 (바이트코드 해석)
         // CPython 3.12: Execute class body and return namespace
-        public Dictionary<string, PyObject> ExecuteClassBody(PyCodeObject classBody)
+        public Dictionary<string, PyObject> ExecuteClassBody(PyCodeObject classBody, PyCell[]? closure = null)
         {
             // Store the original global scope state to detect new variables
             Dictionary<string, PyObject> originalGlobals = null;
@@ -522,7 +522,10 @@ namespace SharpPy
                 originalGlobals = new Dictionary<string, PyObject>(parentScope.GlobalScope.Variables);
             }
 
-            var frame = new PyFrame(classBody, new PyObject[0], parentScope);
+            // CPython 3.12: Create frame with closure if provided
+            var frame = closure != null
+                ? new PyFrame(classBody, new PyObject[0], parentScope, closure)
+                : new PyFrame(classBody, new PyObject[0], parentScope);
             var result = ExecuteFrame(frame);
 
             // Extract class namespace - capture variables added during class body execution

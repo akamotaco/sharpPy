@@ -350,6 +350,27 @@ namespace SharpPy
                     }
                     break;
 
+                case IfStatement ifStmt:
+#if DEBUG_LOG
+                    Console.WriteLine($"  AnalyzeStatement: IfStatement in scope '{_currentTable?.GetName()}'");
+#endif
+                    // Analyze condition
+                    AnalyzeExpression(ifStmt.Test);
+                    // Analyze body
+                    foreach (var stmt in ifStmt.Body)
+                    {
+                        AnalyzeStatement(stmt);
+                    }
+                    // Analyze else clause
+                    if (ifStmt.OrElse != null)
+                    {
+                        foreach (var stmt in ifStmt.OrElse)
+                        {
+                            AnalyzeStatement(stmt);
+                        }
+                    }
+                    break;
+
                 // For now, skip complex statement types
                 default:
 #if DEBUG_LOG
@@ -471,9 +492,9 @@ namespace SharpPy
                         // Mark as free variable (needs closure)
                         symbol.Scope = SymbolScope.Free;
 
-                        // Mark the parent symbol as cell variable ONLY if it's assigned in that scope
-                        // CPython 3.12: Variables that are only used (not assigned) should not become Cell
-                        if (foundInParent.IsAssigned())
+                        // Mark the parent symbol as cell variable if it's assigned OR a parameter
+                        // CPython 3.12: Parameters that are used in nested scopes need to become Cell variables
+                        if (foundInParent.IsAssigned() || foundInParent.IsParameter())
                         {
                             foundInParent.Scope = SymbolScope.Cell;
                         }
@@ -676,7 +697,7 @@ namespace SharpPy
 #endif
                             if (parentSymbol != null &&
                                 (parentSymbol.Scope == SymbolScope.Local || parentSymbol.Scope == SymbolScope.Cell) &&
-                                parentSymbol.IsAssigned())
+                                (parentSymbol.IsAssigned() || parentSymbol.IsParameter()))
                             {
 #if DEBUG_LOG
                                 Console.WriteLine($"    → ✅ Marking {childSymbol.Name} as CELL in {table.GetName()} (used as FREE in {child.GetName()})");
@@ -758,6 +779,12 @@ namespace SharpPy
                     {
                         // Parent doesn't have this variable, so parent also needs it as free variable
                         parent.DefineSymbol(freeVar, SymbolFlags.None);
+                        // Explicitly set scope to Free for proper identification
+                        var addedSymbol = parent.Lookup(freeVar);
+                        if (addedSymbol != null)
+                        {
+                            addedSymbol.Scope = SymbolScope.Free;
+                        }
 #if DEBUG_LOG
                         Console.WriteLine($"    → Added {freeVar} as free variable to {parent.GetName()}");
 #endif
@@ -823,6 +850,11 @@ namespace SharpPy
                 case BinaryOpExpression binOp:
                     AnalyzeExpression(binOp.Left);
                     AnalyzeExpression(binOp.Right);
+                    break;
+
+                case CompareExpression compareOp:
+                    AnalyzeExpression(compareOp.Left);
+                    AnalyzeExpression(compareOp.Right);
                     break;
 
                 case UnaryOpExpression unaryOp:

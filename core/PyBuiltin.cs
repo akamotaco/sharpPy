@@ -1174,10 +1174,22 @@ namespace SharpPy
                     {
                         #if DEBUG_LOG
                         Console.WriteLine($"Executing class body with namespace capture...");
+                        if (classBodyFunc.Closure != null && classBodyFunc.Closure.Length > 0)
+                        {
+                            Console.WriteLine($"Class body function has {classBodyFunc.Closure.Length} closure cells");
+                            for (int i = 0; i < classBodyFunc.Closure.Length; i++)
+                            {
+                                Console.WriteLine($"  Closure[{i}]: {classBodyFunc.Closure[i]} (HasValue: {classBodyFunc.Closure[i].HasValue})");
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("Class body function has no closure");
+                        }
                         #endif
                         var vm = PyVM.Instance;
-                        classNamespace = vm.ExecuteClassBody(classBodyFunc.CodeObject);
-                        
+                        classNamespace = vm.ExecuteClassBody(classBodyFunc.CodeObject, classBodyFunc.Closure);
+
                         #if DEBUG_LOG
                         Console.WriteLine($"Class body executed for {className}, captured {classNamespace.Count} variables");
                         #endif
