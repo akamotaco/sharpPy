@@ -188,6 +188,7 @@ namespace SharpPy
     {
         private SymbolTable? _rootTable;
         private SymbolTable? _currentTable;
+        private int _lambdaCounter = 0;
 
         public SymbolTable BuildSymbolTable(List<Statement> statements, string name = "<module>")
         {
@@ -317,6 +318,32 @@ namespace SharpPy
                     if (tryStmt.FinalBody != null)
                     {
                         foreach (var stmt in tryStmt.FinalBody)
+                        {
+                            AnalyzeStatement(stmt);
+                        }
+                    }
+                    break;
+
+                case ForStatement forStmt:
+#if DEBUG_LOG
+                    Console.WriteLine($"  AnalyzeStatement: ForStatement in scope '{_currentTable?.GetName()}'");
+#endif
+                    // 1. Analyze iterable expression
+                    AnalyzeExpression(forStmt.Iter);
+
+                    // 2. Define loop variable as assigned
+                    _currentTable?.DefineSymbol(forStmt.Target, SymbolFlags.Assigned);
+
+                    // 3. Analyze loop body
+                    foreach (var stmt in forStmt.Body)
+                    {
+                        AnalyzeStatement(stmt);
+                    }
+
+                    // 4. Analyze else clause if present
+                    if (forStmt.ElseClause != null)
+                    {
+                        foreach (var stmt in forStmt.ElseClause)
                         {
                             AnalyzeStatement(stmt);
                         }
@@ -486,12 +513,11 @@ namespace SharpPy
             var parent = currentTable.GetParent();
             while (parent != null)
             {
-                // CPython 3.12: Module-level variables are always GLOBAL, never FREE
-                if (parent.Type == SymbolTableType.Module)
+                // CPython 3.12: Module-level variables are GLOBAL when accessed from function scope
+                if (parent.Type == SymbolTableType.Module && currentTable.Type == SymbolTableType.Function)
                 {
-                    // Skip module scope - variables there should be GLOBAL
-                    parent = parent.GetParent();
-                    continue;
+                    // Function scope accessing module variables → should be GLOBAL
+                    break;  // Stop searching, will be marked as GLOBAL
                 }
 
                 if (parent.GetSymbols().TryGetValue(name, out var symbol))
@@ -811,10 +837,52 @@ namespace SharpPy
                     }
                     break;
 
+                case LambdaExpression lambda:
+                    // Lambda functions need their own scope to track free variables
+#if DEBUG_LOG
+                    Console.WriteLine($"      AnalyzeExpression: LambdaExpression in scope '{_currentTable?.GetName()}'");
+#endif
+                    AnalyzeLambda(lambda);
+                    break;
+
                 // Skip constants and other literal expressions
                 default:
                     break;
             }
+        }
+
+        private void AnalyzeLambda(LambdaExpression lambda)
+        {
+            // Create new scope for lambda body - similar to function but unnamed
+            var lambdaTable = new SymbolTable($"<lambda_{_lambdaCounter++}>", SymbolTableType.Function);
+            _currentTable?.AddChild(lambdaTable);
+
+            var savedTable = _currentTable;
+            _currentTable = lambdaTable;
+
+            // Add lambda parameters to scope
+            foreach (var param in lambda.Args)
+            {
+                // Extract parameter name (handle defaults, *args, **kwargs if needed)
+                var paramName = param.Split('=')[0].Trim();
+                if (paramName.StartsWith("**"))
+                    paramName = paramName.Substring(2);
+                else if (paramName.StartsWith("*"))
+                    paramName = paramName.Substring(1);
+
+                _currentTable.DefineSymbol(paramName, SymbolFlags.Parameter | SymbolFlags.Assigned);
+            }
+
+            // Analyze lambda body (single expression)
+#if DEBUG_LOG
+            Console.WriteLine($"        Analyzing lambda body in scope '{_currentTable?.GetName()}'");
+#endif
+            AnalyzeExpression(lambda.Body);
+
+            // After analyzing body, resolve free variables
+            ResolveFreeVariables(_currentTable);
+
+            _currentTable = savedTable;
         }
 
         private void AnalyzeAsyncFunction(AsyncFunctionDefStatement func)

@@ -3471,13 +3471,27 @@ namespace SharpPy
                         #if DEBUG_LOG
                         Console.WriteLine($"   ❌ Cell is empty! Cell: {cell}, HasValue: {cell?.HasValue}");
                         #endif
+
+                        // CPython 3.12: Cell이 비어있으면 즉시 UnboundLocalError 발생
+                        // Global fallback 같은 메커니즘은 존재하지 않음
+                        string varName = "unknown_variable";
+                        if (cellIndex < frame.Code.FreeVars.Count)
+                        {
+                            varName = frame.Code.FreeVars[cellIndex];
+                        }
+                        else
+                        {
+                            var localCellVarIndex = cellIndex - frame.Code.FreeVars.Count;
+                            if (localCellVarIndex < frame.Code.CellVars.Count)
+                            {
+                                varName = frame.Code.CellVars[localCellVarIndex];
+                            }
+                        }
+
                         #if DEBUG_LOG
-                        Console.WriteLine($"   ❌ DEBUG: Variable should have been stored in parent scope");
+                        Console.WriteLine($"   ❌ CPython 3.12 behavior: Throwing UnboundLocalError for '{varName}'");
                         #endif
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   ❌ Check parent frame cell creation and variable binding");
-                        #endif
-                        throw PyNameError.Create("local variable referenced before assignment");
+                        throw PyNameError.Create($"local variable '{varName}' referenced before assignment");
                     }
                     break;
 
@@ -3494,17 +3508,14 @@ namespace SharpPy
                     }
                     else
                     {
-                        // CPython 3.12: Cell variables are at offset FreeVars.Count in the cell array
-                        var storeCellVarIndex = storeCellIndex - frame.Closure.Length;
-                        var storeActualStoreIndex = frame.Code.FreeVars.Count + storeCellVarIndex;
-
-                        if (storeActualStoreIndex < frame.Cells.Length)
+                        // CPython 3.12: STORE_DEREF uses direct cell array index
+                        if (storeCellIndex < frame.Cells.Length)
                         {
-                            storeCell = frame.Cells[storeActualStoreIndex];
+                            storeCell = frame.Cells[storeCellIndex];
                         }
                         else
                         {
-                            throw new Exception($"STORE_DEREF: invalid actual cell index {storeActualStoreIndex}");
+                            throw new Exception($"STORE_DEREF: invalid cell index {storeCellIndex}");
                         }
                     }
 
@@ -3522,10 +3533,10 @@ namespace SharpPy
                     }
                     else
                     {
-                        var localDeleteIndex = deleteCellIndex - frame.Closure.Length;
-                        if (localDeleteIndex < frame.Cells.Length)
+                        // CPython 3.12: DELETE_DEREF uses direct cell array index
+                        if (deleteCellIndex < frame.Cells.Length)
                         {
-                            deleteCell = frame.Cells[localDeleteIndex];
+                            deleteCell = frame.Cells[deleteCellIndex];
                         }
                         else
                         {

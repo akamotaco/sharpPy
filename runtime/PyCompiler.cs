@@ -6272,9 +6272,9 @@ namespace SharpPy
                 }
             }
             
-            // Phase 1: Free variable analysis with clean parameter names
-            var analyzer = new FreeVariableAnalyzer();
-            var (freeVars, cellVars) = analyzer.AnalyzeScope(lambda.Body, cleanParamNames);
+            // Phase 1: Use Symbol Table analysis instead of FreeVariableAnalyzer
+            var lambdaTable = FindLambdaSymbolTable(lambdaName);
+            var (freeVars, cellVars) = GetFreeAndCellVariables(lambdaTable);
             
             #if DEBUG_LOG
             Console.WriteLine($"\n🔍 Lambda analysis: {lambdaName}");
@@ -6323,6 +6323,16 @@ namespace SharpPy
             {
                 SetupClosureCompilation(cellVars, freeVars);
             }
+
+            // Set lambda symbol table context for proper variable resolution
+            var originalSymbolTable = _currentSymbolTable;
+            if (lambdaTable != null)
+            {
+                _currentSymbolTable = lambdaTable;
+                #if DEBUG_LOG
+                Console.WriteLine($"  🔧 Set lambda symbol table context: {lambdaTable.GetName()}");
+                #endif
+            }
             
             // Phase 2: Cell 변수들을 위한 MAKE_CELL 명령어 발행 (람다 파라미터용)
             // CPython 3.12: MAKE_CELL uses CellVars index order (0, 1, 2...)
@@ -6347,6 +6357,7 @@ namespace SharpPy
             _constants = tempConstants;
             _names = tempNames;
             _varNames = tempVarNames; // Restore original VarNames
+            _currentSymbolTable = originalSymbolTable; // Restore original symbol table
             
             // CPython 3.12: Create function code object with correct VarNames order
             // VarNames = parameters first, then any local variables used in lambda body
@@ -6436,6 +6447,56 @@ namespace SharpPy
         
         // Lambda counter for unique names
         private static int _lambdaCounter = 0;
+
+        private SymbolTable? FindLambdaSymbolTable(string lambdaName)
+        {
+            // Find lambda symbol table from current symbol table context (not root)
+            #if DEBUG_LOG
+            Console.WriteLine($"  🔍 Looking for lambda symbol table: {lambdaName}");
+            Console.WriteLine($"  🔍 Current symbol table context: {_currentSymbolTable?.GetName()}");
+            #endif
+            var result = _currentSymbolTable != null ? FindSymbolTableByName(_currentSymbolTable, lambdaName) : null;
+            #if DEBUG_LOG
+            Console.WriteLine($"  🔍 Found lambda symbol table: {result?.GetName()} (null: {result == null})");
+            #endif
+            return result;
+        }
+
+        private (List<string> freeVars, List<string> cellVars) GetFreeAndCellVariables(SymbolTable? table)
+        {
+            var freeVars = new List<string>();
+            var cellVars = new List<string>();
+
+            if (table == null) return (freeVars, cellVars);
+
+            // Extract variables based on Symbol Table analysis (CPython 3.12 way)
+            foreach (var (name, symbol) in table.GetSymbols())
+            {
+                if (symbol.Scope == SymbolScope.Free)
+                {
+                    freeVars.Add(name);
+                }
+                else if (symbol.Scope == SymbolScope.Cell)
+                {
+                    cellVars.Add(name);
+                }
+            }
+
+            #if DEBUG_LOG
+            Console.WriteLine($"  Symbol Table Free Variables: [{string.Join(", ", freeVars)}]");
+            Console.WriteLine($"  Symbol Table Cell Variables: [{string.Join(", ", cellVars)}]");
+            Console.WriteLine($"  Symbol Table Debug - Table: {table?.GetName()}, Symbols: {table?.GetSymbols().Count}");
+            if (table != null)
+            {
+                foreach (var (name, symbol) in table.GetSymbols())
+                {
+                    Console.WriteLine($"    → {name}: Scope={symbol.Scope}, Flags={symbol.Flags}");
+                }
+            }
+            #endif
+
+            return (freeVars, cellVars);
+        }
         private void CompileConditional(ConditionalExpression conditional) 
         {
             // CPython 3.12 조건부 표현식: A if B else C
