@@ -901,6 +901,8 @@ namespace SharpPy
                     foreach (var generator in listComp.Generators)
                     {
                         AnalyzeExpression(generator.Iter);
+                        // CPython 3.12: Comprehension target variables are local to the comprehension
+                        AnalyzeComprehensionTarget(generator.Target);
                         foreach (var condition in generator.Ifs)
                         {
                             AnalyzeExpression(condition);
@@ -915,6 +917,8 @@ namespace SharpPy
                     foreach (var generator in dictComp.Generators)
                     {
                         AnalyzeExpression(generator.Iter);
+                        // CPython 3.12: Comprehension target variables are local to the comprehension
+                        AnalyzeComprehensionTarget(generator.Target);
                         foreach (var condition in generator.Ifs)
                         {
                             AnalyzeExpression(condition);
@@ -928,6 +932,8 @@ namespace SharpPy
                     foreach (var generator in setComp.Generators)
                     {
                         AnalyzeExpression(generator.Iter);
+                        // CPython 3.12: Comprehension target variables are local to the comprehension
+                        AnalyzeComprehensionTarget(generator.Target);
                         foreach (var condition in generator.Ifs)
                         {
                             AnalyzeExpression(condition);
@@ -1103,6 +1109,43 @@ namespace SharpPy
 
                 default:
                     // For other assignment targets, just analyze as expression
+                    AnalyzeExpression(target);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// CPython 3.12: Analyze comprehension target variables (like 'f' in 'for f in functions')
+        /// These are treated as local variables within the comprehension scope
+        /// </summary>
+        private void AnalyzeComprehensionTarget(Expression target)
+        {
+            switch (target)
+            {
+                case NameExpression name:
+                    // CPython 3.12: Comprehension variables are local to the function scope
+                    // They don't become global variables
+                    _currentTable?.DefineSymbol(name.Name, SymbolFlags.Assigned);
+                    break;
+
+                case TupleExpression tuple:
+                    // Tuple unpacking in comprehension: for (a, b) in items
+                    foreach (var element in tuple.Elements)
+                    {
+                        AnalyzeComprehensionTarget(element);
+                    }
+                    break;
+
+                case ListExpression list:
+                    // List unpacking in comprehension: for [a, b] in items
+                    foreach (var element in list.Elements)
+                    {
+                        AnalyzeComprehensionTarget(element);
+                    }
+                    break;
+
+                default:
+                    // For other target types, just analyze as expression
                     AnalyzeExpression(target);
                     break;
             }

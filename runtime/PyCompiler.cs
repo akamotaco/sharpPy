@@ -8030,9 +8030,9 @@ namespace SharpPy
             switch (iterable)
             {
                 case ListExpression listExpr:
-                    // ListExpression 내부 요소들이 모두 정적인지 확인 (상수 또는 컴프리헨션 변수 참조)
-                    bool allElementsAreStatic = listExpr.Elements.All(e =>
-                        e is ConstantExpression || e is NameExpression);
+                    // ListExpression 내부 요소들이 모두 정적인지 확인
+                    // (상수, 컴프리헨션 변수 참조, 또는 이들의 간단한 연산)
+                    bool allElementsAreStatic = listExpr.Elements.All(e => IsStaticElement(e));
                     #if DEBUG_LOG
                     Console.WriteLine($"  {(allElementsAreStatic ? "✅" : "❌")} 리스트 이터러블: {listExpr.Elements.Count}개 요소, 정적={allElementsAreStatic}");
                     #endif
@@ -8075,6 +8075,34 @@ namespace SharpPy
                     #if DEBUG_LOG
                     Console.WriteLine($"  ❌ 동적 이터러블: 복잡한 표현식 {iterable.GetType().Name}");
                     #endif
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// 단일 expression이 정적인지 판단 (comprehension 변수의 간단한 연산 포함)
+        /// </summary>
+        private bool IsStaticElement(Expression element)
+        {
+            switch (element)
+            {
+                case ConstantExpression:
+                    return true;
+
+                case NameExpression:
+                    // comprehension 변수는 정적으로 간주
+                    return true;
+
+                case BinaryOpExpression binaryExpr:
+                    // 양쪽 피연산자가 모두 정적이면 정적으로 간주 (예: a+b)
+                    return IsStaticElement(binaryExpr.Left) && IsStaticElement(binaryExpr.Right);
+
+                case UnaryOpExpression unaryExpr:
+                    // 피연산자가 정적이면 정적으로 간주 (예: -a)
+                    return IsStaticElement(unaryExpr.Operand);
+
+                default:
+                    // 다른 복잡한 표현식은 동적으로 간주
                     return false;
             }
         }
@@ -8235,8 +8263,9 @@ namespace SharpPy
                     bool isStaticPattern = IsStaticComprehensionPattern(generators);
                     if (isStaticPattern)
                     {
-                        // 3중+ 정적: LIST_APPEND (generatorCount + 1) + nested loops
-                        int listAppendArg = generatorCount + 1;
+                        // 3중+ 정적: LIST_APPEND generatorCount + nested loops
+                        // CPython 3.12: 3중 정적은 LIST_APPEND 3 사용
+                        int listAppendArg = generatorCount;
                         #if DEBUG_LOG
                         Console.WriteLine($"  🟢 {generatorCount}중 정적: LIST_APPEND {listAppendArg} + nested loops");
                         #endif
@@ -8244,10 +8273,10 @@ namespace SharpPy
                     }
                     else
                     {
-                        // 3중+ 동적: CPython 3.12 웹 검색 정보 기반 패턴
-                        // 3중: LIST_APPEND generatorCount (3)
-                        // 4중+: LIST_APPEND generatorCount + 1 (스택 복잡도로 인한 +1 추가)
-                        int listAppendArg = generatorCount >= 4 ? generatorCount + 1 : generatorCount;
+                        // 3중+ 동적: CPython 3.12 바이트코드 실험 결과 기반 정확한 패턴
+                        // CPython 3.12 실제 패턴: generatorCount + 1
+                        // 1중: LIST_APPEND 2, 2중: LIST_APPEND 3, 3중: LIST_APPEND 4
+                        int listAppendArg = generatorCount + 1;
                         #if DEBUG_LOG
                         Console.WriteLine($"  🟡 {generatorCount}중 동적: LIST_APPEND {listAppendArg} + nested loops (4중+ 스택 복잡도 +1)");
                         #endif
