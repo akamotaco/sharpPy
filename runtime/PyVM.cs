@@ -1745,6 +1745,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.LOAD_SUPER_ATTR:
+                    Console.WriteLine($"🚀 ENTERING LOAD_SUPER_ATTR");
                     // CPython 3.12: super() attribute access
                     // Stack: [..., super_func, __class__, self] -> [..., attr_value]
                     var superAttrName = frame.Code.Names[instruction.Argument];
@@ -1752,9 +1753,7 @@ namespace SharpPy
                     var classObj = frame.ValueStack.Pop();        // __class__
                     var superFunc = frame.ValueStack.Pop();       // super function
 
-                    #if DEBUG_LOG
                     Console.WriteLine($"🔧 LOAD_SUPER_ATTR: {superAttrName}, super={superFunc.GetType().Name}, class={classObj.GetType().Name}, self={selfObj.GetType().Name}");
-                    #endif
 
                     // Call super(__class__, self) to create super proxy, then get attribute
                     try
@@ -1776,10 +1775,53 @@ namespace SharpPy
                             throw PyRuntimeError.Create($"super object must be callable, got {superFunc.GetType().Name}");
                         }
 
-                        var superAttr = superProxy.GetAttribute(superAttrName);
-                        frame.ValueStack.Push(superAttr);
                         #if DEBUG_LOG
-                        Console.WriteLine($"🔧 LOAD_SUPER_ATTR success: got {superAttr.GetType().Name}");
+                        Console.WriteLine($"🔧 LOAD_SUPER_ATTR: calling GetAttribute({superAttrName}) on super proxy");
+                        #endif
+
+                        var superAttr = superProxy.GetAttribute(superAttrName);
+
+                        #if DEBUG_LOG
+                        Console.WriteLine($"🔧 LOAD_SUPER_ATTR: found attribute type: {superAttr?.GetType().Name ?? "null"}");
+                        #endif
+
+                        // CPython 3.12: LOAD_SUPER_ATTR automatically binds methods to self
+                        PyObject finalAttr = superAttr;
+                        if (superAttr is PyFunction pyFunc)
+                        {
+                            finalAttr = new PyMethod(selfObj, pyFunc);
+                            #if DEBUG_LOG
+                            Console.WriteLine($"🔧 LOAD_SUPER_ATTR: binding function {superAttrName} to self");
+                            #endif
+                        }
+                        else if (superAttr is PyBuiltinFunction builtinFunc)
+                        {
+                            // Convert PyBuiltinFunction to PyFunction for proper binding
+                            var func = new PyFunction(builtinFunc.Name, builtinFunc.Call);
+                            finalAttr = new PyMethod(selfObj, func);
+                            #if DEBUG_LOG
+                            Console.WriteLine($"🔧 LOAD_SUPER_ATTR: binding builtin function {superAttrName} to self");
+                            #endif
+                        }
+                        else if (superAttr is PyBuiltinMethod builtinMethod)
+                        {
+                            // Convert PyBuiltinMethod to PyFunction for proper binding
+                            var func = new PyFunction(builtinMethod.Name, builtinMethod.Call);
+                            finalAttr = new PyMethod(selfObj, func);
+                            Console.WriteLine($"🔧 LOAD_SUPER_ATTR: binding builtin method {superAttrName} to self");
+                        }
+                        else if (superAttr is PyMethod existingMethod)
+                        {
+                            // Already bound, but we need to re-bind to current self
+                            finalAttr = new PyMethod(selfObj, existingMethod.Function);
+                            #if DEBUG_LOG
+                            Console.WriteLine($"🔧 LOAD_SUPER_ATTR: re-binding existing method {superAttrName} to self");
+                            #endif
+                        }
+
+                        frame.ValueStack.Push(finalAttr);
+                        #if DEBUG_LOG
+                        Console.WriteLine($"🔧 LOAD_SUPER_ATTR success: got {finalAttr.GetType().Name}");
                         #endif
                     }
                     catch (Exception ex)

@@ -2408,20 +2408,19 @@ namespace SharpPy
         
         public override PyObject GetAttribute(string name)
         {
-            #if DEBUG_LOG
             Console.WriteLine($"🔍 PySuperProxy.GetAttribute: Looking for '{name}' in super({Type.Name})");
-            #endif
             #if DEBUG_LOG
             Console.WriteLine($"   Type.BaseTypes: {(Type.BaseTypes != null ? $"[{string.Join(", ", Type.BaseTypes.Select(t => t.Name))}]" : "null")}");
             #endif
 
             // CPython 3.12: Use MRO to find the method in parent classes
             // Skip the current class and look in its parents
-            if (Type.BaseTypes != null && Type.BaseTypes.Length > 0)
+            if (Type.MRO != null && Type.MRO.Count > 1)
             {
-                // Check each base type in order (MRO)
-                foreach (var baseType in Type.BaseTypes)
+                // Check each base type in order (MRO), skipping the current type
+                for (int i = 1; i < Type.MRO.Count; i++)
                 {
+                    var baseType = Type.MRO[i];
                     #if DEBUG_LOG
                     Console.WriteLine($"   → Checking base type: {baseType.Name}");
                     #endif
@@ -2431,33 +2430,52 @@ namespace SharpPy
                         var attr = baseType.GetAttribute(name);
                         if (attr != null)
                         {
-                            #if DEBUG_LOG
                             Console.WriteLine($"   ✅ Found '{name}' in {baseType.Name}: {attr.GetType().Name}");
-                            #endif
 
-                            // Special handling for metaclass methods like __new__
-                            if (attr is PyFunction function && Object != null)
+                            // Special handling for methods that need binding
+                            if (Object != null)
                             {
-                                // Check if we're in a metaclass context (Object is a class)
-                                bool isMetaclassContext = Object is PyClass || Object is PyTypeMetaclass;
+                                if (attr is PyFunction function)
+                                {
+                                    // Check if we're in a metaclass context (Object is a class)
+                                    bool isMetaclassContext = Object is PyClass || Object is PyTypeMetaclass;
 
-                                if (isMetaclassContext && (name == "__new__" || name == "__init__" || name == "__init_subclass__"))
-                                {
-                                    // Return unbound function for class methods in metaclass context
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"   🔧 Metaclass context: returning unbound {name}");
-                                    #endif
-                                    return function;
+                                    if (isMetaclassContext && (name == "__new__" || name == "__init__" || name == "__init_subclass__"))
+                                    {
+                                        // Return unbound function for class methods in metaclass context
+                                        #if DEBUG_LOG
+                                        Console.WriteLine($"   🔧 Metaclass context: returning unbound {name}");
+                                        #endif
+                                        return function;
+                                    }
+                                    else
+                                    {
+                                        // Regular instance method binding
+                                        #if DEBUG_LOG
+                                        Console.WriteLine($"   🔧 Instance context: binding {name} to {Object.GetType().Name}");
+                                        #endif
+                                        return new PyMethod(Object, function);
+                                    }
                                 }
-                                else
+                                else if (attr is PyBuiltinMethod builtin)
                                 {
-                                    // Regular instance method binding
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"   🔧 Instance context: binding {name} to {Object.GetType().Name}");
-                                    #endif
-                                    return new PyMethod(Object, function);
+                                    // Handle builtin methods like object.__init__
+                                    Console.WriteLine($"   🔧 Binding builtin method {name} to {Object.GetType().Name}");
+                                    // Convert PyBuiltinMethod to PyFunction for proper binding
+                                    var func = new PyFunction(builtin.Name, builtin.Call);
+                                    return new PyMethod(Object, func);
+                                }
+                                else if (attr is PyBuiltinFunction builtinFunc)
+                                {
+                                    // Handle builtin functions like object.__init__
+                                    Console.WriteLine($"   🔧 Binding builtin function {name} to {Object.GetType().Name}");
+                                    // Convert PyBuiltinFunction to PyFunction for proper binding
+                                    var func = new PyFunction(builtinFunc.Name, builtinFunc.Call);
+                                    return new PyMethod(Object, func);
                                 }
                             }
+
+                            Console.WriteLine($"🔧 PySuperProxy returning final attr: {attr?.GetType().Name ?? "null"}");
                             return attr;
                         }
                     }

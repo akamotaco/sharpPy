@@ -166,6 +166,16 @@ namespace SharpPy
                     }
                     break;
                 }
+                // Check for builtin object methods when checking 'object' type
+                // else if (mroType.Name == "object")
+                // {
+                //     attr = this.GetBuiltinObjectMethod(name);
+                //     if (attr != null)
+                //     {
+                //         Console.WriteLine($"   ✅ found builtin '{name}' in object: {attr.GetType().Name}");
+                //         break;
+                //     }
+                // }
             }
 
             // 2. data descriptor라면 우선권
@@ -831,6 +841,46 @@ namespace SharpPy
             {
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Returns builtin methods for the 'object' type
+        /// </summary>
+        protected PyObject GetBuiltinObjectMethod(string name)
+        {
+            return name switch
+            {
+                "__init__" => new PyBuiltinFunction("__init__", args => {
+                    // object.__init__() does nothing and returns None
+                    // args[0] is self, which is already bound
+                    return PyNone.Instance;
+                }),
+                "__new__" => new PyBuiltinFunction("__new__", args => {
+                    // object.__new__() creates a new instance
+                    if (args.Length > 0 && args[0] is PyClass cls)
+                    {
+                        return new PyClassInstance(cls);
+                    }
+                    throw PyTypeError.Create("object.__new__() missing 1 required positional argument: 'cls'");
+                }),
+                "__str__" => new PyBuiltinFunction("__str__", args => {
+                    // object.__str__() delegates to __repr__
+                    if (args.Length > 0)
+                    {
+                        return new PyString(args[0].ToStr());
+                    }
+                    throw PyTypeError.Create("__str__() missing 1 required positional argument: 'self'");
+                }),
+                "__repr__" => new PyBuiltinFunction("__repr__", args => {
+                    // object.__repr__() returns default representation
+                    if (args.Length > 0)
+                    {
+                        return new PyString(args[0].ToRepr());
+                    }
+                    throw PyTypeError.Create("__repr__() missing 1 required positional argument: 'self'");
+                }),
+                _ => null
+            };
         }
     }
 
