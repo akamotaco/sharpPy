@@ -1059,8 +1059,14 @@ namespace SharpPy
 
         private Statement ParseExpressionOrAssignment()
         {
+            // CPython 3.12: Skip INDENT tokens in expression parsing
+            while (Check(TokenType.INDENT))
+            {
+                Advance(); // consume INDENT
+            }
+
             // CPython 3.12: 블록 구조 토큰들은 표현식이 아니므로 건너뛰기
-            if (Check(TokenType.INDENT) || Check(TokenType.DEDENT) ||
+            if (Check(TokenType.DEDENT) ||
                 CheckKeyword("except") || CheckKeyword("finally") ||
                 CheckKeyword("else") || CheckKeyword("elif"))
             {
@@ -1579,8 +1585,14 @@ namespace SharpPy
 
         private Expression ParsePrimaryExpression()
         {
-            // CPython 3.12: Skip NL tokens before parsing primary expressions
+            // CPython 3.12: Skip NL and INDENT tokens before parsing primary expressions
             SkipNewlines();
+
+            // Skip INDENT tokens in primary expression parsing
+            while (Check(TokenType.INDENT))
+            {
+                Advance();
+            }
 
             // Starred expression: *variable (for unpacking)
             if (MatchOp("*"))

@@ -152,7 +152,20 @@ namespace SharpPy.Tools
                     if (arg >= 0 && arg < names.Count)
                         return $"{arg,15} ({names[arg]})";
                     return $"{arg,15}";
-                    
+
+                case ByteCodeOp.LOAD_ATTR:
+                case ByteCodeOp.STORE_ATTR:
+                    if (arg >= 0 && arg < names.Count)
+                        return $"{arg,15} ({names[arg]})";
+                    return $"{arg,15}";
+
+                case ByteCodeOp.LOAD_GLOBAL:
+                case ByteCodeOp.STORE_GLOBAL:
+                case ByteCodeOp.LOAD_GLOBAL_BUILTIN:
+                    if (arg >= 0 && arg < names.Count)
+                        return $"{arg,15} ({names[arg]})";
+                    return $"{arg,15}";
+
                 case ByteCodeOp.LOAD_FAST:
                 case ByteCodeOp.STORE_FAST:
                     if (arg >= 0 && arg < varNames.Count)
@@ -161,7 +174,28 @@ namespace SharpPy.Tools
                     
                 case ByteCodeOp.CALL:
                     return $"{arg,15}";
-                    
+
+                case ByteCodeOp.BINARY_OP:
+                    // CPython 3.12: BINARY_OP argument shows operation type
+                    var binaryOpType = (BinaryOpType)arg;
+                    var opSymbol = GetBinaryOpSymbol(binaryOpType);
+                    return $"{arg,15} ({opSymbol})";
+
+                case ByteCodeOp.COMPARE_OP:
+                    // CPython 3.12: COMPARE_OP argument shows comparison type
+                    var compareOp = GetCompareOpSymbol(arg);
+                    return $"{arg,15} ({compareOp})";
+
+                case ByteCodeOp.CONTAINS_OP:
+                    // CPython 3.12: CONTAINS_OP for membership tests
+                    var containsOp = arg == 0 ? "in" : "not in";
+                    return $"{arg,15} ({containsOp})";
+
+                case ByteCodeOp.IS_OP:
+                    // CPython 3.12: IS_OP for identity tests
+                    var isOp = arg == 0 ? "is" : "is not";
+                    return $"{arg,15} ({isOp})";
+
                 case ByteCodeOp.FOR_ITER:
                     var forIterTarget = currentByteOffset + 2 + (arg * 2);
                     return $"{arg,15} (to {forIterTarget})";
@@ -198,6 +232,49 @@ namespace SharpPy.Tools
                 default:
                     return arg > 0 ? $"{arg,15}" : "";
             }
+        }
+
+        /// <summary>
+        /// Binary operation argument를 symbol로 변환
+        /// </summary>
+        private string GetBinaryOpSymbol(BinaryOpType binaryOpType)
+        {
+            return binaryOpType switch
+            {
+                BinaryOpType.ADD => "+",
+                BinaryOpType.SUBTRACT => "-",
+                BinaryOpType.MULTIPLY => "*",
+                BinaryOpType.TRUE_DIVIDE => "/",
+                BinaryOpType.FLOOR_DIVIDE => "//",
+                BinaryOpType.MODULO => "%",
+                BinaryOpType.POWER => "**",
+                BinaryOpType.LSHIFT => "<<",
+                BinaryOpType.RSHIFT => ">>",
+                BinaryOpType.OR => "|",
+                BinaryOpType.XOR => "^",
+                BinaryOpType.AND => "&",
+                BinaryOpType.MATRIX_MULTIPLY => "@",
+                _ => binaryOpType.ToString()
+            };
+        }
+
+        /// <summary>
+        /// Compare operation argument를 symbol로 변환
+        /// </summary>
+        private string GetCompareOpSymbol(int compareOp)
+        {
+            return compareOp switch
+            {
+                // CPython 3.12 실제 enum 값들
+                2 => "<",          // CompareOp.LT
+                26 => "<=",        // CompareOp.LE
+                40 => "==",        // CompareOp.EQ
+                55 => "!=",        // CompareOp.NE
+                68 => ">",         // CompareOp.GT
+                92 => ">=",        // CompareOp.GE
+                8 => "exception match", // CompareOp.EXC_MATCH
+                _ => compareOp.ToString()
+            };
         }
     }
 }
