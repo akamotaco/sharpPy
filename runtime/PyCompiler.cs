@@ -4143,6 +4143,17 @@ namespace SharpPy
                     EmitInstruction(ByteCodeOp.COPY_FREE_VARS, _freeVars.Count);
                 }
 
+                // CPython 3.12: Setup __module__ attribute in class body
+                // This is equivalent to: __module__ = __name__
+                EmitLoadName("__name__");  // Load current module name
+                EmitStoreName("__module__");  // Store as __module__ in class dict
+
+                // CPython 3.12: Setup __qualname__ attribute in class body
+                var actualClassName = className.Contains("<class_body_") ?
+                    className.Replace("<class_body_", "").TrimEnd('>') : className;
+                EmitLoadConst(new PyString(actualClassName));  // Load class name
+                EmitStoreName("__qualname__");  // Store as __qualname__ in class dict
+
                 // Compile class body statements
                 foreach (var stmt in body)
                 {

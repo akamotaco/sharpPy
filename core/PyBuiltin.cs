@@ -1500,7 +1500,20 @@ namespace SharpPy
                             Console.WriteLine("Metaclass.__new__ didn't return a class, falling back to type.__new__");
                             #endif
                             var typeResult = CallTypeNew(new PyObject[] { metaclass, new PyString(className), new PyTuple(bases.Cast<PyObject>().ToArray()), namespaceDict });
-                            pyClass = typeResult as PyClass ?? new PyClass(className, bases.ToArray());
+                            // If type.__new__ didn't return a PyClass, create one with module info
+                            if (typeResult is PyClass existingClass)
+                            {
+                                pyClass = existingClass;
+                            }
+                            else
+                            {
+                                string moduleInfo = null;
+                                if (classNamespace.TryGetValue("__module__", out var moduleObj) && moduleObj is PyString moduleStr)
+                                {
+                                    moduleInfo = moduleStr.Value;
+                                }
+                                pyClass = new PyClass(className, bases.ToArray(), classNamespace, null, moduleInfo);
+                            }
                             pyClass.Metaclass = metaclass as PyClass;
                             
                             // CPython 3.12: Update __classcell__ for fallback case too
@@ -1522,7 +1535,20 @@ namespace SharpPy
                         Console.WriteLine("No callable __new__ method found on metaclass, using type.__new__ directly");
                         #endif
                         var typeResult = CallTypeNew(new PyObject[] { metaclass, new PyString(className), new PyTuple(bases.Cast<PyObject>().ToArray()), namespaceDict });
-                        pyClass = typeResult as PyClass ?? new PyClass(className, bases.ToArray());
+                        // If type.__new__ didn't return a PyClass, create one with module info
+                        if (typeResult is PyClass existingClass)
+                        {
+                            pyClass = existingClass;
+                        }
+                        else
+                        {
+                            string moduleInfo = null;
+                            if (classNamespace.TryGetValue("__module__", out var moduleObj) && moduleObj is PyString moduleStr)
+                            {
+                                moduleInfo = moduleStr.Value;
+                            }
+                            pyClass = new PyClass(className, bases.ToArray(), classNamespace, null, moduleInfo);
+                        }
                         pyClass.Metaclass = metaclass as PyClass;
                         
                         // CPython 3.12: Update __classcell__ for no callable __new__ case
@@ -1543,7 +1569,15 @@ namespace SharpPy
                     #if DEBUG_LOG
                     Console.WriteLine($"Error calling metaclass.__new__: {ex.Message}");
                     #endif
-                    pyClass = new PyClass(className, bases.ToArray());
+
+                    // Extract __module__ from class namespace
+                    string moduleInfo = null;
+                    if (classNamespace.TryGetValue("__module__", out var moduleObj) && moduleObj is PyString moduleStr)
+                    {
+                        moduleInfo = moduleStr.Value;
+                    }
+
+                    pyClass = new PyClass(className, bases.ToArray(), classNamespace, null, moduleInfo);
                     pyClass.SetAttribute("__metaclass__", metaclass);
                     
                     // CPython 3.12: Update __classcell__ even in exception case
@@ -1561,8 +1595,15 @@ namespace SharpPy
             }
             else
             {
-                pyClass = new PyClass(className, bases.ToArray());
-                
+                // Extract __module__ from class namespace
+                string moduleInfo = null;
+                if (classNamespace.TryGetValue("__module__", out var moduleObj) && moduleObj is PyString moduleStr)
+                {
+                    moduleInfo = moduleStr.Value;
+                }
+
+                pyClass = new PyClass(className, bases.ToArray(), classNamespace, null, moduleInfo);
+
                 // CPython 3.12: Update __classcell__ for non-metaclass case too
                 if (classcell != null)
                 {

@@ -11,8 +11,13 @@ namespace SharpPy
         public List<PyObject>? TypeParams { get; set; } // PEP 695 __type_params__
         public PyClass? Metaclass { get; set; } // Metaclass information for type() calls
 
-        public PyClass(string name, PyType[] baseTypes, Dictionary<string, PyObject> classDict = null, List<PyObject>? typeParams = null) 
-            : base(name, baseTypes)
+        public PyClass(string name, PyType[] baseTypes, Dictionary<string, PyObject> classDict = null, List<PyObject>? typeParams = null)
+            : this(name, baseTypes, classDict, typeParams, null)
+        {
+        }
+
+        public PyClass(string name, PyType[] baseTypes, Dictionary<string, PyObject> classDict, List<PyObject>? typeParams, string module)
+            : base(name, baseTypes, module)
         {
             ClassDict = classDict ?? new Dictionary<string, PyObject>();
             TypeParams = typeParams;

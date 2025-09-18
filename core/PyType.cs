@@ -100,15 +100,21 @@ namespace SharpPy
         public string Name { get; }
         public PyType[] BaseTypes { get; }
         public List<PyType> MRO { get; private set; }
+        public string Module { get; }
 
         #endregion
 
         #region Constructor
 
-        public PyType(string name, PyType[] baseTypes)
+        public PyType(string name, PyType[] baseTypes) : this(name, baseTypes, null)
+        {
+        }
+
+        public PyType(string name, PyType[] baseTypes, string module)
         {
             Name = name;
             BaseTypes = baseTypes ?? new PyType[0];
+            Module = module;
             MRO = CalculateC3MRO();
         }
 
@@ -520,8 +526,8 @@ namespace SharpPy
 
         #region String Representation
 
-        public override string ToRepr() => $"<class '{Name}'>";
-        public override string ToStr() => $"<class '{Name}'>";
+        public override string ToRepr() => !string.IsNullOrEmpty(Module) ? $"<class '{Module}.{Name}'>" : $"<class '{Name}'>";
+        public override string ToStr() => !string.IsNullOrEmpty(Module) ? $"<class '{Module}.{Name}'>" : $"<class '{Name}'>";
 
         #endregion
 
