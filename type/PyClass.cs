@@ -71,6 +71,8 @@ namespace SharpPy
         // 클래스 호출 시 인스턴스 생성
         public override PyObject Call(params PyObject[] args)
         {
+            // Check for abstract methods before allowing instantiation
+            CheckAbstractMethods();
             return CreateInstance(args);
         }
 
@@ -398,6 +400,100 @@ namespace SharpPy
             {
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Check if this class has any unimplemented abstract methods
+        /// Throws TypeError if abstract methods are found (CPython 3.12 compatible)
+        /// </summary>
+        private void CheckAbstractMethods()
+        {
+            var abstractMethods = new List<string>();
+
+            // Check all methods in MRO for abstract methods
+            foreach (var mroType in MRO)
+            {
+                if (mroType is PyClass mroClass)
+                {
+                    foreach (var kvp in mroClass.ClassDict)
+                    {
+                        string methodName = kvp.Key;
+                        PyObject methodValue = kvp.Value;
+
+                        // Check if method is marked as abstract
+                        if (IsAbstractMethod(methodValue))
+                        {
+                            // Check if this method is implemented in this class or any of its ancestors
+                            if (!IsMethodImplemented(methodName))
+                            {
+                                abstractMethods.Add(methodName);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // If any abstract methods are found, throw TypeError
+            if (abstractMethods.Count > 0)
+            {
+                abstractMethods.Sort(); // CPython sorts the method names
+                string methodList = abstractMethods.Count == 1
+                    ? $"abstract method '{abstractMethods[0]}'"
+                    : $"abstract methods {string.Join(", ", abstractMethods.Select(m => $"'{m}'"))}";
+                throw PyTypeError.Create($"Can't instantiate abstract class {Name} without an implementation for {methodList}");
+            }
+        }
+
+        /// <summary>
+        /// Check if a method object is marked as abstract
+        /// </summary>
+        private bool IsAbstractMethod(PyObject method)
+        {
+            if (method is PyFunction func)
+            {
+                try
+                {
+                    if (func.Attributes.TryGetValue("__isabstractmethod__", out PyObject abstractAttr))
+                    {
+                        return abstractAttr.PyBoolValue();
+                    }
+                }
+                catch
+                {
+                    // If we can't check, assume not abstract
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Check if a method is implemented (not abstract) in this class
+        /// </summary>
+        private bool IsMethodImplemented(string methodName)
+        {
+            // Look for the method in this class's dict
+            if (ClassDict.TryGetValue(methodName, out PyObject method))
+            {
+                // If we have the method and it's not abstract, it's implemented
+                return !IsAbstractMethod(method);
+            }
+
+            // Check if any base classes have a non-abstract implementation
+            foreach (var baseType in BaseTypes)
+            {
+                if (baseType is PyClass baseClass)
+                {
+                    if (baseClass.ClassDict.TryGetValue(methodName, out PyObject baseMethod))
+                    {
+                        if (!IsAbstractMethod(baseMethod))
+                        {
+                            return true; // Found non-abstract implementation in base
+                        }
+                    }
+                }
+            }
+
+            return false; // No non-abstract implementation found
         }
     }
 
