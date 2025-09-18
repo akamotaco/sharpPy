@@ -7953,7 +7953,12 @@ namespace SharpPy
             foreach (var generator in generators)
             {
                 if (!IsStaticIterable(generator.Iter))
+                {
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔍 동적 패턴 감지됨: generator.Iter={generator.Iter} (Type: {generator.Iter.GetType().Name})");
+                    #endif
                     return false;
+                }
             }
 
             #if DEBUG_LOG
@@ -8002,12 +8007,13 @@ namespace SharpPy
                     return false;
 
                 case NameExpression nameExpr:
-                    // CPython 3.12: 컴프리헨션 변수 참조는 정적으로 취급
-                    // [x for a in [1,2] for x in [a]]에서 [a]는 정적
+                    // CPython 3.12: 변수 참조는 일반적으로 동적으로 취급
+                    // [x for row in data for x in row]에서 data, row는 모두 동적
+                    // 특정 패턴 ([x for a in [1,2] for x in [a]])만 정적으로 처리
                     #if DEBUG_LOG
-                    Console.WriteLine($"  ✅ 정적 이터러블: 컴프리헨션 변수 참조 {nameExpr.Name}");
+                    Console.WriteLine($"  ❌ 동적 이터러블: 변수 참조 {nameExpr.Name} (일반적으로 동적으로 처리)");
                     #endif
-                    return true;
+                    return false;
 
                 default:
                     // 기타 복잡한 표현식은 동적으로 간주

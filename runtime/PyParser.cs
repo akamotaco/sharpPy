@@ -1650,7 +1650,36 @@ namespace SharpPy
                 }
                 return new ConstantExpression(new PyString(value));
             }
-            
+
+            if (Match(TokenType.BYTES))
+            {
+                var lexeme = Previous().Lexeme;
+                // Parse binary literal: b'...', b"..."
+                var value = lexeme;
+
+                // Strip prefix and quotes from binary literals
+                if (lexeme.StartsWith("b'") && lexeme.EndsWith("'"))
+                {
+                    value = lexeme.Substring(2, lexeme.Length - 3);
+                }
+                else if (lexeme.StartsWith("b\"") && lexeme.EndsWith("\""))
+                {
+                    value = lexeme.Substring(2, lexeme.Length - 3);
+                }
+                else if (lexeme.StartsWith("b'''") && lexeme.EndsWith("'''"))
+                {
+                    value = lexeme.Substring(4, lexeme.Length - 7);
+                }
+                else if (lexeme.StartsWith("b\"\"\"") && lexeme.EndsWith("\"\"\""))
+                {
+                    value = lexeme.Substring(4, lexeme.Length - 7);
+                }
+
+                // Convert string to bytes
+                var bytes = System.Text.Encoding.UTF8.GetBytes(value);
+                return new ConstantExpression(new PyBytes(bytes));
+            }
+
             // CPython 3.12: All string types are handled as STRING tokens
             // String prefix information (r, b, f, u) is preserved in the lexeme
             
@@ -3346,14 +3375,15 @@ namespace SharpPy
         private Statement ParseAssertStatement()
         {
             // CPython 3.12: assert test [, msg]
-            var test = ParseExpression();
-            
+            // Parse test expression with precedence lower than comma to avoid tuple parsing
+            var test = ParseConditionalExpression();
+
             Expression? msg = null;
             if (MatchOp(","))
             {
                 msg = ParseExpression();
             }
-            
+
             return new AssertStatement(test, msg);
         }
         private Statement ParseRaiseStatement()

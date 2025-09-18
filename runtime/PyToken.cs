@@ -15,9 +15,10 @@ namespace SharpPy
         NAME = 1,
         NUMBER = 2,
         STRING = 3,
-        NEWLINE = 4,
-        INDENT = 5,
-        DEDENT = 6,
+        BYTES = 4,         // Binary string literals (b'...', b"...")
+        NEWLINE = 5,
+        INDENT = 6,
+        DEDENT = 7,
 
         // Unified operator token - CPython 3.12 style
         // All operators, delimiters, brackets are OP tokens identified by lexeme:

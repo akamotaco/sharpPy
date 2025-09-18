@@ -716,13 +716,16 @@ namespace SharpPy
             bool hasBytes = prefixes.Contains('b');
             bool hasFormat = prefixes.Contains('f');
             bool hasUnicode = prefixes.Contains('u');
-            
+
             // Python 3.12 rules: b and f are mutually exclusive
             if (hasBytes && hasFormat)
                 throw new Exception("Cannot combine 'b' and 'f' string prefixes");
-                
-            // CPython 3.12: All strings are STRING tokens regardless of prefixes
-            // String prefix information is preserved in the lexeme, not the token type
+
+            // CPython 3.12: Binary literals use BYTES token type
+            if (hasBytes)
+                return TokenType.BYTES;
+
+            // All other strings are STRING tokens
             return TokenType.STRING;
         }
         
