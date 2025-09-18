@@ -56,10 +56,10 @@ namespace SharpPy
             return op switch
             {
                 // 정수 연산 특수화
-                "+" or "-" or "*" or "//" or "%" when leftType.IsInt && rightType.IsInt => true,
+                "+" or "-" or "*" or "//" or "%" or "**" when leftType.IsInt && rightType.IsInt => true,
                 
                 // 실수 연산 특수화
-                "+" or "-" or "*" or "/" when leftType.IsFloat && rightType.IsFloat => true,
+                "+" or "-" or "*" or "/" or "**" when leftType.IsFloat && rightType.IsFloat => true,
                 
                 // 문자열 연산 특수화
                 "+" when leftType.IsString && rightType.IsString => true,
