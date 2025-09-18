@@ -897,7 +897,8 @@ namespace SharpPy
 
                 case ListComprehension listComp:
                     // Analyze list comprehensions (walrus operators can be in conditions)
-                    AnalyzeExpression(listComp.Element);
+                    // CPython 3.12: Analyze generators first to define iteration variables
+                    // before analyzing element expression (which may contain lambdas that reference them)
                     foreach (var generator in listComp.Generators)
                     {
                         AnalyzeExpression(generator.Iter);
@@ -908,12 +909,14 @@ namespace SharpPy
                             AnalyzeExpression(condition);
                         }
                     }
+                    // Now analyze the element expression after iteration variables are defined
+                    AnalyzeExpression(listComp.Element);
                     break;
 
                 case DictComprehension dictComp:
                     // Analyze dict comprehensions
-                    AnalyzeExpression(dictComp.Key);
-                    AnalyzeExpression(dictComp.Value);
+                    // CPython 3.12: Analyze generators first to define iteration variables
+                    // before analyzing key/value expressions (which may contain lambdas that reference them)
                     foreach (var generator in dictComp.Generators)
                     {
                         AnalyzeExpression(generator.Iter);
@@ -924,11 +927,15 @@ namespace SharpPy
                             AnalyzeExpression(condition);
                         }
                     }
+                    // Now analyze key and value expressions after iteration variables are defined
+                    AnalyzeExpression(dictComp.Key);
+                    AnalyzeExpression(dictComp.Value);
                     break;
 
                 case SetComprehension setComp:
                     // Analyze set comprehensions
-                    AnalyzeExpression(setComp.Element);
+                    // CPython 3.12: Analyze generators first to define iteration variables
+                    // before analyzing element expression (which may contain lambdas that reference them)
                     foreach (var generator in setComp.Generators)
                     {
                         AnalyzeExpression(generator.Iter);
@@ -939,6 +946,8 @@ namespace SharpPy
                             AnalyzeExpression(condition);
                         }
                     }
+                    // Now analyze the element expression after iteration variables are defined
+                    AnalyzeExpression(setComp.Element);
                     break;
 
                 // Skip constants and other literal expressions

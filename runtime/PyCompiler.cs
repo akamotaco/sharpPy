@@ -1265,7 +1265,10 @@ namespace SharpPy
                 }
                 EmitInstruction(ByteCodeOp.MAKE_CELL, cellIndex);
             }
-            
+
+            // CPython 3.12: RESUME instruction after MAKE_CELL and before function body
+            EmitInstruction(ByteCodeOp.RESUME, 0);
+
             foreach (var statement in statements)
             {
                 CompileStatement(statement);
@@ -6784,8 +6787,8 @@ namespace SharpPy
                 foreach (var freeVar in freeVars)
                 {
                     // Emit LOAD_CLOSURE for each free variable
-                    // For Phase 1, we'll emit a placeholder (Phase 2 will implement proper cell loading)
-                    EmitInstruction(ByteCodeOp.LOAD_CLOSURE, 0); // TODO: proper cell index
+                    // In CPython 3.12, closure refers to cell variables in current scope
+                    EmitLoadClosure(freeVar);
                 }
                 
                 // Build tuple of closure cells
@@ -7683,6 +7686,7 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12 호환 컴프리헨션 변수 저장
         /// 컴프리헨션 내부 변수는 격리된 스코프에서 관리
+        /// Cell 변수일 때는 STORE_DEREF 사용
         /// </summary>
         private void EmitStoreComprehensionVar(string name, List<string> comprehensionVars)
         {
@@ -7691,16 +7695,49 @@ namespace SharpPy
             {
                 comprehensionVars.Add(name);
             }
-            
-            // CPython 3.12 호환: 컴프리헨션 변수는 항상 STORE_FAST로 처리
-            // 모듈 레벨에서도 컴프리헨션은 별도의 지역 스코프를 가짐
-            var varIndex = GetOrAddVarName(name);
-            EmitInstruction(ByteCodeOp.STORE_FAST, varIndex);
-            #if DEBUG_LOG
-            Console.WriteLine($"    → 컴프리헨션 변수 저장: {name} (STORE_FAST index {varIndex})");
-            #endif
+
+            // CPython 3.12: Cell 변수인지 확인하고 적절한 명령어 사용
+            if (IsCellVariable(name))
+            {
+                // Cell 변수일 때는 STORE_DEREF 사용
+                var cellIndex = GetCellVariableIndex(name);
+                EmitInstruction(ByteCodeOp.STORE_DEREF, cellIndex);
+                #if DEBUG_LOG
+                Console.WriteLine($"    → 컴프리헨션 변수 저장: {name} (STORE_DEREF index {cellIndex})");
+                #endif
+            }
+            else
+            {
+                // 일반 지역 변수일 때는 STORE_FAST 사용
+                var varIndex = GetOrAddVarName(name);
+                EmitInstruction(ByteCodeOp.STORE_FAST, varIndex);
+                #if DEBUG_LOG
+                Console.WriteLine($"    → 컴프리헨션 변수 저장: {name} (STORE_FAST index {varIndex})");
+                #endif
+            }
         }
-        
+
+        /// <summary>
+        /// 변수가 cell 변수인지 확인
+        /// </summary>
+        private bool IsCellVariable(string name)
+        {
+            return _cellVars.Contains(name);
+        }
+
+        /// <summary>
+        /// Cell 변수의 인덱스를 가져옴
+        /// </summary>
+        private int GetCellVariableIndex(string name)
+        {
+            var index = _cellVars.IndexOf(name);
+            if (index < 0)
+            {
+                throw new ArgumentException($"Variable '{name}' is not a cell variable");
+            }
+            return index;
+        }
+
         /// <summary>
         /// 컴프리헨션 변수 로드 (CPython 3.12 호환)
         /// </summary>
