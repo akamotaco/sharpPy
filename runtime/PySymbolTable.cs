@@ -876,6 +876,65 @@ namespace SharpPy
                     AnalyzeLambda(lambda);
                     break;
 
+                case WalrusExpression walrus:
+                    // Analyze the value expression first
+                    AnalyzeExpression(walrus.Value);
+                    // In CPython 3.12, walrus variables scoping depends on context:
+                    // - Module scope: Used (→ LOAD_GLOBAL/STORE_GLOBAL)
+                    // - Function scope: Assigned (→ LOAD_FAST/STORE_FAST)
+                    var flags = _currentTable?.Type == SymbolTableType.Module
+                        ? SymbolFlags.Used
+                        : SymbolFlags.Assigned;
+                    _currentTable?.DefineSymbol(walrus.Target, flags);
+                    break;
+
+                case ConditionalExpression conditional:
+                    // Analyze test, body, and orelse expressions
+                    AnalyzeExpression(conditional.Test);
+                    AnalyzeExpression(conditional.Body);
+                    AnalyzeExpression(conditional.OrElse);
+                    break;
+
+                case ListComprehension listComp:
+                    // Analyze list comprehensions (walrus operators can be in conditions)
+                    AnalyzeExpression(listComp.Element);
+                    foreach (var generator in listComp.Generators)
+                    {
+                        AnalyzeExpression(generator.Iter);
+                        foreach (var condition in generator.Ifs)
+                        {
+                            AnalyzeExpression(condition);
+                        }
+                    }
+                    break;
+
+                case DictComprehension dictComp:
+                    // Analyze dict comprehensions
+                    AnalyzeExpression(dictComp.Key);
+                    AnalyzeExpression(dictComp.Value);
+                    foreach (var generator in dictComp.Generators)
+                    {
+                        AnalyzeExpression(generator.Iter);
+                        foreach (var condition in generator.Ifs)
+                        {
+                            AnalyzeExpression(condition);
+                        }
+                    }
+                    break;
+
+                case SetComprehension setComp:
+                    // Analyze set comprehensions
+                    AnalyzeExpression(setComp.Element);
+                    foreach (var generator in setComp.Generators)
+                    {
+                        AnalyzeExpression(generator.Iter);
+                        foreach (var condition in generator.Ifs)
+                        {
+                            AnalyzeExpression(condition);
+                        }
+                    }
+                    break;
+
                 // Skip constants and other literal expressions
                 default:
                     break;

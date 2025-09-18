@@ -337,11 +337,18 @@ namespace SharpPy
                 case FormattedValue formatted:
                     AnalyzeExpression(formatted.Value);
                     break;
-                    
+
+                case WalrusExpression walrus:
+                    // Analyze the value expression first
+                    AnalyzeExpression(walrus.Value);
+                    // Mark the target variable as defined (like normal assignment)
+                    _definedVars.Add(walrus.Target);
+                    break;
+
                 // For ConstantExpression and other leaf expressions, no variables are used
                 case ConstantExpression _:
                     break;
-                    
+
                 // TODO: Add more expression types as needed
             }
         }
@@ -1507,7 +1514,7 @@ namespace SharpPy
                 case WalrusStatement walrus:
                     CompileExpression(walrus.Value);
                     EmitInstruction(ByteCodeOp.COPY, 1);  // 값 복사
-                    EmitStoreName(walrus.Target);         // 저장
+                    EmitStoreVariable(walrus.Target);     // 올바른 스코프로 저장
                     break;
                     
                 case ExpressionStatement expr:
@@ -1694,8 +1701,8 @@ namespace SharpPy
                     CompileExpression(walrus.Value);
                     // Duplicate value on stack for assignment
                     EmitInstruction(ByteCodeOp.COPY, 1);
-                    // Store to variable
-                    EmitStoreName(walrus.Target);
+                    // Store to variable using correct scope like CPython 3.12
+                    EmitStoreVariable(walrus.Target);
                     // Value remains on stack as return value
                     break;
                     
@@ -7114,7 +7121,20 @@ namespace SharpPy
         /// </summary>
         private void EmitLoadConstant(PyObject value) => EmitLoadConst(value);
         private void EmitLoadVariable(string name) => EmitLoadName(name);
-        private void EmitStoreVariable(string name) => EmitStoreName(name);
+        private void EmitStoreVariable(string name)
+        {
+            // Check symbol table to determine correct storage instruction
+            if (_symbolTable.GetSymbols().TryGetValue(name, out var symbol) && symbol.Scope == SymbolScope.Global)
+            {
+                // For global scope variables, use STORE_GLOBAL like CPython 3.12
+                var index = AddName(name);
+                EmitInstruction(ByteCodeOp.STORE_GLOBAL, index);
+            }
+            else
+            {
+                EmitStoreName(name);
+            }
+        }
         private void EmitLoadAttribute(string attrName) => EmitLoadAttr(attrName);
         private void EmitStoreAttribute(string attrName) => EmitStoreAttr(attrName);
         
