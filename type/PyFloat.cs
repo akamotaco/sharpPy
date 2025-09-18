@@ -4,14 +4,22 @@ namespace SharpPy
 {
     /// <summary>
     /// Python float 타입 구현 - C# double을 기반으로 한 부동소수점 숫자
+    /// CPython 호환을 위해 원본 문자열 표현 보존
     /// </summary>
     public class PyFloat : PyObject
     {
         #region Core Properties
 
         public double Value { get; }
+        public string OriginalString { get; }
 
-        public PyFloat(double value) => Value = value;
+        public PyFloat(double value) : this(value, null) { }
+
+        public PyFloat(double value, string originalString)
+        {
+            Value = value;
+            OriginalString = originalString;
+        }
 
         public override PyType GetPyType() => PyType.FloatType;
         public override string GetTypeName() => "float";
@@ -22,6 +30,16 @@ namespace SharpPy
 
         public override string ToStr()
         {
+            // CPython 호환: 원본 문자열이 있으면 우선 사용
+            if (!string.IsNullOrEmpty(OriginalString))
+            {
+                // 원본 문자열이 유효한 표현인지 확인
+                if (double.TryParse(OriginalString, out double parsed) && Math.Abs(parsed - Value) < 1e-15)
+                {
+                    return OriginalString;
+                }
+            }
+
             // Python처럼 필요시에만 소수점 표시
             if (Value == Math.Floor(Value) && !double.IsInfinity(Value) && !double.IsNaN(Value))
             {

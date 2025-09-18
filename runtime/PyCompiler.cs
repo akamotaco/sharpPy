@@ -1996,6 +1996,11 @@ namespace SharpPy
                     CompileFormattedValue(formattedValue);
                     break;
 
+                case FormatExpressionWithSpec formatExprWithSpec:
+                    // CPython 3.12 호환: 중첩된 표현식을 포함한 포맷 지시자
+                    CompileFormatExpressionWithSpec(formatExprWithSpec);
+                    break;
+
                 case StarredExpression starred:
                     CompileExpression(starred.Value);
                     // 별표 처리는 문맥에 따라 다름
@@ -6943,6 +6948,21 @@ namespace SharpPy
             }
         }
 
+        /// <summary>
+        /// CPython 3.12 호환: 중첩된 표현식을 포함한 포맷 지시자 컴파일
+        /// f"{value:{width}.{precision}f}" 처리
+        /// </summary>
+        private void CompileFormatExpressionWithSpec(FormatExpressionWithSpec formatExpr)
+        {
+            // 1. 값 표현식을 컴파일
+            CompileExpression(formatExpr.Value);
+
+            // 2. 포맷 지시자 표현식을 컴파일하여 문자열로 변환
+            CompileExpression(formatExpr.FormatSpec);
+
+            // 3. FORMAT_VALUE with format spec (4 = format spec 있음)
+            EmitInstruction(ByteCodeOp.FORMAT_VALUE, 4);
+        }
 
         // Evaluate 메서드 - 나중에 구현
         public PyObject Evaluate(PyScope scope)

@@ -1631,7 +1631,7 @@ namespace SharpPy
                 if (lexeme.Contains('.') || lexeme.ToLower().Contains('e'))
                 {
                     var value = double.Parse(lexeme);
-                    return new ConstantExpression(new PyFloat(value));
+                    return new ConstantExpression(new PyFloat(value, lexeme));
                 }
                 else if (lexeme.ToLower().EndsWith('j'))
                 {
@@ -1980,40 +1980,20 @@ namespace SharpPy
                     var expr = ParseExpression();
 
                     // Check for format specifier: : format_spec
-                    string? formatSpec = null;
+                    Expression? formatSpecExpr = null;
                     if (Check(TokenType.OP) && Peek().Lexeme == ":")
                     {
                         Advance(); // consume ':'
 
-                        // Parse format specifier until '}'
-                        var formatTokens = new List<string>();
-                        while (!Check(TokenType.OP) || Peek().Lexeme != "}")
-                        {
-                            if (Check(TokenType.FSTRING_MIDDLE))
-                            {
-                                formatTokens.Add(Advance().Lexeme);
-                            }
-                            else if (Check(TokenType.NAME) || Check(TokenType.NUMBER))
-                            {
-                                formatTokens.Add(Advance().Lexeme);
-                            }
-                            else if (Check(TokenType.OP))
-                            {
-                                formatTokens.Add(Advance().Lexeme);
-                            }
-                            else
-                            {
-                                break;
-                            }
-                        }
-                        formatSpec = string.Join("", formatTokens);
+                        // Parse format specifier as a series of expressions and literals
+                        formatSpecExpr = ParseFormatSpecifier();
                     }
 
                     // Create formatted expression if format spec exists
-                    if (!string.IsNullOrEmpty(formatSpec))
+                    if (formatSpecExpr != null)
                     {
                         // Create a format expression with the format specifier
-                        parts.Add(new FormatExpression(expr, formatSpec));
+                        parts.Add(new FormatExpressionWithSpec(expr, formatSpecExpr));
                     }
                     else
                     {
@@ -4640,6 +4620,83 @@ namespace SharpPy
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// CPython 3.12 호환: 중첩된 표현식을 포함한 포맷 지시자 파싱
+        /// f"{value:{width}.{precision}f}" → 여러 표현식으로 구성된 포맷 지시자
+        /// </summary>
+        private Expression ParseFormatSpecifier()
+        {
+            var formatParts = new List<Expression>();
+
+            // 포맷 지시자의 끝('}')까지 파싱
+            while (!Check(TokenType.OP) || Peek().Lexeme != "}")
+            {
+                if (Check(TokenType.FSTRING_MIDDLE))
+                {
+                    // 리터럴 텍스트 부분 (예: '.', 'f')
+                    var literal = Advance().Lexeme;
+                    formatParts.Add(new ConstantExpression(new PyString(literal)));
+                }
+                else if (Check(TokenType.OP) && Peek().Lexeme == "{")
+                {
+                    // 중첩된 표현식 (예: {width}, {precision})
+                    Advance(); // consume '{'
+                    var nestedExpr = ParseExpression();
+
+                    // Consume closing '}'
+                    if (Check(TokenType.OP) && Peek().Lexeme == "}")
+                    {
+                        Advance();
+                    }
+
+                    formatParts.Add(nestedExpr);
+                }
+                else if (Check(TokenType.NAME) || Check(TokenType.NUMBER))
+                {
+                    // 직접적인 이름이나 숫자 (토큰화 단계에서 이미 분리된 경우)
+                    var token = Advance();
+                    if (token.Type == TokenType.NAME)
+                    {
+                        formatParts.Add(new NameExpression(token.Lexeme));
+                    }
+                    else if (token.Type == TokenType.NUMBER)
+                    {
+                        // 숫자 파싱
+                        if (token.Lexeme.Contains('.'))
+                        {
+                            var value = double.Parse(token.Lexeme);
+                            formatParts.Add(new ConstantExpression(new PyFloat(value, token.Lexeme)));
+                        }
+                        else
+                        {
+                            var value = int.Parse(token.Lexeme);
+                            formatParts.Add(new ConstantExpression(new PyInt(value)));
+                        }
+                    }
+                }
+                else
+                {
+                    // 예상치 못한 토큰 - 건너뛰기 (방어적 프로그래밍)
+                    Advance();
+                }
+            }
+
+            // 단일 표현식이면 그대로 반환, 여러 개면 FStringExpression으로 래핑
+            if (formatParts.Count == 1)
+            {
+                return formatParts[0];
+            }
+            else if (formatParts.Count > 1)
+            {
+                return new FStringExpression(formatParts);
+            }
+            else
+            {
+                // 빈 포맷 지시자
+                return new ConstantExpression(new PyString(""));
+            }
         }
     }
 

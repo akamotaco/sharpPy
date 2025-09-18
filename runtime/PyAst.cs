@@ -2734,6 +2734,81 @@ namespace SharpPy
     }
 
     /// <summary>
+    /// CPython 3.12 호환: 중첩된 표현식을 포함한 포맷 지시자
+    /// f"{value:{width}.{precision}f}" → formatSpec이 표현식이 됨
+    /// </summary>
+    public class FormatExpressionWithSpec : Expression
+    {
+        public override string NodeType => "FormattedValueWithSpec";
+        public Expression Value { get; }
+        public Expression FormatSpec { get; }
+
+        public FormatExpressionWithSpec(Expression value, Expression formatSpec)
+        {
+            Value = value;
+            FormatSpec = formatSpec;
+        }
+
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // 값과 포맷 지시자를 각각 평가
+            var valueObj = Value.Evaluate(scope);
+            var formatSpecObj = FormatSpec.Evaluate(scope);
+
+            // 포맷 지시자를 문자열로 변환
+            var formatStr = formatSpecObj.ToStr();
+
+            // 간단한 포맷팅 적용
+            return ApplySimpleFormatting(valueObj, formatStr);
+        }
+
+        private static PyObject ApplySimpleFormatting(PyObject obj, string formatSpec)
+        {
+            try
+            {
+                // 숫자 포매팅 지원
+                if (obj is PyFloat floatObj)
+                {
+                    if (formatSpec.EndsWith("f"))
+                    {
+                        // 소수점 자릿수 지정 (예: .2f)
+                        if (formatSpec.StartsWith(".") && formatSpec.Length > 2)
+                        {
+                            var digits = formatSpec.Substring(1, formatSpec.Length - 2);
+                            if (int.TryParse(digits, out int decimalPlaces))
+                            {
+                                var formatted = floatObj.Value.ToString($"F{decimalPlaces}");
+                                return new PyString(formatted);
+                            }
+                        }
+                        else if (formatSpec == "f")
+                        {
+                            return new PyString(floatObj.Value.ToString("F6"));
+                        }
+                    }
+                }
+                else if (obj is PyInt intObj)
+                {
+                    if (formatSpec == "d" || string.IsNullOrEmpty(formatSpec))
+                    {
+                        return new PyString(intObj.Value.ToString());
+                    }
+                }
+
+                // 기본 문자열 변환
+                return new PyString(obj.ToStr());
+            }
+            catch
+            {
+                // 포맷팅 실패 시 기본 문자열 반환
+                return new PyString(obj.ToStr());
+            }
+        }
+
+        public override string ToString() => $"{Value}:{FormatSpec}";
+    }
+
+    /// <summary>
     /// f-string 표현식 내의 포맷 값 (예: {value:format})
     /// </summary>
     public class FormattedValue : Expression

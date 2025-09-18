@@ -849,11 +849,15 @@ namespace SharpPy
                     var exprContent = new StringBuilder();
 
                     // 표현식 부분과 포맷 지시자 부분 구분
-                    while (!IsAtEnd() && Peek() != '}')
+                    while (!IsAtEnd())
                     {
                         var ch = Peek();
                         if (ch == '{') braceDepth++;
-                        else if (ch == '}') braceDepth--;
+                        else if (ch == '}') {
+                            braceDepth--;
+                            // 최상위 레벨의 } 를 만나면 루프 종료 (이 } 는 현재 표현식의 종료)
+                            if (braceDepth < 0) break;
+                        }
                         else if (ch == '(') parenDepth++;
                         else if (ch == ')') parenDepth--;
                         else if (ch == '[') bracketDepth++;
@@ -867,6 +871,9 @@ namespace SharpPy
 
                     if (exprContent.Length > 0)
                     {
+#if DEBUG_LOG
+                        Console.WriteLine($"[DEBUG] exprContent: '{exprContent}', formatSpecStart: {formatSpecStart}");
+#endif
                         string exprPart, formatPart = null;
 
                         if (formatSpecStart >= 0)
@@ -902,18 +909,18 @@ namespace SharpPy
                             }
                         }
 
-                        // 포맷 지시자가 있으면 `:` 토큰과 FSTRING_MIDDLE 토큰 추가
+                        // 포맷 지시자가 있으면 `:` 토큰과 중첩된 표현식 파싱
                         if (formatPart != null)
                         {
                             // ':' 토큰 추가
                             tokens.Add(new PyToken(TokenType.OP, ":", exprStartLine,
                                 exprStartColumn + exprPart.Length));
 
-                            // 포맷 지시자를 FSTRING_MIDDLE로 추가 (CPython 방식)
+                            // 포맷 지시자에서 중첩된 표현식 파싱 (CPython 3.12 호환)
                             if (!string.IsNullOrEmpty(formatPart))
                             {
-                                tokens.Add(new PyToken(TokenType.FSTRING_MIDDLE, formatPart, exprStartLine,
-                                    exprStartColumn + exprPart.Length + 1));
+                                ParseNestedFormatSpec(formatPart, tokens, exprStartLine,
+                                    exprStartColumn + exprPart.Length + 1);
                             }
                         }
                     }
@@ -984,6 +991,112 @@ namespace SharpPy
 #endif
 
             return fstringStart;
+        }
+
+        /// <summary>
+        /// CPython 3.12 호환: 포맷 지시자에서 중첩된 표현식 파싱
+        /// f"{value:{width}.{precision}f}" 같은 케이스를 올바르게 처리
+        /// </summary>
+        private void ParseNestedFormatSpec(string formatSpec, List<PyToken> tokens, int baseLine, int baseColumn)
+        {
+#if DEBUG_LOG
+            Console.WriteLine($"[DEBUG] ParseNestedFormatSpec: '{formatSpec}' at line {baseLine}, column {baseColumn}");
+#endif
+
+            var currentPos = 0;
+            var currentText = new StringBuilder();
+            var textStartColumn = baseColumn;
+
+            while (currentPos < formatSpec.Length)
+            {
+                char c = formatSpec[currentPos];
+
+                if (c == '{')
+                {
+                    // 현재까지의 텍스트를 FSTRING_MIDDLE로 추가
+                    if (currentText.Length > 0)
+                    {
+                        tokens.Add(new PyToken(TokenType.FSTRING_MIDDLE, currentText.ToString(), baseLine, textStartColumn));
+                        currentText.Clear();
+                    }
+
+                    // { 토큰 추가
+                    tokens.Add(new PyToken(TokenType.OP, "{", baseLine, baseColumn + currentPos));
+                    currentPos++;
+
+                    // } 까지의 표현식 추출
+                    var exprStart = currentPos;
+                    var braceDepth = 1;
+                    var exprEnd = currentPos;
+
+                    while (currentPos < formatSpec.Length && braceDepth > 0)
+                    {
+                        if (formatSpec[currentPos] == '{') braceDepth++;
+                        else if (formatSpec[currentPos] == '}') braceDepth--;
+
+                        if (braceDepth > 0)
+                        {
+                            exprEnd = currentPos + 1;
+                        }
+                        currentPos++;
+                    }
+
+                    // 표현식 부분 토큰화
+                    if (exprEnd > exprStart)
+                    {
+                        var exprContent = formatSpec.Substring(exprStart, exprEnd - exprStart);
+                        if (!string.IsNullOrEmpty(exprContent))
+                        {
+                            var exprLexer = new PyLexer(exprContent);
+                            var exprTokens = exprLexer.Tokenize();
+
+                            foreach (var token in exprTokens)
+                            {
+                                if (token.Type != TokenType.ENDMARKER &&
+                                    !(token.Type == TokenType.NEWLINE && string.IsNullOrEmpty(token.Lexeme)))
+                                {
+                                    var adjustedToken = new PyToken(
+                                        token.Type,
+                                        token.Lexeme,
+                                        baseLine,
+                                        baseColumn + exprStart + token.Column
+                                    );
+                                    tokens.Add(adjustedToken);
+                                }
+                            }
+                        }
+                    }
+
+                    // } 토큰 추가 (braceDepth가 0이 되어 루프를 나왔다면 }를 만났다는 의미)
+                    if (currentPos <= formatSpec.Length)
+                    {
+                        tokens.Add(new PyToken(TokenType.OP, "}", baseLine, baseColumn + currentPos - 1));
+                    }
+
+                    // 다음 텍스트 시작점 업데이트
+                    textStartColumn = baseColumn + currentPos;
+                }
+                else
+                {
+                    // 일반 텍스트 누적
+                    if (currentText.Length == 0)
+                    {
+                        textStartColumn = baseColumn + currentPos;
+                    }
+                    currentText.Append(c);
+                    currentPos++;
+                }
+            }
+
+            // 마지막 텍스트 부분을 FSTRING_MIDDLE로 추가
+            if (currentText.Length > 0)
+            {
+                tokens.Add(new PyToken(TokenType.FSTRING_MIDDLE, currentText.ToString(), baseLine, textStartColumn));
+            }
+
+#if DEBUG_LOG
+            Console.WriteLine($"[DEBUG] ParseNestedFormatSpec generated {tokens.Count} additional tokens");
+#endif
         }
 
         /// <summary>
