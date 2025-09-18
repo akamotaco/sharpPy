@@ -154,8 +154,8 @@ namespace SharpPy
                 return new BlockStatement(ifStmt.OrElse);
             }
             
-            // else가 없으면 완전히 제거
-            return new PassStatement();
+            // else가 없으면 NOP로 변환 (CPython 3.12 호환)
+            return new NopStatement();
         }
     }
 
@@ -208,59 +208,76 @@ namespace SharpPy
             {
                 return binOp.Operator == "and" || binOp.Operator == "or";
             }
+            if (node is BoolOpExpression boolOp)
+            {
+                return boolOp.Values.Count == 2; // Simple binary boolean operation
+            }
             return false;
         }
 
         public ASTNode Optimize(ASTNode node)
         {
-            var binOp = (BinaryOpExpression)node;
-            
-            // Short-circuit evaluation patterns
-            if (binOp.Left is ConstantExpression leftLiteral)
+            if (node is BinaryOpExpression binOp)
             {
-                if (binOp.Operator == "and")
+                return OptimizeBinaryBoolOp(binOp.Left, binOp.Right, binOp.Operator);
+            }
+
+            if (node is BoolOpExpression boolOp && boolOp.Values.Count == 2)
+            {
+                return OptimizeBinaryBoolOp(boolOp.Values[0], boolOp.Values[1], boolOp.Op);
+            }
+
+            return node;
+        }
+
+        private ASTNode OptimizeBinaryBoolOp(Expression left, Expression right, string operator_)
+        {
+            // Short-circuit evaluation patterns
+            if (left is ConstantExpression leftLiteral)
+            {
+                if (operator_ == "and")
                 {
                     // False and X → False
                     if (!leftLiteral.Value.ToBool())
                         return leftLiteral;
-                    
+
                     // True and X → X
-                    return binOp.Right;
+                    return right;
                 }
-                else if (binOp.Operator == "or")
+                else if (operator_ == "or")
                 {
                     // True or X → True
                     if (leftLiteral.Value.ToBool())
                         return leftLiteral;
-                    
+
                     // False or X → X
-                    return binOp.Right;
+                    return right;
                 }
             }
-            
-            if (binOp.Right is ConstantExpression rightLiteral)
+
+            if (right is ConstantExpression rightLiteral)
             {
-                if (binOp.Operator == "and")
+                if (operator_ == "and")
                 {
                     // X and False → False
                     if (!rightLiteral.Value.ToBool())
                         return rightLiteral;
-                    
+
                     // X and True → X
-                    return binOp.Left;
+                    return left;
                 }
-                else if (binOp.Operator == "or")
+                else if (operator_ == "or")
                 {
                     // X or True → True
                     if (rightLiteral.Value.ToBool())
                         return rightLiteral;
-                    
+
                     // X or False → X
-                    return binOp.Left;
+                    return left;
                 }
             }
-            
-            return node;
+
+            return new BinaryOpExpression(left, operator_, right);
         }
     }
 

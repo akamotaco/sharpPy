@@ -1655,7 +1655,11 @@ namespace SharpPy
                 case PassStatement:
                     EmitInstruction(ByteCodeOp.NOP);
                     break;
-                    
+
+                case NopStatement:
+                    EmitInstruction(ByteCodeOp.NOP);
+                    break;
+
                 case AssertStatement assert:
                     CompileAssert(assert);
                     break;

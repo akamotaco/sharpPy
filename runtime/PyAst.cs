@@ -1806,13 +1806,29 @@ namespace SharpPy
     public class PassStatement : Statement
     {
         public override string NodeType => "Pass";
-        
+
         public override PyObject Evaluate(PyScope scope)
         {
             return PyNone.Instance;
         }
-        
+
         public override string ToString() => "pass";
+    }
+
+    /// <summary>
+    /// CPython 3.12 호환을 위한 NOP 명령어를 생성하는 Statement
+    /// Dead branch elimination 최적화에서 사용
+    /// </summary>
+    public class NopStatement : Statement
+    {
+        public override string NodeType => "Nop";
+
+        public override PyObject Evaluate(PyScope scope)
+        {
+            return PyNone.Instance;
+        }
+
+        public override string ToString() => "# nop";
     }
 
     public class AssertStatement : Statement

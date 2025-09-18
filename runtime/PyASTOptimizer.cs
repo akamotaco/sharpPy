@@ -248,6 +248,7 @@ namespace SharpPy
             RegisterRule<IfStatement>(new DeadBranchEliminationRule());
             RegisterRule<WhileStatement>(new DeadLoopEliminationRule());
             RegisterRule<BinaryOpExpression>(new BooleanSimplificationRule());
+            RegisterRule<BoolOpExpression>(new BooleanSimplificationRule());
             
             // Standard optimizations (Level: Standard+)
             if (_level >= OptimizationLevel.Standard)
