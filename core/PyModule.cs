@@ -235,7 +235,8 @@ public class PyModule : PyObject
             ["urllib"] = () => SharpPy.Modules.Stdlib.UrllibModule.CreateUrllibModule(),
             ["abc"] = () => CreateAbcModule(),
             ["contextlib"] = () => CreateContextlibModule(),
-            ["traceback"] = () => SharpPy.Modules.Stdlib.TracebackModule.CreateModule()
+            ["traceback"] = () => SharpPy.Modules.Stdlib.TracebackModule.CreateModule(),
+            ["asyncio"] = () => CreateAsyncioModule()
         };
 
 
@@ -611,6 +612,36 @@ public class PyModule : PyObject
         private static PyModule CreateContextlibModule()
         {
             return SharpPy.ContextlibModule.Create();
+        }
+
+        // asyncio 모듈 생성
+        private static PyModule CreateAsyncioModule()
+        {
+            var module = new PyModule("asyncio", "<asyncio module>");
+
+            // Core asyncio functions - for now without kwargs support
+            // TODO: Add proper kwargs support later
+            module.ModuleDict["run"] = new PyBuiltinFunction("run", (args) =>
+            {
+                return SharpPy.Modules.AsyncioModule.Run(PyVM.Instance, args, null);
+            });
+
+            module.ModuleDict["sleep"] = new PyBuiltinFunction("sleep", (args) =>
+            {
+                return SharpPy.Modules.AsyncioModule.Sleep(PyVM.Instance, args, null);
+            });
+
+            module.ModuleDict["create_task"] = new PyBuiltinFunction("create_task", (args) =>
+            {
+                return SharpPy.Modules.AsyncioModule.CreateTask(PyVM.Instance, args, null);
+            });
+
+            module.ModuleDict["get_event_loop"] = new PyBuiltinFunction("get_event_loop", (args) =>
+            {
+                return SharpPy.Modules.AsyncioModule.GetEventLoop(PyVM.Instance, args, null);
+            });
+
+            return module;
         }
     }
 #endregion

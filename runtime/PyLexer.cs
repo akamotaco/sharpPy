@@ -559,6 +559,7 @@ namespace SharpPy
         private TokenType GetKeywordType(string text)
         {
             // CPython 3.12: All keywords are NAME tokens, not separate token types
+            // Parser handles keyword recognition based on context
             return TokenType.NAME;
         }
 

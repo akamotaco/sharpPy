@@ -399,6 +399,7 @@ namespace SharpPy
 
         private Statement ParseAsyncFunctionDef()
         {
+            ConsumeKeyword("async", "Expected 'async'");
             ConsumeKeyword("def", "Expected 'def' after 'async'");
             
             var name = Consume(TokenType.NAME, "Expected function name").Lexeme;
@@ -1506,7 +1507,7 @@ namespace SharpPy
                 return new UnaryOpExpression(op, expr);
             }
             
-            if (Match(TokenType.AWAIT))
+            if (MatchKeyword("await"))
             {
                 // CPython 3.12: await는 async def 내부에서만 사용 가능
                 if (!_inAsyncFunction)
@@ -3939,7 +3940,7 @@ namespace SharpPy
                 return new UnaryOpExpression(op, expr);
             }
             
-            if (Match(TokenType.AWAIT))
+            if (MatchKeyword("await"))
             {
                 // CPython 3.12: await는 async def 내부에서만 사용 가능
                 if (!_inAsyncFunction)
