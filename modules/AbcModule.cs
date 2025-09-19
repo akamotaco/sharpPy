@@ -63,7 +63,7 @@ namespace SharpPy.Modules
         {
         }
 
-        public override PyObject Call(PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create("abstractmethod() takes exactly one argument");

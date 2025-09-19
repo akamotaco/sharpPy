@@ -1,27 +1,156 @@
 namespace SharpPy
 {
+    /// <summary>
+    /// 내장 함수의 매개변수 정의
+    /// </summary>
+    public class BuiltinParameter
+    {
+        public string Name { get; }
+        public PyObject DefaultValue { get; }
+        public bool IsKeywordOnly { get; }
+        public bool IsPositionalOnly { get; }
+
+        public BuiltinParameter(string name, PyObject defaultValue = null, bool isKeywordOnly = false, bool isPositionalOnly = false)
+        {
+            Name = name;
+            DefaultValue = defaultValue;
+            IsKeywordOnly = isKeywordOnly;
+            IsPositionalOnly = isPositionalOnly;
+        }
+    }
+
+    /// <summary>
+    /// 내장 함수의 시그니처 정의
+    /// </summary>
+    public class BuiltinSignature
+    {
+        public List<BuiltinParameter> Parameters { get; }
+        public bool AcceptsVarArgs { get; }
+        public bool AcceptsKwArgs { get; }
+
+        public BuiltinSignature(bool acceptsVarArgs = false, bool acceptsKwArgs = false)
+        {
+            Parameters = new List<BuiltinParameter>();
+            AcceptsVarArgs = acceptsVarArgs;
+            AcceptsKwArgs = acceptsKwArgs;
+        }
+
+        public BuiltinSignature AddParameter(string name, PyObject defaultValue = null, bool isKeywordOnly = false, bool isPositionalOnly = false)
+        {
+            Parameters.Add(new BuiltinParameter(name, defaultValue, isKeywordOnly, isPositionalOnly));
+            return this;
+        }
+
+        /// <summary>
+        /// args와 kwargs를 처리하여 최종 인수 배열을 생성
+        /// </summary>
+        public PyObject[] ProcessArguments(PyObject[] args, PyDict kwargs)
+        {
+            var result = new PyObject[Parameters.Count];
+            var kwDict = kwargs?.InternalDict ?? new Dictionary<PyObject, PyObject>();
+
+            // 위치 인수 처리
+            for (int i = 0; i < Math.Min(args.Length, Parameters.Count); i++)
+            {
+                var param = Parameters[i];
+                if (param.IsKeywordOnly)
+                {
+                    throw PyTypeError.Create($"'{param.Name}' parameter is keyword-only");
+                }
+                result[i] = args[i];
+            }
+
+            // 키워드 인수 처리
+            foreach (var kvp in kwDict)
+            {
+                if (kvp.Key is PyString keyStr)
+                {
+                    var paramIndex = Parameters.FindIndex(p => p.Name == keyStr.Value);
+                    if (paramIndex >= 0)
+                    {
+                        if (paramIndex < args.Length)
+                        {
+                            throw PyTypeError.Create($"got multiple values for argument '{keyStr.Value}'");
+                        }
+                        result[paramIndex] = kvp.Value;
+                    }
+                    else if (!AcceptsKwArgs)
+                    {
+                        throw PyTypeError.Create($"got an unexpected keyword argument '{keyStr.Value}'");
+                    }
+                }
+            }
+
+            // 기본값 적용
+            for (int i = 0; i < Parameters.Count; i++)
+            {
+                if (result[i] == null)
+                {
+                    if (Parameters[i].DefaultValue != null)
+                    {
+                        result[i] = Parameters[i].DefaultValue;
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create($"missing required argument: '{Parameters[i].Name}'");
+                    }
+                }
+            }
+
+            return result;
+        }
+    }
+
     public class PyBuiltinFunction : PyObject
     {
         public string Name { get; }
         private readonly Func<PyObject[], PyObject>? _implementation;
+        private readonly Func<PyObject[], PyDict, PyObject>? _kwargsImplementation;
+        private readonly BuiltinSignature? _signature;
 
         public PyBuiltinFunction(string name)
         {
             Name = name;
         }
-        
+
         public PyBuiltinFunction(string name, Func<PyObject[], PyObject> implementation)
         {
             Name = name;
             _implementation = implementation;
         }
 
+        public PyBuiltinFunction(string name, Func<PyObject[], PyDict, PyObject> kwargsImplementation)
+        {
+            Name = name;
+            _kwargsImplementation = kwargsImplementation;
+        }
+
+        public PyBuiltinFunction(string name, BuiltinSignature signature, Func<PyObject[], PyObject> implementation)
+        {
+            Name = name;
+            _signature = signature;
+            _implementation = implementation;
+        }
+
         public override string GetTypeName() => "builtin_function_or_method";
 
-        // 내장 함수 호출
-        public override PyObject Call(params PyObject[] args)
+        // 내장 함수 호출 - CPython 3.12 호환: kwargs 지원
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
-            // 사용자 정의 구현이 있으면 우선 사용
+            // kwargs 지원 구현이 있으면 우선 사용
+            if (_kwargsImplementation != null)
+            {
+                return _kwargsImplementation(args, kwargs);
+            }
+
+            // 시그니처가 있으면 인수 처리 후 기존 구현 호출
+            if (_signature != null && _implementation != null)
+            {
+                var processedArgs = _signature.ProcessArguments(args, kwargs);
+                return _implementation(processedArgs);
+            }
+
+            // 기존 구현이 있으면 사용 (kwargs 무시)
             if (_implementation != null)
             {
                 return _implementation(args);
@@ -29,76 +158,134 @@ namespace SharpPy
             
             return Name switch
             {
-                "print" => CallPrint(args),
-                "len" => CallLen(args),
-                "abs" => CallAbs(args),
-                "callable" => CallCallable(args),
-                "range" => CallRange(args),
-                "enumerate" => CallEnumerate(args),
-                "zip" => CallZip(args),
-                "map" => CallMap(args),
-                "filter" => CallFilter(args),
-                "sorted" => CallSorted(args),
-                "reversed" => CallReversed(args),
-                "sum" => CallSum(args),
-                "min" => CallMin(args),
-                "max" => CallMax(args),
-                "any" => CallAny(args),
-                "all" => CallAll(args),
-                "isinstance" => CallIsInstance(args),
-                "issubclass" => CallIsSubclass(args),
-                "hasattr" => CallHasAttr(args),
-                "getattr" => CallGetAttr(args),
-                "setattr" => CallSetAttr(args),
-                "delattr" => CallDelAttr(args),
-                "dir" => CallDir(args),
-                "__import__" => CallImport(args),
-                "type" => CallType(args),
-                "id" => CallId(args),
-                "hash" => CallHash(args),
-                "super" => CallSuper(args),
-                "property" => CallProperty(args),
-                "classmethod" => CallClassmethod(args),
-                "staticmethod" => CallStaticmethod(args),
-                "type.__new__" => CallTypeNew(args),
-                "str" => CallStr(args),
-                "repr" => CallRepr(args),
-                "int" => CallInt(args),
-                "float" => CallFloat(args),
-                "bool" => CallBool(args),
-                "list" => CallList(args),
-                "tuple" => CallTuple(args),
-                "dict" => CallDict(args),
-                "set" => CallSet(args),
-                "iter" => CallIter(args),
-                "next" => CallNext(args),
-                "round" => CallRound(args),
-                "pow" => CallPow(args),
-                "divmod" => CallDivmod(args),
-                "ord" => CallOrd(args),
-                "chr" => CallChr(args),
-                "open" => CallOpen(args),
-                "__build_class__" => CallBuildClass(args),
-                "globals" => CallGlobals(args),
-                "locals" => CallLocals(args),
+                "print" => CallPrint(args, kwargs),
+                "len" => CallLen(args, kwargs),
+                "abs" => CallAbs(args, kwargs),
+                "callable" => CallCallable(args, kwargs),
+                "range" => CallRange(args, kwargs),
+                "enumerate" => CallEnumerate(args, kwargs),
+                "zip" => CallZip(args, kwargs),
+                "map" => CallMap(args, kwargs),
+                "filter" => CallFilter(args, kwargs),
+                "sorted" => CallSorted(args, kwargs),
+                "reversed" => CallReversed(args, kwargs),
+                "sum" => CallSum(args, kwargs),
+                "min" => CallMin(args, kwargs),
+                "max" => CallMax(args, kwargs),
+                "any" => CallAny(args, kwargs),
+                "all" => CallAll(args, kwargs),
+                "isinstance" => CallIsInstance(args, kwargs),
+                "issubclass" => CallIsSubclass(args, kwargs),
+                "hasattr" => CallHasAttr(args, kwargs),
+                "getattr" => CallGetAttr(args, kwargs),
+                "setattr" => CallSetAttr(args, kwargs),
+                "delattr" => CallDelAttr(args, kwargs),
+                "dir" => CallDir(args, kwargs),
+                "__import__" => CallImport(args, kwargs),
+                "type" => CallType(args, kwargs),
+                "id" => CallId(args, kwargs),
+                "hash" => CallHash(args, kwargs),
+                "super" => CallSuper(args, kwargs),
+                "property" => CallProperty(args, kwargs),
+                "classmethod" => CallClassmethod(args, kwargs),
+                "staticmethod" => CallStaticmethod(args, kwargs),
+                "type.__new__" => CallTypeNew(args, kwargs),
+                "str" => CallStr(args, kwargs),
+                "repr" => CallRepr(args, kwargs),
+                "int" => CallInt(args, kwargs),
+                "float" => CallFloat(args, kwargs),
+                "bool" => CallBool(args, kwargs),
+                "list" => CallList(args, kwargs),
+                "tuple" => CallTuple(args, kwargs),
+                "dict" => CallDict(args, kwargs),
+                "set" => CallSet(args, kwargs),
+                "iter" => CallIter(args, kwargs),
+                "next" => CallNext(args, kwargs),
+                "round" => CallRound(args, kwargs),
+                "pow" => CallPow(args, kwargs),
+                "divmod" => CallDivmod(args, kwargs),
+                "ord" => CallOrd(args, kwargs),
+                "chr" => CallChr(args, kwargs),
+                "open" => CallOpen(args, kwargs),
+                "__build_class__" => CallBuildClass(args, kwargs),
+                "globals" => CallGlobals(args, kwargs),
+                "locals" => CallLocals(args, kwargs),
                 // Buffer Protocol functions
-                "bytes" => CallBytes(args),
-                "bytearray" => CallBytearray(args),
-                "memoryview" => CallMemoryview(args),
+                "bytes" => CallBytes(args, kwargs),
+                "bytearray" => CallBytearray(args, kwargs),
+                "memoryview" => CallMemoryview(args, kwargs),
                 _ => throw PyNotImplementedError.Create($"Built-in function '{Name}' not implemented")
             };
         }
 
         // 내장 함수들의 구현
-        private PyObject CallPrint(PyObject[] args)
+        private PyObject CallPrint(PyObject[] args, PyDict kwargs = null)
         {
-            var output = string.Join(" ", args.Select(arg => arg.ToString()));
-            Console.WriteLine(output);
+            // CPython 3.12 print(*values, sep=' ', end='\n', file=sys.stdout, flush=False)
+            var sep = new PyString(" ");
+            var end = new PyString("\n");
+            PyObject file = null; // sys.stdout는 추후 구현
+            var flush = PyBool.False;
+
+            // kwargs 처리
+            if (kwargs != null)
+            {
+                try
+                {
+                    var sepValue = kwargs.GetItem(new PyString("sep"));
+                    sep = sepValue as PyString ?? new PyString(sepValue.ToString());
+                }
+                catch { }
+
+                try
+                {
+                    var endValue = kwargs.GetItem(new PyString("end"));
+                    end = endValue as PyString ?? new PyString(endValue.ToString());
+                }
+                catch { }
+
+                try
+                {
+                    var fileValue = kwargs.GetItem(new PyString("file"));
+                    file = fileValue;
+                }
+                catch { }
+
+                try
+                {
+                    var flushValue = kwargs.GetItem(new PyString("flush"));
+                    flush = flushValue as PyBool ?? PyBool.FromBool(flushValue.PyBoolValue());
+                }
+                catch { }
+            }
+
+            // 출력 생성
+            var output = string.Join(sep.Value, args.Select(arg => arg.ToString()));
+
+            // file이 지정되지 않았으면 Console에 출력 (기본값)
+            if (file == null)
+            {
+                Console.Write(output + end.Value);
+                if (flush.Value)
+                {
+                    Console.Out.Flush();
+                }
+            }
+            else
+            {
+                // file 객체에 쓰기 (추후 구현 가능)
+                Console.Write(output + end.Value);
+            }
+
             return PyNone.Instance;
         }
 
-        private PyObject CallLen(PyObject[] args)
+        private PyObject CallLen(PyObject[] args, PyDict kwargs = null)
         {
+            // len()은 kwargs를 받지 않음
+            if (kwargs != null && kwargs.InternalDict.Count > 0)
+                throw PyTypeError.Create("len() takes no keyword arguments");
+
             if (args.Length != 1)
                 throw PyTypeError.Create($"len() takes exactly one argument ({args.Length} given)");
 
@@ -112,7 +299,7 @@ namespace SharpPy
             }
         }
 
-        private PyObject CallAbs(PyObject[] args)
+        private PyObject CallAbs(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"abs() takes exactly one argument ({args.Length} given)");
@@ -123,7 +310,7 @@ namespace SharpPy
                 throw PyTypeError.Create($"bad operand type for abs(): '{args[0].GetTypeName()}'");
         }
 
-        private PyObject CallCallable(PyObject[] args)
+        private PyObject CallCallable(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"callable() takes exactly one argument ({args.Length} given)");
@@ -133,7 +320,7 @@ namespace SharpPy
 
         // === 핵심 내장 함수들 ===
 
-        private PyObject CallRange(PyObject[] args)
+        private PyObject CallRange(PyObject[] args, PyDict kwargs = null)
         {
             return args.Length switch
             {
@@ -156,7 +343,7 @@ namespace SharpPy
             };
         }
 
-        private PyObject CallEnumerate(PyObject[] args)
+        private PyObject CallEnumerate(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 1 || args.Length > 2)
                 throw PyTypeError.Create($"enumerate expected at most 2 arguments, got {args.Length}");
@@ -186,7 +373,7 @@ namespace SharpPy
             return new PyList(result.ToArray());
         }
 
-        private PyObject CallZip(PyObject[] args)
+        private PyObject CallZip(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length == 0)
                 return new PyList(new PyObject[0]);
@@ -214,7 +401,7 @@ namespace SharpPy
             return new PyList(result.ToArray());
         }
 
-        private PyObject CallMap(PyObject[] args)
+        private PyObject CallMap(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 2)
                 throw PyTypeError.Create($"map() must have at least two arguments.");
@@ -229,7 +416,7 @@ namespace SharpPy
                 while (true)
                 {
                     var item = iterator.Next();
-                    var mappedItem = func.Call(item);
+                    var mappedItem = func.Call(new PyObject[] { item }, null);
                     result.Add(mappedItem);
                 }
             }
@@ -241,7 +428,7 @@ namespace SharpPy
             return new PyList(result.ToArray());
         }
 
-        private PyObject CallFilter(PyObject[] args)
+        private PyObject CallFilter(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"filter expected exactly 2 arguments ({args.Length} given)");
@@ -258,7 +445,7 @@ namespace SharpPy
                     var item = iterator.Next();
                     var shouldInclude = func == PyNone.Instance 
                         ? item.PyBoolValue() 
-                        : func.Call(item).PyBoolValue();
+                        : func.Call(new PyObject[] { item }, null).PyBoolValue();
                     
                     if (shouldInclude)
                         result.Add(item);
@@ -272,12 +459,46 @@ namespace SharpPy
             return new PyList(result.ToArray());
         }
 
-        private PyObject CallSorted(PyObject[] args)
+        private PyObject CallSorted(PyObject[] args, PyDict kwargs = null)
         {
+            // CPython 3.12: sorted(iterable, *, key=None, reverse=False)
             if (args.Length != 1)
                 throw PyTypeError.Create($"sorted expected exactly 1 arguments ({args.Length} given)");
 
             var iterable = args[0];
+            PyObject keyFunc = null;
+            var reverse = false;
+
+            // kwargs 처리
+            if (kwargs != null)
+            {
+                try
+                {
+                    var keyValue = kwargs.GetItem(new PyString("key"));
+                    keyFunc = keyValue != PyNone.Instance ? keyValue : null;
+                }
+                catch { }
+
+                try
+                {
+                    var reverseValue = kwargs.GetItem(new PyString("reverse"));
+                    reverse = reverseValue.PyBoolValue();
+                }
+                catch { }
+
+                // 예상치 못한 키워드 인수 체크
+                foreach (var kvp in kwargs.InternalDict)
+                {
+                    if (kvp.Key is PyString keyStr)
+                    {
+                        if (keyStr.Value != "key" && keyStr.Value != "reverse")
+                        {
+                            throw PyTypeError.Create($"'{keyStr.Value}' is an invalid keyword argument for sorted()");
+                        }
+                    }
+                }
+            }
+
             var items = new System.Collections.Generic.List<PyObject>();
             var iterator = iterable.GetIterator();
 
@@ -293,25 +514,51 @@ namespace SharpPy
                 // 정상 종료
             }
 
-            // 간단한 정렬 (비교 가능한 객체만)
-            try
+            // key 함수가 있으면 키 값과 함께 정렬
+            if (keyFunc != null)
             {
-                items.Sort((a, b) => 
+                var keysAndItems = items.Select(item => new { Item = item, Key = keyFunc.Call(new PyObject[] { item }, null) }).ToList();
+
+                try
                 {
-                    var cmpResult = a.RichCompare(b, PyObject.CompareOp.LT);
-                    return ((PyBool)cmpResult).Value ? -1 : 
-                           ((PyBool)a.RichCompare(b, PyObject.CompareOp.GT)).Value ? 1 : 0;
-                });
+                    keysAndItems.Sort((a, b) =>
+                    {
+                        var cmpResult = a.Key.RichCompare(b.Key, PyObject.CompareOp.LT);
+                        var result = ((PyBool)cmpResult).Value ? -1 :
+                                   ((PyBool)a.Key.RichCompare(b.Key, PyObject.CompareOp.GT)).Value ? 1 : 0;
+                        return reverse ? -result : result;
+                    });
+                }
+                catch
+                {
+                    throw PyTypeError.Create("'<' not supported between instances");
+                }
+
+                items = keysAndItems.Select(x => x.Item).ToList();
             }
-            catch
+            else
             {
-                throw PyTypeError.Create("'<' not supported between instances");
+                // 간단한 정렬 (비교 가능한 객체만)
+                try
+                {
+                    items.Sort((a, b) =>
+                    {
+                        var cmpResult = a.RichCompare(b, PyObject.CompareOp.LT);
+                        var result = ((PyBool)cmpResult).Value ? -1 :
+                                   ((PyBool)a.RichCompare(b, PyObject.CompareOp.GT)).Value ? 1 : 0;
+                        return reverse ? -result : result;
+                    });
+                }
+                catch
+                {
+                    throw PyTypeError.Create("'<' not supported between instances");
+                }
             }
 
             return new PyList(items.ToArray());
         }
 
-        private PyObject CallReversed(PyObject[] args)
+        private PyObject CallReversed(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"reversed expected exactly 1 arguments ({args.Length} given)");
@@ -336,7 +583,7 @@ namespace SharpPy
             return new PyList(items.ToArray());
         }
 
-        private PyObject CallSum(PyObject[] args)
+        private PyObject CallSum(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 1 || args.Length > 2)
                 throw PyTypeError.Create($"sum expected at most 2 arguments ({args.Length} given)");
@@ -362,7 +609,7 @@ namespace SharpPy
             return result;
         }
 
-        private PyObject CallMin(PyObject[] args)
+        private PyObject CallMin(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length == 0)
                 throw PyTypeError.Create("min expected at least 1 argument (0 given)");
@@ -406,7 +653,7 @@ namespace SharpPy
             }
         }
 
-        private PyObject CallMax(PyObject[] args)
+        private PyObject CallMax(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length == 0)
                 throw PyTypeError.Create("max expected at least 1 argument (0 given)");
@@ -450,7 +697,7 @@ namespace SharpPy
             }
         }
 
-        private PyObject CallAny(PyObject[] args)
+        private PyObject CallAny(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"any expected exactly 1 arguments ({args.Length} given)");
@@ -475,7 +722,7 @@ namespace SharpPy
             return PyBool.False;
         }
 
-        private PyObject CallAll(PyObject[] args)
+        private PyObject CallAll(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"all expected exactly 1 arguments ({args.Length} given)");
@@ -502,7 +749,7 @@ namespace SharpPy
 
         // === 타입 및 리플렉션 함수들 ===
 
-        private PyObject CallIsInstance(PyObject[] args)
+        private PyObject CallIsInstance(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"isinstance expected exactly 2 arguments ({args.Length} given)");
@@ -553,7 +800,7 @@ namespace SharpPy
             return false;
         }
 
-        private PyObject CallIsSubclass(PyObject[] args)
+        private PyObject CallIsSubclass(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"issubclass expected exactly 2 arguments ({args.Length} given)");
@@ -581,7 +828,7 @@ namespace SharpPy
             }
         }
 
-        private PyObject CallHasAttr(PyObject[] args)
+        private PyObject CallHasAttr(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"hasattr expected exactly 2 arguments ({args.Length} given)");
@@ -603,7 +850,7 @@ namespace SharpPy
             }
         }
 
-        private PyObject CallGetAttr(PyObject[] args)
+        private PyObject CallGetAttr(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 2 || args.Length > 3)
                 throw PyTypeError.Create($"getattr expected 2 or 3 arguments ({args.Length} given)");
@@ -627,7 +874,7 @@ namespace SharpPy
             }
         }
 
-        private PyObject CallSetAttr(PyObject[] args)
+        private PyObject CallSetAttr(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 3)
                 throw PyTypeError.Create($"setattr expected exactly 3 arguments ({args.Length} given)");
@@ -643,7 +890,7 @@ namespace SharpPy
             return PyNone.Instance;
         }
 
-        private PyObject CallDelAttr(PyObject[] args)
+        private PyObject CallDelAttr(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"delattr expected exactly 2 arguments ({args.Length} given)");
@@ -658,7 +905,7 @@ namespace SharpPy
             return PyNone.Instance;
         }
 
-        private PyObject CallType(PyObject[] args)
+        private PyObject CallType(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"type expected exactly 1 arguments ({args.Length} given)");
@@ -667,7 +914,7 @@ namespace SharpPy
         }
 
 
-        private PyObject CallId(PyObject[] args)
+        private PyObject CallId(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"id expected exactly 1 arguments ({args.Length} given)");
@@ -675,7 +922,7 @@ namespace SharpPy
             return new PyInt(args[0].GetHashCode());
         }
 
-        private PyObject CallHash(PyObject[] args)
+        private PyObject CallHash(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"hash expected exactly 1 arguments ({args.Length} given)");
@@ -685,7 +932,7 @@ namespace SharpPy
 
         // === 타입 변환 함수들 ===
 
-        private PyObject CallStr(PyObject[] args)
+        private PyObject CallStr(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"str expected exactly 1 arguments ({args.Length} given)");
@@ -693,7 +940,7 @@ namespace SharpPy
             return args[0].AsString();
         }
 
-        private PyObject CallInt(PyObject[] args)
+        private PyObject CallInt(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"int expected exactly 1 arguments ({args.Length} given)");
@@ -701,7 +948,7 @@ namespace SharpPy
             return args[0].AsInt();
         }
 
-        private PyObject CallFloat(PyObject[] args)
+        private PyObject CallFloat(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"float expected exactly 1 arguments ({args.Length} given)");
@@ -709,7 +956,7 @@ namespace SharpPy
             return args[0].AsFloat();
         }
 
-        private PyObject CallBool(PyObject[] args)
+        private PyObject CallBool(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length > 1)
                 throw PyTypeError.Create($"bool expected at most 1 arguments ({args.Length} given)");
@@ -720,7 +967,7 @@ namespace SharpPy
             return args[0].AsBool();
         }
 
-        private PyObject CallList(PyObject[] args)
+        private PyObject CallList(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length > 1)
                 throw PyTypeError.Create($"list expected at most 1 arguments ({args.Length} given)");
@@ -731,7 +978,7 @@ namespace SharpPy
             return args[0].AsList();
         }
 
-        private PyObject CallTuple(PyObject[] args)
+        private PyObject CallTuple(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length > 1)
                 throw PyTypeError.Create($"tuple expected at most 1 arguments ({args.Length} given)");
@@ -742,7 +989,7 @@ namespace SharpPy
             return args[0].AsTuple();
         }
 
-        private PyObject CallDict(PyObject[] args)
+        private PyObject CallDict(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length > 1)
                 throw PyTypeError.Create($"dict expected at most 1 arguments ({args.Length} given)");
@@ -753,7 +1000,7 @@ namespace SharpPy
             return args[0].AsDict();
         }
 
-        private PyObject CallSet(PyObject[] args)
+        private PyObject CallSet(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length > 1)
                 throw PyTypeError.Create($"set expected at most 1 arguments ({args.Length} given)");
@@ -782,7 +1029,7 @@ namespace SharpPy
 
         // === 이터레이터 함수들 ===
 
-        private PyObject CallIter(PyObject[] args)
+        private PyObject CallIter(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"iter expected exactly 1 arguments ({args.Length} given)");
@@ -790,7 +1037,7 @@ namespace SharpPy
             return args[0].GetIterator();
         }
 
-        private PyObject CallNext(PyObject[] args)
+        private PyObject CallNext(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 1 || args.Length > 2)
                 throw PyTypeError.Create($"next expected 1 or 2 arguments ({args.Length} given)");
@@ -812,7 +1059,7 @@ namespace SharpPy
 
         // === 수학 함수들 ===
 
-        private PyObject CallRound(PyObject[] args)
+        private PyObject CallRound(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 1 || args.Length > 2)
                 throw PyTypeError.Create($"round expected 1 or 2 arguments ({args.Length} given)");
@@ -835,7 +1082,7 @@ namespace SharpPy
             }
         }
 
-        private PyObject CallPow(PyObject[] args)
+        private PyObject CallPow(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 2 || args.Length > 3)
                 throw PyTypeError.Create($"pow expected 2 or 3 arguments ({args.Length} given)");
@@ -856,7 +1103,7 @@ namespace SharpPy
             }
         }
 
-        private PyObject CallDivmod(PyObject[] args)
+        private PyObject CallDivmod(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"divmod expected exactly 2 arguments ({args.Length} given)");
@@ -884,7 +1131,7 @@ namespace SharpPy
             }
         }
 
-        private PyObject CallOrd(PyObject[] args)
+        private PyObject CallOrd(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"ord expected exactly 1 arguments ({args.Length} given)");
@@ -900,7 +1147,7 @@ namespace SharpPy
             }
         }
 
-        private PyObject CallChr(PyObject[] args)
+        private PyObject CallChr(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"chr expected exactly 1 arguments ({args.Length} given)");
@@ -932,7 +1179,7 @@ namespace SharpPy
             };
         }
 
-        private PyObject CallDir(PyObject[] args)
+        private PyObject CallDir(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length > 1)
                 throw PyTypeError.Create($"dir expected at most 1 arguments ({args.Length} given)");
@@ -1051,7 +1298,7 @@ namespace SharpPy
             return false;
         }
 
-        private PyObject CallBuildClass(PyObject[] args)
+        private PyObject CallBuildClass(PyObject[] args, PyDict kwargs = null)
         {
             #if DEBUG_LOG
             Console.WriteLine($"🚀 === __build_class__ called with {args.Length} args ===");
@@ -1199,7 +1446,7 @@ namespace SharpPy
                         #if DEBUG_LOG
                         Console.WriteLine("Class body function has no CodeObject, falling back to direct call");
                         #endif
-                        var result = classBodyFunc.Call();
+                        var result = classBodyFunc.Call(new PyObject[] {  }, null);
                         #if DEBUG_LOG
                         Console.WriteLine($"Class body executed for {className}, result: {result}");
                         #endif
@@ -1372,7 +1619,7 @@ namespace SharpPy
                         try
                         {
                             // Execute metaclass.__new__ - this should modify namespaceDict and call type.__new__
-                            result = newMethod.Call(newArgs);
+                            result = newMethod.Call(newArgs, null);
                         }
                         finally
                         {
@@ -1473,7 +1720,7 @@ namespace SharpPy
                                         new PyTuple(bases.Cast<PyObject>().ToArray()), // bases
                                         namespaceDict              // namespace
                                     };
-                                    initMethod.Call(initArgs);
+                                    initMethod.Call(initArgs, null);
                                     #if DEBUG_LOG
                                     Console.WriteLine("Metaclass.__init__ executed successfully");
                                     #endif
@@ -1706,7 +1953,7 @@ namespace SharpPy
         /// __import__(name, globals=None, locals=None, fromlist=(), level=0)
         /// 동적 import 기능
         /// </summary>
-        private PyObject CallImport(PyObject[] args)
+        private PyObject CallImport(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 1 || args.Length > 5)
                 throw PyTypeError.Create($"__import__ expected 1 to 5 arguments ({args.Length} given)");
@@ -1773,15 +2020,99 @@ namespace SharpPy
             return new PyGenericType($"set[{key}]", PyType.SetType, typeArgs);
         }
 
-        private PyObject CallOpen(PyObject[] args)
+        private PyObject CallOpen(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length < 1 || args.Length > 3)
-                throw PyTypeError.Create($"open() takes 1 to 3 arguments ({args.Length} given)");
+            // CPython 3.12: open(file, mode='r', buffering=-1, encoding=None, errors=None, newline=None, closefd=True, opener=None)
+            if (args.Length < 1)
+                throw PyTypeError.Create("open() missing required argument: 'file'");
 
-            // Extract arguments
+            // Extract file argument
             var filename = args[0].ToStr();
-            var mode = args.Length > 1 ? args[1].ToStr() : "r";
-            var encoding = args.Length > 2 ? args[2].ToStr() : "utf-8"; // Ignored for now
+            var mode = "r";
+            var buffering = -1;
+            string encoding = null;
+            string errors = null;
+            string newline = null;
+            var closefd = true;
+            PyObject opener = null;
+
+            // Process positional arguments
+            if (args.Length > 1) mode = args[1].ToStr();
+            if (args.Length > 2) buffering = ((PyInt)args[2]).Value;
+            if (args.Length > 3) encoding = args[3] != PyNone.Instance ? args[3].ToStr() : null;
+            if (args.Length > 4) errors = args[4] != PyNone.Instance ? args[4].ToStr() : null;
+            if (args.Length > 5) newline = args[5] != PyNone.Instance ? args[5].ToStr() : null;
+            if (args.Length > 6) closefd = args[6].PyBoolValue();
+            if (args.Length > 7) opener = args[7] != PyNone.Instance ? args[7] : null;
+
+            // Process kwargs
+            if (kwargs != null)
+            {
+                try
+                {
+                    var modeValue = kwargs.GetItem(new PyString("mode"));
+                    mode = modeValue.ToStr();
+                }
+                catch { }
+
+                try
+                {
+                    var bufferingValue = kwargs.GetItem(new PyString("buffering"));
+                    buffering = ((PyInt)bufferingValue).Value;
+                }
+                catch { }
+
+                try
+                {
+                    var encodingValue = kwargs.GetItem(new PyString("encoding"));
+                    encoding = encodingValue != PyNone.Instance ? encodingValue.ToStr() : null;
+                }
+                catch { }
+
+                try
+                {
+                    var errorsValue = kwargs.GetItem(new PyString("errors"));
+                    errors = errorsValue != PyNone.Instance ? errorsValue.ToStr() : null;
+                }
+                catch { }
+
+                try
+                {
+                    var newlineValue = kwargs.GetItem(new PyString("newline"));
+                    newline = newlineValue != PyNone.Instance ? newlineValue.ToStr() : null;
+                }
+                catch { }
+
+                try
+                {
+                    var closefdValue = kwargs.GetItem(new PyString("closefd"));
+                    closefd = closefdValue.PyBoolValue();
+                }
+                catch { }
+
+                try
+                {
+                    var openerValue = kwargs.GetItem(new PyString("opener"));
+                    opener = openerValue != PyNone.Instance ? openerValue : null;
+                }
+                catch { }
+
+                // 예상치 못한 키워드 인수 체크
+                var validKeys = new[] { "mode", "buffering", "encoding", "errors", "newline", "closefd", "opener" };
+                foreach (var kvp in kwargs.InternalDict)
+                {
+                    if (kvp.Key is PyString keyStr && !validKeys.Contains(keyStr.Value))
+                    {
+                        throw PyTypeError.Create($"'{keyStr.Value}' is an invalid keyword argument for open()");
+                    }
+                }
+            }
+
+            // encoding 기본값 설정
+            if (encoding == null && mode.Contains("t"))
+            {
+                encoding = "utf-8"; // 기본 텍스트 인코딩
+            }
 
             // Create file context manager
             return new PyFileContextManager(filename, mode);
@@ -1791,7 +2122,7 @@ namespace SharpPy
         /// super() builtin function implementation
         /// Returns a proxy object that delegates method calls to parent or sibling class
         /// </summary>
-        private PyObject CallSuper(PyObject[] args)
+        private PyObject CallSuper(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length == 0)
             {
@@ -1940,7 +2271,7 @@ namespace SharpPy
         /// property builtin function implementation
         /// Creates a property descriptor
         /// </summary>
-        private PyObject CallProperty(PyObject[] args)
+        private PyObject CallProperty(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 1 || args.Length > 4)
             {
@@ -1960,7 +2291,7 @@ namespace SharpPy
             return new PyProperty(getter, setter, deleter);
         }
 
-        private PyObject CallClassmethod(PyObject[] args)
+        private PyObject CallClassmethod(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
             {
@@ -1975,7 +2306,7 @@ namespace SharpPy
             return new PyClassmethod(function);
         }
 
-        private PyObject CallStaticmethod(PyObject[] args)
+        private PyObject CallStaticmethod(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
             {
@@ -1994,7 +2325,7 @@ namespace SharpPy
         /// type.__new__ builtin method implementation
         /// Creates a new type instance (class creation)
         /// </summary>
-        private PyObject CallTypeNew(PyObject[] args)
+        private PyObject CallTypeNew(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 4)
             {
@@ -2058,7 +2389,7 @@ namespace SharpPy
         /// <summary>
         /// globals() builtin function - returns a dictionary of the current global symbol table
         /// </summary>
-        private PyObject CallGlobals(PyObject[] args)
+        private PyObject CallGlobals(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 0)
             {
@@ -2092,7 +2423,7 @@ namespace SharpPy
         /// <summary>
         /// locals() builtin function - returns a dictionary of the current local symbol table
         /// </summary>
-        private PyObject CallLocals(PyObject[] args)
+        private PyObject CallLocals(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 0)
             {
@@ -2205,7 +2536,7 @@ namespace SharpPy
         /// <summary>
         /// bytes() constructor - creates immutable byte sequences
         /// </summary>
-        private PyObject CallBytes(PyObject[] args)
+        private PyObject CallBytes(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length == 0)
             {
@@ -2299,7 +2630,7 @@ namespace SharpPy
         /// <summary>
         /// bytearray() constructor - creates mutable byte sequences
         /// </summary>
-        private PyObject CallBytearray(PyObject[] args)
+        private PyObject CallBytearray(PyObject[] args, PyDict kwargs = null)
         {
             // Temporary implementation: return PyBytes for now
             // TODO: Implement full mutable PyBytearray class
@@ -2350,7 +2681,7 @@ namespace SharpPy
         /// <summary>
         /// memoryview() constructor - creates memory view objects
         /// </summary>
-        private PyObject CallMemoryview(PyObject[] args)
+        private PyObject CallMemoryview(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"memoryview() takes exactly one argument ({args.Length} given)");
@@ -2376,7 +2707,7 @@ namespace SharpPy
         /// <summary>
         /// repr() built-in function - returns a printable representation of an object
         /// </summary>
-        private PyObject CallRepr(PyObject[] args)
+        private PyObject CallRepr(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"repr() takes exactly one argument ({args.Length} given)");
@@ -2462,7 +2793,7 @@ namespace SharpPy
                                     // Handle builtin methods like object.__init__
                                     Console.WriteLine($"   🔧 Binding builtin method {name} to {Object.GetType().Name}");
                                     // Convert PyBuiltinMethod to PyFunction for proper binding
-                                    var func = new PyFunction(builtin.Name, builtin.Call);
+                                    var func = new PyFunction(builtin.Name, args => builtin.Call(args, null));
                                     return new PyMethod(Object, func);
                                 }
                                 else if (attr is PyBuiltinFunction builtinFunc)
@@ -2470,7 +2801,7 @@ namespace SharpPy
                                     // Handle builtin functions like object.__init__
                                     Console.WriteLine($"   🔧 Binding builtin function {name} to {Object.GetType().Name}");
                                     // Convert PyBuiltinFunction to PyFunction for proper binding
-                                    var func = new PyFunction(builtinFunc.Name, builtinFunc.Call);
+                                    var func = new PyFunction(builtinFunc.Name, args => builtinFunc.Call(args, null));
                                     return new PyMethod(Object, func);
                                 }
                             }

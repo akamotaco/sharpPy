@@ -39,7 +39,7 @@ namespace SharpPy.Modules.Stdlib
             _functionName = functionName;
         }
 
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             try
             {

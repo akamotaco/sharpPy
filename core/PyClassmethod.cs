@@ -37,9 +37,9 @@ namespace SharpPy
 
         public bool IsDataDescriptor() => false; // classmethod is not a data descriptor
 
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
-            return Function.Call(args);
+            return Function.Call(args, kwargs);
         }
 
         public override string ToString()
@@ -78,9 +78,9 @@ namespace SharpPy
 
         public bool IsDataDescriptor() => false; // staticmethod is not a data descriptor
 
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
-            return Function.Call(args);
+            return Function.Call(args, kwargs);
         }
 
         public override string ToString()

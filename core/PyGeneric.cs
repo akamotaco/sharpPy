@@ -29,9 +29,9 @@ namespace SharpPy
         }
 
         // Forward calls to origin type (Stack[int]() -> Stack())
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
-            return OriginType.Call(args);
+            return OriginType.Call(args, kwargs);
         }
 
         public override bool IsCallable() => OriginType.IsCallable();

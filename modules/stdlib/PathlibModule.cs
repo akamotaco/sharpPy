@@ -47,7 +47,7 @@ namespace SharpPy.Modules.Stdlib
             _implementationType = implementationType;
         }
 
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             if (_implementationType == typeof(PyPurePath))
             {

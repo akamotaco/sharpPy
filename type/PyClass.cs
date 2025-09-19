@@ -39,6 +39,11 @@ namespace SharpPy
 
         public new PyClassInstance CreateInstance(params PyObject[] args)
         {
+            return CreateInstance(args, null);
+        }
+
+        public new PyClassInstance CreateInstance(PyObject[] args, PyDict kwargs)
+        {
             var instance = new PyClassInstance(this);
 
             // __init__ 호출 (있다면)
@@ -48,7 +53,7 @@ namespace SharpPy
                 if (init is PyMethod method)
                 {
                     // PyMethod는 이미 self가 바인딩되어 있으므로 args만 전달
-                    method.Call(args);
+                    method.Call(args, kwargs);
                 }
                 else if (init is PyFunction function)
                 {
@@ -56,7 +61,7 @@ namespace SharpPy
                     var allArgs = new PyObject[args.Length + 1];
                     allArgs[0] = instance;
                     Array.Copy(args, 0, allArgs, 1, args.Length);
-                    function.Call(allArgs);
+                    function.Call(allArgs, kwargs);
                 }
             }
 
@@ -69,11 +74,11 @@ namespace SharpPy
         }
 
         // 클래스 호출 시 인스턴스 생성
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             // Check for abstract methods before allowing instantiation
             CheckAbstractMethods();
-            return CreateInstance(args);
+            return CreateInstance(args, kwargs);
         }
 
         // 클래스는 항상 호출 가능 (인스턴스 생성)
@@ -531,7 +536,7 @@ namespace SharpPy
         {
             if (_customGetAttr != null)
             {
-                return _customGetAttr.Call(this, new PyString(name));
+                return _customGetAttr.Call(new PyObject[] { this, new PyString(name) }, null);
             }
             return null;
         }

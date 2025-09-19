@@ -157,7 +157,7 @@ namespace SharpPy
                 // 데코레이터 함수를 호출하여 실제 데코레이터를 반환
                 if (decoratorFunc is PyFunction func)
                 {
-                    return func.Call(args);
+                    return func.Call(args, null);
                 }
             }
             
@@ -682,7 +682,7 @@ namespace SharpPy
                 var decorator = Decorators[i].Evaluate(scope);
                 if (decorator is PyFunction decoratorFunc)
                 {
-                    decoratedFunction = decoratorFunc.Call(decoratedFunction);
+                    decoratedFunction = decoratorFunc.Call(new PyObject[] { decoratedFunction }, null);
                 }
                 else
                 {
@@ -1327,7 +1327,7 @@ namespace SharpPy
                     var items = dict.GetAttribute("items");
                     if (items is PyFunction itemsMethod)
                     {
-                        var itemsList = itemsMethod.Call();
+                        var itemsList = itemsMethod.Call(new PyObject[] {  }, null);
                         if (itemsList is PyList dictItems)
                         {
                             foreach (var item in dictItems.Items)
@@ -1582,7 +1582,7 @@ namespace SharpPy
                     }
                     
                     // Call __enter__()
-                    var enterResult = enterMethod.Call();
+                    var enterResult = enterMethod.Call(new PyObject[] {  }, null);
                     
                     // Bind to target variable if specified (e.g., "as f:")
                     PyObject? target = null;
@@ -1616,7 +1616,7 @@ namespace SharpPy
                     var (manager, exitMethod, target) = contextManagers[i];
                     try
                     {
-                        exitMethod.Call(PyNone.Instance, PyNone.Instance, PyNone.Instance);
+                        exitMethod.Call(new PyObject[] { PyNone.Instance, PyNone.Instance, PyNone.Instance }, null);
                     }
                     catch (Exception exitEx)
                     {
@@ -1643,7 +1643,7 @@ namespace SharpPy
                         var excValue = ex.PyException;
                         var traceback = PyNone.Instance; // TODO: implement traceback
                         
-                        var exitResult = exitMethod.Call(excType, excValue, traceback);
+                        var exitResult = exitMethod.Call(new PyObject[] { excType, excValue, traceback }, null);
                         
                         // If __exit__ returns True, suppress the exception
                         if (exitResult.PyBoolValue())
@@ -1883,7 +1883,7 @@ namespace SharpPy
                 else if (exception is PyBuiltinType builtinType)
                 {
                     // Exception type constructor call (e.g., ValueError("message"))
-                    var exceptionInstance = builtinType.Call();
+                    var exceptionInstance = builtinType.Call(new PyObject[] {  }, null);
                     if (exceptionInstance is PyBaseException pyExceptionInstance)
                     {
                         throw new PythonException(pyExceptionInstance);
@@ -2310,7 +2310,7 @@ namespace SharpPy
                 throw new NotImplementedException("Keyword arguments not yet implemented");
             }
             
-            return function.Call(args);
+            return function.Call(args, null);
         }
         
         public override string ToString() 

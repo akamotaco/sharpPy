@@ -65,21 +65,23 @@ public partial class PyFunction : PyObject, IDescriptor
     public override PyType GetPyType() => PyType.FunctionType;
     public override string GetTypeName() => "function";
 
-    public override PyObject Call(params PyObject[] args)
+    // CPython 3.12 호환: kwargs 지원 버전
+    public override PyObject Call(PyObject[] args, PyDict kwargs)
     {
         // async generator 함수인지 먼저 확인
         if (CodeObject?.IsAsyncGenerator() == true)
         {
-            // async generator 객체 생성
+            // async generator 객체 생성 (kwargs는 생성 시 사용하지 않음)
             return CreateAsyncGenerator(args);
         }
         // 일반 generator 함수인지 확인
         else if (CodeObject?.IsGenerator() == true)
         {
-            // 제너레이터 객체 생성
+            // 제너레이터 객체 생성 (kwargs는 생성 시 사용하지 않음)
             return CreateGenerator(args);
         }
-        
+
+        // TODO: kwargs 처리 로직 추가 필요 (현재는 무시)
         return Implementation(args);
     }
     
@@ -281,7 +283,8 @@ public partial class PyFunction : PyObject, IDescriptor
         public override PyType GetPyType() => PyType.FunctionType; // 단순화
         public override string GetTypeName() => "method";
 
-        public override PyObject Call(params PyObject[] args)
+        // CPython 3.12 호환: kwargs 지원 버전
+        public override PyObject Call(PyObject[] args, PyDict kwargs)
         {
             // CPython 3.12 context manager 호환성: __exit__ method 특별 처리
             if (Function.Name == "__exit__" && args.Length == 2)
@@ -293,14 +296,14 @@ public partial class PyFunction : PyObject, IDescriptor
                 contextArgs[1] = args[0];  // exc_type (None)
                 contextArgs[2] = args[1];  // exc_val (None)
                 contextArgs[3] = PyNone.Instance; // exc_tb (None) - 암시적으로 추가
-                return Function.Call(contextArgs);
+                return Function.Call(contextArgs, kwargs);
             }
-            
+
             // 일반적인 bound method 처리
             var newArgs = new PyObject[args.Length + 1];
             newArgs[0] = Instance;
             Array.Copy(args, 0, newArgs, 1, args.Length);
-            return Function.Call(newArgs);
+            return Function.Call(newArgs, kwargs);
         }
 
         // Method는 항상 호출 가능
@@ -685,7 +688,7 @@ public static class PEP692CallHelper
             function.Signature.ValidateKwargs(kwargs);
         }
         
-        return function.Call(args);
+        return function.Call(args, kwargs);
     }
 }
 

@@ -716,7 +716,7 @@ namespace SharpPy.Modules.Stdlib
         {
         }
 
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 3)
                 throw PyTypeError.Create("datetime() missing required arguments");
@@ -774,7 +774,7 @@ namespace SharpPy.Modules.Stdlib
         {
         }
 
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 3)
                 throw PyTypeError.Create("date() missing required arguments");
@@ -812,7 +812,7 @@ namespace SharpPy.Modules.Stdlib
         {
         }
 
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             var hour = args.Length > 0 ? ((PyInt)args[0]).Value : 0;
             var minute = args.Length > 1 ? ((PyInt)args[1]).Value : 0;
@@ -832,7 +832,7 @@ namespace SharpPy.Modules.Stdlib
         {
         }
 
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             var days = 0;
             var seconds = 0;
@@ -914,7 +914,7 @@ namespace SharpPy.Modules.Stdlib
         {
         }
 
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length == 0)
                 return new PyTimeZone(TimeZoneInfo.Utc);

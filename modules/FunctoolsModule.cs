@@ -53,7 +53,7 @@ namespace SharpPy
                 while (true)
                 {
                     var nextValue = iterator.Next();
-                    result = function.Call(result, nextValue);
+                    result = function.Call(new PyObject[] { result, nextValue }, null);
                 }
             }
             catch (PythonException ex) when (ex.PyException is PyStopIteration)
@@ -184,11 +184,11 @@ namespace SharpPy
             _partialArgs = partialArgs;
         }
 
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             // 부분 적용된 인수와 새 인수를 결합
             var combinedArgs = _partialArgs.Concat(args).ToArray();
-            return _func.Call(combinedArgs);
+            return _func.Call(combinedArgs, kwargs);
         }
 
         public override PyType GetPyType() => PyType.ObjectType;
@@ -212,7 +212,7 @@ namespace SharpPy
             _maxsize = maxsize;
         }
 
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             // 간단한 캐시 키 생성 (실제로는 더 복잡해야 함)
             var key = string.Join(",", args.Select(arg => arg.ToString()));
@@ -224,7 +224,7 @@ namespace SharpPy
             }
 
             // 캐시 미스 - 함수 실행
-            var result = _func.Call(args);
+            var result = _func.Call(args, null);
 
             // 캐시에 저장
             if (_cache.Count >= _maxsize)
@@ -259,11 +259,11 @@ namespace SharpPy
             _func = func;
         }
 
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             if (!_hasCache)
             {
-                _cachedValue = _func.Call(args);
+                _cachedValue = _func.Call(args, kwargs);
                 _hasCache = true;
             }
             return _cachedValue;
@@ -287,19 +287,19 @@ namespace SharpPy
             _defaultFunc = defaultFunc;
         }
 
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length == 0)
-                return _defaultFunc.Call(args);
+                return _defaultFunc.Call(args, null);
 
             var firstArgType = args[0].GetPyType();
             
             if (_registry.ContainsKey(firstArgType))
             {
-                return _registry[firstArgType].Call(args);
+                return _registry[firstArgType].Call(args, null);
             }
 
-            return _defaultFunc.Call(args);
+            return _defaultFunc.Call(args, null);
         }
 
         public void Register(PyType type, PyObject func)
@@ -324,7 +324,7 @@ namespace SharpPy
             _cmpFunc = cmpFunc;
         }
 
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create("cmp_to_key function expected 1 argument");
@@ -355,7 +355,7 @@ namespace SharpPy
         {
             if (other is CmpToKeyObject otherKey)
             {
-                var result = _cmpFunc.Call(_obj, otherKey._obj);
+                var result = _cmpFunc.Call(new PyObject[] { _obj, otherKey._obj }, null);
                 if (result is PyInt intResult)
                 {
                     var comparison = intResult.Value;

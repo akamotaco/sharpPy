@@ -643,7 +643,7 @@ namespace SharpPy
         {
         }
         
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 2)
                 throw PyTypeError.Create("TypedDict() missing required arguments");

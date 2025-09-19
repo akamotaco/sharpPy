@@ -100,7 +100,7 @@ namespace SharpPy.Modules.Stdlib
                 {
                     // 파일-like 객체의 write 메서드 호출
                     var writeMethod = file.GetAttribute("write");
-                    writeMethod.Call(new PyString(jsonString));
+                    writeMethod.Call(new PyObject[] { new PyString(jsonString) }, null);
                 }
 
                 return PyNone.Instance;
@@ -155,7 +155,7 @@ namespace SharpPy.Modules.Stdlib
                 {
                     // 파일-like 객체의 read 메서드 호출
                     var readMethod = file.GetAttribute("read");
-                    var content = readMethod.Call();
+                    var content = readMethod.Call(new PyObject[] {  }, null);
                     jsonContent = content.ToStr();
                 }
 
@@ -423,7 +423,7 @@ namespace SharpPy.Modules.Stdlib
         {
         }
 
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             string message = args.Length > 0 ? args[0].ToStr() : "JSON decode error";
             return new PyJsonDecodeError(message);
@@ -439,7 +439,7 @@ namespace SharpPy.Modules.Stdlib
         {
         }
 
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             return new PyJsonEncoder();
         }
@@ -454,7 +454,7 @@ namespace SharpPy.Modules.Stdlib
         {
         }
 
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             return new PyJsonDecoder();
         }

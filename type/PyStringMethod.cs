@@ -27,7 +27,7 @@ namespace SharpPy
         /// <summary>
         /// 메서드 호출 구현
         /// </summary>
-        public override PyObject Call(PyObject[] args = null)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             args ??= Array.Empty<PyObject>();
             return _method(args);

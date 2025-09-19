@@ -91,7 +91,7 @@ namespace SharpPy.Modules
         public override string GetTypeName() => "builtin_function_or_method";
         public override bool IsCallable() => true;
 
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             return Name switch
             {

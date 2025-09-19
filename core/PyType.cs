@@ -239,7 +239,7 @@ namespace SharpPy
         public override bool IsCallable() => true;
 
         // type 호출 - 인스턴스 생성 또는 타입 조회
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             // type(obj) - 객체의 타입 반환
             if (this == TypeType && args.Length == 1)
@@ -396,7 +396,7 @@ namespace SharpPy
 
             // 내장 타입들에 대한 특별 처리 (타입 변환) - PyBuiltinFunction 위임
             var builtinFunc = new PyBuiltinFunction(Name);
-            return builtinFunc.Call(args);
+            return builtinFunc.Call(args, null);
         }
 
         // Special method lookup (MRO 기반)

@@ -103,7 +103,7 @@ namespace SharpPy
                         // Callable condition
                         foreach (var exc in Exceptions)
                         {
-                            var result = callable.Call(exc);
+                            var result = callable.Call(new PyObject[] { exc }, null);
                             if (result.PyBoolValue())
                             {
                                 matchedExceptions.Add(exc);

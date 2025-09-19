@@ -215,7 +215,7 @@ namespace SharpPy
         /// <summary>
         /// Override Call to handle type() calls properly
         /// </summary>
-        public override PyObject Call(PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             #if DEBUG_LOG
             Console.WriteLine($"🔧 PyTypeMetaclass.Call called with {args.Length} args");
@@ -278,7 +278,7 @@ namespace SharpPy
             return PyType.MethodType; // builtin methods are instances of method type
         }
 
-        public override PyObject Call(PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             // The first argument is 'self' for bound methods
             if (args.Length < 1)

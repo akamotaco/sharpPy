@@ -285,23 +285,24 @@ namespace SharpPy
             }
         }
 
-        public virtual PyObject Call(params PyObject[] args)
+        // CPython 3.12 호환: kwargs 지원 버전
+        public virtual PyObject Call(PyObject[] args, PyDict kwargs)
         {
             try
             {
                 var callMethod = GetAttribute("__call__");
                 if (callMethod is PyMethod method)
-                    return method.Call(args);
+                    return method.Call(args, kwargs);
                 else if (callMethod is PyFunction func)
                 {
                     // unbound function이면 self를 첫 번째 인자로 추가
                     var newArgs = new PyObject[args.Length + 1];
                     newArgs[0] = this;
                     Array.Copy(args, 0, newArgs, 1, args.Length);
-                    return func.Call(newArgs);
+                    return func.Call(newArgs, kwargs);
                 }
                 else if (callMethod.IsCallable())
-                    return callMethod.Call(args);
+                    return callMethod.Call(args, kwargs);
             }
             catch (PythonException pe)
             {
@@ -463,7 +464,7 @@ namespace SharpPy
             try
             {
                 var lenMethod = GetAttribute("__len__");
-                var result = lenMethod.Call();
+                var result = lenMethod.Call(new PyObject[] {  }, null);
                 if (result is PyInt pyInt)
                     return pyInt.Value;
                 throw PyTypeError.Create("__len__ should return an integer");
@@ -770,7 +771,7 @@ namespace SharpPy
                 var getMethod = _descriptor.GetAttribute("__get__");
                 if (getMethod != null && getMethod.IsCallable())
                 {
-                    return getMethod.Call(instance, owner);
+                    return getMethod.Call(new PyObject[] { instance, owner }, null);
                 }
                 return _descriptor;
             }
@@ -787,7 +788,7 @@ namespace SharpPy
                 var setMethod = _descriptor.GetAttribute("__set__");
                 if (setMethod != null && setMethod.IsCallable())
                 {
-                    setMethod.Call(instance, value);
+                    setMethod.Call(new PyObject[] { instance, value }, null);
                     return;
                 }
             }
@@ -805,7 +806,7 @@ namespace SharpPy
                 var delMethod = _descriptor.GetAttribute("__delete__");
                 if (delMethod != null && delMethod.IsCallable())
                 {
-                    delMethod.Call(instance);
+                    delMethod.Call(new PyObject[] { instance }, null);
                     return;
                 }
             }

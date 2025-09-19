@@ -359,7 +359,7 @@ namespace SharpPy
             {
                 if (_defaultFactory != null)
                 {
-                    var defaultValue = _defaultFactory.Call();
+                    var defaultValue = _defaultFactory.Call(new PyObject[] {  }, null);
                     SetItem(key, defaultValue);
                     return defaultValue;
                 }

@@ -142,7 +142,7 @@ namespace SharpPy.Tools
             // 인스턴스를 통한 접근 (bound method)
             var boundGreet = person.GetAttribute("greet");
             Console.WriteLine($"person.greet: {boundGreet}");
-            boundGreet.Call();
+            boundGreet.Call(new PyObject[] {  }, null);
 
             // 4. super() 동작
             Console.WriteLine("\n⬆️ 4. super() 동작");
@@ -162,7 +162,7 @@ namespace SharpPy.Tools
                 Console.WriteLine("Derived.method() 시작");
                 var super = new PySuper(derived, self);
                 var superMethod = super.GetAttribute("method");
-                superMethod.Call();
+                superMethod.Call(new PyObject[] {  }, null);
                 Console.WriteLine("Derived.method() 종료");
                 return PyNone.Instance;
             }));
@@ -170,7 +170,7 @@ namespace SharpPy.Tools
             derived.PrintMRO();
             var derivedInstance = derived.CreateInstance();
             var derivedMethod = derivedInstance.GetAttribute("method");
-            derivedMethod.Call();
+            derivedMethod.Call(new PyObject[] {  }, null);
 
             // 5. LEGB 스코프 시스템
             Console.WriteLine("\n🔍 5. LEGB 스코프 시스템");
@@ -316,15 +316,15 @@ print('Max:', max(numbers))
             try 
             {
                 // C# 수학 함수 테스트
-                var addResult = addFunction.Call(new PyInt(10), new PyInt(20));
+                var addResult = addFunction.Call(new PyObject[] { new PyInt(10), new PyInt(20) }, null);
                 Console.WriteLine($"C# add result: {addResult}");
 
                 // C# 문자열 함수 테스트  
-                var reverseResult = reverseFunction.Call(new PyString("Hello World!"));
+                var reverseResult = reverseFunction.Call(new PyObject[] { new PyString("Hello World!") }, null);
                 Console.WriteLine($"C# reverse result: {reverseResult}");
 
                 // C# 시스템 정보 함수 테스트
-                var sysInfoResult = sysInfoFunction.Call();
+                var sysInfoResult = sysInfoFunction.Call(new PyObject[] {  }, null);
                 Console.WriteLine($"System info from C#: {sysInfoResult}");
             }
             catch (Exception ex)
@@ -391,16 +391,16 @@ print('Max:', max(numbers))
             try
             {
                 // calculate_area 함수 호출
-                var area = calculateAreaFunc.Call(new PyInt(15), new PyInt(25));
+                var area = calculateAreaFunc.Call(new PyObject[] { new PyInt(15), new PyInt(25) }, null);
                 Console.WriteLine($"C# got area result: {area}");
 
                 // format_message 함수 호출
-                var message = formatMessageFunc.Call(new PyString("Alice"), new PyInt(30));
+                var message = formatMessageFunc.Call(new PyObject[] { new PyString("Alice"), new PyInt(30) }, null);
                 Console.WriteLine($"C# got message: {message}");
 
                 // process_numbers 함수 호출 - C# 배열을 직접 전달!
                 var numbers = new int[] { 10, 20, 30, 40 };
-                var result = processNumbersFunc.Call(PyTypeConverter.ToPyObject(numbers));
+                var result = processNumbersFunc.Call(new PyObject[] { PyTypeConverter.ToPyObject(numbers) }, null);
                 Console.WriteLine($"C# got process result: {result}");
                 
                 // 결과 딕셔너리에서 개별 값 추출
@@ -440,9 +440,9 @@ print('Max:', max(numbers))
             {
                 Console.WriteLine($"Python calculator called with {x}, {y}");
                 
-                var sumResult = mathHelper.Call(new PyString("add"), new PyInt(x), new PyInt(y));
-                var mulResult = mathHelper.Call(new PyString("multiply"), new PyInt(x), new PyInt(y));  
-                var powResult = mathHelper.Call(new PyString("power"), new PyInt(x), new PyInt(y));
+                var sumResult = mathHelper.Call(new PyObject[] { new PyString("add"), new PyInt(x), new PyInt(y) }, null);
+                var mulResult = mathHelper.Call(new PyObject[] { new PyString("multiply"), new PyInt(x), new PyInt(y) }, null);  
+                var powResult = mathHelper.Call(new PyObject[] { new PyString("power"), new PyInt(x), new PyInt(y) }, null);
                 
                 return new Dictionary<string, object>
                 {
@@ -453,7 +453,7 @@ print('Max:', max(numbers))
             });
 
             // 테스트 호출
-            var hybridResult = pythonCalculator.Call(new PyInt(3), new PyInt(4));
+            var hybridResult = pythonCalculator.Call(new PyObject[] { new PyInt(3), new PyInt(4) }, null);
             Console.WriteLine($"Hybrid calculation result: {hybridResult}");
 
             Console.WriteLine("\n✅ SharpPy → C# 상호 운용 데모 완료!");

@@ -34,7 +34,7 @@ namespace SharpPy
         /// <summary>
         /// __next__() 호출
         /// </summary>
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 0)
                 throw PyTypeError.Create("__next__() takes no arguments");
@@ -355,7 +355,7 @@ namespace SharpPy
         {
             try
             {
-                var result = _sequence.GetAttribute("__getitem__").Call(new PyInt(_index));
+                var result = _sequence.GetAttribute("__getitem__").Call(new PyObject[] { new PyInt(_index) }, null);
                 _index++;
                 return result;
             }

@@ -177,7 +177,7 @@ public class PyBuiltinType : PyObject
     public override string GetTypeName() => "type";
     public override string ToString() => $"<class '{Name}'>";
     
-    public override PyObject Call(params PyObject[] args)
+    public override PyObject Call(PyObject[] args, PyDict kwargs = null)
     {
         // Handle exception type constructors
         switch (Name)
@@ -255,7 +255,7 @@ public class PyBuiltinType : PyObject
                 return new PyBaseExceptionGroup(groupMessage, exceptions);
                 
             default:
-                return base.Call(args);
+                return base.Call(args, kwargs);
         }
     }
 

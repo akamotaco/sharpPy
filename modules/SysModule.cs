@@ -133,7 +133,7 @@ namespace SharpPy.Modules
     {
         public PySysFunction(string name) : base(name) { }
 
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             return Name switch
             {
@@ -262,7 +262,7 @@ namespace SharpPy.Modules
             _modules = modules;
         }
 
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             return Name switch
             {

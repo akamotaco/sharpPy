@@ -59,10 +59,10 @@ namespace SharpPy
 
         public override string GetTypeName() => "GeneratorContextManagerWrapper";
 
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             // Call the original generator function to get a generator
-            var generator = _generatorFunc.Call(args);
+            var generator = _generatorFunc.Call(args, kwargs);
             
             if (generator is not PyGenerator pyGen)
             {

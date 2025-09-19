@@ -1273,11 +1273,11 @@ namespace SharpPy
                         // 위치 인수만 있는 경우 - 기존 방식 사용
                         if (actualCallable is PyBuiltinFunction builtin)
                         {
-                            newCallResult = builtin.Call(finalArgs);
+                            newCallResult = builtin.Call(finalArgs, null);
                         }
                         else if (actualCallable is PyMethod method)
                         {
-                            newCallResult = method.Call(finalArgs);
+                            newCallResult = method.Call(finalArgs, null);
                         }
                         else if (actualCallable is PyFunction func)
                         {
@@ -1285,7 +1285,7 @@ namespace SharpPy
                         }
                         else
                         {
-                            newCallResult = actualCallable.Call(finalArgs);
+                            newCallResult = actualCallable.Call(finalArgs, null);
                         }
                     }
 
@@ -1411,7 +1411,7 @@ namespace SharpPy
                     }
                     else if (functionToCall is PyBuiltinFunction builtinFunc)
                     {
-                        var unpackedResult = builtinFunc.Call(argsList.ToArray());
+                        var unpackedResult = builtinFunc.Call(argsList.ToArray(), null);
                         frame.ValueStack.Push(unpackedResult);
                     }
                     else
@@ -1780,11 +1780,11 @@ namespace SharpPy
 
                         if (superFunc is PyBuiltinFunction builtinSuper)
                         {
-                            superProxy = builtinSuper.Call(superArgs);
+                            superProxy = builtinSuper.Call(superArgs, null);
                         }
                         else if (superFunc is PyFunction userSuper)
                         {
-                            superProxy = userSuper.Call(superArgs);
+                            superProxy = userSuper.Call(superArgs, null);
                         }
                         else
                         {
@@ -1813,7 +1813,7 @@ namespace SharpPy
                         else if (superAttr is PyBuiltinFunction builtinFunc)
                         {
                             // Convert PyBuiltinFunction to PyFunction for proper binding
-                            var func = new PyFunction(builtinFunc.Name, builtinFunc.Call);
+                            var func = new PyFunction(builtinFunc.Name, args => builtinFunc.Call(args, null));
                             finalAttr = new PyMethod(selfObj, func);
                             #if DEBUG_LOG
                             Console.WriteLine($"🔧 LOAD_SUPER_ATTR: binding builtin function {superAttrName} to self");
@@ -1822,7 +1822,7 @@ namespace SharpPy
                         else if (superAttr is PyBuiltinMethod builtinMethod)
                         {
                             // Convert PyBuiltinMethod to PyFunction for proper binding
-                            var func = new PyFunction(builtinMethod.Name, builtinMethod.Call);
+                            var func = new PyFunction(builtinMethod.Name, args => builtinMethod.Call(args, null));
                             finalAttr = new PyMethod(selfObj, func);
                             #if DEBUG_LOG
                             Console.WriteLine($"🔧 LOAD_SUPER_ATTR: binding builtin method {superAttrName} to self");
@@ -1895,7 +1895,7 @@ namespace SharpPy
                             var lenMethod = lenSubject.GetAttribute("__len__");
                             if (lenMethod is PyFunction func)
                             {
-                                length = func.Call(new PyObject[0]);
+                                length = func.Call(new PyObject[0], null);
                             }
                             else
                             {
@@ -2819,7 +2819,7 @@ namespace SharpPy
                     PyObject enterResult;
                     if (enterMethod.IsCallable())
                     {
-                        enterResult = enterMethod.Call(new PyObject[0]);
+                        enterResult = enterMethod.Call(new PyObject[0], null);
                         #if DEBUG_LOG
                         Console.WriteLine($"🔧 BEFORE_WITH: __enter__ returned: {enterResult}");
                         #endif
@@ -2997,7 +2997,7 @@ namespace SharpPy
                                 withExceptionInfo.ExcType,
                                 withExceptionInfo.ExcValue,
                                 withExceptionInfo.ExcTraceback
-                            });
+                            }, null);
 
                             // Convert result to boolean
                             suppressException = exitResult.AsBool() == PyBool.True;
@@ -3102,7 +3102,7 @@ namespace SharpPy
                         else if (raisedException is PyBuiltinType builtinType)
                         {
                             // Exception class - instantiate it
-                            var builtinException = builtinType.Call();
+                            var builtinException = builtinType.Call(new PyObject[0], null);
                             if (builtinException is PyException pyExInstance)
                             {
                                 frame.LastException = pyExInstance;
@@ -4511,7 +4511,7 @@ namespace SharpPy
             {
                 // 키워드 인수를 포함한 매개변수 바인딩 수행
                 var totalArgs = BindArgumentsWithKwargs(args, kwargs, pyFunc);
-                return pyFunc.Call(totalArgs);
+                return pyFunc.Call(totalArgs, null);
             }
             else if (function is PyType pyType)
             {
@@ -4528,12 +4528,12 @@ namespace SharpPy
                 var kwNames = kwargs.Keys.Select(k => (PyObject)new PyString(k)).ToArray();
                 totalArgs.Add(new PyTuple(kwNames));
 
-                return pyType.Call(totalArgs.ToArray());
+                return pyType.Call(totalArgs.ToArray(), null);
             }
             else
             {
                 // 다른 callable 객체의 경우 기본 Call 메서드 사용 (키워드 인수 무시)
-                return function.Call(args);
+                return function.Call(args, null);
             }
         }
 
@@ -4714,7 +4714,7 @@ namespace SharpPy
                     #if DEBUG_LOG
                     Console.WriteLine($"✅ GET_AWAITABLE: Generator-based coroutine with __await__");
                     #endif
-                    return awaitMethod.Call(new PyObject[0]);
+                    return awaitMethod.Call(new PyObject[0], null);
                 }
             }
             catch
@@ -4776,7 +4776,7 @@ namespace SharpPy
             // Only optimize if function has code object
             if (pyFunc.CodeObject == null)
             {
-                return pyFunc.Call(argsWithSelf);
+                return pyFunc.Call(argsWithSelf, null);
             }
 
             var code = pyFunc.CodeObject;
@@ -4798,7 +4798,7 @@ namespace SharpPy
             }
 
             // Fallback to full call for complex functions
-            return pyFunc.Call(argsWithSelf);
+            return pyFunc.Call(argsWithSelf, null);
         }
 
         private PyObject ExecuteFunctionCall(PyFunction pyFunc, PyObject[] args, PyScopeChain parentScope)
@@ -4806,7 +4806,7 @@ namespace SharpPy
             // Only optimize if function has code object
             if (pyFunc.CodeObject == null)
             {
-                return pyFunc.Call(args);
+                return pyFunc.Call(args, null);
             }
 
             var code = pyFunc.CodeObject;
@@ -4829,7 +4829,7 @@ namespace SharpPy
             else
             {
                 // Complex functions fall back to standard path
-                return pyFunc.Call(args);
+                return pyFunc.Call(args, null);
             }
         }
 
@@ -4920,7 +4920,7 @@ namespace SharpPy
             else
             {
                 // Fallback: combine all arguments and call normally
-                return callable.Call(args);
+                return callable.Call(args, null);
             }
         }
 
@@ -4940,7 +4940,7 @@ namespace SharpPy
             }
 
             // Default: call with positional arguments only (ignore keywords for now)
-            return pyType.Call(positionalArgs);
+            return pyType.Call(positionalArgs, null);
         }
 
         /// <summary>
@@ -5001,7 +5001,7 @@ namespace SharpPy
         private PyObject CallBuiltinWithKeywords(PyBuiltinFunction builtin, PyObject[] positionalArgs, Dictionary<string, PyObject> keywordArgs)
         {
             // For now, ignore keyword arguments and call with positional only
-            return builtin.Call(positionalArgs);
+            return builtin.Call(positionalArgs, null);
         }
 
         /// <summary>
@@ -5020,7 +5020,7 @@ namespace SharpPy
         {
             if (pyFunc.CodeObject == null)
             {
-                return pyFunc.Call(positionalArgs);
+                return pyFunc.Call(positionalArgs, null);
             }
 
             var code = pyFunc.CodeObject;

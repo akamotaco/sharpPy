@@ -55,7 +55,7 @@ public interface IDescriptor
             #endif
             try
             {
-                var result = _getter.Call(instance);
+                var result = _getter.Call(new PyObject[] { instance }, null);
                 #if DEBUG_LOG
                 Console.WriteLine($"   ✅ Getter returned: {result?.ToString()}");
                 #endif
@@ -92,7 +92,7 @@ public interface IDescriptor
             #endif
             try
             {
-                _setter.Call(instance, value);
+                _setter.Call(new PyObject[] { instance, value }, null);
                 #if DEBUG_LOG
                 Console.WriteLine($"   ✅ Setter completed successfully");
                 #endif
@@ -128,7 +128,7 @@ public interface IDescriptor
             #endif
             try
             {
-                _deleter.Call(instance);
+                _deleter.Call(new PyObject[] { instance }, null);
                 #if DEBUG_LOG
                 Console.WriteLine($"   ✅ Deleter completed successfully");
                 #endif

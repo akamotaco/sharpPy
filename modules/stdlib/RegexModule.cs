@@ -701,7 +701,7 @@ namespace SharpPy.Modules.Stdlib
         {
         }
 
-        public override PyObject Call(params PyObject[] args)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             string message = args.Length > 0 ? args[0].ToStr() : "regex error";
             return new PyRegexError(message);
