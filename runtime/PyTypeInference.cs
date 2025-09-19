@@ -30,7 +30,9 @@ namespace SharpPy
         /// </summary>
         public void AnalyzeStatements(List<Statement> statements)
         {
+            #if DEBUG_LOG
             Console.WriteLine("🔍 Type Inference 분석 시작");
+            #endif
             
             // Create global scope
             PushScope();
@@ -40,7 +42,9 @@ namespace SharpPy
                 AnalyzeStatement(stmt);
             }
             
+            #if DEBUG_LOG
             Console.WriteLine($"✅ Type Inference 완료: {_variableTypes.Count}개 변수, {_expressionTypes.Count}개 표현식");
+            #endif
         }
 
         /// <summary>

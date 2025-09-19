@@ -745,7 +745,9 @@ namespace SharpPy
                                 else
                                 {
                                     // No instructions available - re-throw the original exception
+                                    #if DEBUG_LOG
                                     Console.WriteLine("❌ No valid instructions to jump to - re-throwing exception");
+                                    #endif
                                     throw;
                                 }
                             }
@@ -1528,7 +1530,9 @@ namespace SharpPy
                             }
                             catch (InvalidCastException e)
                             {
+                                #if DEBUG_LOG
                                 Console.WriteLine($"  ❌ Closure casting error: {e.Message}");
+                                #endif
                                 #if DEBUG_LOG
                                 Console.WriteLine($"     Failed to cast items to PyCell");
                                 #endif
@@ -1537,7 +1541,9 @@ namespace SharpPy
                         }
                         else
                         {
+                            #if DEBUG_LOG
                             Console.WriteLine($"  ⚠️ Warning: Expected tuple for closure, got {closureTuple?.GetType()}");
+                            #endif
                             closure = new PyCell[0];
                         }
                     }
@@ -1555,7 +1561,9 @@ namespace SharpPy
                         }
                         else
                         {
+                            #if DEBUG_LOG
                             Console.WriteLine($"  ⚠️ Warning: Expected tuple for annotations, got {annotationsTuple?.GetType()}");
+                            #endif
                             annotations = new PyTuple(new PyObject[0]);
                         }
                     }
@@ -1573,7 +1581,9 @@ namespace SharpPy
                         }
                         else
                         {
+                            #if DEBUG_LOG
                             Console.WriteLine($"  ⚠️ Warning: Expected tuple for kw-defaults, got {kwDefaultsTuple?.GetType()}");
+                            #endif
                             kwDefaults = new PyTuple(new PyObject[0]);
                         }
                     }
@@ -1591,7 +1601,9 @@ namespace SharpPy
                         }
                         else
                         {
+                            #if DEBUG_LOG
                             Console.WriteLine($"  ⚠️ Warning: Expected tuple for defaults, got {defaultsTuple?.GetType()}");
+                            #endif
                             defaults = new PyTuple(new PyObject[0]);
                         }
                     }
@@ -1745,7 +1757,9 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.LOAD_SUPER_ATTR:
+                    #if DEBUG_LOG
                     Console.WriteLine($"🚀 ENTERING LOAD_SUPER_ATTR");
+                    #endif
                     // CPython 3.12: super() attribute access
                     // Stack: [..., super_func, __class__, self] -> [..., attr_value]
                     var superAttrName = frame.Code.Names[instruction.Argument];
@@ -1753,7 +1767,9 @@ namespace SharpPy
                     var classObj = frame.ValueStack.Pop();        // __class__
                     var superFunc = frame.ValueStack.Pop();       // super function
 
+                    #if DEBUG_LOG
                     Console.WriteLine($"🔧 LOAD_SUPER_ATTR: {superAttrName}, super={superFunc.GetType().Name}, class={classObj.GetType().Name}, self={selfObj.GetType().Name}");
+                    #endif
 
                     // Call super(__class__, self) to create super proxy, then get attribute
                     try
@@ -1808,7 +1824,9 @@ namespace SharpPy
                             // Convert PyBuiltinMethod to PyFunction for proper binding
                             var func = new PyFunction(builtinMethod.Name, builtinMethod.Call);
                             finalAttr = new PyMethod(selfObj, func);
+                            #if DEBUG_LOG
                             Console.WriteLine($"🔧 LOAD_SUPER_ATTR: binding builtin method {superAttrName} to self");
+                            #endif
                         }
                         else if (superAttr is PyMethod existingMethod)
                         {
@@ -2049,7 +2067,9 @@ namespace SharpPy
                     }
                     catch (Exception ex)
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"🚨 MATCH_CLASS error: {ex.Message}");
+                        #endif
                         frame.ValueStack.Push(PyNone.Instance);
                     }
                     break;
@@ -2467,15 +2487,21 @@ namespace SharpPy
                     var iterable = frame.ValueStack.Pop();
                     if (iterable is PyTuple iterTuple)
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"🔍 GET_ITER: 튜플 길이 = {iterTuple.Items.Length}");
+                        #endif
                         for (int i = 0; i < iterTuple.Items.Length; i++)
                         {
+                            #if DEBUG_LOG
                             Console.WriteLine($"  튜플[{i}] = {iterTuple.Items[i]}");
+                            #endif
                         }
                     }
                     else
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"🔍 GET_ITER: iterable 타입 = {iterable.GetType().Name}, 값 = {iterable}");
+                        #endif
                     }
                     var iterator = iterable.GetIterator();
                     frame.ValueStack.Push(iterator);
@@ -3010,7 +3036,9 @@ namespace SharpPy
                     for (int i = 0; i < Math.Min(frame.ValueStack.Count, 5); i++)
                     {
                         var debugItem = frame.ValueStack.ToArray()[frame.ValueStack.Count - 1 - i];
+                        #if DEBUG_LOG
                         Console.WriteLine($"  Stack[{frame.ValueStack.Count - 1 - i}]: {debugItem}");
+                        #endif
                     }
                     #if DEBUG_LOG
                     Console.WriteLine($"🔧 WITH_EXCEPT_START: Pushed result = {suppressException}");
@@ -4239,7 +4267,9 @@ namespace SharpPy
                 case 0: // INTRINSIC_1_INVALID
                     throw new InvalidOperationException("Invalid intrinsic function 0");
                 case 1: // INTRINSIC_PRINT (was case 0)
+                    #if DEBUG_LOG
                     Console.WriteLine(arg.ToString());
+                    #endif
                     return PyNone.Instance;
                 case 2: // INTRINSIC_IMPORT_STAR
                     throw new NotImplementedException("INTRINSIC_IMPORT_STAR not implemented");
@@ -4526,7 +4556,9 @@ namespace SharpPy
 
             int kwargsParamIndex = hasKwargs ? code.ArgCount - 1 : -1;
 
+            #if DEBUG_LOG
             Console.WriteLine($"  hasKwargs: {hasKwargs}, hasVarargs: {hasVarargs}, kwargsIndex: {kwargsParamIndex}");
+            #endif
 
             // 실제 필수/선택적 매개변수 개수 계산 (**kwargs 제외)
             int regularParamCount = hasKwargs ? code.ArgCount - 1 : code.ArgCount;
@@ -4615,7 +4647,9 @@ namespace SharpPy
             int defaultCount = defaults?.Length ?? 0;
             int requiredArgCount = regularParamCount - defaultCount;
 
+            #if DEBUG_LOG
             Console.WriteLine($"  기본값 매개변수: {defaultCount}개, 필수 매개변수: {requiredArgCount}개");
+            #endif
 
             if (defaults != null)
             {

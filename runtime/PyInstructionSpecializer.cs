@@ -126,7 +126,9 @@ namespace SharpPy
         /// </summary>
         public PyCodeObject SpecializeCode(PyCodeObject originalCode)
         {
+            #if DEBUG_LOG
             Console.WriteLine($"🔍 Analyzing code for specialization: {originalCode.Name}");
+            #endif
             
             var instructions = originalCode.Instructions.ToList();
             var specializationCount = 0;
@@ -145,7 +147,9 @@ namespace SharpPy
                         {
                             instructions[i] = specializedBinary;
                             specializationCount++;
+                            #if DEBUG_LOG
                             Console.WriteLine($"🚀 Specialized BINARY_OP at {location} → {specializedBinary.OpCode}");
+                            #endif
                         }
                         break;
 
@@ -154,7 +158,9 @@ namespace SharpPy
                         {
                             instructions[i] = specializedCall;
                             specializationCount++;
+                            #if DEBUG_LOG
                             Console.WriteLine($"🚀 Specialized CALL at {location} → {specializedCall.OpCode}");
+                            #endif
                         }
                         break;
 
@@ -163,7 +169,9 @@ namespace SharpPy
                         {
                             instructions[i] = specializedLoad;
                             specializationCount++;
+                            #if DEBUG_LOG
                             Console.WriteLine($"🚀 Specialized LOAD_GLOBAL at {location} → {specializedLoad.OpCode}");
+                            #endif
                         }
                         break;
                 }
@@ -171,7 +179,9 @@ namespace SharpPy
 
             if (specializationCount > 0)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"✅ Specialized {specializationCount} instructions in {originalCode.Name}");
+                #endif
                 
                 // 새로운 특수화된 코드 객체 생성 (Exception Table 보존)
                 return new PyCodeObject(

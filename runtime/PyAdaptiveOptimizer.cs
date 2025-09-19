@@ -44,20 +44,26 @@ namespace SharpPy
             // 이미 최적화된 버전이 있는지 확인
             if (_optimizedCodeCache.TryGetValue(codeKey, out var cachedOptimized))
             {
+#if DEBUG_LOG
                 Console.WriteLine($"🔄 Using cached optimized version: {originalCode.Name}");
+#endif
                 return cachedOptimized;
             }
 
             // 프로파일 데이터를 기반으로 최적화 필요성 판단
             if (ShouldOptimizeCode(originalCode))
             {
+#if DEBUG_LOG
                 Console.WriteLine($"🚀 Applying adaptive optimization: {originalCode.Name}");
+#endif
                 var optimizedCode = ApplyAdaptiveOptimizations(originalCode);
                 
                 if (optimizedCode != originalCode)
                 {
                     _optimizedCodeCache[codeKey] = optimizedCode;
+#if DEBUG_LOG
                     Console.WriteLine($"✅ Code optimized and cached: {originalCode.Name}");
+#endif
                     return optimizedCode;
                 }
             }
@@ -80,8 +86,10 @@ namespace SharpPy
             if (hotInstructions.Count == 0)
                 return false;
 
+#if DEBUG_LOG
             Console.WriteLine($"🔥 Hot code detected: {code.Name} " +
                             $"({executionCount} executions, {hotInstructions.Count} hot instructions)");
+#endif
             return true;
         }
 
@@ -118,7 +126,9 @@ namespace SharpPy
 
             if (optimizations.Count > 0)
             {
+#if DEBUG_LOG
                 Console.WriteLine($"🎯 Applied optimizations: {string.Join(", ", optimizations)}");
+#endif
             }
 
             return originalCode;
@@ -190,7 +200,9 @@ namespace SharpPy
             // Comprehension은 복잡한 중첩 루프 구조를 가지고 있어 단순한 최적화가 부적절함
             if (IsComprehensionCode(code))
             {
+#if DEBUG_LOG
                 Console.WriteLine($"🚫 Skipping FOR_ITER_LIST optimization for comprehension: {code.Name}");
+#endif
                 return code;
             }
             
@@ -206,7 +218,9 @@ namespace SharpPy
                     // 리스트 iteration 특수화
                     instructions[i] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER_LIST, instructions[i].Argument);
                     optimized = true;
+#if DEBUG_LOG
                     Console.WriteLine($"🔄 Optimized FOR_ITER → FOR_ITER_LIST at {i}");
+#endif
                 }
             }
 
@@ -273,7 +287,9 @@ namespace SharpPy
                     var prediction = _profiler.PredictBranch(location);
                     
                     // 분기 예측 정보를 바이트코드에 힌트로 저장 (실제로는 더 복잡한 구현 필요)
+#if DEBUG_LOG
                     Console.WriteLine($"🎯 Branch prediction at {i}: {prediction}");
+#endif
                 }
             }
 
@@ -285,21 +301,25 @@ namespace SharpPy
         /// </summary>
         public void PrintOptimizationStats()
         {
+#if DEBUG_LOG
             Console.WriteLine("🔍 === Adaptive Optimization Statistics ===");
             Console.WriteLine($"📊 Cached optimized codes: {_optimizedCodeCache.Count}");
             Console.WriteLine($"⚙️  Optimization enabled: {_enableAdaptiveOptimization}");
             Console.WriteLine($"🔥 Reoptimization threshold: {_reoptimizationThreshold}");
+#endif
             
             _profiler.PrintStats();
             _specializer.PrintSpecializationStats();
             
             if (_optimizedCodeCache.Count > 0)
             {
+#if DEBUG_LOG
                 Console.WriteLine("🎯 Optimized Functions:");
                 foreach (var kvp in _optimizedCodeCache)
                 {
                     Console.WriteLine($"   {kvp.Key}: {kvp.Value.Instructions.Count} instructions");
                 }
+#endif
             }
         }
 
@@ -319,7 +339,9 @@ namespace SharpPy
                     _optimizedCodeCache.Remove(key);
                 }
                 
+#if DEBUG_LOG
                 Console.WriteLine($"🧹 Cleaned optimization cache: {oldSize} → {_optimizedCodeCache.Count}");
+#endif
             }
             
             _profiler.CleanupProfiles();

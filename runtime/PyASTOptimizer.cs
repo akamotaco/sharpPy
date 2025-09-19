@@ -33,7 +33,9 @@ namespace SharpPy
             if (_level == OptimizationLevel.Disabled)
                 return statements;
 
+            #if DEBUG_LOG
             Console.WriteLine($"🔧 AST 최적화 시작 (Level: {_level})");
+            #endif
             
             var optimizedStatements = new List<Statement>();
             var optimizationCount = 0;
@@ -51,7 +53,9 @@ namespace SharpPy
                 optimizedStatements.Add(optimizedStmt);
             }
 
+            #if DEBUG_LOG
             Console.WriteLine($"✅ AST 최적화 완료: {optimizationCount}개 최적화 적용");
+            #endif
             return optimizedStatements;
         }
 
@@ -71,7 +75,9 @@ namespace SharpPy
                         var optimized = rule.Optimize(stmt);
                         if (optimized != stmt && optimized is Statement optimizedStmt)
                         {
+                            #if DEBUG_LOG
                             Console.WriteLine($"🔄 AST 최적화: {rule.RuleName} ({stmtType.Name})");
+                            #endif
                             optimizationCount++;
                             return OptimizeStatement(optimizedStmt, ref optimizationCount); // 재귀적으로 최적화
                         }
@@ -175,7 +181,9 @@ namespace SharpPy
                         var optimized = rule.Optimize(expr);
                         if (optimized != expr)
                         {
+                            #if DEBUG_LOG
                             Console.WriteLine($"🔄 AST 최적화: {rule.RuleName} ({exprType.Name})");
+                            #endif
                             optimizationCount++;
                             return OptimizeExpression((Expression)optimized, ref optimizationCount);
                         }
