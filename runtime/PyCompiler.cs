@@ -450,8 +450,8 @@ namespace SharpPy
     // AST를 바이트코드로 컴파일 (기존 시스템과 연동)
     public class PythonCompiler
     {
-        
-        private bool _enable_optimizer { 
+
+        private bool _enable_optimizer {
             get {
                 bool result = !SharpPyConfig.DisableOptimizer;
 #if DEBUG_LOG
@@ -464,6 +464,20 @@ namespace SharpPy
         private List<PyObject> _constants;
         private List<string> _names;
         private List<string> _varNames;
+
+        /// <summary>
+        /// PythonCompiler constructor - ensures proper initialization
+        /// </summary>
+        public PythonCompiler()
+        {
+            // Initialize all essential lists to prevent null reference issues
+            _instructions = new List<ByteCodeInstruction>();
+            _constants = new List<PyObject>();
+            _names = new List<string>();
+            _varNames = new List<string>();
+            _exceptionTable = new List<ExceptionTableEntry>();
+            _lineNumberTable = new Dictionary<int, int>();
+        }
         private bool _isInFunction = false; // Track if we're compiling inside a function
         private string _currentFunctionName = null; // Track current function name for module level detection
         private bool _isInComprehension = false; // Track if we're compiling inside a comprehension
@@ -729,12 +743,13 @@ namespace SharpPy
         
         public PyCodeObject Compile(List<Statement> statements, string name, List<string> parameters, string? fileName = null)
         {
-            _instructions = new List<ByteCodeInstruction>();
-            _constants = new List<PyObject>();
-            _names = new List<string>();
-            _varNames = new List<string>();
-            _exceptionTable = new List<ExceptionTableEntry>(); // Reset Exception Table
-            _lineNumberTable = new Dictionary<int, int>(); // Reset line number table
+            // Clear all compilation state for new compilation
+            _instructions.Clear();
+            _constants.Clear();
+            _names.Clear();
+            _varNames.Clear();
+            _exceptionTable.Clear(); // Reset Exception Table
+            _lineNumberTable.Clear(); // Reset line number table
 
             // Set current file name for source location tracking
             _currentFileName = fileName;
@@ -864,11 +879,13 @@ namespace SharpPy
         public PyCodeObject CompileWithClosure(List<Statement> statements, string name, List<string> parameters,
                                              List<string> freeVars, List<string> cellVars)
         {
-            _instructions = new List<ByteCodeInstruction>();
-            _constants = new List<PyObject>();
-            _names = new List<string>();
-            _varNames = new List<string>();
-            _exceptionTable = new List<ExceptionTableEntry>(); // Reset Exception Table
+            // Clear all compilation state for new compilation
+            _instructions.Clear();
+            _constants.Clear();
+            _names.Clear();
+            _varNames.Clear();
+            _exceptionTable.Clear(); // Reset Exception Table
+            _lineNumberTable.Clear(); // Reset line number table
             
             // 함수 매개변수를 _varNames에 추가 (LOAD_FAST/STORE_FAST용)
             foreach (var param in parameters)
@@ -1177,11 +1194,13 @@ namespace SharpPy
         /// </summary>
         public PyCodeObject CompileWithClosureAndDefaults(List<Statement> statements, string name, List<string> paramNames, List<PyObject> defaults, List<string> freeVars, List<string> cellVars, int flags = 0, int argCount = -1, int posonlyArgCount = 0)
         {
-            _instructions = new List<ByteCodeInstruction>();
-            _constants = new List<PyObject>();
-            _names = new List<string>();
-            _varNames = new List<string>();
-            _exceptionTable = new List<ExceptionTableEntry>(); // Reset Exception Table
+            // Clear all compilation state for new compilation
+            _instructions.Clear();
+            _constants.Clear();
+            _names.Clear();
+            _varNames.Clear();
+            _exceptionTable.Clear(); // Reset Exception Table
+            _lineNumberTable.Clear(); // Reset line number table
             _isInFunction = true; // We are now compiling inside a function
             _currentFunctionName = name; // Track function name for module level detection
 
@@ -1389,11 +1408,13 @@ namespace SharpPy
         /// </summary>
         public PyCodeObject CompileFunction(List<Statement> statements, string name, List<string> paramNames, List<PyObject> defaults, int flags = 0, int posonlyArgCount = 0)
         {
-            _instructions = new List<ByteCodeInstruction>();
-            _constants = new List<PyObject>();
-            _names = new List<string>();
-            _varNames = new List<string>();
-            _exceptionTable = new List<ExceptionTableEntry>(); // Reset Exception Table
+            // Clear all compilation state for new compilation
+            _instructions.Clear();
+            _constants.Clear();
+            _names.Clear();
+            _varNames.Clear();
+            _exceptionTable.Clear(); // Reset Exception Table
+            _lineNumberTable.Clear(); // Reset line number table
             _isInFunction = true; // We are now compiling inside a function
             _currentFunctionName = name; // Track function name for module level detection
 
@@ -2703,8 +2724,22 @@ namespace SharpPy
         private void EmitInstruction(ByteCodeOp opCode, int argument = 0)
         {
             var instructionOffset = _instructions.Count;
-            _instructions.Add(new ByteCodeInstruction(opCode, argument, _currentLineNumber, _currentColumnOffset, _currentFileName));
-            
+            try
+            {
+                _instructions.Add(new ByteCodeInstruction(opCode, argument, _currentLineNumber, _currentColumnOffset, _currentFileName));
+            }
+            catch (Exception ex)
+            {
+#if DEBUG_LOG
+                Console.WriteLine($"💥 EmitInstruction 에러: {ex.Message}");
+                Console.WriteLine($"   opCode: {opCode}, argument: {argument}");
+                Console.WriteLine($"   _instructions null? {_instructions == null}");
+                Console.WriteLine($"   _instructions count: {_instructions?.Count ?? -1}");
+                Console.WriteLine($"   Stack trace: {ex.StackTrace}");
+#endif
+                throw;
+            }
+
             // Add to line number table if line number is valid
             if (_currentLineNumber >= 0)
             {
@@ -2726,12 +2761,26 @@ namespace SharpPy
         
         private void EmitLoadConst(PyObject value)
         {
-            var index = GetOrAddConstant(value);
+            try
+            {
+                var index = GetOrAddConstant(value);
 #if DEBUG_LOG
-            Console.WriteLine($"🔍 EmitLoadConst: 인덱스 {index}에 값 {value} (타입: {value?.GetType().Name}) 저장");
-            Console.WriteLine($"🔍 현재 Constants 배열 크기: {_constants.Count}");
+                Console.WriteLine($"🔍 EmitLoadConst: 인덱스 {index}에 값 {value} (타입: {value?.GetType().Name}) 저장");
+                Console.WriteLine($"🔍 현재 Constants 배열 크기: {_constants.Count}");
 #endif
-            EmitInstruction(ByteCodeOp.LOAD_CONST, index);
+                EmitInstruction(ByteCodeOp.LOAD_CONST, index);
+            }
+            catch (Exception ex)
+            {
+#if DEBUG_LOG
+                Console.WriteLine($"💥 EmitLoadConst 에러: {ex.Message}");
+                Console.WriteLine($"   value: {value}");
+                Console.WriteLine($"   _constants null? {_constants == null}");
+                Console.WriteLine($"   _instructions null? {_instructions == null}");
+                Console.WriteLine($"   Stack trace: {ex.StackTrace}");
+#endif
+                throw;
+            }
         }
         
         private void EmitLoadName(string name)
@@ -5162,13 +5211,10 @@ namespace SharpPy
         private void CompileTry(TryStatement tryStmt)
         {
             // CPython 3.12: No SETUP_EXCEPT, use Exception Table instead
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 Compiling try-except (CPython 3.12 style)");
-            #endif
-            
+
             // Create label for continuation after entire try-except construct
             var continueLabel = CreateLabel("continue_after_try");
-            
+
             // CPython 3.12: Add NOP instruction before try body (exact CPython pattern)
             EmitInstruction(ByteCodeOp.NOP);
             
@@ -5193,7 +5239,14 @@ namespace SharpPy
             
             // CPython 3.12: Exception path starts with PUSH_EXC_INFO
             EmitInstruction(ByteCodeOp.PUSH_EXC_INFO);
-            
+
+            // CPython 3.12: For except* handlers, start with BUILD_LIST 0 to collect matched handlers
+            bool hasExceptStarHandlers = tryStmt.Handlers.Any(h => h.IsStar);
+            if (hasExceptStarHandlers)
+            {
+                EmitInstruction(ByteCodeOp.BUILD_LIST, 0);
+            }
+
             // Pre-create the reraise label once
             var reraiseLabel = CreateLabel("reraise");
 
@@ -5207,15 +5260,18 @@ namespace SharpPy
                 
                 if (handler.Type != null)
                 {
-                    // Type-specific handler
-                    EmitInstruction(ByteCodeOp.COPY, 1);
-                    CompileExpression(handler.Type);
-                    
                     if (handler.IsStar)
                     {
+                        // CPython 3.12: except* pattern - COPY 2 to preserve handler list
+                        EmitInstruction(ByteCodeOp.COPY, 2);
+                        CompileExpression(handler.Type);
+
                         // PEP 654: Exception group matching
                         EmitInstruction(ByteCodeOp.CHECK_EG_MATCH);
-                        
+                        EmitInstruction(ByteCodeOp.COPY, 1);
+                        EmitInstruction(ByteCodeOp.POP_JUMP_IF_NONE, 0);
+                        nextHandlerLabel.References.Add(_instructions.Count - 1);
+
                         if (handler.Name != null)
                         {
                             // CPython 3.12: Exception variables - STORE_NAME for module level, STORE_FAST for function level
@@ -5232,16 +5288,13 @@ namespace SharpPy
                         {
                             EmitInstruction(ByteCodeOp.POP_TOP);
                         }
-                        
-                        EmitInstruction(ByteCodeOp.COPY, 1);
-                        EmitInstruction(ByteCodeOp.LOAD_CONST, GetOrAddConstant(PyNone.Instance));
-                        EmitInstruction(ByteCodeOp.COMPARE_OP, 3); // IS_NOT
-                        
-                        EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0);
-                        nextHandlerLabel.References.Add(_instructions.Count - 1);
                     }
                     else
                     {
+                        // Regular exception handler - keep original COPY 1 pattern
+                        EmitInstruction(ByteCodeOp.COPY, 1);
+                        CompileExpression(handler.Type);
+
                         // Regular exception matching - CPython 3.12 uses CHECK_EXC_MATCH
                         EmitInstruction(ByteCodeOp.CHECK_EXC_MATCH);
                         
@@ -5292,6 +5345,8 @@ namespace SharpPy
                 // CPython 3.12: Record handler body end BEFORE cleanup operations
                 var handlerBodyEnd = _instructions.Count;
 
+                // CPython 3.12: Do not add LIST_APPEND here - it goes in cleanup section
+
                 // CPython 3.12: POP_EXCEPT after handler execution
                 EmitInstruction(ByteCodeOp.POP_EXCEPT);
 
@@ -5315,8 +5370,17 @@ namespace SharpPy
                 }
                 var cleanupEnd = _instructions.Count;
 
-                // CPython 3.12: Always JUMP_FORWARD to continuation after exception handling
-                EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, continueLabel);
+                // CPython 3.12: For except* handlers, continue to next handler; for regular except, jump to end
+                if (handler.IsStar && i < tryStmt.Handlers.Count - 1)
+                {
+                    // For except* handlers, continue to next handler to process remainder
+                    EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, nextHandlerLabel);
+                }
+                else
+                {
+                    // For regular except or last except* handler, jump to continuation
+                    EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, continueLabel);
+                }
 
                 // CPython 3.12: Create Exception Table entry for handler body protection only when needed
                 if (handler.Name != null && handlerBodyEnd > handlerBodyStart)
@@ -5337,45 +5401,29 @@ namespace SharpPy
                         EmitInstruction(ByteCodeOp.STORE_NAME, GetOrAddName(handler.Name));
                         EmitInstruction(ByteCodeOp.DELETE_NAME, GetOrAddName(handler.Name));
                     }
+
+                    // CPython 3.12: For except* handlers, add to handler list in cleanup path
+                    if (handler.IsStar)
+                    {
+                        EmitInstruction(ByteCodeOp.LIST_APPEND, 3);
+                        EmitInstruction(ByteCodeOp.POP_TOP); // Clean up remaining copy
+                    }
+
                     var cleanupReraiseOffset = _instructions.Count;
                     EmitInstruction(ByteCodeOp.RERAISE, 1);
 
-                    // CPython 3.12: Add protection for cleanup reraise point
-                    var cleanupReraiseProtectionEntry = new ExceptionTableEntry(
-                        start: cleanupReraiseOffset,
-                        end: cleanupReraiseOffset + 1, // Single instruction protection
-                        handlerLabel: reraiseLabel.Name,
-                        depth: 1,
-                        lasti: true
-                    );
-                    _exceptionTable.Add(cleanupReraiseProtectionEntry);
-
-                    // Create Exception Table entry for handler body protection only
-                    var handlerBodyEntry = new ExceptionTableEntry(
+                    // CPython 3.12: Handler body protection entry for except* handlers
+                    var handlerExecutionEntry = new ExceptionTableEntry(
                         start: handlerBodyStart,
-                        end: handlerBodyEnd,
-                        handlerLabel: cleanupHandlerLabel.Name,
-                        depth: 1,
+                        end: handlerBodyEnd,  // Only protect the handler body itself
+                        handlerLabel: cleanupHandlerLabel.Name,  // Point to cleanup handler
+                        depth: 4,  // CPython uses depth 4 for handler execution
                         lasti: true
                     );
-                    _exceptionTable.Add(handlerBodyEntry);
-
-                    // Create Exception Table entry for cleanup section (CPython 3.12 pattern)
-                    if (cleanupEnd > cleanupStart)
-                    {
-                        var cleanupEntry = new ExceptionTableEntry(
-                            start: cleanupStart,
-                            end: cleanupEnd,
-                            handlerLabel: reraiseLabel.Name,
-                            depth: 1,
-                            lasti: true
-                        );
-                        _exceptionTable.Add(cleanupEntry);
-                    }
+                    _exceptionTable.Add(handlerExecutionEntry);
 
                     #if DEBUG_LOG
-                    Console.WriteLine($"🔧 Handler body Exception Table: {handlerBodyStart} to {handlerBodyEnd} -> {cleanupHandlerLabel.Name} [depth=1, lasti]");
-                    Console.WriteLine($"🔧 Cleanup Exception Table: {cleanupStart} to {cleanupEnd} -> {reraiseLabel.Name} [depth=1, lasti]");
+                    Console.WriteLine($"🔧 Handler execution Exception Table: {handlerBodyStart} to {(cleanupEnd > cleanupStart ? cleanupEnd : handlerBodyEnd)} -> {reraiseLabel.Name} [depth=4, lasti] (CPython optimized)");
                     #endif
                 }
                 
@@ -5383,7 +5431,61 @@ namespace SharpPy
                 if (i < tryStmt.Handlers.Count - 1)
                 {
                     MarkLabel(nextHandlerLabel);
+
+                    // CPython 3.12: Add POP_TOP before next except* handler to clean up remainder
+                    if (tryStmt.Handlers[i+1].IsStar)
+                    {
+                        EmitInstruction(ByteCodeOp.POP_TOP);
+                    }
                 }
+            }
+
+            // CPython 3.12: After all except* handlers, use INTRINSIC_PREP_RERAISE_STAR
+            if (hasExceptStarHandlers)
+            {
+                // Record start of final except* processing for exception table
+                var finalProcessingStart = _instructions.Count;
+
+                // At this point we should have fallen through all except* handlers without match
+                // The stack should contain the handler list from BUILD_LIST 0
+                EmitInstruction(ByteCodeOp.LIST_APPEND, 1); // Add any remaining unhandled exceptions
+                EmitInstruction(ByteCodeOp.CALL_INTRINSIC_2, 1); // INTRINSIC_PREP_RERAISE_STAR
+                EmitInstruction(ByteCodeOp.COPY, 1);
+                EmitInstruction(ByteCodeOp.POP_JUMP_IF_NOT_NONE, 0); // If there are exceptions to reraise
+                var reraiseJumpRef = _instructions.Count - 1;
+
+                // No exceptions to reraise - normal completion
+                EmitInstruction(ByteCodeOp.POP_TOP); // Pop the None
+                EmitInstruction(ByteCodeOp.POP_EXCEPT);
+                EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, continueLabel);
+
+                // Record end of final processing
+                var finalProcessingEnd = _instructions.Count;
+
+                // Add exception table entry for final processing block
+                var finalProcessingEntry = new ExceptionTableEntry(
+                    start: finalProcessingStart,
+                    end: finalProcessingEnd,
+                    handlerLabel: reraiseLabel.Name,
+                    depth: 1,
+                    lasti: true
+                );
+                _exceptionTable.Add(finalProcessingEntry);
+
+                // Path for reraising exceptions
+                var swapReraiseLabel = CreateLabel("swap_reraise");
+                MarkLabel(swapReraiseLabel);
+                _instructions[reraiseJumpRef] = new ByteCodeInstruction(
+                    ByteCodeOp.POP_JUMP_IF_NOT_NONE,
+                    swapReraiseLabel.Offset - reraiseJumpRef - 1,
+                    _instructions[reraiseJumpRef].LineNumber,
+                    _instructions[reraiseJumpRef].ColumnOffset,
+                    _instructions[reraiseJumpRef].FileName
+                );
+
+                EmitInstruction(ByteCodeOp.SWAP, 2);
+                EmitInstruction(ByteCodeOp.POP_EXCEPT);
+                EmitInstruction(ByteCodeOp.RERAISE, 0);
             }
             
             // Reraise if no handler matched (before continuation point)
@@ -5400,23 +5502,15 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.POP_EXCEPT);
                 EmitInstruction(ByteCodeOp.RERAISE, 1);
 
-                var reraiseProtectionEntry = new ExceptionTableEntry(
-                    start: reraiseOffset,
-                    end: reraiseOffset + 1, // Single instruction protection (inclusive end)
-                    handlerLabel: finalReraiseHandler.Name,
-                    depth: 1,
-                    lasti: true
-                );
-                _exceptionTable.Add(reraiseProtectionEntry);
-
+                // CPython 3.12: Skip individual reraise protection - will be covered by handler block entry
                 #if DEBUG_LOG
-                Console.WriteLine($"🔧 Reraise protection Exception Table: {reraiseOffset} to {reraiseOffset} -> {finalReraiseHandler.Name} [depth=1, lasti]");
+                Console.WriteLine($"🔧 Reraise protection skipped for CPython compatibility optimization");
                 #endif
             }
             
             // CPython 3.12: Create Exception Table entries (both try block and handler block)
             
-            // 1. Main try block entry
+            // 1. Main try block entry - CPython 3.12 pattern for except* handlers
             var tryBlockEntry = new ExceptionTableEntry(
                 start: tryStartOffset,
                 end: tryEndOffset,
@@ -5425,6 +5519,33 @@ namespace SharpPy
                 lasti: false  // First entry is not lasti
             );
             _exceptionTable.Add(tryBlockEntry);
+
+            // 2. Exception handler chain protection (CPython 3.12 except* pattern)
+            if (hasExceptStarHandlers)
+            {
+                // Handler chain runs from PUSH_EXC_INFO to end of first except* check
+                var handlerChainStart = handlersStartLabel.Offset;
+                var handlerChainEnd = handlerChainStart + 14;  // Rough estimate, will be updated below
+
+                // Find the end of the first CHECK_EG_MATCH sequence
+                for (int j = handlersStartLabel.Offset; j < _instructions.Count; j++)
+                {
+                    if (_instructions[j].OpCode == ByteCodeOp.POP_JUMP_IF_NONE)
+                    {
+                        handlerChainEnd = j + 1;
+                        break;
+                    }
+                }
+
+                var handlerChainEntry = new ExceptionTableEntry(
+                    start: handlerChainStart,
+                    end: handlerChainEnd,
+                    handlerLabel: reraiseLabel.Name,
+                    depth: 1,
+                    lasti: true
+                );
+                _exceptionTable.Add(handlerChainEntry);
+            }
             
             // 2. Handler block entry (CPython 3.12 pattern: handlers need their own protection)
             if (tryStmt.Handlers.Count > 0)

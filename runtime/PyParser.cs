@@ -1794,6 +1794,13 @@ namespace SharpPy
                 return ParseFStringExpression();
             }
 
+            // Handle DEDENT tokens gracefully - they indicate end of block, not primary expressions
+            if (Check(TokenType.DEDENT))
+            {
+                // DEDENT should not be consumed here - let the block parser handle it
+                return null;
+            }
+
             throw new Exception($"Unexpected token in primary expression: {Peek().Type}({Peek().Lexeme}) at {Peek().Line}:{Peek().Column}");
         }
 
@@ -2837,13 +2844,33 @@ namespace SharpPy
             {
                 Advance(); // consume 'except'
                 handlers.Add(ParseExceptHandler());
-                
-                // Skip any whitespace before checking for next EXCEPT
-                while (Check(TokenType.NEWLINE))
+
+                // Skip any whitespace, comments, indentation before checking for next EXCEPT
+                while (Check(TokenType.NEWLINE) || Check(TokenType.COMMENT) ||
+                       Check(TokenType.INDENT) || Check(TokenType.DEDENT))
                 {
                     Advance();
                 }
-                
+
+                // Also skip any non-keyword tokens (like 'pass') until we find except/else/finally/ENDMARKER
+                while (!IsAtEnd() && !CheckKeyword("except") && !CheckKeyword("else") &&
+                       !CheckKeyword("finally") && !Check(TokenType.ENDMARKER))
+                {
+                    if (Check(TokenType.NEWLINE) || Check(TokenType.COMMENT) ||
+                        Check(TokenType.INDENT) || Check(TokenType.DEDENT))
+                    {
+                        Advance();
+                    }
+                    else if (Check(TokenType.NAME) && Peek().Lexeme == "pass")
+                    {
+                        Advance(); // skip 'pass' statements
+                    }
+                    else
+                    {
+                        break; // stop at unexpected tokens
+                    }
+                }
+
             }
             
             // Parse optional else_block
@@ -2863,7 +2890,17 @@ namespace SharpPy
                 ConsumeColon( "Expected ':' after finally");
                 finallyBody = ParseBlockOrSingleStatement();
             }
-            
+
+            // CPython 3.12: Validate that except and except* handlers cannot be mixed in the same try block
+            bool hasRegularExcept = handlers.Any(h => !h.IsStar);
+            bool hasExceptStar = handlers.Any(h => h.IsStar);
+
+
+            if (hasRegularExcept && hasExceptStar)
+            {
+                throw new Exception("cannot have both 'except' and 'except*' on the same 'try'");
+            }
+
             return new TryStatement(tryBody, handlers, elseBody, finallyBody);
         }
         
@@ -2872,8 +2909,7 @@ namespace SharpPy
             Expression? exceptionType = null;
             string? exceptionName = null;
             bool isStar = false;
-            
-            
+
             // Check for except* syntax (PEP 654)
             if (CheckOp("*"))
             {
@@ -2884,21 +2920,7 @@ namespace SharpPy
             // Parse exception type (optional)
             if (!CheckColon())
             {
-                
-                try 
-                {
-                    exceptionType = ParseExpression();
-                }
-                catch (Exception ex)
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"💥 ParseExceptHandler: ParseExpression FAILED: {ex.Message}");
-                    #endif
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   Current token when failed: {Peek().Type} at {Peek().Line}:{Peek().Column}");
-                    #endif
-                    throw;
-                }
+                exceptionType = ParseExpression();
                 
                 // Parse "as name" clause (optional)
                 if (MatchKeyword("as"))
@@ -2914,7 +2936,7 @@ namespace SharpPy
             ConsumeColon( "Expected ':' after except clause");
             
             var handlerBody = ParseBlockOrSingleStatement();
-            
+
             return new ExceptHandler(exceptionType, exceptionName, handlerBody, isStar);
         }
         private Statement ParseWithStatement()

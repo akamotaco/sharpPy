@@ -80,6 +80,17 @@ namespace SharpPy.Tools
                 // 다음 명령어를 위한 바이트 오프셋 누적 계산
                 currentByteOffset += PyJumpBackwardUtil.GetCPythonInstructionSize(instruction.OpCode, instruction.Argument);
             }
+
+            // Display Exception Table if present (CPython 3.12 compatible format)
+            if (codeObject.ExceptionTable.Count > 0)
+            {
+                Console.WriteLine("ExceptionTable:");
+                foreach (var entry in codeObject.ExceptionTable)
+                {
+                    var lastiFlag = entry.Lasti ? " lasti" : "";
+                    Console.WriteLine($"  {entry.StartOffset} to {entry.EndOffset} -> {entry.HandlerOffset} [{entry.Depth}]{lastiFlag}");
+                }
+            }
         }
         
         /// <summary>

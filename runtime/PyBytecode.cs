@@ -458,6 +458,17 @@ namespace SharpPy
                 
                 Console.WriteLine($"  {i*2,3}: {inst,-25} {extra}");
             }
+
+            // Display Exception Table if present (CPython 3.12 compatible format)
+            if (ExceptionTable.Count > 0)
+            {
+                Console.WriteLine("ExceptionTable:");
+                foreach (var entry in ExceptionTable)
+                {
+                    var lastiFlag = entry.Lasti ? " lasti" : "";
+                    Console.WriteLine($"  {entry.StartOffset} to {entry.EndOffset} -> {entry.HandlerOffset} [{entry.Depth}]{lastiFlag}");
+                }
+            }
         }
         
         public override string ToString() => $"<code object {Name}>";
