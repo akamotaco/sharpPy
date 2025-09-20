@@ -3432,13 +3432,21 @@ namespace SharpPy
                     if (instruction.Argument > 0 && instruction.Argument <= setStackArray.Length)
                     {
                         var targetSet = setStackArray[instruction.Argument - 1];
+                        #if DEBUG_LOG
+                        Console.WriteLine($"🔍 SET_ADD Debug: depth={instruction.Argument}, stackArray.Length={setStackArray.Length}");
+                        Console.WriteLine($"🔍 SET_ADD Debug: targetSet at index {instruction.Argument - 1} = {targetSet?.GetType().Name ?? "null"}, value = {targetSet?.ToString() ?? "null"}");
+                        for (int i = 0; i < Math.Min(5, setStackArray.Length); i++)
+                        {
+                            Console.WriteLine($"    Stack[{i}]: {setStackArray[i]?.GetType().Name ?? "null"} = {setStackArray[i]?.ToString() ?? "null"}");
+                        }
+                        #endif
                         if (targetSet is PySet targetPySet)
                         {
                             targetPySet.Add(setItem);
                         }
                         else
                         {
-                            throw new Exception($"SET_ADD: target is not a set, got {targetSet.GetType().Name}");
+                            throw new Exception($"SET_ADD: target is not a set, got {targetSet?.GetType().Name ?? "null"}");
                         }
                     }
                     else
@@ -3459,6 +3467,17 @@ namespace SharpPy
 
                     if (frame.ValueStack.Count >= dictDepth)
                     {
+                        #if DEBUG_LOG
+                        Console.WriteLine($"🔍 MAP_ADD Debug: depth={dictDepth}, stackSize={frame.ValueStack.Count}");
+                        var debugStackArray = frame.ValueStack.ToArray();
+                        Array.Reverse(debugStackArray);
+                        for (int i = 0; i < Math.Min(5, debugStackArray.Length); i++)
+                        {
+                            Console.WriteLine($"    Stack[{i}]: {debugStackArray[i]?.GetType().Name ?? "null"} = {debugStackArray[i]?.ToString() ?? "null"}");
+                        }
+                        Console.WriteLine($"🔍 MAP_ADD Debug: targetDict at ElementAt({dictDepth - 1})");
+                        #endif
+
                         // CPython PEEK 방식: ElementAt(dictDepth-1)
                         // dictDepth=2 → ElementAt(1), dictDepth=3 → ElementAt(2), etc.
                         var mapAddTarget = frame.ValueStack.ElementAt(dictDepth - 1);
