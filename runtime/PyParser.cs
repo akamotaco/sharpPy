@@ -4626,14 +4626,53 @@ namespace SharpPy
         /// </summary>
         private Expression? ParseTypeAnnotation()
         {
-            // Simple type annotation parser that stops at parameter delimiters
-            if (Check(TokenType.NAME))
-            {
-                var typeName = Advance().Lexeme;
-                return new NameExpression(typeName);
-            }
+            // Parse type annotation with proper termination conditions
+            // Stops at: ',', ')', '=', '->', ':' tokens
+            return ParseTypeAnnotationExpression();
+        }
 
-            return null;
+        private Expression? ParseTypeAnnotationExpression()
+        {
+            return WithRecursionProtection("ParseTypeAnnotationExpression", () =>
+            {
+                // Parse the base type name
+                if (!Check(TokenType.NAME))
+                    return null;
+
+                var baseType = new NameExpression(Advance().Lexeme);
+                Expression current = baseType;
+
+                // Handle generic types like List[T], Dict[str, int]
+                while (CheckOp("["))
+                {
+                    Advance(); // consume '['
+                    var typeArgs = new List<Expression>();
+
+                    if (!CheckOp("]"))
+                    {
+                        do
+                        {
+                            var typeArg = ParseTypeAnnotationExpression();
+                            if (typeArg != null)
+                                typeArgs.Add(typeArg);
+                        } while (MatchOp(","));
+                    }
+
+                    ConsumeOp("]", "Expected ']' after type arguments");
+                    current = new SubscriptExpression(current, new ListExpression(typeArgs));
+                }
+
+                // Handle union types like int | str (Python 3.10+)
+                while (CheckOp("|"))
+                {
+                    Advance(); // consume '|'
+                    var rightType = ParseTypeAnnotationExpression();
+                    if (rightType != null)
+                        current = new BinaryOpExpression(current, "|", rightType);
+                }
+
+                return current;
+            });
         }
 
         /// <summary>
