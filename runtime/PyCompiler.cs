@@ -8179,19 +8179,26 @@ namespace SharpPy
                     CompileExpression(dictComp.Value);
                 }
 
-                // CPython 3.12 MAP_ADD offset 계산 - 단순화된 접근법
+                // CPython 3.12 MAP_ADD offset 계산 - 개선된 nested comprehension 처리
                 int forLoopCount = dictComp.Generators.Count;
                 int mapAddArg;
 
-                if (nestingLevel > 0)
+                if (_comprehensionNestingDepth >= 1)
                 {
-                    // 중첩된 dict comprehension
-                    mapAddArg = 2;
+                    // 중첩된 dict comprehension: LIST_APPEND와 같은 공식 시도
+                    // LIST_APPEND가 성공한 공식: generatorCount + 1
+                    mapAddArg = forLoopCount + 1;
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔧 MAP_ADD depth 계산 (중첩): nesting={_comprehensionNestingDepth}, generators={forLoopCount}, depth={mapAddArg}");
+                    #endif
                 }
                 else
                 {
                     // 일반적인 경우: generator 수 + 1
                     mapAddArg = forLoopCount + 1;
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔧 MAP_ADD depth 계산 (단독): {forLoopCount} generators → depth {mapAddArg}");
+                    #endif
                 }
                 EmitInstruction(ByteCodeOp.MAP_ADD, mapAddArg);
                 #if DEBUG_LOG
@@ -8362,12 +8369,13 @@ namespace SharpPy
             // 중첩 리스트 컴프리헨션인 경우 적절히 조정
             int listAppendOffset;
 
-            if (nestingDepth > 1)
+            if (nestingDepth >= 1)
             {
-                // 중첩된 리스트 컴프리헨션 (list-in-list)
-                listAppendOffset = 2;
+                // 중첩된 리스트 컴프리헨션: LIST_APPEND 전용 계산 로직
+                // 스택 구조: [..., [], iterator, dict] → LIST_APPEND는 depth 1의 []를 찾아야 함
+                listAppendOffset = generatorCount + 1;
                 #if DEBUG_LOG
-                Console.WriteLine($"  📋 중첩 리스트 컴프리헨션: LIST_APPEND {listAppendOffset}");
+                Console.WriteLine($"  📋 중첩 리스트 컴프리헨션: nesting={nestingDepth}, generators={generatorCount}, LIST_APPEND {listAppendOffset}");
                 #endif
             }
             else
@@ -8459,14 +8467,16 @@ namespace SharpPy
             Console.WriteLine($"🔄 CompileNestedGenerators 호출 전 위치: {beforeGenerators}");
             #endif
 
-            // CPython 3.12 SET_ADD offset 계산 - 단순화된 접근법
+            // CPython 3.12 SET_ADD offset 계산 - 개선된 nested comprehension 처리
             int setAddDepth;
             if (_comprehensionNestingDepth >= 1)
             {
-                // 중첩된 set comprehension
-                setAddDepth = 2;
+                // 중첩된 set comprehension: 더 정확한 계산
+                // 스택 구조: [outer_container, iter1, vars..., inner_set, iter2, vars...]
+                // inner_set까지의 거리를 계산 - 1 더 추가
+                setAddDepth = setComp.Generators.Count + _comprehensionNestingDepth + 3;
                 #if DEBUG_LOG
-                Console.WriteLine($"🔧 SET_ADD depth 계산 (중첩): nesting depth={_comprehensionNestingDepth}, depth={setAddDepth}");
+                Console.WriteLine($"🔧 SET_ADD depth 계산 (중첩): nesting={_comprehensionNestingDepth}, generators={setComp.Generators.Count}, depth={setAddDepth}");
                 #endif
             }
             else
