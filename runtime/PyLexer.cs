@@ -294,6 +294,38 @@ namespace SharpPy
                     if (Match('=')) return new PyToken(TokenType.OP, "@=", line, column);
                     return new PyToken(TokenType.OP, "@", line, column);
 
+                // Line continuation - CPython 3.12: backslash-newline handling
+                case '\\':
+                    // Check if next character is newline for line continuation
+                    if (Peek() == '\n')
+                    {
+                        // Line continuation: skip \ and \n, continue parsing on next line
+                        Advance(); // consume \n
+                        _line++;
+                        _column = 0;
+                        // CPython 3.12: Line continuation does NOT trigger indentation processing
+                        // Skip whitespace on continuation line and continue parsing
+                        SkipWhitespaceOnContinuationLine();
+                        return NextToken(); // Continue parsing - this is the key!
+                    }
+                    else if (Peek() == '\r' && PeekNext() == '\n')
+                    {
+                        // Handle \r\n line endings
+                        Advance(); // consume \r
+                        Advance(); // consume \n
+                        _line++;
+                        _column = 0;
+                        // CPython 3.12: Line continuation does NOT trigger indentation processing
+                        SkipWhitespaceOnContinuationLine();
+                        return NextToken();
+                    }
+                    else
+                    {
+                        // Backslash not followed by newline - syntax error
+                        var nextChar = IsAtEnd() ? "EOF" : $"'{Peek()}'";
+                        throw new Exception($"unexpected character after line continuation character at line {line}, column {column}. Found {nextChar}");
+                    }
+
                 // Newline - CPython 3.12: NEWLINE vs NL distinction
                 case '\n':
                     // Use position before advancing, like other tokens
@@ -604,6 +636,20 @@ namespace SharpPy
         private char Peek() => IsAtEnd() ? '\0' : _source[_position];
         private char PeekNext() => _position + 1 >= _source.Length ? '\0' : _source[_position + 1];
 
+        /// <summary>
+        /// CPython 3.12: Skip whitespace on line continuation without triggering indentation processing
+        /// </summary>
+        private void SkipWhitespaceOnContinuationLine()
+        {
+            // Skip leading whitespace on continuation line
+            while (!IsAtEnd() && (Peek() == ' ' || Peek() == '\t'))
+            {
+                Advance();
+            }
+            // Do NOT set _atLineStart = true, as this would trigger indentation processing
+            // Line continuations should be transparent to indentation handling
+        }
+
         private void SkipWhitespace()
         {
             while (!IsAtEnd())
@@ -832,6 +878,13 @@ namespace SharpPy
 #if DEBUG_LOG
                 Console.WriteLine($"[DEBUG] Processing char '{c}' at position {_position}");
 #endif
+
+                // Python 3.12: f-string 내부에서 백슬래시는 허용되지 않음
+                if (c == '\\')
+                {
+                    // CPython 3.12와 동일한 syntax error 발생
+                    throw new Exception($"SyntaxError: unexpected character after line continuation character");
+                }
 
                 if (c == '{')
                 {

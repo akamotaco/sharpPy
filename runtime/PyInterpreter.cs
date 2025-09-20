@@ -123,9 +123,8 @@ namespace SharpPy
             }
             catch (Exception e)
             {
-#if DEBUG_LOG
+                // Always print traceback in both debug and release modes
                 PrintPythonStyleTraceback(e);
-#endif
                 // Re-throw to let Program.cs handle exit code
                 throw;
             }
@@ -189,7 +188,7 @@ namespace SharpPy
                 {
                     lineNumber = pythonEx.LineNumber;
                 }
-                
+
                 var fileName = _currentFileName ?? "<stdin>";
                 if (lineNumber > 0)
                 {
@@ -215,12 +214,12 @@ namespace SharpPy
             
             // Show the exception type and message (Python-style)
             var exceptionTypeName = e.GetType().Name;
-            
+
             // Convert C# exception types to Python exception types
             var pythonExceptionType = exceptionTypeName switch
             {
                 "PyNameError" => "NameError",
-                "PyTypeError" => "TypeError", 
+                "PyTypeError" => "TypeError",
                 "PyValueError" => "ValueError",
                 "PyAttributeError" => "AttributeError",
                 "PyKeyError" => "KeyError",
@@ -237,14 +236,14 @@ namespace SharpPy
                 "PyFileNotFoundError" => "FileNotFoundError",
                 "PyPermissionError" => "PermissionError",
                 _ when e.Message.Contains("not defined") => "NameError",
-                _ when e.Message.Contains("not found") => "NameError", 
+                _ when e.Message.Contains("not found") => "NameError",
                 _ when e.Message.Contains("has no attribute") => "AttributeError",
                 _ when e.Message.Contains("required argument") => "TypeError",
                 _ when e.Message.Contains("Complex target patterns") => "RuntimeError",
                 _ when e.Message.Contains("not implemented") => "NotImplementedError",
                 _ => "RuntimeError"
             };
-            
+
             Console.WriteLine($"{pythonExceptionType}: {e.Message}");
         }
         
