@@ -166,12 +166,31 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Expression 최적화
+        /// Expression 최적화 (public wrapper)
         /// </summary>
         private Expression OptimizeExpression(Expression expr, ref int optimizationCount)
         {
+            return OptimizeExpression(expr, ref optimizationCount, 0);
+        }
+
+        /// <summary>
+        /// Expression 최적화 (무한 재귀 방지 포함)
+        /// </summary>
+        private Expression OptimizeExpression(Expression expr, ref int optimizationCount, int depth)
+        {
+            const int MAX_OPTIMIZATION_DEPTH = 50; // 최대 최적화 깊이
+
+            // 무한 재귀 방지
+            if (depth > MAX_OPTIMIZATION_DEPTH)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"⚠️ AST 최적화 깊이 제한 도달: {depth} (타입: {expr.GetType().Name})");
+                #endif
+                return expr; // 더 이상 최적화하지 않고 원본 반환
+            }
+
             var exprType = expr.GetType();
-            
+
             if (_rules.ContainsKey(exprType))
             {
                 foreach (var rule in _rules[exprType])
@@ -182,46 +201,56 @@ namespace SharpPy
                         if (optimized != expr)
                         {
                             #if DEBUG_LOG
-                            Console.WriteLine($"🔄 AST 최적화: {rule.RuleName} ({exprType.Name})");
+                            Console.WriteLine($"🔄 AST 최적화 (깊이 {depth}): {rule.RuleName} ({exprType.Name})");
                             #endif
                             optimizationCount++;
-                            return OptimizeExpression((Expression)optimized, ref optimizationCount);
+
+                            // 깊이를 증가시켜 재귀 호출
+                            return OptimizeExpression((Expression)optimized, ref optimizationCount, depth + 1);
                         }
                     }
                 }
             }
 
             // Nested expressions도 최적화
-            return OptimizeNestedExpressions(expr, ref optimizationCount);
+            return OptimizeNestedExpressions(expr, ref optimizationCount, depth);
         }
 
         /// <summary>
-        /// Expression 내부의 중첩된 요소들 최적화
+        /// Expression 내부의 중첩된 요소들 최적화 (public wrapper)
         /// </summary>
         private Expression OptimizeNestedExpressions(Expression expr, ref int optimizationCount)
+        {
+            return OptimizeNestedExpressions(expr, ref optimizationCount, 0);
+        }
+
+        /// <summary>
+        /// Expression 내부의 중첩된 요소들 최적화 (깊이 제한 포함)
+        /// </summary>
+        private Expression OptimizeNestedExpressions(Expression expr, ref int optimizationCount, int depth)
         {
             switch (expr)
             {
                 case BinaryOpExpression binOp:
                     return new BinaryOpExpression(
-                        OptimizeExpression(binOp.Left, ref optimizationCount),
+                        OptimizeExpression(binOp.Left, ref optimizationCount, depth),
                         binOp.Operator,
-                        OptimizeExpression(binOp.Right, ref optimizationCount)
+                        OptimizeExpression(binOp.Right, ref optimizationCount, depth)
                     );
 
                 case UnaryOpExpression unaryOp:
                     return new UnaryOpExpression(
                         unaryOp.Op,
-                        OptimizeExpression(unaryOp.Operand, ref optimizationCount)
+                        OptimizeExpression(unaryOp.Operand, ref optimizationCount, depth)
                     );
 
                 case CallExpression call:
                     var optimizedArgs = new List<Expression>();
                     foreach (var arg in call.Arguments)
-                        optimizedArgs.Add(OptimizeExpression(arg, ref optimizationCount));
-                    
+                        optimizedArgs.Add(OptimizeExpression(arg, ref optimizationCount, depth));
+
                     return new CallExpression(
-                        OptimizeExpression(call.Function, ref optimizationCount),
+                        OptimizeExpression(call.Function, ref optimizationCount, depth),
                         optimizedArgs,
                         call.Keywords
                     );
@@ -229,15 +258,15 @@ namespace SharpPy
                 case TupleExpression tuple:
                     var tupleOptimizedElements = new List<Expression>();
                     foreach (var elem in tuple.Elements)
-                        tupleOptimizedElements.Add(OptimizeExpression(elem, ref optimizationCount));
-                    
+                        tupleOptimizedElements.Add(OptimizeExpression(elem, ref optimizationCount, depth));
+
                     return new TupleExpression(tupleOptimizedElements);
 
                 case ListExpression list:
                     var listOptimizedElements = new List<Expression>();
                     foreach (var elem in list.Elements)
-                        listOptimizedElements.Add(OptimizeExpression(elem, ref optimizationCount));
-                    
+                        listOptimizedElements.Add(OptimizeExpression(elem, ref optimizationCount, depth));
+
                     return new ListExpression(listOptimizedElements);
 
                 default:

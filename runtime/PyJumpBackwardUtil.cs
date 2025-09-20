@@ -79,11 +79,10 @@ namespace SharpPy
             // CPython 3.12: 최적화 사용 시 instruction 단위 계산
             if (SharpPyConfig._enable_optimizer)
             {
-                // oparg = current_position - target_position + 1
-                // 하지만 컴파일 시점에서는 다음 명령어 위치를 기준으로 계산
-                // VM: target = current - oparg + 1 이므로
-                // 컴파일: oparg = (current + 1) - target = current - target + 1
-                return currentInstrPos - targetInstrPos + 1;
+                // oparg = current_position - target_position
+                // VM: target = current - oparg 이므로
+                // 컴파일: oparg = current - target
+                return currentInstrPos - targetInstrPos;
             }
             else
             {
@@ -218,9 +217,9 @@ namespace SharpPy
             if (SharpPyConfig._enable_optimizer)
             {
                 // CPython 3.12 최적화 모드: instruction 단위 계산
-                // oparg = current_position - target_position + 1
-                // 따라서: target_position = current_position - oparg + 1
-                int targetIndex = currentInstrPos - opArg + 1;
+                // oparg = current_position - target_position
+                // 따라서: target_position = current_position - oparg
+                int targetIndex = currentInstrPos - opArg;
 
 #if DEBUG_LOG
                 Console.WriteLine($"🔍 JUMP_BACKWARD 타겟 계산 (최적화): currentInstr={currentInstrPos}, opArg={opArg}");

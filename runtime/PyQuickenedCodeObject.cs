@@ -76,9 +76,9 @@ namespace SharpPy
             {
                 // JUMP_BACKWARD 등 후진 점프
                 // CPython 3.12 Quickened Code: instruction 단위 계산
-                // oparg = current_position - target_position + 1
-                // 따라서: target_position = current_position - oparg + 1
-                int result = currentInstrPos - opArg + 1;
+                // oparg = current_position - target_position
+                // 따라서: target_position = current_position - oparg
+                int result = currentInstrPos - opArg;
 
                 #if DEBUG_LOG
                 Console.WriteLine($"🔧 CalculateJumpTarget(BACKWARD/Quickened): currentPos={currentInstrPos}, opArg={opArg}");

@@ -656,12 +656,68 @@ namespace SharpPy
                             
                             if (correctForIterPos >= 0)
                             {
-                                // CPython 3.12 호환: instruction 단위 계산 (compiler와 동일한 방식)
+                                // CPython 3.12 호환: FOR 루프의 JUMP_BACKWARD는 FOR_ITER로 점프
+                                // continue 문: FOR_ITER로 직접 점프
+                                // 루프 끝: FOR_ITER로 직접 점프
+                                // CPython에서 JUMP_BACKWARD는 몇 개의 instruction을 뒤로 점프할지를 의미
                                 int correctOffset;
                                 if (SharpPyConfig._enable_optimizer)
                                 {
-                                    // 최적화 활성화: instruction index 기반 계산 (컴파일러와 동일)
-                                    correctOffset = jumpPos - correctForIterPos + 1;
+                                    // 최적화 활성화: CPython 호환 방식으로 오프셋 계산
+                                    // CPython에서 JUMP_BACKWARD n은 현재 위치에서 n개 instruction 뒤로 점프
+                                    // 현재 optimizer는 컴파일 시점의 instruction index를 사용하므로 조정 필요
+                                    // 범용적인 JUMP_BACKWARD 오프셋 계산
+                                    // CPython 방식: currentPos - targetPos
+                                    correctOffset = jumpPos - correctForIterPos;
+
+                                    if (!SharpPyConfig.DisassemblyOnlyMode)
+                                    {
+                            #if DEBUG_LOG
+        Console.WriteLine($"  🔧 범용 FOR 루프 JUMP_BACKWARD 계산: jumpPos={jumpPos}, correctForIterPos={correctForIterPos}, correctOffset={correctOffset}");
+#endif
+                                    }
+
+                                    // 특별한 케이스들도 여전히 지원 (레거시)
+                                    if (jumpPos == 11 && correctForIterPos == 5)
+                                    {
+                                        // continue문: 이미 계산된 값이 맞는지 확인
+                                        if (correctOffset != 6)
+                                        {
+                                            if (!SharpPyConfig.DisassemblyOnlyMode)
+                                            {
+                                    #if DEBUG_LOG
+            Console.WriteLine($"  ⚠️ 레거시 케이스와 다름: expected=6, calculated={correctOffset}");
+#endif
+                                            }
+                                        }
+                                    }
+                                    else if (jumpPos == 18 && correctForIterPos == 5)
+                                    {
+                                        // 루프 끝: 이미 계산된 값이 맞는지 확인
+                                        if (correctOffset != 13)
+                                        {
+                                            if (!SharpPyConfig.DisassemblyOnlyMode)
+                                            {
+                                    #if DEBUG_LOG
+            Console.WriteLine($"  ⚠️ 레거시 케이스와 다름: expected=13, calculated={correctOffset}");
+#endif
+                                            }
+                                        }
+                                    }
+
+                                    // 디버깅: 실제 계산 과정 출력
+                                    if (!SharpPyConfig.DisassemblyOnlyMode)
+                                    {
+                            #if DEBUG_LOG
+            // 바이트 오프셋 기반으로 재계산
+            int jumpByteOffset = jumpPos * 2;
+            int forIterByteOffset = correctForIterPos * 2;
+            int correctByteOffset = jumpByteOffset - forIterByteOffset;
+            int correctInstructionOffset = correctByteOffset / 2;
+            Console.WriteLine($"  🔍 오프셋 계산: jumpPos={jumpPos} (바이트:{jumpByteOffset}), correctForIterPos={correctForIterPos} (바이트:{forIterByteOffset})");
+            Console.WriteLine($"  🔍 바이트 차이: {correctByteOffset}, instruction 오프셋: {correctInstructionOffset}, 현재 계산: {correctOffset}");
+#endif
+                                    }
                                 }
                                 else
                                 {
@@ -738,16 +794,16 @@ namespace SharpPy
                             {
                                 shouldPointToForIter = true;
                             }
-                            // 2. FOR_ITER 근처를 가리키는 경우 (최적화로 인한 위치 변경)
-                            else if (currentTarget >= forIterPos - 3 && currentTarget <= forIterPos + 5)
-                            {
-                                shouldPointToForIter = true;
-                            }
-                            // 3. 자기 자신 근처를 가리켜 무한 루프를 만드는 경우
-                            else if (currentTarget >= jumpPos - 5 && currentTarget <= jumpPos + 2)
-                            {
-                                shouldPointToForIter = true;
-                            }
+                            // 2. FOR_ITER 근처를 가리키는 경우 (최적화로 인한 위치 변경) - 임시 비활성화
+                            // else if (currentTarget >= forIterPos - 3 && currentTarget <= forIterPos + 5)
+                            // {
+                            //     shouldPointToForIter = true;
+                            // }
+                            // 3. 자기 자신 근처를 가리켜 무한 루프를 만드는 경우 - 제거
+                            // else if (currentTarget >= jumpPos - 5 && currentTarget <= jumpPos + 2)
+                            // {
+                            //     shouldPointToForIter = true;
+                            // }
                             
                             if (shouldPointToForIter)
                             {
@@ -901,20 +957,79 @@ namespace SharpPy
             Console.WriteLine("🔄 WHILE 루프 점프 오프셋 재계산 중...");
 #endif
             }
-            
+
+            // 먼저 모든 FOR 루프 범위를 찾아서 FOR 루프 내의 JUMP_BACKWARD는 제외
+            var forLoopRanges = new List<(int start, int end)>();
+            for (int i = 0; i < _instructions.Count; i++)
+            {
+                if (_instructions[i].OpCode == ByteCodeOp.FOR_ITER)
+                {
+                    int endForPos = FindMatchingEndFor(i);
+                    if (endForPos >= 0)
+                    {
+                        forLoopRanges.Add((i, endForPos));
+                    }
+                }
+            }
+
             // WHILE 루프 패턴 찾기: COMPARE_OP → POP_JUMP_IF_FALSE ... JUMP_BACKWARD ... POP_JUMP_IF_FALSE
             // CPython 3.12: 두 POP_JUMP_IF_FALSE가 동일한 루프 종료점을 가리켜야 함
-            for (int i = 0; i < _instructions.Count - 2; i++)
+
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+    #if DEBUG_LOG
+        Console.WriteLine($"🔍 전체 JUMP_BACKWARD 명령어 개수: {_instructions.Count(inst => inst.OpCode == ByteCodeOp.JUMP_BACKWARD)}");
+        for (int idx = 0; idx < _instructions.Count; idx++)
+        {
+            if (_instructions[idx].OpCode == ByteCodeOp.JUMP_BACKWARD)
+            {
+                Console.WriteLine($"  JUMP_BACKWARD found at instruction {idx}: arg={_instructions[idx].Argument}");
+            }
+        }
+#endif
+            }
+
+            for (int i = 0; i < _instructions.Count; i++)
             {
                 // JUMP_BACKWARD 명령어를 찾음 - 이것이 실제 while 루프의 지표
                 if (_instructions[i].OpCode == ByteCodeOp.JUMP_BACKWARD)
                 {
                     int jumpBackwardPos = i;
-                    
+
+                    if (!SharpPyConfig.DisassemblyOnlyMode)
+                    {
+            #if DEBUG_LOG
+        Console.WriteLine($"🔍 Processing JUMP_BACKWARD at instruction {jumpBackwardPos}");
+#endif
+                    }
+
+                    // FOR 루프 내의 JUMP_BACKWARD인지 확인 (continue문)
+                    bool isInsideForLoop = false;
+                    foreach (var (start, end) in forLoopRanges)
+                    {
+                        if (jumpBackwardPos > start && jumpBackwardPos < end)
+                        {
+                            isInsideForLoop = true;
+                            break;
+                        }
+                    }
+
+                    // FOR 루프 내의 JUMP_BACKWARD는 continue문이므로 while 루프 처리에서 제외
+                    if (isInsideForLoop)
+                    {
+                        if (!SharpPyConfig.DisassemblyOnlyMode)
+                        {
+                #if DEBUG_LOG
+            Console.WriteLine($"  🔍 JUMP_BACKWARD at {jumpBackwardPos} - FOR 루프 내부 (continue문), while 처리 건너뜀");
+#endif
+                        }
+                        continue;
+                    }
+
                     // JUMP_BACKWARD 다음의 첫 번째 명령어가 실제 루프 종료점
                     // 최적화로 인해 명령어가 재배열될 수 있으므로 정확한 위치 찾기
                     int loopEndPos = jumpBackwardPos + 1;
-                    
+
                     // 디버깅: 실제 루프 종료점 확인
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
@@ -928,7 +1043,137 @@ namespace SharpPy
 #endif
                         }
                     }
-                    
+
+                    // WHILE 루프의 JUMP_BACKWARD 타겟 수정
+                    // 1. 루프 조건 확인 지점을 찾기 (첫 번째 COMPARE_OP가 있는 위치)
+                    int loopConditionPos = -1;
+                    int loopBodyStartPos = -1;
+
+                    // JUMP_BACKWARD 이전에서 루프 구조 분석
+                    for (int k = jumpBackwardPos - 1; k >= 0; k--)
+                    {
+                        var inst = _instructions[k];
+                        if (inst.OpCode == ByteCodeOp.COMPARE_OP)
+                        {
+                            if (loopBodyStartPos == -1)
+                            {
+                                // 가장 가까운 COMPARE_OP 다음이 루프 바디 시작
+                                // POP_JUMP_IF_FALSE 다음을 찾기
+                                for (int m = k + 1; m < jumpBackwardPos; m++)
+                                {
+                                    if (_instructions[m].OpCode == ByteCodeOp.POP_JUMP_IF_FALSE)
+                                    {
+                                        loopBodyStartPos = m + 1;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (loopConditionPos == -1)
+                            {
+                                // 첫 번째 COMPARE_OP의 시작점 찾기 (보통 LOAD_NAME부터)
+                                for (int n = k - 1; n >= 0; n--)
+                                {
+                                    if (_instructions[n].OpCode == ByteCodeOp.LOAD_NAME ||
+                                        _instructions[n].OpCode == ByteCodeOp.LOAD_GLOBAL ||
+                                        _instructions[n].OpCode == ByteCodeOp.LOAD_FAST)
+                                    {
+                                        loopConditionPos = n;
+                                        break;
+                                    }
+                                }
+                            }
+                            break;
+                        }
+                    }
+
+                    // JUMP_BACKWARD 타겟 결정
+                    int jumpBackwardTarget = -1;
+                    var jumpInst = _instructions[jumpBackwardPos];
+
+                    // continue statement인지 루프 끝인지 판단
+                    // continue statement는 일반적으로 POP_JUMP_IF_FALSE 바로 다음에 있음
+                    bool isContinueStatement = false;
+                    if (jumpBackwardPos > 0 && _instructions[jumpBackwardPos - 1].OpCode == ByteCodeOp.POP_JUMP_IF_FALSE)
+                    {
+                        isContinueStatement = true;
+                        // continue statement: 루프 조건 확인으로 점프
+                        // WHILE 루프에서는 첫 번째 LOAD_NAME (루프 변수 로드)으로 점프
+                        for (int k = 0; k < jumpBackwardPos; k++)
+                        {
+                            if (_instructions[k].OpCode == ByteCodeOp.LOAD_NAME)
+                            {
+                                jumpBackwardTarget = k;
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // 루프 끝: 루프 바디 시작으로 점프
+                        // WHILE 루프에서는 루프 조건 확인 후 첫 번째 LOAD_NAME (루프 바디 첫 명령어)으로 점프
+                        bool foundFirstCompare = false;
+                        for (int k = 0; k < jumpBackwardPos; k++)
+                        {
+                            if (_instructions[k].OpCode == ByteCodeOp.COMPARE_OP && !foundFirstCompare)
+                            {
+                                foundFirstCompare = true;
+                                // COMPARE_OP 다음의 POP_JUMP_IF_FALSE 다음을 찾기
+                                for (int m = k + 1; m < jumpBackwardPos; m++)
+                                {
+                                    if (_instructions[m].OpCode == ByteCodeOp.POP_JUMP_IF_FALSE)
+                                    {
+                                        jumpBackwardTarget = m + 1; // POP_JUMP_IF_FALSE 다음이 루프 바디 시작
+                                        break;
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
+
+                    // JUMP_BACKWARD oparg 수정
+                    if (!SharpPyConfig.DisassemblyOnlyMode)
+                    {
+            #if DEBUG_LOG
+        Console.WriteLine($"  🔍 JUMP_BACKWARD[{jumpBackwardPos}] 타겟 계산: jumpBackwardTarget={jumpBackwardTarget}, isContinueStatement={isContinueStatement}");
+#endif
+                    }
+
+                    if (jumpBackwardTarget >= 0)
+                    {
+                        int correctOpArg = jumpBackwardPos - jumpBackwardTarget;
+                        if (correctOpArg != jumpInst.Argument)
+                        {
+                            _instructions[jumpBackwardPos] = new ByteCodeInstruction(ByteCodeOp.JUMP_BACKWARD, correctOpArg);
+
+                            if (!SharpPyConfig.DisassemblyOnlyMode)
+                            {
+                    #if DEBUG_LOG
+            Console.WriteLine($"  🔧 WHILE JUMP_BACKWARD[{jumpBackwardPos}]: {jumpInst.Argument} → {correctOpArg} (target: {jumpBackwardTarget}, {(isContinueStatement ? "continue" : "loop end")})");
+#endif
+                            }
+                        }
+                        else
+                        {
+                            if (!SharpPyConfig.DisassemblyOnlyMode)
+                            {
+                    #if DEBUG_LOG
+            Console.WriteLine($"  ✅ WHILE JUMP_BACKWARD[{jumpBackwardPos}]: {jumpInst.Argument} 이미 올바름 (target: {jumpBackwardTarget}, {(isContinueStatement ? "continue" : "loop end")})");
+#endif
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (!SharpPyConfig.DisassemblyOnlyMode)
+                        {
+                #if DEBUG_LOG
+        Console.WriteLine($"  ❌ WHILE JUMP_BACKWARD[{jumpBackwardPos}]: 타겟을 찾을 수 없음");
+#endif
+                        }
+                    }
+
                     // 이 JUMP_BACKWARD 이전의 POP_JUMP_IF_FALSE들을 찾아서 루프 종료점으로 수정
                     int popJumpCount = 0;
                     for (int j = jumpBackwardPos - 1; j >= 0; j--)
@@ -945,11 +1190,11 @@ namespace SharpPy
                             }
                             // 올바른 루프 종료점으로 점프하도록 상대 오프셋 재계산
                             int correctRelativeOffset = loopEndPos - j - 1;
-                            
+
                             if (correctRelativeOffset != inst.Argument)
                             {
                                 _instructions[j] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, correctRelativeOffset);
-                                
+
                                 if (!SharpPyConfig.DisassemblyOnlyMode)
                                 {
                         #if DEBUG_LOG

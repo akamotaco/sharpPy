@@ -219,18 +219,18 @@ namespace SharpPy
         {
             if (node is BinaryOpExpression binOp)
             {
-                return OptimizeBinaryBoolOp(binOp.Left, binOp.Right, binOp.Operator);
+                return OptimizeBinaryBoolOp(binOp, binOp.Left, binOp.Right, binOp.Operator);
             }
 
             if (node is BoolOpExpression boolOp && boolOp.Values.Count == 2)
             {
-                return OptimizeBinaryBoolOp(boolOp.Values[0], boolOp.Values[1], boolOp.Op);
+                return OptimizeBinaryBoolOp(boolOp, boolOp.Values[0], boolOp.Values[1], boolOp.Op);
             }
 
             return node;
         }
 
-        private ASTNode OptimizeBinaryBoolOp(Expression left, Expression right, string operator_)
+        private ASTNode OptimizeBinaryBoolOp(ASTNode originalNode, Expression left, Expression right, string operator_)
         {
             // Short-circuit evaluation patterns
             if (left is ConstantExpression leftLiteral)
@@ -277,7 +277,8 @@ namespace SharpPy
                 }
             }
 
-            return new BinaryOpExpression(left, operator_, right);
+            // No optimization applicable - return original node to prevent cycles
+            return originalNode;
         }
     }
 
