@@ -9,47 +9,55 @@ namespace SharpPy
     {
         public static void Main(string[] args)
         {
-            // 명령줄 옵션 파싱
-            var parser = new CommandLineParser();
-            var (parsedArgs, pythonFile) = parser.Parse(args);
-            
-            // 플래그 처리
-            ConfigureOptions(parsedArgs);
-            
-            // 각 모드로 위임
-            if (parsedArgs.ContainsKey("--dis"))
+            try
             {
-                new BytecodeDisassembler().RunDirectDisassembly(pythonFile);
+                // 명령줄 옵션 파싱
+                var parser = new CommandLineParser();
+                var (parsedArgs, pythonFile) = parser.Parse(args);
+
+                // 플래그 처리
+                ConfigureOptions(parsedArgs);
+
+                // 각 모드로 위임
+                if (parsedArgs.ContainsKey("--dis"))
+                {
+                    new BytecodeDisassembler().RunDirectDisassembly(pythonFile);
+                }
+                else if (parsedArgs.ContainsKey("--tokens"))
+                {
+                    new TokenDebugger().OutputTokens(pythonFile);
+                }
+                else if (parsedArgs.ContainsKey("-c"))
+                {
+                    new FileExecutor().ExecuteCodeString(parsedArgs["-c"]);
+                }
+                else if (parsedArgs.ContainsKey("-m"))
+                {
+                    SharpPyConfig.ShowBytecode = parsedArgs["-m"] == "dis";
+                    new ModuleRunner().RunModule(args);
+                }
+                else if (!string.IsNullOrEmpty(pythonFile))
+                {
+                    new FileExecutor().ExecuteFile(pythonFile);
+                }
+                else if (parsedArgs.ContainsKey("command"))
+                {
+                    HandleSpecialCommands(parsedArgs["command"]);
+                }
+                else if (parsedArgs.ContainsKey("help"))
+                {
+                    new HelpDisplay().ShowHelp();
+                }
+                else
+                {
+                    // 기본 모드: REPL 실행
+                    new SharpPyRepl().Start();
+                }
             }
-            else if (parsedArgs.ContainsKey("--tokens"))
+            finally
             {
-                new TokenDebugger().OutputTokens(pythonFile);
-            }
-            else if (parsedArgs.ContainsKey("-c"))
-            {
-                new FileExecutor().ExecuteCodeString(parsedArgs["-c"]);
-            }
-            else if (parsedArgs.ContainsKey("-m"))
-            {
-                SharpPyConfig.ShowBytecode = parsedArgs["-m"] == "dis";
-                new ModuleRunner().RunModule(args);
-            }
-            else if (!string.IsNullOrEmpty(pythonFile))
-            {
-                new FileExecutor().ExecuteFile(pythonFile);
-            }
-            else if (parsedArgs.ContainsKey("command"))
-            {
-                HandleSpecialCommands(parsedArgs["command"]);
-            }
-            else if (parsedArgs.ContainsKey("help"))
-            {
-                new HelpDisplay().ShowHelp();
-            }
-            else
-            {
-                // 기본 모드: REPL 실행
-                new SharpPyRepl().Start();
+                // CPython 3.12 compatibility: Check for unawaited coroutines before exit
+                CoroutineTracker.CheckForUnawaitedCoroutines();
             }
         }
 
