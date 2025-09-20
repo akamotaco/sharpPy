@@ -125,7 +125,7 @@ namespace SharpPy
             "not", "or", "pass", "raise", "return", "True", "try", "type", "while", "with", "yield"
         };
 
-        private static bool IsKeywordLexeme(string lexeme)
+        public static bool IsKeywordLexeme(string lexeme)
         {
             return KeywordLexemes.Contains(lexeme);
         }

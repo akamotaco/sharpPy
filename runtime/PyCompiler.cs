@@ -256,7 +256,11 @@ namespace SharpPy
             switch (expr)
             {
                 case NameExpression name:
-                    _usedVars.Add(name.Name);
+                    // Only add if it's not a keyword
+                    if (!PyToken.IsKeywordLexeme(name.Name))
+                    {
+                        _usedVars.Add(name.Name);
+                    }
                     break;
                     
                 case BinaryOpExpression binary:
@@ -3885,7 +3889,7 @@ namespace SharpPy
 
                     foreach (var varName in referencedVars)
                     {
-                        if (!localVars.Contains(varName) && !parameters.Contains(varName) && !IsBuiltinVariable(varName))
+                        if (!localVars.Contains(varName) && !parameters.Contains(varName) && !IsKeywordOrBuiltin(varName))
                         {
                             freeVariables.Add(varName);
                             #if DEBUG_LOG
@@ -3942,7 +3946,11 @@ namespace SharpPy
             switch (expression)
             {
                 case NameExpression nameExpr:
-                    variables.Add(nameExpr.Name);
+                    // Only add if it's not a keyword
+                    if (!PyToken.IsKeywordLexeme(nameExpr.Name))
+                    {
+                        variables.Add(nameExpr.Name);
+                    }
                     break;
                 case AttributeExpression attrExpr:
                     CollectReferencedVariablesFromExpression(attrExpr.Value, variables);
@@ -3979,6 +3987,12 @@ namespace SharpPy
         {
             // 동적으로 PyBuiltinsModule에서 builtin 여부 확인 (자동 동기화)
             return _builtinNames.Contains(varName);
+        }
+
+        private bool IsKeywordOrBuiltin(string varName)
+        {
+            // Use PyToken's keyword checking functionality
+            return PyToken.IsKeywordLexeme(varName) || IsBuiltinVariable(varName);
         }
 
         #if DEBUG_LOG

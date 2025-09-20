@@ -830,7 +830,11 @@ namespace SharpPy
 #if DEBUG_LOG
                     Console.WriteLine($"      AnalyzeExpression: NameExpression '{name.Name}' in scope '{_currentTable?.GetName()}'");
 #endif
-                    _currentTable?.DefineSymbol(name.Name, SymbolFlags.Used);
+                    // Only add if it's not a keyword
+                    if (!PyToken.IsKeywordLexeme(name.Name))
+                    {
+                        _currentTable?.DefineSymbol(name.Name, SymbolFlags.Used);
+                    }
                     break;
 
                 case TupleExpression tuple:

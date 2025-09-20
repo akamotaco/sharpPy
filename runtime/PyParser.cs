@@ -972,6 +972,12 @@ namespace SharpPy
 
             // CPython 3.12 방식: 정확한 블록 파싱
 
+            // 콜론 뒤에 주석이 올 수 있으므로 먼저 주석을 건너뛰기
+            while (Match(TokenType.COMMENT))
+            {
+                // 인라인 주석은 건너뛰기
+            }
+
             // NEWLINE 토큰이 있다면 소비 (블록이 시작됨을 의미)
             if (Match(TokenType.NEWLINE))
             {
