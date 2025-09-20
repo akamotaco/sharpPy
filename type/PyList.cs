@@ -21,7 +21,7 @@ namespace SharpPy
 
         public override string GetTypeName() => "list";
         public override PyType GetPyType() => PyType.ListType;
-        public override string ToString() => $"[{string.Join(", ", _items.Select(i => i.ToString()))}]";
+        public override string ToString() => $"[{string.Join(", ", _items.Select(i => i.ToRepr()))}]";
         public override string ToRepr() => $"[{string.Join(", ", _items.Select(i => i.ToRepr()))}]";
         public override int Length() => _items.Count;
         public override bool PyBoolValue() => _items.Count > 0;
