@@ -118,10 +118,27 @@ namespace SharpPy.Modules
             _running = true;
             try
             {
-                // Simple execution: just run the coroutine to completion
-                // For now, just call Send() once to complete the coroutine
-                var result = coroutine.Send(PyNone.Instance);
-                return result ?? PyNone.Instance;
+                // Run the coroutine until completion
+                PyObject? value = PyNone.Instance;
+
+                while (true)
+                {
+                    try
+                    {
+                        // Send value to coroutine - will throw PyStopIteration when done
+                        value = coroutine.Send(value);
+
+                        // If we get here, coroutine yielded a value (await)
+                        // For now, we'll treat all awaited values as completed immediately
+                        // In a real event loop, this would schedule the awaited operation
+                        value = PyNone.Instance;
+                    }
+                    catch (PythonException ex) when (ex.PyException is PyStopIteration stopIteration)
+                    {
+                        // Coroutine completed - return the result
+                        return stopIteration.Value ?? PyNone.Instance;
+                    }
+                }
             }
             finally
             {
