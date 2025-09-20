@@ -1,8 +1,32 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 
 namespace SharpPy.Core
 {
+    /// <summary>
+    /// Global coroutine tracking for CPython 3.12 compatibility warnings
+    /// </summary>
+    public static class CoroutineTracker
+    {
+        private static readonly ConcurrentBag<WeakReference<PyCoroutine>> _activeCoroutines = new();
+
+        public static void RegisterCoroutine(PyCoroutine coroutine)
+        {
+            _activeCoroutines.Add(new WeakReference<PyCoroutine>(coroutine));
+        }
+
+        public static void CheckForUnawaitedCoroutines()
+        {
+            foreach (var weakRef in _activeCoroutines)
+            {
+                if (weakRef.TryGetTarget(out var coroutine) && !coroutine.IsFinished)
+                {
+                    Console.Error.WriteLine($"sys:1: RuntimeWarning: coroutine '{coroutine.Name}' was never awaited");
+                }
+            }
+        }
+    }
     /// <summary>
     /// CPython 3.12 Native Coroutine - PEP 492 구현
     /// Generator와 구별되는 별도 타입으로 __await__ 메서드만 구현
@@ -11,16 +35,18 @@ namespace SharpPy.Core
     {
         public override string GetTypeName() => "coroutine";
         public override PyType GetPyType() => PyType.CoroutineType;
-        
+
         private readonly PyFrame _frame;
         private readonly PyVM _vm;
         private bool _started = false;
         private bool _finished = false;
         private PyObject? _result = null;
         private int _lastInstructionPointer = 0;
-        
+        private bool _warningShown = false;
+
         public string Name { get; }
         public CoroutineState State { get; private set; } = CoroutineState.Created;
+        public bool IsFinished => _finished;
         
         /// <summary>
         /// CPython 3.12 스타일 Coroutine 상태
@@ -38,10 +64,26 @@ namespace SharpPy.Core
             _frame = frame ?? throw new ArgumentNullException(nameof(frame));
             _vm = vm ?? throw new ArgumentNullException(nameof(vm));
             Name = name;
-            
+
             // Coroutine frame은 특별한 플래그를 가짐
             _frame.IsGenerator = true; // 내부적으로는 generator 메커니즘 사용
             _frame.IsCoroutine = true; // 하지만 coroutine으로 마킹
+
+            // Register for CPython 3.12 compatibility warnings
+            CoroutineTracker.RegisterCoroutine(this);
+        }
+
+        /// <summary>
+        /// CPython 3.12 style finalizer - warn if coroutine was never awaited
+        /// </summary>
+        ~PyCoroutine()
+        {
+            if (!_finished && !_warningShown)
+            {
+                _warningShown = true;
+                // CPython 3.12에서와 동일한 경고 메시지
+                Console.Error.WriteLine($"sys:1: RuntimeWarning: coroutine '{Name}' was never awaited");
+            }
         }
         
         /// <summary>
@@ -120,17 +162,51 @@ namespace SharpPy.Core
             _frame.State = PyFrame.FrameState.Completed;
         }
         
+        /// <summary>
+        /// CPython compatibility: expose coroutine methods as Python attributes
+        /// </summary>
+        public override PyObject? GetAttribute(string name)
+        {
+            switch (name)
+            {
+                case "send":
+                    return new PyBuiltinMethod("send", (instance, args) => {
+                        if (args.Length == 0)
+                            return Send(null);
+                        else if (args.Length == 1)
+                            return Send(args[0]);
+                        else
+                            throw PyTypeError.Create("send() takes at most 1 argument");
+                    });
+                case "close":
+                    return new PyBuiltinMethod("close", (instance, args) => {
+                        if (args.Length != 0)
+                            throw PyTypeError.Create("close() takes no arguments");
+                        Close();
+                        return PyNone.Instance;
+                    });
+                case "__await__":
+                    return new PyBuiltinMethod("__await__", (instance, args) => {
+                        if (args.Length != 0)
+                            throw PyTypeError.Create("__await__() takes no arguments");
+                        return GetAwaiter();
+                    });
+                default:
+                    return base.GetAttribute(name);
+            }
+        }
+
         public override string ToString()
         {
             var stateStr = State switch
             {
                 CoroutineState.Created => "created",
-                CoroutineState.Running => "running", 
+                CoroutineState.Running => "running",
                 CoroutineState.Suspended => "suspended",
                 CoroutineState.Closed => "closed",
                 _ => "unknown"
             };
-            
+
             return $"<coroutine object {Name} at 0x{GetHashCode():x8} [{stateStr}]>";
         }
     }
