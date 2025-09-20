@@ -558,9 +558,19 @@ namespace SharpPy
 
         private TokenType GetKeywordType(string text)
         {
-            // CPython 3.12: All keywords are NAME tokens, not separate token types
-            // Parser handles keyword recognition based on context
-            return TokenType.NAME;
+            // CPython 3.12: Most keywords are NAME tokens, but async/await are special
+            // async/await need separate token types for proper parsing and validation
+            switch (text)
+            {
+                case "async":
+                    return TokenType.ASYNC;
+                case "await":
+                    return TokenType.AWAIT;
+                default:
+                    // All other keywords are NAME tokens
+                    // Parser handles keyword recognition based on context
+                    return TokenType.NAME;
+            }
         }
 
         /// <summary>

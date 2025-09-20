@@ -317,7 +317,7 @@ namespace SharpPy
             
             // Function definition (CPython 3.12: keywords are NAME tokens)
             if (MatchKeyword("def")) return ParseFunctionDef();
-            if (CheckKeyword("async") && CheckNext(TokenType.NAME) && PeekNext().Lexeme == "def")
+            if (Check(TokenType.ASYNC) && CheckNext(TokenType.NAME) && PeekNext().Lexeme == "def")
             {
                 return ParseAsyncFunctionDef();
             }
@@ -400,7 +400,7 @@ namespace SharpPy
 
         private Statement ParseAsyncFunctionDef()
         {
-            ConsumeKeyword("async", "Expected 'async'");
+            Consume(TokenType.ASYNC, "Expected 'async'");
             ConsumeKeyword("def", "Expected 'def' after 'async'");
             
             var name = Consume(TokenType.NAME, "Expected function name").Lexeme;
@@ -455,7 +455,7 @@ namespace SharpPy
             {
                 return ParseFunctionDef(decorators);
             }
-            else if (MatchKeyword("async") && CheckKeyword("def"))
+            else if (Match(TokenType.ASYNC) && CheckKeyword("def"))
             {
                 ConsumeKeyword("def", "Expected 'def' after 'async'");
                 return ParseAsyncFunctionDef(); // TODO: async 함수도 데코레이터 지원 필요
@@ -1508,14 +1508,14 @@ namespace SharpPy
                 return new UnaryOpExpression(op, expr);
             }
             
-            if (MatchKeyword("await"))
+            if (Match(TokenType.AWAIT))
             {
                 // CPython 3.12: await는 async def 내부에서만 사용 가능
                 if (!_inAsyncFunction)
                 {
                     throw CreateSyntaxError("'await' outside function");
                 }
-                
+
                 var expr = ParseUnaryExpression();
                 return new AwaitExpression(expr);
             }
@@ -3953,7 +3953,7 @@ namespace SharpPy
                 return new UnaryOpExpression(op, expr);
             }
             
-            if (MatchKeyword("await"))
+            if (Match(TokenType.AWAIT))
             {
                 // CPython 3.12: await는 async def 내부에서만 사용 가능
                 if (!_inAsyncFunction)
