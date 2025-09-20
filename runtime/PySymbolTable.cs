@@ -269,6 +269,10 @@ namespace SharpPy
                     AnalyzeAugAssignment(augAssign);
                     break;
 
+                case AnnAssignStatement annAssign:
+                    AnalyzeAnnAssignment(annAssign);
+                    break;
+
                 case GlobalStatement global:
                     foreach (var name in global.Names)
                     {
@@ -1089,6 +1093,22 @@ namespace SharpPy
                 _currentTable?.DefineSymbol(augAssign.Target, SymbolFlags.Assigned);
             }
             AnalyzeExpression(augAssign.Value);
+        }
+
+        private void AnalyzeAnnAssignment(AnnAssignStatement annAssign)
+        {
+            // For annotated assignments like "x: int = 5" or "y: list[str]"
+            // CPython 3.12: Variable is defined even if no value is assigned
+            _currentTable?.DefineSymbol(annAssign.VariableName, SymbolFlags.Assigned);
+
+            // Analyze the annotation expression (e.g., int, list[str])
+            AnalyzeExpression(annAssign.Annotation);
+
+            // Analyze the value expression if present
+            if (annAssign.Value != null)
+            {
+                AnalyzeExpression(annAssign.Value);
+            }
         }
 
         private void AnalyzeAssignmentTarget(Expression target)

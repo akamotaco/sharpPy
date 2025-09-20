@@ -1146,7 +1146,7 @@ namespace SharpPy
                 // CPython 3.12: Check for annotated assignment (target: type = value)
                 if (MatchOp(":"))
                 {
-                    var annotation = ParseBitwiseOrExpression(); // Python 3.12 Type Union 지원
+                    var annotation = ParseConditionalExpression(); // Type annotation parsing - stop before '='
                     
                     // Check if there's an assignment as well
                     if (MatchOp("="))
