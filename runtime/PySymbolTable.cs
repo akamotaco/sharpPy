@@ -395,6 +395,18 @@ namespace SharpPy
 
         private void AnalyzeFunction(FunctionDefStatement func)
         {
+            // CRITICAL: Analyze decorators FIRST in current scope before defining function
+            // This ensures decorator variables are marked as Used in current scope
+            // and can become cell variables if referenced from nested scopes
+            foreach (var decorator in func.Decorators)
+            {
+                AnalyzeExpression(decorator.DecoratorFunction);
+                foreach (var arg in decorator.Arguments)
+                {
+                    AnalyzeExpression(arg);
+                }
+            }
+
             // Define function name in current scope
             _currentTable?.DefineSymbol(func.Name, SymbolFlags.Assigned);
 

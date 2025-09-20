@@ -1767,15 +1767,41 @@ namespace SharpPy
                         EmitInstruction(ByteCodeOp.PUSH_NULL);
                         CompileExpression(call.Function);
 
-                        // Handle *args: find StarredExpression and compile as args tuple
+                        // Handle args: combine regular args with *args
+                        var regularArgs = call.Arguments.Where(arg => !(arg is StarredExpression)).ToList();
                         var starredArg = call.Arguments.FirstOrDefault(arg => arg is StarredExpression) as StarredExpression;
-                        if (starredArg != null)
+
+                        if (regularArgs.Count > 0 || starredArg != null)
                         {
-                            CompileExpression(starredArg.Value); // Compile the args iterable
+                            // Build list starting with regular arguments
+                            if (regularArgs.Count > 0)
+                            {
+                                // Compile regular args in order and build list
+                                foreach (var arg in regularArgs)
+                                {
+                                    CompileExpression(arg);
+                                }
+                                EmitInstruction(ByteCodeOp.BUILD_LIST, regularArgs.Count);
+                            }
+                            else
+                            {
+                                // Start with empty list if no regular args
+                                EmitInstruction(ByteCodeOp.BUILD_LIST, 0);
+                            }
+
+                            // If there's *args, extend the list
+                            if (starredArg != null)
+                            {
+                                CompileExpression(starredArg.Value);
+                                EmitInstruction(ByteCodeOp.LIST_EXTEND, 1);
+                            }
+
+                            // Convert list to tuple for CALL_FUNCTION_EX
+                            EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, 6); // INTRINSIC_LIST_TO_TUPLE
                         }
                         else
                         {
-                            // No *args, create empty tuple
+                            // No args at all, create empty tuple
                             EmitLoadConst(new PyTuple(new PyObject[0]));
                         }
 
