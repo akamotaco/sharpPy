@@ -70,6 +70,9 @@ namespace SharpPy
         public static readonly PyType RuntimeErrorType = new PyType("RuntimeError", new[] { ExceptionType });
         public static readonly PyType NotImplementedErrorType = new PyType("NotImplementedError", new[] { RuntimeErrorType });
         public static readonly PyType RecursionErrorType = new PyType("RecursionError", new[] { RuntimeErrorType });
+
+        public static readonly PyType OSErrorType = new PyType("OSError", new[] { ExceptionType });
+        public static readonly PyType FileNotFoundErrorType = new PyType("FileNotFoundError", new[] { OSErrorType });
         
         // Exception Groups (PEP 654)
         public static readonly PyType BaseExceptionGroupType = new PyType("BaseExceptionGroup", new[] { BaseExceptionType });

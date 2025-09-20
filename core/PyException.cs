@@ -551,9 +551,10 @@ namespace SharpPy
     public class PyOSError : PyException
     {
         public PyOSError(string message = "") : base(message) { }
-        
+
         public override string GetTypeName() => "OSError";
-        
+        public override PyType GetPyType() => PyType.OSErrorType;
+
         public new static PythonException Create(string message = "")
         {
             var pyException = new PyOSError(message);
@@ -567,9 +568,10 @@ namespace SharpPy
     public class PyFileNotFoundError : PyOSError
     {
         public PyFileNotFoundError(string message = "") : base(message) { }
-        
+
         public override string GetTypeName() => "FileNotFoundError";
-        
+        public override PyType GetPyType() => PyType.FileNotFoundErrorType;
+
         public new static PythonException Create(string message = "")
         {
             var pyException = new PyFileNotFoundError(message);

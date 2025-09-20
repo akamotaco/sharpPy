@@ -4214,7 +4214,19 @@ namespace SharpPy
                 string targetTypeName = "";
 
                 // Handle different types of exception type objects
-                if (exceptionType is PyBuiltinType builtinType)
+                if (exceptionType is PyTuple tuple)
+                {
+                    // Handle tuple of exception types: except* (ValueError, RuntimeError)
+                    foreach (var item in tuple.Items)
+                    {
+                        if (ExceptionMatches(exception, item))
+                        {
+                            return true;
+                        }
+                    }
+                    return false; // No match in tuple
+                }
+                else if (exceptionType is PyBuiltinType builtinType)
                 {
                     targetTypeName = builtinType.Name;
                 }

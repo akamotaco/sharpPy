@@ -5215,11 +5215,12 @@ namespace SharpPy
             // Create label for continuation after entire try-except construct
             var continueLabel = CreateLabel("continue_after_try");
 
+            // Exception Table start offset BEFORE NOP - 명령어 인덱스 사용 (CPython 호환)
+            // CPython 3.12: Try block should start from the actual first instruction (NOP)
+            var tryStartOffset = _instructions.Count;
+
             // CPython 3.12: Add NOP instruction before try body (exact CPython pattern)
             EmitInstruction(ByteCodeOp.NOP);
-            
-            // Exception Table start offset is after NOP - 명령어 인덱스 사용 (CPython 호환)
-            var tryStartOffset = _instructions.Count;
             
             // CPython 3.12: Direct compilation of try body (no SETUP_EXCEPT)
             foreach (var stmt in tryStmt.Body)
@@ -5227,11 +5228,11 @@ namespace SharpPy
                 CompileStatement(stmt);
             }
 
-            // Try block ends after the last instruction of try body (CPython 3.12 compatible)
-            var tryEndOffset = _instructions.Count;
-
             // CPython 3.12: Jump to continuation if no exception (try body completed normally)
             EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, continueLabel);
+
+            // Try block ends AFTER the JUMP_FORWARD instruction (CPython 3.12 compatible)
+            var tryEndOffset = _instructions.Count;
             
             // Exception handler start (where PUSH_EXC_INFO will jump to)
             var handlersStartLabel = CreateLabel("handlers_start");
@@ -5382,24 +5383,28 @@ namespace SharpPy
                     EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, continueLabel);
                 }
 
-                // CPython 3.12: Create Exception Table entry for handler body protection only when needed
-                if (handler.Name != null && handlerBodyEnd > handlerBodyStart)
+                // CPython 3.12: Create Exception Table entry for handler body protection
+                // For except* handlers, always protect the handler body (even without variable binding)
+                if ((handler.IsStar || handler.Name != null) && handlerBodyEnd > handlerBodyStart)
                 {
                     // Create simple cleanup handler for exception variables (CPython 3.12 pattern)
                     var cleanupHandlerLabel = CreateLabel($"cleanup_handler_{i}");
                     MarkLabel(cleanupHandlerLabel);
 
-                    // Cleanup exception variable on exception in handler
-                    EmitInstruction(ByteCodeOp.LOAD_CONST, GetOrAddConstant(PyNone.Instance));
-                    if (_isInFunction)
+                    // Cleanup exception variable on exception in handler (only if variable exists)
+                    if (handler.Name != null)
                     {
-                        EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(handler.Name));
-                        EmitInstruction(ByteCodeOp.DELETE_FAST, GetOrAddVarName(handler.Name));
-                    }
-                    else
-                    {
-                        EmitInstruction(ByteCodeOp.STORE_NAME, GetOrAddName(handler.Name));
-                        EmitInstruction(ByteCodeOp.DELETE_NAME, GetOrAddName(handler.Name));
+                        EmitInstruction(ByteCodeOp.LOAD_CONST, GetOrAddConstant(PyNone.Instance));
+                        if (_isInFunction)
+                        {
+                            EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(handler.Name));
+                            EmitInstruction(ByteCodeOp.DELETE_FAST, GetOrAddVarName(handler.Name));
+                        }
+                        else
+                        {
+                            EmitInstruction(ByteCodeOp.STORE_NAME, GetOrAddName(handler.Name));
+                            EmitInstruction(ByteCodeOp.DELETE_NAME, GetOrAddName(handler.Name));
+                        }
                     }
 
                     // CPython 3.12: For except* handlers, add to handler list in cleanup path

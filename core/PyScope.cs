@@ -120,6 +120,7 @@ public class PyBuiltinsModule : PyObject
         BuiltinDict["KeyError"] = PyType.KeyErrorType;
         BuiltinDict["IndexError"] = PyType.IndexErrorType;
         BuiltinDict["RuntimeError"] = PyType.RuntimeErrorType;
+        BuiltinDict["OSError"] = PyType.OSErrorType;
         BuiltinDict["ZeroDivisionError"] = PyType.ZeroDivisionErrorType;
         BuiltinDict["NameError"] = PyType.NameErrorType;
         BuiltinDict["StopIteration"] = PyType.StopIterationType;
