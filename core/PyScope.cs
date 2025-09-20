@@ -161,7 +161,30 @@ public class PyBuiltinsModule : PyObject
     {
         return BuiltinDict.TryGetValue(name, out PyObject value) ? value : null;
     }
-    
+
+    /// <summary>
+    /// CPython 3.12 호환: __builtins__['name'] 형태의 subscript access 지원
+    /// </summary>
+    public override PyObject GetItem(PyObject key)
+    {
+        if (key is PyString keyStr)
+        {
+            string name = keyStr.Value;
+            if (BuiltinDict.TryGetValue(name, out PyObject value))
+            {
+                return value;
+            }
+            else
+            {
+                throw PyKeyError.Create($"'{name}'");
+            }
+        }
+        else
+        {
+            throw PyTypeError.Create($"string indices must be strings, not {key.GetTypeName()}");
+        }
+    }
+
     public override string ToString() => "<module 'builtins' (built-in)>";
 }
 
