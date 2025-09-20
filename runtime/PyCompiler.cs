@@ -1,4 +1,5 @@
 using System.Linq;
+using SharpPy.Utils;
 
 namespace SharpPy
 {
@@ -6620,6 +6621,7 @@ namespace SharpPy
             var keysList = pattern.Patterns.Keys.ToList();
             foreach (var key in keysList)
             {
+                // CPython 3.12: Dictionary pattern keys are now processed by parser
                 CompileExpression(new ConstantExpression(new PyString(key)));
             }
             EmitInstruction(ByteCodeOp.BUILD_TUPLE, keysList.Count);

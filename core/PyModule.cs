@@ -1,4 +1,5 @@
 using System.Linq;
+using SharpPy.Utils;
 
 namespace SharpPy
 {
@@ -163,7 +164,7 @@ public class PyModule : PyObject
         {
             var parts = line.Split('=', 2);
             var varName = parts[0].Trim();
-            var valueStr = parts[1].Trim().Trim('"', '\'');
+            var valueStr = parts[1].Trim().TrimQuotes();
             
             PyObject value;
             if (int.TryParse(valueStr, out int intVal))
@@ -181,7 +182,7 @@ public class PyModule : PyObject
             {
                 var items = allStr.Substring(1, allStr.Length - 2)
                     .Split(',')
-                    .Select(s => s.Trim().Trim('"', '\''))
+                    .Select(s => s.Trim().TrimQuotes())
                     .Where(s => !string.IsNullOrEmpty(s));
                 
                 All.Clear();

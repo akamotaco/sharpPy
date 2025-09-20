@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using SharpPy.Interop;
+using SharpPy.Utils;
 
 namespace SharpPy
 {
@@ -512,7 +513,7 @@ namespace SharpPy
                     else if (int.TryParse(defaultValue, out int intVal))
                         defaults.Add(new PyInt(intVal));
                     else if (defaultValue.StartsWith('"') && defaultValue.EndsWith('"'))
-                        defaults.Add(new PyString(defaultValue.Trim('"')));
+                        defaults.Add(new PyString(defaultValue.TrimDoubleQuotes()));
                     else
                         defaults.Add(PyNone.Instance);
                 }

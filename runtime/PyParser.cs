@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using SharpPy.Utils;
 
 namespace SharpPy
 {
@@ -1650,17 +1651,7 @@ namespace SharpPy
             {
                 var lexeme = Previous().Lexeme;
                 // Strip quotes from string literals - CPython compatibility
-                var value = lexeme;
-                if ((lexeme.StartsWith("'") && lexeme.EndsWith("'")) ||
-                    (lexeme.StartsWith("\"") && lexeme.EndsWith("\"")))
-                {
-                    value = lexeme.Substring(1, lexeme.Length - 2);
-                }
-                else if ((lexeme.StartsWith("'''") && lexeme.EndsWith("'''")) ||
-                         (lexeme.StartsWith("\"\"\"") && lexeme.EndsWith("\"\"\"")))
-                {
-                    value = lexeme.Substring(3, lexeme.Length - 6);
-                }
+                var value = lexeme.TrimStringLiteralQuotes();
                 return new ConstantExpression(new PyString(value));
             }
 
@@ -3259,7 +3250,7 @@ namespace SharpPy
                     {
                         // Parse string key
                         var keyToken = Consume(TokenType.STRING, "Expected string key in mapping pattern");
-                        var key = keyToken.Lexeme;
+                        var key = keyToken.Lexeme.TrimStringLiteralQuotes(); // Remove quotes
                         ConsumeColon( "Expected ':' after key in mapping pattern");
                         var valuePattern = ParseSingleMatchPattern();
                         patterns[key] = valuePattern;
@@ -3310,7 +3301,7 @@ namespace SharpPy
                         if (Check(TokenType.STRING))
                         {
                             var stringToken = Advance();
-                            keyStr = stringToken.Lexeme.Trim('"').Trim('\''); // Remove quotes
+                            keyStr = stringToken.Lexeme.TrimStringLiteralQuotes(); // Remove quotes
                         }
                         else if (Check(TokenType.NAME))
                         {
