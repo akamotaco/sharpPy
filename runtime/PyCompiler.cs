@@ -7577,27 +7577,34 @@ namespace SharpPy
             var firstGenerator = listComp.Generators[0];
 
             // 1. CPython 3.12 정확한 순서: LOAD_CONST → GET_ITER → LOAD_FAST_AND_CLEAR → SWAP → BUILD_LIST → SWAP
-            // 먼저 첫 번째 generator의 iterable 로드
-            if (firstGenerator.Iter is ListExpression iterList &&
-                iterList.Elements.All(e => e is ConstantExpression))
-            {
-                // 상수 리스트 → 상수 튜플로 변환 (CPython 3.12 패턴)
-                var constantElements = iterList.Elements.Cast<ConstantExpression>()
-                                                      .Select(c => c.Value)
-                                                      .ToArray();
-                var tupleConstant = new PyTuple(constantElements);
-                EmitLoadConst(tupleConstant);
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 리스트 컴프리헨션: 상수 리스트를 튜플로 변환 {tupleConstant}");
-                #endif
-            }
-            else
-            {
-                // 일반적인 경우
-                CompileExpression(firstGenerator.Iter);
-            }
+            // 첫 번째 generator의 처리 방식 결정
+            bool firstGeneratorOptimized = IsSingleElementGenerator(firstGenerator);
 
-            EmitInstruction(ByteCodeOp.GET_ITER);
+            if (!firstGeneratorOptimized)
+            {
+                // 첫 번째 generator가 일반 루프인 경우: GET_ITER 생성
+                if (firstGenerator.Iter is ListExpression iterList &&
+                    iterList.Elements.All(e => e is ConstantExpression))
+                {
+                    // 상수 리스트 → 상수 튜플로 변환 (CPython 3.12 패턴)
+                    var constantElements = iterList.Elements.Cast<ConstantExpression>()
+                                                          .Select(c => c.Value)
+                                                          .ToArray();
+                    var tupleConstant = new PyTuple(constantElements);
+                    EmitLoadConst(tupleConstant);
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔧 리스트 컴프리헨션: 상수 리스트를 튜플로 변환 {tupleConstant}");
+                    #endif
+                }
+                else
+                {
+                    // 일반적인 경우
+                    CompileExpression(firstGenerator.Iter);
+                }
+
+                EmitInstruction(ByteCodeOp.GET_ITER);
+            }
+            // 첫 번째 generator가 단일 요소인 경우: GET_ITER 생성 안함
 
             // 2. LOAD_FAST_AND_CLEAR: 모든 컴프리헨션 변수 초기화 (CPython 3.12 패턴)
             foreach (var varName in comprehensionVars)
@@ -7608,10 +7615,12 @@ namespace SharpPy
             // 3. 첫 번째 SWAP: 스택 재배치 (CPython 3.12 정확한 순서)
             if (comprehensionVars.Count > 0)
             {
-                // CPython 3.12: SWAP 값 = 실제 컴프리헨션 변수 개수 + 1
-                int swapArg = comprehensionVars.Count + 1;
+                // CPython 3.12: SWAP 값 계산
+                // 일반적인 경우: 변수 개수 + 1 (iterator 포함)
+                // 첫 번째 generator 최적화된 경우: 변수 개수만 (iterator 없음)
+                int swapArg = firstGeneratorOptimized ? comprehensionVars.Count : comprehensionVars.Count + 1;
                 #if DEBUG_LOG
-                Console.WriteLine($"🔧 CPython 3.12 첫 번째 SWAP: vars={comprehensionVars.Count}, swapArg={swapArg}");
+                Console.WriteLine($"🔧 CPython 3.12 첫 번째 SWAP: vars={comprehensionVars.Count}, firstOptimized={firstGeneratorOptimized}, swapArg={swapArg}");
                 #endif
                 EmitInstruction(ByteCodeOp.SWAP, swapArg); // 스택 재배치
             }
@@ -7628,14 +7637,33 @@ namespace SharpPy
             Console.WriteLine($"🔧 CPython 3.12 두 번째 SWAP 2");
             #endif
             
-            // 4. 중첩된 루프 컴파일 - CPython 3.12 방식 (첫 번째 generator는 이미 처리됨)
+            // 4. 중첩된 루프 컴파일 - CPython 3.12 방식
             var exceptionTableStart = _instructions.Count;
-            // 첫 번째 generator는 이미 처리했으므로 FOR_ITER부터 시작
-            var loopStart = _instructions.Count;
-            EmitInstruction(ByteCodeOp.FOR_ITER, 0); // 패치 대상
-            
-            // 첫 번째 generator의 타겟 변수 저장 - 재귀 튜플 언패킹 지원
-            CompileComprehensionTarget(firstGenerator.Target, comprehensionVars);
+            int loopStart = -1;
+
+            // 첫 번째 generator도 단일 요소인지 확인
+            if (IsSingleElementGenerator(firstGenerator))
+            {
+                // 첫 번째 generator도 최적화 - FOR_ITER 없이 직접 할당
+                if (firstGenerator.Iter is ListExpression listExpr)
+                {
+                    CompileExpression(listExpr.Elements[0]);
+                }
+                else if (firstGenerator.Iter is TupleExpression tupleExpr)
+                {
+                    CompileExpression(tupleExpr.Elements[0]);
+                }
+                CompileComprehensionTarget(firstGenerator.Target, comprehensionVars);
+            }
+            else
+            {
+                // 첫 번째 generator는 이미 처리했으므로 FOR_ITER부터 시작
+                loopStart = _instructions.Count;
+                EmitInstruction(ByteCodeOp.FOR_ITER, 0); // 패치 대상
+
+                // 첫 번째 generator의 타겟 변수 저장 - 재귀 튜플 언패킹 지원
+                CompileComprehensionTarget(firstGenerator.Target, comprehensionVars);
+            }
             
             // 첫 번째 generator의 조건 검사 - CPython 3.12 정확한 패턴
             List<int> conditionJumps = new List<int>();
@@ -7686,63 +7714,82 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.LIST_APPEND, listAppendArg);
             }
             
+
+            // JUMP_BACKWARD - CPython 3.12 통일된 oparg 계산 (실제 루프가 있는 경우에만)
+            if (loopStart >= 0)
+            {
+                // CPython 3.12: 통일된 JUMP_BACKWARD oparg 계산 사용
+                int currentPos = _instructions.Count;
+                // JUMP_BACKWARD는 FOR_ITER 위치로 점프해야 함 (loopStart가 FOR_ITER의 실제 위치)
+                int forIterPos = loopStart;
+                int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, forIterPos);
+
+                #if DEBUG_LOG
+                Console.WriteLine($"🔧 JUMP_BACKWARD 컴파일: currentPos={currentPos}, loopStart={loopStart}");
+                Console.WriteLine($"   jumpBackwardArg={jumpBackwardArg}");
+                #endif
+
+                // CPython 3.12: JUMP_BACKWARD는 바이트 단위 오프셋 사용 (명령어 단위가 아님)
+                EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
+            }
             
-            // JUMP_BACKWARD - CPython 3.12 통일된 oparg 계산
-            // CPython 3.12: 통일된 JUMP_BACKWARD oparg 계산 사용
-            int currentPos = _instructions.Count;
-            int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, loopStart);
-            
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 JUMP_BACKWARD 컴파일: currentPos={currentPos}, loopStart={loopStart}");
-            #endif
-            #if DEBUG_LOG
-            Console.WriteLine($"   jumpBackwardArg={jumpBackwardArg}");
-            #endif
-            
-            // CPython 3.12: JUMP_BACKWARD는 바이트 단위 오프셋 사용 (명령어 단위가 아님)
-            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
-            
-            // END_FOR 라벨 (FOR_ITER 패치용)
-            var endFor = _instructions.Count;
-            EmitInstruction(ByteCodeOp.END_FOR);
-            
-            // FOR_ITER 패치 - CPython 3.12 방식
-            var relativeJump = endFor - loopStart - 1;
-            _instructions[loopStart] = new ByteCodeInstruction(
-                ByteCodeOp.FOR_ITER, 
-                relativeJump
-            );
+            // END_FOR 라벨 (FOR_ITER 패치용) - 실제 FOR_ITER가 있는 경우에만
+            if (loopStart >= 0)
+            {
+                var endFor = _instructions.Count;
+                EmitInstruction(ByteCodeOp.END_FOR);
+
+                // FOR_ITER 패치 - CPython 3.12 바이트 오프셋 방식
+                int forIterJump;
+                if (SharpPyConfig._enable_optimizer)
+                {
+                    // 최적화 모드: 명령어 단위 계산 (SharpPy는 최적화된 상태)
+                    forIterJump = endFor - loopStart - 1;
+                }
+                else
+                {
+                    // 비최적화 모드: 바이트 오프셋 계산
+                    int currentByteOffset = PyJumpBackwardUtil.CalculateByteOffset(loopStart, _instructions);
+                    int targetByteOffset = PyJumpBackwardUtil.CalculateByteOffset(endFor, _instructions);
+                    forIterJump = (targetByteOffset - currentByteOffset - 2) / 2;
+                }
+
+                _instructions[loopStart] = new ByteCodeInstruction(
+                    ByteCodeOp.FOR_ITER,
+                    forIterJump
+                );
+            }
             
             // 조건 점프들 패치 - CPython 3.12 패턴
             for (int i = 0; i < conditionJumps.Count; i++)
             {
                 int popJumpIndex = conditionJumps[i];
                 int jumpBackwardIndex = popJumpIndex + 1;
-                
+
                 // POP_JUMP_IF_TRUE: 조건이 참이면 LIST_APPEND로 점프
                 int relativeOffset = listAppendStart - popJumpIndex - 1;
                 _instructions[popJumpIndex] = new ByteCodeInstruction(
-                    ByteCodeOp.POP_JUMP_IF_TRUE, 
+                    ByteCodeOp.POP_JUMP_IF_TRUE,
                     relativeOffset
                 );
-                
-                // JUMP_BACKWARD: 조건이 거짓이면 FOR_ITER로 돌아감
-                int jumpBackArg = CalculateJumpBackwardArg(jumpBackwardIndex, loopStart);
-                _instructions[jumpBackwardIndex] = new ByteCodeInstruction(
-                    ByteCodeOp.JUMP_BACKWARD, 
-                    jumpBackArg
-                );
+
+                // JUMP_BACKWARD: 조건이 거짓이면 FOR_ITER로 돌아감 (FOR_ITER가 있는 경우에만)
+                if (loopStart >= 0)
+                {
+                    int jumpBackArg = CalculateJumpBackwardArg(jumpBackwardIndex, loopStart);
+                    _instructions[jumpBackwardIndex] = new ByteCodeInstruction(
+                        ByteCodeOp.JUMP_BACKWARD,
+                        jumpBackArg
+                    );
+                }
             }
             
             // fallback JUMP_BACKWARD 패치 제거 - 이제 조건문 처리에서 직접 생성함
             
             // 5. 정상 완료 시 스택 정리 - CPython 3.12 패턴
-            // END_FOR 이후에 exception table end 설정 (CPython 3.12 호환)
-            var exceptionTableEnd = _instructions.Count;
-            
             // CPython 3.12: List comprehension cleanup은 Assignment statement에서 처리
             // 여기서는 cleanup을 지연시키고 PendingCleanup으로 등록만 함
-            
+
             // CPython 3.12: List comprehension 정상 완료 - 결과 리스트가 스택에 남음
             // Assignment target은 이 지점에서 AssignStatement에 의해 처리됨
 
@@ -7766,6 +7813,9 @@ namespace SharpPy
                     #endif
                 }
             }
+
+            // Exception table end는 변수 복원 완료 후에 설정 (CPython 3.12 호환)
+            var exceptionTableEnd = _instructions.Count;
 
             // CPython 3.12: Exception handler를 지연 생성으로 등록
             var pendingHandler = new PendingExceptionHandler
@@ -7816,17 +7866,18 @@ namespace SharpPy
             Console.WriteLine($"  🔄 Generator [{currentIndex}]: {generator.Target} in {generator.Iter}");
             #endif
             
-            // CPython 3.12 호환성: 단일 요소 리스트는 직접 할당으로 최적화
-            // 하지만 3중+ 정적 패턴에서 모든 요소가 상수인 경우는 FOR_ITER 유지
-            bool isMultiStaticPattern = (generators.Count >= 3 &&
-                                       generators.All(g => g.Iter is ListExpression list &&
-                                                          list.Elements.All(e => e is ConstantExpression)));
-
-            if (!isMultiStaticPattern && IsSingleElementListExpression(generator.Iter))
+            // CPython 3.12 루프 최적화: 단일 요소 generator는 FOR_ITER 없이 직접 할당
+            if (IsSingleElementGenerator(generator))
             {
-                // [expression] 형태의 단일 요소 - CPython처럼 직접 할당
-                var listExpr = (ListExpression)generator.Iter;
-                CompileExpression(listExpr.Elements[0]);
+                // 단일 요소 generator 최적화 - CPython처럼 직접 할당
+                if (generator.Iter is ListExpression listExpr)
+                {
+                    CompileExpression(listExpr.Elements[0]);
+                }
+                else if (generator.Iter is TupleExpression tupleExpr)
+                {
+                    CompileExpression(tupleExpr.Elements[0]);
+                }
                 CompileComprehensionTarget(generator.Target, comprehensionVars);
 
                 // 조건 검사 (if문이 있는 경우)
@@ -8523,16 +8574,54 @@ namespace SharpPy
 
 
         /// <summary>
+        /// CPython 3.12 단일 요소 generator 감지 (루프 최적화)
+        /// 단일 요소 리스트/튜플은 FOR_ITER가 생성되지 않고 직접 할당으로 최적화됨
+        /// 예: for z in [x+y] → z = x+y (FOR_ITER 없음)
+        /// </summary>
+        private bool IsSingleElementGenerator(Comprehension generator)
+        {
+            // 단일 요소 리스트 감지: [expression]
+            if (generator.Iter is ListExpression list && list.Elements.Count == 1)
+                return true;
+
+            // 단일 요소 튜플 감지: (expression,)
+            if (generator.Iter is TupleExpression tuple && tuple.Elements.Count == 1)
+                return true;
+
+            return false;
+        }
+
+        /// <summary>
+        /// CPython 3.12 실제 FOR_ITER 개수 계산 (루프 최적화 적용)
+        /// 단일 요소 generator들은 FOR_ITER가 생성되지 않으므로 제외
+        /// </summary>
+        private int CalculateActualLoopCount(List<Comprehension> generators)
+        {
+            int actualLoops = 0;
+
+            foreach (var generator in generators)
+            {
+                if (!IsSingleElementGenerator(generator))
+                {
+                    actualLoops++;
+                }
+                // 단일 요소 generator는 FOR_ITER가 생성되지 않음
+            }
+
+            return actualLoops;
+        }
+
+        /// <summary>
         /// CPython 3.12 통합 패턴 감지: LIST_APPEND offset과 루프 구조 결정
         ///
-        /// 반환값:
-        /// - listAppendArg: LIST_APPEND 명령어의 스택 위치 인수
-        /// - useNestedLoops: true면 nested loops, false면 flattened loop
+        /// **새로운 루프 최적화 접근법:**
+        /// - "특수 케이스"는 존재하지 않음 - 모두 루프 플래티닝 최적화의 결과
+        /// - 단일 요소 generator 감지로 FOR_ITER 제거
+        /// - 실제 FOR_ITER 개수에 따라 depth 결정
         ///
-        /// CPython 3.12 패턴:
-        /// - 2중 정적: LIST_APPEND 2 + flattened loop (단일 FOR_ITER)
-        /// - 3중 정적: LIST_APPEND 4 + nested loops (3개 FOR_ITER)
-        /// - 3중 동적: LIST_APPEND 3 + nested loops (2개 FOR_ITER)
+        /// 반환값:
+        /// - listAppendArg: LIST_APPEND 명령어의 스택 위치 인수 (실제 루프 수 + 1)
+        /// - useNestedLoops: true면 nested loops, false면 flattened loop
         /// </summary>
         private (int listAppendArg, bool useNestedLoops) DetectComprehensionPattern(List<Comprehension> generators)
         {
@@ -8541,7 +8630,7 @@ namespace SharpPy
             bool isNestedListInList = nestingDepth > 1;
 
             #if DEBUG_LOG
-            Console.WriteLine($"🎯 통합 패턴 감지: generatorCount={generatorCount}, nestingDepth={nestingDepth}, isNestedListInList={isNestedListInList}");
+            Console.WriteLine($"🎯 루프 최적화 패턴 감지: generatorCount={generatorCount}, nestingDepth={nestingDepth}");
             #endif
 
             // List-in-List 중첩: 모든 레벨에서 LIST_APPEND 2 + nested 고정
@@ -8553,60 +8642,36 @@ namespace SharpPy
                 return (2, true);
             }
 
-            // 기본 패턴 감지
-            switch (generatorCount)
+            // CPython 3.12 루프 최적화: 실제 FOR_ITER 개수 기반 depth 계산
+            int actualLoopCount = CalculateActualLoopCount(generators);
+            int listAppendDepth = actualLoopCount + 1; // depth = 실제 루프 수 + 1
+
+            #if DEBUG_LOG
+            Console.WriteLine($"  🔄 루프 최적화 적용:");
+            for (int i = 0; i < generators.Count; i++)
             {
-                case 1:
-                    // 1중: 항상 LIST_APPEND 2 + single loop (nested=true로 설정, 실제로는 단일)
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  🔵 1중 루프: LIST_APPEND 2 + single loop");
-                    #endif
-                    return (2, true);
-
-                case 2:
-                    // 2중: 정적/동적 패턴 구분
-                    bool isStatic = IsStaticComprehensionPattern(generators);
-                    if (isStatic)
-                    {
-                        // 2중 정적: LIST_APPEND 2 + flattened loop
-                        #if DEBUG_LOG
-                        Console.WriteLine($"  🟢 2중 정적: LIST_APPEND 2 + flattened loop");
-                        #endif
-                        return (2, false);  // flattened
-                    }
-                    else
-                    {
-                        // 2중 동적: LIST_APPEND 3 + nested loops
-                        #if DEBUG_LOG
-                        Console.WriteLine($"  🟡 2중 동적: LIST_APPEND 3 + nested loops");
-                        #endif
-                        return (3, true);   // nested
-                    }
-
-                default:
-                    // 3중 이상: CPython 3.12 실제 패턴 분석
-                    bool isStaticPattern = IsStaticComprehensionPattern(generators);
-                    if (isStaticPattern)
-                    {
-                        // 3중+ 정적: LIST_APPEND generatorCount + 1 + nested loops
-                        // CPython 3.12: 3중 정적은 LIST_APPEND 4 사용 (generatorCount + 1)
-                        int listAppendArg = generatorCount + 1;
-                        #if DEBUG_LOG
-                        Console.WriteLine($"  🟢 {generatorCount}중 정적: LIST_APPEND {listAppendArg} + nested loops");
-                        #endif
-                        return (listAppendArg, true);  // nested
-                    }
-                    else
-                    {
-                        // 3중+ 동적 (generator 간 변수 참조 있음): CPython 3.12 특별 규칙 → LIST_APPEND 3
-                        // CPython 3.12 실제 결과: generator 간 변수 참조가 있으면 항상 LIST_APPEND 3
-                        int listAppendArg = 3; // generator 간 변수 참조가 있으면 LIST_APPEND 3
-                        #if DEBUG_LOG
-                        Console.WriteLine($"  🟡 {generatorCount}중 동적 (generator 간 변수 참조): LIST_APPEND {listAppendArg} + nested loops");
-                        #endif
-                        return (listAppendArg, true);  // nested
-                    }
+                bool isSingle = IsSingleElementGenerator(generators[i]);
+                Console.WriteLine($"    Generator {i}: {(isSingle ? "단일요소(최적화)" : "일반루프")}");
             }
+            Console.WriteLine($"  📊 결과: {generatorCount}개 generator → {actualLoopCount}개 실제 루프 → LIST_APPEND {listAppendDepth}");
+            #endif
+
+            // 루프 구조 결정
+            bool useNestedLoops = true; // 기본적으로 nested loops 사용
+
+            // 2중이고 모든 generator가 실제 루프를 생성하는 경우만 flattened 고려
+            if (generatorCount == 2 && actualLoopCount == 2)
+            {
+                // 2중 모두 실제 루프인 경우: generator 간 변수 참조 여부로 flattened/nested 결정
+                bool hasInterGeneratorDependency = IsStaticComprehensionPattern(generators) == false;
+                useNestedLoops = hasInterGeneratorDependency;
+
+                #if DEBUG_LOG
+                Console.WriteLine($"  🔄 2중 루프: generator 간 의존성 {(hasInterGeneratorDependency ? "있음" : "없음")} → {(useNestedLoops ? "nested" : "flattened")}");
+                #endif
+            }
+
+            return (listAppendDepth, useNestedLoops);
         }
 
         /// <summary>
