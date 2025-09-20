@@ -8320,24 +8320,24 @@ namespace SharpPy
             if (generators.Count < 2)
                 return false;
 
-            // CPython 3.12 특별 규칙: 2중은 comprehension 변수 참조 허용, 3중+는 엄격
-            bool allowComprehensionVars = generators.Count == 2;
+            // CPython 3.12 핵심 규칙: generator 간 comprehension 변수 참조가 있으면 → LIST_APPEND 3
+            // generator 간 comprehension 변수 참조가 없으면 → LIST_APPEND (generatorCount + 1)
 
             // 현재까지 정의된 comprehension 변수들을 추적
             var definedVars = new HashSet<string>();
 
-            // 각 generator를 순서대로 확인
+            // 각 generator를 순서대로 확인하며 generator 간 변수 참조를 감지
             for (int i = 0; i < generators.Count; i++)
             {
                 var generator = generators[i];
 
-                // 현재 generator의 iterable이 조건에 맞는지 확인
-                if (!IsStaticIterable(generator.Iter, definedVars, allowComprehensionVars))
+                // 현재 generator의 iterable에서 이전 comprehension 변수를 참조하는지 확인
+                if (HasComprehensionVariableReference(generator.Iter, definedVars))
                 {
                     #if DEBUG_LOG
-                    Console.WriteLine($"🔍 동적 패턴 감지됨: generator[{i}].Iter={generator.Iter} (Type: {generator.Iter.GetType().Name})");
+                    Console.WriteLine($"🔍 Generator 간 변수 참조 감지: generator[{i}].Iter={generator.Iter}에서 이전 comprehension 변수 참조");
                     #endif
-                    return false;
+                    return false; // generator 간 변수 참조가 있으면 동적 (LIST_APPEND 3)
                 }
 
                 // 현재 generator의 target 변수를 추가
@@ -8345,9 +8345,9 @@ namespace SharpPy
             }
 
             #if DEBUG_LOG
-            Console.WriteLine($"🔍 정적 패턴 감지됨: {generators.Count}중 모든 iterable이 순수 리터럴");
+            Console.WriteLine($"🔍 Generator 독립적 패턴 감지: {generators.Count}중 generator 간 변수 참조 없음");
             #endif
-            return true;
+            return true; // generator 간 변수 참조가 없으면 정적 (LIST_APPEND generatorCount + 1)
         }
 
         /// <summary>
@@ -8478,6 +8478,48 @@ namespace SharpPy
             }
         }
 
+        /// <summary>
+        /// 표현식에서 comprehension 변수를 참조하는지 확인 (CPython 3.12 정확한 패턴)
+        /// </summary>
+        private bool HasComprehensionVariableReference(Expression expression, HashSet<string> definedComprehensionVars)
+        {
+            switch (expression)
+            {
+                case NameExpression nameExpr:
+                    // 이 변수가 이전에 정의된 comprehension 변수인지 확인
+                    return definedComprehensionVars.Contains(nameExpr.Name);
+
+                case ListExpression listExpr:
+                    // 리스트 내부 요소들에서 comprehension 변수 참조 확인
+                    return listExpr.Elements.Any(e => HasComprehensionVariableReference(e, definedComprehensionVars));
+
+                case TupleExpression tupleExpr:
+                    // 튜플 내부 요소들에서 comprehension 변수 참조 확인
+                    return tupleExpr.Elements.Any(e => HasComprehensionVariableReference(e, definedComprehensionVars));
+
+                case BinaryOpExpression binaryExpr:
+                    // 이항 연산의 양쪽에서 comprehension 변수 참조 확인
+                    return HasComprehensionVariableReference(binaryExpr.Left, definedComprehensionVars) ||
+                           HasComprehensionVariableReference(binaryExpr.Right, definedComprehensionVars);
+
+                case UnaryOpExpression unaryExpr:
+                    // 단항 연산의 피연산자에서 comprehension 변수 참조 확인
+                    return HasComprehensionVariableReference(unaryExpr.Operand, definedComprehensionVars);
+
+                case CallExpression callExpr:
+                    // 함수 호출의 인수들에서 comprehension 변수 참조 확인
+                    return callExpr.Arguments.Any(arg => HasComprehensionVariableReference(arg, definedComprehensionVars));
+
+                case ConstantExpression:
+                    // 상수는 comprehension 변수 참조 없음
+                    return false;
+
+                default:
+                    // 다른 표현식 타입들은 일단 false (필요시 확장)
+                    return false;
+            }
+        }
+
 
         /// <summary>
         /// CPython 3.12 통합 패턴 감지: LIST_APPEND offset과 루프 구조 결정
@@ -8555,19 +8597,11 @@ namespace SharpPy
                     }
                     else
                     {
-                        // 3중+ 동적: CPython 3.12 바이트코드 실험 결과 기반 정확한 패턴
-                        // CPython 3.12 실제 패턴: 3중=3, 4중=5 (특별한 패턴)
-                        int listAppendArg;
-                        if (generatorCount == 3)
-                        {
-                            listAppendArg = 3; // 3중 동적만 특별히 generatorCount
-                        }
-                        else
-                        {
-                            listAppendArg = generatorCount + 1; // 4중+ 동적은 generatorCount + 1
-                        }
+                        // 3중+ 동적 (generator 간 변수 참조 있음): CPython 3.12 특별 규칙 → LIST_APPEND 3
+                        // CPython 3.12 실제 결과: generator 간 변수 참조가 있으면 항상 LIST_APPEND 3
+                        int listAppendArg = 3; // generator 간 변수 참조가 있으면 LIST_APPEND 3
                         #if DEBUG_LOG
-                        Console.WriteLine($"  🟡 {generatorCount}중 동적: LIST_APPEND {listAppendArg} + nested loops");
+                        Console.WriteLine($"  🟡 {generatorCount}중 동적 (generator 간 변수 참조): LIST_APPEND {listAppendArg} + nested loops");
                         #endif
                         return (listAppendArg, true);  // nested
                     }
