@@ -7577,8 +7577,8 @@ namespace SharpPy
             var firstGenerator = listComp.Generators[0];
 
             // 1. CPython 3.12 정확한 순서: LOAD_CONST → GET_ITER → LOAD_FAST_AND_CLEAR → SWAP → BUILD_LIST → SWAP
-            // 첫 번째 generator의 처리 방식 결정
-            bool firstGeneratorOptimized = IsSingleElementGenerator(firstGenerator);
+            // 첫 번째 generator의 처리 방식 결정 (단순화)
+            bool firstGeneratorOptimized = false; // 복잡한 최적화 제거
 
             if (!firstGeneratorOptimized)
             {
@@ -7641,8 +7641,8 @@ namespace SharpPy
             var exceptionTableStart = _instructions.Count;
             int loopStart = -1;
 
-            // 첫 번째 generator도 단일 요소인지 확인
-            if (IsSingleElementGenerator(firstGenerator))
+            // 첫 번째 generator 처리 (단순화 - 항상 일반 루프로 처리)
+            if (false) // 복잡한 최적화 제거
             {
                 // 첫 번째 generator도 최적화 - FOR_ITER 없이 직접 할당
                 if (firstGenerator.Iter is ListExpression listExpr)
@@ -7685,26 +7685,15 @@ namespace SharpPy
 
             if (listComp.Generators.Count > 1)
             {
-                if (useNestedLoops)
+                // CPython 3.12: 항상 nested loops 사용 (단순화)
+                #if DEBUG_LOG
+                Console.WriteLine($"🔧 Nested loops 모드: {listComp.Generators.Count}개 generator");
+                #endif
+                CompileNestedGenerators(listComp.Generators, 1, comprehensionVars, () =>
                 {
-                    // CPython 3.12: Nested loops (3중 정적, 3중 동적, 2중 동적)
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 Nested loops 모드: {listComp.Generators.Count}개 generator");
-                    #endif
-                    CompileNestedGenerators(listComp.Generators, 1, comprehensionVars, () =>
-                    {
-                        CompileExpression(listComp.Element);
-                        EmitInstruction(ByteCodeOp.LIST_APPEND, listAppendArg);
-                    });
-                }
-                else
-                {
-                    // CPython 3.12: Flattened loop (2중 정적)
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 Flattened loop 모드: {listComp.Generators.Count}개 generator를 단일 루프로 처리");
-                    #endif
-                    CompileFlattenedComprehension(listComp.Generators, 1, comprehensionVars, listComp.Element, listAppendArg);
-                }
+                    CompileExpression(listComp.Element);
+                    EmitInstruction(ByteCodeOp.LIST_APPEND, listAppendArg);
+                });
             }
             else
             {
@@ -7866,8 +7855,8 @@ namespace SharpPy
             Console.WriteLine($"  🔄 Generator [{currentIndex}]: {generator.Target} in {generator.Iter}");
             #endif
             
-            // CPython 3.12 루프 최적화: 단일 요소 generator는 FOR_ITER 없이 직접 할당
-            if (IsSingleElementGenerator(generator))
+            // Generator 처리 (단순화 - 항상 일반 루프로 처리)
+            if (false) // 복잡한 최적화 제거
             {
                 // 단일 요소 generator 최적화 - CPython처럼 직접 할당
                 if (generator.Iter is ListExpression listExpr)
@@ -8190,26 +8179,19 @@ namespace SharpPy
                     CompileExpression(dictComp.Value);
                 }
 
-                // CPython 3.12 정확한 MAP_ADD 패턴
-                bool isNestedDictInDict = dictComp.Value is DictComprehension;
+                // CPython 3.12 MAP_ADD offset 계산 - 단순화된 접근법
                 int forLoopCount = dictComp.Generators.Count;
                 int mapAddArg;
 
-                if (isNestedDictInDict || nestingLevel > 0)
+                if (nestingLevel > 0)
                 {
-                    // Dict-in-Dict 중첩: 모든 레벨에서 MAP_ADD 2 고정
-                    mapAddArg = 2;
-                }
-                else if (forLoopCount == 1)
-                {
-                    // 단일 for loop: 변수 개수와 무관하게 MAP_ADD 2
+                    // 중첩된 dict comprehension
                     mapAddArg = 2;
                 }
                 else
                 {
-                    // 다중 for loop: 스택 분석에 따르면 MAP_ADD 2 사용
-                    // 디버깅 확인: dict는 항상 stack[2]에 위치하므로 depth=2가 올바름
-                    mapAddArg = 2;
+                    // 일반적인 경우: generator 수 + 1
+                    mapAddArg = forLoopCount + 1;
                 }
                 EmitInstruction(ByteCodeOp.MAP_ADD, mapAddArg);
                 #if DEBUG_LOG
@@ -8260,14 +8242,6 @@ namespace SharpPy
         }
 
 
-        /// <summary>
-        /// MAP_ADD 스택 위치 계산 - CPython 3.12 호환
-        /// </summary>
-        private int CalculateMapAddStackPosition(int comprehensionVarCount, int generatorCount)
-        {
-            // CPython 3.12 정확한 공식: comprehensionVarCount + 1
-            return comprehensionVarCount + 1;
-        }
 
         /// <summary>
         /// 중첩 dict comprehension에서 현재 레벨부터 최하위까지의 모든 변수 수집
@@ -8361,391 +8335,54 @@ namespace SharpPy
             }
         }
 
-        /// <summary>
-        /// CPython 3.12 LIST_APPEND 정적/동적 패턴 분석
-        /// 정적 패턴: 리터럴 이터러블 ([1,2], "abc", (1,2,3) 등)
-        /// 동적 패턴: 함수 호출 (range(), enumerate() 등) 또는 변수 참조
-        /// </summary>
-        private bool IsStaticComprehensionPattern(List<Comprehension> generators)
-        {
-            // 1중 루프는 정적/동적 구분이 의미없음
-            if (generators.Count < 2)
-                return false;
 
-            // CPython 3.12 핵심 규칙: generator 간 comprehension 변수 참조가 있으면 → LIST_APPEND 3
-            // generator 간 comprehension 변수 참조가 없으면 → LIST_APPEND (generatorCount + 1)
 
-            // 현재까지 정의된 comprehension 변수들을 추적
-            var definedVars = new HashSet<string>();
-
-            // 각 generator를 순서대로 확인하며 generator 간 변수 참조를 감지
-            for (int i = 0; i < generators.Count; i++)
-            {
-                var generator = generators[i];
-
-                // 현재 generator의 iterable에서 이전 comprehension 변수를 참조하는지 확인
-                if (HasComprehensionVariableReference(generator.Iter, definedVars))
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔍 Generator 간 변수 참조 감지: generator[{i}].Iter={generator.Iter}에서 이전 comprehension 변수 참조");
-                    #endif
-                    return false; // generator 간 변수 참조가 있으면 동적 (LIST_APPEND 3)
-                }
-
-                // 현재 generator의 target 변수를 추가
-                AddComprehensionVarsFromTarget(generator.Target, definedVars);
-            }
-
-            #if DEBUG_LOG
-            Console.WriteLine($"🔍 Generator 독립적 패턴 감지: {generators.Count}중 generator 간 변수 참조 없음");
-            #endif
-            return true; // generator 간 변수 참조가 없으면 정적 (LIST_APPEND generatorCount + 1)
-        }
-
-        /// <summary>
-        /// 단일 이터러블이 정적인지 (컴파일 시점 결정 가능) 확인
-        /// </summary>
-        private bool IsStaticIterable(Expression iterable, HashSet<string> definedComprehensionVars, bool allowComprehensionVars)
-        {
-            switch (iterable)
-            {
-                case ListExpression listExpr:
-                    // ListExpression 내부 요소들이 조건에 맞는지 확인
-                    bool allElementsAreStatic = listExpr.Elements.All(e => IsStaticElement(e, definedComprehensionVars, allowComprehensionVars));
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  {(allElementsAreStatic ? "✅" : "❌")} 리스트 이터러블: {listExpr.Elements.Count}개 요소, 정적={allElementsAreStatic}");
-                    #endif
-                    return allElementsAreStatic;
-
-                case TupleExpression tupleExpr:
-                    // TupleExpression 내부 요소들이 조건에 맞는지 확인
-                    bool allTupleElementsAreStatic = tupleExpr.Elements.All(e => IsStaticElement(e, definedComprehensionVars, allowComprehensionVars));
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  {(allTupleElementsAreStatic ? "✅" : "❌")} 튜플 이터러블: {tupleExpr.Elements.Count}개 요소, 정적={allTupleElementsAreStatic}");
-                    #endif
-                    return allTupleElementsAreStatic;
-
-                case ConstantExpression constant:
-                    // 문자열 상수는 정적 이터러블
-                    bool isStringConstant = constant.Value is PyString;
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  {(isStringConstant ? "✅" : "❌")} 상수 이터러블: {constant.Value.GetType().Name}");
-                    #endif
-                    return isStringConstant;
-
-                case CallExpression call:
-                    // range(), enumerate() 등은 동적 패턴
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  ❌ 동적 이터러블: 함수 호출 {call}");
-                    #endif
-                    return false;
-
-                case NameExpression nameExpr:
-                    // CPython 3.12: 변수 참조는 일반적으로 동적으로 취급
-                    // [x for row in data for x in row]에서 data, row는 모두 동적
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  ❌ 동적 이터러블: 변수 참조 {nameExpr.Name} (일반적으로 동적으로 처리)");
-                    #endif
-                    return false;
-
-                default:
-                    // 기타 복잡한 표현식은 동적으로 간주
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  ❌ 동적 이터러블: 복잡한 표현식 {iterable.GetType().Name}");
-                    #endif
-                    return false;
-            }
-        }
-
-        /// <summary>
-        /// 단일 expression이 정적인지 판단 (comprehension 변수 의존성 체크)
-        /// </summary>
-        private bool IsStaticElement(Expression element, HashSet<string> definedComprehensionVars, bool allowComprehensionVars)
-        {
-            switch (element)
-            {
-                case ConstantExpression:
-                    return true;
-
-                case NameExpression nameExpr:
-                    // comprehension 변수인지 확인
-                    bool isComprehensionVar = definedComprehensionVars.Contains(nameExpr.Name);
-
-                    if (isComprehensionVar)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"    📝 변수 '{nameExpr.Name}': {(allowComprehensionVars ? "정적 (2중 특별 허용)" : "동적 (comprehension 변수)")}");
-                        #endif
-                        return allowComprehensionVars;
-                    }
-                    else
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"    📝 변수 '{nameExpr.Name}': 정적 (외부 변수이지만 허용)");
-                        #endif
-                        return true; // 외부 변수는 일단 허용 (함수 호출만 제외)
-                    }
-
-                case BinaryOpExpression binaryExpr:
-                    // 양쪽 피연산자 모두 조건에 맞아야 정적으로 간주
-                    return IsStaticElement(binaryExpr.Left, definedComprehensionVars, allowComprehensionVars) &&
-                           IsStaticElement(binaryExpr.Right, definedComprehensionVars, allowComprehensionVars);
-
-                case UnaryOpExpression unaryExpr:
-                    // 피연산자가 조건에 맞아야 정적으로 간주
-                    return IsStaticElement(unaryExpr.Operand, definedComprehensionVars, allowComprehensionVars);
-
-                default:
-                    // 다른 복잡한 표현식은 동적으로 간주
-                    return false;
-            }
-        }
-
-        /// <summary>
-        /// Comprehension target에서 변수명들을 추출하여 집합에 추가
-        /// </summary>
-        private void AddComprehensionVarsFromTarget(Expression target, HashSet<string> varSet)
-        {
-            switch (target)
-            {
-                case NameExpression nameExpr:
-                    varSet.Add(nameExpr.Name);
-                    break;
-
-                case TupleExpression tupleExpr:
-                    foreach (var element in tupleExpr.Elements)
-                    {
-                        AddComprehensionVarsFromTarget(element, varSet);
-                    }
-                    break;
-
-                case ListExpression listExpr:
-                    foreach (var element in listExpr.Elements)
-                    {
-                        AddComprehensionVarsFromTarget(element, varSet);
-                    }
-                    break;
-
-                // 다른 복잡한 패턴은 일단 무시 (나중에 필요시 추가)
-            }
-        }
-
-        /// <summary>
-        /// 표현식에서 comprehension 변수를 참조하는지 확인 (CPython 3.12 정확한 패턴)
-        /// </summary>
-        private bool HasComprehensionVariableReference(Expression expression, HashSet<string> definedComprehensionVars)
-        {
-            switch (expression)
-            {
-                case NameExpression nameExpr:
-                    // 이 변수가 이전에 정의된 comprehension 변수인지 확인
-                    return definedComprehensionVars.Contains(nameExpr.Name);
-
-                case ListExpression listExpr:
-                    // 리스트 내부 요소들에서 comprehension 변수 참조 확인
-                    return listExpr.Elements.Any(e => HasComprehensionVariableReference(e, definedComprehensionVars));
-
-                case TupleExpression tupleExpr:
-                    // 튜플 내부 요소들에서 comprehension 변수 참조 확인
-                    return tupleExpr.Elements.Any(e => HasComprehensionVariableReference(e, definedComprehensionVars));
-
-                case BinaryOpExpression binaryExpr:
-                    // 이항 연산의 양쪽에서 comprehension 변수 참조 확인
-                    return HasComprehensionVariableReference(binaryExpr.Left, definedComprehensionVars) ||
-                           HasComprehensionVariableReference(binaryExpr.Right, definedComprehensionVars);
-
-                case UnaryOpExpression unaryExpr:
-                    // 단항 연산의 피연산자에서 comprehension 변수 참조 확인
-                    return HasComprehensionVariableReference(unaryExpr.Operand, definedComprehensionVars);
-
-                case CallExpression callExpr:
-                    // 함수 호출의 인수들에서 comprehension 변수 참조 확인
-                    return callExpr.Arguments.Any(arg => HasComprehensionVariableReference(arg, definedComprehensionVars));
-
-                case ConstantExpression:
-                    // 상수는 comprehension 변수 참조 없음
-                    return false;
-
-                default:
-                    // 다른 표현식 타입들은 일단 false (필요시 확장)
-                    return false;
-            }
-        }
 
 
         /// <summary>
-        /// CPython 3.12 단일 요소 generator 감지 (루프 최적화)
-        /// 단일 요소 리스트/튜플은 FOR_ITER가 생성되지 않고 직접 할당으로 최적화됨
-        /// 예: for z in [x+y] → z = x+y (FOR_ITER 없음)
-        /// </summary>
-        private bool IsSingleElementGenerator(Comprehension generator)
-        {
-            // 단일 요소 리스트 감지: [expression]
-            if (generator.Iter is ListExpression list && list.Elements.Count == 1)
-                return true;
-
-            // 단일 요소 튜플 감지: (expression,)
-            if (generator.Iter is TupleExpression tuple && tuple.Elements.Count == 1)
-                return true;
-
-            return false;
-        }
-
-        /// <summary>
-        /// CPython 3.12 실제 FOR_ITER 개수 계산 (루프 최적화 적용)
-        /// 단일 요소 generator들은 FOR_ITER가 생성되지 않으므로 제외
-        /// </summary>
-        private int CalculateActualLoopCount(List<Comprehension> generators)
-        {
-            int actualLoops = 0;
-
-            foreach (var generator in generators)
-            {
-                if (!IsSingleElementGenerator(generator))
-                {
-                    actualLoops++;
-                }
-                // 단일 요소 generator는 FOR_ITER가 생성되지 않음
-            }
-
-            return actualLoops;
-        }
-
-        /// <summary>
-        /// CPython 3.12 통합 패턴 감지: LIST_APPEND offset과 루프 구조 결정
+        /// CPython 3.12 LIST_APPEND offset 계산 - 단순화된 접근법
         ///
-        /// **새로운 루프 최적화 접근법:**
-        /// - "특수 케이스"는 존재하지 않음 - 모두 루프 플래티닝 최적화의 결과
-        /// - 단일 요소 generator 감지로 FOR_ITER 제거
-        /// - 실제 FOR_ITER 개수에 따라 depth 결정
+        /// CPython 3.12의 LIST_APPEND는 스택에서 타겟 리스트까지의 거리를 나타냄
+        /// 기본 공식: LIST_APPEND (nestingDepth + 1)
         ///
         /// 반환값:
-        /// - listAppendArg: LIST_APPEND 명령어의 스택 위치 인수 (실제 루프 수 + 1)
-        /// - useNestedLoops: true면 nested loops, false면 flattened loop
+        /// - listAppendArg: LIST_APPEND 명령어의 스택 offset
+        /// - useNestedLoops: 항상 true (nested loops 사용)
         /// </summary>
         private (int listAppendArg, bool useNestedLoops) DetectComprehensionPattern(List<Comprehension> generators)
         {
             int generatorCount = generators.Count;
             int nestingDepth = _comprehensionNestingDepth;
-            bool isNestedListInList = nestingDepth > 1;
 
             #if DEBUG_LOG
-            Console.WriteLine($"🎯 루프 최적화 패턴 감지: generatorCount={generatorCount}, nestingDepth={nestingDepth}");
+            Console.WriteLine($"🎯 LIST_APPEND offset 계산: generatorCount={generatorCount}, nestingDepth={nestingDepth}");
             #endif
 
-            // List-in-List 중첩: 모든 레벨에서 LIST_APPEND 2 + nested 고정
-            if (isNestedListInList)
+            // CPython 3.12 LIST_APPEND offset: 기본적으로 generator 수 + 1
+            // 중첩 리스트 컴프리헨션인 경우 적절히 조정
+            int listAppendOffset;
+
+            if (nestingDepth > 1)
             {
+                // 중첩된 리스트 컴프리헨션 (list-in-list)
+                listAppendOffset = 2;
                 #if DEBUG_LOG
-                Console.WriteLine($"  📋 중첩 리스트: LIST_APPEND 2 + nested loops");
+                Console.WriteLine($"  📋 중첩 리스트 컴프리헨션: LIST_APPEND {listAppendOffset}");
                 #endif
-                return (2, true);
             }
-
-            // CPython 3.12 루프 최적화: 실제 FOR_ITER 개수 기반 depth 계산
-            int actualLoopCount = CalculateActualLoopCount(generators);
-            int listAppendDepth = actualLoopCount + 1; // depth = 실제 루프 수 + 1
-
-            #if DEBUG_LOG
-            Console.WriteLine($"  🔄 루프 최적화 적용:");
-            for (int i = 0; i < generators.Count; i++)
+            else
             {
-                bool isSingle = IsSingleElementGenerator(generators[i]);
-                Console.WriteLine($"    Generator {i}: {(isSingle ? "단일요소(최적화)" : "일반루프")}");
-            }
-            Console.WriteLine($"  📊 결과: {generatorCount}개 generator → {actualLoopCount}개 실제 루프 → LIST_APPEND {listAppendDepth}");
-            #endif
-
-            // 루프 구조 결정
-            bool useNestedLoops = true; // 기본적으로 nested loops 사용
-
-            // 2중이고 모든 generator가 실제 루프를 생성하는 경우만 flattened 고려
-            if (generatorCount == 2 && actualLoopCount == 2)
-            {
-                // 2중 모두 실제 루프인 경우: generator 간 변수 참조 여부로 flattened/nested 결정
-                bool hasInterGeneratorDependency = IsStaticComprehensionPattern(generators) == false;
-                useNestedLoops = hasInterGeneratorDependency;
-
+                // 일반적인 경우: generator 수 + 1
+                listAppendOffset = generatorCount + 1;
                 #if DEBUG_LOG
-                Console.WriteLine($"  🔄 2중 루프: generator 간 의존성 {(hasInterGeneratorDependency ? "있음" : "없음")} → {(useNestedLoops ? "nested" : "flattened")}");
+                Console.WriteLine($"  📊 일반 리스트 컴프리헨션: {generatorCount}개 generator → LIST_APPEND {listAppendOffset}");
                 #endif
             }
 
-            return (listAppendDepth, useNestedLoops);
+            // 항상 nested loops 사용 (복잡한 flattened logic 제거)
+            return (listAppendOffset, true);
         }
 
-        /// <summary>
-        /// CPython 3.12 Flattened Comprehension 컴파일
-        /// 2중 정적 패턴 전용: [x for a in [1,2] for x in [a]]
-        /// CPython 패턴: STORE_FAST(a) → LOAD_FAST(a) → STORE_FAST(x) → LOAD_FAST(x) → LIST_APPEND 2
-        /// </summary>
-        private void CompileFlattenedComprehension(List<Comprehension> generators, int startIndex,
-                                                 List<string> comprehensionVars, Expression element, int listAppendArg)
-        {
-            #if DEBUG_LOG
-            Console.WriteLine($"🔄 CompileFlattenedComprehension: startIndex={startIndex}, generators.Count={generators.Count}");
-            #endif
-
-            // CPython 3.12: 2중 정적 패턴의 정확한 바이트코드 구현
-            // [x for a in [1,2] for x in [a]] → for x in [a]는 단순히 x = a 할당
-
-            for (int i = startIndex; i < generators.Count; i++)
-            {
-                var generator = generators[i];
-
-                #if DEBUG_LOG
-                Console.WriteLine($"🔄 Flattened generator [{i}]: processing {generator.Target}");
-                #endif
-
-                // CPython 패턴: for x in [a] → x = a (static assignment)
-                if (generator.Iter is ListExpression iterList)
-                {
-                    // [a] 패턴: 리스트의 첫 번째 요소를 직접 할당
-                    if (iterList.Elements.Count == 1)
-                    {
-                        // LOAD_FAST(a) → STORE_FAST(x) 패턴 구현
-                        CompileExpression(iterList.Elements[0]);  // LOAD_FAST(a)
-                        CompileComprehensionTarget(generator.Target, comprehensionVars);  // STORE_FAST(x)
-
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔄 Flattened: {generator.Target} = {iterList.Elements[0]} (static assignment)");
-                        #endif
-                    }
-                    else
-                    {
-                        // 다중 요소 리스트: 일반적인 경우 (현재 지원하지 않음)
-                        #if DEBUG_LOG
-                        Console.WriteLine($"⚠️ Warning: Flattened mode에서 다중 요소 리스트 감지됨");
-                        #endif
-                    }
-                }
-                else
-                {
-                    // 동적 iterable (현재 지원하지 않음)
-                    #if DEBUG_LOG
-                    Console.WriteLine($"⚠️ Warning: Flattened mode에서 동적 iterable 감지됨");
-                    #endif
-                }
-
-                // Generator 조건 검사
-                foreach (var condition in generator.Ifs)
-                {
-                    CompileExpression(condition);
-                    EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // 패치 대상
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔄 Flattened: condition check for generator {i}");
-                    #endif
-                }
-            }
-
-            // 모든 generator 처리 완료 후 element 값 계산 및 LIST_APPEND
-            CompileExpression(element);
-            EmitInstruction(ByteCodeOp.LIST_APPEND, listAppendArg);
-
-            #if DEBUG_LOG
-            Console.WriteLine($"✅ CompileFlattenedComprehension 완료: LIST_APPEND {listAppendArg}");
-            #endif
-        }
 
         /// <summary>
         /// PEP 709 - Set comprehension 바이트코드 인라인 최적화
@@ -8822,21 +8459,19 @@ namespace SharpPy
             Console.WriteLine($"🔄 CompileNestedGenerators 호출 전 위치: {beforeGenerators}");
             #endif
 
-            // CPython 3.12: SET_ADD depth 계산 (스택 레이아웃 분석 기반)
+            // CPython 3.12 SET_ADD offset 계산 - 단순화된 접근법
             int setAddDepth;
             if (_comprehensionNestingDepth >= 1)
             {
-                // 중첩된 comprehension: SharpPy 스택 레이아웃에서 set은 depth=1에 위치
-                // 스택: [<NULL>, [], <range_iterator>, <NULL>, set(), item]
-                //       ↑depth=5     ↑depth=4        ↑depth=3   ↑depth=2  ↑depth=1  ↑depth=0
-                setAddDepth = 5;  // 디버깅 확인: set()이 stack[4]에 위치하므로 depth=5
+                // 중첩된 set comprehension
+                setAddDepth = 2;
                 #if DEBUG_LOG
-                Console.WriteLine($"🔧 SET_ADD depth 계산 (중첩): nesting depth={_comprehensionNestingDepth}, 디버깅 기반 depth={setAddDepth}");
+                Console.WriteLine($"🔧 SET_ADD depth 계산 (중첩): nesting depth={_comprehensionNestingDepth}, depth={setAddDepth}");
                 #endif
             }
             else
             {
-                // 단독 SET comprehension: 기존 패턴 유지
+                // 일반적인 경우: generator 수 + 1
                 setAddDepth = setComp.Generators.Count + 1;  // 단일:2, 이중:3, 삼중:4
                 #if DEBUG_LOG
                 Console.WriteLine($"🔧 SET_ADD depth 계산 (단독): {setComp.Generators.Count} generators → depth {setAddDepth}");
