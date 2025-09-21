@@ -36,6 +36,12 @@ namespace SharpPy
             return $"{GetTypeName()}({string.Join(", ", Args.Select(a => a.ToRepr()))})";
         }
 
+        public override string ToString()
+        {
+            // CPython behavior: str(exception) returns the message
+            return ToStr();
+        }
+
         public override PyObject GetAttribute(string name)
         {
             switch (name)
@@ -62,9 +68,18 @@ namespace SharpPy
     /// </summary>
     public class PyException : PyBaseException
     {
+        public PyClass? OriginalClass { get; set; } // Store original user-defined class
+
         public PyException(string message = "", params PyObject[] args) : base(message, args) { }
-        public override PyType GetPyType() => PyType.ExceptionType;
-        public override string GetTypeName() => "Exception";
+
+        // Constructor for wrapping user-defined exceptions with class info
+        public PyException(string message, PyClass? originalClass) : base(message)
+        {
+            OriginalClass = originalClass;
+        }
+
+        public override PyType GetPyType() => OriginalClass ?? PyType.ExceptionType;
+        public override string GetTypeName() => OriginalClass?.Name ?? "Exception";
 
         public new static System.Exception Create(string message = "")
         {

@@ -46,6 +46,9 @@ namespace SharpPy
         {
             var instance = new PyClassInstance(this);
 
+            // Store constructor arguments for toString() behavior
+            instance.ConstructorArgs = args;
+
             // __init__ 호출 (있다면)
             if (HasMethod("__init__"))
             {
@@ -513,18 +516,40 @@ namespace SharpPy
     {
         public PyClass InstanceType { get; }
         public Dictionary<string, PyObject> InstanceDict { get; }
+        public PyObject[] ConstructorArgs { get; set; } // Store constructor arguments
         private PyFunction _customGetAttr;
 
         public PyClassInstance(PyClass instanceType)
         {
             InstanceType = instanceType;
             InstanceDict = new Dictionary<string, PyObject>();
+            ConstructorArgs = new PyObject[0]; // Default empty args
 
             // __getattr__ 메서드가 있는지 확인
             if (instanceType.ClassDict.ContainsKey("__getattr__"))
             {
                 _customGetAttr = instanceType.ClassDict["__getattr__"] as PyFunction;
             }
+        }
+
+        public override string ToString()
+        {
+            // For exception classes, return the first argument (message)
+            if (IsExceptionClass() && ConstructorArgs.Length > 0)
+            {
+                return ConstructorArgs[0].ToString();
+            }
+
+            // Default object representation
+            return $"<{InstanceType.Name} object at 0x{GetHashCode():x}>";
+        }
+
+        private bool IsExceptionClass()
+        {
+            // Check if this class inherits from Exception
+            return InstanceType.Name.EndsWith("Error") ||
+                   InstanceType.Name == "Exception" ||
+                   InstanceType.BaseTypes.Any(bt => bt.Name == "Exception" || bt.Name == "BaseException");
         }
 
         public override PyType GetPyType() => InstanceType;

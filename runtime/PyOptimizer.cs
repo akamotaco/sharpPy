@@ -237,11 +237,15 @@ namespace SharpPy
                     _instructions[i - tupleSize] = new ByteCodeInstruction(ByteCodeOp.LOAD_CONST, tupleConstIndex);
                     
                     // Remove the remaining LOAD_CONST instructions and BUILD_TUPLE
+                    int removedCount = tupleSize;
                     for (int j = 0; j < tupleSize; j++)
                     {
                         _instructions.RemoveAt(i - tupleSize + 1);
                     }
-                    
+
+                    // Update jump offsets after removing instructions
+                    UpdateJumpOffsetsAfterRemoval(i - tupleSize + 1, removedCount);
+
         #if DEBUG_LOG
             Console.WriteLine($"🔄 튤플 상수 접기: {tupleSize}개 LOAD_CONST + BUILD_TUPLE → LOAD_CONST({tupleConstant})");
 #endif
@@ -1551,6 +1555,64 @@ namespace SharpPy
                 }
             }
             return -1;
+        }
+
+        /// <summary>
+        /// 명령어 제거 후 점프 오프셋 업데이트
+        /// </summary>
+        private void UpdateJumpOffsetsAfterRemoval(int removalStart, int removedCount)
+        {
+            for (int i = 0; i < _instructions.Count; i++)
+            {
+                var instruction = _instructions[i];
+
+                // 점프 명령어들의 오프셋 업데이트
+                if (IsJumpInstruction(instruction.OpCode))
+                {
+                    int currentTarget = GetJumpTarget(i, instruction);
+
+                    // 제거된 영역 이후를 가리키는 점프들은 오프셋을 줄여야 함
+                    if (currentTarget >= removalStart)
+                    {
+                        int newOffset = instruction.Argument - removedCount;
+                        if (newOffset < 0)
+                        {
+                            // 점프 대상이 제거된 영역 내부였다면, 제거 시작점으로 보정
+                            newOffset = removalStart - i - 1;
+                            if (newOffset < 0) newOffset = 0;
+                        }
+                        _instructions[i] = new ByteCodeInstruction(instruction.OpCode, newOffset);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 점프 명령어인지 확인
+        /// </summary>
+        private bool IsJumpInstruction(ByteCodeOp opCode)
+        {
+            return opCode == ByteCodeOp.JUMP_FORWARD ||
+                   opCode == ByteCodeOp.JUMP_BACKWARD ||
+                   opCode == ByteCodeOp.POP_JUMP_IF_FALSE ||
+                   opCode == ByteCodeOp.POP_JUMP_IF_TRUE ||
+                   opCode == ByteCodeOp.POP_JUMP_IF_NONE ||
+                   opCode == ByteCodeOp.POP_JUMP_IF_NOT_NONE;
+        }
+
+        /// <summary>
+        /// 점프 대상 계산
+        /// </summary>
+        private int GetJumpTarget(int instructionIndex, ByteCodeInstruction instruction)
+        {
+            if (instruction.OpCode == ByteCodeOp.JUMP_BACKWARD)
+            {
+                return instructionIndex - instruction.Argument - 1;
+            }
+            else
+            {
+                return instructionIndex + instruction.Argument + 1;
+            }
         }
     }
 }

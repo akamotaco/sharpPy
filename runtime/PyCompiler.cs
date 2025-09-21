@@ -6698,12 +6698,11 @@ namespace SharpPy
             
             // Step 3: Create tuple of required keys and match them
             var keysList = pattern.Patterns.Keys.ToList();
-            foreach (var key in keysList)
-            {
-                // CPython 3.12: Dictionary pattern keys are now processed by parser
-                CompileExpression(new ConstantExpression(new PyString(key)));
-            }
-            EmitInstruction(ByteCodeOp.BUILD_TUPLE, keysList.Count);
+
+            // CPython 3.12 방식: 컴파일 시점에 튜플 상수 직접 생성
+            var keysArray = keysList.Select(key => new PyString(key)).ToArray();
+            var keysTuple = new PyTuple(keysArray);
+            EmitLoadConst(keysTuple);
             // Stack: [subject, keys_tuple]
             
             EmitInstruction(ByteCodeOp.MATCH_KEYS);
