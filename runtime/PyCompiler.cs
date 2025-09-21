@@ -2859,12 +2859,22 @@ namespace SharpPy
                             break;
 
                         case SymbolScope.Global:
-                            // Global variable: LOAD_GLOBAL 사용
+                            // CPython 3.12: 모듈 레벨에서는 LOAD_NAME, 함수 내에서는 LOAD_GLOBAL
                             var globalIndex = AddName(name);
-                            EmitInstruction(ByteCodeOp.LOAD_GLOBAL, globalIndex);
-                            #if DEBUG_LOG
-                            Console.WriteLine($"    → LOAD_GLOBAL for global var: {name} (global index {globalIndex})");
-                            #endif
+                            if (!_isInFunction)
+                            {
+                                EmitInstruction(ByteCodeOp.LOAD_NAME, globalIndex);
+                                #if DEBUG_LOG
+                                Console.WriteLine($"    → Module level LOAD_NAME for global var: {name} (global index {globalIndex})");
+                                #endif
+                            }
+                            else
+                            {
+                                EmitInstruction(ByteCodeOp.LOAD_GLOBAL, globalIndex);
+                                #if DEBUG_LOG
+                                Console.WriteLine($"    → Function level LOAD_GLOBAL for global var: {name} (global index {globalIndex})");
+                                #endif
+                            }
                             return;
 
                         case SymbolScope.Local:
@@ -2944,23 +2954,15 @@ namespace SharpPy
                 return;
             }
             
-            // 3. 모듈 레벨: CPython 3.12 호환성 확인
+            // 3. 모듈 레벨: CPython 3.12 호환성 - 항상 LOAD_NAME 사용
             if (!_isInFunction)
             {
-                // 만약 이 변수가 함수 내에서 global로 선언되었다면 LOAD_GLOBAL 사용
-                if (_globalVars.Contains(name) || _moduleGlobalVars.Contains(name))
-                {
-                    var globalIndex = AddName(name);
-                    EmitInstruction(ByteCodeOp.LOAD_GLOBAL, globalIndex);
-                    #if DEBUG_LOG
-                    Console.WriteLine($"    → Module level LOAD_GLOBAL for global var: {name} (global index {globalIndex})");
-                    #endif
-                    return;
-                }
-                
-                // 기본적으로 모듈 레벨에서는 LOAD_NAME 사용 
+                // CPython 3.12: 모듈 레벨에서는 builtin 함수든 일반 변수든 모두 LOAD_NAME 사용
                 var nameIndex = AddName(name);
                 EmitInstruction(ByteCodeOp.LOAD_NAME, nameIndex);
+                #if DEBUG_LOG
+                Console.WriteLine($"    → Module level LOAD_NAME for: {name} (name index {nameIndex})");
+                #endif
                 return;
             }
             
@@ -3889,13 +3891,19 @@ namespace SharpPy
 
                     foreach (var varName in referencedVars)
                     {
-                        if (!localVars.Contains(varName) && !parameters.Contains(varName) && !IsKeywordOrBuiltin(varName))
+                        if (!localVars.Contains(varName) && !parameters.Contains(varName) && !IsKeywordOrBuiltin(varName) && !IsGlobalVariable(varName))
                         {
                             freeVariables.Add(varName);
                             #if DEBUG_LOG
                             Console.WriteLine($"  Found potential free variable: {varName} in method {funcDef.Name}");
                             #endif
                         }
+                        #if DEBUG_LOG
+                        else if (IsGlobalVariable(varName))
+                        {
+                            Console.WriteLine($"  Skipping global variable: {varName} in method {funcDef.Name}");
+                        }
+                        #endif
                     }
                 }
             }
@@ -3987,6 +3995,30 @@ namespace SharpPy
         {
             // 동적으로 PyBuiltinsModule에서 builtin 여부 확인 (자동 동기화)
             return _builtinNames.Contains(varName);
+        }
+
+        private bool IsGlobalVariable(string varName)
+        {
+            // Check if the variable is defined in the global (module) scope
+            if (_symbolTable != null)
+            {
+                var symbol = _symbolTable.Lookup(varName);
+                if (symbol != null && (symbol.Scope == SymbolScope.Global || symbol.Scope == SymbolScope.Local))
+                {
+                    #if DEBUG_LOG
+                    Console.WriteLine($"  IsGlobalVariable({varName}): Found in symbol table with scope {symbol.Scope}");
+                    #endif
+                    return true;
+                }
+                #if DEBUG_LOG
+                else if (symbol == null)
+                {
+                    Console.WriteLine($"  IsGlobalVariable({varName}): Not found in symbol table");
+                }
+                #endif
+            }
+
+            return false;
         }
 
         private bool IsKeywordOrBuiltin(string varName)
@@ -4587,21 +4619,19 @@ namespace SharpPy
                     alias = moduleName;
                 }
                 
-                // Emit IMPORT_NAME bytecode
+                // CPython 3.12 pattern: LOAD_CONST(0), LOAD_CONST(None), IMPORT_NAME
+                var levelIndex = GetOrAddConstant(new PyInt(0));  // fromlist level
+                var fromlistIndex = GetOrAddConstant(PyNone.Instance);  // fromlist
                 var moduleIndex = GetOrAddConstant(new PyString(actualModule));
+
+                EmitInstruction(ByteCodeOp.LOAD_CONST, levelIndex);
+                EmitInstruction(ByteCodeOp.LOAD_CONST, fromlistIndex);
                 EmitInstruction(ByteCodeOp.IMPORT_NAME, moduleIndex);
                 
                 // Store the imported module in the correct variable name
-                // CPython 3.12: Use STORE_GLOBAL for module level imports
+                // CPython 3.12: Always use STORE_NAME for module level imports
                 var nameIndex = AddName(alias);
-                if (IsModuleLevel())
-                {
-                    EmitInstruction(ByteCodeOp.STORE_GLOBAL, nameIndex);
-                }
-                else
-                {
-                    EmitInstruction(ByteCodeOp.STORE_NAME, nameIndex);
-                }
+                EmitInstruction(ByteCodeOp.STORE_NAME, nameIndex);
             }
         }
         private void CompileImportFrom(ImportFromStatement importFrom)

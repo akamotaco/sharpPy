@@ -384,6 +384,28 @@ namespace SharpPy
                     }
                     break;
 
+                case ImportStatement importStmt:
+                    // Register imported modules as global variables
+                    foreach (var moduleName in importStmt.Names)
+                    {
+                        _currentTable?.DefineSymbol(moduleName, SymbolFlags.Assigned);
+                        #if DEBUG_LOG
+                        Console.WriteLine($"  ImportStatement: Registered '{moduleName}' as global symbol");
+                        #endif
+                    }
+                    break;
+
+                case ImportFromStatement importFromStmt:
+                    // Register imported names as global variables
+                    foreach (var importName in importFromStmt.Names)
+                    {
+                        _currentTable?.DefineSymbol(importName, SymbolFlags.Assigned);
+                        #if DEBUG_LOG
+                        Console.WriteLine($"  ImportFromStatement: Registered '{importName}' as global symbol");
+                        #endif
+                    }
+                    break;
+
                 // For now, skip complex statement types
                 default:
 #if DEBUG_LOG
