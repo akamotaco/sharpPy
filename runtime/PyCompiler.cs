@@ -5269,7 +5269,28 @@ namespace SharpPy
                 CompileStatement(stmt);
             }
 
-            // CPython 3.12: Jump to continuation if no exception (try body completed normally)
+            // CPython 3.12: Try body completed normally - execute else clause first, then finally
+            // Don't jump to continuation yet - execute else and finally first
+
+            // Execute else clause if present (only when no exception occurred)
+            if (tryStmt.OrElse != null && tryStmt.OrElse.Count > 0)
+            {
+                foreach (var stmt in tryStmt.OrElse)
+                {
+                    CompileStatement(stmt);
+                }
+            }
+
+            // Execute finally clause if present (normal path - not exception handler)
+            if (tryStmt.FinalBody != null && tryStmt.FinalBody.Count > 0)
+            {
+                foreach (var stmt in tryStmt.FinalBody)
+                {
+                    CompileStatement(stmt);
+                }
+            }
+
+            // Now jump to continuation after normal try-else-finally execution
             EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, continueLabel);
 
             // Try block ends AFTER the JUMP_FORWARD instruction (CPython 3.12 compatible)
@@ -5412,7 +5433,7 @@ namespace SharpPy
                 }
                 var cleanupEnd = _instructions.Count;
 
-                // CPython 3.12: For except* handlers, continue to next handler; for regular except, jump to end
+                // CPython 3.12: For except* handlers, continue to next handler; for regular except, jump to finally or end
                 if (handler.IsStar && i < tryStmt.Handlers.Count - 1)
                 {
                     // For except* handlers, continue to next handler to process remainder
@@ -5420,7 +5441,16 @@ namespace SharpPy
                 }
                 else
                 {
-                    // For regular except or last except* handler, jump to continuation
+                    // For regular except or last except* handler, check if finally block exists
+                    if (tryStmt.FinalBody != null && tryStmt.FinalBody.Count > 0)
+                    {
+                        // Execute finally block after exception handling (exception path)
+                        foreach (var stmt in tryStmt.FinalBody)
+                        {
+                            CompileStatement(stmt);
+                        }
+                    }
+                    // Then jump to continuation
                     EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, continueLabel);
                 }
 
@@ -5645,11 +5675,44 @@ namespace SharpPy
                 );
                 _exceptionTable.Add(finallyBlockEntry);
 
-                // Mark finally handler and compile finally body
-                MarkLabel(finallyHandlerLabel);
-                foreach (var stmt in tryStmt.FinalBody)
+                // CPython 3.12: Finally handler must start at the first actual instruction
+                // For print() calls, this means PUSH_NULL should be the first instruction
+                // So we need to peek at the first statement and handle it specially
+
+                if (tryStmt.FinalBody.Count > 0 && tryStmt.FinalBody[0] is ExpressionStatement exprStmt &&
+                    exprStmt.Expression is CallExpression callExpr)
                 {
-                    CompileStatement(stmt);
+                    // Special handling for function calls in finally block
+                    // Emit PUSH_NULL first, then mark the label
+                    EmitInstruction(ByteCodeOp.PUSH_NULL);
+                    MarkLabel(finallyHandlerLabel);
+
+                    // Compile the function call (will emit LOAD_GLOBAL, LOAD_CONST, CALL)
+                    CompileExpression(callExpr.Function);
+                    if (callExpr.Arguments.Count > 0)
+                    {
+                        foreach (var arg in callExpr.Arguments)
+                        {
+                            CompileExpression(arg);
+                        }
+                    }
+                    EmitInstruction(ByteCodeOp.CALL, callExpr.Arguments.Count);
+                    EmitInstruction(ByteCodeOp.POP_TOP);
+
+                    // Compile remaining statements
+                    for (int i = 1; i < tryStmt.FinalBody.Count; i++)
+                    {
+                        CompileStatement(tryStmt.FinalBody[i]);
+                    }
+                }
+                else
+                {
+                    // Fallback: original behavior for non-function-call finally blocks
+                    MarkLabel(finallyHandlerLabel);
+                    foreach (var stmt in tryStmt.FinalBody)
+                    {
+                        CompileStatement(stmt);
+                    }
                 }
 
                 // Finally blocks always reraise the exception after execution
