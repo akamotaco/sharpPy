@@ -420,16 +420,14 @@ namespace SharpPy
                     Advance(); // consume backslash
                     if (!IsAtEnd())
                     {
-                        var escaped = Advance();
-                        switch (escaped)
+                        var escaped = Peek();
+                        if (escaped == 'x')
                         {
-                            case 'n': stringValue.Append('\n'); break;
-                            case 't': stringValue.Append('\t'); break;
-                            case 'r': stringValue.Append('\r'); break;
-                            case '\\': stringValue.Append('\\'); break;
-                            case '\'': stringValue.Append('\''); break;
-                            case '"': stringValue.Append('"'); break;
-                            default: stringValue.Append(escaped); break;
+                            stringValue.Append(ProcessHexEscape());
+                        }
+                        else
+                        {
+                            stringValue.Append(ProcessEscapeSequence(Advance()));
                         }
                     }
                 }
@@ -756,7 +754,7 @@ namespace SharpPy
             if (hasFormat)
             {
                 // CPython 3.12 방식: f-string을 여러 토큰으로 분할 (triple-quoted 포함)
-                return ScanFStringTokens(quote, isTripleQuoted);
+                return ScanFString(quote, isTripleQuoted);
             }
 
             var value = isTripleQuoted ?
@@ -828,14 +826,53 @@ namespace SharpPy
                     }
                     
                     // Process the current character
-                    ch = Advance();
-                    if (ch == '\n')
+                    if (ch == '\r')
+                    {
+                        // Handle Windows-style \r\n -> normalize to \n (CPython compatible)
+                        Advance(); // consume \r
+                        if (!IsAtEnd() && Peek() == '\n')
+                        {
+                            // \r\n sequence -> normalize to \n
+                            ch = Advance(); // consume \n
+                            _line++;
+                            _column = 0;
+                            value.Append('\n'); // Add normalized newline
+                        }
+                        else
+                        {
+                            // Standalone \r -> keep as \r
+                            value.Append('\r');
+                        }
+                    }
+                    else if (ch == '\n')
                     {
                         _line++;
                         _column = 0;  // CPython 3.12: 0-based column indexing
+                        ch = Advance();
+                        value.Append(ch);
                     }
-                    
-                    value.Append(ch);
+                    else if (!hasRaw && ch == '\\')
+                    {
+                        // Handle escape sequences for non-raw strings
+                        Advance(); // consume backslash
+                        if (!IsAtEnd())
+                        {
+                            var escapeChar = Peek();
+                            if (escapeChar == 'x')
+                            {
+                                value.Append(ProcessHexEscape());
+                            }
+                            else
+                            {
+                                value.Append(ProcessEscapeSequence(Advance()));
+                            }
+                        }
+                    }
+                    else
+                    {
+                        ch = Advance();
+                        value.Append(ch);
+                    }
                 }
             }
             
@@ -845,13 +882,13 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12 호환: f-string을 FSTRING_START, FSTRING_MIDDLE, FSTRING_END 토큰으로 분할
         /// </summary>
-        private PyToken ScanFStringTokens(char quote, bool isTripleQuoted)
+        private PyToken ScanFString(char quote, bool isTripleQuoted)
         {
             var startLine = _line;
             var startColumn = _column;
 
 #if DEBUG_LOG
-            Console.WriteLine($"[DEBUG] ScanFStringTokens called: quote='{quote}', isTripleQuoted={isTripleQuoted}");
+            Console.WriteLine($"[DEBUG] ScanFString called: quote='{quote}', isTripleQuoted={isTripleQuoted}");
 #endif
 
             // f" 또는 f""" 부분을 FSTRING_START로 생성
@@ -892,8 +929,19 @@ namespace SharpPy
                     }
 
                     // line continuation이 아니면 일반 백슬래시로 처리 (문자열 이스케이프)
-                    currentText.Append(c);
-                    Advance();
+                    Advance(); // consume backslash
+                    if (!IsAtEnd())
+                    {
+                        var escapeChar = Peek();
+                        if (escapeChar == 'x')
+                        {
+                            currentText.Append(ProcessHexEscape());
+                        }
+                        else
+                        {
+                            currentText.Append(ProcessEscapeSequence(Advance()));
+                        }
+                    }
                     continue;
                 }
 
@@ -1174,120 +1222,49 @@ namespace SharpPy
 #endif
         }
 
-        /// <summary>
-        /// PEP 701: Scan f-string with nested quote support (Legacy method - 사용 안 함)
-        /// </summary>
-        private string ScanFString(char quote)
-        {
-            var value = new StringBuilder();
-            int braceLevel = 0;
-            bool inNestedString = false;
-            char nestedStringQuote = '\0';
-            
-            while (!IsAtEnd())
-            {
-                char c = Peek();
-                
-                // Handle escape sequences
-                if (c == '\\' && !inNestedString)
-                {
-                    value.Append(Advance()); // Add backslash
-                    if (!IsAtEnd())
-                    {
-                        value.Append(Advance()); // Add escaped character
-                    }
-                    continue;
-                }
-                
-                // Handle f-string end (only when not inside braces or nested strings)
-                if (c == quote && braceLevel == 0 && !inNestedString)
-                {
-                    break; // End of f-string
-                }
-                
-                // Handle braces (f-string expressions)
-                if (!inNestedString)
-                {
-                    if (c == '{')
-                    {
-                        if (PeekNext() == '{') // Escaped brace {{
-                        {
-                            value.Append(Advance()); // Add first {
-                            value.Append(Advance()); // Add second {
-                            continue;
-                        }
-                        else
-                        {
-                            braceLevel++;
-                        }
-                    }
-                    else if (c == '}')
-                    {
-                        if (PeekNext() == '}') // Escaped brace }}
-                        {
-                            value.Append(Advance()); // Add first }
-                            value.Append(Advance()); // Add second }
-                            continue;
-                        }
-                        else
-                        {
-                            braceLevel--;
-                        }
-                    }
-                }
-                
-                // Handle nested strings inside f-string expressions
-                if (braceLevel > 0)
-                {
-                    if (!inNestedString && (c == '"' || c == '\''))
-                    {
-                        // Start of nested string
-                        inNestedString = true;
-                        nestedStringQuote = c;
-                    }
-                    else if (inNestedString && c == nestedStringQuote)
-                    {
-                        // Check for escape
-                        if (value.Length > 0 && value[value.Length - 1] != '\\')
-                        {
-                            // End of nested string
-                            inNestedString = false;
-                            nestedStringQuote = '\0';
-                        }
-                    }
-                }
-                
-                // Handle newlines
-                if (c == '\n')
-                {
-                    _line++;
-                    _column = 0;  // CPython 3.12: 0-based column indexing
-                }
-                
-                value.Append(Advance());
-            }
-            
-            if (IsAtEnd())
-            {
-                throw new Exception("Unterminated f-string literal");
-            }
-            
-            Advance(); // consume closing quote
-            return value.ToString();
-        }
         
         private string ScanRegularString(char quote, bool hasRaw)
         {
             var value = new StringBuilder();
-            
-            while (!IsAtEnd() && Peek() != quote)
+
+            while (!IsAtEnd())
             {
+                if (Peek() == quote)
+                {
+                    if (hasRaw)
+                    {
+                        // For raw strings, check if this quote is escaped by counting preceding backslashes
+                        int backslashCount = 0;
+                        int pos = value.Length - 1;
+                        while (pos >= 0 && value[pos] == '\\')
+                        {
+                            backslashCount++;
+                            pos--;
+                        }
+
+                        // If odd number of backslashes, the quote is literal
+                        if (backslashCount % 2 == 1)
+                        {
+                            value.Append(Advance()); // consume the literal quote
+                            continue;
+                        }
+                        else
+                        {
+                            break; // End of string
+                        }
+                    }
+                    else
+                    {
+                        break; // End of string for non-raw strings
+                    }
+                }
+
                 if (Peek() == '\n' && !hasRaw) // Use raw flag instead of token type
                 {
                     throw new Exception("Unterminated string literal");
                 }
-                
-                // Handle escapes for non-raw strings  
+
+                // Handle escapes for non-raw strings
                 if (!hasRaw && Peek() == '\\') // Use raw flag instead of token type
                 {
                     Advance(); // consume backslash
@@ -1296,25 +1273,7 @@ namespace SharpPy
                         var escapeChar = Peek();
                         if (escapeChar == 'x')
                         {
-                            // Handle hex escape sequence \xHH
-                            Advance(); // consume 'x'
-                            if (_position + 1 < _source.Length && 
-                                IsHexDigit(_source[_position]) && 
-                                IsHexDigit(_source[_position + 1]))
-                            {
-                                var hex1 = _source[_position];
-                                var hex2 = _source[_position + 1];
-                                _position += 2;
-                                _column += 2;
-                                
-                                // Convert hex digits to byte value
-                                var byteValue = Convert.ToByte($"{hex1}{hex2}", 16);
-                                value.Append((char)byteValue);
-                            }
-                            else
-                            {
-                                throw new Exception($"Invalid hex escape sequence at line {_line}, column {_column}");
-                            }
+                            value.Append(ProcessHexEscape());
                         }
                         else
                         {
@@ -1439,18 +1398,45 @@ namespace SharpPy
             return escaped switch
             {
                 'n' => '\n',
-                't' => '\t', 
+                't' => '\t',
                 'r' => '\r',
                 '\\' => '\\',
                 '\'' => '\'',
                 '"' => '"',
                 'a' => '\a',  // bell
                 'b' => '\b',  // backspace
-                'f' => '\f',  // form feed  
+                'f' => '\f',  // form feed
                 'v' => '\v',  // vertical tab
                 '0' => '\0',  // null
                 _ => escaped  // literal character
             };
+        }
+
+        /// <summary>
+        /// Process hex escape sequence \xHH and return the character
+        /// </summary>
+        private char ProcessHexEscape()
+        {
+            // Assume we're positioned at 'x' after consuming backslash
+            Advance(); // consume 'x'
+
+            if (_position + 1 < _source.Length &&
+                IsHexDigit(_source[_position]) &&
+                IsHexDigit(_source[_position + 1]))
+            {
+                var hex1 = _source[_position];
+                var hex2 = _source[_position + 1];
+                _position += 2;
+                _column += 2;
+
+                // Convert hex digits to byte value
+                var byteValue = Convert.ToByte($"{hex1}{hex2}", 16);
+                return (char)byteValue;
+            }
+            else
+            {
+                throw new Exception($"Invalid hex escape sequence at line {_line}, column {_column}");
+            }
         }
 
         /// <summary>
@@ -1467,7 +1453,20 @@ namespace SharpPy
             }
             else
             {
-                return Peek() == quote;
+                if (Peek() != quote)
+                    return false;
+
+                // Check if this quote is escaped by counting preceding backslashes
+                int backslashCount = 0;
+                int pos = _position - 1;
+                while (pos >= 0 && _source[pos] == '\\')
+                {
+                    backslashCount++;
+                    pos--;
+                }
+
+                // If odd number of backslashes, the quote is escaped (not end of string)
+                return backslashCount % 2 == 0;
             }
         }
     }

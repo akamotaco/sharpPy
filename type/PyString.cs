@@ -27,15 +27,104 @@ namespace SharpPy
         
         public override string ToRepr()
         {
-            // Python식 이스케이프 처리
-            var escaped = Value
-                .Replace("\\", "\\\\")
-                .Replace("\'", "\\'")
-                .Replace("\"", "\\\"")
-                .Replace("\n", "\\n")
-                .Replace("\t", "\\t")
-                .Replace("\r", "\\r");
-            return $"'{escaped}'";
+            // CPython-compatible repr() implementation
+            bool hasSingleQuote = Value.Contains('\'');
+            bool hasDoubleQuote = Value.Contains('"');
+
+            char quoteChar;
+            if (hasSingleQuote && !hasDoubleQuote)
+            {
+                // Contains single quotes but no double quotes -> use double quotes
+                quoteChar = '"';
+            }
+            else
+            {
+                // Default to single quotes (covers: no quotes, only double quotes, or both)
+                quoteChar = '\'';
+            }
+
+            // Efficient single-pass escape processing with StringBuilder
+            var result = new System.Text.StringBuilder(Value.Length + 10); // Pre-allocate with some extra space
+            result.Append(quoteChar);
+
+            foreach (char c in Value)
+            {
+                // Handle special characters based on CPython patterns
+                if (c == '\\')
+                {
+                    result.Append("\\\\");
+                }
+                else if (c == '\n')
+                {
+                    result.Append("\\n");
+                }
+                else if (c == '\t')
+                {
+                    result.Append("\\t");
+                }
+                else if (c == '\r')
+                {
+                    result.Append("\\r");
+                }
+                else if (c == '\'' && quoteChar == '\'')
+                {
+                    result.Append("\\'");  // Escape single quote only when using single quotes
+                }
+                else if (c == '"' && quoteChar == '"')
+                {
+                    result.Append("\\\""); // Escape double quote only when using double quotes
+                }
+                else if (!IsPrintableForRepr(c))
+                {
+                    // Non-printable characters → hex format (following CPython's isprintable() logic)
+                    result.Append($"\\x{(int)c:x2}");
+                }
+                else
+                {
+                    // Printable ASCII characters (32-126) → as-is
+                    result.Append(c);
+                }
+            }
+
+            result.Append(quoteChar);
+            return result.ToString();
+        }
+
+        /// <summary>
+        /// Determines if a character is printable for repr() output, following CPython's isprintable() logic
+        /// </summary>
+        private static bool IsPrintableForRepr(char c)
+        {
+            // CPython's isprintable() logic is quite specific
+            // We need to match it exactly for compatibility
+
+            var category = char.GetUnicodeCategory(c);
+
+            // Control characters are not printable
+            if (category == System.Globalization.UnicodeCategory.Control ||
+                category == System.Globalization.UnicodeCategory.Format ||
+                category == System.Globalization.UnicodeCategory.Surrogate ||
+                category == System.Globalization.UnicodeCategory.PrivateUse ||
+                category == System.Globalization.UnicodeCategory.OtherNotAssigned)
+            {
+                return false;
+            }
+
+            // Line and paragraph separators are not printable
+            if (category == System.Globalization.UnicodeCategory.LineSeparator ||
+                category == System.Globalization.UnicodeCategory.ParagraphSeparator)
+            {
+                return false;
+            }
+
+            // Special case: Non-breaking space (U+00A0) is not printable in CPython
+            if (c == '\u00A0')
+            {
+                return false;
+            }
+
+            // Other space separators might have similar rules, but let's start with this specific case
+            return true;
         }
 
         #endregion
