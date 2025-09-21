@@ -6479,8 +6479,47 @@ namespace SharpPy
             }
             else
             {
-                // No keyword arguments, just pop the result tuple
-                EmitInstruction(ByteCodeOp.POP_TOP);
+                // 7. Handle positional arguments - CPython 3.12 approach
+                var positionalArgs = callExpr.Arguments
+                    .Where(arg => !(arg is KeywordExpression))
+                    .ToList();
+
+                if (positionalArgs.Count > 0)
+                {
+                    // Unpack the attribute values extracted by MATCH_CLASS
+                    // Stack: [subject, result_tuple] -> [subject, attr1, attr2, ...]
+                    EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, positionalArgs.Count);
+
+                    // Process each positional argument and bind to variables
+                    // Arguments are pushed in reverse order by UNPACK_SEQUENCE
+                    for (int i = positionalArgs.Count - 1; i >= 0; i--)
+                    {
+                        var arg = positionalArgs[i];
+                        if (arg is NameExpression nameExpr)
+                        {
+                            // Case: Point(x, y) - capture pattern, store the value to variable
+                            // Stack: [subject, ..., attrValue] -> [subject, ...]
+                            EmitStoreName(nameExpr.Name);
+                        }
+                        else
+                        {
+                            // Case: Point(3, 4) - literal pattern, compare with expected value
+                            // Stack: [subject, ..., attrValue] -> [subject, ..., attrValue, expectedValue]
+                            CompileExpression(arg);
+
+                            // Stack: [subject, ..., attrValue, expectedValue] -> [subject, ..., comparisonResult]
+                            EmitInstruction(ByteCodeOp.COMPARE_OP, (int)CompareOp.EQ);
+
+                            // Stack: [subject, ..., comparisonResult] -> [subject, ...]
+                            EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+                        }
+                    }
+                }
+                else
+                {
+                    // No arguments at all, just pop the result tuple
+                    EmitInstruction(ByteCodeOp.POP_TOP);
+                }
             }
             
             // Stack now: [subject] - this will be consumed by CompileMatch's POP_TOP
