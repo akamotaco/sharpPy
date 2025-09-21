@@ -1454,9 +1454,12 @@ namespace SharpPy
                 }
                 catch (Exception ex)
                 {
-                    #if DEBUG_LOG
                     Console.WriteLine($"Error executing class body for {className}: {ex.Message}");
+                    #if DEBUG_LOG
+                    Console.WriteLine($"Stack trace: {ex.StackTrace}");
                     #endif
+                    // Don't re-throw to allow class creation to continue
+                    // The real issue is that method bodies should not execute during class definition
                 }
             }
             else

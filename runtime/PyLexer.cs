@@ -879,11 +879,22 @@ namespace SharpPy
                 Console.WriteLine($"[DEBUG] Processing char '{c}' at position {_position}");
 #endif
 
-                // Python 3.12: f-string 내부에서 백슬래시는 허용되지 않음
+                // Python 3.12: f-string 내부에서 line continuation 체크
                 if (c == '\\')
                 {
-                    // CPython 3.12와 동일한 syntax error 발생
-                    throw new Exception($"SyntaxError: unexpected character after line continuation character");
+                    char nextChar = _position + 1 < _source.Length ? _source[_position + 1] : '\0';
+
+                    // line continuation (\n 또는 \r\n)인지 확인
+                    if (nextChar == '\n' || (nextChar == '\r' && _position + 2 < _source.Length && _source[_position + 2] == '\n'))
+                    {
+                        // f-string 내부에서 line continuation은 허용되지 않음
+                        throw new Exception($"SyntaxError: f-string expression part cannot include a backslash");
+                    }
+
+                    // line continuation이 아니면 일반 백슬래시로 처리 (문자열 이스케이프)
+                    currentText.Append(c);
+                    Advance();
+                    continue;
                 }
 
                 if (c == '{')
