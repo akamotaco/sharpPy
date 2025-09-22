@@ -47,6 +47,14 @@ namespace SharpPy.Core
                         options["--tokens"] = "true";
                         break;
 
+                    case "--compare-parsers":
+                        options["--compare-parsers"] = "true";
+                        break;
+
+                    case "--use-peg-parser":
+                        options["--use-peg-parser"] = "true";
+                        break;
+
                     case "-c":
                         if (i + 1 < args.Length)
                         {

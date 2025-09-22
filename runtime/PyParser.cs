@@ -4812,7 +4812,7 @@ namespace SharpPy
     {
         public List<Statement> Parse(string source, string filename = "<string>")
         {
-            return PyParser.ParseSource(source, filename);
+            return PyParserBridge.ParseSource(source, filename);
         }
     }
 
