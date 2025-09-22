@@ -3301,9 +3301,12 @@ namespace SharpPy
             var opCode = op switch
             {
                 "+" => ByteCodeOp.UNARY_POSITIVE,
+                "UAdd" => ByteCodeOp.UNARY_POSITIVE,    // Parser generates UAdd
                 "-" => ByteCodeOp.UNARY_NEGATIVE,
+                "USub" => ByteCodeOp.UNARY_NEGATIVE,    // Parser generates USub
                 "not" => ByteCodeOp.UNARY_NOT,
                 "~" => ByteCodeOp.UNARY_INVERT,
+                "Invert" => ByteCodeOp.UNARY_INVERT,    // Parser generates Invert
                 _ => throw new NotImplementedException($"Unary operator '{op}' not implemented")
             };
             EmitInstruction(opCode);
@@ -3312,12 +3315,14 @@ namespace SharpPy
         private void EmitCompareOp(string op)
         {
             // Handle membership test operations with CONTAINS_OP
-            if (op == "in" || op == "not in")
+            if (op == "in" || op == "not in" || op == "In" || op == "NotIn")
             {
                 var containsOp = op switch
                 {
                     "in" => 0,     // IN
+                    "In" => 0,     // Parser generates In for 'in'
                     "not in" => 1, // NOT_IN
+                    "NotIn" => 1,  // Parser generates NotIn for 'not in'
                     _ => throw new NotImplementedException($"Contains operator '{op}' not implemented")
                 };
                 EmitInstruction(ByteCodeOp.CONTAINS_OP, containsOp);
@@ -3352,6 +3357,7 @@ namespace SharpPy
                 "Gt" => (int)CompareOp.GT,  // Parser uses Gt for >
                 ">=" => (int)CompareOp.GE,  // 92
                 "GtE" => (int)CompareOp.GE, // Parser uses GtE for >=
+                // "In" and "NotIn" are now handled by CONTAINS_OP above
                 _ => throw new NotImplementedException($"Compare operator '{op}' not implemented")
             };
             EmitInstruction(ByteCodeOp.COMPARE_OP, compareOp);
