@@ -2126,12 +2126,46 @@ namespace SharpPy
                 case KeywordExpression keyword:
                     CompileKeywordExpression(keyword);
                     break;
-                    
+
+                case FStringFormattedValue fstringValue:
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] Compiler: Compiling FStringFormattedValue");
+#endif
+                    CompileFStringFormattedValue(fstringValue);
+                    break;
+
                 default:
                     throw PyNotImplementedError.Create($"Expression {expression.GetType().Name} not implemented");
             }
         }
-        
+
+        /// <summary>
+        /// CPython 3.12 compatible f-string formatted value compilation
+        /// Generates FORMAT_VALUE bytecode instruction
+        /// </summary>
+        private void CompileFStringFormattedValue(FStringFormattedValue fstringValue)
+        {
+            // Compile the value expression
+            CompileExpression(fstringValue.Value);
+
+            // Emit FORMAT_VALUE instruction
+            int formatFlags = 0;
+            if (fstringValue.Conversion.HasValue)
+            {
+                formatFlags |= (fstringValue.Conversion.Value << 2); // Conversion in bits 2-3
+            }
+            if (fstringValue.FormatSpec != null)
+            {
+                CompileExpression(fstringValue.FormatSpec);
+                formatFlags |= 1; // Has format spec
+            }
+
+            EmitInstruction(ByteCodeOp.FORMAT_VALUE, formatFlags);
+#if DEBUG_LOG
+            Console.WriteLine($"[DEBUG] Compiler: Emitted FORMAT_VALUE with flags: {formatFlags}");
+#endif
+        }
+
         private void CompileFunction(FunctionDefStatement func)
         {
             // 모든 함수를 CompileNestedFunction으로 바이패스 (Phase 2 수정)
@@ -7340,32 +7374,30 @@ namespace SharpPy
             // 실제 구현에서는 더 정교한 컨텍스트 추적이 필요
             return true; // 일단 모든 경우를 복잡한 표현식으로 처리
         }
+        /// <summary>
+        /// CPython 3.12 compatible f-string compilation
+        /// Generates BUILD_STRING bytecode instruction
+        /// </summary>
         private void CompileFString(FStringExpression fstring)
         {
-            // f-string은 여러 파트로 구성됨: 문자열과 표현식이 번갈아 나타남
-            // 각 파트를 컴파일하고 FORMAT_VALUE로 포매팅한 후 BUILD_STRING으로 합침
-            
             var values = fstring.Values;
             if (values == null || values.Count == 0)
             {
-                // 빈 f-string은 빈 문자열
+                // Empty f-string becomes empty string
                 EmitLoadConst(new PyString(""));
                 return;
             }
-            
-            // 각 value를 컴파일
+
+            // Compile each value
             foreach (var value in values)
             {
                 CompileExpression(value);
-                
-                // 상수 문자열이 아닌 경우 FORMAT_VALUE 적용
-                if (!(value is ConstantExpression constant && constant.Value is PyString))
-                {
-                    EmitInstruction(ByteCodeOp.FORMAT_VALUE, 0);
-                }
+
+                // For non-constant expressions, FORMAT_VALUE is already emitted by FStringFormattedValue
+                // For constant strings, no additional formatting needed
             }
-            
-            // 모든 부분을 문자열로 연결
+
+            // Use BUILD_STRING to join all parts (CPython 3.12 style)
             if (values.Count > 1)
             {
                 EmitInstruction(ByteCodeOp.BUILD_STRING, values.Count);
@@ -8842,6 +8874,13 @@ namespace SharpPy
         // CPython 3.12: Assignment target compilation
         private void CompileAssignTarget(AssignTargetStatement assignTarget)
         {
+#if DEBUG_LOG
+            Console.WriteLine($"[DEBUG] CompileAssignTarget: Target type = {assignTarget.Target.GetType().Name}");
+            if (assignTarget.Target is AttributeExpression attr)
+            {
+                Console.WriteLine($"[DEBUG] CompileAssignTarget: AttributeExpression.Value = {attr.Value.GetType().Name}, Attr = {attr.Attr}");
+            }
+#endif
             // CPython 3.12: Comprehension의 경우 특별 처리
             bool isListComprehension = assignTarget.Value is ListComprehension;
             bool isDictComprehension = assignTarget.Value is DictComprehension;
@@ -8929,10 +8968,10 @@ namespace SharpPy
                 case NameExpression name:
                     EmitStoreName(name.Name);
                     break;
-                    
-                case AttributeExpression attr:
-                    CompileExpression(attr.Value);
-                    EmitStoreAttr(attr.Attr);
+
+                case AttributeExpression attrExpr:
+                    CompileExpression(attrExpr.Value);
+                    EmitStoreAttr(attrExpr.Attr);
                     break;
                     
                 case SubscriptExpression subscript:
@@ -9020,11 +9059,11 @@ namespace SharpPy
                     EmitStoreName(name.Name);
                     break;
                     
-                case AttributeExpression attr:
-                    CompileExpression(attr.Value);
-                    EmitStoreAttr(attr.Attr);
+                case AttributeExpression attrExpr2:
+                    CompileExpression(attrExpr2.Value);
+                    EmitStoreAttr(attrExpr2.Attr);
                     break;
-                    
+
                 case SubscriptExpression subscript:
                     // Check if this is a slice assignment (obj[start:stop] = value)
                     if (subscript.Slice is SliceExpression slice)

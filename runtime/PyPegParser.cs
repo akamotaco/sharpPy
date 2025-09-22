@@ -39,6 +39,9 @@ namespace SharpPy
         {
             try
             {
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseSource called for file: {filename}");
+#endif
                 var lexer = new PyLexer(source);
                 var tokens = lexer.Tokenize();
                 var parser = new PyPegParser(tokens, filename, source);
@@ -289,24 +292,42 @@ namespace SharpPy
                 var statements = new List<List<Statement>>();
 
                 // PEG: statement+ means one or more statements
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseStatements starting, position: {_position}, current token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
                 var firstStmt = ParseStatement();
                 if (firstStmt == null)
                 {
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] PEG: ParseStatements failed to parse first statement");
+#endif
                     return null; // No statements found
                 }
 
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseStatements parsed first statement: {firstStmt.Count} statements");
+#endif
                 statements.Add(firstStmt);
 
                 // Continue parsing additional statements
                 while (!IsAtEnd && CurrentToken.Type != TokenType.ENDMARKER)
                 {
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] PEG: ParseStatements continuing, position: {_position}, current token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
                     var stmt = ParseStatement();
                     if (stmt != null)
                     {
+#if DEBUG_LOG
+                        Console.WriteLine($"[DEBUG] PEG: ParseStatements parsed additional statement: {stmt.Count} statements");
+#endif
                         statements.Add(stmt);
                     }
                     else
                     {
+#if DEBUG_LOG
+                        Console.WriteLine($"[DEBUG] PEG: ParseStatements failed to parse additional statement, breaking");
+#endif
                         break;
                     }
                 }
@@ -327,11 +348,21 @@ namespace SharpPy
                 // PEG ordered choice: try compound_stmt first
                 var startPos = _position;
 
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseStatement trying compound_stmt at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
                 var compound = ParseCompoundStmt();
                 if (compound != null)
                 {
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] PEG: ParseStatement parsed compound_stmt successfully");
+#endif
                     return new List<Statement> { compound };
                 }
+
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseStatement compound_stmt failed");
+#endif
 
                 // Reset position for backtracking (PEG behavior)
                 _position = startPos;
@@ -486,6 +517,9 @@ namespace SharpPy
         {
             return ParseWithMemo("compound_stmt", () =>
             {
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseCompoundStmt called at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
                 // Check for decorators first
                 if (CurrentToken?.Lexeme == "@")
                 {
@@ -525,6 +559,9 @@ namespace SharpPy
                 // Try statement
                 if (CurrentToken?.Lexeme == "try")
                 {
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] PEG: ParseCompoundStmt found 'try', calling ParseTryStmt()");
+#endif
                     return ParseTryStmt();
                 }
 
@@ -619,8 +656,21 @@ namespace SharpPy
                     var value = ParseAnnotatedRhs();
                     if (value != null)
                     {
-                        var varName = targets.Count > 0 && targets[0] is NameExpression nameExpr ? nameExpr.Name : "unknown";
-                        return new AssignStatement(varName, value);
+                        // Handle attribute assignment (obj.attr = value)
+                        if (targets.Count > 0 && targets[0] is AttributeExpression attrExpr)
+                        {
+                            return new AssignTargetStatement(attrExpr, value);
+                        }
+                        // Handle regular variable assignment (name = value)
+                        else if (targets.Count > 0 && targets[0] is NameExpression nameExpr)
+                        {
+                            return new AssignStatement(nameExpr.Name, value);
+                        }
+                        else
+                        {
+                            var varName = "unknown";
+                            return new AssignStatement(varName, value);
+                        }
                     }
                 }
 
@@ -1165,6 +1215,12 @@ namespace SharpPy
                     return new ConstantExpression(new PyString(stringValue));
                 }
 
+                // F-String support (CPython 3.12 compatible)
+                if (CurrentToken?.Type == TokenType.FSTRING_START)
+                {
+                    return ParseFString();
+                }
+
                 // Collections
                 if (MatchLiteral("("))
                 {
@@ -1182,6 +1238,71 @@ namespace SharpPy
                 }
 
                 return null;
+            });
+        }
+
+        /// <summary>
+        /// Parse f-string with CPython 3.12 compatible FORMAT_VALUE and BUILD_STRING generation
+        /// </summary>
+        public Expression ParseFString()
+        {
+            return ParseWithMemo("fstring", () =>
+            {
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseFString called, current token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
+                if (CurrentToken?.Type != TokenType.FSTRING_START)
+                    return null;
+
+                _position++; // Consume FSTRING_START
+
+                var values = new List<Expression>();
+
+                while (_position < _tokens.Count &&
+                       CurrentToken?.Type != TokenType.FSTRING_END)
+                {
+                    if (CurrentToken?.Type == TokenType.FSTRING_MIDDLE)
+                    {
+                        // String literal part
+                        var stringValue = CurrentToken.Lexeme;
+                        values.Add(new ConstantExpression(new PyString(stringValue)));
+                        _position++;
+                    }
+                    else if (CurrentToken?.Type == TokenType.OP && CurrentToken.Lexeme == "{")
+                    {
+                        _position++; // Skip '{'
+
+                        // Parse expression inside {}
+                        var expr = ParseExpression();
+                        if (expr != null)
+                        {
+                            // Create FORMAT_VALUE expression (CPython 3.12 style)
+                            var formattedValue = new FStringFormattedValue(expr, null, null); // conversion=None, format_spec=None
+#if DEBUG_LOG
+                            Console.WriteLine($"[DEBUG] PEG: Created FStringFormattedValue for expression: {expr.GetType().Name}");
+#endif
+                            values.Add(formattedValue);
+                        }
+
+                        // Skip '}'
+                        if (CurrentToken?.Type == TokenType.OP && CurrentToken.Lexeme == "}")
+                        {
+                            _position++;
+                        }
+                    }
+                    else
+                    {
+                        _position++; // Skip unknown tokens
+                    }
+                }
+
+                if (CurrentToken?.Type == TokenType.FSTRING_END)
+                {
+                    _position++; // Consume FSTRING_END
+                }
+
+                // Create CPython 3.12 compatible f-string expression
+                return new FStringExpression(values);
             });
         }
 
@@ -1424,9 +1545,22 @@ namespace SharpPy
         {
             return ParseWithMemo<Statement>("try_stmt", () =>
             {
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseTryStmt called at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
                 var startPos = _position;
 
-                if (!MatchKeyword("try")) return null;
+                if (!MatchKeyword("try"))
+                {
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] PEG: ParseTryStmt failed to match 'try' keyword");
+#endif
+                    return null;
+                }
+
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseTryStmt matched 'try', now at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
 
                 if (!MatchLiteral(":"))
                 {
@@ -1540,7 +1674,52 @@ namespace SharpPy
         }
         public Expression ParseSlices() => ParseExpression();
         public Expression ParseTupleOrGroup() => ParseExpression();
-        public Expression ParseList() => ParseExpression();
+        /// <summary>
+        /// Parse list with CPython 3.12 compatible BUILD_LIST generation
+        /// list: '[' [star_named_expressions] ']'
+        /// </summary>
+        public Expression ParseList()
+        {
+            return ParseWithMemo("list", () =>
+            {
+                var elements = new List<Expression>();
+
+                // Parse list elements
+                if (!IsAtEnd && CurrentToken?.Type != TokenType.OP || CurrentToken?.Lexeme != "]")
+                {
+                    var firstExpr = ParseExpression();
+                    if (firstExpr != null)
+                    {
+                        elements.Add(firstExpr);
+
+                        // Parse remaining elements
+                        while (MatchLiteral(","))
+                        {
+                            // Allow trailing comma
+                            if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Lexeme == "]")
+                            {
+                                break;
+                            }
+
+                            var expr = ParseExpression();
+                            if (expr != null)
+                            {
+                                elements.Add(expr);
+                            }
+                        }
+                    }
+                }
+
+                // Consume closing ']'
+                if (!MatchLiteral("]"))
+                {
+                    return null; // Missing closing bracket
+                }
+
+                // Create CPython 3.12 compatible list expression
+                return new ListExpression(elements);
+            });
+        }
         public Expression ParseDictOrSet() => ParseExpression();
 
         // Function definition helpers
@@ -1575,9 +1754,28 @@ namespace SharpPy
 
         public List<Statement> ParseBlock()
         {
+#if DEBUG_LOG
+            Console.WriteLine($"[DEBUG] PEG: ParseBlock called at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
             // Simplified block parsing - expect NEWLINE INDENT statements DEDENT
-            if (!MatchToken(TokenType.NEWLINE)) return null;
-            if (!MatchToken(TokenType.INDENT)) return null;
+            if (!MatchToken(TokenType.NEWLINE))
+            {
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseBlock failed to match NEWLINE");
+#endif
+                return null;
+            }
+            if (!MatchToken(TokenType.INDENT))
+            {
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseBlock failed to match INDENT");
+#endif
+                return null;
+            }
+
+#if DEBUG_LOG
+            Console.WriteLine($"[DEBUG] PEG: ParseBlock matched NEWLINE+INDENT, now at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
 
             var statements = new List<Statement>();
 

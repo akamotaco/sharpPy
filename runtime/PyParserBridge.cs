@@ -36,6 +36,9 @@ namespace SharpPy
         {
             if (_usePegParser)
             {
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] Bridge: Using PEG parser for {filename}");
+#endif
                 try
                 {
                     var pegResult = PyPegParser.ParseSource(source, filename);
@@ -58,7 +61,10 @@ namespace SharpPy
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"PEG parser failed for {filename}: {ex.Message}");
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] Bridge: PEG parser failed for {filename}: {ex.Message}");
+                    Console.WriteLine($"[DEBUG] Bridge: Exception details: {ex}");
+#endif
 
                     if (_enableComparison)
                     {

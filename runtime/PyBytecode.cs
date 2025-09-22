@@ -442,7 +442,7 @@ namespace SharpPy
                 switch (inst.OpCode)
                 {
                     case ByteCodeOp.LOAD_CONST:
-                        extra = $"({Constants[inst.Argument]})";
+                        extra = $"({FormatConstantForDisplay(Constants[inst.Argument])})";
                         break;
                     case ByteCodeOp.LOAD_NAME:
                     case ByteCodeOp.STORE_NAME:
@@ -470,7 +470,48 @@ namespace SharpPy
                 }
             }
         }
-        
+
+        /// <summary>
+        /// CPython 3.12 호환 상수 표시 형식
+        /// </summary>
+        private string FormatConstantForDisplay(PyObject constant)
+        {
+            if (constant == null)
+                return "None";
+
+            switch (constant)
+            {
+                case PyString pyStr:
+                    // 문자열은 따옴표로 감싸기 (CPython 3.12 스타일)
+                    return $"'{pyStr.Value}'";
+
+                case PyInt pyInt:
+                    return pyInt.Value.ToString();
+
+                case PyFloat pyFloat:
+                    return pyFloat.Value.ToString();
+
+                case PyBool pyBool:
+                    return pyBool.Value ? "True" : "False";
+
+                case PyNone:
+                    return "None";
+
+                case PyList pyList:
+                    return "[...]"; // 간략히 표시
+
+                case PyDict pyDict:
+                    return "{...}"; // 간략히 표시
+
+                case PyTuple pyTuple:
+                    return "(...)"; // 간략히 표시
+
+                default:
+                    // 기타 객체들 (함수, 클래스 등)
+                    return constant.ToString();
+            }
+        }
+
         public override string ToString() => $"<code object {Name}>";
         
         /// <summary>

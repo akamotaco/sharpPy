@@ -2727,6 +2727,42 @@ namespace SharpPy
     }
 
     /// <summary>
+    /// CPython 3.12 compatible f-string formatted value
+    /// Generates FORMAT_VALUE bytecode instruction
+    /// </summary>
+    public class FStringFormattedValue : Expression
+    {
+        public override string NodeType => "FormattedValue";
+        public Expression Value { get; }
+        public int? Conversion { get; } // -1=no conversion, 115='s', 114='r', 97='a'
+        public Expression FormatSpec { get; } // None or expression
+
+        public FStringFormattedValue(Expression value, int? conversion, Expression formatSpec)
+        {
+            Value = value;
+            Conversion = conversion;
+            FormatSpec = formatSpec;
+        }
+
+        public override PyObject Evaluate(PyScope scope)
+        {
+            return PyExecutor.ExecuteFormattedValue(this, scope);
+        }
+
+        public override string ToString() => $"{{FormattedValue {Value}}}";
+
+        public override T Accept<T>(IASTVisitor<T> visitor)
+        {
+            return visitor.VisitExpression(this);
+        }
+
+        public override void Accept(IASTVisitor visitor)
+        {
+            visitor.VisitExpression(this);
+        }
+    }
+
+    /// <summary>
     /// f-string 내의 포맷 지정자가 있는 표현식 (예: {value:.2f})
     /// </summary>
     public class FormatExpression : Expression

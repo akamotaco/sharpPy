@@ -37,10 +37,8 @@ namespace SharpPy.Tools
                 Console.WriteLine($"Disassembly of {pythonFile}:");
                 
                 string code = File.ReadAllText(pythonFile);
-                var lexer = new PyLexer(code);
-                var tokens = lexer.Tokenize();
-                var parser = new PyParser(tokens);
-                var ast = parser.Parse();
+                // Use PyParserBridge to get PEG parser support
+                var ast = PyParserBridge.ParseSource(code, pythonFile);
                 
                 var compiler = new PythonCompiler();
                 var codeObject = compiler.Compile(ast, "<module>", new List<string>(), pythonFile);
@@ -137,7 +135,48 @@ namespace SharpPy.Tools
                 
             return sb.ToString();
         }
-        
+
+        /// <summary>
+        /// CPython 3.12 호환 상수 표시 형식
+        /// </summary>
+        private string FormatConstantForDisplay(PyObject constant)
+        {
+            if (constant == null)
+                return "None";
+
+            switch (constant)
+            {
+                case PyString pyStr:
+                    // 문자열은 따옴표로 감싸기 (CPython 3.12 스타일)
+                    return $"'{pyStr.Value}'";
+
+                case PyInt pyInt:
+                    return pyInt.Value.ToString();
+
+                case PyFloat pyFloat:
+                    return pyFloat.Value.ToString();
+
+                case PyBool pyBool:
+                    return pyBool.Value ? "True" : "False";
+
+                case PyNone:
+                    return "None";
+
+                case PyList pyList:
+                    return "[...]"; // 간략히 표시
+
+                case PyDict pyDict:
+                    return "{...}"; // 간략히 표시
+
+                case PyTuple pyTuple:
+                    return "(...)"; // 간략히 표시
+
+                default:
+                    // 기타 객체들 (함수, 클래스 등)
+                    return constant.ToString();
+            }
+        }
+
         /// <summary>
         /// 명령어 인수 정보를 형식에 맞게 생성
         /// </summary>
@@ -153,7 +192,7 @@ namespace SharpPy.Tools
                     if (arg >= 0 && arg < constants.Count)
                     {
                         var constant = constants[arg];
-                        var constRepr = constant?.ToString() ?? "None";
+                        var constRepr = FormatConstantForDisplay(constant);
                         return $"{arg,15} ({constRepr})";
                     }
                     return $"{arg,15}";

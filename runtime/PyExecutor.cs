@@ -368,6 +368,42 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// FStringFormattedValue 실행 (CPython 3.12 호환)
+        /// </summary>
+        public static PyObject ExecuteFormattedValue(FStringFormattedValue expr, PyScope scope)
+        {
+            var value = expr.Value.Evaluate(scope);
+
+            // Apply conversion if specified
+            if (expr.Conversion.HasValue)
+            {
+                switch (expr.Conversion.Value)
+                {
+                    case 115: // 's' - str()
+                        value = new PyString(value.ToString());
+                        break;
+                    case 114: // 'r' - repr()
+                        value = new PyString($"\"{value}\"");
+                        break;
+                    case 97: // 'a' - ascii()
+                        value = new PyString(value.ToString()); // Simplified
+                        break;
+                }
+            }
+
+            // Apply format spec if provided
+            if (expr.FormatSpec != null)
+            {
+                var formatSpecValue = expr.FormatSpec.Evaluate(scope);
+                // Apply formatting based on format spec
+                // For now, simplified implementation
+                return new PyString(value.ToString());
+            }
+
+            return new PyString(value.ToString());
+        }
+
+        /// <summary>
         /// FormatExpression 실행 (f-string 포맷 지정자 처리)
         /// </summary>
         public static PyObject ExecuteFormattedValue(FormatExpression expr, PyScope scope)

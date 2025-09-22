@@ -18,6 +18,13 @@ namespace SharpPy
                 // 플래그 처리
                 ConfigureOptions(parsedArgs);
 
+                // PEG parser 활성화 처리
+                if (parsedArgs.ContainsKey("--use-peg-parser"))
+                {
+                    PyParserBridge.SetPegParserEnabled(true);
+                    Console.WriteLine("🔄 PEG parser enabled");
+                }
+
                 // 각 모드로 위임
                 if (parsedArgs.ContainsKey("--dis"))
                 {
@@ -26,6 +33,10 @@ namespace SharpPy
                 else if (parsedArgs.ContainsKey("--tokens"))
                 {
                     new TokenDebugger().OutputTokens(pythonFile);
+                }
+                else if (parsedArgs.ContainsKey("--compare-parsers"))
+                {
+                    RunParserComparison(pythonFile);
                 }
                 else if (parsedArgs.ContainsKey("-c"))
                 {
@@ -70,6 +81,47 @@ namespace SharpPy
             if (parsedArgs.ContainsKey("--no-optimize"))
             {
                 SharpPyConfig.DisableOptimizer = true;
+            }
+        }
+
+        /// <summary>
+        /// 파서 비교 실행
+        /// </summary>
+        private static void RunParserComparison(string pythonFile)
+        {
+            Console.WriteLine("🔍 Parser Comparison Mode");
+            Console.WriteLine(new string('=', 60));
+
+            if (string.IsNullOrEmpty(pythonFile))
+            {
+                // 기본 테스트 파일들 비교
+                var testFiles = new[]
+                {
+                    "test_parser_comparison_simple.py",
+                    "test_parser_comparison_complex.py",
+                    "test_run_parser_comparison.py"
+                };
+
+                ParserComparisonTool.RunBatchComparison(testFiles);
+            }
+            else
+            {
+                // 지정된 파일 비교
+                var result = ParserComparisonTool.CompareFile(pythonFile);
+                Console.WriteLine($"\n🎯 Comparison complete for {pythonFile}");
+
+                if (result.ASTMatches)
+                {
+                    Console.WriteLine("✅ Parsers produce identical ASTs!");
+                }
+                else if (result.BothSucceeded)
+                {
+                    Console.WriteLine($"⚠️  Parsers succeeded but ASTs differ ({result.Differences.Count} differences)");
+                }
+                else
+                {
+                    Console.WriteLine("❌ One or both parsers failed");
+                }
             }
         }
 
