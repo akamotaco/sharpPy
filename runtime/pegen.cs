@@ -248,21 +248,22 @@ namespace SharpPy
 
         private string ConvertOpToken(string token)
         {
+            // Return actual operators for consistency with AST and compiler
             return token switch
             {
-                "+" => "Add",
-                "-" => "Sub",
-                "*" => "Mult",
-                "/" => "Div",
-                "//" => "FloorDiv",
-                "%" => "Mod",
-                "**" => "Pow",
-                "<<" => "LShift",
-                ">>" => "RShift",
-                "|" => "BitOr",
-                "^" => "BitXor",
-                "&" => "BitAnd",
-                "@" => "MatMult",
+                "+" => "+",
+                "-" => "-",
+                "*" => "*",
+                "/" => "/",
+                "//" => "//",
+                "%" => "%",
+                "**" => "**",
+                "<<" => "<<",
+                ">>" => ">>",
+                "|" => "|",
+                "^" => "^",
+                "&" => "&",
+                "@" => "@",
                 _ => token
             };
         }
@@ -368,11 +369,20 @@ namespace SharpPy
                 _position = startPos;
 
                 // Try simple_stmts
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseStatement trying simple_stmts at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
                 var simple = ParseSimpleStmts();
                 if (simple != null)
                 {
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] PEG: ParseStatement parsed simple_stmts successfully");
+#endif
                     return simple;
                 }
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseStatement simple_stmts failed");
+#endif
 
                 return null;
             });
@@ -385,10 +395,16 @@ namespace SharpPy
         {
             return ParseWithMemo("simple_stmts", () =>
             {
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseSimpleStmts called at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
                 var statements = new List<Statement>();
 
                 // First simple statement
                 var firstStmt = ParseSimpleStmt();
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseSimpleStmts first statement result: {(firstStmt != null ? "success" : "failed")}");
+#endif
                 if (firstStmt == null) return null;
 
                 statements.Add(firstStmt);
@@ -405,8 +421,14 @@ namespace SharpPy
                 MatchLiteral(";");
 
                 // Must end with newline
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseSimpleStmts checking NEWLINE at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
                 if (!MatchToken(TokenType.NEWLINE))
                 {
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] PEG: ParseSimpleStmts NEWLINE check failed");
+#endif
                     return null;
                 }
 
@@ -425,7 +447,13 @@ namespace SharpPy
                 var startPos = _position;
 
                 // PEG ordered choice: Try assignment first (must precede expression per grammar)
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseSimpleStmt trying assignment at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
                 var assignment = ParseAssignment();
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseSimpleStmt assignment result: {(assignment != null ? "success" : "failed")}, position after: {_position}");
+#endif
                 if (assignment != null) return assignment;
 
                 // Reset position for next choice
@@ -593,6 +621,9 @@ namespace SharpPy
         {
             return ParseWithMemo<Statement>("assignment", () =>
             {
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseAssignment called at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
                 var startPos = _position;
 
                 // Choice 1: a=NAME ':' b=expression c=['=' d=annotated_rhs { d }]
@@ -650,10 +681,22 @@ namespace SharpPy
                 _position = startPos;
 
                 // Choice 3: a=star_targets_list '=' b=annotated_rhs
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseAssignment trying star_targets_list at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
                 var targets = ParseStarTargetsList();
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseAssignment star_targets_list result: {(targets != null ? "success" : "failed")}, position: {_position}");
+#endif
                 if (targets != null && MatchLiteral("="))
                 {
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] PEG: ParseAssignment found '=' after star_targets_list, position: {_position}");
+#endif
                     var value = ParseAnnotatedRhs();
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] PEG: ParseAssignment annotated_rhs result: {(value != null ? "success" : "failed")}, position: {_position}");
+#endif
                     if (value != null)
                     {
                         // Handle attribute assignment (obj.attr = value)
@@ -715,11 +758,18 @@ namespace SharpPy
 
         public Expression ParseAnnotatedRhs()
         {
+#if DEBUG_LOG
+            Console.WriteLine($"[DEBUG] PEG: ParseAnnotatedRhs called at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
             // yield_expr | star_expressions
             var yieldExpr = ParseYieldExpr();
             if (yieldExpr != null) return yieldExpr;
 
-            return ParseStarExpressions();
+            var starExpr = ParseStarExpressions();
+#if DEBUG_LOG
+            Console.WriteLine($"[DEBUG] PEG: ParseAnnotatedRhs star_expressions result: {(starExpr != null ? "success" : "failed")}, position: {_position}");
+#endif
+            return starExpr;
         }
 
         public string ParseAugAssign()
@@ -1089,7 +1139,7 @@ namespace SharpPy
                     var right = ParseFactor();
                     if (right != null)
                     {
-                        return new BinaryOpExpression(left, "Pow", right);
+                        return new BinaryOpExpression(left, "**", right);
                     }
                 }
 
@@ -1676,20 +1726,43 @@ namespace SharpPy
         public Expression ParseTupleOrGroup() => ParseExpression();
         /// <summary>
         /// Parse list with CPython 3.12 compatible BUILD_LIST generation
-        /// list: '[' [star_named_expressions] ']'
+        /// list: '[' [star_named_expressions] ']' | '[' listcomp ']'
+        /// listcomp: expression 'for' star_targets 'in' expression ['if' expression]
         /// </summary>
         public Expression ParseList()
         {
             return ParseWithMemo("list", () =>
             {
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseList called at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
                 var elements = new List<Expression>();
 
-                // Parse list elements
-                if (!IsAtEnd && CurrentToken?.Type != TokenType.OP || CurrentToken?.Lexeme != "]")
+                // Parse list elements or list comprehension
+                if (!IsAtEnd && (CurrentToken?.Type != TokenType.OP || CurrentToken?.Lexeme != "]"))
                 {
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] PEG: ParseList parsing first expression at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
                     var firstExpr = ParseExpression();
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] PEG: ParseList first expression result: {(firstExpr != null ? "success" : "failed")}, position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
                     if (firstExpr != null)
                     {
+                        // Check for list comprehension: [expr for ...]
+#if DEBUG_LOG
+                        Console.WriteLine($"[DEBUG] PEG: ParseList checking for 'for' keyword at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
+                        if (MatchKeyword("for"))
+                        {
+#if DEBUG_LOG
+                            Console.WriteLine($"[DEBUG] PEG: ParseList found 'for', calling ParseListComprehension");
+#endif
+                            return ParseListComprehension(firstExpr);
+                        }
+
+                        // Regular list: [expr, expr, ...]
                         elements.Add(firstExpr);
 
                         // Parse remaining elements
@@ -1720,7 +1793,482 @@ namespace SharpPy
                 return new ListExpression(elements);
             });
         }
-        public Expression ParseDictOrSet() => ParseExpression();
+
+        /// <summary>
+        /// Parse list comprehension: [expr for target in iter [if condition] [for target2 in iter2 ...]]
+        /// CPython 3.12 compatible comprehension parsing
+        /// </summary>
+        private Expression ParseListComprehension(Expression element)
+        {
+            return ParseWithMemo("listcomp", () =>
+            {
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseListComprehension called at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
+                var generators = new List<Comprehension>();
+
+                // Parse at least one generator: for target in iter [if condition]
+                do
+                {
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] PEG: ParseListComprehension parsing target at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
+                    // Parse target (left side of 'in') - stop at 'in' keyword
+                    var target = ParseComprehensionTarget();
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] PEG: ParseListComprehension target result: {(target != null ? "success" : "failed")}, position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
+                    if (target == null)
+                    {
+                        return null; // Invalid target
+                    }
+
+                    // Expect 'in' keyword
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] PEG: ParseListComprehension checking for 'in' at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
+                    if (!MatchKeyword("in"))
+                    {
+#if DEBUG_LOG
+                        Console.WriteLine($"[DEBUG] PEG: ParseListComprehension missing 'in' keyword");
+#endif
+                        return null; // Missing 'in'
+                    }
+
+                    // Parse iterable (right side of 'in')
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] PEG: ParseListComprehension parsing iterable at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
+                    var iter = ParseComprehensionIterable();
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] PEG: ParseListComprehension iterable result: {(iter != null ? "success" : "failed")}, position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
+                    if (iter == null)
+                    {
+                        return null; // Invalid iterable
+                    }
+
+                    // Parse optional 'if' conditions
+                    var conditions = new List<Expression>();
+                    while (MatchKeyword("if"))
+                    {
+                        var condition = ParseExpression();
+                        if (condition != null)
+                        {
+                            conditions.Add(condition);
+                        }
+                        else
+                        {
+                            return null; // Invalid condition
+                        }
+                    }
+
+                    // Create comprehension generator
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] PEG: ParseListComprehension adding generator - target: {target.GetType().Name}, iter: {iter.GetType().Name}, conditions: {conditions.Count}");
+                    if (conditions.Count > 0)
+                    {
+                        Console.WriteLine($"[DEBUG] PEG: ParseListComprehension condition types: {string.Join(", ", conditions.Select(c => c.GetType().Name))}");
+                    }
+#endif
+                    generators.Add(new Comprehension(target, iter, conditions));
+                }
+                while (MatchKeyword("for")); // Parse additional generators
+
+                // Consume closing ']'
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseListComprehension checking for ']' at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
+                if (!MatchLiteral("]"))
+                {
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] PEG: ParseListComprehension missing ']'");
+#endif
+                    return null; // Missing closing bracket
+                }
+
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseListComprehension completed successfully");
+#endif
+                // Create CPython 3.12 compatible ListComprehension
+                return new ListComprehension(element, generators);
+            });
+        }
+
+        /// <summary>
+        /// Parse dictionary or set literal/comprehension dispatcher
+        /// CPython 3.12 compatible: {key: value, ...} | {key: value for ...} | {element, ...} | {element for ...}
+        /// Note: The opening '{' has already been consumed by ParseAtom()
+        /// </summary>
+        public Expression ParseDictOrSet()
+        {
+            return ParseWithMemo("dict_or_set", () =>
+            {
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseDictOrSet dispatcher called at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
+
+                // Empty dict/set: {} - default to empty dict
+                if (MatchLiteral("}"))
+                {
+#if DEBUG_LOG
+                    Console.WriteLine("[DEBUG] PEG: ParseDictOrSet - empty dict");
+#endif
+                    return new DictExpression(new List<(Expression, Expression)>());
+                }
+
+                // Look ahead to determine if it's dict or set
+                int savedPosition = _position;
+
+                // Parse first element/key
+                var firstExpr = ParseExpression();
+                if (firstExpr == null)
+                {
+#if DEBUG_LOG
+                    Console.WriteLine("[DEBUG] PEG: ParseDictOrSet failed - no first expression");
+#endif
+                    return null;
+                }
+
+                // Check if it's a dict (has colon after first expression)
+                if (CurrentToken?.Type == TokenType.OP && CurrentToken.Lexeme == ":")
+                {
+                    // It's a dictionary - restore position and parse as dict
+                    _position = savedPosition;
+#if DEBUG_LOG
+                    Console.WriteLine("[DEBUG] PEG: ParseDictOrSet detected dict, calling ParseDict");
+#endif
+                    return ParseDict();
+                }
+                else
+                {
+                    // It's a set - restore position and parse as set
+                    _position = savedPosition;
+#if DEBUG_LOG
+                    Console.WriteLine("[DEBUG] PEG: ParseDictOrSet detected set, calling ParseSet");
+#endif
+                    return ParseSet();
+                }
+            });
+        }
+
+        /// <summary>
+        /// Parse dictionary literal/comprehension
+        /// CPython 3.12 compatible: {key: value, ...} | {key: value for ...}
+        /// </summary>
+        private Expression ParseDict()
+        {
+            return ParseWithMemo("dict", () =>
+            {
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseDict called at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
+
+                // Parse first key-value pair
+                var firstKey = ParseExpression();
+                if (firstKey == null || !MatchLiteral(":"))
+                {
+#if DEBUG_LOG
+                    Console.WriteLine("[DEBUG] PEG: ParseDict failed - no key or colon");
+#endif
+                    return null;
+                }
+
+                var firstValue = ParseExpression();
+                if (firstValue == null)
+                {
+#if DEBUG_LOG
+                    Console.WriteLine("[DEBUG] PEG: ParseDict failed - no value after colon");
+#endif
+                    return null;
+                }
+
+                // Check for comprehension: 'for' keyword
+                if (MatchKeyword("for"))
+                {
+#if DEBUG_LOG
+                    Console.WriteLine("[DEBUG] PEG: ParseDict found 'for', parsing dict comprehension");
+#endif
+                    return ParseDictComprehension(firstKey, firstValue);
+                }
+
+                // It's a regular dict literal
+                var items = new List<(Expression, Expression)> { (firstKey, firstValue) };
+
+                // Parse additional key-value pairs
+                while (MatchLiteral(","))
+                {
+                    if (MatchLiteral("}"))
+                    {
+                        // Trailing comma
+                        break;
+                    }
+
+                    var key = ParseExpression();
+                    if (key == null || !MatchLiteral(":"))
+                    {
+#if DEBUG_LOG
+                        Console.WriteLine("[DEBUG] PEG: ParseDict failed - invalid key-value pair");
+#endif
+                        return null;
+                    }
+
+                    var value = ParseExpression();
+                    if (value == null)
+                    {
+#if DEBUG_LOG
+                        Console.WriteLine("[DEBUG] PEG: ParseDict failed - no value in pair");
+#endif
+                        return null;
+                    }
+
+                    items.Add((key, value));
+                }
+
+                if (!MatchLiteral("}"))
+                {
+#if DEBUG_LOG
+                    Console.WriteLine("[DEBUG] PEG: ParseDict failed - no closing brace");
+#endif
+                    return null;
+                }
+
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseDict completed literal with {items.Count} pairs");
+#endif
+                return new DictExpression(items);
+            });
+        }
+
+        /// <summary>
+        /// Parse dict comprehension: {key: value for target in iter [if condition] [for target2 in iter2 ...]}
+        /// CPython 3.12 compatible comprehension parsing
+        /// </summary>
+        private Expression ParseDictComprehension(Expression key, Expression value)
+        {
+            return ParseWithMemo("dictcomp", () =>
+            {
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseDictComprehension called at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
+                var generators = new List<Comprehension>();
+
+                // Parse at least one generator: for target in iter [if condition]
+                do
+                {
+                    // Parse target (left side of 'in')
+                    var target = ParseComprehensionTarget();
+                    if (target == null)
+                    {
+#if DEBUG_LOG
+                        Console.WriteLine("[DEBUG] PEG: ParseDictComprehension failed - no target");
+#endif
+                        return null;
+                    }
+
+                    // Expect 'in' keyword
+                    if (!MatchKeyword("in"))
+                    {
+#if DEBUG_LOG
+                        Console.WriteLine("[DEBUG] PEG: ParseDictComprehension missing 'in' keyword");
+#endif
+                        return null;
+                    }
+
+                    // Parse iterable (right side of 'in')
+                    var iter = ParseComprehensionIterable();
+                    if (iter == null)
+                    {
+#if DEBUG_LOG
+                        Console.WriteLine("[DEBUG] PEG: ParseDictComprehension failed - no iterable");
+#endif
+                        return null;
+                    }
+
+                    // Parse optional 'if' conditions
+                    var conditions = new List<Expression>();
+                    while (MatchKeyword("if"))
+                    {
+                        var condition = ParseExpression();
+                        if (condition == null)
+                        {
+#if DEBUG_LOG
+                            Console.WriteLine("[DEBUG] PEG: ParseDictComprehension failed - invalid condition");
+#endif
+                            return null;
+                        }
+                        conditions.Add(condition);
+                    }
+
+                    generators.Add(new Comprehension(target, iter, conditions));
+                }
+                while (MatchKeyword("for")); // Parse additional generators
+
+                // Consume closing '}'
+                if (!MatchLiteral("}"))
+                {
+#if DEBUG_LOG
+                    Console.WriteLine("[DEBUG] PEG: ParseDictComprehension missing '}'");
+#endif
+                    return null;
+                }
+
+#if DEBUG_LOG
+                Console.WriteLine("[DEBUG] PEG: ParseDictComprehension completed successfully");
+#endif
+                return new DictComprehension(key, value, generators);
+            });
+        }
+
+        /// <summary>
+        /// Parse set literal/comprehension
+        /// CPython 3.12 compatible: {element, ...} | {element for ...}
+        /// </summary>
+        private Expression ParseSet()
+        {
+            return ParseWithMemo("set", () =>
+            {
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseSet called at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
+
+                // Parse first element
+                var firstElement = ParseExpression();
+                if (firstElement == null)
+                {
+#if DEBUG_LOG
+                    Console.WriteLine("[DEBUG] PEG: ParseSet failed - no first element");
+#endif
+                    return null;
+                }
+
+                // Check for comprehension: 'for' keyword
+                if (MatchKeyword("for"))
+                {
+#if DEBUG_LOG
+                    Console.WriteLine("[DEBUG] PEG: ParseSet found 'for', parsing set comprehension");
+#endif
+                    return ParseSetComprehension(firstElement);
+                }
+
+                // It's a regular set literal
+                var elements = new List<Expression> { firstElement };
+
+                // Parse additional elements
+                while (MatchLiteral(","))
+                {
+                    if (MatchLiteral("}"))
+                    {
+                        // Trailing comma
+                        break;
+                    }
+
+                    var element = ParseExpression();
+                    if (element == null)
+                    {
+#if DEBUG_LOG
+                        Console.WriteLine("[DEBUG] PEG: ParseSet failed - invalid element");
+#endif
+                        return null;
+                    }
+
+                    elements.Add(element);
+                }
+
+                if (!MatchLiteral("}"))
+                {
+#if DEBUG_LOG
+                    Console.WriteLine("[DEBUG] PEG: ParseSet failed - no closing brace");
+#endif
+                    return null;
+                }
+
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseSet completed literal with {elements.Count} elements");
+#endif
+                return new SetExpression(elements);
+            });
+        }
+
+        /// <summary>
+        /// Parse set comprehension: {element for target in iter [if condition] [for target2 in iter2 ...]}
+        /// CPython 3.12 compatible comprehension parsing
+        /// </summary>
+        private Expression ParseSetComprehension(Expression element)
+        {
+            return ParseWithMemo("setcomp", () =>
+            {
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseSetComprehension called at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
+                var generators = new List<Comprehension>();
+
+                // Parse at least one generator: for target in iter [if condition]
+                do
+                {
+                    // Parse target (left side of 'in')
+                    var target = ParseComprehensionTarget();
+                    if (target == null)
+                    {
+#if DEBUG_LOG
+                        Console.WriteLine("[DEBUG] PEG: ParseSetComprehension failed - no target");
+#endif
+                        return null;
+                    }
+
+                    // Expect 'in' keyword
+                    if (!MatchKeyword("in"))
+                    {
+#if DEBUG_LOG
+                        Console.WriteLine("[DEBUG] PEG: ParseSetComprehension missing 'in' keyword");
+#endif
+                        return null;
+                    }
+
+                    // Parse iterable (right side of 'in')
+                    var iter = ParseComprehensionIterable();
+                    if (iter == null)
+                    {
+#if DEBUG_LOG
+                        Console.WriteLine("[DEBUG] PEG: ParseSetComprehension failed - no iterable");
+#endif
+                        return null;
+                    }
+
+                    // Parse optional 'if' conditions
+                    var conditions = new List<Expression>();
+                    while (MatchKeyword("if"))
+                    {
+                        var condition = ParseExpression();
+                        if (condition == null)
+                        {
+#if DEBUG_LOG
+                            Console.WriteLine("[DEBUG] PEG: ParseSetComprehension failed - invalid condition");
+#endif
+                            return null;
+                        }
+                        conditions.Add(condition);
+                    }
+
+                    generators.Add(new Comprehension(target, iter, conditions));
+                }
+                while (MatchKeyword("for")); // Parse additional generators
+
+                // Consume closing '}'
+                if (!MatchLiteral("}"))
+                {
+#if DEBUG_LOG
+                    Console.WriteLine("[DEBUG] PEG: ParseSetComprehension missing '}'");
+#endif
+                    return null;
+                }
+
+#if DEBUG_LOG
+                Console.WriteLine("[DEBUG] PEG: ParseSetComprehension completed successfully");
+#endif
+                return new SetComprehension(element, generators);
+            });
+        }
 
         // Function definition helpers
         public List<object> ParseDecorators() => null; // For now, no decorators
@@ -1795,6 +2343,55 @@ namespace SharpPy
             if (!MatchToken(TokenType.DEDENT)) return null;
 
             return statements;
+        }
+
+        /// <summary>
+        /// Parse target expression in comprehension, stopping at 'in' keyword
+        /// This prevents 'x in range(3)' from being parsed as a single comparison expression
+        /// </summary>
+        private Expression ParseComprehensionTarget()
+        {
+#if DEBUG_LOG
+            Console.WriteLine($"[DEBUG] PEG: ParseComprehensionTarget called at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
+            // For now, we'll parse a simple identifier (NAME token)
+            // TODO: Support more complex targets like tuple unpacking
+            if (CurrentToken?.Type == TokenType.NAME && CurrentToken.Lexeme != "in")
+            {
+                var name = CurrentToken.Lexeme;
+                _position++;
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseComprehensionTarget parsed NAME: {name}, position: {_position}");
+#endif
+                return new NameExpression(name);
+            }
+
+#if DEBUG_LOG
+            Console.WriteLine($"[DEBUG] PEG: ParseComprehensionTarget failed");
+#endif
+            return null;
+        }
+
+        /// <summary>
+        /// Parse iterable expression in comprehension, stopping at 'if' keyword
+        /// This prevents 'range(10) if condition else other' from being parsed as conditional expression
+        /// </summary>
+        private Expression ParseComprehensionIterable()
+        {
+#if DEBUG_LOG
+            Console.WriteLine($"[DEBUG] PEG: ParseComprehensionIterable called at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
+            // For comprehension iterable, we need to parse a full expression but stop at 'if'
+            // We'll use a restricted expression parser that doesn't include conditional expressions
+
+            // Parse primary expression chain: name, call, attribute access, etc.
+            var expr = ParseDisjunction(); // This covers most expressions without conditional
+
+#if DEBUG_LOG
+            Console.WriteLine($"[DEBUG] PEG: ParseComprehensionIterable parsed expression, position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
+#endif
+
+            return expr;
         }
 
         #endregion

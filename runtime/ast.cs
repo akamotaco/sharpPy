@@ -2139,17 +2139,31 @@ namespace SharpPy
             return Operator switch
             {
                 "+"   => left.Add(right),
+                "Add" => left.Add(right),
                 "-"   => left.Subtract(right),
+                "Sub" => left.Subtract(right),
                 "*"   => left.Multiply(right),
+                "Mult" => left.Multiply(right),
                 "/"   => left.Divide(right),
+                "Div" => left.Divide(right),
                 "//"  => left.FloorDivide(right),
+                "FloorDiv" => left.FloorDivide(right),
                 "%"   => left.Modulo(right),
+                "Mod" => left.Modulo(right),
                 "**"  => left.Power(right),
+                "Pow" => left.Power(right),
                 "&"   => left.BitwiseAnd(right),
+                "BitAnd" => left.BitwiseAnd(right),
                 "|"   => left.BitwiseOr(right),
+                "BitOr" => left.BitwiseOr(right),
                 "^"   => left.BitwiseXor(right),
+                "BitXor" => left.BitwiseXor(right),
                 "<<"  => left.LeftShift(right),
+                "LShift" => left.LeftShift(right),
                 ">>"  => left.RightShift(right),
+                "RShift" => left.RightShift(right),
+                // "@"   => left.MatrixMultiply(right),  // Not implemented yet
+                // "MatMult" => left.MatrixMultiply(right),  // Not implemented yet
                 _ => throw new NotImplementedException($"Binary operator {Operator} not implemented")
             };
         }

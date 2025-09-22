@@ -3214,18 +3214,31 @@ namespace SharpPy
             var operation = op switch
             {
                 "+" => BinaryOpType.ADD,                  // 0 ✅ 변경 없음
+                "Add" => BinaryOpType.ADD,                // Parser uses Add for +
                 "-" => BinaryOpType.SUBTRACT,             // 1 (was 9)
+                "Sub" => BinaryOpType.SUBTRACT,           // Parser uses Sub for -
                 "*" => BinaryOpType.MULTIPLY,             // 2 (was 5)
+                "Mult" => BinaryOpType.MULTIPLY,          // Parser uses Mult for *
                 "/" => BinaryOpType.TRUE_DIVIDE,          // 3 (was 11)
+                "Div" => BinaryOpType.TRUE_DIVIDE,        // Parser uses Div for /
                 "//" => BinaryOpType.FLOOR_DIVIDE,        // 4 (was 2)
+                "FloorDiv" => BinaryOpType.FLOOR_DIVIDE,  // Parser uses FloorDiv for //
                 "%" => BinaryOpType.MODULO,               // 5 (was 4)
+                "Mod" => BinaryOpType.MODULO,             // Parser uses Mod for %
                 "**" => BinaryOpType.POWER,               // 6 (was 8)
+                "Pow" => BinaryOpType.POWER,              // 6 (backward compatibility)
                 "<<" => BinaryOpType.LSHIFT,              // 7 (was 3)
+                "LShift" => BinaryOpType.LSHIFT,         // Parser uses LShift for <<
                 ">>" => BinaryOpType.RSHIFT,              // 8 (was 7)
+                "RShift" => BinaryOpType.RSHIFT,         // Parser uses RShift for >>
                 "|" => BinaryOpType.OR,                   // 9 (was 6)
+                "BitOr" => BinaryOpType.OR,              // Parser uses BitOr for |
                 "^" => BinaryOpType.XOR,                  // 10 (was 10)
+                "BitXor" => BinaryOpType.XOR,            // Parser uses BitXor for ^
                 "&" => BinaryOpType.AND,                  // 11 (was 1)
-                "@" => BinaryOpType.MATRIX_MULTIPLY,      // 12 (was 12)
+                "BitAnd" => BinaryOpType.AND,            // Parser uses BitAnd for &
+                // "@" => BinaryOpType.MATRIX_MULTIPLY,      // Not implemented yet
+                // "MatMult" => BinaryOpType.MATRIX_MULTIPLY, // Not implemented yet
                 // Note: "and" and "or" are now handled as BoolOpExpression, not BinaryOpExpression
                 _ => throw new NotImplementedException($"Binary operator '{op}' not implemented")
             };
@@ -3328,11 +3341,17 @@ namespace SharpPy
             var compareOp = op switch
             {
                 "<" => (int)CompareOp.LT,   // 2
+                "Lt" => (int)CompareOp.LT,  // Parser uses Lt for <
                 "<=" => (int)CompareOp.LE,  // 26
+                "LtE" => (int)CompareOp.LE, // Parser uses LtE for <=
                 "==" => (int)CompareOp.EQ,  // 40
+                "Eq" => (int)CompareOp.EQ,  // Parser uses Eq for ==
                 "!=" => (int)CompareOp.NE,  // 55
+                "NotEq" => (int)CompareOp.NE, // Parser uses NotEq for !=
                 ">" => (int)CompareOp.GT,   // 68
+                "Gt" => (int)CompareOp.GT,  // Parser uses Gt for >
                 ">=" => (int)CompareOp.GE,  // 92
+                "GtE" => (int)CompareOp.GE, // Parser uses GtE for >=
                 _ => throw new NotImplementedException($"Compare operator '{op}' not implemented")
             };
             EmitInstruction(ByteCodeOp.COMPARE_OP, compareOp);
@@ -3365,7 +3384,7 @@ namespace SharpPy
                 "|=" => BinaryOpType.OR,            // 9 (순서 변경됨)
                 "^=" => BinaryOpType.XOR,           // 10 (순서 변경됨)
                 "&=" => BinaryOpType.AND,           // 11 (순서 변경됨)
-                "@=" => BinaryOpType.MATRIX_MULTIPLY, // 12 (순서 변경됨)
+                // "@=" => BinaryOpType.MATRIX_MULTIPLY, // Not implemented yet
                 _ => throw new NotImplementedException($"Augment assign operator '{augAssign.Op}' not implemented")
             };
             
@@ -3418,7 +3437,7 @@ namespace SharpPy
                 "|" => BinaryOpType.OR,
                 "^" => BinaryOpType.XOR,
                 "&" => BinaryOpType.AND,
-                "@" => BinaryOpType.MATRIX_MULTIPLY,
+                // "@" => BinaryOpType.MATRIX_MULTIPLY,  // Not implemented yet
                 _ => throw new NotImplementedException($"Binary operator '{augAssign.Op}' not implemented")
             };
             
@@ -7849,10 +7868,7 @@ namespace SharpPy
             {
                 CompileExpression(condition);
                 conditionJumps.Add(_instructions.Count);
-                EmitInstruction(ByteCodeOp.POP_JUMP_IF_TRUE, 0); // 조건이 참이면 LIST_APPEND로 점프
-                
-                // CPython 패턴: 조건이 거짓이면 바로 JUMP_BACKWARD
-                EmitInstruction(ByteCodeOp.JUMP_BACKWARD, 0); // 패치 대상 - FOR_ITER로 돌아감
+                EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // 조건이 거짓이면 FOR_ITER로 점프 (CPython 패턴과 일치)
             }
             
             // CPython 패턴: 조건이 참일 때의 타겟 - LIST_APPEND 준비
@@ -7930,22 +7946,14 @@ namespace SharpPy
             for (int i = 0; i < conditionJumps.Count; i++)
             {
                 int popJumpIndex = conditionJumps[i];
-                int jumpBackwardIndex = popJumpIndex + 1;
 
-                // POP_JUMP_IF_TRUE: 조건이 참이면 LIST_APPEND로 점프
-                int relativeOffset = listAppendStart - popJumpIndex - 1;
-                _instructions[popJumpIndex] = new ByteCodeInstruction(
-                    ByteCodeOp.POP_JUMP_IF_TRUE,
-                    relativeOffset
-                );
-
-                // JUMP_BACKWARD: 조건이 거짓이면 FOR_ITER로 돌아감 (FOR_ITER가 있는 경우에만)
+                // POP_JUMP_IF_FALSE: 조건이 거짓이면 FOR_ITER로 점프 (CPython 패턴)
                 if (loopStart >= 0)
                 {
-                    int jumpBackArg = CalculateJumpBackwardArg(jumpBackwardIndex, loopStart);
-                    _instructions[jumpBackwardIndex] = new ByteCodeInstruction(
-                        ByteCodeOp.JUMP_BACKWARD,
-                        jumpBackArg
+                    int relativeOffset = loopStart - popJumpIndex - 1;
+                    _instructions[popJumpIndex] = new ByteCodeInstruction(
+                        ByteCodeOp.POP_JUMP_IF_FALSE,
+                        relativeOffset
                     );
                 }
             }
@@ -8075,10 +8083,7 @@ namespace SharpPy
                 {
                 CompileExpression(condition);
                 conditionJumps.Add(_instructions.Count);
-                EmitInstruction(ByteCodeOp.POP_JUMP_IF_TRUE, 0); // 조건이 참이면 내부 블록으로 점프
-                
-                // CPython 패턴: 조건이 거짓이면 바로 JUMP_BACKWARD
-                EmitInstruction(ByteCodeOp.JUMP_BACKWARD, 0); // 패치 대상 - FOR_ITER로 돌아감
+                EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // 조건이 거짓이면 JUMP_BACKWARD로 점프
             }
             
             // 다음 generator 재귀 호출
@@ -8094,21 +8099,14 @@ namespace SharpPy
             for (int i = 0; i < conditionJumps.Count; i++)
             {
                 int popJumpIndex = conditionJumps[i];
-                int jumpBackwardIndex = popJumpIndex + 1;
-                
-                // POP_JUMP_IF_TRUE: 조건이 참이면 내부 블록(다음 generator 또는 LIST_APPEND)으로 점프
-                int innerBlockStart = jumpBackwardIndex + 1; // JUMP_BACKWARD 다음부터 내부 블록
-                int relativeOffset = innerBlockStart - popJumpIndex - 1;
+
+                // POP_JUMP_IF_FALSE: 조건이 거짓이면 JUMP_BACKWARD로 점프 (CPython 패턴)
+                // 조건이 참이면 다음 코드를 실행 (다음 generator 또는 innerBlock)
+                int jumpBackwardPos = _instructions.Count - 1; // JUMP_BACKWARD 위치
+                int relativeOffset = jumpBackwardPos - popJumpIndex - 1;
                 _instructions[popJumpIndex] = new ByteCodeInstruction(
-                    ByteCodeOp.POP_JUMP_IF_TRUE, 
+                    ByteCodeOp.POP_JUMP_IF_FALSE,
                     relativeOffset
-                );
-                
-                // JUMP_BACKWARD: 조건이 거짓이면 FOR_ITER로 돌아감
-                int jumpBackArg = CalculateJumpBackwardArg(jumpBackwardIndex, loopStart);
-                _instructions[jumpBackwardIndex] = new ByteCodeInstruction(
-                    ByteCodeOp.JUMP_BACKWARD, 
-                    jumpBackArg
                 );
             }
             

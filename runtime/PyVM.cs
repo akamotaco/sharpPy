@@ -947,22 +947,38 @@ namespace SharpPy
                     if (clearArgIndex < frame.Code.VarNames.Count)
                     {
                         var clearVarName = frame.Code.VarNames[clearArgIndex];
+
+                        // Try fast locals first
                         if (frame.FastLocals.TryGetValue(clearVarName, out var clearValue))
                         {
                             frame.ValueStack.Push(clearValue);
                             // Clear the variable from locals (PEP 709 requirement)
                             frame.FastLocals.Remove(clearVarName);
                             #if DEBUG_LOG
-                            Console.WriteLine($"🧹 LOAD_FAST_AND_CLEAR: loaded {clearVarName}={clearValue}, cleared from locals");
+                            Console.WriteLine($"🧹 LOAD_FAST_AND_CLEAR: loaded {clearVarName}={clearValue} from fast locals, cleared");
                             #endif
                         }
+                        // If not in fast locals, try global scope (for module-level variables)
                         else
                         {
-                            // CPython 3.12: Load NULL if variable doesn't exist (for comprehensions)
-                            frame.ValueStack.Push(PyNull.Instance);
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🧹 LOAD_FAST_AND_CLEAR: {clearVarName} not found, loaded NULL");
-                            #endif
+                            try
+                            {
+                                var globalVal = frame.ScopeChain.LookupVariable(clearVarName);
+                                frame.ValueStack.Push(globalVal);
+                                // Store original value in fast locals for proper restoration
+                                frame.FastLocals[clearVarName] = globalVal;
+                                #if DEBUG_LOG
+                                Console.WriteLine($"🧹 LOAD_FAST_AND_CLEAR: loaded {clearVarName}={globalVal} from global scope, saved to fast locals");
+                                #endif
+                            }
+                            catch (System.Exception ex) when (ex.Message.Contains("is not defined"))
+                            {
+                                // CPython 3.12: Load NULL if variable doesn't exist (for comprehensions)
+                                frame.ValueStack.Push(PyNull.Instance);
+                                #if DEBUG_LOG
+                                Console.WriteLine($"🧹 LOAD_FAST_AND_CLEAR: {clearVarName} not found in fast locals or globals, loaded NULL");
+                                #endif
+                            }
                         }
                     }
                     else
