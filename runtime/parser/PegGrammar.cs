@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace SharpPy.PegParser
+namespace SharpPy.Parser
 {
     /// <summary>
     /// Represents a PEG grammar rule

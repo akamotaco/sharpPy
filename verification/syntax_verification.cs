@@ -9,11 +9,11 @@ namespace SharpPy.Verification
     /// </summary>
     public class Python312SyntaxVerification
     {
-        private readonly SimpleParser parser;
-        
+        // Using CPython 3.12 compatible PEG parser
+
         public Python312SyntaxVerification()
         {
-            parser = new SimpleParser();
+            // CPython 3.12 compatible PEG parser is used via PyParserBridge
         }
         
         /// <summary>
@@ -86,7 +86,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = parser.Parse(testCase);
+                    var result = PyParserBridge.ParseSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공 ({result.Count} 노드)");
                 }
                 catch (Exception ex)
@@ -112,7 +112,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = parser.Parse(testCase);
+                    var result = PyParserBridge.ParseSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -138,7 +138,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = parser.Parse(testCase);
+                    var result = PyParserBridge.ParseSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -164,7 +164,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = parser.Parse(testCase);
+                    var result = PyParserBridge.ParseSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -190,7 +190,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = parser.Parse(testCase);
+                    var result = PyParserBridge.ParseSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -216,7 +216,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = parser.Parse(testCase);
+                    var result = PyParserBridge.ParseSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -246,7 +246,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = parser.Parse(testCase);
+                    var result = PyParserBridge.ParseSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -276,7 +276,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = parser.Parse(testCase);
+                    var result = PyParserBridge.ParseSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -303,7 +303,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = parser.Parse(testCase);
+                    var result = PyParserBridge.ParseSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -330,7 +330,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = parser.Parse(testCase);
+                    var result = PyParserBridge.ParseSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -367,7 +367,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = parser.Parse(testCase);
+                    var result = PyParserBridge.ParseSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -394,7 +394,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = parser.Parse(testCase);
+                    var result = PyParserBridge.ParseSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -419,7 +419,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = parser.Parse(testCase);
+                    var result = PyParserBridge.ParseSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -454,7 +454,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = parser.Parse(testCase);
+                    var result = PyParserBridge.ParseSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -490,7 +490,7 @@ namespace SharpPy.Verification
             
             // Enhanced error messages and debugging info
             Console.WriteLine("\n🔍 추가 검증 정보:");
-            Console.WriteLine($"  - 파서 버전: {parser.GetType().Name}");
+            Console.WriteLine($"  - 파서 버전: CPython 3.12 compatible PEG parser");
             Console.WriteLine($"  - 지원하는 AST 노드 유형: 70+ 종류");
             Console.WriteLine($"  - 지원하는 바이트코드 옵코드: 220+ 개");
             Console.WriteLine($"  - Python 3.12 호환성: 100%");
@@ -500,7 +500,7 @@ namespace SharpPy.Verification
         {
             try
             {
-                var result = parser.Parse(testCase);
+                var result = PyParserBridge.ParseSource(testCase);
                 var nodeTypes = string.Join(", ", result.ConvertAll(r => r.NodeType));
                 Console.WriteLine($"  ✓ {testCase}");
                 Console.WriteLine($"    -> AST 노드: [{nodeTypes}]");

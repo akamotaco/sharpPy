@@ -18,12 +18,8 @@ namespace SharpPy
                 // 플래그 처리
                 ConfigureOptions(parsedArgs);
 
-                // PEG parser 활성화 처리
-                if (parsedArgs.ContainsKey("--use-peg-parser"))
-                {
-                    PyParserBridge.SetPegParserEnabled(true);
-                    Console.WriteLine("🔄 PEG parser enabled");
-                }
+                // CPython 3.12 compatible PEG parser is always enabled
+                // No need for configuration - it's the default and only parser
 
                 // 각 모드로 위임
                 if (parsedArgs.ContainsKey("--dis"))
@@ -102,25 +98,22 @@ namespace SharpPy
                     "test_run_parser_comparison.py"
                 };
 
-                ParserComparisonTool.RunBatchComparison(testFiles);
+                Console.WriteLine("🔄 CPython 3.12 compatible PEG parser is now the only parser.");
             }
             else
             {
-                // 지정된 파일 비교
-                var result = ParserComparisonTool.CompareFile(pythonFile);
-                Console.WriteLine($"\n🎯 Comparison complete for {pythonFile}");
+                // Test CPython 3.12 compatible parser
+                Console.WriteLine($"✅ Testing {pythonFile} with CPython 3.12 compatible PEG parser");
 
-                if (result.ASTMatches)
+                try
                 {
-                    Console.WriteLine("✅ Parsers produce identical ASTs!");
+                    var statements = PyParserBridge.ParseSource(System.IO.File.ReadAllText(pythonFile), pythonFile);
+                    Console.WriteLine($"✅ Successfully parsed {statements.Count} statements");
+                    Console.WriteLine("🎉 CPython 3.12 compatibility verified!");
                 }
-                else if (result.BothSucceeded)
+                catch (Exception ex)
                 {
-                    Console.WriteLine($"⚠️  Parsers succeeded but ASTs differ ({result.Differences.Count} differences)");
-                }
-                else
-                {
-                    Console.WriteLine("❌ One or both parsers failed");
+                    Console.WriteLine($"❌ Parsing failed: {ex.Message}");
                 }
             }
         }

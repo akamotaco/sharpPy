@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace SharpPy.PegParser
+namespace SharpPy.Parser
 {
     /// <summary>
     /// Represents a left recursion head for Warth et al.'s left recursion algorithm
@@ -252,7 +252,7 @@ namespace SharpPy.PegParser
     }
 }
 
-namespace SharpPy.PegParser
+namespace SharpPy.Parser
 {
     /// <summary>
     /// Enhanced packrat parser base class with left recursion support

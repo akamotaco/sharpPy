@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace SharpPy.PegParser
+namespace SharpPy.Parser
 {
     /// <summary>
     /// Parser for PEG grammar files

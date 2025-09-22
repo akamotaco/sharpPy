@@ -4,6 +4,12 @@ using System.Linq;
 
 namespace SharpPy
 {
+    // CPython 3.12 스타일 SyntaxError 예외 클래스
+    public class PySyntaxErrorException : Exception
+    {
+        public PySyntaxErrorException(string message) : base(message) { }
+    }
+
     /// <summary>
     /// Return 문과 yield 문을 위한 예외 클래스
     /// </summary>

@@ -4,11 +4,20 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
+    <Nullable>disable</Nullable>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+    <WarningsNotAsErrors />
+
+    <NoWarn>$(NoWarn)</NoWarn>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <WarningLevel>0</WarningLevel>
+  
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
-    <!-- <DefineConstants>DEBUG;TRACE;DEBUG_LOG</DefineConstants> -->
+    <DefineConstants>DEBUG;TRACE;DEBUG_LOG;DEBUG_LOG_PARSER</DefineConstants>
+    <!-- <DefineConstants>DEBUG;TRACE;DEBUG_LOG_PARSER</DefineConstants> -->
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">

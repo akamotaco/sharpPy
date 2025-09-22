@@ -5,7 +5,7 @@ namespace SharpPy
     // 통합 Python 인터프리터 (기존 시스템 활용)
     public class IntegratedPythonInterpreter
     {
-        private readonly SimpleParser _parser;
+        // Using CPython 3.12 compatible PEG parser via bridge
         private readonly PythonCompiler _compiler;
         private readonly PyVM _vm;
         private readonly PyScopeChain _globalScope;
@@ -16,7 +16,7 @@ namespace SharpPy
         
         public IntegratedPythonInterpreter()
         {
-            _parser = new SimpleParser();
+            // CPython 3.12 compatible PEG parser is used via PyParserBridge
             _compiler = new PythonCompiler();
             _vm = PyVM.Instance;
             _globalScope = new PyScopeChain(); // 기존 LEGB 시스템!
@@ -70,7 +70,7 @@ namespace SharpPy
                 Console.WriteLine("1️⃣ 파싱: 소스 → AST");
                 Console.WriteLine(new string('=', 30));
 #endif
-                var statements = _parser.Parse(sourceCode, fileName ?? "<string>");
+                var statements = PyParserBridge.ParseSource(sourceCode, fileName ?? "<string>");
                 
                 // 2단계: 컴파일 (AST → 바이트코드)
 #if DEBUG_LOG

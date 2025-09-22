@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace SharpPy.PegParser
+namespace SharpPy.Parser
 {
     /// <summary>
     /// Generates C# parser code from PEG grammar
