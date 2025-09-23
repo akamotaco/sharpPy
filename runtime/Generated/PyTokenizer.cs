@@ -169,54 +169,54 @@ namespace SharpPy.Generated
 
         private static readonly Dictionary<string, GeneratedTokenType> Operators = new()
         {
-            { "<<=", GeneratedTokenType.LEFTSHIFTEQUAL },
-            { ">>=", GeneratedTokenType.RIGHTSHIFTEQUAL },
-            { "**=", GeneratedTokenType.DOUBLESTAREQUAL },
-            { "//=", GeneratedTokenType.DOUBLESLASHEQUAL },
-            { "...", GeneratedTokenType.ELLIPSIS },
-            { "==", GeneratedTokenType.EQEQUAL },
-            { "!=", GeneratedTokenType.NOTEQUAL },
-            { "<=", GeneratedTokenType.LESSEQUAL },
-            { ">=", GeneratedTokenType.GREATEREQUAL },
-            { "<<", GeneratedTokenType.LEFTSHIFT },
-            { ">>", GeneratedTokenType.RIGHTSHIFT },
-            { "**", GeneratedTokenType.DOUBLESTAR },
-            { "+=", GeneratedTokenType.PLUSEQUAL },
-            { "-=", GeneratedTokenType.MINEQUAL },
-            { "*=", GeneratedTokenType.STAREQUAL },
-            { "/=", GeneratedTokenType.SLASHEQUAL },
-            { "%=", GeneratedTokenType.PERCENTEQUAL },
-            { "&=", GeneratedTokenType.AMPEREQUAL },
-            { "|=", GeneratedTokenType.VBAREQUAL },
-            { "^=", GeneratedTokenType.CIRCUMFLEXEQUAL },
-            { "//", GeneratedTokenType.DOUBLESLASH },
-            { "@=", GeneratedTokenType.ATEQUAL },
-            { "->", GeneratedTokenType.RARROW },
-            { ":=", GeneratedTokenType.COLONEQUAL },
-            { "(", GeneratedTokenType.LPAR },
-            { ")", GeneratedTokenType.RPAR },
-            { "[", GeneratedTokenType.LSQB },
-            { "]", GeneratedTokenType.RSQB },
-            { ":", GeneratedTokenType.COLON },
-            { ",", GeneratedTokenType.COMMA },
-            { ";", GeneratedTokenType.SEMI },
-            { "+", GeneratedTokenType.PLUS },
-            { "-", GeneratedTokenType.MINUS },
-            { "*", GeneratedTokenType.STAR },
-            { "/", GeneratedTokenType.SLASH },
-            { "|", GeneratedTokenType.VBAR },
-            { "&", GeneratedTokenType.AMPER },
-            { "<", GeneratedTokenType.LESS },
-            { ">", GeneratedTokenType.GREATER },
-            { "=", GeneratedTokenType.EQUAL },
-            { ".", GeneratedTokenType.DOT },
-            { "%", GeneratedTokenType.PERCENT },
-            { "{", GeneratedTokenType.LBRACE },
-            { "}", GeneratedTokenType.RBRACE },
-            { "~", GeneratedTokenType.TILDE },
-            { "^", GeneratedTokenType.CIRCUMFLEX },
-            { "@", GeneratedTokenType.AT },
-            { "!", GeneratedTokenType.EXCLAMATION },
+            { "<<=", GeneratedTokenType.OP },
+            { ">>=", GeneratedTokenType.OP },
+            { "**=", GeneratedTokenType.OP },
+            { "//=", GeneratedTokenType.OP },
+            { "...", GeneratedTokenType.OP },
+            { "==", GeneratedTokenType.OP },
+            { "!=", GeneratedTokenType.OP },
+            { "<=", GeneratedTokenType.OP },
+            { ">=", GeneratedTokenType.OP },
+            { "<<", GeneratedTokenType.OP },
+            { ">>", GeneratedTokenType.OP },
+            { "**", GeneratedTokenType.OP },
+            { "+=", GeneratedTokenType.OP },
+            { "-=", GeneratedTokenType.OP },
+            { "*=", GeneratedTokenType.OP },
+            { "/=", GeneratedTokenType.OP },
+            { "%=", GeneratedTokenType.OP },
+            { "&=", GeneratedTokenType.OP },
+            { "|=", GeneratedTokenType.OP },
+            { "^=", GeneratedTokenType.OP },
+            { "//", GeneratedTokenType.OP },
+            { "@=", GeneratedTokenType.OP },
+            { "->", GeneratedTokenType.OP },
+            { ":=", GeneratedTokenType.OP },
+            { "(", GeneratedTokenType.OP },
+            { ")", GeneratedTokenType.OP },
+            { "[", GeneratedTokenType.OP },
+            { "]", GeneratedTokenType.OP },
+            { ":", GeneratedTokenType.OP },
+            { ",", GeneratedTokenType.OP },
+            { ";", GeneratedTokenType.OP },
+            { "+", GeneratedTokenType.OP },
+            { "-", GeneratedTokenType.OP },
+            { "*", GeneratedTokenType.OP },
+            { "/", GeneratedTokenType.OP },
+            { "|", GeneratedTokenType.OP },
+            { "&", GeneratedTokenType.OP },
+            { "<", GeneratedTokenType.OP },
+            { ">", GeneratedTokenType.OP },
+            { "=", GeneratedTokenType.OP },
+            { ".", GeneratedTokenType.OP },
+            { "%", GeneratedTokenType.OP },
+            { "{", GeneratedTokenType.OP },
+            { "}", GeneratedTokenType.OP },
+            { "~", GeneratedTokenType.OP },
+            { "^", GeneratedTokenType.OP },
+            { "@", GeneratedTokenType.OP },
+            { "!", GeneratedTokenType.OP },
         };
 
         public GeneratedPyTokenizer(string source, string filename = "<string>")
@@ -247,7 +247,6 @@ namespace SharpPy.Generated
 
                 if (char.IsWhiteSpace(CurrentChar))
                 {
-                    Console.WriteLine("[DEBUG] Whitespace found: '");
                     // Skip whitespace handling if we're at line start
                     // (HandleIndentation already processed leading whitespace)
                     if (!_atLineStart)
@@ -435,7 +434,6 @@ namespace SharpPy.Generated
         {
             if (!_atLineStart) return;
 
-            Console.WriteLine("DEBUG: HandleIndentation called, atLineStart=" + _atLineStart + ", line=" + _line + ", col=" + _column);
             // Calculate current line indentation
             int indent = 0;
             while (_position < _source.Length && (CurrentChar == ' ' || CurrentChar == '\t'))
@@ -444,23 +442,19 @@ namespace SharpPy.Generated
                 Advance();
             }
 
-            Console.WriteLine("DEBUG: Calculated indent=" + indent + ", currentChar='" + CurrentChar + "'");
             // Skip empty lines and comment lines
             if (_position >= _source.Length || CurrentChar == '\n' || CurrentChar == '#')
             {
-                Console.WriteLine("DEBUG: Skipping empty line or comment");
                 return;
             }
 
             // Handle indentation changes
             int currentLevel = _indentStack.Peek();
-            Console.WriteLine("DEBUG: indent=" + indent + ", currentLevel=" + currentLevel);
             if (indent > currentLevel)
             {
                 // Increased indentation - INDENT
                 _indentStack.Push(indent);
                 var indentText = new string(' ', indent);
-                Console.WriteLine("DEBUG: Generated INDENT");
                 AddToken(GeneratedTokenType.INDENT, indentText, _line, 0);
             }
             else if (indent < currentLevel)
@@ -469,7 +463,6 @@ namespace SharpPy.Generated
                 while (_indentStack.Count > 1 && _indentStack.Peek() > indent)
                 {
                     int dedentLevel = _indentStack.Pop();
-                    Console.WriteLine("DEBUG: Generated DEDENT");
                     AddToken(GeneratedTokenType.DEDENT, "", _line, 0);
                 }
 

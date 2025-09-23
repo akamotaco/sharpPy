@@ -182,7 +182,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 var sortedOperators = operators.OrderByDescending(op => op.Value.Length);
                 foreach (var op in sortedOperators)
                 {
-                    WriteLine($"{{ \"{EscapeString(op.Value)}\", GeneratedTokenType.{op.Name} }},");
+                    WriteLine($"{{ \"{EscapeString(op.Value)}\", GeneratedTokenType.OP }},");
                 }
 
                 Dedent();
@@ -242,7 +242,6 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (char.IsWhiteSpace(CurrentChar))");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine(\"[DEBUG] Whitespace found: '\");");
             WriteLine("// Skip whitespace handling if we're at line start");
             WriteLine("// (HandleIndentation already processed leading whitespace)");
             WriteLine("if (!_atLineStart)");
@@ -525,7 +524,6 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
             WriteLine("if (!_atLineStart) return;");
             WriteLine();
-            WriteLine("Console.WriteLine(\"DEBUG: HandleIndentation called, atLineStart=\" + _atLineStart + \", line=\" + _line + \", col=\" + _column);");
             WriteLine("// Calculate current line indentation");
             WriteLine("int indent = 0;");
             WriteLine("while (_position < _source.Length && (CurrentChar == ' ' || CurrentChar == '\\t'))");
@@ -536,26 +534,22 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Dedent();
             WriteLine("}");
             WriteLine();
-            WriteLine("Console.WriteLine(\"DEBUG: Calculated indent=\" + indent + \", currentChar='\" + CurrentChar + \"'\");");
             WriteLine("// Skip empty lines and comment lines");
             WriteLine("if (_position >= _source.Length || CurrentChar == '\\n' || CurrentChar == '#')");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine(\"DEBUG: Skipping empty line or comment\");");
             WriteLine("return;");
             Dedent();
             WriteLine("}");
             WriteLine();
             WriteLine("// Handle indentation changes");
             WriteLine("int currentLevel = _indentStack.Peek();");
-            WriteLine("Console.WriteLine(\"DEBUG: indent=\" + indent + \", currentLevel=\" + currentLevel);");
             WriteLine("if (indent > currentLevel)");
             WriteLine("{");
             Indent();
             WriteLine("// Increased indentation - INDENT");
             WriteLine("_indentStack.Push(indent);");
             WriteLine("var indentText = new string(' ', indent);");
-            WriteLine("Console.WriteLine(\"DEBUG: Generated INDENT\");");
             WriteLine("AddToken(GeneratedTokenType.INDENT, indentText, _line, 0);");
             Dedent();
             WriteLine("}");
@@ -567,7 +561,6 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("int dedentLevel = _indentStack.Pop();");
-            WriteLine("Console.WriteLine(\"DEBUG: Generated DEDENT\");");
             WriteLine("AddToken(GeneratedTokenType.DEDENT, \"\", _line, 0);");
             Dedent();
             WriteLine("}");
