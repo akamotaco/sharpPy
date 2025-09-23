@@ -41,6 +41,10 @@ namespace SharpPy.PegGenerator
                             if (i + 1 < args.Length)
                                 tokenizerOutputPath = args[++i];
                             break;
+                        case "--test-simple":
+                            // Test with simple grammar
+                            grammarPath = Path.Combine("..", "Grammar", "test_simple.gram");
+                            break;
                         case "--help":
                             ShowHelp();
                             return;
