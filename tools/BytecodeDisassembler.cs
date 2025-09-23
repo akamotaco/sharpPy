@@ -63,18 +63,18 @@ namespace SharpPy.Tools
             var constants = codeObject.Constants;
             var names = codeObject.Names;
             var varNames = codeObject.VarNames;
-            
+
             // CPython 3.12 정확한 바이트 오프셋 누적 계산
             int currentByteOffset = 0;
-            
+
             for (int i = 0; i < instructions.Count; i++)
             {
                 var instruction = instructions[i];
-                
+
                 // CPython 호환 형식 출력
                 string line = FormatActualInstruction(i, currentByteOffset, instruction, constants, names, varNames);
                 Console.WriteLine(line);
-                
+
                 // 다음 명령어를 위한 바이트 오프셋 누적 계산
                 currentByteOffset += PyJumpBackwardUtil.GetCPythonInstructionSize(instruction.OpCode, instruction.Argument);
             }
@@ -87,6 +87,26 @@ namespace SharpPy.Tools
                 {
                     var lastiFlag = entry.Lasti ? " lasti" : "";
                     Console.WriteLine($"  {entry.StartOffset} to {entry.EndOffset} -> {entry.HandlerOffset} [{entry.Depth}]{lastiFlag}");
+                }
+            }
+
+            // CPython style: 중첩된 코드 객체들도 표시 (제너레이터, 함수 등)
+            ShowNestedCodeObjects(constants);
+        }
+
+        /// <summary>
+        /// 상수 배열에서 중첩된 코드 객체들을 찾아서 디스어셈블
+        /// </summary>
+        /// <param name="constants">상수 배열</param>
+        private void ShowNestedCodeObjects(List<PyObject> constants)
+        {
+            foreach (var constant in constants)
+            {
+                if (constant is PyCodeObject nestedCode)
+                {
+                    Console.WriteLine(); // 빈 줄로 구분
+                    Console.WriteLine($"Disassembly of {nestedCode}:");
+                    ShowActualBytecode(nestedCode);
                 }
             }
         }

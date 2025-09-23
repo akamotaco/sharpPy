@@ -528,18 +528,37 @@ namespace SharpPy
     {
         public override string NodeType => "Yield";
         public Expression? Value { get; }
-        
+
         public YieldStatement(Expression? value = null)
         {
             Value = value;
         }
-        
+
         public override PyObject Evaluate(PyScope scope)
         {
             var result = Value?.Evaluate(scope) ?? PyNone.Instance;
             throw new PyYieldException(result);
         }
-        
+
+        public override string ToString() => $"yield {Value?.ToString() ?? ""}";
+    }
+
+    public class YieldExpression : Expression
+    {
+        public override string NodeType => "Yield";
+        public Expression? Value { get; }
+
+        public YieldExpression(Expression? value = null)
+        {
+            Value = value;
+        }
+
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var result = Value?.Evaluate(scope) ?? PyNone.Instance;
+            throw new PyYieldException(result);
+        }
+
         public override string ToString() => $"yield {Value?.ToString() ?? ""}";
     }
 
@@ -547,12 +566,12 @@ namespace SharpPy
     {
         public override string NodeType => "YieldFrom";
         public Expression Value { get; }
-        
+
         public YieldFromStatement(Expression value)
         {
             Value = value;
         }
-        
+
         public override PyObject Evaluate(PyScope scope)
         {
             var iterable = Value.Evaluate(scope);
@@ -576,7 +595,44 @@ namespace SharpPy
             }
             throw new PyYieldException(iterable);
         }
-        
+
+        public override string ToString() => $"yield from {Value}";
+    }
+
+    public class YieldFromExpression : Expression
+    {
+        public override string NodeType => "YieldFrom";
+        public Expression Value { get; }
+
+        public YieldFromExpression(Expression value)
+        {
+            Value = value;
+        }
+
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var iterable = Value.Evaluate(scope);
+            // yield from은 복잡한 구현이 필요하므로 간단히 구현
+            if (iterable is PyGenerator generator)
+            {
+                // 실제로는 모든 값을 yield해야 하지만, 여기서는 마지막 값만 반환
+                PyObject lastValue = PyNone.Instance;
+                try
+                {
+                    while (true)
+                    {
+                        lastValue = generator.Next();
+                        throw new PyYieldException(lastValue);
+                    }
+                }
+                catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                {
+                    return lastValue;
+                }
+            }
+            throw new PyYieldException(iterable);
+        }
+
         public override string ToString() => $"yield from {Value}";
     }
 

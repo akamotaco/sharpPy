@@ -1470,9 +1470,10 @@ namespace SharpPy
                 Console.WriteLine($"🔍 Generator 함수 감지: {name}, RETURN_GENERATOR 추가");
                 #endif
                 
-                // RETURN_GENERATOR를 첫 번째 명령어로 삽입
+                // CPython 3.12: RETURN_GENERATOR -> POP_TOP -> RESUME 0 패턴
                 _instructions.Insert(0, new ByteCodeInstruction(ByteCodeOp.RETURN_GENERATOR, 0));
                 _instructions.Insert(1, new ByteCodeInstruction(ByteCodeOp.POP_TOP, 0));
+                _instructions.Insert(2, new ByteCodeInstruction(ByteCodeOp.RESUME, 0));
                 
                 // CO_GENERATOR 플래그 추가
                 flags |= PyCodeObject.CO_GENERATOR;
@@ -2132,6 +2133,23 @@ namespace SharpPy
                     Console.WriteLine($"[DEBUG] Compiler: Compiling FStringFormattedValue");
 #endif
                     CompileFStringFormattedValue(fstringValue);
+                    break;
+
+                case YieldExpression yieldExpr:
+                    if (yieldExpr.Value != null)
+                        CompileExpression(yieldExpr.Value);
+                    else
+                        EmitLoadConst(PyNone.Instance);
+                    EmitInstruction(ByteCodeOp.YIELD_VALUE, 1); // CPython 3.12: yield_value argument 1
+                    EmitInstruction(ByteCodeOp.RESUME, 1); // CPython 3.12: Resume after yield
+                    EmitInstruction(ByteCodeOp.POP_TOP); // CPython 3.12: POP_TOP after resume
+                    break;
+
+                case YieldFromExpression yieldFromExpr:
+                    CompileExpression(yieldFromExpr.Value);
+                    EmitInstruction(ByteCodeOp.GET_ITER);
+                    // CPython 3.12: YIELD_FROM removed, use yield loop pattern
+                    EmitInstruction(ByteCodeOp.YIELD_VALUE);
                     break;
 
                 default:

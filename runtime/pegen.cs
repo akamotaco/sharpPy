@@ -1676,14 +1676,46 @@ namespace SharpPy
         public Statement ParseImportStmt() => null;
         public Statement ParseRaiseStmt() => null;
         public Statement ParseDelStmt() => null;
-        public Expression ParseYieldStmt() => null;
+        public Expression ParseYieldStmt()
+        {
+            // yield_stmt: yield_expr
+            if (CurrentToken?.Lexeme != "yield")
+                return null;
+
+            return ParseYieldExpr();
+        }
         public Statement ParseAssertStmt() => null;
         public Statement ParseGlobalStmt() => null;
         public Statement ParseNonlocalStmt() => null;
         public Expression ParseStarExpressions() => ParseExpression();
         public Expression ParseStarTargets() => ParseExpression();
         public Expression ParseSingleTarget() => ParseExpression();
-        public Expression ParseYieldExpr() => null;
+        public Expression ParseYieldExpr()
+        {
+            // yield_expr: 'yield' 'from' expression | 'yield' [expression_list]
+            if (CurrentToken?.Lexeme != "yield")
+                return null;
+
+            var yieldToken = CurrentToken;
+            _position++; // consume 'yield'
+
+            // Check for 'yield from'
+            if (CurrentToken?.Lexeme == "from")
+            {
+                _position++; // consume 'from'
+                var expression = ParseExpression();
+                if (expression == null)
+                    throw new PySyntaxErrorException("Expected expression after 'yield from'");
+
+                return new YieldFromExpression(expression);
+            }
+            else
+            {
+                // Regular yield: optional expression
+                var expression = ParseExpression();
+                return new YieldExpression(expression); // expression can be null for bare yield
+            }
+        }
         public Expression ParseLambdef() => null;
         /// <summary>
         /// arguments: args (',' args)* [',']
@@ -1723,7 +1755,128 @@ namespace SharpPy
             return argList;
         }
         public Expression ParseSlices() => ParseExpression();
-        public Expression ParseTupleOrGroup() => ParseExpression();
+        public Expression ParseTupleOrGroup()
+        {
+            // Opening '(' already consumed by MatchLiteral("(")
+
+            // Check for empty tuple: ()
+            if (MatchLiteral(")"))
+            {
+                return new TupleExpression(new List<Expression>());
+            }
+
+            // Parse first expression
+            var firstExpr = ParseExpression();
+            if (firstExpr == null)
+            {
+                // Malformed expression in parentheses
+                return null;
+            }
+
+            // Check if this is a generator expression: (expr for ...)
+            if (CurrentToken?.Lexeme == "for")
+            {
+                return ParseGeneratorExpression(firstExpr);
+            }
+
+            // Check if this is a tuple: (expr, ...)
+            if (MatchLiteral(","))
+            {
+                var elements = new List<Expression> { firstExpr };
+
+                // Parse remaining elements
+                while (!MatchLiteral(")"))
+                {
+                    var element = ParseExpression();
+                    if (element != null)
+                    {
+                        elements.Add(element);
+                    }
+
+                    if (!MatchLiteral(","))
+                    {
+                        break;
+                    }
+                }
+
+                // Consume closing ')'
+                if (!MatchLiteral(")"))
+                {
+                    throw new PySyntaxErrorException("Expected ')' in tuple");
+                }
+
+                return new TupleExpression(elements);
+            }
+
+            // This is a grouped expression: (expr)
+            if (!MatchLiteral(")"))
+            {
+                throw new PySyntaxErrorException("Expected ')' after expression");
+            }
+
+            return firstExpr; // Return the expression without wrapping
+        }
+
+        private Expression ParseGeneratorExpression(Expression element)
+        {
+            // Parse: (element for target in iterable [if condition] [for target2 in iterable2 [if condition2] ...])
+            // 'for' keyword already detected
+
+            var comprehensions = new List<Comprehension>();
+
+            // Parse all for clauses in sequence
+            while (MatchKeyword("for"))
+            {
+                // Parse target variable (should be simple name like 'x')
+                var target = ParseAtom(); // Use ParseAtom instead of ParseExpression to avoid consuming too much
+                if (target == null)
+                {
+                    throw new PySyntaxErrorException("Expected target in generator expression");
+                }
+
+                if (!MatchKeyword("in"))
+                {
+                    throw new PySyntaxErrorException($"Expected 'in' in generator expression, found: {CurrentToken?.Lexeme}");
+                }
+
+                // Parse iterable
+                var iterable = ParseExpression();
+                if (iterable == null)
+                {
+                    throw new PySyntaxErrorException("Expected iterable in generator expression");
+                }
+
+                var conditions = new List<Expression>();
+
+                // Parse all 'if' conditions for this 'for' clause
+                while (MatchKeyword("if"))
+                {
+                    var condition = ParseExpression();
+                    if (condition == null)
+                    {
+                        throw new PySyntaxErrorException("Expected condition after 'if'");
+                    }
+                    conditions.Add(condition);
+                }
+
+                // Create Comprehension object for this 'for' clause
+                var comprehension = new Comprehension(target, iterable, conditions);
+                comprehensions.Add(comprehension);
+            }
+
+            // Consume closing ')'
+            if (!MatchLiteral(")"))
+            {
+                throw new PySyntaxErrorException("Expected ')' after generator expression");
+            }
+
+            if (comprehensions.Count == 0)
+            {
+                throw new PySyntaxErrorException("Generator expression must have at least one 'for' clause");
+            }
+
+            return new GeneratorExpression(element, comprehensions);
+        }
         /// <summary>
         /// Parse list with CPython 3.12 compatible BUILD_LIST generation
         /// list: '[' [star_named_expressions] ']' | '[' listcomp ']'
