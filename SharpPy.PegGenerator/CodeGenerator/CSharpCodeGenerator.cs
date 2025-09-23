@@ -140,19 +140,35 @@ namespace SharpPy.PegGenerator.CodeGenerator
         {
             try
             {
-                // Remove action code in braces
-                body = Regex.Replace(body, @"\{[^}]*\}", "").Trim();
+                // Extract and preserve action code, then split by | for alternatives
+                var alternatives = new List<string>();
+                var actions = new List<string?>();
 
-                // Split by | for alternatives
-                var alternatives = body.Split('|')
-                    .Select(alt => alt.Trim())
-                    .Where(alt => !string.IsNullOrEmpty(alt))
-                    .ToList();
+                // Split by | while preserving actions
+                var parts = body.Split('|');
+                foreach (var part in parts)
+                {
+                    var trimmedPart = part.Trim();
+                    if (string.IsNullOrEmpty(trimmedPart)) continue;
 
-                foreach (var alt in alternatives)
+                    // Extract action code if present
+                    string? action = null;
+                    var actionMatch = Regex.Match(trimmedPart, @"\{([^}]*)\}");
+                    if (actionMatch.Success)
+                    {
+                        action = actionMatch.Value; // Keep the braces
+                        trimmedPart = Regex.Replace(trimmedPart, @"\{[^}]*\}", "").Trim();
+                    }
+
+                    alternatives.Add(trimmedPart);
+                    actions.Add(action);
+                }
+
+                for (int i = 0; i < alternatives.Count; i++)
                 {
                     var alternative = new PegAlternative();
-                    ParseAlternative(alternative, alt);
+                    alternative.Action = actions[i]; // Preserve the action
+                    ParseAlternative(alternative, alternatives[i]);
                     rule.Alternatives.Add(alternative);
                 }
             }
@@ -852,6 +868,14 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("// Create and return AST node");
 
+            // If there's AST action code, try to convert it
+            if (!string.IsNullOrEmpty(alternative.Action))
+            {
+                GenerateASTAction(alternative.Action, returnType, varNames, alternative.Elements);
+                return;
+            }
+
+            // Fallback to pattern-based generation
             if (returnType.Contains("Stmt"))
             {
                 WriteLine($"var result = new {returnType}();");
@@ -869,14 +893,110 @@ namespace SharpPy.PegGenerator.CodeGenerator
             else if (returnType.Contains("Expr"))
             {
                 WriteLine($"var result = new {returnType}();");
-                WriteLine($"// TODO: Set expression properties");
+                WriteLine($"// TODO: Set expression properties when structure is defined");
                 WriteLine($"return result;");
             }
             else
             {
                 WriteLine($"var result = new {returnType}();");
-                WriteLine($"// TODO: Set node properties");
+                WriteLine($"// TODO: Set node properties when structure is defined");
                 WriteLine($"return result;");
+            }
+        }
+
+        /// <summary>
+        /// Generate C# code from PEG AST action (e.g., { _PyAST_Pass(EXTRA) })
+        /// </summary>
+        private void GenerateASTAction(string action, string returnType, List<string> varNames, List<PegElement> elements)
+        {
+            // Remove braces and trim
+            var actionCode = action.Trim('{', '}').Trim();
+
+            // Handle common patterns
+            if (actionCode.Contains("_PyAST_Pass"))
+            {
+                WriteLine($"var result = new {returnType}();");
+                WriteLine($"result.StatementType = \"pass\";");
+                WriteLine($"return result;");
+            }
+            else if (actionCode.Contains("_PyAST_Break"))
+            {
+                WriteLine($"var result = new {returnType}();");
+                WriteLine($"result.StatementType = \"break\";");
+                WriteLine($"return result;");
+            }
+            else if (actionCode.Contains("_PyAST_Continue"))
+            {
+                WriteLine($"var result = new {returnType}();");
+                WriteLine($"result.StatementType = \"continue\";");
+                WriteLine($"return result;");
+            }
+            else if (actionCode.Contains("_PyAST_Constant") && actionCode.Contains("Py_True"))
+            {
+                WriteLine($"var result = new {returnType}();");
+                WriteLine($"// True constant");
+                WriteLine($"return result;");
+            }
+            else if (actionCode.Contains("_PyAST_Constant") && actionCode.Contains("Py_False"))
+            {
+                WriteLine($"var result = new {returnType}();");
+                WriteLine($"// False constant");
+                WriteLine($"return result;");
+            }
+            else if (actionCode.Contains("_PyAST_Constant") && actionCode.Contains("Py_None"))
+            {
+                WriteLine($"var result = new {returnType}();");
+                WriteLine($"// None constant");
+                WriteLine($"return result;");
+            }
+            else if (actionCode.Contains("_PyPegen_make_module"))
+            {
+                WriteLine($"var result = new {returnType}();");
+                if (varNames.Count > 0)
+                {
+                    WriteLine($"result.Body = {varNames[0]}; // statements");
+                }
+                WriteLine($"return result;");
+            }
+            else if (actionCode.Contains("_PyPegen_seq_flatten"))
+            {
+                WriteLine($"var result = new List<GeneratedStmt>();");
+                if (varNames.Count > 0)
+                {
+                    WriteLine($"// Flatten statement sequences");
+                    WriteLine($"foreach (var stmt in {varNames[0]})");
+                    WriteLine($"{{");
+                    WriteLine($"    result.Add(stmt);");
+                    WriteLine($"}}");
+                }
+                WriteLine($"return (GeneratedStmtSeq)result;");
+            }
+            else if (actionCode.Contains("_PyPegen_singleton_seq"))
+            {
+                WriteLine($"var result = new GeneratedStmtSeq();");
+                if (varNames.Count > 0)
+                {
+                    WriteLine($"result.Add({varNames[0]}); // single statement");
+                }
+                WriteLine($"return result;");
+            }
+            else if (actionCode.Contains("_PyAST_Name"))
+            {
+                WriteLine($"var result = new {returnType}();");
+                WriteLine($"// NAME expression");
+                WriteLine($"return result;");
+            }
+            else if (actionCode.Contains("_PyPegen_number_token"))
+            {
+                WriteLine($"var result = new {returnType}();");
+                WriteLine($"// NUMBER expression");
+                WriteLine($"return result;");
+            }
+            else
+            {
+                WriteLine($"// AST action: {actionCode}");
+                WriteLine($"// Phase 1: Minimal implementation");
+                WriteLine($"return default({returnType});");
             }
         }
 

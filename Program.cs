@@ -107,7 +107,7 @@ namespace SharpPy
 
                 try
                 {
-                    var statements = PyParserBridge.ParseSource(System.IO.File.ReadAllText(pythonFile), pythonFile);
+                    var statements = GeneratedParserBridge.ParseSource(System.IO.File.ReadAllText(pythonFile), pythonFile);
                     Console.WriteLine($"✅ Successfully parsed {statements.Count} statements");
                     Console.WriteLine("🎉 CPython 3.12 compatibility verified!");
                 }
