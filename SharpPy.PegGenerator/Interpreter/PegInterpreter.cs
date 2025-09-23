@@ -2,19 +2,30 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using SharpPy.PegGenerator.Grammar;
+using SharpPy.Tokenizer.Generated;
 
 namespace SharpPy.PegGenerator.Interpreter
 {
     /// <summary>
-    /// Token info interface for PEG interpreter
+    /// Simple AST node types for temporary parsing results
     /// </summary>
-    public interface ITokenInfo
+    public class SimpleModule
     {
-        object Type { get; }
-        string Value { get; }
-        int Line { get; }
-        int Column { get; }
+        public List<object>? Body { get; set; }
     }
+
+    public class SimpleStmt
+    {
+        public string? Type { get; set; }
+        public object? Data { get; set; }
+    }
+
+    public class SimpleExpr
+    {
+        public string? Type { get; set; }
+        public object? Data { get; set; }
+    }
+
 
     /// <summary>
     /// PEG Grammar Interpreter - executes python.gram rules dynamically
@@ -333,6 +344,11 @@ namespace SharpPy.PegGenerator.Interpreter
                     return ParseStringLiteral(stringLiteral);
 
                 case RuleRef ruleRef:
+                    // Check if this is a token type (uppercase name)
+                    if (IsTokenType(ruleRef.Name))
+                    {
+                        return ParseTokenType(ruleRef.Name);
+                    }
                     return ParseRule(ruleRef.Name);
 
                 case Optional optional:
@@ -563,10 +579,103 @@ namespace SharpPy.PegGenerator.Interpreter
             }
 
             Console.WriteLine($"[DEBUG] Executing action: {action}");
+            Console.WriteLine($"[DEBUG] Variables: {string.Join(", ", variables.Select(kv => $"{kv.Key}={kv.Value}"))}");
+            Console.WriteLine($"[DEBUG] Results count: {results.Count}");
 
-            // TODO: Implement action execution
-            // For now, return a generic success marker
+            // Parse the action to generate appropriate AST node
+            return ParseAction(action, variables, results);
+        }
+
+        /// <summary>
+        /// Parse semantic action and create corresponding AST node
+        /// </summary>
+        private object? ParseAction(string action, Dictionary<string, object?> variables, List<object?> results)
+        {
+            // Handle common action patterns
+            if (action.Contains("_PyAST_Assign"))
+            {
+                // Assignment: a[asdl_expr_seq*]=(z=star_targets '=' { z })+ b=(yield_expr | star_expressions)
+                return new SimpleStmt
+                {
+                    Type = "assignment",
+                    Data = new {
+                        Targets = variables.ContainsKey("a") ? variables["a"] : null,
+                        Value = variables.ContainsKey("b") ? variables["b"] : null
+                    }
+                };
+            }
+            else if (action.Contains("_PyAST_Module"))
+            {
+                // Module: statements+
+                return new SimpleModule
+                {
+                    Body = variables.ContainsKey("a") ? variables["a"] as List<object> : new List<object>()
+                };
+            }
+            else if (action.Contains("_PyAST_Name"))
+            {
+                // Name expression: NAME
+                return new SimpleExpr
+                {
+                    Type = "name",
+                    Data = variables.ContainsKey("id") ? variables["id"] : null
+                };
+            }
+            else if (action.Contains("_PyAST_Constant") || action.Contains("_PyAST_Num"))
+            {
+                // Constant/Number expression
+                return new SimpleExpr
+                {
+                    Type = "constant",
+                    Data = variables.ContainsKey("value") ? variables["value"] : null
+                };
+            }
+            else if (action.Contains("_PyAST_BinOp"))
+            {
+                // Binary operation: left op right
+                return new SimpleExpr
+                {
+                    Type = "binop",
+                    Data = new {
+                        Left = variables.ContainsKey("left") ? variables["left"] : null,
+                        Op = variables.ContainsKey("op") ? variables["op"] : null,
+                        Right = variables.ContainsKey("right") ? variables["right"] : null
+                    }
+                };
+            }
+
+            // Default: return generic success marker for now
+            Console.WriteLine($"[DEBUG] Unhandled action pattern: {action}");
             return new { Action = action, Variables = variables, Results = results };
+        }
+
+        /// <summary>
+        /// Check if a name refers to a token type (from GeneratedTokenType enum)
+        /// </summary>
+        private bool IsTokenType(string name)
+        {
+            // Check if the name corresponds to a GeneratedTokenType enum value
+            return Enum.TryParse<GeneratedTokenType>(name, out _);
+        }
+
+        /// <summary>
+        /// Parse a token type by matching current token against expected type
+        /// </summary>
+        private object? ParseTokenType(string tokenType)
+        {
+            var current = CurrentToken;
+            if (current == null) return null;
+
+            Console.WriteLine($"[DEBUG] Expecting token type: {tokenType}, current token: {current.Type}('{current.Value}')");
+
+            if (current.Type.ToString() == tokenType)
+            {
+                var value = current.Value;
+                Advance();
+                return value; // Return the token value
+            }
+
+            return null;
         }
 
         /// <summary>

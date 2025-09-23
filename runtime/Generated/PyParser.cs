@@ -7,6 +7,7 @@ using System.Linq;
 using SharpPy;
 using SharpPy.PegGenerator.Grammar;
 using SharpPy.PegGenerator.Interpreter;
+using SharpPy.Tokenizer.Generated;
 
 namespace SharpPy.Generated
 {
@@ -30,24 +31,6 @@ namespace SharpPy.Generated
     // GeneratedToken type defined in tokenizer
 
     /// <summary>
-    /// Wrapper to adapt GeneratedTokenInfo to ITokenInfo interface
-    /// </summary>
-    public class TokenInfoWrapper : ITokenInfo
-    {
-        private readonly GeneratedTokenInfo _token;
-
-        public TokenInfoWrapper(GeneratedTokenInfo token)
-        {
-            _token = token ?? throw new ArgumentNullException(nameof(token));
-        }
-
-        public object Type => _token.Type;
-        public string Value => _token.Value;
-        public int Line => _token.Line;
-        public int Column => _token.Column;
-    }
-
-    /// <summary>
     /// Generated PEG parser for Python 3.12 grammar
     /// Uses PegInterpreter for dynamic rule execution
     /// </summary>
@@ -68,7 +51,7 @@ namespace SharpPy.Generated
             // Initialize PEG interpreter with grammar
             var grammarLoader = new GrammarLoader();
             var grammar = grammarLoader.LoadGrammar("Grammar/python.gram");
-            var tokenWrappers = tokens.Select(t => new TokenInfoWrapper(t)).Cast<ITokenInfo>().ToList();
+            var tokenWrappers = tokens.Select(t => (SharpPy.PegGenerator.Interpreter.ITokenInfo)new SharpPy.PegGenerator.Interpreter.PegTokenInfoAdapter(t)).ToList();
             _interpreter = new PegInterpreter(grammar, tokenWrappers);
         }
 

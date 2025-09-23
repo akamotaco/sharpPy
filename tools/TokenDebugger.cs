@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using SharpPy.Tokenizer.Generated;
 
 namespace SharpPy.Tools
 {
@@ -22,7 +23,7 @@ namespace SharpPy.Tools
                 Console.WriteLine($"🔧 SharpPy Token Analysis: {pythonFile}");
                 Console.WriteLine("========================================");
 
-                var tokenizer = new SharpPy.Generated.GeneratedPyTokenizer(source, pythonFile);
+                var tokenizer = new GeneratedPyTokenizer(source, pythonFile);
                 var tokens = tokenizer.Tokenize();
 
                 Console.WriteLine("Generated tokens:");

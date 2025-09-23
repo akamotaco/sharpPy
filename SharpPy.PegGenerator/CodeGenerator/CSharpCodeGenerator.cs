@@ -390,6 +390,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("using SharpPy;");
             WriteLine("using SharpPy.PegGenerator.Grammar;");
             WriteLine("using SharpPy.PegGenerator.Interpreter;");
+            WriteLine("using SharpPy.Tokenizer.Generated;");
             WriteLine();
         }
 
@@ -426,29 +427,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("// GeneratedToken type defined in tokenizer");
             WriteLine();
 
-            // Add TokenInfoWrapper for PegInterpreter
-            WriteLine("/// <summary>");
-            WriteLine("/// Wrapper to adapt GeneratedTokenInfo to ITokenInfo interface");
-            WriteLine("/// </summary>");
-            WriteLine("public class TokenInfoWrapper : ITokenInfo");
-            WriteLine("{");
-            Indent();
-            WriteLine("private readonly GeneratedTokenInfo _token;");
-            WriteLine();
-            WriteLine("public TokenInfoWrapper(GeneratedTokenInfo token)");
-            WriteLine("{");
-            Indent();
-            WriteLine("_token = token ?? throw new ArgumentNullException(nameof(token));");
-            Dedent();
-            WriteLine("}");
-            WriteLine();
-            WriteLine("public object Type => _token.Type;");
-            WriteLine("public string Value => _token.Value;");
-            WriteLine("public int Line => _token.Line;");
-            WriteLine("public int Column => _token.Column;");
-            Dedent();
-            WriteLine("}");
-            WriteLine();
+            // TokenInfoWrapper now defined in SharpPy.Tokenizer project
 
             WriteLine("/// <summary>");
             WriteLine("/// Generated PEG parser for Python 3.12 grammar");
@@ -491,7 +470,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("// Initialize PEG interpreter with grammar");
             WriteLine("var grammarLoader = new GrammarLoader();");
             WriteLine("var grammar = grammarLoader.LoadGrammar(\"Grammar/python.gram\");");
-            WriteLine("var tokenWrappers = tokens.Select(t => new TokenInfoWrapper(t)).Cast<ITokenInfo>().ToList();");
+            WriteLine("var tokenWrappers = tokens.Select(t => (SharpPy.PegGenerator.Interpreter.ITokenInfo)new SharpPy.PegGenerator.Interpreter.PegTokenInfoAdapter(t)).ToList();");
             WriteLine("_interpreter = new PegInterpreter(grammar, tokenWrappers);");
             Dedent();
             WriteLine("}");

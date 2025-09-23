@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using SharpPy.Generated;
+using SharpPy.Tokenizer.Generated;
 using SharpPy.Utils;
 
 namespace SharpPy

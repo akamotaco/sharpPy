@@ -50,7 +50,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
         private void GenerateTokenizerClass()
         {
-            WriteLine("namespace SharpPy.Generated");
+            WriteLine("namespace SharpPy.Tokenizer.Generated");
             WriteLine("{");
             Indent();
 

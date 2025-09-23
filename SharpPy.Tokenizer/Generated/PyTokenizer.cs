@@ -8,7 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace SharpPy.Generated
+namespace SharpPy.Tokenizer.Generated
 {
     /// <summary>
     /// CPython 3.12 compatible token types
