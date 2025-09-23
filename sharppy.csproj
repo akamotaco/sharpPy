@@ -26,12 +26,17 @@
     <DefineConstants>TRACE</DefineConstants>
   </PropertyGroup>
 
-  <!-- Exclude PegGenerator files from main build -->
+  <!-- Exclude PegGenerator files from main build but reference the library -->
   <ItemGroup>
     <Compile Remove="SharpPy.PegGenerator\**" />
     <EmbeddedResource Remove="SharpPy.PegGenerator\**" />
     <None Remove="SharpPy.PegGenerator\**" />
     <!-- Generated parser now included for Phase 1 testing -->
+  </ItemGroup>
+
+  <!-- Add reference to PegGenerator library -->
+  <ItemGroup>
+    <ProjectReference Include="SharpPy.PegGenerator\SharpPy.PegGenerator.csproj" />
   </ItemGroup>
 
   <!-- PEG Parser Generation -->

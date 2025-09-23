@@ -1,3 +1,4 @@
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -137,8 +138,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("private readonly string _filename;");
             WriteLine("private int _position;");
             WriteLine("private int _line = 1;");
-            WriteLine("private int _column = 1;");
+            WriteLine("private int _column = 0; // CPython uses 0-based column indexing");
             WriteLine("private readonly List<GeneratedTokenInfo> _tokens = new();");
+            WriteLine();
+            WriteLine("// INDENT/DEDENT handling");
+            WriteLine("private readonly Stack<int> _indentStack = new();");
+            WriteLine("private bool _atLineStart = true;");
+            WriteLine("private readonly Queue<GeneratedTokenInfo> _pendingTokens = new();");
             WriteLine();
 
             // Generate keyword map for Python 3.12 keywords
@@ -193,6 +199,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("_source = source ?? throw new ArgumentNullException(nameof(source));");
             WriteLine("_filename = filename;");
             WriteLine("_position = 0;");
+            WriteLine("_indentStack.Push(0); // Initialize with base indentation level");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -216,17 +223,48 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("_tokens.Clear();");
             WriteLine("_position = 0;");
             WriteLine("_line = 1;");
-            WriteLine("_column = 1;");
+            WriteLine("_column = 0; // CPython uses 0-based column indexing");
             WriteLine();
 
             WriteLine("while (_position < _source.Length)");
             WriteLine("{");
             Indent();
 
+            WriteLine("// Handle indentation at line start");
+            WriteLine("if (_atLineStart)");
+            WriteLine("{");
+            Indent();
+            WriteLine("HandleIndentation();");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
             WriteLine("if (char.IsWhiteSpace(CurrentChar))");
             WriteLine("{");
             Indent();
+            WriteLine("Console.WriteLine(\"[DEBUG] Whitespace found: '\");");
+            WriteLine("// Skip whitespace handling if we're at line start");
+            WriteLine("// (HandleIndentation already processed leading whitespace)");
+            WriteLine("if (!_atLineStart)");
+            WriteLine("{");
+            Indent();
             WriteLine("HandleWhitespace();");
+            Dedent();
+            WriteLine("}");
+            WriteLine("else");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Handle only non-space whitespace at line start");
+            WriteLine("if (CurrentChar == '\\n')");
+            WriteLine("{");
+            Indent();
+            WriteLine("AddToken(GeneratedTokenType.NEWLINE, \"\\n\", _line, _column);");
+            WriteLine("_atLineStart = true;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("Advance();");
+            Dedent();
+            WriteLine("}");
             Dedent();
             WriteLine("}");
             WriteLine("else if (CurrentChar == '#')");
@@ -259,7 +297,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (!HandleOperator())");
             WriteLine("{");
             Indent();
-            WriteLine("AddToken(GeneratedTokenType.ERRORTOKEN, CurrentChar.ToString());");
+            WriteLine("AddToken(GeneratedTokenType.ERRORTOKEN, CurrentChar.ToString(), _line, _column);");
             WriteLine("Advance();");
             Dedent();
             WriteLine("}");
@@ -270,8 +308,17 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
 
+            WriteLine("// Generate remaining DEDENT tokens at EOF");
+            WriteLine("while (_indentStack.Count > 1)");
+            WriteLine("{");
+            Indent();
+            WriteLine("_indentStack.Pop();");
+            WriteLine("AddToken(GeneratedTokenType.DEDENT, \"\", _line, 0);");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
             WriteLine("// Add ENDMARKER token");
-            WriteLine("AddToken(GeneratedTokenType.ENDMARKER, \"\");");
+            WriteLine("AddToken(GeneratedTokenType.ENDMARKER, \"\", _line, _column);");
             WriteLine("return _tokens;");
 
             Dedent();
@@ -296,7 +343,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("_line++;");
-            WriteLine("_column = 1;");
+            WriteLine("_column = 0; // CPython uses 0-based column indexing");
+            WriteLine("_atLineStart = true; // Next position will be start of new line");
             Dedent();
             WriteLine("}");
             WriteLine("else");
@@ -321,6 +369,14 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
 
+            WriteLine("private void AddToken(GeneratedTokenType type, string value, int startLine, int startColumn)");
+            WriteLine("{");
+            Indent();
+            WriteLine("_tokens.Add(new GeneratedTokenInfo(type, value, startLine, startColumn));");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
             // Handle whitespace
             WriteLine("private void HandleWhitespace()");
             WriteLine("{");
@@ -331,7 +387,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (CurrentChar == '\\n')");
             WriteLine("{");
             Indent();
-            WriteLine("AddToken(GeneratedTokenType.NEWLINE, \"\\n\");");
+            WriteLine("AddToken(GeneratedTokenType.NEWLINE, \"\\n\", _line, _column);");
+            WriteLine("_atLineStart = true; // Next position will be start of new line");
+            WriteLine("Advance();");
+            WriteLine("break; // Stop processing whitespace after newline to let HandleIndentation process indentation");
             Dedent();
             WriteLine("}");
             WriteLine("Advance();");
@@ -346,6 +405,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("var start = _position;");
+            WriteLine("var startLine = _line;");
+            WriteLine("var startColumn = _column;");
             WriteLine("while (_position < _source.Length && CurrentChar != '\\n')");
             WriteLine("{");
             Indent();
@@ -353,7 +414,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Dedent();
             WriteLine("}");
             WriteLine("var comment = _source.Substring(start, _position - start);");
-            WriteLine("AddToken(GeneratedTokenType.COMMENT, comment);");
+            WriteLine("AddToken(GeneratedTokenType.COMMENT, comment, startLine, startColumn);");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -363,6 +424,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("var start = _position;");
+            WriteLine("var startLine = _line;");
+            WriteLine("var startColumn = _column;");
             WriteLine("while (_position < _source.Length && (char.IsLetterOrDigit(CurrentChar) || CurrentChar == '_'))");
             WriteLine("{");
             Indent();
@@ -371,7 +434,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine("var name = _source.Substring(start, _position - start);");
             WriteLine("var tokenType = Keywords.ContainsKey(name) ? Keywords[name] : GeneratedTokenType.NAME;");
-            WriteLine("AddToken(tokenType, name);");
+            WriteLine("AddToken(tokenType, name, startLine, startColumn);");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -381,6 +444,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("var start = _position;");
+            WriteLine("var startLine = _line;");
+            WriteLine("var startColumn = _column;");
             WriteLine("while (_position < _source.Length && (char.IsDigit(CurrentChar) || CurrentChar == '.'))");
             WriteLine("{");
             Indent();
@@ -388,7 +453,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Dedent();
             WriteLine("}");
             WriteLine("var number = _source.Substring(start, _position - start);");
-            WriteLine("AddToken(GeneratedTokenType.NUMBER, number);");
+            WriteLine("AddToken(GeneratedTokenType.NUMBER, number, startLine, startColumn);");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -399,6 +464,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
             WriteLine("var quote = CurrentChar;");
             WriteLine("var start = _position;");
+            WriteLine("var startLine = _line;");
+            WriteLine("var startColumn = _column;");
             WriteLine("Advance(); // Skip opening quote");
             WriteLine();
             WriteLine("while (_position < _source.Length && CurrentChar != quote)");
@@ -422,7 +489,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("var str = _source.Substring(start, _position - start);");
-            WriteLine("AddToken(GeneratedTokenType.STRING, str);");
+            WriteLine("AddToken(GeneratedTokenType.STRING, str, startLine, startColumn);");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -431,6 +498,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("private bool HandleOperator()");
             WriteLine("{");
             Indent();
+            WriteLine("var startLine = _line;");
+            WriteLine("var startColumn = _column;");
             WriteLine("// Try to match operators from longest to shortest");
             WriteLine("foreach (var (op, tokenType) in Operators)");
             WriteLine("{");
@@ -438,7 +507,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (_position + op.Length <= _source.Length && _source.Substring(_position, op.Length) == op)");
             WriteLine("{");
             Indent();
-            WriteLine("AddToken(tokenType, op);");
+            WriteLine("AddToken(tokenType, op, startLine, startColumn);");
             WriteLine("for (int i = 0; i < op.Length; i++) Advance();");
             WriteLine("return true;");
             Dedent();
@@ -446,6 +515,74 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Dedent();
             WriteLine("}");
             WriteLine("return false;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            // Handle indentation for INDENT/DEDENT tokens
+            WriteLine("private void HandleIndentation()");
+            WriteLine("{");
+            Indent();
+            WriteLine("if (!_atLineStart) return;");
+            WriteLine();
+            WriteLine("Console.WriteLine(\"DEBUG: HandleIndentation called, atLineStart=\" + _atLineStart + \", line=\" + _line + \", col=\" + _column);");
+            WriteLine("// Calculate current line indentation");
+            WriteLine("int indent = 0;");
+            WriteLine("while (_position < _source.Length && (CurrentChar == ' ' || CurrentChar == '\\t'))");
+            WriteLine("{");
+            Indent();
+            WriteLine("indent += (CurrentChar == '\\t' ? 8 : 1);");
+            WriteLine("Advance();");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("Console.WriteLine(\"DEBUG: Calculated indent=\" + indent + \", currentChar='\" + CurrentChar + \"'\");");
+            WriteLine("// Skip empty lines and comment lines");
+            WriteLine("if (_position >= _source.Length || CurrentChar == '\\n' || CurrentChar == '#')");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine(\"DEBUG: Skipping empty line or comment\");");
+            WriteLine("return;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// Handle indentation changes");
+            WriteLine("int currentLevel = _indentStack.Peek();");
+            WriteLine("Console.WriteLine(\"DEBUG: indent=\" + indent + \", currentLevel=\" + currentLevel);");
+            WriteLine("if (indent > currentLevel)");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Increased indentation - INDENT");
+            WriteLine("_indentStack.Push(indent);");
+            WriteLine("var indentText = new string(' ', indent);");
+            WriteLine("Console.WriteLine(\"DEBUG: Generated INDENT\");");
+            WriteLine("AddToken(GeneratedTokenType.INDENT, indentText, _line, 0);");
+            Dedent();
+            WriteLine("}");
+            WriteLine("else if (indent < currentLevel)");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Decreased indentation - DEDENT(s)");
+            WriteLine("while (_indentStack.Count > 1 && _indentStack.Peek() > indent)");
+            WriteLine("{");
+            Indent();
+            WriteLine("int dedentLevel = _indentStack.Pop();");
+            WriteLine("Console.WriteLine(\"DEBUG: Generated DEDENT\");");
+            WriteLine("AddToken(GeneratedTokenType.DEDENT, \"\", _line, 0);");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// Check for indentation error");
+            WriteLine("if (_indentStack.Count > 0 && _indentStack.Peek() != indent)");
+            WriteLine("{");
+            Indent();
+            WriteLine("throw new InvalidOperationException($\"IndentationError: unindent does not match any outer indentation level at line {_line}\");");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("_atLineStart = false;");
             Dedent();
             WriteLine("}");
         }

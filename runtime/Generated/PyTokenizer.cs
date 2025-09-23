@@ -117,8 +117,13 @@ namespace SharpPy.Generated
         private readonly string _filename;
         private int _position;
         private int _line = 1;
-        private int _column = 1;
+        private int _column = 0; // CPython uses 0-based column indexing
         private readonly List<GeneratedTokenInfo> _tokens = new();
+
+        // INDENT/DEDENT handling
+        private readonly Stack<int> _indentStack = new();
+        private bool _atLineStart = true;
+        private readonly Queue<GeneratedTokenInfo> _pendingTokens = new();
 
         private static readonly Dictionary<string, GeneratedTokenType> Keywords = new()
         {
@@ -219,6 +224,7 @@ namespace SharpPy.Generated
             _source = source ?? throw new ArgumentNullException(nameof(source));
             _filename = filename;
             _position = 0;
+            _indentStack.Push(0); // Initialize with base indentation level
         }
 
         /// <summary>
@@ -229,13 +235,35 @@ namespace SharpPy.Generated
             _tokens.Clear();
             _position = 0;
             _line = 1;
-            _column = 1;
+            _column = 0; // CPython uses 0-based column indexing
 
             while (_position < _source.Length)
             {
+                // Handle indentation at line start
+                if (_atLineStart)
+                {
+                    HandleIndentation();
+                }
+
                 if (char.IsWhiteSpace(CurrentChar))
                 {
-                    HandleWhitespace();
+                    Console.WriteLine("[DEBUG] Whitespace found: '");
+                    // Skip whitespace handling if we're at line start
+                    // (HandleIndentation already processed leading whitespace)
+                    if (!_atLineStart)
+                    {
+                        HandleWhitespace();
+                    }
+                    else
+                    {
+                        // Handle only non-space whitespace at line start
+                        if (CurrentChar == '\n')
+                        {
+                            AddToken(GeneratedTokenType.NEWLINE, "\n", _line, _column);
+                            _atLineStart = true;
+                        }
+                        Advance();
+                    }
                 }
                 else if (CurrentChar == '#')
                 {
@@ -257,14 +285,21 @@ namespace SharpPy.Generated
                 {
                     if (!HandleOperator())
                     {
-                        AddToken(GeneratedTokenType.ERRORTOKEN, CurrentChar.ToString());
+                        AddToken(GeneratedTokenType.ERRORTOKEN, CurrentChar.ToString(), _line, _column);
                         Advance();
                     }
                 }
             }
 
+            // Generate remaining DEDENT tokens at EOF
+            while (_indentStack.Count > 1)
+            {
+                _indentStack.Pop();
+                AddToken(GeneratedTokenType.DEDENT, "", _line, 0);
+            }
+
             // Add ENDMARKER token
-            AddToken(GeneratedTokenType.ENDMARKER, "");
+            AddToken(GeneratedTokenType.ENDMARKER, "", _line, _column);
             return _tokens;
         }
 
@@ -277,7 +312,8 @@ namespace SharpPy.Generated
                 if (_source[_position] == '\n')
                 {
                     _line++;
-                    _column = 1;
+                    _column = 0; // CPython uses 0-based column indexing
+                    _atLineStart = true; // Next position will be start of new line
                 }
                 else
                 {
@@ -292,13 +328,21 @@ namespace SharpPy.Generated
             _tokens.Add(new GeneratedTokenInfo(type, value, _line, _column));
         }
 
+        private void AddToken(GeneratedTokenType type, string value, int startLine, int startColumn)
+        {
+            _tokens.Add(new GeneratedTokenInfo(type, value, startLine, startColumn));
+        }
+
         private void HandleWhitespace()
         {
             while (_position < _source.Length && char.IsWhiteSpace(CurrentChar))
             {
                 if (CurrentChar == '\n')
                 {
-                    AddToken(GeneratedTokenType.NEWLINE, "\n");
+                    AddToken(GeneratedTokenType.NEWLINE, "\n", _line, _column);
+                    _atLineStart = true; // Next position will be start of new line
+                    Advance();
+                    break; // Stop processing whitespace after newline to let HandleIndentation process indentation
                 }
                 Advance();
             }
@@ -307,41 +351,49 @@ namespace SharpPy.Generated
         private void HandleComment()
         {
             var start = _position;
+            var startLine = _line;
+            var startColumn = _column;
             while (_position < _source.Length && CurrentChar != '\n')
             {
                 Advance();
             }
             var comment = _source.Substring(start, _position - start);
-            AddToken(GeneratedTokenType.COMMENT, comment);
+            AddToken(GeneratedTokenType.COMMENT, comment, startLine, startColumn);
         }
 
         private void HandleNameOrKeyword()
         {
             var start = _position;
+            var startLine = _line;
+            var startColumn = _column;
             while (_position < _source.Length && (char.IsLetterOrDigit(CurrentChar) || CurrentChar == '_'))
             {
                 Advance();
             }
             var name = _source.Substring(start, _position - start);
             var tokenType = Keywords.ContainsKey(name) ? Keywords[name] : GeneratedTokenType.NAME;
-            AddToken(tokenType, name);
+            AddToken(tokenType, name, startLine, startColumn);
         }
 
         private void HandleNumber()
         {
             var start = _position;
+            var startLine = _line;
+            var startColumn = _column;
             while (_position < _source.Length && (char.IsDigit(CurrentChar) || CurrentChar == '.'))
             {
                 Advance();
             }
             var number = _source.Substring(start, _position - start);
-            AddToken(GeneratedTokenType.NUMBER, number);
+            AddToken(GeneratedTokenType.NUMBER, number, startLine, startColumn);
         }
 
         private void HandleString()
         {
             var quote = CurrentChar;
             var start = _position;
+            var startLine = _line;
+            var startColumn = _column;
             Advance(); // Skip opening quote
 
             while (_position < _source.Length && CurrentChar != quote)
@@ -359,22 +411,76 @@ namespace SharpPy.Generated
             }
 
             var str = _source.Substring(start, _position - start);
-            AddToken(GeneratedTokenType.STRING, str);
+            AddToken(GeneratedTokenType.STRING, str, startLine, startColumn);
         }
 
         private bool HandleOperator()
         {
+            var startLine = _line;
+            var startColumn = _column;
             // Try to match operators from longest to shortest
             foreach (var (op, tokenType) in Operators)
             {
                 if (_position + op.Length <= _source.Length && _source.Substring(_position, op.Length) == op)
                 {
-                    AddToken(tokenType, op);
+                    AddToken(tokenType, op, startLine, startColumn);
                     for (int i = 0; i < op.Length; i++) Advance();
                     return true;
                 }
             }
             return false;
+        }
+
+        private void HandleIndentation()
+        {
+            if (!_atLineStart) return;
+
+            Console.WriteLine("DEBUG: HandleIndentation called, atLineStart=" + _atLineStart + ", line=" + _line + ", col=" + _column);
+            // Calculate current line indentation
+            int indent = 0;
+            while (_position < _source.Length && (CurrentChar == ' ' || CurrentChar == '\t'))
+            {
+                indent += (CurrentChar == '\t' ? 8 : 1);
+                Advance();
+            }
+
+            Console.WriteLine("DEBUG: Calculated indent=" + indent + ", currentChar='" + CurrentChar + "'");
+            // Skip empty lines and comment lines
+            if (_position >= _source.Length || CurrentChar == '\n' || CurrentChar == '#')
+            {
+                Console.WriteLine("DEBUG: Skipping empty line or comment");
+                return;
+            }
+
+            // Handle indentation changes
+            int currentLevel = _indentStack.Peek();
+            Console.WriteLine("DEBUG: indent=" + indent + ", currentLevel=" + currentLevel);
+            if (indent > currentLevel)
+            {
+                // Increased indentation - INDENT
+                _indentStack.Push(indent);
+                var indentText = new string(' ', indent);
+                Console.WriteLine("DEBUG: Generated INDENT");
+                AddToken(GeneratedTokenType.INDENT, indentText, _line, 0);
+            }
+            else if (indent < currentLevel)
+            {
+                // Decreased indentation - DEDENT(s)
+                while (_indentStack.Count > 1 && _indentStack.Peek() > indent)
+                {
+                    int dedentLevel = _indentStack.Pop();
+                    Console.WriteLine("DEBUG: Generated DEDENT");
+                    AddToken(GeneratedTokenType.DEDENT, "", _line, 0);
+                }
+
+                // Check for indentation error
+                if (_indentStack.Count > 0 && _indentStack.Peek() != indent)
+                {
+                    throw new InvalidOperationException($"IndentationError: unindent does not match any outer indentation level at line {_line}");
+                }
+            }
+
+            _atLineStart = false;
         }
     }
 }
