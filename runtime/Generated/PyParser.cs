@@ -299,10 +299,38 @@ namespace SharpPy.Generated
                 _position = savedPos; // backtrack
             }
 
+            // Try 'return' statement
+            if (ExpectKeyword("return"))
+            {
+                // Check if there's a value after return
+                object? returnValue = null;
+                if (CurrentToken?.Type == GeneratedTokenType.NUMBER)
+                {
+                    returnValue = CurrentToken.Value;
+                    Advance(); // consume number
+                }
+                var returnStmt = new GeneratedStmt();
+                returnStmt.StatementType = "return";
+                returnStmt.Value = returnValue;
+                return returnStmt;
+            }
+
+            // Try simple expression statement (NUMBER)
+            if (CurrentToken?.Type == GeneratedTokenType.NUMBER)
+            {
+                var numberToken = CurrentToken;
+                Advance(); // consume number
+                var exprStmt = new GeneratedStmt();
+                exprStmt.StatementType = "expression";
+                exprStmt.Value = numberToken.Value;
+                return exprStmt;
+            }
+
             // TODO: Add other simple statement alternatives
             // - type_alias
             // - star_expressions
             // - return_stmt, import_stmt, raise_stmt, del_stmt, yield_stmt, assert_stmt
+            // - function calls, complex expressions
 
             // No match found
             return default(GeneratedStmt);
