@@ -388,6 +388,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("using System.Collections.Generic;");
             WriteLine("using System.Linq;");
             WriteLine("using SharpPy;");
+            WriteLine("using SharpPy.PegGenerator.Grammar;");
+            WriteLine("using SharpPy.PegGenerator.Interpreter;");
             WriteLine();
         }
 
@@ -424,8 +426,33 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("// GeneratedToken type defined in tokenizer");
             WriteLine();
 
+            // Add TokenInfoWrapper for PegInterpreter
+            WriteLine("/// <summary>");
+            WriteLine("/// Wrapper to adapt GeneratedTokenInfo to ITokenInfo interface");
+            WriteLine("/// </summary>");
+            WriteLine("public class TokenInfoWrapper : ITokenInfo");
+            WriteLine("{");
+            Indent();
+            WriteLine("private readonly GeneratedTokenInfo _token;");
+            WriteLine();
+            WriteLine("public TokenInfoWrapper(GeneratedTokenInfo token)");
+            WriteLine("{");
+            Indent();
+            WriteLine("_token = token ?? throw new ArgumentNullException(nameof(token));");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("public object Type => _token.Type;");
+            WriteLine("public string Value => _token.Value;");
+            WriteLine("public int Line => _token.Line;");
+            WriteLine("public int Column => _token.Column;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
             WriteLine("/// <summary>");
             WriteLine("/// Generated PEG parser for Python 3.12 grammar");
+            WriteLine("/// Uses PegInterpreter for dynamic rule execution");
             WriteLine("/// </summary>");
             WriteLine("public class GeneratedPyParser");
             WriteLine("{");
@@ -448,6 +475,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("private int _position;");
             WriteLine("private readonly Dictionary<(int, string), object?> _memoCache = new();");
             WriteLine("private readonly string _filename;");
+            WriteLine("private readonly PegInterpreter _interpreter;");
             WriteLine();
         }
 
@@ -459,6 +487,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("_tokens = tokens ?? throw new ArgumentNullException(nameof(tokens));");
             WriteLine("_filename = filename;");
             WriteLine("_position = 0;");
+            WriteLine();
+            WriteLine("// Initialize PEG interpreter with grammar");
+            WriteLine("var grammarLoader = new GrammarLoader();");
+            WriteLine("var grammar = grammarLoader.LoadGrammar(\"Grammar/python.gram\");");
+            WriteLine("var tokenWrappers = tokens.Select(t => new TokenInfoWrapper(t)).Cast<ITokenInfo>().ToList();");
+            WriteLine("_interpreter = new PegInterpreter(grammar, tokenWrappers);");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -1230,39 +1264,17 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
 
-            // Phase 2: Start implementing specific rules
-            if (rule.Name == "file")
+            // Use PegInterpreter for all rules now that left-recursion is handled
+            WriteLine($"var result = _interpreter.ParseRule(\"{rule.Name}\");");
+            // Fix nullable casting issue - use proper casting syntax
+            if (returnType.EndsWith("?"))
             {
-                GenerateFileMethod(returnType);
-            }
-            else if (rule.Name == "statements")
-            {
-                GenerateStatementsMethod(returnType);
-            }
-            else if (rule.Name == "statement")
-            {
-                GenerateStatementMethod(returnType);
-            }
-            else if (rule.Name == "simple_stmts")
-            {
-                GenerateSimpleStmtsMethod(returnType);
-            }
-            else if (rule.Name == "simple_stmt")
-            {
-                GenerateSimpleStmtMethod(returnType);
-            }
-            else if (rule.Name == "compound_stmt")
-            {
-                GenerateCompoundStmtMethod(returnType);
-            }
-            else if (rule.Name == "atom")
-            {
-                GenerateAtomMethod(returnType);
+                var baseType = returnType.Substring(0, returnType.Length - 1);
+                WriteLine($"return result as {baseType};");
             }
             else
             {
-                WriteLine("// Phase 1: Minimal implementation");
-                WriteLine($"return default({returnType});");
+                WriteLine($"return ({returnType})result;");
             }
 
             Dedent();

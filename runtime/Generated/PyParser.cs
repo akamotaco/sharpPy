@@ -5,6 +5,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using SharpPy;
+using SharpPy.PegGenerator.Grammar;
+using SharpPy.PegGenerator.Interpreter;
 
 namespace SharpPy.Generated
 {
@@ -28,7 +30,26 @@ namespace SharpPy.Generated
     // GeneratedToken type defined in tokenizer
 
     /// <summary>
+    /// Wrapper to adapt GeneratedTokenInfo to ITokenInfo interface
+    /// </summary>
+    public class TokenInfoWrapper : ITokenInfo
+    {
+        private readonly GeneratedTokenInfo _token;
+
+        public TokenInfoWrapper(GeneratedTokenInfo token)
+        {
+            _token = token ?? throw new ArgumentNullException(nameof(token));
+        }
+
+        public object Type => _token.Type;
+        public string Value => _token.Value;
+        public int Line => _token.Line;
+        public int Column => _token.Column;
+    }
+
+    /// <summary>
     /// Generated PEG parser for Python 3.12 grammar
+    /// Uses PegInterpreter for dynamic rule execution
     /// </summary>
     public class GeneratedPyParser
     {
@@ -36,12 +57,19 @@ namespace SharpPy.Generated
         private int _position;
         private readonly Dictionary<(int, string), object?> _memoCache = new();
         private readonly string _filename;
+        private readonly PegInterpreter _interpreter;
 
         public GeneratedPyParser(List<GeneratedTokenInfo> tokens, string filename = "<string>")
         {
             _tokens = tokens ?? throw new ArgumentNullException(nameof(tokens));
             _filename = filename;
             _position = 0;
+
+            // Initialize PEG interpreter with grammar
+            var grammarLoader = new GrammarLoader();
+            var grammar = grammarLoader.LoadGrammar("Grammar/python.gram");
+            var tokenWrappers = tokens.Select(t => new TokenInfoWrapper(t)).Cast<ITokenInfo>().ToList();
+            _interpreter = new PegInterpreter(grammar, tokenWrappers);
         }
 
         // Helper methods
@@ -130,2245 +158,1709 @@ namespace SharpPy.Generated
         // Rule: file
         public GeneratedModule File()
         {
-            // file[mod_ty]: a=[statements] ENDMARKER { _PyPegen_make_module(p, a) }
-            var statements = Statements(); // Parse optional statements
-
-            if (!Expect("ENDMARKER"))
-            {
-                // If no ENDMARKER, we're not at end of file - this is an error for complete parsing
-                // For now, continue gracefully
-            }
-
-            // Create a module containing the statements
-            var module = new GeneratedModule();
-            module.Body = statements;
-            return module;
+            var result = _interpreter.ParseRule("file");
+            return (GeneratedModule)result;
         }
 
         // Rule: interactive
         public GeneratedModule Interactive()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedModule);
+            var result = _interpreter.ParseRule("interactive");
+            return (GeneratedModule)result;
         }
 
         // Rule: eval
         public GeneratedModule Eval()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedModule);
+            var result = _interpreter.ParseRule("eval");
+            return (GeneratedModule)result;
         }
 
         // Rule: func_type
         public GeneratedModule FuncType()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedModule);
+            var result = _interpreter.ParseRule("func_type");
+            return (GeneratedModule)result;
         }
 
         // Rule: statements
         public GeneratedStmtSeq Statements()
         {
-            // statements[asdl_stmt_seq*]: a=statement+ { (asdl_stmt_seq*)_PyPegen_seq_flatten(p, a) }
-            var statementList = new List<GeneratedStmt>();
-
-            // Parse one or more statements
-            while (_position < _tokens.Count && CurrentToken?.Type.ToString() != "ENDMARKER")
-            {
-                var stmtSeq = Statement(); // Returns GeneratedStmtSeq
-                if (stmtSeq != null && stmtSeq.Count > 0)
-                {
-                    // Add all statements from the sequence
-                    statementList.AddRange(stmtSeq);
-                }
-                else
-                {
-                    // No more statements to parse
-                    break;
-                }
-            }
-
-            // Convert to statement sequence
-            var result = new GeneratedStmtSeq();
-            result.AddRange(statementList);
-            return result;
+            var result = _interpreter.ParseRule("statements");
+            return (GeneratedStmtSeq)result;
         }
 
         // Rule: statement
         public GeneratedStmtSeq Statement()
         {
-            // statement[asdl_stmt_seq*]: compound_stmt | simple_stmts
-
-            // Try compound_stmt first
-            var compoundStmt = CompoundStmt();
-            if (compoundStmt != null)
-            {
-                // Convert single compound statement to statement sequence
-                var stmtSeq = new GeneratedStmtSeq();
-                stmtSeq.Add(compoundStmt);
-                return stmtSeq;
-            }
-
-            // Try simple_stmts
-            var simpleStmts = SimpleStmts();
-            if (simpleStmts != null)
-            {
-                return simpleStmts;
-            }
-
-            // No match found
-            return default(GeneratedStmtSeq);
+            var result = _interpreter.ParseRule("statement");
+            return (GeneratedStmtSeq)result;
         }
 
         // Rule: statement_newline
         public GeneratedStmtSeq StatementNewline()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmtSeq);
+            var result = _interpreter.ParseRule("statement_newline");
+            return (GeneratedStmtSeq)result;
         }
 
         // Rule: simple_stmts
         public GeneratedStmtSeq SimpleStmts()
         {
-            // simple_stmts[asdl_stmt_seq*]: simple_stmt NEWLINE | simple_stmt $$
-
-            var stmt = SimpleStmt();
-            if (stmt != null)
-            {
-                // Skip optional newline
-                if (CurrentToken?.Type.ToString() == "NEWLINE")
-                {
-                    Advance();
-                }
-
-                // Create statement sequence with single statement
-                var stmtSeq = new GeneratedStmtSeq();
-                stmtSeq.Add(stmt);
-                return stmtSeq;
-            }
-
-            // No statement found
-            return default(GeneratedStmtSeq);
+            var result = _interpreter.ParseRule("simple_stmts");
+            return (GeneratedStmtSeq)result;
         }
 
         // Rule: simple_stmt
         public GeneratedStmt SimpleStmt()
         {
-            // simple_stmt[stmt_ty]: Multiple alternatives including simple keyword statements
-
-            // Try 'pass' keyword (simplest case)
-            if (ExpectKeyword("pass"))
-            {
-                // 'pass' { _PyAST_Pass(EXTRA) }
-                var passStmt = new GeneratedStmt();
-                passStmt.StatementType = "pass";
-                return passStmt;
-            }
-
-            // Try 'break' keyword
-            if (ExpectKeyword("break"))
-            {
-                // 'break' { _PyAST_Break(EXTRA) }
-                var breakStmt = new GeneratedStmt();
-                breakStmt.StatementType = "break";
-                return breakStmt;
-            }
-
-            // Try 'continue' keyword
-            if (ExpectKeyword("continue"))
-            {
-                // 'continue' { _PyAST_Continue(EXTRA) }
-                var continueStmt = new GeneratedStmt();
-                continueStmt.StatementType = "continue";
-                return continueStmt;
-            }
-
-            // Try assignment statement (name = expression)
-            var savedPos = _position;
-            var nameToken = CurrentToken;
-            if (nameToken != null && nameToken.Type == GeneratedTokenType.NAME)
-            {
-                Advance(); // consume name
-                if (CurrentToken?.Type == GeneratedTokenType.EQUAL)
-                {
-                    Advance(); // consume '='
-                    // For now, expect a NUMBER token for the value
-                    var valueToken = CurrentToken;
-                    if (valueToken?.Type == GeneratedTokenType.NUMBER)
-                    {
-                        Advance(); // consume number
-                        var assignStmt = new GeneratedStmt();
-                        assignStmt.StatementType = "assignment";
-                        assignStmt.Value = new { Target = nameToken.Value, Value = valueToken.Value };
-                        return assignStmt;
-                    }
-                }
-                _position = savedPos; // backtrack
-            }
-
-            // Try 'return' statement
-            if (ExpectKeyword("return"))
-            {
-                // Check if there's a value after return
-                object? returnValue = null;
-                if (CurrentToken?.Type == GeneratedTokenType.NUMBER)
-                {
-                    returnValue = CurrentToken.Value;
-                    Advance(); // consume number
-                }
-                var returnStmt = new GeneratedStmt();
-                returnStmt.StatementType = "return";
-                returnStmt.Value = returnValue;
-                return returnStmt;
-            }
-
-            // Try simple expression statement (NUMBER)
-            if (CurrentToken?.Type == GeneratedTokenType.NUMBER)
-            {
-                var numberToken = CurrentToken;
-                Advance(); // consume number
-                var exprStmt = new GeneratedStmt();
-                exprStmt.StatementType = "expression";
-                exprStmt.Value = numberToken.Value;
-                return exprStmt;
-            }
-
-            // Try 'global' statement
-            if (ExpectKeyword("global"))
-            {
-                // Expect one or more NAME tokens separated by commas
-                var names = new List<string>();
-                if (CurrentToken?.Type == GeneratedTokenType.NAME)
-                {
-                    names.Add(CurrentToken.Value);
-                    Advance(); // consume first name
-                    // Handle comma-separated additional names
-                    while (CurrentToken?.Type == GeneratedTokenType.COMMA)
-                    {
-                        Advance(); // consume comma
-                        if (CurrentToken?.Type == GeneratedTokenType.NAME)
-                        {
-                            names.Add(CurrentToken.Value);
-                            Advance(); // consume name
-                        }
-                    }
-                    var globalStmt = new GeneratedStmt();
-                    globalStmt.StatementType = "global";
-                    globalStmt.Value = names.ToArray();
-                    return globalStmt;
-                }
-            }
-
-            // Try 'nonlocal' statement
-            if (ExpectKeyword("nonlocal"))
-            {
-                // Expect one or more NAME tokens separated by commas
-                var names = new List<string>();
-                if (CurrentToken?.Type == GeneratedTokenType.NAME)
-                {
-                    names.Add(CurrentToken.Value);
-                    Advance(); // consume first name
-                    // Handle comma-separated additional names
-                    while (CurrentToken?.Type == GeneratedTokenType.COMMA)
-                    {
-                        Advance(); // consume comma
-                        if (CurrentToken?.Type == GeneratedTokenType.NAME)
-                        {
-                            names.Add(CurrentToken.Value);
-                            Advance(); // consume name
-                        }
-                    }
-                    var nonlocalStmt = new GeneratedStmt();
-                    nonlocalStmt.StatementType = "nonlocal";
-                    nonlocalStmt.Value = names.ToArray();
-                    return nonlocalStmt;
-                }
-            }
-
-            // Try 'del' statement
-            if (ExpectKeyword("del"))
-            {
-                // For now, expect a simple NAME token
-                if (CurrentToken?.Type == GeneratedTokenType.NAME)
-                {
-                    var targetName = CurrentToken.Value;
-                    Advance(); // consume name
-                    var delStmt = new GeneratedStmt();
-                    delStmt.StatementType = "del";
-                    delStmt.Value = targetName;
-                    return delStmt;
-                }
-            }
-
-            // Try 'import' statement
-            if (ExpectKeyword("import"))
-            {
-                // For now, expect a simple module name
-                if (CurrentToken?.Type == GeneratedTokenType.NAME)
-                {
-                    var moduleName = CurrentToken.Value;
-                    Advance(); // consume module name
-                    var importStmt = new GeneratedStmt();
-                    importStmt.StatementType = "import";
-                    importStmt.Value = new { Module = moduleName, Alias = (string?)null };
-                    return importStmt;
-                }
-            }
-
-            // Try 'from' import statement
-            if (ExpectKeyword("from"))
-            {
-                // For now, expect 'from module import name'
-                if (CurrentToken?.Type == GeneratedTokenType.NAME)
-                {
-                    var moduleName = CurrentToken.Value;
-                    Advance(); // consume module name
-                    if (ExpectKeyword("import"))
-                    {
-                        if (CurrentToken?.Type == GeneratedTokenType.NAME)
-                        {
-                            var importName = CurrentToken.Value;
-                            Advance(); // consume import name
-                            var fromImportStmt = new GeneratedStmt();
-                            fromImportStmt.StatementType = "from_import";
-                            fromImportStmt.Value = new { Module = moduleName, Name = importName };
-                            return fromImportStmt;
-                        }
-                    }
-                }
-            }
-
-            // TODO: Add other simple statement alternatives
-            // - type_alias
-            // - star_expressions
-            // - raise_stmt, yield_stmt, assert_stmt
-            // - function calls, complex expressions
-
-            // No match found
-            return default(GeneratedStmt);
+            var result = _interpreter.ParseRule("simple_stmt");
+            return (GeneratedStmt)result;
         }
 
         // Rule: compound_stmt
         public GeneratedStmt CompoundStmt()
         {
-            // compound_stmt[stmt_ty]: if_stmt | while_stmt | for_stmt | with_stmt | try_stmt | function_def | class_def
-
-            // Try 'if' statement
-            if (ExpectKeyword("if"))
-            {
-                // Simplified if statement: 'if' condition ':' body
-                // For now, expect 'True' as condition
-                if (ExpectKeyword("True"))
-                {
-                    if (Expect("COLON"))
-                    {
-                        // Skip any NEWLINE tokens
-                        while (CurrentToken?.Type.ToString() == "NEWLINE")
-                        {
-                            Advance();
-                        }
-                        // For now, expect just a simple pass statement in the body
-                        if (ExpectKeyword("pass"))
-                        {
-                            var ifStmt = new GeneratedStmt();
-                            ifStmt.StatementType = "if";
-                            ifStmt.Value = new { Condition = "True", Body = "pass" };
-                            return ifStmt;
-                        }
-                    }
-                }
-            }
-
-            // Try 'while' statement
-            if (ExpectKeyword("while"))
-            {
-                // Simplified while statement: 'while' condition ':' body
-                // For now, expect 'True' as condition
-                if (ExpectKeyword("True"))
-                {
-                    if (Expect("COLON"))
-                    {
-                        // Skip any NEWLINE tokens
-                        while (CurrentToken?.Type.ToString() == "NEWLINE")
-                        {
-                            Advance();
-                        }
-                        // For now, expect either pass or break statement in the body
-                        if (ExpectKeyword("pass"))
-                        {
-                            var whileStmt = new GeneratedStmt();
-                            whileStmt.StatementType = "while";
-                            whileStmt.Value = new { Condition = "True", Body = "pass" };
-                            return whileStmt;
-                        }
-                        else if (ExpectKeyword("break"))
-                        {
-                            var whileStmt = new GeneratedStmt();
-                            whileStmt.StatementType = "while";
-                            whileStmt.Value = new { Condition = "True", Body = "break" };
-                            return whileStmt;
-                        }
-                    }
-                }
-            }
-
-            // Try 'def' function definition
-            if (ExpectKeyword("def"))
-            {
-                // Simplified function definition: 'def' name '(' ')' ':' body
-                // For now, expect a simple function name
-                if (CurrentToken?.Type.ToString() == "NAME")
-                {
-                    var functionName = CurrentToken.Value;
-                    Advance(); // consume function name
-                    if (Expect("LPAR")) // '('
-                    {
-                        if (Expect("RPAR")) // ')'
-                        {
-                            if (Expect("COLON"))
-                            {
-                                // Skip any NEWLINE tokens
-                                while (CurrentToken?.Type.ToString() == "NEWLINE")
-                                {
-                                    Advance();
-                                }
-                                // For now, expect just a simple pass statement in the body
-                                if (ExpectKeyword("pass"))
-                                {
-                                    var funcDef = new GeneratedStmt();
-                                    funcDef.StatementType = "function_def";
-                                    funcDef.Value = new { Name = functionName, Params = new string[0], Body = "pass" };
-                                    return funcDef;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Try 'class' definition
-            if (ExpectKeyword("class"))
-            {
-                // Simplified class definition: 'class' name ':' body
-                // For now, expect a simple class name
-                if (CurrentToken?.Type.ToString() == "NAME")
-                {
-                    var className = CurrentToken.Value;
-                    Advance(); // consume class name
-                    if (Expect("COLON"))
-                    {
-                        // Skip any NEWLINE tokens
-                        while (CurrentToken?.Type.ToString() == "NEWLINE")
-                        {
-                            Advance();
-                        }
-                        // For now, expect just a simple pass statement in the body
-                        if (ExpectKeyword("pass"))
-                        {
-                            var classDef = new GeneratedStmt();
-                            classDef.StatementType = "class_def";
-                            classDef.Value = new { Name = className, Bases = new string[0], Body = "pass" };
-                            return classDef;
-                        }
-                    }
-                }
-            }
-
-            // Try 'for' statement
-            if (ExpectKeyword("for"))
-            {
-                // Simplified for statement: 'for' name 'in' iterable ':' body
-                // For now, expect a simple variable name
-                if (CurrentToken?.Type.ToString() == "NAME")
-                {
-                    var varName = CurrentToken.Value;
-                    Advance(); // consume variable name
-                    if (ExpectKeyword("in"))
-                    {
-                        // For now, expect 'range' as the iterable
-                        if (ExpectKeyword("range"))
-                        {
-                            if (Expect("LPAR")) // '('
-                            {
-                                // For now, expect a single number argument
-                                if (CurrentToken?.Type.ToString() == "NUMBER")
-                                {
-                                    var rangeValue = CurrentToken.Value;
-                                    Advance(); // consume number
-                                    if (Expect("RPAR")) // ')'
-                                    {
-                                        if (Expect("COLON"))
-                                        {
-                                            // Skip any NEWLINE tokens
-                                            while (CurrentToken?.Type.ToString() == "NEWLINE")
-                                            {
-                                                Advance();
-                                            }
-                                            // For now, expect just a simple pass statement in the body
-                                            if (ExpectKeyword("pass"))
-                                            {
-                                                var forStmt = new GeneratedStmt();
-                                                forStmt.StatementType = "for";
-                                                forStmt.Value = new { Variable = varName, Iterable = "range", RangeValue = rangeValue, Body = "pass" };
-                                                return forStmt;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Try 'try' statement
-            if (ExpectKeyword("try"))
-            {
-                // Simplified try statement: 'try' ':' body 'except' ':' handler
-                if (Expect("COLON"))
-                {
-                    // Skip any NEWLINE tokens
-                    while (CurrentToken?.Type.ToString() == "NEWLINE")
-                    {
-                        Advance();
-                    }
-                    // For now, expect just a simple pass statement in try body
-                    if (ExpectKeyword("pass"))
-                    {
-                        // Skip any NEWLINE tokens
-                        while (CurrentToken?.Type.ToString() == "NEWLINE")
-                        {
-                            Advance();
-                        }
-                        // Expect 'except' clause
-                        if (ExpectKeyword("except"))
-                        {
-                            if (Expect("COLON"))
-                            {
-                                // Skip any NEWLINE tokens
-                                while (CurrentToken?.Type.ToString() == "NEWLINE")
-                                {
-                                    Advance();
-                                }
-                                // For now, expect just a simple pass statement in except body
-                                if (ExpectKeyword("pass"))
-                                {
-                                    var tryStmt = new GeneratedStmt();
-                                    tryStmt.StatementType = "try";
-                                    tryStmt.Value = new { TryBody = "pass", ExceptType = (string?)null, ExceptBody = "pass", FinallyBody = (string?)null };
-                                    return tryStmt;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // TODO: Add other compound statements
-            // - with_stmt
-
-            // No match found
-            return default(GeneratedStmt);
+            var result = _interpreter.ParseRule("compound_stmt");
+            return (GeneratedStmt)result;
         }
 
         // Rule: assignment
         public GeneratedStmt Assignment()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmt);
+            var result = _interpreter.ParseRule("assignment");
+            return (GeneratedStmt)result;
         }
 
         // Rule: annotated_rhs
         public GeneratedExpr AnnotatedRhs()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("annotated_rhs");
+            return (GeneratedExpr)result;
         }
 
         // Rule: augassign
         public GeneratedSeq Augassign()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("augassign");
+            return (GeneratedSeq)result;
         }
 
         // Rule: return_stmt
         public GeneratedStmt ReturnStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmt);
+            var result = _interpreter.ParseRule("return_stmt");
+            return (GeneratedStmt)result;
         }
 
         // Rule: raise_stmt
         public GeneratedStmt RaiseStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmt);
+            var result = _interpreter.ParseRule("raise_stmt");
+            return (GeneratedStmt)result;
         }
 
         // Rule: global_stmt
         public GeneratedStmt GlobalStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmt);
+            var result = _interpreter.ParseRule("global_stmt");
+            return (GeneratedStmt)result;
         }
 
         // Rule: nonlocal_stmt
         public GeneratedStmt NonlocalStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmt);
+            var result = _interpreter.ParseRule("nonlocal_stmt");
+            return (GeneratedStmt)result;
         }
 
         // Rule: del_stmt
         public GeneratedStmt DelStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmt);
+            var result = _interpreter.ParseRule("del_stmt");
+            return (GeneratedStmt)result;
         }
 
         // Rule: yield_stmt
         public GeneratedStmt YieldStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmt);
+            var result = _interpreter.ParseRule("yield_stmt");
+            return (GeneratedStmt)result;
         }
 
         // Rule: assert_stmt
         public GeneratedStmt AssertStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmt);
+            var result = _interpreter.ParseRule("assert_stmt");
+            return (GeneratedStmt)result;
         }
 
         // Rule: import_stmt
         public GeneratedStmt ImportStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmt);
+            var result = _interpreter.ParseRule("import_stmt");
+            return (GeneratedStmt)result;
         }
 
         // Rule: import_name
         public GeneratedStmt ImportName()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmt);
+            var result = _interpreter.ParseRule("import_name");
+            return (GeneratedStmt)result;
         }
 
         // Rule: import_from
         public GeneratedStmt ImportFrom()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmt);
+            var result = _interpreter.ParseRule("import_from");
+            return (GeneratedStmt)result;
         }
 
         // Rule: import_from_targets
         public GeneratedSeq ImportFromTargets()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("import_from_targets");
+            return (GeneratedSeq)result;
         }
 
         // Rule: import_from_as_names
         public GeneratedSeq ImportFromAsNames()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("import_from_as_names");
+            return (GeneratedSeq)result;
         }
 
         // Rule: import_from_as_name
         public GeneratedAstNode ImportFromAsName()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("import_from_as_name");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: dotted_as_names
         public GeneratedSeq DottedAsNames()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("dotted_as_names");
+            return (GeneratedSeq)result;
         }
 
         // Rule: dotted_as_name
         public GeneratedAstNode DottedAsName()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("dotted_as_name");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: dotted_name
         public GeneratedExpr DottedName()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("dotted_name");
+            return (GeneratedExpr)result;
         }
 
         // Rule: block
         public GeneratedStmtSeq Block()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmtSeq);
+            var result = _interpreter.ParseRule("block");
+            return (GeneratedStmtSeq)result;
         }
 
         // Rule: decorators
         public GeneratedExprSeq Decorators()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExprSeq);
+            var result = _interpreter.ParseRule("decorators");
+            return (GeneratedExprSeq)result;
         }
 
         // Rule: class_def
         public GeneratedStmt ClassDef()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmt);
+            var result = _interpreter.ParseRule("class_def");
+            return (GeneratedStmt)result;
         }
 
         // Rule: class_def_raw
         public GeneratedStmt ClassDefRaw()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmt);
+            var result = _interpreter.ParseRule("class_def_raw");
+            return (GeneratedStmt)result;
         }
 
         // Rule: function_def
         public GeneratedStmt FunctionDef()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmt);
+            var result = _interpreter.ParseRule("function_def");
+            return (GeneratedStmt)result;
         }
 
         // Rule: function_def_raw
         public GeneratedStmt FunctionDefRaw()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmt);
+            var result = _interpreter.ParseRule("function_def_raw");
+            return (GeneratedStmt)result;
         }
 
         // Rule: params
         public GeneratedAstNode Params()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("params");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: parameters
         public GeneratedAstNode Parameters()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("parameters");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: slash_no_default
         public GeneratedSeq SlashNoDefault()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("slash_no_default");
+            return (GeneratedSeq)result;
         }
 
         // Rule: slash_with_default
         public GeneratedSeq SlashWithDefault()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("slash_with_default");
+            return (GeneratedSeq)result;
         }
 
         // Rule: star_etc
         public GeneratedSeq StarEtc()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("star_etc");
+            return (GeneratedSeq)result;
         }
 
         // Rule: kwds
         public GeneratedAstNode Kwds()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("kwds");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: param_no_default
         public GeneratedAstNode ParamNoDefault()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("param_no_default");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: param_no_default_star_annotation
         public GeneratedAstNode ParamNoDefaultStarAnnotation()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("param_no_default_star_annotation");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: param_with_default
         public GeneratedSeq ParamWithDefault()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("param_with_default");
+            return (GeneratedSeq)result;
         }
 
         // Rule: param_maybe_default
         public GeneratedSeq ParamMaybeDefault()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("param_maybe_default");
+            return (GeneratedSeq)result;
         }
 
         // Rule: param
         public GeneratedAstNode Param()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("param");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: param_star_annotation
         public GeneratedAstNode ParamStarAnnotation()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("param_star_annotation");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: annotation
         public GeneratedExpr Annotation()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("annotation");
+            return (GeneratedExpr)result;
         }
 
         // Rule: star_annotation
         public GeneratedExpr StarAnnotation()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("star_annotation");
+            return (GeneratedExpr)result;
         }
 
         // Rule: default
         public GeneratedExpr Default()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("default");
+            return (GeneratedExpr)result;
         }
 
         // Rule: if_stmt
         public GeneratedStmt IfStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmt);
+            var result = _interpreter.ParseRule("if_stmt");
+            return (GeneratedStmt)result;
         }
 
         // Rule: elif_stmt
         public GeneratedStmt ElifStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmt);
+            var result = _interpreter.ParseRule("elif_stmt");
+            return (GeneratedStmt)result;
         }
 
         // Rule: else_block
         public GeneratedStmtSeq ElseBlock()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmtSeq);
+            var result = _interpreter.ParseRule("else_block");
+            return (GeneratedStmtSeq)result;
         }
 
         // Rule: while_stmt
         public GeneratedStmt WhileStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmt);
+            var result = _interpreter.ParseRule("while_stmt");
+            return (GeneratedStmt)result;
         }
 
         // Rule: for_stmt
         public GeneratedStmt ForStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmt);
+            var result = _interpreter.ParseRule("for_stmt");
+            return (GeneratedStmt)result;
         }
 
         // Rule: with_stmt
         public GeneratedStmt WithStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmt);
+            var result = _interpreter.ParseRule("with_stmt");
+            return (GeneratedStmt)result;
         }
 
         // Rule: with_item
         public GeneratedAstNode WithItem()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("with_item");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: try_stmt
         public GeneratedStmt TryStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmt);
+            var result = _interpreter.ParseRule("try_stmt");
+            return (GeneratedStmt)result;
         }
 
         // Rule: except_block
         public GeneratedAstNode ExceptBlock()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("except_block");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: except_star_block
         public GeneratedAstNode ExceptStarBlock()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("except_star_block");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: finally_block
         public GeneratedStmtSeq FinallyBlock()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmtSeq);
+            var result = _interpreter.ParseRule("finally_block");
+            return (GeneratedStmtSeq)result;
         }
 
         // Rule: match_stmt
         public GeneratedStmt MatchStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmt);
+            var result = _interpreter.ParseRule("match_stmt");
+            return (GeneratedStmt)result;
         }
 
         // Rule: subject_expr
         public GeneratedExpr SubjectExpr()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("subject_expr");
+            return (GeneratedExpr)result;
         }
 
         // Rule: case_block
         public GeneratedAstNode CaseBlock()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("case_block");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: guard
         public GeneratedExpr Guard()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("guard");
+            return (GeneratedExpr)result;
         }
 
         // Rule: patterns
         public GeneratedAstNode Patterns()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("patterns");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: pattern
         public GeneratedAstNode Pattern()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("pattern");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: as_pattern
         public GeneratedAstNode AsPattern()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("as_pattern");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: or_pattern
         public GeneratedAstNode OrPattern()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("or_pattern");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: closed_pattern
         public GeneratedAstNode ClosedPattern()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("closed_pattern");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: literal_pattern
         public GeneratedAstNode LiteralPattern()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("literal_pattern");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: literal_expr
         public GeneratedExpr LiteralExpr()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("literal_expr");
+            return (GeneratedExpr)result;
         }
 
         // Rule: complex_number
         public GeneratedExpr ComplexNumber()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("complex_number");
+            return (GeneratedExpr)result;
         }
 
         // Rule: signed_number
         public GeneratedExpr SignedNumber()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("signed_number");
+            return (GeneratedExpr)result;
         }
 
         // Rule: signed_real_number
         public GeneratedExpr SignedRealNumber()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("signed_real_number");
+            return (GeneratedExpr)result;
         }
 
         // Rule: real_number
         public GeneratedExpr RealNumber()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("real_number");
+            return (GeneratedExpr)result;
         }
 
         // Rule: imaginary_number
         public GeneratedExpr ImaginaryNumber()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("imaginary_number");
+            return (GeneratedExpr)result;
         }
 
         // Rule: capture_pattern
         public GeneratedAstNode CapturePattern()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("capture_pattern");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: pattern_capture_target
         public GeneratedExpr PatternCaptureTarget()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("pattern_capture_target");
+            return (GeneratedExpr)result;
         }
 
         // Rule: wildcard_pattern
         public GeneratedAstNode WildcardPattern()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("wildcard_pattern");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: value_pattern
         public GeneratedAstNode ValuePattern()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("value_pattern");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: attr
         public GeneratedExpr Attr()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("attr");
+            return (GeneratedExpr)result;
         }
 
         // Rule: name_or_attr
         public GeneratedExpr NameOrAttr()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("name_or_attr");
+            return (GeneratedExpr)result;
         }
 
         // Rule: group_pattern
         public GeneratedAstNode GroupPattern()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("group_pattern");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: sequence_pattern
         public GeneratedAstNode SequencePattern()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("sequence_pattern");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: open_sequence_pattern
         public GeneratedSeq OpenSequencePattern()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("open_sequence_pattern");
+            return (GeneratedSeq)result;
         }
 
         // Rule: maybe_sequence_pattern
         public GeneratedSeq MaybeSequencePattern()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("maybe_sequence_pattern");
+            return (GeneratedSeq)result;
         }
 
         // Rule: maybe_star_pattern
         public GeneratedAstNode MaybeStarPattern()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("maybe_star_pattern");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: star_pattern
         public GeneratedAstNode StarPattern()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("star_pattern");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: mapping_pattern
         public GeneratedAstNode MappingPattern()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("mapping_pattern");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: items_pattern
         public GeneratedSeq ItemsPattern()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("items_pattern");
+            return (GeneratedSeq)result;
         }
 
         // Rule: key_value_pattern
         public GeneratedSeq KeyValuePattern()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("key_value_pattern");
+            return (GeneratedSeq)result;
         }
 
         // Rule: double_star_pattern
         public GeneratedExpr DoubleStarPattern()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("double_star_pattern");
+            return (GeneratedExpr)result;
         }
 
         // Rule: class_pattern
         public GeneratedAstNode ClassPattern()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("class_pattern");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: positional_patterns
         public GeneratedSeq PositionalPatterns()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("positional_patterns");
+            return (GeneratedSeq)result;
         }
 
         // Rule: keyword_patterns
         public GeneratedSeq KeywordPatterns()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("keyword_patterns");
+            return (GeneratedSeq)result;
         }
 
         // Rule: keyword_pattern
         public GeneratedSeq KeywordPattern()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("keyword_pattern");
+            return (GeneratedSeq)result;
         }
 
         // Rule: type_alias
         public GeneratedStmt TypeAlias()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedStmt);
+            var result = _interpreter.ParseRule("type_alias");
+            return (GeneratedStmt)result;
         }
 
         // Rule: type_params
         public GeneratedSeq TypeParams()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("type_params");
+            return (GeneratedSeq)result;
         }
 
         // Rule: type_param_seq
         public GeneratedSeq TypeParamSeq()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("type_param_seq");
+            return (GeneratedSeq)result;
         }
 
         // Rule: type_param
         public GeneratedAstNode TypeParam()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("type_param");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: type_param_bound
         public GeneratedExpr TypeParamBound()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("type_param_bound");
+            return (GeneratedExpr)result;
         }
 
         // Rule: expressions
         public GeneratedExpr Expressions()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("expressions");
+            return (GeneratedExpr)result;
         }
 
         // Rule: expression
         public GeneratedExpr Expression()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("expression");
+            return (GeneratedExpr)result;
         }
 
         // Rule: yield_expr
         public GeneratedExpr YieldExpr()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("yield_expr");
+            return (GeneratedExpr)result;
         }
 
         // Rule: star_expressions
         public GeneratedExpr StarExpressions()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("star_expressions");
+            return (GeneratedExpr)result;
         }
 
         // Rule: star_expression
         public GeneratedExpr StarExpression()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("star_expression");
+            return (GeneratedExpr)result;
         }
 
         // Rule: star_named_expressions
         public GeneratedExprSeq StarNamedExpressions()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExprSeq);
+            var result = _interpreter.ParseRule("star_named_expressions");
+            return (GeneratedExprSeq)result;
         }
 
         // Rule: star_named_expression
         public GeneratedExpr StarNamedExpression()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("star_named_expression");
+            return (GeneratedExpr)result;
         }
 
         // Rule: assignment_expression
         public GeneratedExpr AssignmentExpression()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("assignment_expression");
+            return (GeneratedExpr)result;
         }
 
         // Rule: named_expression
         public GeneratedExpr NamedExpression()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("named_expression");
+            return (GeneratedExpr)result;
         }
 
         // Rule: disjunction
         public GeneratedExpr Disjunction()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("disjunction");
+            return (GeneratedExpr)result;
         }
 
         // Rule: conjunction
         public GeneratedExpr Conjunction()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("conjunction");
+            return (GeneratedExpr)result;
         }
 
         // Rule: inversion
         public GeneratedExpr Inversion()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("inversion");
+            return (GeneratedExpr)result;
         }
 
         // Rule: comparison
         public GeneratedExpr Comparison()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("comparison");
+            return (GeneratedExpr)result;
         }
 
         // Rule: compare_op_bitwise_or_pair
         public GeneratedSeq CompareOpBitwiseOrPair()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("compare_op_bitwise_or_pair");
+            return (GeneratedSeq)result;
         }
 
         // Rule: eq_bitwise_or
         public GeneratedSeq EqBitwiseOr()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("eq_bitwise_or");
+            return (GeneratedSeq)result;
         }
 
         // Rule: noteq_bitwise_or
         public GeneratedSeq NoteqBitwiseOr()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("noteq_bitwise_or");
+            return (GeneratedSeq)result;
         }
 
         // Rule: lte_bitwise_or
         public GeneratedSeq LteBitwiseOr()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("lte_bitwise_or");
+            return (GeneratedSeq)result;
         }
 
         // Rule: lt_bitwise_or
         public GeneratedSeq LtBitwiseOr()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("lt_bitwise_or");
+            return (GeneratedSeq)result;
         }
 
         // Rule: gte_bitwise_or
         public GeneratedSeq GteBitwiseOr()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("gte_bitwise_or");
+            return (GeneratedSeq)result;
         }
 
         // Rule: gt_bitwise_or
         public GeneratedSeq GtBitwiseOr()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("gt_bitwise_or");
+            return (GeneratedSeq)result;
         }
 
         // Rule: notin_bitwise_or
         public GeneratedSeq NotinBitwiseOr()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("notin_bitwise_or");
+            return (GeneratedSeq)result;
         }
 
         // Rule: in_bitwise_or
         public GeneratedSeq InBitwiseOr()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("in_bitwise_or");
+            return (GeneratedSeq)result;
         }
 
         // Rule: isnot_bitwise_or
         public GeneratedSeq IsnotBitwiseOr()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("isnot_bitwise_or");
+            return (GeneratedSeq)result;
         }
 
         // Rule: is_bitwise_or
         public GeneratedSeq IsBitwiseOr()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("is_bitwise_or");
+            return (GeneratedSeq)result;
         }
 
         // Rule: bitwise_or
         public GeneratedExpr BitwiseOr()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("bitwise_or");
+            return (GeneratedExpr)result;
         }
 
         // Rule: bitwise_xor
         public GeneratedExpr BitwiseXor()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("bitwise_xor");
+            return (GeneratedExpr)result;
         }
 
         // Rule: bitwise_and
         public GeneratedExpr BitwiseAnd()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("bitwise_and");
+            return (GeneratedExpr)result;
         }
 
         // Rule: shift_expr
         public GeneratedExpr ShiftExpr()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("shift_expr");
+            return (GeneratedExpr)result;
         }
 
         // Rule: sum
         public GeneratedExpr Sum()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("sum");
+            return (GeneratedExpr)result;
         }
 
         // Rule: term
         public GeneratedExpr Term()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("term");
+            return (GeneratedExpr)result;
         }
 
         // Rule: factor
         public GeneratedExpr Factor()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("factor");
+            return (GeneratedExpr)result;
         }
 
         // Rule: power
         public GeneratedExpr Power()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("power");
+            return (GeneratedExpr)result;
         }
 
         // Rule: await_primary
         public GeneratedExpr AwaitPrimary()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("await_primary");
+            return (GeneratedExpr)result;
         }
 
         // Rule: primary
         public GeneratedExpr Primary()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("primary");
+            return (GeneratedExpr)result;
         }
 
         // Rule: slices
         public GeneratedExpr Slices()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("slices");
+            return (GeneratedExpr)result;
         }
 
         // Rule: slice
         public GeneratedExpr Slice()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("slice");
+            return (GeneratedExpr)result;
         }
 
         // Rule: atom
         public GeneratedExpr Atom()
         {
-            // atom[expr_ty]: Basic expressions (NAME, NUMBER, True/False/None, STRING)
-
-            // Try NAME token (variable names)
-            if (CurrentToken?.Type.ToString() == "NAME")
-            {
-                var nameValue = CurrentToken.Value;
-                Advance();
-                var nameExpr = new GeneratedExpr();
-                // TODO: Set name expression properties when structure is defined
-                return nameExpr;
-            }
-
-            // Try NUMBER token
-            if (CurrentToken?.Type.ToString() == "NUMBER")
-            {
-                var numberValue = CurrentToken.Value;
-                Advance();
-                var numberExpr = new GeneratedExpr();
-                // TODO: Set number expression properties when structure is defined
-                return numberExpr;
-            }
-
-            // Try STRING token
-            if (CurrentToken?.Type.ToString() == "STRING")
-            {
-                var stringValue = CurrentToken.Value;
-                Advance();
-                var stringExpr = new GeneratedExpr();
-                // TODO: Set string expression properties when structure is defined
-                return stringExpr;
-            }
-
-            // Try literal keywords
-            if (ExpectKeyword("True"))
-            {
-                // 'True' { _PyAST_Constant(Py_True, NULL, EXTRA) }
-                var trueExpr = new GeneratedExpr();
-                // TODO: Set True constant properties when structure is defined
-                return trueExpr;
-            }
-
-            if (ExpectKeyword("False"))
-            {
-                // 'False' { _PyAST_Constant(Py_False, NULL, EXTRA) }
-                var falseExpr = new GeneratedExpr();
-                // TODO: Set False constant properties when structure is defined
-                return falseExpr;
-            }
-
-            if (ExpectKeyword("None"))
-            {
-                // 'None' { _PyAST_Constant(Py_None, NULL, EXTRA) }
-                var noneExpr = new GeneratedExpr();
-                // TODO: Set None constant properties when structure is defined
-                return noneExpr;
-            }
-
-            // TODO: Add other atom alternatives
-            // - strings (complex string handling)
-            // - tuple, list, dict literals
-            // - '...' (Ellipsis)
-
-            // No match found
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("atom");
+            return (GeneratedExpr)result;
         }
 
         // Rule: group
         public GeneratedExpr Group()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("group");
+            return (GeneratedExpr)result;
         }
 
         // Rule: lambdef
         public GeneratedExpr Lambdef()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("lambdef");
+            return (GeneratedExpr)result;
         }
 
         // Rule: lambda_params
         public GeneratedAstNode LambdaParams()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("lambda_params");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: lambda_parameters
         public GeneratedAstNode LambdaParameters()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("lambda_parameters");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: lambda_slash_no_default
         public GeneratedSeq LambdaSlashNoDefault()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("lambda_slash_no_default");
+            return (GeneratedSeq)result;
         }
 
         // Rule: lambda_slash_with_default
         public GeneratedSeq LambdaSlashWithDefault()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("lambda_slash_with_default");
+            return (GeneratedSeq)result;
         }
 
         // Rule: lambda_star_etc
         public GeneratedSeq LambdaStarEtc()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("lambda_star_etc");
+            return (GeneratedSeq)result;
         }
 
         // Rule: lambda_kwds
         public GeneratedAstNode LambdaKwds()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("lambda_kwds");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: lambda_param_no_default
         public GeneratedAstNode LambdaParamNoDefault()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("lambda_param_no_default");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: lambda_param_with_default
         public GeneratedSeq LambdaParamWithDefault()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("lambda_param_with_default");
+            return (GeneratedSeq)result;
         }
 
         // Rule: lambda_param_maybe_default
         public GeneratedSeq LambdaParamMaybeDefault()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("lambda_param_maybe_default");
+            return (GeneratedSeq)result;
         }
 
         // Rule: lambda_param
         public GeneratedAstNode LambdaParam()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("lambda_param");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: fstring_middle
         public GeneratedExpr FstringMiddle()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("fstring_middle");
+            return (GeneratedExpr)result;
         }
 
         // Rule: fstring_replacement_field
         public GeneratedExpr FstringReplacementField()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("fstring_replacement_field");
+            return (GeneratedExpr)result;
         }
 
         // Rule: fstring_conversion
         public GeneratedSeq FstringConversion()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("fstring_conversion");
+            return (GeneratedSeq)result;
         }
 
         // Rule: fstring_full_format_spec
         public GeneratedSeq FstringFullFormatSpec()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("fstring_full_format_spec");
+            return (GeneratedSeq)result;
         }
 
         // Rule: fstring_format_spec
         public GeneratedExpr FstringFormatSpec()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("fstring_format_spec");
+            return (GeneratedExpr)result;
         }
 
         // Rule: fstring
         public GeneratedExpr Fstring()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("fstring");
+            return (GeneratedExpr)result;
         }
 
         // Rule: string
         public GeneratedExpr String()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("string");
+            return (GeneratedExpr)result;
         }
 
         // Rule: strings
         public GeneratedExpr Strings()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("strings");
+            return (GeneratedExpr)result;
         }
 
         // Rule: list
         public GeneratedExpr List()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("list");
+            return (GeneratedExpr)result;
         }
 
         // Rule: tuple
         public GeneratedExpr Tuple()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("tuple");
+            return (GeneratedExpr)result;
         }
 
         // Rule: set
         public GeneratedExpr Set()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("set");
+            return (GeneratedExpr)result;
         }
 
         // Rule: dict
         public GeneratedExpr Dict()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("dict");
+            return (GeneratedExpr)result;
         }
 
         // Rule: double_starred_kvpairs
         public GeneratedSeq DoubleStarredKvpairs()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("double_starred_kvpairs");
+            return (GeneratedSeq)result;
         }
 
         // Rule: double_starred_kvpair
         public GeneratedSeq DoubleStarredKvpair()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("double_starred_kvpair");
+            return (GeneratedSeq)result;
         }
 
         // Rule: kvpair
         public GeneratedSeq Kvpair()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("kvpair");
+            return (GeneratedSeq)result;
         }
 
         // Rule: for_if_clauses
         public GeneratedSeq ForIfClauses()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("for_if_clauses");
+            return (GeneratedSeq)result;
         }
 
         // Rule: for_if_clause
         public GeneratedAstNode ForIfClause()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedAstNode);
+            var result = _interpreter.ParseRule("for_if_clause");
+            return (GeneratedAstNode)result;
         }
 
         // Rule: listcomp
         public GeneratedExpr Listcomp()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("listcomp");
+            return (GeneratedExpr)result;
         }
 
         // Rule: setcomp
         public GeneratedExpr Setcomp()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("setcomp");
+            return (GeneratedExpr)result;
         }
 
         // Rule: genexp
         public GeneratedExpr Genexp()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("genexp");
+            return (GeneratedExpr)result;
         }
 
         // Rule: dictcomp
         public GeneratedExpr Dictcomp()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("dictcomp");
+            return (GeneratedExpr)result;
         }
 
         // Rule: arguments
         public GeneratedExpr Arguments()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("arguments");
+            return (GeneratedExpr)result;
         }
 
         // Rule: args
         public GeneratedExpr Args()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("args");
+            return (GeneratedExpr)result;
         }
 
         // Rule: kwargs
         public GeneratedSeq Kwargs()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("kwargs");
+            return (GeneratedSeq)result;
         }
 
         // Rule: starred_expression
         public GeneratedExpr StarredExpression()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("starred_expression");
+            return (GeneratedExpr)result;
         }
 
         // Rule: kwarg_or_starred
         public GeneratedSeq KwargOrStarred()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("kwarg_or_starred");
+            return (GeneratedSeq)result;
         }
 
         // Rule: kwarg_or_double_starred
         public GeneratedSeq KwargOrDoubleStarred()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("kwarg_or_double_starred");
+            return (GeneratedSeq)result;
         }
 
         // Rule: star_targets
         public GeneratedExpr StarTargets()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("star_targets");
+            return (GeneratedExpr)result;
         }
 
         // Rule: star_targets_list_seq
         public GeneratedExprSeq StarTargetsListSeq()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExprSeq);
+            var result = _interpreter.ParseRule("star_targets_list_seq");
+            return (GeneratedExprSeq)result;
         }
 
         // Rule: star_targets_tuple_seq
         public GeneratedExprSeq StarTargetsTupleSeq()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExprSeq);
+            var result = _interpreter.ParseRule("star_targets_tuple_seq");
+            return (GeneratedExprSeq)result;
         }
 
         // Rule: star_target
         public GeneratedExpr StarTarget()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("star_target");
+            return (GeneratedExpr)result;
         }
 
         // Rule: target_with_star_atom
         public GeneratedExpr TargetWithStarAtom()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("target_with_star_atom");
+            return (GeneratedExpr)result;
         }
 
         // Rule: star_atom
         public GeneratedExpr StarAtom()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("star_atom");
+            return (GeneratedExpr)result;
         }
 
         // Rule: single_target
         public GeneratedExpr SingleTarget()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("single_target");
+            return (GeneratedExpr)result;
         }
 
         // Rule: single_subscript_attribute_target
         public GeneratedExpr SingleSubscriptAttributeTarget()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("single_subscript_attribute_target");
+            return (GeneratedExpr)result;
         }
 
         // Rule: t_primary
         public GeneratedExpr TPrimary()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("t_primary");
+            return (GeneratedExpr)result;
         }
 
         // Rule: t_lookahead
         public object? TLookahead()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("t_lookahead");
+            return result as object;
         }
 
         // Rule: del_targets
         public GeneratedExprSeq DelTargets()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExprSeq);
+            var result = _interpreter.ParseRule("del_targets");
+            return (GeneratedExprSeq)result;
         }
 
         // Rule: del_target
         public GeneratedExpr DelTarget()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("del_target");
+            return (GeneratedExpr)result;
         }
 
         // Rule: del_t_atom
         public GeneratedExpr DelTAtom()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("del_t_atom");
+            return (GeneratedExpr)result;
         }
 
         // Rule: type_expressions
         public GeneratedExprSeq TypeExpressions()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExprSeq);
+            var result = _interpreter.ParseRule("type_expressions");
+            return (GeneratedExprSeq)result;
         }
 
         // Rule: func_type_comment
         public GeneratedSeq FuncTypeComment()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("func_type_comment");
+            return (GeneratedSeq)result;
         }
 
         // Rule: invalid_arguments
         public object? InvalidArguments()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_arguments");
+            return result as object;
         }
 
         // Rule: invalid_kwarg
         public object? InvalidKwarg()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_kwarg");
+            return result as object;
         }
 
         // Rule: expression_without_invalid
         public GeneratedExpr ExpressionWithoutInvalid()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("expression_without_invalid");
+            return (GeneratedExpr)result;
         }
 
         // Rule: invalid_legacy_expression
         public object? InvalidLegacyExpression()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_legacy_expression");
+            return result as object;
         }
 
         // Rule: invalid_expression
         public object? InvalidExpression()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_expression");
+            return result as object;
         }
 
         // Rule: invalid_named_expression
         public object? InvalidNamedExpression()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_named_expression");
+            return result as object;
         }
 
         // Rule: invalid_assignment
         public object? InvalidAssignment()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_assignment");
+            return result as object;
         }
 
         // Rule: invalid_ann_assign_target
         public GeneratedExpr InvalidAnnAssignTarget()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedExpr);
+            var result = _interpreter.ParseRule("invalid_ann_assign_target");
+            return (GeneratedExpr)result;
         }
 
         // Rule: invalid_del_stmt
         public object? InvalidDelStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_del_stmt");
+            return result as object;
         }
 
         // Rule: invalid_block
         public object? InvalidBlock()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_block");
+            return result as object;
         }
 
         // Rule: invalid_comprehension
         public object? InvalidComprehension()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_comprehension");
+            return result as object;
         }
 
         // Rule: invalid_dict_comprehension
         public object? InvalidDictComprehension()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_dict_comprehension");
+            return result as object;
         }
 
         // Rule: invalid_parameters
         public object? InvalidParameters()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_parameters");
+            return result as object;
         }
 
         // Rule: invalid_default
         public object? InvalidDefault()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_default");
+            return result as object;
         }
 
         // Rule: invalid_star_etc
         public object? InvalidStarEtc()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_star_etc");
+            return result as object;
         }
 
         // Rule: invalid_kwds
         public object? InvalidKwds()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_kwds");
+            return result as object;
         }
 
         // Rule: invalid_parameters_helper
         public object? InvalidParametersHelper()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_parameters_helper");
+            return result as object;
         }
 
         // Rule: invalid_lambda_parameters
         public object? InvalidLambdaParameters()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_lambda_parameters");
+            return result as object;
         }
 
         // Rule: invalid_lambda_parameters_helper
         public object? InvalidLambdaParametersHelper()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_lambda_parameters_helper");
+            return result as object;
         }
 
         // Rule: invalid_lambda_star_etc
         public object? InvalidLambdaStarEtc()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_lambda_star_etc");
+            return result as object;
         }
 
         // Rule: invalid_lambda_kwds
         public object? InvalidLambdaKwds()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_lambda_kwds");
+            return result as object;
         }
 
         // Rule: invalid_double_type_comments
         public object? InvalidDoubleTypeComments()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_double_type_comments");
+            return result as object;
         }
 
         // Rule: invalid_with_item
         public object? InvalidWithItem()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_with_item");
+            return result as object;
         }
 
         // Rule: invalid_for_target
         public object? InvalidForTarget()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_for_target");
+            return result as object;
         }
 
         // Rule: invalid_group
         public object? InvalidGroup()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_group");
+            return result as object;
         }
 
         // Rule: invalid_import
         public object? InvalidImport()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_import");
+            return result as object;
         }
 
         // Rule: invalid_import_from_targets
         public object? InvalidImportFromTargets()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_import_from_targets");
+            return result as object;
         }
 
         // Rule: invalid_with_stmt
         public object? InvalidWithStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_with_stmt");
+            return result as object;
         }
 
         // Rule: invalid_with_stmt_indent
         public object? InvalidWithStmtIndent()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_with_stmt_indent");
+            return result as object;
         }
 
         // Rule: invalid_try_stmt
         public object? InvalidTryStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_try_stmt");
+            return result as object;
         }
 
         // Rule: invalid_except_stmt
         public object? InvalidExceptStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_except_stmt");
+            return result as object;
         }
 
         // Rule: invalid_finally_stmt
         public object? InvalidFinallyStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_finally_stmt");
+            return result as object;
         }
 
         // Rule: invalid_except_stmt_indent
         public object? InvalidExceptStmtIndent()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_except_stmt_indent");
+            return result as object;
         }
 
         // Rule: invalid_except_star_stmt_indent
         public object? InvalidExceptStarStmtIndent()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_except_star_stmt_indent");
+            return result as object;
         }
 
         // Rule: invalid_match_stmt
         public object? InvalidMatchStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_match_stmt");
+            return result as object;
         }
 
         // Rule: invalid_case_block
         public object? InvalidCaseBlock()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_case_block");
+            return result as object;
         }
 
         // Rule: invalid_as_pattern
         public object? InvalidAsPattern()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_as_pattern");
+            return result as object;
         }
 
         // Rule: invalid_class_pattern
         public object? InvalidClassPattern()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_class_pattern");
+            return result as object;
         }
 
         // Rule: invalid_class_argument_pattern
         public GeneratedSeq InvalidClassArgumentPattern()
         {
-            // Phase 1: Minimal implementation
-            return default(GeneratedSeq);
+            var result = _interpreter.ParseRule("invalid_class_argument_pattern");
+            return (GeneratedSeq)result;
         }
 
         // Rule: invalid_if_stmt
         public object? InvalidIfStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_if_stmt");
+            return result as object;
         }
 
         // Rule: invalid_elif_stmt
         public object? InvalidElifStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_elif_stmt");
+            return result as object;
         }
 
         // Rule: invalid_else_stmt
         public object? InvalidElseStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_else_stmt");
+            return result as object;
         }
 
         // Rule: invalid_while_stmt
         public object? InvalidWhileStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_while_stmt");
+            return result as object;
         }
 
         // Rule: invalid_for_stmt
         public object? InvalidForStmt()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_for_stmt");
+            return result as object;
         }
 
         // Rule: invalid_def_raw
         public object? InvalidDefRaw()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_def_raw");
+            return result as object;
         }
 
         // Rule: invalid_class_def_raw
         public object? InvalidClassDefRaw()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_class_def_raw");
+            return result as object;
         }
 
         // Rule: invalid_double_starred_kvpairs
         public object? InvalidDoubleStarredKvpairs()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_double_starred_kvpairs");
+            return result as object;
         }
 
         // Rule: invalid_kvpair
         public object? InvalidKvpair()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_kvpair");
+            return result as object;
         }
 
         // Rule: invalid_starred_expression
         public object? InvalidStarredExpression()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_starred_expression");
+            return result as object;
         }
 
         // Rule: invalid_replacement_field
         public object? InvalidReplacementField()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_replacement_field");
+            return result as object;
         }
 
         // Rule: invalid_conversion_character
         public object? InvalidConversionCharacter()
         {
-            // Phase 1: Minimal implementation
-            return default(object?);
+            var result = _interpreter.ParseRule("invalid_conversion_character");
+            return result as object;
         }
 
     }
