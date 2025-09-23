@@ -12,7 +12,9 @@
     <NoWarn>$(NoWarn)</NoWarn>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <WarningLevel>0</WarningLevel>
-  
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
@@ -23,5 +25,25 @@
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <DefineConstants>TRACE</DefineConstants>
   </PropertyGroup>
+
+  <!-- Exclude PegGenerator files from main build -->
+  <ItemGroup>
+    <Compile Remove="SharpPy.PegGenerator\**" />
+    <EmbeddedResource Remove="SharpPy.PegGenerator\**" />
+    <None Remove="SharpPy.PegGenerator\**" />
+    <!-- Generated parser now included for Phase 1 testing -->
+  </ItemGroup>
+
+  <!-- PEG Parser Generation -->
+  <Target Name="GenerateParser" BeforeTargets="BeforeBuild">
+    <Message Text="Generating PEG parser from Grammar/python.gram..." Importance="high" />
+    <Exec Command="dotnet run --project SharpPy.PegGenerator --grammar Grammar/python.gram --tokens Grammar/Tokens --parser-output runtime/Generated/PyParser.cs --tokenizer-output runtime/Generated/PyTokenizer.cs"
+          ContinueOnError="false"
+          WorkingDirectory="$(ProjectDir)" />
+  </Target>
+
+  <Target Name="CreateGeneratedDir" BeforeTargets="GenerateParser">
+    <MakeDir Directories="runtime/Generated" Condition="!Exists('runtime/Generated')" />
+  </Target>
 
 </Project>

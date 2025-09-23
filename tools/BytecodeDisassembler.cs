@@ -37,8 +37,8 @@ namespace SharpPy.Tools
                 Console.WriteLine($"Disassembly of {pythonFile}:");
                 
                 string code = File.ReadAllText(pythonFile);
-                // Use PyParserBridge to get PEG parser support
-                var ast = PyParserBridge.ParseSource(code, pythonFile);
+                // Use GeneratedParserBridge to get CPython 3.12 compatible PEG parser support
+                var ast = GeneratedParserBridge.ParseSource(code, pythonFile);
                 
                 var compiler = new PythonCompiler();
                 var codeObject = compiler.Compile(ast, "<module>", new List<string>(), pythonFile);

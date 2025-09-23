@@ -16,7 +16,7 @@ namespace SharpPy
         
         public IntegratedPythonInterpreter()
         {
-            // CPython 3.12 compatible PEG parser is used via PyParserBridge
+            // CPython 3.12 compatible PEG parser is used via GeneratedParserBridge
             _compiler = new PythonCompiler();
             _vm = PyVM.Instance;
             _globalScope = new PyScopeChain(); // 기존 LEGB 시스템!
@@ -70,7 +70,7 @@ namespace SharpPy
                 Console.WriteLine("1️⃣ 파싱: 소스 → AST");
                 Console.WriteLine(new string('=', 30));
 #endif
-                var statements = PyParserBridge.ParseSource(sourceCode, fileName ?? "<string>");
+                var statements = GeneratedParserBridge.ParseSource(sourceCode, fileName ?? "<string>");
                 
                 // 2단계: 컴파일 (AST → 바이트코드)
 #if DEBUG_LOG

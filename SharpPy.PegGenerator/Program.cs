@@ -17,7 +17,8 @@ namespace SharpPy.PegGenerator
                 // Default paths relative to the main SharpPy project
                 var grammarPath = Path.Combine("..", "Grammar", "python.gram");
                 var tokensPath = Path.Combine("..", "Grammar", "Tokens");
-                var outputPath = Path.Combine("..", "runtime", "Generated", "PyParser.cs");
+                var parserOutputPath = Path.Combine("..", "runtime", "Generated", "PyParser.cs");
+                var tokenizerOutputPath = Path.Combine("..", "runtime", "Generated", "PyTokenizer.cs");
 
                 // Parse command line arguments
                 for (int i = 0; i < args.Length; i++)
@@ -32,9 +33,13 @@ namespace SharpPy.PegGenerator
                             if (i + 1 < args.Length)
                                 tokensPath = args[++i];
                             break;
-                        case "--output":
+                        case "--parser-output":
                             if (i + 1 < args.Length)
-                                outputPath = args[++i];
+                                parserOutputPath = args[++i];
+                            break;
+                        case "--tokenizer-output":
+                            if (i + 1 < args.Length)
+                                tokenizerOutputPath = args[++i];
                             break;
                         case "--help":
                             ShowHelp();
@@ -57,7 +62,8 @@ namespace SharpPy.PegGenerator
 
                 Console.WriteLine($"Reading grammar from: {grammarPath}");
                 Console.WriteLine($"Reading tokens from: {tokensPath}");
-                Console.WriteLine($"Output will be written to: {outputPath}");
+                Console.WriteLine($"Parser output will be written to: {parserOutputPath}");
+                Console.WriteLine($"Tokenizer output will be written to: {tokenizerOutputPath}");
                 Console.WriteLine();
 
                 // Read and parse tokens
@@ -79,26 +85,42 @@ namespace SharpPy.PegGenerator
                 var grammar = parser.ParseGrammar();
                 Console.WriteLine($"Parsed {grammar.Rules.Count} rules");
 
-                // Generate C# code
+                // Generate C# parser code
                 Console.WriteLine("Generating C# parser code...");
-                var generator = new CSharpCodeGenerator(grammar, tokens);
-                var generatedCode = generator.GenerateParser();
+                var parserGenerator = new CSharpCodeGenerator(grammar, tokens);
+                var generatedParserCode = parserGenerator.GenerateParser();
 
-                // Ensure output directory exists
-                var outputDir = Path.GetDirectoryName(outputPath);
-                if (!string.IsNullOrEmpty(outputDir) && !Directory.Exists(outputDir))
+                // Generate C# tokenizer code
+                Console.WriteLine("Generating C# tokenizer code...");
+                var tokenizerGenerator = new CSharpTokenizerGenerator(tokens);
+                var generatedTokenizerCode = tokenizerGenerator.GenerateTokenizer();
+
+                // Ensure output directories exist
+                var parserOutputDir = Path.GetDirectoryName(parserOutputPath);
+                if (!string.IsNullOrEmpty(parserOutputDir) && !Directory.Exists(parserOutputDir))
                 {
-                    Directory.CreateDirectory(outputDir);
-                    Console.WriteLine($"Created output directory: {outputDir}");
+                    Directory.CreateDirectory(parserOutputDir);
+                    Console.WriteLine($"Created parser output directory: {parserOutputDir}");
                 }
 
-                // Write output
-                File.WriteAllText(outputPath, generatedCode);
-                Console.WriteLine($"Generated parser written to: {outputPath}");
-                Console.WriteLine($"Generated code size: {generatedCode.Length} characters");
+                var tokenizerOutputDir = Path.GetDirectoryName(tokenizerOutputPath);
+                if (!string.IsNullOrEmpty(tokenizerOutputDir) && !Directory.Exists(tokenizerOutputDir))
+                {
+                    Directory.CreateDirectory(tokenizerOutputDir);
+                    Console.WriteLine($"Created tokenizer output directory: {tokenizerOutputDir}");
+                }
+
+                // Write outputs
+                File.WriteAllText(parserOutputPath, generatedParserCode);
+                Console.WriteLine($"Generated parser written to: {parserOutputPath}");
+                Console.WriteLine($"Generated parser code size: {generatedParserCode.Length} characters");
+
+                File.WriteAllText(tokenizerOutputPath, generatedTokenizerCode);
+                Console.WriteLine($"Generated tokenizer written to: {tokenizerOutputPath}");
+                Console.WriteLine($"Generated tokenizer code size: {generatedTokenizerCode.Length} characters");
 
                 Console.WriteLine();
-                Console.WriteLine("✅ Parser generation completed successfully!");
+                Console.WriteLine("✅ Parser and tokenizer generation completed successfully!");
             }
             catch (Exception ex)
             {
@@ -116,14 +138,15 @@ namespace SharpPy.PegGenerator
             Console.WriteLine("Usage: SharpPy.PegGenerator [options]");
             Console.WriteLine();
             Console.WriteLine("Options:");
-            Console.WriteLine("  --grammar <path>    Path to python.gram file (default: ../Grammar/python.gram)");
-            Console.WriteLine("  --tokens <path>     Path to Tokens file (default: ../Grammar/Tokens)");
-            Console.WriteLine("  --output <path>     Output C# file path (default: ../runtime/Generated/PyParser.cs)");
-            Console.WriteLine("  --help             Show this help message");
+            Console.WriteLine("  --grammar <path>           Path to python.gram file (default: ../Grammar/python.gram)");
+            Console.WriteLine("  --tokens <path>            Path to Tokens file (default: ../Grammar/Tokens)");
+            Console.WriteLine("  --parser-output <path>     Parser output C# file path (default: ../runtime/Generated/PyParser.cs)");
+            Console.WriteLine("  --tokenizer-output <path>  Tokenizer output C# file path (default: ../runtime/Generated/PyTokenizer.cs)");
+            Console.WriteLine("  --help                     Show this help message");
             Console.WriteLine();
             Console.WriteLine("Examples:");
             Console.WriteLine("  SharpPy.PegGenerator");
-            Console.WriteLine("  SharpPy.PegGenerator --grammar custom.gram --output parser.cs");
+            Console.WriteLine("  SharpPy.PegGenerator --grammar custom.gram --parser-output parser.cs");
             Console.WriteLine();
         }
     }

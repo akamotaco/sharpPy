@@ -22,8 +22,14 @@ namespace SharpPy.Tools
                 Console.WriteLine($"🔧 SharpPy Token Analysis: {pythonFile}");
                 Console.WriteLine("========================================");
 
-                var lexer = new PyLexer(source);
-                var tokens = lexer.Tokenize(debugOutput: true);
+                var tokenizer = new SharpPy.Generated.GeneratedPyTokenizer(source, pythonFile);
+                var tokens = tokenizer.Tokenize();
+
+                Console.WriteLine("Generated tokens:");
+                foreach (var token in tokens)
+                {
+                    Console.WriteLine($"  {token.Type}: '{token.Value}' (line {token.Line}, col {token.Column})");
+                }
 
                 Console.WriteLine("========================================");
                 Console.WriteLine($"✅ Total {tokens.Count} tokens generated");

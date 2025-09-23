@@ -8,152 +8,36 @@ using SharpPy;
 
 namespace SharpPy.Generated
 {
-    public enum TokenType
+    // Generated AST node types for CPython 3.12 compatibility
+    public abstract class GeneratedAstNode { }
+    public class GeneratedStmt : GeneratedAstNode
     {
-        ENDMARKER,
-        NAME,
-        NUMBER,
-        STRING,
-        NEWLINE,
-        INDENT,
-        DEDENT,
-        LPAR,
-        RPAR,
-        LSQB,
-        RSQB,
-        COLON,
-        COMMA,
-        SEMI,
-        PLUS,
-        MINUS,
-        STAR,
-        SLASH,
-        VBAR,
-        AMPER,
-        LESS,
-        GREATER,
-        EQUAL,
-        DOT,
-        PERCENT,
-        LBRACE,
-        RBRACE,
-        EQEQUAL,
-        NOTEQUAL,
-        LESSEQUAL,
-        GREATEREQUAL,
-        TILDE,
-        CIRCUMFLEX,
-        LEFTSHIFT,
-        RIGHTSHIFT,
-        DOUBLESTAR,
-        PLUSEQUAL,
-        MINEQUAL,
-        STAREQUAL,
-        SLASHEQUAL,
-        PERCENTEQUAL,
-        AMPEREQUAL,
-        VBAREQUAL,
-        CIRCUMFLEXEQUAL,
-        LEFTSHIFTEQUAL,
-        RIGHTSHIFTEQUAL,
-        DOUBLESTAREQUAL,
-        DOUBLESLASH,
-        DOUBLESLASHEQUAL,
-        AT,
-        ATEQUAL,
-        RARROW,
-        ELLIPSIS,
-        COLONEQUAL,
-        EXCLAMATION,
-        OP,
-        AWAIT,
-        ASYNC,
-        TYPE_IGNORE,
-        TYPE_COMMENT,
-        SOFT_KEYWORD,
-        FSTRING_START,
-        FSTRING_MIDDLE,
-        FSTRING_END,
-        COMMENT,
-        NL,
-        ERRORTOKEN,
-        ENCODING,
+        public string? StatementType { get; set; }
+        public object? Value { get; set; }
     }
-
-    public class Token
+    public class GeneratedExpr : GeneratedAstNode { }
+    public class GeneratedModule : GeneratedAstNode
     {
-        public string Type { get; set; } = "";
-        public string Value { get; set; } = "";
-        public int Line { get; set; }
-        public int Column { get; set; }
+        public GeneratedStmtSeq? Body { get; set; }
     }
-
-    public static class TokenLiterals
-    {
-        public static readonly Dictionary<string, TokenType> Map = new()
-        {
-            { "(", TokenType.LPAR },
-            { ")", TokenType.RPAR },
-            { "[", TokenType.LSQB },
-            { "]", TokenType.RSQB },
-            { ":", TokenType.COLON },
-            { ",", TokenType.COMMA },
-            { ";", TokenType.SEMI },
-            { "+", TokenType.PLUS },
-            { "-", TokenType.MINUS },
-            { "*", TokenType.STAR },
-            { "/", TokenType.SLASH },
-            { "|", TokenType.VBAR },
-            { "&", TokenType.AMPER },
-            { "<", TokenType.LESS },
-            { ">", TokenType.GREATER },
-            { "=", TokenType.EQUAL },
-            { ".", TokenType.DOT },
-            { "%", TokenType.PERCENT },
-            { "{", TokenType.LBRACE },
-            { "}", TokenType.RBRACE },
-            { "==", TokenType.EQEQUAL },
-            { "!=", TokenType.NOTEQUAL },
-            { "<=", TokenType.LESSEQUAL },
-            { ">=", TokenType.GREATEREQUAL },
-            { "~", TokenType.TILDE },
-            { "^", TokenType.CIRCUMFLEX },
-            { "<<", TokenType.LEFTSHIFT },
-            { ">>", TokenType.RIGHTSHIFT },
-            { "**", TokenType.DOUBLESTAR },
-            { "+=", TokenType.PLUSEQUAL },
-            { "-=", TokenType.MINEQUAL },
-            { "*=", TokenType.STAREQUAL },
-            { "/=", TokenType.SLASHEQUAL },
-            { "%=", TokenType.PERCENTEQUAL },
-            { "&=", TokenType.AMPEREQUAL },
-            { "|=", TokenType.VBAREQUAL },
-            { "^=", TokenType.CIRCUMFLEXEQUAL },
-            { "<<=", TokenType.LEFTSHIFTEQUAL },
-            { ">>=", TokenType.RIGHTSHIFTEQUAL },
-            { "**=", TokenType.DOUBLESTAREQUAL },
-            { "//", TokenType.DOUBLESLASH },
-            { "//=", TokenType.DOUBLESLASHEQUAL },
-            { "@", TokenType.AT },
-            { "@=", TokenType.ATEQUAL },
-            { "->", TokenType.RARROW },
-            { "...", TokenType.ELLIPSIS },
-            { ":=", TokenType.COLONEQUAL },
-            { "!", TokenType.EXCLAMATION },
-        };
-    }
+    public class GeneratedSeq : List<GeneratedAstNode> { }
+    public class GeneratedStmtSeq : List<GeneratedStmt> { }
+    public class GeneratedExprSeq : List<GeneratedExpr> { }
+    public class GeneratedIdentifierSeq : List<string> { }
+    public class GeneratedPyObject { }
+    // GeneratedToken type defined in tokenizer
 
     /// <summary>
     /// Generated PEG parser for Python 3.12 grammar
     /// </summary>
     public class GeneratedPyParser
     {
-        private readonly List<Token> _tokens;
+        private readonly List<GeneratedTokenInfo> _tokens;
         private int _position;
         private readonly Dictionary<(int, string), object?> _memoCache = new();
         private readonly string _filename;
 
-        public GeneratedPyParser(List<Token> tokens, string filename = "<string>")
+        public GeneratedPyParser(List<GeneratedTokenInfo> tokens, string filename = "<string>")
         {
             _tokens = tokens ?? throw new ArgumentNullException(nameof(tokens));
             _filename = filename;
@@ -161,7 +45,7 @@ namespace SharpPy.Generated
         }
 
         // Helper methods
-        private Token? CurrentToken => _position < _tokens.Count ? _tokens[_position] : null;
+        private GeneratedTokenInfo? CurrentToken => _position < _tokens.Count ? _tokens[_position] : null;
 
         private void Advance()
         {
@@ -170,7 +54,7 @@ namespace SharpPy.Generated
 
         private bool Expect(string expected)
         {
-            if (CurrentToken?.Type == expected)
+            if (CurrentToken?.Type.ToString() == expected)
             {
                 Advance();
                 return true;
@@ -180,7 +64,7 @@ namespace SharpPy.Generated
 
         private bool ExpectKeyword(string keyword)
         {
-            if (CurrentToken?.Type == "NAME" && CurrentToken?.Value == keyword)
+            if (CurrentToken?.Type.ToString() == "NAME" && CurrentToken?.Value == keyword)
             {
                 Advance();
                 return true;
@@ -204,10350 +88,1930 @@ namespace SharpPy.Generated
             _memoCache[key] = value;
         }
 
-        // Rule: file
-        public object? File()
+        private List<T> ParseZeroOrMore<T>(Func<T?> parseFunc) where T : class
         {
-            var memo = GetMemo<object?>("file");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
+            var results = new List<T>();
+            while (true)
             {
-                var a = ((Statements()) ?? new object());
-                if (a == null) return default(object?);
-                var _item1 = Expect("ENDMARKER") ? CurrentToken : null;
-                if (_item1 == null) return default(object?);
-                var result = _PyPegen_make_module(p, a);
-                SetMemo("{rule.Name}", result);
-                return result;
+                var startPos = _position;
+                var result = parseFunc();
+                if (result == null)
+                {
+                    _position = startPos;
+                    break;
+                }
+                results.Add(result);
+            }
+            return results;
+        }
+
+        private List<T>? ParseOneOrMore<T>(Func<T?> parseFunc) where T : class
+        {
+            var results = ParseZeroOrMore(parseFunc);
+            return results.Count > 0 ? results : null;
+        }
+
+        private T? ParseOptional<T>(Func<T?> parseFunc) where T : class
+        {
+            var startPos = _position;
+            var result = parseFunc();
+            if (result == null)
+            {
+                _position = startPos;
+            }
+            return result;
+        }
+
+        private T? ParseGroup<T>(Func<T?> parseFunc) where T : class
+        {
+            return parseFunc();
+        }
+
+        // Rule: file
+        public GeneratedModule File()
+        {
+            // file[mod_ty]: a=[statements] ENDMARKER { _PyPegen_make_module(p, a) }
+            var statements = Statements(); // Parse optional statements
+
+            if (!Expect("ENDMARKER"))
+            {
+                // If no ENDMARKER, we're not at end of file - this is an error for complete parsing
+                // For now, continue gracefully
             }
 
-            SetMemo("file", default(object?));
-            return default(object?);
+            // Create a module containing the statements
+            var module = new GeneratedModule();
+            module.Body = statements;
+            return module;
         }
 
         // Rule: interactive
-        public object? Interactive()
+        public GeneratedModule Interactive()
         {
-            var memo = GetMemo<object?>("interactive");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = StatementNewline();
-                if (a == null) return default(object?);
-                var result = _PyAST_Interactive(a, p->arena);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("interactive", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedModule);
         }
 
         // Rule: eval
-        public object? Eval()
+        public GeneratedModule Eval()
         {
-            var memo = GetMemo<object?>("eval");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Expressions();
-                if (a == null) return default(object?);
-                var _item1 = ParseZeroOrMore(() => Expect("NEWLINE") ? CurrentToken : null);
-                if (_item1 == null) return default(object?);
-                var _item2 = Expect("ENDMARKER") ? CurrentToken : null;
-                if (_item2 == null) return default(object?);
-                var result = _PyAST_Expression(a, p->arena);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("eval", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedModule);
         }
 
         // Rule: func_type
-        public object? FuncType()
+        public GeneratedModule FuncType()
         {
-            var memo = GetMemo<object?>("func_type");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("(");
-                if (_item0 == null) return default(object?);
-                var a = ((TypeExpressions()) ?? new object());
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken(")");
-                if (_item2 == null) return default(object?);
-                var _item3 = ExpectToken("->");
-                if (_item3 == null) return default(object?);
-                var b = Expression();
-                if (b == null) return default(object?);
-                var _item5 = ParseZeroOrMore(() => Expect("NEWLINE") ? CurrentToken : null);
-                if (_item5 == null) return default(object?);
-                var _item6 = Expect("ENDMARKER") ? CurrentToken : null;
-                if (_item6 == null) return default(object?);
-                var result = _PyAST_FunctionType(a, b, p->arena);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("func_type", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedModule);
         }
 
         // Rule: statements
-        public List<object>? Statements()
+        public GeneratedStmtSeq Statements()
         {
-            var memo = GetMemo<List<object>?>("statements");
-            if (memo != null) return memo;
+            // statements[asdl_stmt_seq*]: a=statement+ { (asdl_stmt_seq*)_PyPegen_seq_flatten(p, a) }
+            var statementList = new List<GeneratedStmt>();
 
-            var startPos = _position;
-            // Alternative 1
+            // Parse one or more statements
+            while (_position < _tokens.Count && CurrentToken?.Type.ToString() != "ENDMARKER")
             {
-                var a = ParseOneOrMore(() => Statement());
-                if (a == null) return default(List<object>?);
-                var result = (asdl_stmt_seq*)_PyPegen_seq_flatten(p, a);
-                SetMemo("{rule.Name}", result);
-                return result;
+                var stmtSeq = Statement(); // Returns GeneratedStmtSeq
+                if (stmtSeq != null && stmtSeq.Count > 0)
+                {
+                    // Add all statements from the sequence
+                    statementList.AddRange(stmtSeq);
+                }
+                else
+                {
+                    // No more statements to parse
+                    break;
+                }
             }
 
-            SetMemo("statements", default(List<object>?));
-            return default(List<object>?);
+            // Convert to statement sequence
+            var result = new GeneratedStmtSeq();
+            result.AddRange(statementList);
+            return result;
         }
 
         // Rule: statement
-        public List<object>? Statement()
+        public GeneratedStmtSeq Statement()
         {
-            var memo = GetMemo<List<object>?>("statement");
-            if (memo != null) return memo;
+            // statement[asdl_stmt_seq*]: compound_stmt | simple_stmts
 
-            var startPos = _position;
-            // Alternative 1
+            // Try simple_stmts first (easier to implement)
+            var simpleStmts = SimpleStmts();
+            if (simpleStmts != null)
             {
-                var a = CompoundStmt();
-                if (a == null) return default(List<object>?);
-                var result = (asdl_stmt_seq*)_PyPegen_singleton_seq(p, a);
-                SetMemo("{rule.Name}", result);
-                return result;
+                return simpleStmts;
             }
 
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = SimpleStmts();
-                if (a == null) return default(List<object>?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
+            // TODO: Add compound_stmt support later
+            // - if_stmt, while_stmt, for_stmt, with_stmt, try_stmt, etc.
 
-            SetMemo("statement", default(List<object>?));
-            return default(List<object>?);
+            // No match found
+            return default(GeneratedStmtSeq);
         }
 
         // Rule: statement_newline
-        public List<object>? StatementNewline()
+        public GeneratedStmtSeq StatementNewline()
         {
-            var memo = GetMemo<List<object>?>("statement_newline");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = CompoundStmt();
-                if (a == null) return default(List<object>?);
-                var _item1 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item1 == null) return default(List<object>?);
-                var result = (asdl_stmt_seq*)_PyPegen_singleton_seq(p, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = SimpleStmts();
-                if (_item0 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item0 == null) return default(List<object>?);
-                var result = (asdl_stmt_seq*)_PyPegen_singleton_seq(p, CHECK(stmt_ty, _PyAST_Pass(EXTRA)));
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = Expect("ENDMARKER") ? CurrentToken : null;
-                if (_item0 == null) return default(List<object>?);
-                var result = _PyPegen_interactive_exit(p);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("statement_newline", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmtSeq);
         }
 
         // Rule: simple_stmts
-        public List<object>? SimpleStmts()
+        public GeneratedStmtSeq SimpleStmts()
         {
-            var memo = GetMemo<List<object>?>("simple_stmts");
-            if (memo != null) return memo;
+            // simple_stmts[asdl_stmt_seq*]: simple_stmt NEWLINE | simple_stmt $$
 
-            var startPos = _position;
-            // Alternative 1
+            var stmt = SimpleStmt();
+            if (stmt != null)
             {
-                var a = SimpleStmt();
-                if (a == null) return default(List<object>?);
-                var _item1 = (Mark() is var pos && ExpectToken(";") == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item1 == null) return default(List<object>?);
-                var _item2 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item2 == null) return default(List<object>?);
-                var result = (asdl_stmt_seq*)_PyPegen_singleton_seq(p, a);
-                SetMemo("{rule.Name}", result);
-                return result;
+                // Skip optional newline
+                if (CurrentToken?.Type.ToString() == "NEWLINE")
+                {
+                    Advance();
+                }
+
+                // Create statement sequence with single statement
+                var stmtSeq = new GeneratedStmtSeq();
+                stmtSeq.Add(stmt);
+                return stmtSeq;
             }
 
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = ParseZeroOrMore(() => ExpectToken(";"));
-                if (a == null) return default(List<object>?);
-                var _item1 = ParseOneOrMore(() => SimpleStmt());
-                if (_item1 == null) return default(List<object>?);
-                var _item2 = ((ExpectToken(";")) ?? new object());
-                if (_item2 == null) return default(List<object>?);
-                var _item3 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item3 == null) return default(List<object>?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("simple_stmts", default(List<object>?));
-            return default(List<object>?);
+            // No statement found
+            return default(GeneratedStmtSeq);
         }
 
         // Rule: simple_stmt
-        public object? SimpleStmt()
+        public GeneratedStmt SimpleStmt()
         {
-            var memo = GetMemo<object?>("simple_stmt");
-            if (memo != null) return memo;
+            // simple_stmt[stmt_ty]: Multiple alternatives including simple keyword statements
 
-            var startPos = _position;
-            // Alternative 1
+            // Try 'pass' keyword (simplest case)
+            if (ExpectKeyword("pass"))
             {
-                var _item0 = Assignment();
-                if (_item0 == null) return default(object?);
-                return _item0;
+                // 'pass' { _PyAST_Pass(EXTRA) }
+                var passStmt = new GeneratedStmt();
+                passStmt.StatementType = "pass";
+                return passStmt;
             }
 
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
+            // Try 'break' keyword
+            if (ExpectKeyword("break"))
             {
-                var _item0 = (Mark() is var pos && ExpectToken(""type"") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item0 == null) return default(object?);
-                var _item1 = TypeAlias();
-                if (_item1 == null) return default(object?);
-                return _item0;
+                // 'break' { _PyAST_Break(EXTRA) }
+                var breakStmt = new GeneratedStmt();
+                breakStmt.StatementType = "break";
+                return breakStmt;
             }
 
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
+            // Try 'continue' keyword
+            if (ExpectKeyword("continue"))
             {
-                var e = StarExpressions();
-                if (e == null) return default(object?);
-                var result = _PyAST_Expr(e, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
+                // 'continue' { _PyAST_Continue(EXTRA) }
+                var continueStmt = new GeneratedStmt();
+                continueStmt.StatementType = "continue";
+                return continueStmt;
             }
 
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
+            // Try assignment statement (name = expression)
+            var savedPos = _position;
+            var nameToken = CurrentToken;
+            if (nameToken != null && nameToken.Type == GeneratedTokenType.NAME)
             {
-                var _item0 = (Mark() is var pos && ExpectToken("return") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item0 == null) return default(object?);
-                var _item1 = ReturnStmt();
-                if (_item1 == null) return default(object?);
-                return _item0;
+                Advance(); // consume name
+                if (CurrentToken?.Type == GeneratedTokenType.EQUAL)
+                {
+                    Advance(); // consume '='
+                    // For now, expect a NUMBER token for the value
+                    var valueToken = CurrentToken;
+                    if (valueToken?.Type == GeneratedTokenType.NUMBER)
+                    {
+                        Advance(); // consume number
+                        var assignStmt = new GeneratedStmt();
+                        assignStmt.StatementType = "assignment";
+                        assignStmt.Value = new { Target = nameToken.Value, Value = valueToken.Value };
+                        return assignStmt;
+                    }
+                }
+                _position = savedPos; // backtrack
             }
 
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 5
-            {
-                var _item0 = (Mark() is var pos && ParseGroup_0() != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item0 == null) return default(object?);
-                var _item1 = ImportStmt();
-                if (_item1 == null) return default(object?);
-                return _item0;
-            }
+            // TODO: Add other simple statement alternatives
+            // - type_alias
+            // - star_expressions
+            // - return_stmt, import_stmt, raise_stmt, del_stmt, yield_stmt, assert_stmt
 
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 6
-            {
-                var _item0 = (Mark() is var pos && ExpectToken("raise") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item0 == null) return default(object?);
-                var _item1 = RaiseStmt();
-                if (_item1 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 7
-            {
-                var _item0 = ExpectToken("pass");
-                if (_item0 == null) return default(object?);
-                var result = _PyAST_Pass(EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 8
-            {
-                var _item0 = (Mark() is var pos && ExpectToken("del") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item0 == null) return default(object?);
-                var _item1 = DelStmt();
-                if (_item1 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 9
-            {
-                var _item0 = (Mark() is var pos && ExpectToken("yield") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item0 == null) return default(object?);
-                var _item1 = YieldStmt();
-                if (_item1 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 10
-            {
-                var _item0 = (Mark() is var pos && ExpectToken("assert") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item0 == null) return default(object?);
-                var _item1 = AssertStmt();
-                if (_item1 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 11
-            {
-                var _item0 = ExpectToken("break");
-                if (_item0 == null) return default(object?);
-                var result = _PyAST_Break(EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 12
-            {
-                var _item0 = ExpectToken("continue");
-                if (_item0 == null) return default(object?);
-                var result = _PyAST_Continue(EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 13
-            {
-                var _item0 = (Mark() is var pos && ExpectToken("global") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item0 == null) return default(object?);
-                var _item1 = GlobalStmt();
-                if (_item1 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 14
-            {
-                var _item0 = (Mark() is var pos && ExpectToken("nonlocal") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item0 == null) return default(object?);
-                var _item1 = NonlocalStmt();
-                if (_item1 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("simple_stmt", default(object?));
-            return default(object?);
+            // No match found
+            return default(GeneratedStmt);
         }
 
         // Rule: compound_stmt
-        public object? CompoundStmt()
+        public GeneratedStmt CompoundStmt()
         {
-            var memo = GetMemo<object?>("compound_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = (Mark() is var pos && ParseGroup_1() != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item0 == null) return default(object?);
-                var _item1 = FunctionDef();
-                if (_item1 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = (Mark() is var pos && ExpectToken("if") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item0 == null) return default(object?);
-                var _item1 = IfStmt();
-                if (_item1 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = (Mark() is var pos && ParseGroup_2() != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item0 == null) return default(object?);
-                var _item1 = ClassDef();
-                if (_item1 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = (Mark() is var pos && ParseGroup_3() != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item0 == null) return default(object?);
-                var _item1 = WithStmt();
-                if (_item1 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 5
-            {
-                var _item0 = (Mark() is var pos && ParseGroup_4() != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item0 == null) return default(object?);
-                var _item1 = ForStmt();
-                if (_item1 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 6
-            {
-                var _item0 = (Mark() is var pos && ExpectToken("try") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item0 == null) return default(object?);
-                var _item1 = TryStmt();
-                if (_item1 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 7
-            {
-                var _item0 = (Mark() is var pos && ExpectToken("while") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item0 == null) return default(object?);
-                var _item1 = WhileStmt();
-                if (_item1 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 8
-            {
-                var _item0 = MatchStmt();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("compound_stmt", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmt);
         }
 
         // Rule: assignment
-        public object? Assignment()
+        public GeneratedStmt Assignment()
         {
-            var memo = GetMemo<object?>("assignment");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Expect("NAME") ? CurrentToken : null;
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(":");
-                if (_item1 == null) return default(object?);
-                var b = Expression();
-                if (b == null) return default(object?);
-                var c = (ParseGroup_5() ?? new object());
-                if (c == null) return default(object?);
-                var result = CHECK_VERSION(
-            stmt_ty,
-            6,
-            "Variable annotation syntax is",
-            _PyAST_AnnAssign(CHECK(expr_ty, _PyPegen_set_expr_context(p, a, Store)), b, c, 1, EXTRA)
-        );
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = ParseGroup_6();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(":");
-                if (_item1 == null) return default(object?);
-                var b = Expression();
-                if (b == null) return default(object?);
-                var c = (ParseGroup_7() ?? new object());
-                if (c == null) return default(object?);
-                var result = CHECK_VERSION(stmt_ty, 6, "Variable annotations syntax is", _PyAST_AnnAssign(a, b, c, 0, EXTRA));
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var a = ParseOneOrMore(() => ParseGroup_8());
-                if (a == null) return default(object?);
-                var b = ParseGroup_9();
-                if (b == null) return default(object?);
-                var _item2 = (Mark() is var pos && ExpectToken("=") == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item2 == null) return default(object?);
-                var tc = ((Expect("TYPE_COMMENT") ? CurrentToken : null) ?? new object());
-                if (tc == null) return default(object?);
-                var result = _PyAST_Assign(a, b, NEW_TYPE_COMMENT(p, tc), EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var a = SingleTarget();
-                if (a == null) return default(object?);
-                var b = Augassign();
-                if (b == null) return default(object?);
-                var c = (ParseGroup_10() /* cut: no backtracking */);
-                if (c == null) return default(object?);
-                var result = _PyAST_AugAssign(a, b->kind, c, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 5
-            {
-                var _item0 = InvalidAssignment();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("assignment", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmt);
         }
 
         // Rule: annotated_rhs
-        public object? AnnotatedRhs()
+        public GeneratedExpr AnnotatedRhs()
         {
-            var memo = GetMemo<object?>("annotated_rhs");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = YieldExpr();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = StarExpressions();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("annotated_rhs", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: augassign
-        public List<object>? Augassign()
+        public GeneratedSeq Augassign()
         {
-            var memo = GetMemo<List<object>?>("augassign");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("+=");
-                if (_item0 == null) return default(List<object>?);
-                var result = _PyPegen_augoperator(p, Add);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("-=");
-                if (_item0 == null) return default(List<object>?);
-                var result = _PyPegen_augoperator(p, Sub);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ExpectToken("*=");
-                if (_item0 == null) return default(List<object>?);
-                var result = _PyPegen_augoperator(p, Mult);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = ExpectToken("@=");
-                if (_item0 == null) return default(List<object>?);
-                var result = CHECK_VERSION(AugOperator*, 5, "The '@' operator is", _PyPegen_augoperator(p, MatMult));
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 5
-            {
-                var _item0 = ExpectToken("/=");
-                if (_item0 == null) return default(List<object>?);
-                var result = _PyPegen_augoperator(p, Div);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 6
-            {
-                var _item0 = ExpectToken("%=");
-                if (_item0 == null) return default(List<object>?);
-                var result = _PyPegen_augoperator(p, Mod);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 7
-            {
-                var _item0 = ExpectToken("&=");
-                if (_item0 == null) return default(List<object>?);
-                var result = _PyPegen_augoperator(p, BitAnd);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 8
-            {
-                var _item0 = ExpectToken("|=");
-                if (_item0 == null) return default(List<object>?);
-                var result = _PyPegen_augoperator(p, BitOr);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 9
-            {
-                var _item0 = ExpectToken("^=");
-                if (_item0 == null) return default(List<object>?);
-                var result = _PyPegen_augoperator(p, BitXor);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 10
-            {
-                var _item0 = ExpectToken("<<=");
-                if (_item0 == null) return default(List<object>?);
-                var result = _PyPegen_augoperator(p, LShift);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 11
-            {
-                var _item0 = ExpectToken(">>=");
-                if (_item0 == null) return default(List<object>?);
-                var result = _PyPegen_augoperator(p, RShift);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 12
-            {
-                var _item0 = ExpectToken("**=");
-                if (_item0 == null) return default(List<object>?);
-                var result = _PyPegen_augoperator(p, Pow);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 13
-            {
-                var _item0 = ExpectToken("//=");
-                if (_item0 == null) return default(List<object>?);
-                var result = _PyPegen_augoperator(p, FloorDiv);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("augassign", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: return_stmt
-        public object? ReturnStmt()
+        public GeneratedStmt ReturnStmt()
         {
-            var memo = GetMemo<object?>("return_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("return");
-                if (_item0 == null) return default(object?);
-                var a = ((StarExpressions()) ?? new object());
-                if (a == null) return default(object?);
-                var result = _PyAST_Return(a, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("return_stmt", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmt);
         }
 
         // Rule: raise_stmt
-        public object? RaiseStmt()
+        public GeneratedStmt RaiseStmt()
         {
-            var memo = GetMemo<object?>("raise_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("raise");
-                if (_item0 == null) return default(object?);
-                var a = Expression();
-                if (a == null) return default(object?);
-                var b = (ParseGroup_11() ?? new object());
-                if (b == null) return default(object?);
-                var result = _PyAST_Raise(a, b, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("raise");
-                if (_item0 == null) return default(object?);
-                var result = _PyAST_Raise(NULL, NULL, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("raise_stmt", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmt);
         }
 
         // Rule: global_stmt
-        public object? GlobalStmt()
+        public GeneratedStmt GlobalStmt()
         {
-            var memo = GetMemo<object?>("global_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("global");
-                if (_item0 == null) return default(object?);
-                var a = ParseZeroOrMore(() => ExpectToken(","));
-                if (a == null) return default(object?);
-                var _item2 = ParseOneOrMore(() => Expect("NAME") ? CurrentToken : null);
-                if (_item2 == null) return default(object?);
-                var result = _PyAST_Global(CHECK(asdl_identifier_seq*, _PyPegen_map_names_to_ids(p, a)), EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("global_stmt", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmt);
         }
 
         // Rule: nonlocal_stmt
-        public object? NonlocalStmt()
+        public GeneratedStmt NonlocalStmt()
         {
-            var memo = GetMemo<object?>("nonlocal_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("nonlocal");
-                if (_item0 == null) return default(object?);
-                var a = ParseZeroOrMore(() => ExpectToken(","));
-                if (a == null) return default(object?);
-                var _item2 = ParseOneOrMore(() => Expect("NAME") ? CurrentToken : null);
-                if (_item2 == null) return default(object?);
-                var result = _PyAST_Nonlocal(CHECK(asdl_identifier_seq*, _PyPegen_map_names_to_ids(p, a)), EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("nonlocal_stmt", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmt);
         }
 
         // Rule: del_stmt
-        public object? DelStmt()
+        public GeneratedStmt DelStmt()
         {
-            var memo = GetMemo<object?>("del_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("del");
-                if (_item0 == null) return default(object?);
-                var a = DelTargets();
-                if (a == null) return default(object?);
-                var _item2 = (Mark() is var pos && ParseGroup_12() != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item2 == null) return default(object?);
-                var result = _PyAST_Delete(a, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = InvalidDelStmt();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("del_stmt", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmt);
         }
 
         // Rule: yield_stmt
-        public object? YieldStmt()
+        public GeneratedStmt YieldStmt()
         {
-            var memo = GetMemo<object?>("yield_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var y = YieldExpr();
-                if (y == null) return default(object?);
-                var result = _PyAST_Expr(y, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("yield_stmt", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmt);
         }
 
         // Rule: assert_stmt
-        public object? AssertStmt()
+        public GeneratedStmt AssertStmt()
         {
-            var memo = GetMemo<object?>("assert_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("assert");
-                if (_item0 == null) return default(object?);
-                var a = Expression();
-                if (a == null) return default(object?);
-                var b = (ParseGroup_13() ?? new object());
-                if (b == null) return default(object?);
-                var result = _PyAST_Assert(a, b, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("assert_stmt", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmt);
         }
 
         // Rule: import_stmt
-        public object? ImportStmt()
+        public GeneratedStmt ImportStmt()
         {
-            var memo = GetMemo<object?>("import_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = InvalidImport();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ImportName();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ImportFrom();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("import_stmt", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmt);
         }
 
         // Rule: import_name
-        public object? ImportName()
+        public GeneratedStmt ImportName()
         {
-            var memo = GetMemo<object?>("import_name");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("import");
-                if (_item0 == null) return default(object?);
-                var a = DottedAsNames();
-                if (a == null) return default(object?);
-                var result = _PyAST_Import(a, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("import_name", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmt);
         }
 
         // Rule: import_from
-        public object? ImportFrom()
+        public GeneratedStmt ImportFrom()
         {
-            var memo = GetMemo<object?>("import_from");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("from");
-                if (_item0 == null) return default(object?);
-                var a = ParseZeroOrMore(() => ParseGroup_14());
-                if (a == null) return default(object?);
-                var b = DottedName();
-                if (b == null) return default(object?);
-                var _item3 = ExpectToken("import");
-                if (_item3 == null) return default(object?);
-                var c = ImportFromTargets();
-                if (c == null) return default(object?);
-                var result = _PyPegen_checked_future_import(p, b->v.Name.id, c, _PyPegen_seq_count_dots(a), EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("from");
-                if (_item0 == null) return default(object?);
-                var a = ParseOneOrMore(() => ParseGroup_15());
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken("import");
-                if (_item2 == null) return default(object?);
-                var b = ImportFromTargets();
-                if (b == null) return default(object?);
-                var result = _PyAST_ImportFrom(NULL, b, _PyPegen_seq_count_dots(a), EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("import_from", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmt);
         }
 
         // Rule: import_from_targets
-        public List<object>? ImportFromTargets()
+        public GeneratedSeq ImportFromTargets()
         {
-            var memo = GetMemo<List<object>?>("import_from_targets");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("(");
-                if (_item0 == null) return default(List<object>?);
-                var a = ImportFromAsNames();
-                if (a == null) return default(List<object>?);
-                var _item2 = ((ExpectToken(",")) ?? new object());
-                if (_item2 == null) return default(List<object>?);
-                var _item3 = ExpectToken(")");
-                if (_item3 == null) return default(List<object>?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ImportFromAsNames();
-                if (_item0 == null) return default(List<object>?);
-                var _item1 = (Mark() is var pos && ExpectToken(",") == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item1 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ExpectToken("*");
-                if (_item0 == null) return default(List<object>?);
-                var result = (asdl_alias_seq*)_PyPegen_singleton_seq(p, CHECK(alias_ty, _PyPegen_alias_for_star(p, EXTRA)));
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = InvalidImportFromTargets();
-                if (_item0 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            SetMemo("import_from_targets", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: import_from_as_names
-        public List<object>? ImportFromAsNames()
+        public GeneratedSeq ImportFromAsNames()
         {
-            var memo = GetMemo<List<object>?>("import_from_as_names");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ParseZeroOrMore(() => ExpectToken(","));
-                if (a == null) return default(List<object>?);
-                var _item1 = ParseOneOrMore(() => ImportFromAsName());
-                if (_item1 == null) return default(List<object>?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("import_from_as_names", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: import_from_as_name
-        public object? ImportFromAsName()
+        public GeneratedAstNode ImportFromAsName()
         {
-            var memo = GetMemo<object?>("import_from_as_name");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Expect("NAME") ? CurrentToken : null;
-                if (a == null) return default(object?);
-                var b = (ParseGroup_16() ?? new object());
-                if (b == null) return default(object?);
-                var result = _PyAST_alias(a->v.Name.id,
-                                               (b) ? ((expr_ty) b)->v.Name.id : NULL,
-                                               EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("import_from_as_name", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: dotted_as_names
-        public List<object>? DottedAsNames()
+        public GeneratedSeq DottedAsNames()
         {
-            var memo = GetMemo<List<object>?>("dotted_as_names");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ParseZeroOrMore(() => ExpectToken(","));
-                if (a == null) return default(List<object>?);
-                var _item1 = ParseOneOrMore(() => DottedAsName());
-                if (_item1 == null) return default(List<object>?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("dotted_as_names", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: dotted_as_name
-        public object? DottedAsName()
+        public GeneratedAstNode DottedAsName()
         {
-            var memo = GetMemo<object?>("dotted_as_name");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = DottedName();
-                if (a == null) return default(object?);
-                var b = (ParseGroup_17() ?? new object());
-                if (b == null) return default(object?);
-                var result = _PyAST_alias(a->v.Name.id,
-                                                      (b) ? ((expr_ty) b)->v.Name.id : NULL,
-                                                      EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("dotted_as_name", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: dotted_name
-        public object? DottedName()
+        public GeneratedExpr DottedName()
         {
-            var memo = GetMemo<object?>("dotted_name");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = DottedName();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(".");
-                if (_item1 == null) return default(object?);
-                var b = Expect("NAME") ? CurrentToken : null;
-                if (b == null) return default(object?);
-                var result = _PyPegen_join_names_with_dot(p, a, b);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = Expect("NAME") ? CurrentToken : null;
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("dotted_name", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: block
-        public List<object>? Block()
+        public GeneratedStmtSeq Block()
         {
-            var memo = GetMemo<List<object>?>("block");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item0 == null) return default(List<object>?);
-                var _item1 = Expect("INDENT") ? CurrentToken : null;
-                if (_item1 == null) return default(List<object>?);
-                var a = Statements();
-                if (a == null) return default(List<object>?);
-                var _item3 = Expect("DEDENT") ? CurrentToken : null;
-                if (_item3 == null) return default(List<object>?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = SimpleStmts();
-                if (_item0 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = InvalidBlock();
-                if (_item0 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            SetMemo("block", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmtSeq);
         }
 
         // Rule: decorators
-        public List<object>? Decorators()
+        public GeneratedExprSeq Decorators()
         {
-            var memo = GetMemo<List<object>?>("decorators");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ParseOneOrMore(() => ParseGroup_18());
-                if (a == null) return default(List<object>?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("decorators", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExprSeq);
         }
 
         // Rule: class_def
-        public object? ClassDef()
+        public GeneratedStmt ClassDef()
         {
-            var memo = GetMemo<object?>("class_def");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Decorators();
-                if (a == null) return default(object?);
-                var b = ClassDefRaw();
-                if (b == null) return default(object?);
-                var result = _PyPegen_class_def_decorators(p, a, b);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ClassDefRaw();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("class_def", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmt);
         }
 
         // Rule: class_def_raw
-        public object? ClassDefRaw()
+        public GeneratedStmt ClassDefRaw()
         {
-            var memo = GetMemo<object?>("class_def_raw");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = InvalidClassDefRaw();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("class");
-                if (_item0 == null) return default(object?);
-                var a = Expect("NAME") ? CurrentToken : null;
-                if (a == null) return default(object?);
-                var t = ((TypeParams()) ?? new object());
-                if (t == null) return default(object?);
-                var b = (ParseGroup_19() ?? new object());
-                if (b == null) return default(object?);
-                var _item4 = ExpectToken(":");
-                if (_item4 == null) return default(object?);
-                var c = Block();
-                if (c == null) return default(object?);
-                var result = _PyAST_ClassDef(a->v.Name.id,
-                     (b) ? ((expr_ty) b)->v.Call.args : NULL,
-                     (b) ? ((expr_ty) b)->v.Call.keywords : NULL,
-                     c, NULL, t, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("class_def_raw", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmt);
         }
 
         // Rule: function_def
-        public object? FunctionDef()
+        public GeneratedStmt FunctionDef()
         {
-            var memo = GetMemo<object?>("function_def");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var d = Decorators();
-                if (d == null) return default(object?);
-                var f = FunctionDefRaw();
-                if (f == null) return default(object?);
-                var result = _PyPegen_function_def_decorators(p, d, f);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = FunctionDefRaw();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("function_def", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmt);
         }
 
         // Rule: function_def_raw
-        public object? FunctionDefRaw()
+        public GeneratedStmt FunctionDefRaw()
         {
-            var memo = GetMemo<object?>("function_def_raw");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = InvalidDefRaw();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("def");
-                if (_item0 == null) return default(object?);
-                var n = Expect("NAME") ? CurrentToken : null;
-                if (n == null) return default(object?);
-                var t = ((TypeParams()) ?? new object());
-                if (t == null) return default(object?);
-                var _item3 = (Mark() is var pos && (Mark() is var pos && ExpectToken("(") != null ? (Reset(pos), new object()) : (Reset(pos), null)) != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item3 == null) return default(object?);
-                var params = ((Params()) ?? new object());
-                if (params == null) return default(object?);
-                var _item5 = ExpectToken(")");
-                if (_item5 == null) return default(object?);
-                var a = (ParseGroup_20() ?? new object());
-                if (a == null) return default(object?);
-                var _item7 = (Mark() is var pos && (Mark() is var pos && ExpectToken(":") != null ? (Reset(pos), new object()) : (Reset(pos), null)) != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item7 == null) return default(object?);
-                var tc = ((FuncTypeComment()) ?? new object());
-                if (tc == null) return default(object?);
-                var b = Block();
-                if (b == null) return default(object?);
-                var result = _PyAST_FunctionDef(n->v.Name.id,
-                        (params) ? params : CHECK(arguments_ty, _PyPegen_empty_arguments(p)),
-                        b, NULL, a, NEW_TYPE_COMMENT(p, tc), t, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = Expect("ASYNC") ? CurrentToken : null;
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken("def");
-                if (_item1 == null) return default(object?);
-                var n = Expect("NAME") ? CurrentToken : null;
-                if (n == null) return default(object?);
-                var t = ((TypeParams()) ?? new object());
-                if (t == null) return default(object?);
-                var _item4 = (Mark() is var pos && (Mark() is var pos && ExpectToken("(") != null ? (Reset(pos), new object()) : (Reset(pos), null)) != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item4 == null) return default(object?);
-                var params = ((Params()) ?? new object());
-                if (params == null) return default(object?);
-                var _item6 = ExpectToken(")");
-                if (_item6 == null) return default(object?);
-                var a = (ParseGroup_21() ?? new object());
-                if (a == null) return default(object?);
-                var _item8 = (Mark() is var pos && (Mark() is var pos && ExpectToken(":") != null ? (Reset(pos), new object()) : (Reset(pos), null)) != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item8 == null) return default(object?);
-                var tc = ((FuncTypeComment()) ?? new object());
-                if (tc == null) return default(object?);
-                var b = Block();
-                if (b == null) return default(object?);
-                var result = CHECK_VERSION(
-            stmt_ty,
-            5,
-            "Async functions are",
-            _PyAST_AsyncFunctionDef(n->v.Name.id,
-                            (params) ? params : CHECK(arguments_ty, _PyPegen_empty_arguments(p)),
-                            b, NULL, a, NEW_TYPE_COMMENT(p, tc), t, EXTRA)
-        );
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("function_def_raw", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmt);
         }
 
         // Rule: params
-        public object? Params()
+        public GeneratedAstNode Params()
         {
-            var memo = GetMemo<object?>("params");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = InvalidParameters();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = Parameters();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("params", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: parameters
-        public object? Parameters()
+        public GeneratedAstNode Parameters()
         {
-            var memo = GetMemo<object?>("parameters");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = SlashNoDefault();
-                if (a == null) return default(object?);
-                var b = ParseZeroOrMore(() => ParamNoDefault());
-                if (b == null) return default(object?);
-                var c = ParseZeroOrMore(() => ParamWithDefault());
-                if (c == null) return default(object?);
-                var d = ((StarEtc()) ?? new object());
-                if (d == null) return default(object?);
-                var result = CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(p, a, NULL, b, c, d));
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = SlashWithDefault();
-                if (a == null) return default(object?);
-                var b = ParseZeroOrMore(() => ParamWithDefault());
-                if (b == null) return default(object?);
-                var c = ((StarEtc()) ?? new object());
-                if (c == null) return default(object?);
-                var result = CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(p, NULL, a, NULL, b, c));
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var a = ParseOneOrMore(() => ParamNoDefault());
-                if (a == null) return default(object?);
-                var b = ParseZeroOrMore(() => ParamWithDefault());
-                if (b == null) return default(object?);
-                var c = ((StarEtc()) ?? new object());
-                if (c == null) return default(object?);
-                var result = _PyPegen_make_arguments(p, NULL, NULL, a, b, c);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var a = ParseOneOrMore(() => ParamWithDefault());
-                if (a == null) return default(object?);
-                var b = ((StarEtc()) ?? new object());
-                if (b == null) return default(object?);
-                var result = _PyPegen_make_arguments(p, NULL, NULL, NULL, a, b);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 5
-            {
-                var a = StarEtc();
-                if (a == null) return default(object?);
-                var result = _PyPegen_make_arguments(p, NULL, NULL, NULL, NULL, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("parameters", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: slash_no_default
-        public List<object>? SlashNoDefault()
+        public GeneratedSeq SlashNoDefault()
         {
-            var memo = GetMemo<List<object>?>("slash_no_default");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ParseOneOrMore(() => ParamNoDefault());
-                if (a == null) return default(List<object>?);
-                var _item1 = ExpectToken("/");
-                if (_item1 == null) return default(List<object>?);
-                var _item2 = ExpectToken(",");
-                if (_item2 == null) return default(List<object>?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = ParseOneOrMore(() => ParamNoDefault());
-                if (a == null) return default(List<object>?);
-                var _item1 = ExpectToken("/");
-                if (_item1 == null) return default(List<object>?);
-                var _item2 = (Mark() is var pos && ExpectToken(")") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item2 == null) return default(List<object>?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("slash_no_default", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: slash_with_default
-        public List<object>? SlashWithDefault()
+        public GeneratedSeq SlashWithDefault()
         {
-            var memo = GetMemo<List<object>?>("slash_with_default");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ParseZeroOrMore(() => ParamNoDefault());
-                if (a == null) return default(List<object>?);
-                var b = ParseOneOrMore(() => ParamWithDefault());
-                if (b == null) return default(List<object>?);
-                var _item2 = ExpectToken("/");
-                if (_item2 == null) return default(List<object>?);
-                var _item3 = ExpectToken(",");
-                if (_item3 == null) return default(List<object>?);
-                var result = _PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = ParseZeroOrMore(() => ParamNoDefault());
-                if (a == null) return default(List<object>?);
-                var b = ParseOneOrMore(() => ParamWithDefault());
-                if (b == null) return default(List<object>?);
-                var _item2 = ExpectToken("/");
-                if (_item2 == null) return default(List<object>?);
-                var _item3 = (Mark() is var pos && ExpectToken(")") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item3 == null) return default(List<object>?);
-                var result = _PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("slash_with_default", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: star_etc
-        public List<object>? StarEtc()
+        public GeneratedSeq StarEtc()
         {
-            var memo = GetMemo<List<object>?>("star_etc");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = InvalidStarEtc();
-                if (_item0 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("*");
-                if (_item0 == null) return default(List<object>?);
-                var a = ParamNoDefault();
-                if (a == null) return default(List<object>?);
-                var b = ParseZeroOrMore(() => ParamMaybeDefault());
-                if (b == null) return default(List<object>?);
-                var c = ((Kwds()) ?? new object());
-                if (c == null) return default(List<object>?);
-                var result = _PyPegen_star_etc(p, a, b, c);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ExpectToken("*");
-                if (_item0 == null) return default(List<object>?);
-                var a = ParamNoDefaultStarAnnotation();
-                if (a == null) return default(List<object>?);
-                var b = ParseZeroOrMore(() => ParamMaybeDefault());
-                if (b == null) return default(List<object>?);
-                var c = ((Kwds()) ?? new object());
-                if (c == null) return default(List<object>?);
-                var result = _PyPegen_star_etc(p, a, b, c);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = ExpectToken("*");
-                if (_item0 == null) return default(List<object>?);
-                var _item1 = ExpectToken(",");
-                if (_item1 == null) return default(List<object>?);
-                var b = ParseOneOrMore(() => ParamMaybeDefault());
-                if (b == null) return default(List<object>?);
-                var c = ((Kwds()) ?? new object());
-                if (c == null) return default(List<object>?);
-                var result = _PyPegen_star_etc(p, NULL, b, c);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 5
-            {
-                var a = Kwds();
-                if (a == null) return default(List<object>?);
-                var result = _PyPegen_star_etc(p, NULL, NULL, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("star_etc", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: kwds
-        public object? Kwds()
+        public GeneratedAstNode Kwds()
         {
-            var memo = GetMemo<object?>("kwds");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = InvalidKwds();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("**");
-                if (_item0 == null) return default(object?);
-                var a = ParamNoDefault();
-                if (a == null) return default(object?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("kwds", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: param_no_default
-        public object? ParamNoDefault()
+        public GeneratedAstNode ParamNoDefault()
         {
-            var memo = GetMemo<object?>("param_no_default");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Param();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(",");
-                if (_item1 == null) return default(object?);
-                var tc = (Expect("TYPE_COMMENT") ? CurrentToken : null ?? new object());
-                if (tc == null) return default(object?);
-                var result = _PyPegen_add_type_comment_to_arg(p, a, tc);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = Param();
-                if (a == null) return default(object?);
-                var tc = (Expect("TYPE_COMMENT") ? CurrentToken : null ?? new object());
-                if (tc == null) return default(object?);
-                var _item2 = (Mark() is var pos && ExpectToken(")") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item2 == null) return default(object?);
-                var result = _PyPegen_add_type_comment_to_arg(p, a, tc);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("param_no_default", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: param_no_default_star_annotation
-        public object? ParamNoDefaultStarAnnotation()
+        public GeneratedAstNode ParamNoDefaultStarAnnotation()
         {
-            var memo = GetMemo<object?>("param_no_default_star_annotation");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ParamStarAnnotation();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(",");
-                if (_item1 == null) return default(object?);
-                var tc = (Expect("TYPE_COMMENT") ? CurrentToken : null ?? new object());
-                if (tc == null) return default(object?);
-                var result = _PyPegen_add_type_comment_to_arg(p, a, tc);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = ParamStarAnnotation();
-                if (a == null) return default(object?);
-                var tc = (Expect("TYPE_COMMENT") ? CurrentToken : null ?? new object());
-                if (tc == null) return default(object?);
-                var _item2 = (Mark() is var pos && ExpectToken(")") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item2 == null) return default(object?);
-                var result = _PyPegen_add_type_comment_to_arg(p, a, tc);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("param_no_default_star_annotation", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: param_with_default
-        public List<object>? ParamWithDefault()
+        public GeneratedSeq ParamWithDefault()
         {
-            var memo = GetMemo<List<object>?>("param_with_default");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Param();
-                if (a == null) return default(List<object>?);
-                var c = Default();
-                if (c == null) return default(List<object>?);
-                var _item2 = ExpectToken(",");
-                if (_item2 == null) return default(List<object>?);
-                var tc = (Expect("TYPE_COMMENT") ? CurrentToken : null ?? new object());
-                if (tc == null) return default(List<object>?);
-                var result = _PyPegen_name_default_pair(p, a, c, tc);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = Param();
-                if (a == null) return default(List<object>?);
-                var c = Default();
-                if (c == null) return default(List<object>?);
-                var tc = (Expect("TYPE_COMMENT") ? CurrentToken : null ?? new object());
-                if (tc == null) return default(List<object>?);
-                var _item3 = (Mark() is var pos && ExpectToken(")") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item3 == null) return default(List<object>?);
-                var result = _PyPegen_name_default_pair(p, a, c, tc);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("param_with_default", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: param_maybe_default
-        public List<object>? ParamMaybeDefault()
+        public GeneratedSeq ParamMaybeDefault()
         {
-            var memo = GetMemo<List<object>?>("param_maybe_default");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Param();
-                if (a == null) return default(List<object>?);
-                var c = (Default() ?? new object());
-                if (c == null) return default(List<object>?);
-                var _item2 = ExpectToken(",");
-                if (_item2 == null) return default(List<object>?);
-                var tc = (Expect("TYPE_COMMENT") ? CurrentToken : null ?? new object());
-                if (tc == null) return default(List<object>?);
-                var result = _PyPegen_name_default_pair(p, a, c, tc);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = Param();
-                if (a == null) return default(List<object>?);
-                var c = (Default() ?? new object());
-                if (c == null) return default(List<object>?);
-                var tc = (Expect("TYPE_COMMENT") ? CurrentToken : null ?? new object());
-                if (tc == null) return default(List<object>?);
-                var _item3 = (Mark() is var pos && ExpectToken(")") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item3 == null) return default(List<object>?);
-                var result = _PyPegen_name_default_pair(p, a, c, tc);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("param_maybe_default", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: param
-        public object? Param()
+        public GeneratedAstNode Param()
         {
-            var memo = GetMemo<object?>("param");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Expect("NAME") ? CurrentToken : null;
-                if (a == null) return default(object?);
-                var b = (Annotation() ?? new object());
-                if (b == null) return default(object?);
-                var result = _PyAST_arg(a->v.Name.id, b, NULL, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("param", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: param_star_annotation
-        public object? ParamStarAnnotation()
+        public GeneratedAstNode ParamStarAnnotation()
         {
-            var memo = GetMemo<object?>("param_star_annotation");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Expect("NAME") ? CurrentToken : null;
-                if (a == null) return default(object?);
-                var b = StarAnnotation();
-                if (b == null) return default(object?);
-                var result = _PyAST_arg(a->v.Name.id, b, NULL, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("param_star_annotation", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: annotation
-        public object? Annotation()
+        public GeneratedExpr Annotation()
         {
-            var memo = GetMemo<object?>("annotation");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken(":");
-                if (_item0 == null) return default(object?);
-                var a = Expression();
-                if (a == null) return default(object?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("annotation", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: star_annotation
-        public object? StarAnnotation()
+        public GeneratedExpr StarAnnotation()
         {
-            var memo = GetMemo<object?>("star_annotation");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken(":");
-                if (_item0 == null) return default(object?);
-                var a = StarExpression();
-                if (a == null) return default(object?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("star_annotation", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: default
-        public object? Default()
+        public GeneratedExpr Default()
         {
-            var memo = GetMemo<object?>("default");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("=");
-                if (_item0 == null) return default(object?);
-                var a = Expression();
-                if (a == null) return default(object?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = InvalidDefault();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("default", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: if_stmt
-        public object? IfStmt()
+        public GeneratedStmt IfStmt()
         {
-            var memo = GetMemo<object?>("if_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = InvalidIfStmt();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("if");
-                if (_item0 == null) return default(object?);
-                var a = NamedExpression();
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken(":");
-                if (_item2 == null) return default(object?);
-                var b = Block();
-                if (b == null) return default(object?);
-                var c = ElifStmt();
-                if (c == null) return default(object?);
-                var result = _PyAST_If(a, b, CHECK(asdl_stmt_seq*, _PyPegen_singleton_seq(p, c)), EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ExpectToken("if");
-                if (_item0 == null) return default(object?);
-                var a = NamedExpression();
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken(":");
-                if (_item2 == null) return default(object?);
-                var b = Block();
-                if (b == null) return default(object?);
-                var c = ((ElseBlock()) ?? new object());
-                if (c == null) return default(object?);
-                var result = _PyAST_If(a, b, c, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("if_stmt", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmt);
         }
 
         // Rule: elif_stmt
-        public object? ElifStmt()
+        public GeneratedStmt ElifStmt()
         {
-            var memo = GetMemo<object?>("elif_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = InvalidElifStmt();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("elif");
-                if (_item0 == null) return default(object?);
-                var a = NamedExpression();
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken(":");
-                if (_item2 == null) return default(object?);
-                var b = Block();
-                if (b == null) return default(object?);
-                var c = ElifStmt();
-                if (c == null) return default(object?);
-                var result = _PyAST_If(a, b, CHECK(asdl_stmt_seq*, _PyPegen_singleton_seq(p, c)), EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ExpectToken("elif");
-                if (_item0 == null) return default(object?);
-                var a = NamedExpression();
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken(":");
-                if (_item2 == null) return default(object?);
-                var b = Block();
-                if (b == null) return default(object?);
-                var c = ((ElseBlock()) ?? new object());
-                if (c == null) return default(object?);
-                var result = _PyAST_If(a, b, c, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("elif_stmt", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmt);
         }
 
         // Rule: else_block
-        public List<object>? ElseBlock()
+        public GeneratedStmtSeq ElseBlock()
         {
-            var memo = GetMemo<List<object>?>("else_block");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = InvalidElseStmt();
-                if (_item0 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("else");
-                if (_item0 == null) return default(List<object>?);
-                var _item1 = (Mark() is var pos && (Mark() is var pos && ExpectToken(":") != null ? (Reset(pos), new object()) : (Reset(pos), null)) != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item1 == null) return default(List<object>?);
-                var b = Block();
-                if (b == null) return default(List<object>?);
-                var result = b;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("else_block", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmtSeq);
         }
 
         // Rule: while_stmt
-        public object? WhileStmt()
+        public GeneratedStmt WhileStmt()
         {
-            var memo = GetMemo<object?>("while_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = InvalidWhileStmt();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("while");
-                if (_item0 == null) return default(object?);
-                var a = NamedExpression();
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken(":");
-                if (_item2 == null) return default(object?);
-                var b = Block();
-                if (b == null) return default(object?);
-                var c = ((ElseBlock()) ?? new object());
-                if (c == null) return default(object?);
-                var result = _PyAST_While(a, b, c, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("while_stmt", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmt);
         }
 
         // Rule: for_stmt
-        public object? ForStmt()
+        public GeneratedStmt ForStmt()
         {
-            var memo = GetMemo<object?>("for_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = InvalidForStmt();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("for");
-                if (_item0 == null) return default(object?);
-                var t = StarTargets();
-                if (t == null) return default(object?);
-                var _item2 = ExpectToken("in");
-                if (_item2 == null) return default(object?);
-                var ex = (StarExpressions() /* cut: no backtracking */);
-                if (ex == null) return default(object?);
-                var _item4 = ExpectToken(":");
-                if (_item4 == null) return default(object?);
-                var tc = ((Expect("TYPE_COMMENT") ? CurrentToken : null) ?? new object());
-                if (tc == null) return default(object?);
-                var b = Block();
-                if (b == null) return default(object?);
-                var el = ((ElseBlock()) ?? new object());
-                if (el == null) return default(object?);
-                var result = _PyAST_For(t, ex, b, el, NEW_TYPE_COMMENT(p, tc), EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = Expect("ASYNC") ? CurrentToken : null;
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken("for");
-                if (_item1 == null) return default(object?);
-                var t = StarTargets();
-                if (t == null) return default(object?);
-                var _item3 = ExpectToken("in");
-                if (_item3 == null) return default(object?);
-                var ex = (StarExpressions() /* cut: no backtracking */);
-                if (ex == null) return default(object?);
-                var _item5 = ExpectToken(":");
-                if (_item5 == null) return default(object?);
-                var tc = ((Expect("TYPE_COMMENT") ? CurrentToken : null) ?? new object());
-                if (tc == null) return default(object?);
-                var b = Block();
-                if (b == null) return default(object?);
-                var el = ((ElseBlock()) ?? new object());
-                if (el == null) return default(object?);
-                var result = CHECK_VERSION(stmt_ty, 5, "Async for loops are", _PyAST_AsyncFor(t, ex, b, el, NEW_TYPE_COMMENT(p, tc), EXTRA));
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = InvalidForTarget();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("for_stmt", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmt);
         }
 
         // Rule: with_stmt
-        public object? WithStmt()
+        public GeneratedStmt WithStmt()
         {
-            var memo = GetMemo<object?>("with_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = InvalidWithStmtIndent();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("with");
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken("(");
-                if (_item1 == null) return default(object?);
-                var a = ParseZeroOrMore(() => ExpectToken(","));
-                if (a == null) return default(object?);
-                var _item3 = ParseOneOrMore(() => WithItem());
-                if (_item3 == null) return default(object?);
-                var _item4 = (ExpectToken(",") ?? new object());
-                if (_item4 == null) return default(object?);
-                var _item5 = ExpectToken(")");
-                if (_item5 == null) return default(object?);
-                var _item6 = ExpectToken(":");
-                if (_item6 == null) return default(object?);
-                var b = Block();
-                if (b == null) return default(object?);
-                var result = _PyAST_With(a, b, NULL, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ExpectToken("with");
-                if (_item0 == null) return default(object?);
-                var a = ParseZeroOrMore(() => ExpectToken(","));
-                if (a == null) return default(object?);
-                var _item2 = ParseOneOrMore(() => WithItem());
-                if (_item2 == null) return default(object?);
-                var _item3 = ExpectToken(":");
-                if (_item3 == null) return default(object?);
-                var tc = ((Expect("TYPE_COMMENT") ? CurrentToken : null) ?? new object());
-                if (tc == null) return default(object?);
-                var b = Block();
-                if (b == null) return default(object?);
-                var result = _PyAST_With(a, b, NEW_TYPE_COMMENT(p, tc), EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = Expect("ASYNC") ? CurrentToken : null;
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken("with");
-                if (_item1 == null) return default(object?);
-                var _item2 = ExpectToken("(");
-                if (_item2 == null) return default(object?);
-                var a = ParseZeroOrMore(() => ExpectToken(","));
-                if (a == null) return default(object?);
-                var _item4 = ParseOneOrMore(() => WithItem());
-                if (_item4 == null) return default(object?);
-                var _item5 = (ExpectToken(",") ?? new object());
-                if (_item5 == null) return default(object?);
-                var _item6 = ExpectToken(")");
-                if (_item6 == null) return default(object?);
-                var _item7 = ExpectToken(":");
-                if (_item7 == null) return default(object?);
-                var b = Block();
-                if (b == null) return default(object?);
-                var result = CHECK_VERSION(stmt_ty, 5, "Async with statements are", _PyAST_AsyncWith(a, b, NULL, EXTRA));
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 5
-            {
-                var _item0 = Expect("ASYNC") ? CurrentToken : null;
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken("with");
-                if (_item1 == null) return default(object?);
-                var a = ParseZeroOrMore(() => ExpectToken(","));
-                if (a == null) return default(object?);
-                var _item3 = ParseOneOrMore(() => WithItem());
-                if (_item3 == null) return default(object?);
-                var _item4 = ExpectToken(":");
-                if (_item4 == null) return default(object?);
-                var tc = ((Expect("TYPE_COMMENT") ? CurrentToken : null) ?? new object());
-                if (tc == null) return default(object?);
-                var b = Block();
-                if (b == null) return default(object?);
-                var result = CHECK_VERSION(stmt_ty, 5, "Async with statements are", _PyAST_AsyncWith(a, b, NEW_TYPE_COMMENT(p, tc), EXTRA));
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 6
-            {
-                var _item0 = InvalidWithStmt();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("with_stmt", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmt);
         }
 
         // Rule: with_item
-        public object? WithItem()
+        public GeneratedAstNode WithItem()
         {
-            var memo = GetMemo<object?>("with_item");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var e = Expression();
-                if (e == null) return default(object?);
-                var _item1 = ExpectToken("as");
-                if (_item1 == null) return default(object?);
-                var t = StarTarget();
-                if (t == null) return default(object?);
-                var _item3 = (Mark() is var pos && ParseGroup_22() != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item3 == null) return default(object?);
-                var result = _PyAST_withitem(e, t, p->arena);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = InvalidWithItem();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var e = Expression();
-                if (e == null) return default(object?);
-                var result = _PyAST_withitem(e, NULL, p->arena);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("with_item", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: try_stmt
-        public object? TryStmt()
+        public GeneratedStmt TryStmt()
         {
-            var memo = GetMemo<object?>("try_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = InvalidTryStmt();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("try");
-                if (_item0 == null) return default(object?);
-                var _item1 = (Mark() is var pos && (Mark() is var pos && ExpectToken(":") != null ? (Reset(pos), new object()) : (Reset(pos), null)) != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item1 == null) return default(object?);
-                var b = Block();
-                if (b == null) return default(object?);
-                var f = FinallyBlock();
-                if (f == null) return default(object?);
-                var result = _PyAST_Try(b, NULL, NULL, f, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ExpectToken("try");
-                if (_item0 == null) return default(object?);
-                var _item1 = (Mark() is var pos && (Mark() is var pos && ExpectToken(":") != null ? (Reset(pos), new object()) : (Reset(pos), null)) != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item1 == null) return default(object?);
-                var b = Block();
-                if (b == null) return default(object?);
-                var ex = ParseOneOrMore(() => ExceptBlock());
-                if (ex == null) return default(object?);
-                var el = ((ElseBlock()) ?? new object());
-                if (el == null) return default(object?);
-                var f = ((FinallyBlock()) ?? new object());
-                if (f == null) return default(object?);
-                var result = _PyAST_Try(b, ex, el, f, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = ExpectToken("try");
-                if (_item0 == null) return default(object?);
-                var _item1 = (Mark() is var pos && (Mark() is var pos && ExpectToken(":") != null ? (Reset(pos), new object()) : (Reset(pos), null)) != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item1 == null) return default(object?);
-                var b = Block();
-                if (b == null) return default(object?);
-                var ex = ParseOneOrMore(() => ExceptStarBlock());
-                if (ex == null) return default(object?);
-                var el = ((ElseBlock()) ?? new object());
-                if (el == null) return default(object?);
-                var f = ((FinallyBlock()) ?? new object());
-                if (f == null) return default(object?);
-                var result = CHECK_VERSION(stmt_ty, 11, "Exception groups are",
-                      _PyAST_TryStar(b, ex, el, f, EXTRA));
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("try_stmt", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmt);
         }
 
         // Rule: except_block
-        public object? ExceptBlock()
+        public GeneratedAstNode ExceptBlock()
         {
-            var memo = GetMemo<object?>("except_block");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = InvalidExceptStmtIndent();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("except");
-                if (_item0 == null) return default(object?);
-                var e = Expression();
-                if (e == null) return default(object?);
-                var t = (ParseGroup_23() ?? new object());
-                if (t == null) return default(object?);
-                var _item3 = ExpectToken(":");
-                if (_item3 == null) return default(object?);
-                var b = Block();
-                if (b == null) return default(object?);
-                var result = _PyAST_ExceptHandler(e, (t) ? ((expr_ty) t)->v.Name.id : NULL, b, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ExpectToken("except");
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken(":");
-                if (_item1 == null) return default(object?);
-                var b = Block();
-                if (b == null) return default(object?);
-                var result = _PyAST_ExceptHandler(NULL, NULL, b, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = InvalidExceptStmt();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("except_block", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: except_star_block
-        public object? ExceptStarBlock()
+        public GeneratedAstNode ExceptStarBlock()
         {
-            var memo = GetMemo<object?>("except_star_block");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = InvalidExceptStarStmtIndent();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("except");
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken("*");
-                if (_item1 == null) return default(object?);
-                var e = Expression();
-                if (e == null) return default(object?);
-                var t = (ParseGroup_24() ?? new object());
-                if (t == null) return default(object?);
-                var _item4 = ExpectToken(":");
-                if (_item4 == null) return default(object?);
-                var b = Block();
-                if (b == null) return default(object?);
-                var result = _PyAST_ExceptHandler(e, (t) ? ((expr_ty) t)->v.Name.id : NULL, b, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = InvalidExceptStmt();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("except_star_block", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: finally_block
-        public List<object>? FinallyBlock()
+        public GeneratedStmtSeq FinallyBlock()
         {
-            var memo = GetMemo<List<object>?>("finally_block");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = InvalidFinallyStmt();
-                if (_item0 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("finally");
-                if (_item0 == null) return default(List<object>?);
-                var _item1 = (Mark() is var pos && (Mark() is var pos && ExpectToken(":") != null ? (Reset(pos), new object()) : (Reset(pos), null)) != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item1 == null) return default(List<object>?);
-                var a = Block();
-                if (a == null) return default(List<object>?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("finally_block", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmtSeq);
         }
 
         // Rule: match_stmt
-        public object? MatchStmt()
+        public GeneratedStmt MatchStmt()
         {
-            var memo = GetMemo<object?>("match_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken(""match"");
-                if (_item0 == null) return default(object?);
-                var subject = SubjectExpr();
-                if (subject == null) return default(object?);
-                var _item2 = ExpectToken(":");
-                if (_item2 == null) return default(object?);
-                var _item3 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item3 == null) return default(object?);
-                var _item4 = Expect("INDENT") ? CurrentToken : null;
-                if (_item4 == null) return default(object?);
-                var cases = ParseOneOrMore(() => CaseBlock());
-                if (cases == null) return default(object?);
-                var _item6 = Expect("DEDENT") ? CurrentToken : null;
-                if (_item6 == null) return default(object?);
-                var result = CHECK_VERSION(stmt_ty, 10, "Pattern matching is", _PyAST_Match(subject, cases, EXTRA));
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = InvalidMatchStmt();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("match_stmt", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmt);
         }
 
         // Rule: subject_expr
-        public object? SubjectExpr()
+        public GeneratedExpr SubjectExpr()
         {
-            var memo = GetMemo<object?>("subject_expr");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var value = StarNamedExpression();
-                if (value == null) return default(object?);
-                var _item1 = ExpectToken(",");
-                if (_item1 == null) return default(object?);
-                var values = (StarNamedExpressions() ?? new object());
-                if (values == null) return default(object?);
-                var result = _PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_seq_insert_in_front(p, value, values)), Load, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = NamedExpression();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("subject_expr", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: case_block
-        public object? CaseBlock()
+        public GeneratedAstNode CaseBlock()
         {
-            var memo = GetMemo<object?>("case_block");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = InvalidCaseBlock();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken(""case"");
-                if (_item0 == null) return default(object?);
-                var pattern = Patterns();
-                if (pattern == null) return default(object?);
-                var guard = (Guard() ?? new object());
-                if (guard == null) return default(object?);
-                var _item3 = ExpectToken(":");
-                if (_item3 == null) return default(object?);
-                var body = Block();
-                if (body == null) return default(object?);
-                var result = _PyAST_match_case(pattern, guard, body, p->arena);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("case_block", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: guard
-        public object? Guard()
+        public GeneratedExpr Guard()
         {
-            var memo = GetMemo<object?>("guard");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("if");
-                if (_item0 == null) return default(object?);
-                var guard = NamedExpression();
-                if (guard == null) return default(object?);
-                var result = guard;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("guard", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: patterns
-        public object? Patterns()
+        public GeneratedAstNode Patterns()
         {
-            var memo = GetMemo<object?>("patterns");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var patterns = OpenSequencePattern();
-                if (patterns == null) return default(object?);
-                var result = _PyAST_MatchSequence(patterns, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = Pattern();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("patterns", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: pattern
-        public object? Pattern()
+        public GeneratedAstNode Pattern()
         {
-            var memo = GetMemo<object?>("pattern");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = AsPattern();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = OrPattern();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("pattern", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: as_pattern
-        public object? AsPattern()
+        public GeneratedAstNode AsPattern()
         {
-            var memo = GetMemo<object?>("as_pattern");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var pattern = OrPattern();
-                if (pattern == null) return default(object?);
-                var _item1 = ExpectToken("as");
-                if (_item1 == null) return default(object?);
-                var target = PatternCaptureTarget();
-                if (target == null) return default(object?);
-                var result = _PyAST_MatchAs(pattern, target->v.Name.id, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = InvalidAsPattern();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("as_pattern", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: or_pattern
-        public object? OrPattern()
+        public GeneratedAstNode OrPattern()
         {
-            var memo = GetMemo<object?>("or_pattern");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var patterns = ParseZeroOrMore(() => ExpectToken("|"));
-                if (patterns == null) return default(object?);
-                var _item1 = ParseOneOrMore(() => ClosedPattern());
-                if (_item1 == null) return default(object?);
-                var result = asdl_seq_LEN(patterns) == 1 ? asdl_seq_GET(patterns, 0) : _PyAST_MatchOr(patterns, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("or_pattern", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: closed_pattern
-        public object? ClosedPattern()
+        public GeneratedAstNode ClosedPattern()
         {
-            var memo = GetMemo<object?>("closed_pattern");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = LiteralPattern();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = CapturePattern();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = WildcardPattern();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = ValuePattern();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 5
-            {
-                var _item0 = GroupPattern();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 6
-            {
-                var _item0 = SequencePattern();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 7
-            {
-                var _item0 = MappingPattern();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 8
-            {
-                var _item0 = ClassPattern();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("closed_pattern", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: literal_pattern
-        public object? LiteralPattern()
+        public GeneratedAstNode LiteralPattern()
         {
-            var memo = GetMemo<object?>("literal_pattern");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var value = SignedNumber();
-                if (value == null) return default(object?);
-                var _item1 = (Mark() is var pos && ParseGroup_25() == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item1 == null) return default(object?);
-                var result = _PyAST_MatchValue(value, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var value = ComplexNumber();
-                if (value == null) return default(object?);
-                var result = _PyAST_MatchValue(value, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var value = Strings();
-                if (value == null) return default(object?);
-                var result = _PyAST_MatchValue(value, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = ExpectToken("None");
-                if (_item0 == null) return default(object?);
-                var result = _PyAST_MatchSingleton(Py_None, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 5
-            {
-                var _item0 = ExpectToken("True");
-                if (_item0 == null) return default(object?);
-                var result = _PyAST_MatchSingleton(Py_True, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 6
-            {
-                var _item0 = ExpectToken("False");
-                if (_item0 == null) return default(object?);
-                var result = _PyAST_MatchSingleton(Py_False, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("literal_pattern", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: literal_expr
-        public object? LiteralExpr()
+        public GeneratedExpr LiteralExpr()
         {
-            var memo = GetMemo<object?>("literal_expr");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = SignedNumber();
-                if (_item0 == null) return default(object?);
-                var _item1 = (Mark() is var pos && ParseGroup_26() == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item1 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ComplexNumber();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = Strings();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = ExpectToken("None");
-                if (_item0 == null) return default(object?);
-                var result = _PyAST_Constant(Py_None, NULL, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 5
-            {
-                var _item0 = ExpectToken("True");
-                if (_item0 == null) return default(object?);
-                var result = _PyAST_Constant(Py_True, NULL, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 6
-            {
-                var _item0 = ExpectToken("False");
-                if (_item0 == null) return default(object?);
-                var result = _PyAST_Constant(Py_False, NULL, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("literal_expr", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: complex_number
-        public object? ComplexNumber()
+        public GeneratedExpr ComplexNumber()
         {
-            var memo = GetMemo<object?>("complex_number");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var real = SignedRealNumber();
-                if (real == null) return default(object?);
-                var _item1 = ExpectToken("+");
-                if (_item1 == null) return default(object?);
-                var imag = ImaginaryNumber();
-                if (imag == null) return default(object?);
-                var result = _PyAST_BinOp(real, Add, imag, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var real = SignedRealNumber();
-                if (real == null) return default(object?);
-                var _item1 = ExpectToken("-");
-                if (_item1 == null) return default(object?);
-                var imag = ImaginaryNumber();
-                if (imag == null) return default(object?);
-                var result = _PyAST_BinOp(real, Sub, imag, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("complex_number", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: signed_number
-        public object? SignedNumber()
+        public GeneratedExpr SignedNumber()
         {
-            var memo = GetMemo<object?>("signed_number");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = Expect("NUMBER") ? CurrentToken : null;
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("-");
-                if (_item0 == null) return default(object?);
-                var number = Expect("NUMBER") ? CurrentToken : null;
-                if (number == null) return default(object?);
-                var result = _PyAST_UnaryOp(USub, number, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("signed_number", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: signed_real_number
-        public object? SignedRealNumber()
+        public GeneratedExpr SignedRealNumber()
         {
-            var memo = GetMemo<object?>("signed_real_number");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = RealNumber();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("-");
-                if (_item0 == null) return default(object?);
-                var real = RealNumber();
-                if (real == null) return default(object?);
-                var result = _PyAST_UnaryOp(USub, real, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("signed_real_number", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: real_number
-        public object? RealNumber()
+        public GeneratedExpr RealNumber()
         {
-            var memo = GetMemo<object?>("real_number");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var real = Expect("NUMBER") ? CurrentToken : null;
-                if (real == null) return default(object?);
-                var result = _PyPegen_ensure_real(p, real);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("real_number", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: imaginary_number
-        public object? ImaginaryNumber()
+        public GeneratedExpr ImaginaryNumber()
         {
-            var memo = GetMemo<object?>("imaginary_number");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var imag = Expect("NUMBER") ? CurrentToken : null;
-                if (imag == null) return default(object?);
-                var result = _PyPegen_ensure_imaginary(p, imag);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("imaginary_number", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: capture_pattern
-        public object? CapturePattern()
+        public GeneratedAstNode CapturePattern()
         {
-            var memo = GetMemo<object?>("capture_pattern");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var target = PatternCaptureTarget();
-                if (target == null) return default(object?);
-                var result = _PyAST_MatchAs(NULL, target->v.Name.id, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("capture_pattern", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: pattern_capture_target
-        public object? PatternCaptureTarget()
+        public GeneratedExpr PatternCaptureTarget()
         {
-            var memo = GetMemo<object?>("pattern_capture_target");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = (Mark() is var pos && ExpectToken(""_"") == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item0 == null) return default(object?);
-                var name = Expect("NAME") ? CurrentToken : null;
-                if (name == null) return default(object?);
-                var _item2 = (Mark() is var pos && ParseGroup_27() == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item2 == null) return default(object?);
-                var result = _PyPegen_set_expr_context(p, name, Store);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("pattern_capture_target", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: wildcard_pattern
-        public object? WildcardPattern()
+        public GeneratedAstNode WildcardPattern()
         {
-            var memo = GetMemo<object?>("wildcard_pattern");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken(""_"");
-                if (_item0 == null) return default(object?);
-                var result = _PyAST_MatchAs(NULL, NULL, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("wildcard_pattern", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: value_pattern
-        public object? ValuePattern()
+        public GeneratedAstNode ValuePattern()
         {
-            var memo = GetMemo<object?>("value_pattern");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var attr = Attr();
-                if (attr == null) return default(object?);
-                var _item1 = (Mark() is var pos && ParseGroup_28() == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item1 == null) return default(object?);
-                var result = _PyAST_MatchValue(attr, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("value_pattern", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: attr
-        public object? Attr()
+        public GeneratedExpr Attr()
         {
-            var memo = GetMemo<object?>("attr");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var value = NameOrAttr();
-                if (value == null) return default(object?);
-                var _item1 = ExpectToken(".");
-                if (_item1 == null) return default(object?);
-                var attr = Expect("NAME") ? CurrentToken : null;
-                if (attr == null) return default(object?);
-                var result = _PyAST_Attribute(value, attr->v.Name.id, Load, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("attr", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: name_or_attr
-        public object? NameOrAttr()
+        public GeneratedExpr NameOrAttr()
         {
-            var memo = GetMemo<object?>("name_or_attr");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = Attr();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = Expect("NAME") ? CurrentToken : null;
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("name_or_attr", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: group_pattern
-        public object? GroupPattern()
+        public GeneratedAstNode GroupPattern()
         {
-            var memo = GetMemo<object?>("group_pattern");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("(");
-                if (_item0 == null) return default(object?);
-                var pattern = Pattern();
-                if (pattern == null) return default(object?);
-                var _item2 = ExpectToken(")");
-                if (_item2 == null) return default(object?);
-                var result = pattern;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("group_pattern", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: sequence_pattern
-        public object? SequencePattern()
+        public GeneratedAstNode SequencePattern()
         {
-            var memo = GetMemo<object?>("sequence_pattern");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("[");
-                if (_item0 == null) return default(object?);
-                var patterns = (MaybeSequencePattern() ?? new object());
-                if (patterns == null) return default(object?);
-                var _item2 = ExpectToken("]");
-                if (_item2 == null) return default(object?);
-                var result = _PyAST_MatchSequence(patterns, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("(");
-                if (_item0 == null) return default(object?);
-                var patterns = (OpenSequencePattern() ?? new object());
-                if (patterns == null) return default(object?);
-                var _item2 = ExpectToken(")");
-                if (_item2 == null) return default(object?);
-                var result = _PyAST_MatchSequence(patterns, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("sequence_pattern", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: open_sequence_pattern
-        public List<object>? OpenSequencePattern()
+        public GeneratedSeq OpenSequencePattern()
         {
-            var memo = GetMemo<List<object>?>("open_sequence_pattern");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var pattern = MaybeStarPattern();
-                if (pattern == null) return default(List<object>?);
-                var _item1 = ExpectToken(",");
-                if (_item1 == null) return default(List<object>?);
-                var patterns = (MaybeSequencePattern() ?? new object());
-                if (patterns == null) return default(List<object>?);
-                var result = _PyPegen_seq_insert_in_front(p, pattern, patterns);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("open_sequence_pattern", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: maybe_sequence_pattern
-        public List<object>? MaybeSequencePattern()
+        public GeneratedSeq MaybeSequencePattern()
         {
-            var memo = GetMemo<List<object>?>("maybe_sequence_pattern");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var patterns = ParseZeroOrMore(() => ExpectToken(","));
-                if (patterns == null) return default(List<object>?);
-                var _item1 = ParseOneOrMore(() => MaybeStarPattern());
-                if (_item1 == null) return default(List<object>?);
-                var _item2 = (ExpectToken(",") ?? new object());
-                if (_item2 == null) return default(List<object>?);
-                var result = patterns;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("maybe_sequence_pattern", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: maybe_star_pattern
-        public object? MaybeStarPattern()
+        public GeneratedAstNode MaybeStarPattern()
         {
-            var memo = GetMemo<object?>("maybe_star_pattern");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = StarPattern();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = Pattern();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("maybe_star_pattern", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: star_pattern
-        public object? StarPattern()
+        public GeneratedAstNode StarPattern()
         {
-            var memo = GetMemo<object?>("star_pattern");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("*");
-                if (_item0 == null) return default(object?);
-                var target = PatternCaptureTarget();
-                if (target == null) return default(object?);
-                var result = _PyAST_MatchStar(target->v.Name.id, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("*");
-                if (_item0 == null) return default(object?);
-                var _item1 = WildcardPattern();
-                if (_item1 == null) return default(object?);
-                var result = _PyAST_MatchStar(NULL, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("star_pattern", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: mapping_pattern
-        public object? MappingPattern()
+        public GeneratedAstNode MappingPattern()
         {
-            var memo = GetMemo<object?>("mapping_pattern");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("{");
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken("}");
-                if (_item1 == null) return default(object?);
-                var result = _PyAST_MatchMapping(NULL, NULL, NULL, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("{");
-                if (_item0 == null) return default(object?);
-                var rest = DoubleStarPattern();
-                if (rest == null) return default(object?);
-                var _item2 = (ExpectToken(",") ?? new object());
-                if (_item2 == null) return default(object?);
-                var _item3 = ExpectToken("}");
-                if (_item3 == null) return default(object?);
-                var result = _PyAST_MatchMapping(NULL, NULL, rest->v.Name.id, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ExpectToken("{");
-                if (_item0 == null) return default(object?);
-                var items = ItemsPattern();
-                if (items == null) return default(object?);
-                var _item2 = ExpectToken(",");
-                if (_item2 == null) return default(object?);
-                var rest = DoubleStarPattern();
-                if (rest == null) return default(object?);
-                var _item4 = (ExpectToken(",") ?? new object());
-                if (_item4 == null) return default(object?);
-                var _item5 = ExpectToken("}");
-                if (_item5 == null) return default(object?);
-                var result = _PyAST_MatchMapping(
-            CHECK(asdl_expr_seq*, _PyPegen_get_pattern_keys(p, items)),
-            CHECK(asdl_pattern_seq*, _PyPegen_get_patterns(p, items)),
-            rest->v.Name.id,
-            EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = ExpectToken("{");
-                if (_item0 == null) return default(object?);
-                var items = ItemsPattern();
-                if (items == null) return default(object?);
-                var _item2 = (ExpectToken(",") ?? new object());
-                if (_item2 == null) return default(object?);
-                var _item3 = ExpectToken("}");
-                if (_item3 == null) return default(object?);
-                var result = _PyAST_MatchMapping(
-            CHECK(asdl_expr_seq*, _PyPegen_get_pattern_keys(p, items)),
-            CHECK(asdl_pattern_seq*, _PyPegen_get_patterns(p, items)),
-            NULL,
-            EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("mapping_pattern", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: items_pattern
-        public List<object>? ItemsPattern()
+        public GeneratedSeq ItemsPattern()
         {
-            var memo = GetMemo<List<object>?>("items_pattern");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ParseZeroOrMore(() => ExpectToken(","));
-                if (_item0 == null) return default(List<object>?);
-                var _item1 = ParseOneOrMore(() => KeyValuePattern());
-                if (_item1 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            SetMemo("items_pattern", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: key_value_pattern
-        public List<object>? KeyValuePattern()
+        public GeneratedSeq KeyValuePattern()
         {
-            var memo = GetMemo<List<object>?>("key_value_pattern");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var key = ParseGroup_29();
-                if (key == null) return default(List<object>?);
-                var _item1 = ExpectToken(":");
-                if (_item1 == null) return default(List<object>?);
-                var pattern = Pattern();
-                if (pattern == null) return default(List<object>?);
-                var result = _PyPegen_key_pattern_pair(p, key, pattern);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("key_value_pattern", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: double_star_pattern
-        public object? DoubleStarPattern()
+        public GeneratedExpr DoubleStarPattern()
         {
-            var memo = GetMemo<object?>("double_star_pattern");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("**");
-                if (_item0 == null) return default(object?);
-                var target = PatternCaptureTarget();
-                if (target == null) return default(object?);
-                var result = target;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("double_star_pattern", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: class_pattern
-        public object? ClassPattern()
+        public GeneratedAstNode ClassPattern()
         {
-            var memo = GetMemo<object?>("class_pattern");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var cls = NameOrAttr();
-                if (cls == null) return default(object?);
-                var _item1 = ExpectToken("(");
-                if (_item1 == null) return default(object?);
-                var _item2 = ExpectToken(")");
-                if (_item2 == null) return default(object?);
-                var result = _PyAST_MatchClass(cls, NULL, NULL, NULL, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var cls = NameOrAttr();
-                if (cls == null) return default(object?);
-                var _item1 = ExpectToken("(");
-                if (_item1 == null) return default(object?);
-                var patterns = PositionalPatterns();
-                if (patterns == null) return default(object?);
-                var _item3 = (ExpectToken(",") ?? new object());
-                if (_item3 == null) return default(object?);
-                var _item4 = ExpectToken(")");
-                if (_item4 == null) return default(object?);
-                var result = _PyAST_MatchClass(cls, patterns, NULL, NULL, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var cls = NameOrAttr();
-                if (cls == null) return default(object?);
-                var _item1 = ExpectToken("(");
-                if (_item1 == null) return default(object?);
-                var keywords = KeywordPatterns();
-                if (keywords == null) return default(object?);
-                var _item3 = (ExpectToken(",") ?? new object());
-                if (_item3 == null) return default(object?);
-                var _item4 = ExpectToken(")");
-                if (_item4 == null) return default(object?);
-                var result = _PyAST_MatchClass(
-            cls, NULL,
-            CHECK(asdl_identifier_seq*, _PyPegen_map_names_to_ids(p,
-                CHECK(asdl_expr_seq*, _PyPegen_get_pattern_keys(p, keywords)))),
-            CHECK(asdl_pattern_seq*, _PyPegen_get_patterns(p, keywords)),
-            EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var cls = NameOrAttr();
-                if (cls == null) return default(object?);
-                var _item1 = ExpectToken("(");
-                if (_item1 == null) return default(object?);
-                var patterns = PositionalPatterns();
-                if (patterns == null) return default(object?);
-                var _item3 = ExpectToken(",");
-                if (_item3 == null) return default(object?);
-                var keywords = KeywordPatterns();
-                if (keywords == null) return default(object?);
-                var _item5 = (ExpectToken(",") ?? new object());
-                if (_item5 == null) return default(object?);
-                var _item6 = ExpectToken(")");
-                if (_item6 == null) return default(object?);
-                var result = _PyAST_MatchClass(
-            cls,
-            patterns,
-            CHECK(asdl_identifier_seq*, _PyPegen_map_names_to_ids(p,
-                CHECK(asdl_expr_seq*, _PyPegen_get_pattern_keys(p, keywords)))),
-            CHECK(asdl_pattern_seq*, _PyPegen_get_patterns(p, keywords)),
-            EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 5
-            {
-                var _item0 = InvalidClassPattern();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("class_pattern", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: positional_patterns
-        public List<object>? PositionalPatterns()
+        public GeneratedSeq PositionalPatterns()
         {
-            var memo = GetMemo<List<object>?>("positional_patterns");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var args = ParseZeroOrMore(() => ExpectToken(","));
-                if (args == null) return default(List<object>?);
-                var _item1 = ParseOneOrMore(() => Pattern());
-                if (_item1 == null) return default(List<object>?);
-                var result = args;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("positional_patterns", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: keyword_patterns
-        public List<object>? KeywordPatterns()
+        public GeneratedSeq KeywordPatterns()
         {
-            var memo = GetMemo<List<object>?>("keyword_patterns");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ParseZeroOrMore(() => ExpectToken(","));
-                if (_item0 == null) return default(List<object>?);
-                var _item1 = ParseOneOrMore(() => KeywordPattern());
-                if (_item1 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            SetMemo("keyword_patterns", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: keyword_pattern
-        public List<object>? KeywordPattern()
+        public GeneratedSeq KeywordPattern()
         {
-            var memo = GetMemo<List<object>?>("keyword_pattern");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var arg = Expect("NAME") ? CurrentToken : null;
-                if (arg == null) return default(List<object>?);
-                var _item1 = ExpectToken("=");
-                if (_item1 == null) return default(List<object>?);
-                var value = Pattern();
-                if (value == null) return default(List<object>?);
-                var result = _PyPegen_key_pattern_pair(p, arg, value);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("keyword_pattern", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: type_alias
-        public object? TypeAlias()
+        public GeneratedStmt TypeAlias()
         {
-            var memo = GetMemo<object?>("type_alias");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken(""type"");
-                if (_item0 == null) return default(object?);
-                var n = Expect("NAME") ? CurrentToken : null;
-                if (n == null) return default(object?);
-                var t = ((TypeParams()) ?? new object());
-                if (t == null) return default(object?);
-                var _item3 = ExpectToken("=");
-                if (_item3 == null) return default(object?);
-                var b = Expression();
-                if (b == null) return default(object?);
-                var result = CHECK_VERSION(stmt_ty, 12, "Type statement is",
-        _PyAST_TypeAlias(CHECK(expr_ty, _PyPegen_set_expr_context(p, n, Store)), t, b, EXTRA));
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("type_alias", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedStmt);
         }
 
         // Rule: type_params
-        public List<object>? TypeParams()
+        public GeneratedSeq TypeParams()
         {
-            var memo = GetMemo<List<object>?>("type_params");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("[");
-                if (_item0 == null) return default(List<object>?);
-                var t = TypeParamSeq();
-                if (t == null) return default(List<object>?);
-                var _item2 = ExpectToken("]");
-                if (_item2 == null) return default(List<object>?);
-                var result = CHECK_VERSION(asdl_type_param_seq *, 12, "Type parameter lists are", t);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("type_params", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: type_param_seq
-        public List<object>? TypeParamSeq()
+        public GeneratedSeq TypeParamSeq()
         {
-            var memo = GetMemo<List<object>?>("type_param_seq");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ParseZeroOrMore(() => ExpectToken(","));
-                if (a == null) return default(List<object>?);
-                var _item1 = ParseOneOrMore(() => TypeParam());
-                if (_item1 == null) return default(List<object>?);
-                var _item2 = ((ExpectToken(",")) ?? new object());
-                if (_item2 == null) return default(List<object>?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("type_param_seq", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: type_param
-        public object? TypeParam()
+        public GeneratedAstNode TypeParam()
         {
-            var memo = GetMemo<object?>("type_param");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Expect("NAME") ? CurrentToken : null;
-                if (a == null) return default(object?);
-                var b = ((TypeParamBound()) ?? new object());
-                if (b == null) return default(object?);
-                var result = _PyAST_TypeVar(a->v.Name.id, b, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("*");
-                if (_item0 == null) return default(object?);
-                var a = Expect("NAME") ? CurrentToken : null;
-                if (a == null) return default(object?);
-                var colon = ExpectToken(":");
-                if (colon == null) return default(object?);
-                var e = Expression();
-                if (e == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_STARTING_FROM(colon, e->kind == Tuple_kind
-                ? "cannot use constraints with TypeVarTuple"
-                : "cannot use bound with TypeVarTuple");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ExpectToken("*");
-                if (_item0 == null) return default(object?);
-                var a = Expect("NAME") ? CurrentToken : null;
-                if (a == null) return default(object?);
-                var result = _PyAST_TypeVarTuple(a->v.Name.id, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = ExpectToken("**");
-                if (_item0 == null) return default(object?);
-                var a = Expect("NAME") ? CurrentToken : null;
-                if (a == null) return default(object?);
-                var colon = ExpectToken(":");
-                if (colon == null) return default(object?);
-                var e = Expression();
-                if (e == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_STARTING_FROM(colon, e->kind == Tuple_kind
-                ? "cannot use constraints with ParamSpec"
-                : "cannot use bound with ParamSpec");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 5
-            {
-                var _item0 = ExpectToken("**");
-                if (_item0 == null) return default(object?);
-                var a = Expect("NAME") ? CurrentToken : null;
-                if (a == null) return default(object?);
-                var result = _PyAST_ParamSpec(a->v.Name.id, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("type_param", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: type_param_bound
-        public object? TypeParamBound()
+        public GeneratedExpr TypeParamBound()
         {
-            var memo = GetMemo<object?>("type_param_bound");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken(":");
-                if (_item0 == null) return default(object?);
-                var e = Expression();
-                if (e == null) return default(object?);
-                var result = e;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("type_param_bound", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: expressions
-        public object? Expressions()
+        public GeneratedExpr Expressions()
         {
-            var memo = GetMemo<object?>("expressions");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Expression();
-                if (a == null) return default(object?);
-                var b = ParseOneOrMore(() => ParseGroup_30());
-                if (b == null) return default(object?);
-                var _item2 = ((ExpectToken(",")) ?? new object());
-                if (_item2 == null) return default(object?);
-                var result = _PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_seq_insert_in_front(p, a, b)), Load, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = Expression();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(",");
-                if (_item1 == null) return default(object?);
-                var result = _PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_singleton_seq(p, a)), Load, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = Expression();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("expressions", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: expression
-        public object? Expression()
+        public GeneratedExpr Expression()
         {
-            var memo = GetMemo<object?>("expression");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = InvalidExpression();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = InvalidLegacyExpression();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var a = Disjunction();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken("if");
-                if (_item1 == null) return default(object?);
-                var b = Disjunction();
-                if (b == null) return default(object?);
-                var _item3 = ExpectToken("else");
-                if (_item3 == null) return default(object?);
-                var c = Expression();
-                if (c == null) return default(object?);
-                var result = _PyAST_IfExp(b, a, c, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = Disjunction();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 5
-            {
-                var _item0 = Lambdef();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("expression", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: yield_expr
-        public object? YieldExpr()
+        public GeneratedExpr YieldExpr()
         {
-            var memo = GetMemo<object?>("yield_expr");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("yield");
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken("from");
-                if (_item1 == null) return default(object?);
-                var a = Expression();
-                if (a == null) return default(object?);
-                var result = _PyAST_YieldFrom(a, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("yield");
-                if (_item0 == null) return default(object?);
-                var a = ((StarExpressions()) ?? new object());
-                if (a == null) return default(object?);
-                var result = _PyAST_Yield(a, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("yield_expr", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: star_expressions
-        public object? StarExpressions()
+        public GeneratedExpr StarExpressions()
         {
-            var memo = GetMemo<object?>("star_expressions");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = StarExpression();
-                if (a == null) return default(object?);
-                var b = ParseOneOrMore(() => ParseGroup_31());
-                if (b == null) return default(object?);
-                var _item2 = ((ExpectToken(",")) ?? new object());
-                if (_item2 == null) return default(object?);
-                var result = _PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_seq_insert_in_front(p, a, b)), Load, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = StarExpression();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(",");
-                if (_item1 == null) return default(object?);
-                var result = _PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_singleton_seq(p, a)), Load, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = StarExpression();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("star_expressions", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: star_expression
-        public object? StarExpression()
+        public GeneratedExpr StarExpression()
         {
-            var memo = GetMemo<object?>("star_expression");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("*");
-                if (_item0 == null) return default(object?);
-                var a = BitwiseOr();
-                if (a == null) return default(object?);
-                var result = _PyAST_Starred(a, Load, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = Expression();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("star_expression", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: star_named_expressions
-        public List<object>? StarNamedExpressions()
+        public GeneratedExprSeq StarNamedExpressions()
         {
-            var memo = GetMemo<List<object>?>("star_named_expressions");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ParseZeroOrMore(() => ExpectToken(","));
-                if (a == null) return default(List<object>?);
-                var _item1 = ParseOneOrMore(() => StarNamedExpression());
-                if (_item1 == null) return default(List<object>?);
-                var _item2 = ((ExpectToken(",")) ?? new object());
-                if (_item2 == null) return default(List<object>?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("star_named_expressions", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExprSeq);
         }
 
         // Rule: star_named_expression
-        public object? StarNamedExpression()
+        public GeneratedExpr StarNamedExpression()
         {
-            var memo = GetMemo<object?>("star_named_expression");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("*");
-                if (_item0 == null) return default(object?);
-                var a = BitwiseOr();
-                if (a == null) return default(object?);
-                var result = _PyAST_Starred(a, Load, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = NamedExpression();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("star_named_expression", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: assignment_expression
-        public object? AssignmentExpression()
+        public GeneratedExpr AssignmentExpression()
         {
-            var memo = GetMemo<object?>("assignment_expression");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Expect("NAME") ? CurrentToken : null;
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(":=");
-                if (_item1 == null) return default(object?);
-                var b = (Expression() /* cut: no backtracking */);
-                if (b == null) return default(object?);
-                var result = CHECK_VERSION(expr_ty, 8, "Assignment expressions are",
-        _PyAST_NamedExpr(CHECK(expr_ty, _PyPegen_set_expr_context(p, a, Store)), b, EXTRA));
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("assignment_expression", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: named_expression
-        public object? NamedExpression()
+        public GeneratedExpr NamedExpression()
         {
-            var memo = GetMemo<object?>("named_expression");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = AssignmentExpression();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = InvalidNamedExpression();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = Expression();
-                if (_item0 == null) return default(object?);
-                var _item1 = (Mark() is var pos && ExpectToken(":=") == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item1 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("named_expression", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: disjunction
-        public object? Disjunction()
+        public GeneratedExpr Disjunction()
         {
-            var memo = GetMemo<object?>("disjunction");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Conjunction();
-                if (a == null) return default(object?);
-                var b = ParseOneOrMore(() => ParseGroup_32());
-                if (b == null) return default(object?);
-                var result = _PyAST_BoolOp(
-        Or,
-        CHECK(asdl_expr_seq*, _PyPegen_seq_insert_in_front(p, a, b)),
-        EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = Conjunction();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("disjunction", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: conjunction
-        public object? Conjunction()
+        public GeneratedExpr Conjunction()
         {
-            var memo = GetMemo<object?>("conjunction");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Inversion();
-                if (a == null) return default(object?);
-                var b = ParseOneOrMore(() => ParseGroup_33());
-                if (b == null) return default(object?);
-                var result = _PyAST_BoolOp(
-        And,
-        CHECK(asdl_expr_seq*, _PyPegen_seq_insert_in_front(p, a, b)),
-        EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = Inversion();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("conjunction", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: inversion
-        public object? Inversion()
+        public GeneratedExpr Inversion()
         {
-            var memo = GetMemo<object?>("inversion");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("not");
-                if (_item0 == null) return default(object?);
-                var a = Inversion();
-                if (a == null) return default(object?);
-                var result = _PyAST_UnaryOp(Not, a, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = Comparison();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("inversion", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: comparison
-        public object? Comparison()
+        public GeneratedExpr Comparison()
         {
-            var memo = GetMemo<object?>("comparison");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = BitwiseOr();
-                if (a == null) return default(object?);
-                var b = ParseOneOrMore(() => CompareOpBitwiseOrPair());
-                if (b == null) return default(object?);
-                var result = _PyAST_Compare(
-            a,
-            CHECK(asdl_int_seq*, _PyPegen_get_cmpops(p, b)),
-            CHECK(asdl_expr_seq*, _PyPegen_get_exprs(p, b)),
-            EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = BitwiseOr();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("comparison", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: compare_op_bitwise_or_pair
-        public List<object>? CompareOpBitwiseOrPair()
+        public GeneratedSeq CompareOpBitwiseOrPair()
         {
-            var memo = GetMemo<List<object>?>("compare_op_bitwise_or_pair");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = EqBitwiseOr();
-                if (_item0 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = NoteqBitwiseOr();
-                if (_item0 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = LteBitwiseOr();
-                if (_item0 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = LtBitwiseOr();
-                if (_item0 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 5
-            {
-                var _item0 = GteBitwiseOr();
-                if (_item0 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 6
-            {
-                var _item0 = GtBitwiseOr();
-                if (_item0 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 7
-            {
-                var _item0 = NotinBitwiseOr();
-                if (_item0 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 8
-            {
-                var _item0 = InBitwiseOr();
-                if (_item0 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 9
-            {
-                var _item0 = IsnotBitwiseOr();
-                if (_item0 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 10
-            {
-                var _item0 = IsBitwiseOr();
-                if (_item0 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            SetMemo("compare_op_bitwise_or_pair", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: eq_bitwise_or
-        public List<object>? EqBitwiseOr()
+        public GeneratedSeq EqBitwiseOr()
         {
-            var memo = GetMemo<List<object>?>("eq_bitwise_or");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("==");
-                if (_item0 == null) return default(List<object>?);
-                var a = BitwiseOr();
-                if (a == null) return default(List<object>?);
-                var result = _PyPegen_cmpop_expr_pair(p, Eq, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("eq_bitwise_or", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: noteq_bitwise_or
-        public List<object>? NoteqBitwiseOr()
+        public GeneratedSeq NoteqBitwiseOr()
         {
-            var memo = GetMemo<List<object>?>("noteq_bitwise_or");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = (ExpectToken("!="));
-                if (_item0 == null) return default(List<object>?);
-                var a = BitwiseOr();
-                if (a == null) return default(List<object>?);
-                var result = _PyPegen_cmpop_expr_pair(p, NotEq, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("noteq_bitwise_or", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: lte_bitwise_or
-        public List<object>? LteBitwiseOr()
+        public GeneratedSeq LteBitwiseOr()
         {
-            var memo = GetMemo<List<object>?>("lte_bitwise_or");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("<=");
-                if (_item0 == null) return default(List<object>?);
-                var a = BitwiseOr();
-                if (a == null) return default(List<object>?);
-                var result = _PyPegen_cmpop_expr_pair(p, LtE, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("lte_bitwise_or", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: lt_bitwise_or
-        public List<object>? LtBitwiseOr()
+        public GeneratedSeq LtBitwiseOr()
         {
-            var memo = GetMemo<List<object>?>("lt_bitwise_or");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("<");
-                if (_item0 == null) return default(List<object>?);
-                var a = BitwiseOr();
-                if (a == null) return default(List<object>?);
-                var result = _PyPegen_cmpop_expr_pair(p, Lt, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("lt_bitwise_or", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: gte_bitwise_or
-        public List<object>? GteBitwiseOr()
+        public GeneratedSeq GteBitwiseOr()
         {
-            var memo = GetMemo<List<object>?>("gte_bitwise_or");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken(">=");
-                if (_item0 == null) return default(List<object>?);
-                var a = BitwiseOr();
-                if (a == null) return default(List<object>?);
-                var result = _PyPegen_cmpop_expr_pair(p, GtE, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("gte_bitwise_or", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: gt_bitwise_or
-        public List<object>? GtBitwiseOr()
+        public GeneratedSeq GtBitwiseOr()
         {
-            var memo = GetMemo<List<object>?>("gt_bitwise_or");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken(">");
-                if (_item0 == null) return default(List<object>?);
-                var a = BitwiseOr();
-                if (a == null) return default(List<object>?);
-                var result = _PyPegen_cmpop_expr_pair(p, Gt, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("gt_bitwise_or", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: notin_bitwise_or
-        public List<object>? NotinBitwiseOr()
+        public GeneratedSeq NotinBitwiseOr()
         {
-            var memo = GetMemo<List<object>?>("notin_bitwise_or");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("not");
-                if (_item0 == null) return default(List<object>?);
-                var _item1 = ExpectToken("in");
-                if (_item1 == null) return default(List<object>?);
-                var a = BitwiseOr();
-                if (a == null) return default(List<object>?);
-                var result = _PyPegen_cmpop_expr_pair(p, NotIn, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("notin_bitwise_or", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: in_bitwise_or
-        public List<object>? InBitwiseOr()
+        public GeneratedSeq InBitwiseOr()
         {
-            var memo = GetMemo<List<object>?>("in_bitwise_or");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("in");
-                if (_item0 == null) return default(List<object>?);
-                var a = BitwiseOr();
-                if (a == null) return default(List<object>?);
-                var result = _PyPegen_cmpop_expr_pair(p, In, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("in_bitwise_or", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: isnot_bitwise_or
-        public List<object>? IsnotBitwiseOr()
+        public GeneratedSeq IsnotBitwiseOr()
         {
-            var memo = GetMemo<List<object>?>("isnot_bitwise_or");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("is");
-                if (_item0 == null) return default(List<object>?);
-                var _item1 = ExpectToken("not");
-                if (_item1 == null) return default(List<object>?);
-                var a = BitwiseOr();
-                if (a == null) return default(List<object>?);
-                var result = _PyPegen_cmpop_expr_pair(p, IsNot, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("isnot_bitwise_or", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: is_bitwise_or
-        public List<object>? IsBitwiseOr()
+        public GeneratedSeq IsBitwiseOr()
         {
-            var memo = GetMemo<List<object>?>("is_bitwise_or");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("is");
-                if (_item0 == null) return default(List<object>?);
-                var a = BitwiseOr();
-                if (a == null) return default(List<object>?);
-                var result = _PyPegen_cmpop_expr_pair(p, Is, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("is_bitwise_or", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: bitwise_or
-        public object? BitwiseOr()
+        public GeneratedExpr BitwiseOr()
         {
-            var memo = GetMemo<object?>("bitwise_or");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = BitwiseOr();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken("|");
-                if (_item1 == null) return default(object?);
-                var b = BitwiseXor();
-                if (b == null) return default(object?);
-                var result = _PyAST_BinOp(a, BitOr, b, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = BitwiseXor();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("bitwise_or", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: bitwise_xor
-        public object? BitwiseXor()
+        public GeneratedExpr BitwiseXor()
         {
-            var memo = GetMemo<object?>("bitwise_xor");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = BitwiseXor();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken("^");
-                if (_item1 == null) return default(object?);
-                var b = BitwiseAnd();
-                if (b == null) return default(object?);
-                var result = _PyAST_BinOp(a, BitXor, b, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = BitwiseAnd();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("bitwise_xor", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: bitwise_and
-        public object? BitwiseAnd()
+        public GeneratedExpr BitwiseAnd()
         {
-            var memo = GetMemo<object?>("bitwise_and");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = BitwiseAnd();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken("&");
-                if (_item1 == null) return default(object?);
-                var b = ShiftExpr();
-                if (b == null) return default(object?);
-                var result = _PyAST_BinOp(a, BitAnd, b, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ShiftExpr();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("bitwise_and", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: shift_expr
-        public object? ShiftExpr()
+        public GeneratedExpr ShiftExpr()
         {
-            var memo = GetMemo<object?>("shift_expr");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ShiftExpr();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken("<<");
-                if (_item1 == null) return default(object?);
-                var b = Sum();
-                if (b == null) return default(object?);
-                var result = _PyAST_BinOp(a, LShift, b, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = ShiftExpr();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(">>");
-                if (_item1 == null) return default(object?);
-                var b = Sum();
-                if (b == null) return default(object?);
-                var result = _PyAST_BinOp(a, RShift, b, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = Sum();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("shift_expr", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: sum
-        public object? Sum()
+        public GeneratedExpr Sum()
         {
-            var memo = GetMemo<object?>("sum");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Sum();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken("+");
-                if (_item1 == null) return default(object?);
-                var b = Term();
-                if (b == null) return default(object?);
-                var result = _PyAST_BinOp(a, Add, b, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = Sum();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken("-");
-                if (_item1 == null) return default(object?);
-                var b = Term();
-                if (b == null) return default(object?);
-                var result = _PyAST_BinOp(a, Sub, b, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = Term();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("sum", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: term
-        public object? Term()
+        public GeneratedExpr Term()
         {
-            var memo = GetMemo<object?>("term");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Term();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken("*");
-                if (_item1 == null) return default(object?);
-                var b = Factor();
-                if (b == null) return default(object?);
-                var result = _PyAST_BinOp(a, Mult, b, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = Term();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken("/");
-                if (_item1 == null) return default(object?);
-                var b = Factor();
-                if (b == null) return default(object?);
-                var result = _PyAST_BinOp(a, Div, b, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var a = Term();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken("//");
-                if (_item1 == null) return default(object?);
-                var b = Factor();
-                if (b == null) return default(object?);
-                var result = _PyAST_BinOp(a, FloorDiv, b, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var a = Term();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken("%");
-                if (_item1 == null) return default(object?);
-                var b = Factor();
-                if (b == null) return default(object?);
-                var result = _PyAST_BinOp(a, Mod, b, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 5
-            {
-                var a = Term();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken("@");
-                if (_item1 == null) return default(object?);
-                var b = Factor();
-                if (b == null) return default(object?);
-                var result = CHECK_VERSION(expr_ty, 5, "The '@' operator is", _PyAST_BinOp(a, MatMult, b, EXTRA));
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 6
-            {
-                var _item0 = Factor();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("term", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: factor
-        public object? Factor()
+        public GeneratedExpr Factor()
         {
-            var memo = GetMemo<object?>("factor");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("+");
-                if (_item0 == null) return default(object?);
-                var a = Factor();
-                if (a == null) return default(object?);
-                var result = _PyAST_UnaryOp(UAdd, a, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("-");
-                if (_item0 == null) return default(object?);
-                var a = Factor();
-                if (a == null) return default(object?);
-                var result = _PyAST_UnaryOp(USub, a, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ExpectToken("~");
-                if (_item0 == null) return default(object?);
-                var a = Factor();
-                if (a == null) return default(object?);
-                var result = _PyAST_UnaryOp(Invert, a, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = Power();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("factor", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: power
-        public object? Power()
+        public GeneratedExpr Power()
         {
-            var memo = GetMemo<object?>("power");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = AwaitPrimary();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken("**");
-                if (_item1 == null) return default(object?);
-                var b = Factor();
-                if (b == null) return default(object?);
-                var result = _PyAST_BinOp(a, Pow, b, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = AwaitPrimary();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("power", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: await_primary
-        public object? AwaitPrimary()
+        public GeneratedExpr AwaitPrimary()
         {
-            var memo = GetMemo<object?>("await_primary");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = Expect("AWAIT") ? CurrentToken : null;
-                if (_item0 == null) return default(object?);
-                var a = Primary();
-                if (a == null) return default(object?);
-                var result = CHECK_VERSION(expr_ty, 5, "Await expressions are", _PyAST_Await(a, EXTRA));
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = Primary();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("await_primary", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: primary
-        public object? Primary()
+        public GeneratedExpr Primary()
         {
-            var memo = GetMemo<object?>("primary");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Primary();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(".");
-                if (_item1 == null) return default(object?);
-                var b = Expect("NAME") ? CurrentToken : null;
-                if (b == null) return default(object?);
-                var result = _PyAST_Attribute(a, b->v.Name.id, Load, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = Primary();
-                if (a == null) return default(object?);
-                var b = Genexp();
-                if (b == null) return default(object?);
-                var result = _PyAST_Call(a, CHECK(asdl_expr_seq*, (asdl_expr_seq*)_PyPegen_singleton_seq(p, b)), NULL, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var a = Primary();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken("(");
-                if (_item1 == null) return default(object?);
-                var b = ((Arguments()) ?? new object());
-                if (b == null) return default(object?);
-                var _item3 = ExpectToken(")");
-                if (_item3 == null) return default(object?);
-                var result = _PyAST_Call(a,
-                 (b) ? ((expr_ty) b)->v.Call.args : NULL,
-                 (b) ? ((expr_ty) b)->v.Call.keywords : NULL,
-                 EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var a = Primary();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken("[");
-                if (_item1 == null) return default(object?);
-                var b = Slices();
-                if (b == null) return default(object?);
-                var _item3 = ExpectToken("]");
-                if (_item3 == null) return default(object?);
-                var result = _PyAST_Subscript(a, b, Load, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 5
-            {
-                var _item0 = Atom();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("primary", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: slices
-        public object? Slices()
+        public GeneratedExpr Slices()
         {
-            var memo = GetMemo<object?>("slices");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Slice();
-                if (a == null) return default(object?);
-                var _item1 = (Mark() is var pos && ExpectToken(",") == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item1 == null) return default(object?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = ParseZeroOrMore(() => ExpectToken(","));
-                if (a == null) return default(object?);
-                var _item1 = ParseOneOrMore(() => ParseGroup_34());
-                if (_item1 == null) return default(object?);
-                var _item2 = ((ExpectToken(",")) ?? new object());
-                if (_item2 == null) return default(object?);
-                var result = _PyAST_Tuple(a, Load, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("slices", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: slice
-        public object? Slice()
+        public GeneratedExpr Slice()
         {
-            var memo = GetMemo<object?>("slice");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ((Expression()) ?? new object());
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(":");
-                if (_item1 == null) return default(object?);
-                var b = ((Expression()) ?? new object());
-                if (b == null) return default(object?);
-                var c = (ParseGroup_35() ?? new object());
-                if (c == null) return default(object?);
-                var result = _PyAST_Slice(a, b, c, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = NamedExpression();
-                if (a == null) return default(object?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("slice", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: atom
-        public object? Atom()
+        public GeneratedExpr Atom()
         {
-            var memo = GetMemo<object?>("atom");
-            if (memo != null) return memo;
+            // atom[expr_ty]: Basic expressions (NAME, NUMBER, True/False/None, STRING)
 
-            var startPos = _position;
-            // Alternative 1
+            // Try NAME token (variable names)
+            if (CurrentToken?.Type.ToString() == "NAME")
             {
-                var _item0 = Expect("NAME") ? CurrentToken : null;
-                if (_item0 == null) return default(object?);
-                return _item0;
+                var nameValue = CurrentToken.Value;
+                Advance();
+                var nameExpr = new GeneratedExpr();
+                // TODO: Set name expression properties when structure is defined
+                return nameExpr;
             }
 
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
+            // Try NUMBER token
+            if (CurrentToken?.Type.ToString() == "NUMBER")
             {
-                var _item0 = ExpectToken("True");
-                if (_item0 == null) return default(object?);
-                var result = _PyAST_Constant(Py_True, NULL, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
+                var numberValue = CurrentToken.Value;
+                Advance();
+                var numberExpr = new GeneratedExpr();
+                // TODO: Set number expression properties when structure is defined
+                return numberExpr;
             }
 
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
+            // Try STRING token
+            if (CurrentToken?.Type.ToString() == "STRING")
             {
-                var _item0 = ExpectToken("False");
-                if (_item0 == null) return default(object?);
-                var result = _PyAST_Constant(Py_False, NULL, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
+                var stringValue = CurrentToken.Value;
+                Advance();
+                var stringExpr = new GeneratedExpr();
+                // TODO: Set string expression properties when structure is defined
+                return stringExpr;
             }
 
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
+            // Try literal keywords
+            if (ExpectKeyword("True"))
             {
-                var _item0 = ExpectToken("None");
-                if (_item0 == null) return default(object?);
-                var result = _PyAST_Constant(Py_None, NULL, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
+                // 'True' { _PyAST_Constant(Py_True, NULL, EXTRA) }
+                var trueExpr = new GeneratedExpr();
+                // TODO: Set True constant properties when structure is defined
+                return trueExpr;
             }
 
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 5
+            if (ExpectKeyword("False"))
             {
-                var _item0 = (Mark() is var pos && ParseGroup_36() != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item0 == null) return default(object?);
-                var _item1 = Strings();
-                if (_item1 == null) return default(object?);
-                return _item0;
+                // 'False' { _PyAST_Constant(Py_False, NULL, EXTRA) }
+                var falseExpr = new GeneratedExpr();
+                // TODO: Set False constant properties when structure is defined
+                return falseExpr;
             }
 
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 6
+            if (ExpectKeyword("None"))
             {
-                var _item0 = Expect("NUMBER") ? CurrentToken : null;
-                if (_item0 == null) return default(object?);
-                return _item0;
+                // 'None' { _PyAST_Constant(Py_None, NULL, EXTRA) }
+                var noneExpr = new GeneratedExpr();
+                // TODO: Set None constant properties when structure is defined
+                return noneExpr;
             }
 
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 7
-            {
-                var _item0 = (Mark() is var pos && ExpectToken("(") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item0 == null) return default(object?);
-                var _item1 = ParseGroup_37();
-                if (_item1 == null) return default(object?);
-                return _item0;
-            }
+            // TODO: Add other atom alternatives
+            // - strings (complex string handling)
+            // - tuple, list, dict literals
+            // - '...' (Ellipsis)
 
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 8
-            {
-                var _item0 = (Mark() is var pos && ExpectToken("[") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item0 == null) return default(object?);
-                var _item1 = ParseGroup_38();
-                if (_item1 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 9
-            {
-                var _item0 = (Mark() is var pos && ExpectToken("{") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item0 == null) return default(object?);
-                var _item1 = ParseGroup_39();
-                if (_item1 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 10
-            {
-                var _item0 = ExpectToken("...");
-                if (_item0 == null) return default(object?);
-                var result = _PyAST_Constant(Py_Ellipsis, NULL, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("atom", default(object?));
-            return default(object?);
+            // No match found
+            return default(GeneratedExpr);
         }
 
         // Rule: group
-        public object? Group()
+        public GeneratedExpr Group()
         {
-            var memo = GetMemo<object?>("group");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("(");
-                if (_item0 == null) return default(object?);
-                var a = ParseGroup_40();
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken(")");
-                if (_item2 == null) return default(object?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = InvalidGroup();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("group", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: lambdef
-        public object? Lambdef()
+        public GeneratedExpr Lambdef()
         {
-            var memo = GetMemo<object?>("lambdef");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("lambda");
-                if (_item0 == null) return default(object?);
-                var a = ((LambdaParams()) ?? new object());
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken(":");
-                if (_item2 == null) return default(object?);
-                var b = Expression();
-                if (b == null) return default(object?);
-                var result = _PyAST_Lambda((a) ? a : CHECK(arguments_ty, _PyPegen_empty_arguments(p)), b, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("lambdef", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: lambda_params
-        public object? LambdaParams()
+        public GeneratedAstNode LambdaParams()
         {
-            var memo = GetMemo<object?>("lambda_params");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = InvalidLambdaParameters();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = LambdaParameters();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("lambda_params", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: lambda_parameters
-        public object? LambdaParameters()
+        public GeneratedAstNode LambdaParameters()
         {
-            var memo = GetMemo<object?>("lambda_parameters");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = LambdaSlashNoDefault();
-                if (a == null) return default(object?);
-                var b = ParseZeroOrMore(() => LambdaParamNoDefault());
-                if (b == null) return default(object?);
-                var c = ParseZeroOrMore(() => LambdaParamWithDefault());
-                if (c == null) return default(object?);
-                var d = ((LambdaStarEtc()) ?? new object());
-                if (d == null) return default(object?);
-                var result = CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(p, a, NULL, b, c, d));
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = LambdaSlashWithDefault();
-                if (a == null) return default(object?);
-                var b = ParseZeroOrMore(() => LambdaParamWithDefault());
-                if (b == null) return default(object?);
-                var c = ((LambdaStarEtc()) ?? new object());
-                if (c == null) return default(object?);
-                var result = CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(p, NULL, a, NULL, b, c));
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var a = ParseOneOrMore(() => LambdaParamNoDefault());
-                if (a == null) return default(object?);
-                var b = ParseZeroOrMore(() => LambdaParamWithDefault());
-                if (b == null) return default(object?);
-                var c = ((LambdaStarEtc()) ?? new object());
-                if (c == null) return default(object?);
-                var result = _PyPegen_make_arguments(p, NULL, NULL, a, b, c);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var a = ParseOneOrMore(() => LambdaParamWithDefault());
-                if (a == null) return default(object?);
-                var b = ((LambdaStarEtc()) ?? new object());
-                if (b == null) return default(object?);
-                var result = _PyPegen_make_arguments(p, NULL, NULL, NULL, a, b);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 5
-            {
-                var a = LambdaStarEtc();
-                if (a == null) return default(object?);
-                var result = _PyPegen_make_arguments(p, NULL, NULL, NULL, NULL, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("lambda_parameters", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: lambda_slash_no_default
-        public List<object>? LambdaSlashNoDefault()
+        public GeneratedSeq LambdaSlashNoDefault()
         {
-            var memo = GetMemo<List<object>?>("lambda_slash_no_default");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ParseOneOrMore(() => LambdaParamNoDefault());
-                if (a == null) return default(List<object>?);
-                var _item1 = ExpectToken("/");
-                if (_item1 == null) return default(List<object>?);
-                var _item2 = ExpectToken(",");
-                if (_item2 == null) return default(List<object>?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = ParseOneOrMore(() => LambdaParamNoDefault());
-                if (a == null) return default(List<object>?);
-                var _item1 = ExpectToken("/");
-                if (_item1 == null) return default(List<object>?);
-                var _item2 = (Mark() is var pos && ExpectToken(":") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item2 == null) return default(List<object>?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("lambda_slash_no_default", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: lambda_slash_with_default
-        public List<object>? LambdaSlashWithDefault()
+        public GeneratedSeq LambdaSlashWithDefault()
         {
-            var memo = GetMemo<List<object>?>("lambda_slash_with_default");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ParseZeroOrMore(() => LambdaParamNoDefault());
-                if (a == null) return default(List<object>?);
-                var b = ParseOneOrMore(() => LambdaParamWithDefault());
-                if (b == null) return default(List<object>?);
-                var _item2 = ExpectToken("/");
-                if (_item2 == null) return default(List<object>?);
-                var _item3 = ExpectToken(",");
-                if (_item3 == null) return default(List<object>?);
-                var result = _PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = ParseZeroOrMore(() => LambdaParamNoDefault());
-                if (a == null) return default(List<object>?);
-                var b = ParseOneOrMore(() => LambdaParamWithDefault());
-                if (b == null) return default(List<object>?);
-                var _item2 = ExpectToken("/");
-                if (_item2 == null) return default(List<object>?);
-                var _item3 = (Mark() is var pos && ExpectToken(":") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item3 == null) return default(List<object>?);
-                var result = _PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("lambda_slash_with_default", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: lambda_star_etc
-        public List<object>? LambdaStarEtc()
+        public GeneratedSeq LambdaStarEtc()
         {
-            var memo = GetMemo<List<object>?>("lambda_star_etc");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = InvalidLambdaStarEtc();
-                if (_item0 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("*");
-                if (_item0 == null) return default(List<object>?);
-                var a = LambdaParamNoDefault();
-                if (a == null) return default(List<object>?);
-                var b = ParseZeroOrMore(() => LambdaParamMaybeDefault());
-                if (b == null) return default(List<object>?);
-                var c = ((LambdaKwds()) ?? new object());
-                if (c == null) return default(List<object>?);
-                var result = _PyPegen_star_etc(p, a, b, c);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ExpectToken("*");
-                if (_item0 == null) return default(List<object>?);
-                var _item1 = ExpectToken(",");
-                if (_item1 == null) return default(List<object>?);
-                var b = ParseOneOrMore(() => LambdaParamMaybeDefault());
-                if (b == null) return default(List<object>?);
-                var c = ((LambdaKwds()) ?? new object());
-                if (c == null) return default(List<object>?);
-                var result = _PyPegen_star_etc(p, NULL, b, c);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var a = LambdaKwds();
-                if (a == null) return default(List<object>?);
-                var result = _PyPegen_star_etc(p, NULL, NULL, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("lambda_star_etc", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: lambda_kwds
-        public object? LambdaKwds()
+        public GeneratedAstNode LambdaKwds()
         {
-            var memo = GetMemo<object?>("lambda_kwds");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = InvalidLambdaKwds();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("**");
-                if (_item0 == null) return default(object?);
-                var a = LambdaParamNoDefault();
-                if (a == null) return default(object?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("lambda_kwds", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: lambda_param_no_default
-        public object? LambdaParamNoDefault()
+        public GeneratedAstNode LambdaParamNoDefault()
         {
-            var memo = GetMemo<object?>("lambda_param_no_default");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = LambdaParam();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(",");
-                if (_item1 == null) return default(object?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = LambdaParam();
-                if (a == null) return default(object?);
-                var _item1 = (Mark() is var pos && ExpectToken(":") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item1 == null) return default(object?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("lambda_param_no_default", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: lambda_param_with_default
-        public List<object>? LambdaParamWithDefault()
+        public GeneratedSeq LambdaParamWithDefault()
         {
-            var memo = GetMemo<List<object>?>("lambda_param_with_default");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = LambdaParam();
-                if (a == null) return default(List<object>?);
-                var c = Default();
-                if (c == null) return default(List<object>?);
-                var _item2 = ExpectToken(",");
-                if (_item2 == null) return default(List<object>?);
-                var result = _PyPegen_name_default_pair(p, a, c, NULL);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = LambdaParam();
-                if (a == null) return default(List<object>?);
-                var c = Default();
-                if (c == null) return default(List<object>?);
-                var _item2 = (Mark() is var pos && ExpectToken(":") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item2 == null) return default(List<object>?);
-                var result = _PyPegen_name_default_pair(p, a, c, NULL);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("lambda_param_with_default", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: lambda_param_maybe_default
-        public List<object>? LambdaParamMaybeDefault()
+        public GeneratedSeq LambdaParamMaybeDefault()
         {
-            var memo = GetMemo<List<object>?>("lambda_param_maybe_default");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = LambdaParam();
-                if (a == null) return default(List<object>?);
-                var c = (Default() ?? new object());
-                if (c == null) return default(List<object>?);
-                var _item2 = ExpectToken(",");
-                if (_item2 == null) return default(List<object>?);
-                var result = _PyPegen_name_default_pair(p, a, c, NULL);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = LambdaParam();
-                if (a == null) return default(List<object>?);
-                var c = (Default() ?? new object());
-                if (c == null) return default(List<object>?);
-                var _item2 = (Mark() is var pos && ExpectToken(":") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item2 == null) return default(List<object>?);
-                var result = _PyPegen_name_default_pair(p, a, c, NULL);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("lambda_param_maybe_default", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: lambda_param
-        public object? LambdaParam()
+        public GeneratedAstNode LambdaParam()
         {
-            var memo = GetMemo<object?>("lambda_param");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Expect("NAME") ? CurrentToken : null;
-                if (a == null) return default(object?);
-                var result = _PyAST_arg(a->v.Name.id, NULL, NULL, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("lambda_param", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: fstring_middle
-        public object? FstringMiddle()
+        public GeneratedExpr FstringMiddle()
         {
-            var memo = GetMemo<object?>("fstring_middle");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = FstringReplacementField();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var t = Expect("FSTRING_MIDDLE") ? CurrentToken : null;
-                if (t == null) return default(object?);
-                var result = _PyPegen_constant_from_token(p, t);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("fstring_middle", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: fstring_replacement_field
-        public object? FstringReplacementField()
+        public GeneratedExpr FstringReplacementField()
         {
-            var memo = GetMemo<object?>("fstring_replacement_field");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("{");
-                if (_item0 == null) return default(object?);
-                var a = ParseGroup_41();
-                if (a == null) return default(object?);
-                var debug_expr = (ExpectToken("=") ?? new object());
-                if (debug_expr == null) return default(object?);
-                var conversion = ((FstringConversion()) ?? new object());
-                if (conversion == null) return default(object?);
-                var format = ((FstringFullFormatSpec()) ?? new object());
-                if (format == null) return default(object?);
-                var rbrace = ExpectToken("}");
-                if (rbrace == null) return default(object?);
-                var result = _PyPegen_formatted_value(p, a, debug_expr, conversion, format, rbrace, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = InvalidReplacementField();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("fstring_replacement_field", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: fstring_conversion
-        public List<object>? FstringConversion()
+        public GeneratedSeq FstringConversion()
         {
-            var memo = GetMemo<List<object>?>("fstring_conversion");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var conv_token = ExpectToken(""!"");
-                if (conv_token == null) return default(List<object>?);
-                var conv = Expect("NAME") ? CurrentToken : null;
-                if (conv == null) return default(List<object>?);
-                var result = _PyPegen_check_fstring_conversion(p, conv_token, conv);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("fstring_conversion", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: fstring_full_format_spec
-        public List<object>? FstringFullFormatSpec()
+        public GeneratedSeq FstringFullFormatSpec()
         {
-            var memo = GetMemo<List<object>?>("fstring_full_format_spec");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var colon = ExpectToken(":");
-                if (colon == null) return default(List<object>?);
-                var spec = ParseZeroOrMore(() => FstringFormatSpec());
-                if (spec == null) return default(List<object>?);
-                var result = _PyPegen_setup_full_format_spec(p, colon, (asdl_expr_seq *) spec, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("fstring_full_format_spec", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: fstring_format_spec
-        public object? FstringFormatSpec()
+        public GeneratedExpr FstringFormatSpec()
         {
-            var memo = GetMemo<object?>("fstring_format_spec");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var t = Expect("FSTRING_MIDDLE") ? CurrentToken : null;
-                if (t == null) return default(object?);
-                var result = _PyPegen_decoded_constant_from_token(p, t);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = FstringReplacementField();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("fstring_format_spec", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: fstring
-        public object? Fstring()
+        public GeneratedExpr Fstring()
         {
-            var memo = GetMemo<object?>("fstring");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Expect("FSTRING_START") ? CurrentToken : null;
-                if (a == null) return default(object?);
-                var b = ParseZeroOrMore(() => FstringMiddle());
-                if (b == null) return default(object?);
-                var c = Expect("FSTRING_END") ? CurrentToken : null;
-                if (c == null) return default(object?);
-                var result = _PyPegen_joined_str(p, a, (asdl_expr_seq*)b, c);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("fstring", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: string
-        public object? String()
+        public GeneratedExpr String()
         {
-            var memo = GetMemo<object?>("string");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var s = Expect("STRING") ? CurrentToken : null;
-                if (s == null) return default(object?);
-                var result = _PyPegen_constant_from_string(p, s);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("string", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: strings
-        public object? Strings()
+        public GeneratedExpr Strings()
         {
-            var memo = GetMemo<object?>("strings");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ParseOneOrMore(() => ParseGroup_42());
-                if (a == null) return default(object?);
-                var result = _PyPegen_concatenate_strings(p, a, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("strings", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: list
-        public object? List()
+        public GeneratedExpr List()
         {
-            var memo = GetMemo<object?>("list");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("[");
-                if (_item0 == null) return default(object?);
-                var a = ((StarNamedExpressions()) ?? new object());
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken("]");
-                if (_item2 == null) return default(object?);
-                var result = _PyAST_List(a, Load, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("list", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: tuple
-        public object? Tuple()
+        public GeneratedExpr Tuple()
         {
-            var memo = GetMemo<object?>("tuple");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("(");
-                if (_item0 == null) return default(object?);
-                var a = (ParseGroup_43() ?? new object());
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken(")");
-                if (_item2 == null) return default(object?);
-                var result = _PyAST_Tuple(a, Load, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("tuple", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: set
-        public object? Set()
+        public GeneratedExpr Set()
         {
-            var memo = GetMemo<object?>("set");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("{");
-                if (_item0 == null) return default(object?);
-                var a = StarNamedExpressions();
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken("}");
-                if (_item2 == null) return default(object?);
-                var result = _PyAST_Set(a, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("set", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: dict
-        public object? Dict()
+        public GeneratedExpr Dict()
         {
-            var memo = GetMemo<object?>("dict");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("{");
-                if (_item0 == null) return default(object?);
-                var a = ((DoubleStarredKvpairs()) ?? new object());
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken("}");
-                if (_item2 == null) return default(object?);
-                var result = _PyAST_Dict(
-            CHECK(asdl_expr_seq*, _PyPegen_get_keys(p, a)),
-            CHECK(asdl_expr_seq*, _PyPegen_get_values(p, a)),
-            EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("{");
-                if (_item0 == null) return default(object?);
-                var _item1 = InvalidDoubleStarredKvpairs();
-                if (_item1 == null) return default(object?);
-                var _item2 = ExpectToken("}");
-                if (_item2 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("dict", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: double_starred_kvpairs
-        public List<object>? DoubleStarredKvpairs()
+        public GeneratedSeq DoubleStarredKvpairs()
         {
-            var memo = GetMemo<List<object>?>("double_starred_kvpairs");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ParseZeroOrMore(() => ExpectToken(","));
-                if (a == null) return default(List<object>?);
-                var _item1 = ParseOneOrMore(() => DoubleStarredKvpair());
-                if (_item1 == null) return default(List<object>?);
-                var _item2 = ((ExpectToken(",")) ?? new object());
-                if (_item2 == null) return default(List<object>?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("double_starred_kvpairs", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: double_starred_kvpair
-        public List<object>? DoubleStarredKvpair()
+        public GeneratedSeq DoubleStarredKvpair()
         {
-            var memo = GetMemo<List<object>?>("double_starred_kvpair");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("**");
-                if (_item0 == null) return default(List<object>?);
-                var a = BitwiseOr();
-                if (a == null) return default(List<object>?);
-                var result = _PyPegen_key_value_pair(p, NULL, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = Kvpair();
-                if (_item0 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            SetMemo("double_starred_kvpair", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: kvpair
-        public List<object>? Kvpair()
+        public GeneratedSeq Kvpair()
         {
-            var memo = GetMemo<List<object>?>("kvpair");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Expression();
-                if (a == null) return default(List<object>?);
-                var _item1 = ExpectToken(":");
-                if (_item1 == null) return default(List<object>?);
-                var b = Expression();
-                if (b == null) return default(List<object>?);
-                var result = _PyPegen_key_value_pair(p, a, b);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("kvpair", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: for_if_clauses
-        public List<object>? ForIfClauses()
+        public GeneratedSeq ForIfClauses()
         {
-            var memo = GetMemo<List<object>?>("for_if_clauses");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ParseOneOrMore(() => ForIfClause());
-                if (a == null) return default(List<object>?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("for_if_clauses", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: for_if_clause
-        public object? ForIfClause()
+        public GeneratedAstNode ForIfClause()
         {
-            var memo = GetMemo<object?>("for_if_clause");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = Expect("ASYNC") ? CurrentToken : null;
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken("for");
-                if (_item1 == null) return default(object?);
-                var a = StarTargets();
-                if (a == null) return default(object?);
-                var _item3 = ExpectToken("in");
-                if (_item3 == null) return default(object?);
-                var b = (Disjunction() /* cut: no backtracking */);
-                if (b == null) return default(object?);
-                var c = ParseZeroOrMore(() => ParseGroup_44());
-                if (c == null) return default(object?);
-                var result = CHECK_VERSION(comprehension_ty, 6, "Async comprehensions are", _PyAST_comprehension(a, b, c, 1, p->arena));
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("for");
-                if (_item0 == null) return default(object?);
-                var a = StarTargets();
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken("in");
-                if (_item2 == null) return default(object?);
-                var b = (Disjunction() /* cut: no backtracking */);
-                if (b == null) return default(object?);
-                var c = ParseZeroOrMore(() => ParseGroup_45());
-                if (c == null) return default(object?);
-                var result = _PyAST_comprehension(a, b, c, 0, p->arena);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = InvalidForTarget();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("for_if_clause", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedAstNode);
         }
 
         // Rule: listcomp
-        public object? Listcomp()
+        public GeneratedExpr Listcomp()
         {
-            var memo = GetMemo<object?>("listcomp");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("[");
-                if (_item0 == null) return default(object?);
-                var a = NamedExpression();
-                if (a == null) return default(object?);
-                var b = ForIfClauses();
-                if (b == null) return default(object?);
-                var _item3 = ExpectToken("]");
-                if (_item3 == null) return default(object?);
-                var result = _PyAST_ListComp(a, b, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = InvalidComprehension();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("listcomp", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: setcomp
-        public object? Setcomp()
+        public GeneratedExpr Setcomp()
         {
-            var memo = GetMemo<object?>("setcomp");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("{");
-                if (_item0 == null) return default(object?);
-                var a = NamedExpression();
-                if (a == null) return default(object?);
-                var b = ForIfClauses();
-                if (b == null) return default(object?);
-                var _item3 = ExpectToken("}");
-                if (_item3 == null) return default(object?);
-                var result = _PyAST_SetComp(a, b, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = InvalidComprehension();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("setcomp", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: genexp
-        public object? Genexp()
+        public GeneratedExpr Genexp()
         {
-            var memo = GetMemo<object?>("genexp");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("(");
-                if (_item0 == null) return default(object?);
-                var a = ParseGroup_46();
-                if (a == null) return default(object?);
-                var b = ForIfClauses();
-                if (b == null) return default(object?);
-                var _item3 = ExpectToken(")");
-                if (_item3 == null) return default(object?);
-                var result = _PyAST_GeneratorExp(a, b, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = InvalidComprehension();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("genexp", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: dictcomp
-        public object? Dictcomp()
+        public GeneratedExpr Dictcomp()
         {
-            var memo = GetMemo<object?>("dictcomp");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("{");
-                if (_item0 == null) return default(object?);
-                var a = Kvpair();
-                if (a == null) return default(object?);
-                var b = ForIfClauses();
-                if (b == null) return default(object?);
-                var _item3 = ExpectToken("}");
-                if (_item3 == null) return default(object?);
-                var result = _PyAST_DictComp(a->key, a->value, b, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = InvalidDictComprehension();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("dictcomp", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: arguments
-        public object? Arguments()
+        public GeneratedExpr Arguments()
         {
-            var memo = GetMemo<object?>("arguments");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Args();
-                if (a == null) return default(object?);
-                var _item1 = ((ExpectToken(",")) ?? new object());
-                if (_item1 == null) return default(object?);
-                var _item2 = (Mark() is var pos && ExpectToken(")") != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item2 == null) return default(object?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = InvalidArguments();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("arguments", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: args
-        public object? Args()
+        public GeneratedExpr Args()
         {
-            var memo = GetMemo<object?>("args");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ParseZeroOrMore(() => ExpectToken(","));
-                if (a == null) return default(object?);
-                var _item1 = ParseOneOrMore(() => ParseGroup_47());
-                if (_item1 == null) return default(object?);
-                var b = (ParseGroup_48() ?? new object());
-                if (b == null) return default(object?);
-                var result = _PyPegen_collect_call_seqs(p, a, b, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = Kwargs();
-                if (a == null) return default(object?);
-                var result = _PyAST_Call(_PyPegen_dummy_name(p),
-                          CHECK_NULL_ALLOWED(asdl_expr_seq*, _PyPegen_seq_extract_starred_exprs(p, a)),
-                          CHECK_NULL_ALLOWED(asdl_keyword_seq*, _PyPegen_seq_delete_starred_exprs(p, a)),
-                          EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("args", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: kwargs
-        public List<object>? Kwargs()
+        public GeneratedSeq Kwargs()
         {
-            var memo = GetMemo<List<object>?>("kwargs");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ParseZeroOrMore(() => ExpectToken(","));
-                if (a == null) return default(List<object>?);
-                var _item1 = ParseOneOrMore(() => KwargOrStarred());
-                if (_item1 == null) return default(List<object>?);
-                var _item2 = ExpectToken(",");
-                if (_item2 == null) return default(List<object>?);
-                var b = ParseZeroOrMore(() => ExpectToken(","));
-                if (b == null) return default(List<object>?);
-                var _item4 = ParseOneOrMore(() => KwargOrDoubleStarred());
-                if (_item4 == null) return default(List<object>?);
-                var result = _PyPegen_join_sequences(p, a, b);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ParseZeroOrMore(() => ExpectToken(","));
-                if (_item0 == null) return default(List<object>?);
-                var _item1 = ParseOneOrMore(() => KwargOrStarred());
-                if (_item1 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ParseZeroOrMore(() => ExpectToken(","));
-                if (_item0 == null) return default(List<object>?);
-                var _item1 = ParseOneOrMore(() => KwargOrDoubleStarred());
-                if (_item1 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            SetMemo("kwargs", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: starred_expression
-        public object? StarredExpression()
+        public GeneratedExpr StarredExpression()
         {
-            var memo = GetMemo<object?>("starred_expression");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = InvalidStarredExpression();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("*");
-                if (_item0 == null) return default(object?);
-                var a = Expression();
-                if (a == null) return default(object?);
-                var result = _PyAST_Starred(a, Load, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ExpectToken("*");
-                if (_item0 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR("Invalid star expression");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("starred_expression", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: kwarg_or_starred
-        public List<object>? KwargOrStarred()
+        public GeneratedSeq KwargOrStarred()
         {
-            var memo = GetMemo<List<object>?>("kwarg_or_starred");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = InvalidKwarg();
-                if (_item0 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = Expect("NAME") ? CurrentToken : null;
-                if (a == null) return default(List<object>?);
-                var _item1 = ExpectToken("=");
-                if (_item1 == null) return default(List<object>?);
-                var b = Expression();
-                if (b == null) return default(List<object>?);
-                var result = _PyPegen_keyword_or_starred(p, CHECK(keyword_ty, _PyAST_keyword(a->v.Name.id, b, EXTRA)), 1);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var a = StarredExpression();
-                if (a == null) return default(List<object>?);
-                var result = _PyPegen_keyword_or_starred(p, a, 0);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("kwarg_or_starred", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: kwarg_or_double_starred
-        public List<object>? KwargOrDoubleStarred()
+        public GeneratedSeq KwargOrDoubleStarred()
         {
-            var memo = GetMemo<List<object>?>("kwarg_or_double_starred");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = InvalidKwarg();
-                if (_item0 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = Expect("NAME") ? CurrentToken : null;
-                if (a == null) return default(List<object>?);
-                var _item1 = ExpectToken("=");
-                if (_item1 == null) return default(List<object>?);
-                var b = Expression();
-                if (b == null) return default(List<object>?);
-                var result = _PyPegen_keyword_or_starred(p, CHECK(keyword_ty, _PyAST_keyword(a->v.Name.id, b, EXTRA)), 1);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ExpectToken("**");
-                if (_item0 == null) return default(List<object>?);
-                var a = Expression();
-                if (a == null) return default(List<object>?);
-                var result = _PyPegen_keyword_or_starred(p, CHECK(keyword_ty, _PyAST_keyword(NULL, a, EXTRA)), 1);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("kwarg_or_double_starred", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: star_targets
-        public object? StarTargets()
+        public GeneratedExpr StarTargets()
         {
-            var memo = GetMemo<object?>("star_targets");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = StarTarget();
-                if (a == null) return default(object?);
-                var _item1 = (Mark() is var pos && ExpectToken(",") == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item1 == null) return default(object?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = StarTarget();
-                if (a == null) return default(object?);
-                var b = ParseZeroOrMore(() => ParseGroup_49());
-                if (b == null) return default(object?);
-                var _item2 = ((ExpectToken(",")) ?? new object());
-                if (_item2 == null) return default(object?);
-                var result = _PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_seq_insert_in_front(p, a, b)), Store, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("star_targets", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: star_targets_list_seq
-        public List<object>? StarTargetsListSeq()
+        public GeneratedExprSeq StarTargetsListSeq()
         {
-            var memo = GetMemo<List<object>?>("star_targets_list_seq");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ParseZeroOrMore(() => ExpectToken(","));
-                if (a == null) return default(List<object>?);
-                var _item1 = ParseOneOrMore(() => StarTarget());
-                if (_item1 == null) return default(List<object>?);
-                var _item2 = ((ExpectToken(",")) ?? new object());
-                if (_item2 == null) return default(List<object>?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("star_targets_list_seq", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExprSeq);
         }
 
         // Rule: star_targets_tuple_seq
-        public List<object>? StarTargetsTupleSeq()
+        public GeneratedExprSeq StarTargetsTupleSeq()
         {
-            var memo = GetMemo<List<object>?>("star_targets_tuple_seq");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = StarTarget();
-                if (a == null) return default(List<object>?);
-                var b = ParseOneOrMore(() => ParseGroup_50());
-                if (b == null) return default(List<object>?);
-                var _item2 = ((ExpectToken(",")) ?? new object());
-                if (_item2 == null) return default(List<object>?);
-                var result = (asdl_expr_seq*) _PyPegen_seq_insert_in_front(p, a, b);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = StarTarget();
-                if (a == null) return default(List<object>?);
-                var _item1 = ExpectToken(",");
-                if (_item1 == null) return default(List<object>?);
-                var result = (asdl_expr_seq*) _PyPegen_singleton_seq(p, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("star_targets_tuple_seq", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExprSeq);
         }
 
         // Rule: star_target
-        public object? StarTarget()
+        public GeneratedExpr StarTarget()
         {
-            var memo = GetMemo<object?>("star_target");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("*");
-                if (_item0 == null) return default(object?);
-                var a = ParseGroup_51();
-                if (a == null) return default(object?);
-                var result = _PyAST_Starred(CHECK(expr_ty, _PyPegen_set_expr_context(p, a, Store)), Store, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = TargetWithStarAtom();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("star_target", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: target_with_star_atom
-        public object? TargetWithStarAtom()
+        public GeneratedExpr TargetWithStarAtom()
         {
-            var memo = GetMemo<object?>("target_with_star_atom");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = TPrimary();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(".");
-                if (_item1 == null) return default(object?);
-                var b = Expect("NAME") ? CurrentToken : null;
-                if (b == null) return default(object?);
-                var _item3 = (Mark() is var pos && TLookahead() == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item3 == null) return default(object?);
-                var result = _PyAST_Attribute(a, b->v.Name.id, Store, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = TPrimary();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken("[");
-                if (_item1 == null) return default(object?);
-                var b = Slices();
-                if (b == null) return default(object?);
-                var _item3 = ExpectToken("]");
-                if (_item3 == null) return default(object?);
-                var _item4 = (Mark() is var pos && TLookahead() == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item4 == null) return default(object?);
-                var result = _PyAST_Subscript(a, b, Store, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = StarAtom();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("target_with_star_atom", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: star_atom
-        public object? StarAtom()
+        public GeneratedExpr StarAtom()
         {
-            var memo = GetMemo<object?>("star_atom");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Expect("NAME") ? CurrentToken : null;
-                if (a == null) return default(object?);
-                var result = _PyPegen_set_expr_context(p, a, Store);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("(");
-                if (_item0 == null) return default(object?);
-                var a = TargetWithStarAtom();
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken(")");
-                if (_item2 == null) return default(object?);
-                var result = _PyPegen_set_expr_context(p, a, Store);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ExpectToken("(");
-                if (_item0 == null) return default(object?);
-                var a = ((StarTargetsTupleSeq()) ?? new object());
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken(")");
-                if (_item2 == null) return default(object?);
-                var result = _PyAST_Tuple(a, Store, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = ExpectToken("[");
-                if (_item0 == null) return default(object?);
-                var a = ((StarTargetsListSeq()) ?? new object());
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken("]");
-                if (_item2 == null) return default(object?);
-                var result = _PyAST_List(a, Store, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("star_atom", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: single_target
-        public object? SingleTarget()
+        public GeneratedExpr SingleTarget()
         {
-            var memo = GetMemo<object?>("single_target");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = SingleSubscriptAttributeTarget();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = Expect("NAME") ? CurrentToken : null;
-                if (a == null) return default(object?);
-                var result = _PyPegen_set_expr_context(p, a, Store);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ExpectToken("(");
-                if (_item0 == null) return default(object?);
-                var a = SingleTarget();
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken(")");
-                if (_item2 == null) return default(object?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("single_target", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: single_subscript_attribute_target
-        public object? SingleSubscriptAttributeTarget()
+        public GeneratedExpr SingleSubscriptAttributeTarget()
         {
-            var memo = GetMemo<object?>("single_subscript_attribute_target");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = TPrimary();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(".");
-                if (_item1 == null) return default(object?);
-                var b = Expect("NAME") ? CurrentToken : null;
-                if (b == null) return default(object?);
-                var _item3 = (Mark() is var pos && TLookahead() == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item3 == null) return default(object?);
-                var result = _PyAST_Attribute(a, b->v.Name.id, Store, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = TPrimary();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken("[");
-                if (_item1 == null) return default(object?);
-                var b = Slices();
-                if (b == null) return default(object?);
-                var _item3 = ExpectToken("]");
-                if (_item3 == null) return default(object?);
-                var _item4 = (Mark() is var pos && TLookahead() == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item4 == null) return default(object?);
-                var result = _PyAST_Subscript(a, b, Store, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("single_subscript_attribute_target", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: t_primary
-        public object? TPrimary()
+        public GeneratedExpr TPrimary()
         {
-            var memo = GetMemo<object?>("t_primary");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = TPrimary();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(".");
-                if (_item1 == null) return default(object?);
-                var b = Expect("NAME") ? CurrentToken : null;
-                if (b == null) return default(object?);
-                var _item3 = (Mark() is var pos && TLookahead() != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item3 == null) return default(object?);
-                var result = _PyAST_Attribute(a, b->v.Name.id, Load, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = TPrimary();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken("[");
-                if (_item1 == null) return default(object?);
-                var b = Slices();
-                if (b == null) return default(object?);
-                var _item3 = ExpectToken("]");
-                if (_item3 == null) return default(object?);
-                var _item4 = (Mark() is var pos && TLookahead() != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item4 == null) return default(object?);
-                var result = _PyAST_Subscript(a, b, Load, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var a = TPrimary();
-                if (a == null) return default(object?);
-                var b = Genexp();
-                if (b == null) return default(object?);
-                var _item2 = (Mark() is var pos && TLookahead() != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item2 == null) return default(object?);
-                var result = _PyAST_Call(a, CHECK(asdl_expr_seq*, (asdl_expr_seq*)_PyPegen_singleton_seq(p, b)), NULL, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var a = TPrimary();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken("(");
-                if (_item1 == null) return default(object?);
-                var b = ((Arguments()) ?? new object());
-                if (b == null) return default(object?);
-                var _item3 = ExpectToken(")");
-                if (_item3 == null) return default(object?);
-                var _item4 = (Mark() is var pos && TLookahead() != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item4 == null) return default(object?);
-                var result = _PyAST_Call(a,
-                 (b) ? ((expr_ty) b)->v.Call.args : NULL,
-                 (b) ? ((expr_ty) b)->v.Call.keywords : NULL,
-                 EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 5
-            {
-                var a = Atom();
-                if (a == null) return default(object?);
-                var _item1 = (Mark() is var pos && TLookahead() != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item1 == null) return default(object?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("t_primary", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: t_lookahead
         public object? TLookahead()
         {
-            var memo = GetMemo<object?>("t_lookahead");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("(");
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("[");
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ExpectToken(".");
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("t_lookahead", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: del_targets
-        public List<object>? DelTargets()
+        public GeneratedExprSeq DelTargets()
         {
-            var memo = GetMemo<List<object>?>("del_targets");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ParseZeroOrMore(() => ExpectToken(","));
-                if (a == null) return default(List<object>?);
-                var _item1 = ParseOneOrMore(() => DelTarget());
-                if (_item1 == null) return default(List<object>?);
-                var _item2 = ((ExpectToken(",")) ?? new object());
-                if (_item2 == null) return default(List<object>?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("del_targets", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExprSeq);
         }
 
         // Rule: del_target
-        public object? DelTarget()
+        public GeneratedExpr DelTarget()
         {
-            var memo = GetMemo<object?>("del_target");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = TPrimary();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(".");
-                if (_item1 == null) return default(object?);
-                var b = Expect("NAME") ? CurrentToken : null;
-                if (b == null) return default(object?);
-                var _item3 = (Mark() is var pos && TLookahead() == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item3 == null) return default(object?);
-                var result = _PyAST_Attribute(a, b->v.Name.id, Del, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = TPrimary();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken("[");
-                if (_item1 == null) return default(object?);
-                var b = Slices();
-                if (b == null) return default(object?);
-                var _item3 = ExpectToken("]");
-                if (_item3 == null) return default(object?);
-                var _item4 = (Mark() is var pos && TLookahead() == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item4 == null) return default(object?);
-                var result = _PyAST_Subscript(a, b, Del, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = DelTAtom();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("del_target", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: del_t_atom
-        public object? DelTAtom()
+        public GeneratedExpr DelTAtom()
         {
-            var memo = GetMemo<object?>("del_t_atom");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Expect("NAME") ? CurrentToken : null;
-                if (a == null) return default(object?);
-                var result = _PyPegen_set_expr_context(p, a, Del);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("(");
-                if (_item0 == null) return default(object?);
-                var a = DelTarget();
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken(")");
-                if (_item2 == null) return default(object?);
-                var result = _PyPegen_set_expr_context(p, a, Del);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ExpectToken("(");
-                if (_item0 == null) return default(object?);
-                var a = ((DelTargets()) ?? new object());
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken(")");
-                if (_item2 == null) return default(object?);
-                var result = _PyAST_Tuple(a, Del, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = ExpectToken("[");
-                if (_item0 == null) return default(object?);
-                var a = ((DelTargets()) ?? new object());
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken("]");
-                if (_item2 == null) return default(object?);
-                var result = _PyAST_List(a, Del, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("del_t_atom", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: type_expressions
-        public List<object>? TypeExpressions()
+        public GeneratedExprSeq TypeExpressions()
         {
-            var memo = GetMemo<List<object>?>("type_expressions");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ParseZeroOrMore(() => ExpectToken(","));
-                if (a == null) return default(List<object>?);
-                var _item1 = ParseOneOrMore(() => Expression());
-                if (_item1 == null) return default(List<object>?);
-                var _item2 = ExpectToken(",");
-                if (_item2 == null) return default(List<object>?);
-                var _item3 = ExpectToken("*");
-                if (_item3 == null) return default(List<object>?);
-                var b = Expression();
-                if (b == null) return default(List<object>?);
-                var _item5 = ExpectToken(",");
-                if (_item5 == null) return default(List<object>?);
-                var _item6 = ExpectToken("**");
-                if (_item6 == null) return default(List<object>?);
-                var c = Expression();
-                if (c == null) return default(List<object>?);
-                var result = (asdl_expr_seq*)_PyPegen_seq_append_to_end(
-            p,
-            CHECK(asdl_seq*, _PyPegen_seq_append_to_end(p, a, b)),
-            c);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = ParseZeroOrMore(() => ExpectToken(","));
-                if (a == null) return default(List<object>?);
-                var _item1 = ParseOneOrMore(() => Expression());
-                if (_item1 == null) return default(List<object>?);
-                var _item2 = ExpectToken(",");
-                if (_item2 == null) return default(List<object>?);
-                var _item3 = ExpectToken("*");
-                if (_item3 == null) return default(List<object>?);
-                var b = Expression();
-                if (b == null) return default(List<object>?);
-                var result = (asdl_expr_seq*)_PyPegen_seq_append_to_end(p, a, b);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var a = ParseZeroOrMore(() => ExpectToken(","));
-                if (a == null) return default(List<object>?);
-                var _item1 = ParseOneOrMore(() => Expression());
-                if (_item1 == null) return default(List<object>?);
-                var _item2 = ExpectToken(",");
-                if (_item2 == null) return default(List<object>?);
-                var _item3 = ExpectToken("**");
-                if (_item3 == null) return default(List<object>?);
-                var b = Expression();
-                if (b == null) return default(List<object>?);
-                var result = (asdl_expr_seq*)_PyPegen_seq_append_to_end(p, a, b);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = ExpectToken("*");
-                if (_item0 == null) return default(List<object>?);
-                var a = Expression();
-                if (a == null) return default(List<object>?);
-                var _item2 = ExpectToken(",");
-                if (_item2 == null) return default(List<object>?);
-                var _item3 = ExpectToken("**");
-                if (_item3 == null) return default(List<object>?);
-                var b = Expression();
-                if (b == null) return default(List<object>?);
-                var result = (asdl_expr_seq*)_PyPegen_seq_append_to_end(
-            p,
-            CHECK(asdl_seq*, _PyPegen_singleton_seq(p, a)),
-            b);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 5
-            {
-                var _item0 = ExpectToken("*");
-                if (_item0 == null) return default(List<object>?);
-                var a = Expression();
-                if (a == null) return default(List<object>?);
-                var result = (asdl_expr_seq*)_PyPegen_singleton_seq(p, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 6
-            {
-                var _item0 = ExpectToken("**");
-                if (_item0 == null) return default(List<object>?);
-                var a = Expression();
-                if (a == null) return default(List<object>?);
-                var result = (asdl_expr_seq*)_PyPegen_singleton_seq(p, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 7
-            {
-                var a = ParseZeroOrMore(() => ExpectToken(","));
-                if (a == null) return default(List<object>?);
-                var _item1 = ParseOneOrMore(() => Expression());
-                if (_item1 == null) return default(List<object>?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("type_expressions", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExprSeq);
         }
 
         // Rule: func_type_comment
-        public List<object>? FuncTypeComment()
+        public GeneratedSeq FuncTypeComment()
         {
-            var memo = GetMemo<List<object>?>("func_type_comment");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item0 == null) return default(List<object>?);
-                var t = Expect("TYPE_COMMENT") ? CurrentToken : null;
-                if (t == null) return default(List<object>?);
-                var _item2 = (Mark() is var pos && ParseGroup_52() != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item2 == null) return default(List<object>?);
-                var result = t;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = InvalidDoubleTypeComments();
-                if (_item0 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = Expect("TYPE_COMMENT") ? CurrentToken : null;
-                if (_item0 == null) return default(List<object>?);
-                return _item0;
-            }
-
-            SetMemo("func_type_comment", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: invalid_arguments
         public object? InvalidArguments()
         {
-            var memo = GetMemo<object?>("invalid_arguments");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ParseGroup_53();
-                if (_item0 == null) return default(object?);
-                var a = ExpectToken(",");
-                if (a == null) return default(object?);
-                var _item2 = ParseZeroOrMore(() => ExpectToken(","));
-                if (_item2 == null) return default(object?);
-                var _item3 = ParseOneOrMore(() => ParseGroup_54());
-                if (_item3 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_STARTING_FROM(a, "iterable argument unpacking follows keyword argument unpacking");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = Expression();
-                if (a == null) return default(object?);
-                var b = ForIfClauses();
-                if (b == null) return default(object?);
-                var _item2 = ExpectToken(",");
-                if (_item2 == null) return default(object?);
-                var _item3 = ((Args()) ?? new object());
-                if (_item3 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, _PyPegen_get_last_comprehension_item(PyPegen_last_item(b, comprehension_ty)), "Generator expression must be parenthesized");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var a = Expect("NAME") ? CurrentToken : null;
-                if (a == null) return default(object?);
-                var b = ExpectToken("=");
-                if (b == null) return default(object?);
-                var _item2 = Expression();
-                if (_item2 == null) return default(object?);
-                var _item3 = ForIfClauses();
-                if (_item3 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "invalid syntax. Maybe you meant '==' or ':=' instead of '='?");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = (ParseGroup_55() ?? new object());
-                if (_item0 == null) return default(object?);
-                var a = Expect("NAME") ? CurrentToken : null;
-                if (a == null) return default(object?);
-                var b = ExpectToken("=");
-                if (b == null) return default(object?);
-                var _item3 = (Mark() is var pos && ParseGroup_56() != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item3 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "expected argument value expression");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 5
-            {
-                var a = Args();
-                if (a == null) return default(object?);
-                var b = ForIfClauses();
-                if (b == null) return default(object?);
-                var result = _PyPegen_nonparen_genexp_in_call(p, a, b);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 6
-            {
-                var _item0 = Args();
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken(",");
-                if (_item1 == null) return default(object?);
-                var a = Expression();
-                if (a == null) return default(object?);
-                var b = ForIfClauses();
-                if (b == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, _PyPegen_get_last_comprehension_item(PyPegen_last_item(b, comprehension_ty)), "Generator expression must be parenthesized");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 7
-            {
-                var a = Args();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(",");
-                if (_item1 == null) return default(object?);
-                var _item2 = Args();
-                if (_item2 == null) return default(object?);
-                var result = _PyPegen_arguments_parsing_error(p, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_arguments", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_kwarg
         public object? InvalidKwarg()
         {
-            var memo = GetMemo<object?>("invalid_kwarg");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ParseGroup_57();
-                if (a == null) return default(object?);
-                var b = ExpectToken("=");
-                if (b == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "cannot assign to %s", PyBytes_AS_STRING(a->bytes));
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = Expect("NAME") ? CurrentToken : null;
-                if (a == null) return default(object?);
-                var b = ExpectToken("=");
-                if (b == null) return default(object?);
-                var _item2 = Expression();
-                if (_item2 == null) return default(object?);
-                var _item3 = ForIfClauses();
-                if (_item3 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "invalid syntax. Maybe you meant '==' or ':=' instead of '='?");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = (Mark() is var pos && ParseGroup_58() == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item0 == null) return default(object?);
-                var a = Expression();
-                if (a == null) return default(object?);
-                var b = ExpectToken("=");
-                if (b == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_RANGE(
-            a, b, "expression cannot contain assignment, perhaps you meant \"==\"?");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var a = ExpectToken("**");
-                if (a == null) return default(object?);
-                var _item1 = Expression();
-                if (_item1 == null) return default(object?);
-                var _item2 = ExpectToken("=");
-                if (_item2 == null) return default(object?);
-                var b = Expression();
-                if (b == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "cannot assign to keyword argument unpacking");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_kwarg", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: expression_without_invalid
-        public object? ExpressionWithoutInvalid()
+        public GeneratedExpr ExpressionWithoutInvalid()
         {
-            var memo = GetMemo<object?>("expression_without_invalid");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Disjunction();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken("if");
-                if (_item1 == null) return default(object?);
-                var b = Disjunction();
-                if (b == null) return default(object?);
-                var _item3 = ExpectToken("else");
-                if (_item3 == null) return default(object?);
-                var c = Expression();
-                if (c == null) return default(object?);
-                var result = _PyAST_IfExp(b, a, c, EXTRA);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = Disjunction();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = Lambdef();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("expression_without_invalid", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: invalid_legacy_expression
         public object? InvalidLegacyExpression()
         {
-            var memo = GetMemo<object?>("invalid_legacy_expression");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Expect("NAME") ? CurrentToken : null;
-                if (a == null) return default(object?);
-                var _item1 = (Mark() is var pos && ExpectToken("(") == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item1 == null) return default(object?);
-                var b = StarExpressions();
-                if (b == null) return default(object?);
-                var result = _PyPegen_check_legacy_stmt(p, a) ? RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b,
-            "Missing parentheses in call to '%U'. Did you mean %U(...)?", a->v.Name.id, a->v.Name.id) : NULL;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_legacy_expression", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_expression
         public object? InvalidExpression()
         {
-            var memo = GetMemo<object?>("invalid_expression");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = (Mark() is var pos && ParseGroup_59() == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item0 == null) return default(object?);
-                var a = Disjunction();
-                if (a == null) return default(object?);
-                var b = ExpressionWithoutInvalid();
-                if (b == null) return default(object?);
-                var result = _PyPegen_check_legacy_stmt(p, a) ? NULL : p->tokens[p->mark-1]->level == 0 ? NULL :
-        RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "invalid syntax. Perhaps you forgot a comma?");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = Disjunction();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken("if");
-                if (_item1 == null) return default(object?);
-                var b = Disjunction();
-                if (b == null) return default(object?);
-                var _item3 = (Mark() is var pos && ParseGroup_60() == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item3 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "expected 'else' after 'if' expression");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var a = ExpectToken("lambda");
-                if (a == null) return default(object?);
-                var _item1 = ((LambdaParams()) ?? new object());
-                if (_item1 == null) return default(object?);
-                var b = ExpectToken(":");
-                if (b == null) return default(object?);
-                var _item3 = (Mark() is var pos && Expect("FSTRING_MIDDLE") ? CurrentToken : null != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item3 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "f-string: lambda expressions are not allowed without parentheses");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_expression", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_named_expression
         public object? InvalidNamedExpression()
         {
-            var memo = GetMemo<object?>("invalid_named_expression");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Expression();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(":=");
-                if (_item1 == null) return default(object?);
-                var _item2 = Expression();
-                if (_item2 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(
-            a, "cannot use assignment expressions with %s", _PyPegen_get_expr_name(a));
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = Expect("NAME") ? CurrentToken : null;
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken("=");
-                if (_item1 == null) return default(object?);
-                var b = BitwiseOr();
-                if (b == null) return default(object?);
-                var _item3 = (Mark() is var pos && ParseGroup_61() == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item3 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "invalid syntax. Maybe you meant '==' or ':=' instead of '='?");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = (Mark() is var pos && ParseGroup_62() == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item0 == null) return default(object?);
-                var a = BitwiseOr();
-                if (a == null) return default(object?);
-                var b = ExpectToken("=");
-                if (b == null) return default(object?);
-                var _item3 = BitwiseOr();
-                if (_item3 == null) return default(object?);
-                var _item4 = (Mark() is var pos && ParseGroup_63() == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item4 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "cannot assign to %s here. Maybe you meant '==' instead of '='?",
-                                          _PyPegen_get_expr_name(a));
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_named_expression", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_assignment
         public object? InvalidAssignment()
         {
-            var memo = GetMemo<object?>("invalid_assignment");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = InvalidAnnAssignTarget();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(":");
-                if (_item1 == null) return default(object?);
-                var _item2 = Expression();
-                if (_item2 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(
-            a,
-            "only single target (not %s) can be annotated",
-            _PyPegen_get_expr_name(a)
-        );
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = StarNamedExpression();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(",");
-                if (_item1 == null) return default(object?);
-                var _item2 = ParseZeroOrMore(() => StarNamedExpressions());
-                if (_item2 == null) return default(object?);
-                var _item3 = ExpectToken(":");
-                if (_item3 == null) return default(object?);
-                var _item4 = Expression();
-                if (_item4 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "only single target (not tuple) can be annotated");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var a = Expression();
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(":");
-                if (_item1 == null) return default(object?);
-                var _item2 = Expression();
-                if (_item2 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "illegal target for annotation");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = ParseZeroOrMore(() => ParseGroup_64());
-                if (_item0 == null) return default(object?);
-                var a = StarExpressions();
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken("=");
-                if (_item2 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_INVALID_TARGET(STAR_TARGETS, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 5
-            {
-                var _item0 = ParseZeroOrMore(() => ParseGroup_65());
-                if (_item0 == null) return default(object?);
-                var a = YieldExpr();
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken("=");
-                if (_item2 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "assignment to yield expression not possible");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 6
-            {
-                var a = StarExpressions();
-                if (a == null) return default(object?);
-                var _item1 = Augassign();
-                if (_item1 == null) return default(object?);
-                var _item2 = ParseGroup_66();
-                if (_item2 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(
-            a,
-            "'%s' is an illegal expression for augmented assignment",
-            _PyPegen_get_expr_name(a)
-        );
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_assignment", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_ann_assign_target
-        public object? InvalidAnnAssignTarget()
+        public GeneratedExpr InvalidAnnAssignTarget()
         {
-            var memo = GetMemo<object?>("invalid_ann_assign_target");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = List();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = Tuple();
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ExpectToken("(");
-                if (_item0 == null) return default(object?);
-                var a = InvalidAnnAssignTarget();
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken(")");
-                if (_item2 == null) return default(object?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_ann_assign_target", default(object?));
-            return default(object?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedExpr);
         }
 
         // Rule: invalid_del_stmt
         public object? InvalidDelStmt()
         {
-            var memo = GetMemo<object?>("invalid_del_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("del");
-                if (_item0 == null) return default(object?);
-                var a = StarExpressions();
-                if (a == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_INVALID_TARGET(DEL_TARGETS, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_del_stmt", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_block
         public object? InvalidBlock()
         {
-            var memo = GetMemo<object?>("invalid_block");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item0 == null) return default(object?);
-                var _item1 = (Mark() is var pos && Expect("INDENT") ? CurrentToken : null == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item1 == null) return default(object?);
-                var result = RAISE_INDENTATION_ERROR("expected an indented block");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_block", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_comprehension
         public object? InvalidComprehension()
         {
-            var memo = GetMemo<object?>("invalid_comprehension");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ParseGroup_67();
-                if (_item0 == null) return default(object?);
-                var a = StarredExpression();
-                if (a == null) return default(object?);
-                var _item2 = ForIfClauses();
-                if (_item2 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "iterable unpacking cannot be used in comprehension");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ParseGroup_68();
-                if (_item0 == null) return default(object?);
-                var a = StarNamedExpression();
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken(",");
-                if (_item2 == null) return default(object?);
-                var b = StarNamedExpressions();
-                if (b == null) return default(object?);
-                var _item4 = ForIfClauses();
-                if (_item4 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, PyPegen_last_item(b, expr_ty),
-        "did you forget parentheses around the comprehension target?");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ParseGroup_69();
-                if (_item0 == null) return default(object?);
-                var a = StarNamedExpression();
-                if (a == null) return default(object?);
-                var b = ExpectToken(",");
-                if (b == null) return default(object?);
-                var _item3 = ForIfClauses();
-                if (_item3 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "did you forget parentheses around the comprehension target?");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_comprehension", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_dict_comprehension
         public object? InvalidDictComprehension()
         {
-            var memo = GetMemo<object?>("invalid_dict_comprehension");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("{");
-                if (_item0 == null) return default(object?);
-                var a = ExpectToken("**");
-                if (a == null) return default(object?);
-                var _item2 = BitwiseOr();
-                if (_item2 == null) return default(object?);
-                var _item3 = ForIfClauses();
-                if (_item3 == null) return default(object?);
-                var _item4 = ExpectToken("}");
-                if (_item4 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "dict unpacking cannot be used in dict comprehension");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_dict_comprehension", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_parameters
         public object? InvalidParameters()
         {
-            var memo = GetMemo<object?>("invalid_parameters");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ExpectToken(""/"");
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(",");
-                if (_item1 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "at least one argument must precede /");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ParseGroup_70();
-                if (_item0 == null) return default(object?);
-                var _item1 = ParseZeroOrMore(() => ParamMaybeDefault());
-                if (_item1 == null) return default(object?);
-                var a = ExpectToken("/");
-                if (a == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "/ may appear only once");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = (SlashNoDefault() ?? new object());
-                if (_item0 == null) return default(object?);
-                var _item1 = ParseZeroOrMore(() => ParamNoDefault());
-                if (_item1 == null) return default(object?);
-                var _item2 = InvalidParametersHelper();
-                if (_item2 == null) return default(object?);
-                var a = ParamNoDefault();
-                if (a == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "parameter without a default follows parameter with a default");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = ParseZeroOrMore(() => ParamNoDefault());
-                if (_item0 == null) return default(object?);
-                var a = ExpectToken("(");
-                if (a == null) return default(object?);
-                var _item2 = ParseOneOrMore(() => ParamNoDefault());
-                if (_item2 == null) return default(object?);
-                var _item3 = (ExpectToken(",") ?? new object());
-                if (_item3 == null) return default(object?);
-                var b = ExpectToken(")");
-                if (b == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "Function parameters cannot be parenthesized");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 5
-            {
-                var _item0 = (ParseGroup_71() ?? new object());
-                if (_item0 == null) return default(object?);
-                var _item1 = ParseZeroOrMore(() => ParamMaybeDefault());
-                if (_item1 == null) return default(object?);
-                var _item2 = ExpectToken("*");
-                if (_item2 == null) return default(object?);
-                var _item3 = ParseGroup_72();
-                if (_item3 == null) return default(object?);
-                var _item4 = ParseZeroOrMore(() => ParamMaybeDefault());
-                if (_item4 == null) return default(object?);
-                var a = ExpectToken("/");
-                if (a == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "/ must be ahead of *");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 6
-            {
-                var _item0 = ParseOneOrMore(() => ParamMaybeDefault());
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken("/");
-                if (_item1 == null) return default(object?);
-                var a = ExpectToken("*");
-                if (a == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "expected comma between / and *");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_parameters", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_default
         public object? InvalidDefault()
         {
-            var memo = GetMemo<object?>("invalid_default");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ExpectToken("=");
-                if (a == null) return default(object?);
-                var _item1 = (Mark() is var pos && ParseGroup_73() != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item1 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "expected default value expression");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_default", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_star_etc
         public object? InvalidStarEtc()
         {
-            var memo = GetMemo<object?>("invalid_star_etc");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ExpectToken("*");
-                if (a == null) return default(object?);
-                var _item1 = ParseGroup_74();
-                if (_item1 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "named arguments must follow bare *");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("*");
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken(",");
-                if (_item1 == null) return default(object?);
-                var _item2 = Expect("TYPE_COMMENT") ? CurrentToken : null;
-                if (_item2 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR("bare * has associated type comment");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ExpectToken("*");
-                if (_item0 == null) return default(object?);
-                var _item1 = Param();
-                if (_item1 == null) return default(object?);
-                var a = ExpectToken("=");
-                if (a == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "var-positional argument cannot have default value");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = ExpectToken("*");
-                if (_item0 == null) return default(object?);
-                var _item1 = ParseGroup_75();
-                if (_item1 == null) return default(object?);
-                var _item2 = ParseZeroOrMore(() => ParamMaybeDefault());
-                if (_item2 == null) return default(object?);
-                var a = ExpectToken("*");
-                if (a == null) return default(object?);
-                var _item4 = ParseGroup_76();
-                if (_item4 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "* argument may appear only once");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_star_etc", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_kwds
         public object? InvalidKwds()
         {
-            var memo = GetMemo<object?>("invalid_kwds");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("**");
-                if (_item0 == null) return default(object?);
-                var _item1 = Param();
-                if (_item1 == null) return default(object?);
-                var a = ExpectToken("=");
-                if (a == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "var-keyword argument cannot have default value");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("**");
-                if (_item0 == null) return default(object?);
-                var _item1 = Param();
-                if (_item1 == null) return default(object?);
-                var _item2 = ExpectToken(",");
-                if (_item2 == null) return default(object?);
-                var a = Param();
-                if (a == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "arguments cannot follow var-keyword argument");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ExpectToken("**");
-                if (_item0 == null) return default(object?);
-                var _item1 = Param();
-                if (_item1 == null) return default(object?);
-                var _item2 = ExpectToken(",");
-                if (_item2 == null) return default(object?);
-                var a = ParseGroup_77();
-                if (a == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "arguments cannot follow var-keyword argument");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_kwds", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_parameters_helper
         public object? InvalidParametersHelper()
         {
-            var memo = GetMemo<object?>("invalid_parameters_helper");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = SlashWithDefault();
-                if (a == null) return default(object?);
-                var result = _PyPegen_singleton_seq(p, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ParseOneOrMore(() => ParamWithDefault());
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("invalid_parameters_helper", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_lambda_parameters
         public object? InvalidLambdaParameters()
         {
-            var memo = GetMemo<object?>("invalid_lambda_parameters");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ExpectToken(""/"");
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(",");
-                if (_item1 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "at least one argument must precede /");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ParseGroup_78();
-                if (_item0 == null) return default(object?);
-                var _item1 = ParseZeroOrMore(() => LambdaParamMaybeDefault());
-                if (_item1 == null) return default(object?);
-                var a = ExpectToken("/");
-                if (a == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "/ may appear only once");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = (LambdaSlashNoDefault() ?? new object());
-                if (_item0 == null) return default(object?);
-                var _item1 = ParseZeroOrMore(() => LambdaParamNoDefault());
-                if (_item1 == null) return default(object?);
-                var _item2 = InvalidLambdaParametersHelper();
-                if (_item2 == null) return default(object?);
-                var a = LambdaParamNoDefault();
-                if (a == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "parameter without a default follows parameter with a default");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = ParseZeroOrMore(() => LambdaParamNoDefault());
-                if (_item0 == null) return default(object?);
-                var a = ExpectToken("(");
-                if (a == null) return default(object?);
-                var _item2 = ParseZeroOrMore(() => ExpectToken(","));
-                if (_item2 == null) return default(object?);
-                var _item3 = ParseOneOrMore(() => LambdaParam());
-                if (_item3 == null) return default(object?);
-                var _item4 = (ExpectToken(",") ?? new object());
-                if (_item4 == null) return default(object?);
-                var b = ExpectToken(")");
-                if (b == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "Lambda expression parameters cannot be parenthesized");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 5
-            {
-                var _item0 = (ParseGroup_79() ?? new object());
-                if (_item0 == null) return default(object?);
-                var _item1 = ParseZeroOrMore(() => LambdaParamMaybeDefault());
-                if (_item1 == null) return default(object?);
-                var _item2 = ExpectToken("*");
-                if (_item2 == null) return default(object?);
-                var _item3 = ParseGroup_80();
-                if (_item3 == null) return default(object?);
-                var _item4 = ParseZeroOrMore(() => LambdaParamMaybeDefault());
-                if (_item4 == null) return default(object?);
-                var a = ExpectToken("/");
-                if (a == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "/ must be ahead of *");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 6
-            {
-                var _item0 = ParseOneOrMore(() => LambdaParamMaybeDefault());
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken("/");
-                if (_item1 == null) return default(object?);
-                var a = ExpectToken("*");
-                if (a == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "expected comma between / and *");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_lambda_parameters", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_lambda_parameters_helper
         public object? InvalidLambdaParametersHelper()
         {
-            var memo = GetMemo<object?>("invalid_lambda_parameters_helper");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = LambdaSlashWithDefault();
-                if (a == null) return default(object?);
-                var result = _PyPegen_singleton_seq(p, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ParseOneOrMore(() => LambdaParamWithDefault());
-                if (_item0 == null) return default(object?);
-                return _item0;
-            }
-
-            SetMemo("invalid_lambda_parameters_helper", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_lambda_star_etc
         public object? InvalidLambdaStarEtc()
         {
-            var memo = GetMemo<object?>("invalid_lambda_star_etc");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("*");
-                if (_item0 == null) return default(object?);
-                var _item1 = ParseGroup_81();
-                if (_item1 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR("named arguments must follow bare *");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("*");
-                if (_item0 == null) return default(object?);
-                var _item1 = LambdaParam();
-                if (_item1 == null) return default(object?);
-                var a = ExpectToken("=");
-                if (a == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "var-positional argument cannot have default value");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ExpectToken("*");
-                if (_item0 == null) return default(object?);
-                var _item1 = ParseGroup_82();
-                if (_item1 == null) return default(object?);
-                var _item2 = ParseZeroOrMore(() => LambdaParamMaybeDefault());
-                if (_item2 == null) return default(object?);
-                var a = ExpectToken("*");
-                if (a == null) return default(object?);
-                var _item4 = ParseGroup_83();
-                if (_item4 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "* argument may appear only once");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_lambda_star_etc", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_lambda_kwds
         public object? InvalidLambdaKwds()
         {
-            var memo = GetMemo<object?>("invalid_lambda_kwds");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("**");
-                if (_item0 == null) return default(object?);
-                var _item1 = LambdaParam();
-                if (_item1 == null) return default(object?);
-                var a = ExpectToken("=");
-                if (a == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "var-keyword argument cannot have default value");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("**");
-                if (_item0 == null) return default(object?);
-                var _item1 = LambdaParam();
-                if (_item1 == null) return default(object?);
-                var _item2 = ExpectToken(",");
-                if (_item2 == null) return default(object?);
-                var a = LambdaParam();
-                if (a == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "arguments cannot follow var-keyword argument");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ExpectToken("**");
-                if (_item0 == null) return default(object?);
-                var _item1 = LambdaParam();
-                if (_item1 == null) return default(object?);
-                var _item2 = ExpectToken(",");
-                if (_item2 == null) return default(object?);
-                var a = ParseGroup_84();
-                if (a == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "arguments cannot follow var-keyword argument");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_lambda_kwds", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_double_type_comments
         public object? InvalidDoubleTypeComments()
         {
-            var memo = GetMemo<object?>("invalid_double_type_comments");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = Expect("TYPE_COMMENT") ? CurrentToken : null;
-                if (_item0 == null) return default(object?);
-                var _item1 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item1 == null) return default(object?);
-                var _item2 = Expect("TYPE_COMMENT") ? CurrentToken : null;
-                if (_item2 == null) return default(object?);
-                var _item3 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item3 == null) return default(object?);
-                var _item4 = Expect("INDENT") ? CurrentToken : null;
-                if (_item4 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR("Cannot have two type comments on def");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_double_type_comments", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_with_item
         public object? InvalidWithItem()
         {
-            var memo = GetMemo<object?>("invalid_with_item");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = Expression();
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken("as");
-                if (_item1 == null) return default(object?);
-                var a = Expression();
-                if (a == null) return default(object?);
-                var _item3 = (Mark() is var pos && ParseGroup_85() != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item3 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_INVALID_TARGET(STAR_TARGETS, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_with_item", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_for_target
         public object? InvalidForTarget()
         {
-            var memo = GetMemo<object?>("invalid_for_target");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = (Expect("ASYNC") ? CurrentToken : null ?? new object());
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken("for");
-                if (_item1 == null) return default(object?);
-                var a = StarExpressions();
-                if (a == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_INVALID_TARGET(FOR_TARGETS, a);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_for_target", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_group
         public object? InvalidGroup()
         {
-            var memo = GetMemo<object?>("invalid_group");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("(");
-                if (_item0 == null) return default(object?);
-                var a = StarredExpression();
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken(")");
-                if (_item2 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "cannot use starred expression here");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("(");
-                if (_item0 == null) return default(object?);
-                var a = ExpectToken("**");
-                if (a == null) return default(object?);
-                var _item2 = Expression();
-                if (_item2 == null) return default(object?);
-                var _item3 = ExpectToken(")");
-                if (_item3 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "cannot use double starred expression here");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_group", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_import
         public object? InvalidImport()
         {
-            var memo = GetMemo<object?>("invalid_import");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ExpectToken("import");
-                if (a == null) return default(object?);
-                var _item1 = ParseZeroOrMore(() => ExpectToken(","));
-                if (_item1 == null) return default(object?);
-                var _item2 = ParseOneOrMore(() => DottedName());
-                if (_item2 == null) return default(object?);
-                var _item3 = ExpectToken("from");
-                if (_item3 == null) return default(object?);
-                var _item4 = DottedName();
-                if (_item4 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_STARTING_FROM(a, "Did you mean to use 'from ... import ...' instead?");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_import", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_import_from_targets
         public object? InvalidImportFromTargets()
         {
-            var memo = GetMemo<object?>("invalid_import_from_targets");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ImportFromAsNames();
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken(",");
-                if (_item1 == null) return default(object?);
-                var _item2 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item2 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR("trailing comma not allowed without surrounding parentheses");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_import_from_targets", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_with_stmt
         public object? InvalidWithStmt()
         {
-            var memo = GetMemo<object?>("invalid_with_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ((Expect("ASYNC") ? CurrentToken : null) ?? new object());
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken("with");
-                if (_item1 == null) return default(object?);
-                var _item2 = ParseZeroOrMore(() => ExpectToken(","));
-                if (_item2 == null) return default(object?);
-                var _item3 = ParseOneOrMore(() => null);
-                if (_item3 == null) return default(object?);
-                var _item4 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item4 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR("expected ':'");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ((Expect("ASYNC") ? CurrentToken : null) ?? new object());
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken("with");
-                if (_item1 == null) return default(object?);
-                var _item2 = ExpectToken("(");
-                if (_item2 == null) return default(object?);
-                var _item3 = ParseZeroOrMore(() => ExpectToken(","));
-                if (_item3 == null) return default(object?);
-                var _item4 = ParseOneOrMore(() => null);
-                if (_item4 == null) return default(object?);
-                var _item5 = (ExpectToken(",") ?? new object());
-                if (_item5 == null) return default(object?);
-                var _item6 = ExpectToken(")");
-                if (_item6 == null) return default(object?);
-                var _item7 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item7 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR("expected ':'");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_with_stmt", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_with_stmt_indent
         public object? InvalidWithStmtIndent()
         {
-            var memo = GetMemo<object?>("invalid_with_stmt_indent");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ((Expect("ASYNC") ? CurrentToken : null) ?? new object());
-                if (_item0 == null) return default(object?);
-                var a = ExpectToken("with");
-                if (a == null) return default(object?);
-                var _item2 = ParseZeroOrMore(() => ExpectToken(","));
-                if (_item2 == null) return default(object?);
-                var _item3 = ParseOneOrMore(() => null);
-                if (_item3 == null) return default(object?);
-                var _item4 = ExpectToken(":");
-                if (_item4 == null) return default(object?);
-                var _item5 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item5 == null) return default(object?);
-                var _item6 = (Mark() is var pos && Expect("INDENT") ? CurrentToken : null == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item6 == null) return default(object?);
-                var result = RAISE_INDENTATION_ERROR("expected an indented block after 'with' statement on line %d", a->lineno);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ((Expect("ASYNC") ? CurrentToken : null) ?? new object());
-                if (_item0 == null) return default(object?);
-                var a = ExpectToken("with");
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken("(");
-                if (_item2 == null) return default(object?);
-                var _item3 = ParseZeroOrMore(() => ExpectToken(","));
-                if (_item3 == null) return default(object?);
-                var _item4 = ParseOneOrMore(() => null);
-                if (_item4 == null) return default(object?);
-                var _item5 = (ExpectToken(",") ?? new object());
-                if (_item5 == null) return default(object?);
-                var _item6 = ExpectToken(")");
-                if (_item6 == null) return default(object?);
-                var _item7 = ExpectToken(":");
-                if (_item7 == null) return default(object?);
-                var _item8 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item8 == null) return default(object?);
-                var _item9 = (Mark() is var pos && Expect("INDENT") ? CurrentToken : null == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item9 == null) return default(object?);
-                var result = RAISE_INDENTATION_ERROR("expected an indented block after 'with' statement on line %d", a->lineno);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_with_stmt_indent", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_try_stmt
         public object? InvalidTryStmt()
         {
-            var memo = GetMemo<object?>("invalid_try_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ExpectToken("try");
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(":");
-                if (_item1 == null) return default(object?);
-                var _item2 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item2 == null) return default(object?);
-                var _item3 = (Mark() is var pos && Expect("INDENT") ? CurrentToken : null == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item3 == null) return default(object?);
-                var result = RAISE_INDENTATION_ERROR("expected an indented block after 'try' statement on line %d", a->lineno);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("try");
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken(":");
-                if (_item1 == null) return default(object?);
-                var _item2 = Block();
-                if (_item2 == null) return default(object?);
-                var _item3 = (Mark() is var pos && ParseGroup_86() == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item3 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR("expected 'except' or 'finally' block");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ExpectToken("try");
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken(":");
-                if (_item1 == null) return default(object?);
-                var _item2 = ParseZeroOrMore(() => Block());
-                if (_item2 == null) return default(object?);
-                var _item3 = ParseOneOrMore(() => ExceptBlock());
-                if (_item3 == null) return default(object?);
-                var a = ExpectToken("except");
-                if (a == null) return default(object?);
-                var b = ExpectToken("*");
-                if (b == null) return default(object?);
-                var expression = ExpectToken(":");
-                if (expression == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "cannot have both 'except' and 'except*' on the same 'try'");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = ExpectToken("try");
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken(":");
-                if (_item1 == null) return default(object?);
-                var _item2 = ParseZeroOrMore(() => Block());
-                if (_item2 == null) return default(object?);
-                var _item3 = ParseOneOrMore(() => ExceptStarBlock());
-                if (_item3 == null) return default(object?);
-                var a = ExpectToken("except");
-                if (a == null) return default(object?);
-                var _item5 = (ParseGroup_87() ?? new object());
-                if (_item5 == null) return default(object?);
-                var _item6 = ExpectToken(":");
-                if (_item6 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "cannot have both 'except' and 'except*' on the same 'try'");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_try_stmt", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_except_stmt
         public object? InvalidExceptStmt()
         {
-            var memo = GetMemo<object?>("invalid_except_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("except");
-                if (_item0 == null) return default(object?);
-                var _item1 = (ExpectToken("*") ?? new object());
-                if (_item1 == null) return default(object?);
-                var a = Expression();
-                if (a == null) return default(object?);
-                var _item3 = ExpectToken(",");
-                if (_item3 == null) return default(object?);
-                var expressions = ExpectToken(":");
-                if (expressions == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_STARTING_FROM(a, "multiple exception types must be parenthesized");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = ExpectToken("except");
-                if (a == null) return default(object?);
-                var _item1 = (ExpectToken("*") ?? new object());
-                if (_item1 == null) return default(object?);
-                var expression = Expect("NEWLINE") ? CurrentToken : null;
-                if (expression == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR("expected ':'");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var a = ExpectToken("except");
-                if (a == null) return default(object?);
-                var _item1 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item1 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR("expected ':'");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var a = ExpectToken("except");
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken("*");
-                if (_item1 == null) return default(object?);
-                var _item2 = ParseGroup_88();
-                if (_item2 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR("expected one or more exception types");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_except_stmt", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_finally_stmt
         public object? InvalidFinallyStmt()
         {
-            var memo = GetMemo<object?>("invalid_finally_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ExpectToken("finally");
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(":");
-                if (_item1 == null) return default(object?);
-                var _item2 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item2 == null) return default(object?);
-                var _item3 = (Mark() is var pos && Expect("INDENT") ? CurrentToken : null == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item3 == null) return default(object?);
-                var result = RAISE_INDENTATION_ERROR("expected an indented block after 'finally' statement on line %d", a->lineno);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_finally_stmt", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_except_stmt_indent
         public object? InvalidExceptStmtIndent()
         {
-            var memo = GetMemo<object?>("invalid_except_stmt_indent");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ExpectToken("except");
-                if (a == null) return default(object?);
-                var expression = ExpectToken(":");
-                if (expression == null) return default(object?);
-                var _item2 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item2 == null) return default(object?);
-                var _item3 = (Mark() is var pos && Expect("INDENT") ? CurrentToken : null == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item3 == null) return default(object?);
-                var result = RAISE_INDENTATION_ERROR("expected an indented block after 'except' statement on line %d", a->lineno);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = ExpectToken("except");
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(":");
-                if (_item1 == null) return default(object?);
-                var _item2 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item2 == null) return default(object?);
-                var _item3 = (Mark() is var pos && Expect("INDENT") ? CurrentToken : null == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item3 == null) return default(object?);
-                var result = RAISE_INDENTATION_ERROR("expected an indented block after 'except' statement on line %d", a->lineno);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_except_stmt_indent", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_except_star_stmt_indent
         public object? InvalidExceptStarStmtIndent()
         {
-            var memo = GetMemo<object?>("invalid_except_star_stmt_indent");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ExpectToken("except");
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken("*");
-                if (_item1 == null) return default(object?);
-                var expression = ExpectToken(":");
-                if (expression == null) return default(object?);
-                var _item3 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item3 == null) return default(object?);
-                var _item4 = (Mark() is var pos && Expect("INDENT") ? CurrentToken : null == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item4 == null) return default(object?);
-                var result = RAISE_INDENTATION_ERROR("expected an indented block after 'except*' statement on line %d", a->lineno);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_except_star_stmt_indent", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_match_stmt
         public object? InvalidMatchStmt()
         {
-            var memo = GetMemo<object?>("invalid_match_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken(""match"");
-                if (_item0 == null) return default(object?);
-                var _item1 = SubjectExpr();
-                if (_item1 == null) return default(object?);
-                var _item2 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item2 == null) return default(object?);
-                var result = CHECK_VERSION(void*, 10, "Pattern matching is", RAISE_SYNTAX_ERROR("expected ':'") );
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = ExpectToken(""match"");
-                if (a == null) return default(object?);
-                var subject = SubjectExpr();
-                if (subject == null) return default(object?);
-                var _item2 = ExpectToken(":");
-                if (_item2 == null) return default(object?);
-                var _item3 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item3 == null) return default(object?);
-                var _item4 = (Mark() is var pos && Expect("INDENT") ? CurrentToken : null == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item4 == null) return default(object?);
-                var result = RAISE_INDENTATION_ERROR("expected an indented block after 'match' statement on line %d", a->lineno);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_match_stmt", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_case_block
         public object? InvalidCaseBlock()
         {
-            var memo = GetMemo<object?>("invalid_case_block");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken(""case"");
-                if (_item0 == null) return default(object?);
-                var _item1 = Patterns();
-                if (_item1 == null) return default(object?);
-                var _item2 = (Guard() ?? new object());
-                if (_item2 == null) return default(object?);
-                var _item3 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item3 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR("expected ':'");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = ExpectToken(""case"");
-                if (a == null) return default(object?);
-                var _item1 = Patterns();
-                if (_item1 == null) return default(object?);
-                var _item2 = (Guard() ?? new object());
-                if (_item2 == null) return default(object?);
-                var _item3 = ExpectToken(":");
-                if (_item3 == null) return default(object?);
-                var _item4 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item4 == null) return default(object?);
-                var _item5 = (Mark() is var pos && Expect("INDENT") ? CurrentToken : null == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item5 == null) return default(object?);
-                var result = RAISE_INDENTATION_ERROR("expected an indented block after 'case' statement on line %d", a->lineno);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_case_block", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_as_pattern
         public object? InvalidAsPattern()
         {
-            var memo = GetMemo<object?>("invalid_as_pattern");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = OrPattern();
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken("as");
-                if (_item1 == null) return default(object?);
-                var a = ExpectToken(""_"");
-                if (a == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "cannot use '_' as a target");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = OrPattern();
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken("as");
-                if (_item1 == null) return default(object?);
-                var _item2 = (Mark() is var pos && Expect("NAME") ? CurrentToken : null == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item2 == null) return default(object?);
-                var a = Expression();
-                if (a == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "invalid pattern target");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_as_pattern", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_class_pattern
         public object? InvalidClassPattern()
         {
-            var memo = GetMemo<object?>("invalid_class_pattern");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = NameOrAttr();
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken("(");
-                if (_item1 == null) return default(object?);
-                var a = InvalidClassArgumentPattern();
-                if (a == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_RANGE(
-        PyPegen_first_item(a, pattern_ty),
-        PyPegen_last_item(a, pattern_ty),
-        "positional patterns follow keyword patterns");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_class_pattern", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_class_argument_pattern
-        public List<object>? InvalidClassArgumentPattern()
+        public GeneratedSeq InvalidClassArgumentPattern()
         {
-            var memo = GetMemo<List<object>?>("invalid_class_argument_pattern");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = (ParseGroup_89() ?? new object());
-                if (_item0 == null) return default(List<object>?);
-                var _item1 = KeywordPatterns();
-                if (_item1 == null) return default(List<object>?);
-                var _item2 = ExpectToken(",");
-                if (_item2 == null) return default(List<object>?);
-                var a = PositionalPatterns();
-                if (a == null) return default(List<object>?);
-                var result = a;
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_class_argument_pattern", default(List<object>?));
-            return default(List<object>?);
+            // Phase 1: Minimal implementation
+            return default(GeneratedSeq);
         }
 
         // Rule: invalid_if_stmt
         public object? InvalidIfStmt()
         {
-            var memo = GetMemo<object?>("invalid_if_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("if");
-                if (_item0 == null) return default(object?);
-                var _item1 = NamedExpression();
-                if (_item1 == null) return default(object?);
-                var _item2 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item2 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR("expected ':'");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = ExpectToken("if");
-                if (a == null) return default(object?);
-                var a = NamedExpression();
-                if (a == null) return default(object?);
-                var _item2 = ExpectToken(":");
-                if (_item2 == null) return default(object?);
-                var _item3 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item3 == null) return default(object?);
-                var _item4 = (Mark() is var pos && Expect("INDENT") ? CurrentToken : null == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item4 == null) return default(object?);
-                var result = RAISE_INDENTATION_ERROR("expected an indented block after 'if' statement on line %d", a->lineno);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_if_stmt", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_elif_stmt
         public object? InvalidElifStmt()
         {
-            var memo = GetMemo<object?>("invalid_elif_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("elif");
-                if (_item0 == null) return default(object?);
-                var _item1 = NamedExpression();
-                if (_item1 == null) return default(object?);
-                var _item2 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item2 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR("expected ':'");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = ExpectToken("elif");
-                if (a == null) return default(object?);
-                var _item1 = NamedExpression();
-                if (_item1 == null) return default(object?);
-                var _item2 = ExpectToken(":");
-                if (_item2 == null) return default(object?);
-                var _item3 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item3 == null) return default(object?);
-                var _item4 = (Mark() is var pos && Expect("INDENT") ? CurrentToken : null == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item4 == null) return default(object?);
-                var result = RAISE_INDENTATION_ERROR("expected an indented block after 'elif' statement on line %d", a->lineno);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_elif_stmt", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_else_stmt
         public object? InvalidElseStmt()
         {
-            var memo = GetMemo<object?>("invalid_else_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ExpectToken("else");
-                if (a == null) return default(object?);
-                var _item1 = ExpectToken(":");
-                if (_item1 == null) return default(object?);
-                var _item2 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item2 == null) return default(object?);
-                var _item3 = (Mark() is var pos && Expect("INDENT") ? CurrentToken : null == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item3 == null) return default(object?);
-                var result = RAISE_INDENTATION_ERROR("expected an indented block after 'else' statement on line %d", a->lineno);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_else_stmt", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_while_stmt
         public object? InvalidWhileStmt()
         {
-            var memo = GetMemo<object?>("invalid_while_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("while");
-                if (_item0 == null) return default(object?);
-                var _item1 = NamedExpression();
-                if (_item1 == null) return default(object?);
-                var _item2 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item2 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR("expected ':'");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = ExpectToken("while");
-                if (a == null) return default(object?);
-                var _item1 = NamedExpression();
-                if (_item1 == null) return default(object?);
-                var _item2 = ExpectToken(":");
-                if (_item2 == null) return default(object?);
-                var _item3 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item3 == null) return default(object?);
-                var _item4 = (Mark() is var pos && Expect("INDENT") ? CurrentToken : null == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item4 == null) return default(object?);
-                var result = RAISE_INDENTATION_ERROR("expected an indented block after 'while' statement on line %d", a->lineno);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_while_stmt", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_for_stmt
         public object? InvalidForStmt()
         {
-            var memo = GetMemo<object?>("invalid_for_stmt");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ((Expect("ASYNC") ? CurrentToken : null) ?? new object());
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken("for");
-                if (_item1 == null) return default(object?);
-                var _item2 = StarTargets();
-                if (_item2 == null) return default(object?);
-                var _item3 = ExpectToken("in");
-                if (_item3 == null) return default(object?);
-                var _item4 = StarExpressions();
-                if (_item4 == null) return default(object?);
-                var _item5 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item5 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR("expected ':'");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ((Expect("ASYNC") ? CurrentToken : null) ?? new object());
-                if (_item0 == null) return default(object?);
-                var a = ExpectToken("for");
-                if (a == null) return default(object?);
-                var _item2 = StarTargets();
-                if (_item2 == null) return default(object?);
-                var _item3 = ExpectToken("in");
-                if (_item3 == null) return default(object?);
-                var _item4 = StarExpressions();
-                if (_item4 == null) return default(object?);
-                var _item5 = ExpectToken(":");
-                if (_item5 == null) return default(object?);
-                var _item6 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item6 == null) return default(object?);
-                var _item7 = (Mark() is var pos && Expect("INDENT") ? CurrentToken : null == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item7 == null) return default(object?);
-                var result = RAISE_INDENTATION_ERROR("expected an indented block after 'for' statement on line %d", a->lineno);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_for_stmt", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_def_raw
         public object? InvalidDefRaw()
         {
-            var memo = GetMemo<object?>("invalid_def_raw");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ((Expect("ASYNC") ? CurrentToken : null) ?? new object());
-                if (_item0 == null) return default(object?);
-                var a = ExpectToken("def");
-                if (a == null) return default(object?);
-                var NAME = ExpectToken("(");
-                if (NAME == null) return default(object?);
-                var _item3 = ((Params()) ?? new object());
-                if (_item3 == null) return default(object?);
-                var _item4 = ExpectToken(")");
-                if (_item4 == null) return default(object?);
-                var _item5 = (ParseGroup_90() ?? new object());
-                if (_item5 == null) return default(object?);
-                var _item6 = ExpectToken(":");
-                if (_item6 == null) return default(object?);
-                var _item7 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item7 == null) return default(object?);
-                var _item8 = (Mark() is var pos && Expect("INDENT") ? CurrentToken : null == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item8 == null) return default(object?);
-                var result = RAISE_INDENTATION_ERROR("expected an indented block after function definition on line %d", a->lineno);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_def_raw", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_class_def_raw
         public object? InvalidClassDefRaw()
         {
-            var memo = GetMemo<object?>("invalid_class_def_raw");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("class");
-                if (_item0 == null) return default(object?);
-                var NAME = (ParseGroup_91() ?? new object());
-                if (NAME == null) return default(object?);
-                var _item2 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item2 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR("expected ':'");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var a = ExpectToken("class");
-                if (a == null) return default(object?);
-                var NAME = (ParseGroup_92() ?? new object());
-                if (NAME == null) return default(object?);
-                var _item2 = ExpectToken(":");
-                if (_item2 == null) return default(object?);
-                var _item3 = Expect("NEWLINE") ? CurrentToken : null;
-                if (_item3 == null) return default(object?);
-                var _item4 = (Mark() is var pos && Expect("INDENT") ? CurrentToken : null == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item4 == null) return default(object?);
-                var result = RAISE_INDENTATION_ERROR("expected an indented block after class definition on line %d", a->lineno);
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_class_def_raw", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_double_starred_kvpairs
         public object? InvalidDoubleStarredKvpairs()
         {
-            var memo = GetMemo<object?>("invalid_double_starred_kvpairs");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ParseZeroOrMore(() => ExpectToken(","));
-                if (_item0 == null) return default(object?);
-                var _item1 = ParseOneOrMore(() => DoubleStarredKvpair());
-                if (_item1 == null) return default(object?);
-                var _item2 = ExpectToken(",");
-                if (_item2 == null) return default(object?);
-                var _item3 = InvalidKvpair();
-                if (_item3 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = Expression();
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken(":");
-                if (_item1 == null) return default(object?);
-                var a = ExpectToken("*");
-                if (a == null) return default(object?);
-                var _item3 = BitwiseOr();
-                if (_item3 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_STARTING_FROM(a, "cannot use a starred expression in a dictionary value");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = Expression();
-                if (_item0 == null) return default(object?);
-                var a = ExpectToken(":");
-                if (a == null) return default(object?);
-                var _item2 = (Mark() is var pos && ParseGroup_93() != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item2 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "expression expected after dictionary key and ':'");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_double_starred_kvpairs", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_kvpair
         public object? InvalidKvpair()
         {
-            var memo = GetMemo<object?>("invalid_kvpair");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = Expression();
-                if (a == null) return default(object?);
-                var _item1 = (Mark() is var pos && (ExpectToken(":")) == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item1 == null) return default(object?);
-                var result = RAISE_ERROR_KNOWN_LOCATION(p, PyExc_SyntaxError, a->lineno, a->end_col_offset - 1, a->end_lineno, -1, "':' expected after dictionary key");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = Expression();
-                if (_item0 == null) return default(object?);
-                var _item1 = ExpectToken(":");
-                if (_item1 == null) return default(object?);
-                var a = ExpectToken("*");
-                if (a == null) return default(object?);
-                var _item3 = BitwiseOr();
-                if (_item3 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_STARTING_FROM(a, "cannot use a starred expression in a dictionary value");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = Expression();
-                if (_item0 == null) return default(object?);
-                var a = ExpectToken(":");
-                if (a == null) return default(object?);
-                var _item2 = (Mark() is var pos && ParseGroup_94() != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item2 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "expression expected after dictionary key and ':'");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_kvpair", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_starred_expression
         public object? InvalidStarredExpression()
         {
-            var memo = GetMemo<object?>("invalid_starred_expression");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var a = ExpectToken("*");
-                if (a == null) return default(object?);
-                var _item1 = Expression();
-                if (_item1 == null) return default(object?);
-                var _item2 = ExpectToken("=");
-                if (_item2 == null) return default(object?);
-                var b = Expression();
-                if (b == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "cannot assign to iterable argument unpacking");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_starred_expression", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_replacement_field
         public object? InvalidReplacementField()
         {
-            var memo = GetMemo<object?>("invalid_replacement_field");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("{");
-                if (_item0 == null) return default(object?);
-                var a = ExpectToken("=");
-                if (a == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "f-string: valid expression required before '='");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("{");
-                if (_item0 == null) return default(object?);
-                var a = ExpectToken("!");
-                if (a == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "f-string: valid expression required before '!'");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 3
-            {
-                var _item0 = ExpectToken("{");
-                if (_item0 == null) return default(object?);
-                var a = ExpectToken(":");
-                if (a == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "f-string: valid expression required before ':'");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 4
-            {
-                var _item0 = ExpectToken("{");
-                if (_item0 == null) return default(object?);
-                var a = ExpectToken("}");
-                if (a == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "f-string: valid expression required before '}'");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 5
-            {
-                var _item0 = ExpectToken("{");
-                if (_item0 == null) return default(object?);
-                var _item1 = (Mark() is var pos && ParseGroup_95() == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item1 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting a valid expression after '{'");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 6
-            {
-                var _item0 = ExpectToken("{");
-                if (_item0 == null) return default(object?);
-                var _item1 = ParseGroup_96();
-                if (_item1 == null) return default(object?);
-                var _item2 = (Mark() is var pos && ParseGroup_97() == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item2 == null) return default(object?);
-                var result = PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '=', or '!', or ':', or '}'");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 7
-            {
-                var _item0 = ExpectToken("{");
-                if (_item0 == null) return default(object?);
-                var _item1 = ParseGroup_98();
-                if (_item1 == null) return default(object?);
-                var _item2 = ExpectToken("=");
-                if (_item2 == null) return default(object?);
-                var _item3 = (Mark() is var pos && ParseGroup_99() == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item3 == null) return default(object?);
-                var result = PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '!', or ':', or '}'");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 8
-            {
-                var _item0 = ExpectToken("{");
-                if (_item0 == null) return default(object?);
-                var _item1 = ParseGroup_100();
-                if (_item1 == null) return default(object?);
-                var _item2 = (ExpectToken("=") ?? new object());
-                if (_item2 == null) return default(object?);
-                var _item3 = InvalidConversionCharacter();
-                if (_item3 == null) return default(object?);
-                return _item0;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 9
-            {
-                var _item0 = ExpectToken("{");
-                if (_item0 == null) return default(object?);
-                var _item1 = ParseGroup_101();
-                if (_item1 == null) return default(object?);
-                var _item2 = (ExpectToken("=") ?? new object());
-                if (_item2 == null) return default(object?);
-                var _item3 = (ParseGroup_102() ?? new object());
-                if (_item3 == null) return default(object?);
-                var _item4 = (Mark() is var pos && ParseGroup_103() == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item4 == null) return default(object?);
-                var result = PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting ':' or '}'");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 10
-            {
-                var _item0 = ExpectToken("{");
-                if (_item0 == null) return default(object?);
-                var _item1 = ParseGroup_104();
-                if (_item1 == null) return default(object?);
-                var _item2 = (ExpectToken("=") ?? new object());
-                if (_item2 == null) return default(object?);
-                var _item3 = (ParseGroup_105() ?? new object());
-                if (_item3 == null) return default(object?);
-                var _item4 = ExpectToken(":");
-                if (_item4 == null) return default(object?);
-                var _item5 = ParseZeroOrMore(() => FstringFormatSpec());
-                if (_item5 == null) return default(object?);
-                var _item6 = (Mark() is var pos && ExpectToken("}") == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item6 == null) return default(object?);
-                var result = PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '}', or format specs");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 11
-            {
-                var _item0 = ExpectToken("{");
-                if (_item0 == null) return default(object?);
-                var _item1 = ParseGroup_106();
-                if (_item1 == null) return default(object?);
-                var _item2 = (ExpectToken("=") ?? new object());
-                if (_item2 == null) return default(object?);
-                var _item3 = (ParseGroup_107() ?? new object());
-                if (_item3 == null) return default(object?);
-                var _item4 = (Mark() is var pos && ExpectToken("}") == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item4 == null) return default(object?);
-                var result = PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '}'");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_replacement_field", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 
         // Rule: invalid_conversion_character
         public object? InvalidConversionCharacter()
         {
-            var memo = GetMemo<object?>("invalid_conversion_character");
-            if (memo != null) return memo;
-
-            var startPos = _position;
-            // Alternative 1
-            {
-                var _item0 = ExpectToken("!");
-                if (_item0 == null) return default(object?);
-                var _item1 = (Mark() is var pos && ParseGroup_108() != null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item1 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: missing conversion character");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            // Try next alternative
-            Reset(startPos);
-            // Alternative 2
-            {
-                var _item0 = ExpectToken("!");
-                if (_item0 == null) return default(object?);
-                var _item1 = (Mark() is var pos && Expect("NAME") ? CurrentToken : null == null ? (Reset(pos), new object()) : (Reset(pos), null));
-                if (_item1 == null) return default(object?);
-                var result = RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: invalid conversion character");
-                SetMemo("{rule.Name}", result);
-                return result;
-            }
-
-            SetMemo("invalid_conversion_character", default(object?));
+            // Phase 1: Minimal implementation
             return default(object?);
         }
 

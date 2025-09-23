@@ -13,6 +13,7 @@ namespace SharpPy.PegGenerator.Grammar
         public string Name { get; set; } = "";
         public string? Value { get; set; }  // null for complex tokens like NAME, NUMBER
         public bool IsLiteral => Value != null;
+        public bool IsKeyword { get; set; } = false; // Python keywords
 
         public override string ToString()
         {

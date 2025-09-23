@@ -853,7 +853,7 @@ namespace SharpPy
                     Console.WriteLine($"      AnalyzeExpression: NameExpression '{name.Name}' in scope '{_currentTable?.GetName()}'");
 #endif
                     // Only add if it's not a keyword
-                    if (!PyToken.IsKeywordLexeme(name.Name))
+                    if (!IsKeyword(name.Name))
                     {
                         _currentTable?.DefineSymbol(name.Name, SymbolFlags.Used);
                     }
@@ -1216,6 +1216,17 @@ namespace SharpPy
                     AnalyzeExpression(target);
                     break;
             }
+        }
+        private static bool IsKeyword(string name)
+        {
+            var pythonKeywords = new HashSet<string>
+            {
+                "False", "None", "True", "__peg_parser__", "and", "as", "assert", "async", "await",
+                "break", "class", "continue", "def", "del", "elif", "else", "except", "finally",
+                "for", "from", "global", "if", "import", "in", "is", "lambda", "nonlocal", "not",
+                "or", "pass", "raise", "return", "try", "while", "with", "yield", "match", "case"
+            };
+            return pythonKeywords.Contains(name);
         }
     }
 }

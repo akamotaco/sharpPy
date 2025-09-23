@@ -13,7 +13,8 @@ namespace SharpPy
     }
     
     #region Compiler Extension (AST → Bytecode)
-    
+
+
     /// <summary>
     /// CPython-style free variable analyzer for closure detection
     /// </summary>
@@ -257,7 +258,7 @@ namespace SharpPy
             {
                 case NameExpression name:
                     // Only add if it's not a keyword
-                    if (!PyToken.IsKeywordLexeme(name.Name))
+                    if (!KeywordHelper.IsKeywordLexeme(name.Name))
                     {
                         _usedVars.Add(name.Name);
                     }
@@ -4032,7 +4033,7 @@ namespace SharpPy
             {
                 case NameExpression nameExpr:
                     // Only add if it's not a keyword
-                    if (!PyToken.IsKeywordLexeme(nameExpr.Name))
+                    if (!KeywordHelper.IsKeywordLexeme(nameExpr.Name))
                     {
                         variables.Add(nameExpr.Name);
                     }
@@ -4101,7 +4102,7 @@ namespace SharpPy
         private bool IsKeywordOrBuiltin(string varName)
         {
             // Use PyToken's keyword checking functionality
-            return PyToken.IsKeywordLexeme(varName) || IsBuiltinVariable(varName);
+            return KeywordHelper.IsKeywordLexeme(varName) || IsBuiltinVariable(varName);
         }
 
         #if DEBUG_LOG
