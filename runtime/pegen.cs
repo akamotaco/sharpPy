@@ -175,6 +175,87 @@ namespace SharpPy
             return token;
         }
 
+        /// <summary>
+        /// Generic binary operator parser - reduces code duplication
+        /// </summary>
+        private Expression ParseBinaryOperator(string ruleName,
+            Func<Expression> nextLevel,
+            params (string literal, string opName)[] operators)
+        {
+            return ParseWithMemo(ruleName, () =>
+            {
+                var left = nextLevel();
+                if (left == null) return null;
+
+                var rights = new List<(string op, Expression right)>();
+                while (true)
+                {
+                    string op = null;
+                    foreach (var (literal, opName) in operators)
+                    {
+                        if (MatchLiteral(literal))
+                        {
+                            op = opName;
+                            break;
+                        }
+                    }
+                    if (op == null) break;
+
+                    var right = nextLevel();
+                    if (right == null) break;
+                    rights.Add((op, right));
+                }
+
+                return rights.Count == 0 ? left : CreateBinOpChain(left, rights);
+            });
+        }
+
+        /// <summary>
+        /// Generic logical operator parser - reduces code duplication
+        /// </summary>
+        private Expression ParseLogicalOperator(string ruleName,
+            Func<Expression> nextLevel, string keyword, string opType)
+        {
+            return ParseWithMemo(ruleName, () =>
+            {
+                var first = nextLevel();
+                if (first == null) return null;
+
+                var values = new List<Expression> { first };
+                while (MatchKeyword(keyword))
+                {
+                    var next = nextLevel();
+                    if (next == null) break;
+                    values.Add(next);
+                }
+
+                return values.Count == 1 ? first : CreateBoolOp(opType, values);
+            });
+        }
+
+        /// <summary>
+        /// Generic bitwise operator parser (for single operators like |, ^, &)
+        /// </summary>
+        private Expression ParseBitwiseOperator(string ruleName,
+            Func<Expression> nextLevel, string literal, string opType)
+        {
+            return ParseWithMemo(ruleName, () =>
+            {
+                var first = nextLevel();
+                if (first == null) return null;
+
+                var values = new List<Expression> { first };
+                while (MatchLiteral(literal))
+                {
+                    var next = nextLevel();
+                    if (next == null) break;
+                    values.Add(next);
+                }
+
+                return values.Count == 1 ? first : CreateBinOp(opType, values);
+            });
+        }
+
         #endregion
 
         #region Cut Support
@@ -858,22 +939,7 @@ namespace SharpPy
         /// </summary>
         public Expression ParseDisjunction()
         {
-            return ParseWithMemo("disjunction", () =>
-            {
-                var first = ParseConjunction();
-                if (first == null) return null;
-
-                var values = new List<Expression> { first };
-
-                while (MatchKeyword("or"))
-                {
-                    var conjunction = ParseConjunction();
-                    if (conjunction == null) break;
-                    values.Add(conjunction);
-                }
-
-                return values.Count == 1 ? first : CreateBoolOp("Or", values);
-            });
+            return ParseLogicalOperator("disjunction", ParseConjunction, "or", "Or");
         }
 
         /// <summary>
@@ -881,22 +947,7 @@ namespace SharpPy
         /// </summary>
         public Expression ParseConjunction()
         {
-            return ParseWithMemo("conjunction", () =>
-            {
-                var first = ParseInversion();
-                if (first == null) return null;
-
-                var values = new List<Expression> { first };
-
-                while (MatchKeyword("and"))
-                {
-                    var inversion = ParseInversion();
-                    if (inversion == null) break;
-                    values.Add(inversion);
-                }
-
-                return values.Count == 1 ? first : CreateBoolOp("And", values);
-            });
+            return ParseLogicalOperator("conjunction", ParseInversion, "and", "And");
         }
 
         /// <summary>
@@ -962,143 +1013,36 @@ namespace SharpPy
         /// </summary>
         public Expression ParseBitwiseOr()
         {
-            return ParseWithMemo("bitwise_or", () =>
-            {
-                var first = ParseBitwiseXor();
-                if (first == null) return null;
-
-                var values = new List<Expression> { first };
-
-                while (MatchLiteral("|"))
-                {
-                    var expr = ParseBitwiseXor();
-                    if (expr == null) break;
-                    values.Add(expr);
-                }
-
-                return values.Count == 1 ? first : CreateBinOp("BitOr", values);
-            });
+            return ParseBitwiseOperator("bitwise_or", ParseBitwiseXor, "|", "BitOr");
         }
 
         public Expression ParseBitwiseXor()
         {
-            return ParseWithMemo("bitwise_xor", () =>
-            {
-                var first = ParseBitwiseAnd();
-                if (first == null) return null;
-
-                var values = new List<Expression> { first };
-
-                while (MatchLiteral("^"))
-                {
-                    var expr = ParseBitwiseAnd();
-                    if (expr == null) break;
-                    values.Add(expr);
-                }
-
-                return values.Count == 1 ? first : CreateBinOp("BitXor", values);
-            });
+            return ParseBitwiseOperator("bitwise_xor", ParseBitwiseAnd, "^", "BitXor");
         }
 
         public Expression ParseBitwiseAnd()
         {
-            return ParseWithMemo("bitwise_and", () =>
-            {
-                var first = ParseShiftExpr();
-                if (first == null) return null;
-
-                var values = new List<Expression> { first };
-
-                while (MatchLiteral("&"))
-                {
-                    var expr = ParseShiftExpr();
-                    if (expr == null) break;
-                    values.Add(expr);
-                }
-
-                return values.Count == 1 ? first : CreateBinOp("BitAnd", values);
-            });
+            return ParseBitwiseOperator("bitwise_and", ParseShiftExpr, "&", "BitAnd");
         }
 
         public Expression ParseShiftExpr()
         {
-            return ParseWithMemo("shift_expr", () =>
-            {
-                var left = ParseSum();
-                if (left == null) return null;
-
-                var rights = new List<(string op, Expression right)>();
-
-                while (true)
-                {
-                    string op = null;
-                    if (MatchLiteral("<<")) op = "LShift";
-                    else if (MatchLiteral(">>")) op = "RShift";
-                    else break;
-
-                    var right = ParseSum();
-                    if (right == null) break;
-
-                    rights.Add((op, right));
-                }
-
-                return rights.Count == 0 ? left : CreateBinOpChain(left, rights);
-            });
+            return ParseBinaryOperator("shift_expr", ParseSum,
+                ("<<", "LShift"), (">>", "RShift"));
         }
 
         public Expression ParseSum()
         {
-            return ParseWithMemo("sum", () =>
-            {
-                var left = ParseTerm();
-                if (left == null) return null;
-
-                var rights = new List<(string op, Expression right)>();
-
-                while (true)
-                {
-                    string op = null;
-                    if (MatchLiteral("+")) op = "Add";
-                    else if (MatchLiteral("-")) op = "Sub";
-                    else break;
-
-                    var right = ParseTerm();
-                    if (right == null) break;
-
-                    rights.Add((op, right));
-                }
-
-                return rights.Count == 0 ? left : CreateBinOpChain(left, rights);
-            });
+            return ParseBinaryOperator("sum", ParseTerm,
+                ("+", "Add"), ("-", "Sub"));
         }
 
         public Expression ParseTerm()
         {
-            return ParseWithMemo("term", () =>
-            {
-                var left = ParseFactor();
-                if (left == null) return null;
-
-                var rights = new List<(string op, Expression right)>();
-
-                while (true)
-                {
-                    string op = null;
-                    if (MatchLiteral("*")) op = "Mult";
-                    else if (MatchLiteral("@")) op = "MatMult";
-                    else if (MatchLiteral("/")) op = "Div";
-                    else if (MatchLiteral("%")) op = "Mod";
-                    else if (MatchLiteral("//")) op = "FloorDiv";
-                    else break;
-
-                    var right = ParseFactor();
-                    if (right == null) break;
-
-                    rights.Add((op, right));
-                }
-
-                return rights.Count == 0 ? left : CreateBinOpChain(left, rights);
-            });
+            return ParseBinaryOperator("term", ParseFactor,
+                ("*", "Mult"), ("@", "MatMult"), ("/", "Div"),
+                ("%", "Mod"), ("//", "FloorDiv"));
         }
 
         public Expression ParseFactor()
@@ -2458,7 +2402,30 @@ namespace SharpPy
 #if DEBUG_LOG
             Console.WriteLine($"[DEBUG] PEG: ParseBlock called at position: {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Lexeme}'");
 #endif
-            // Simplified block parsing - expect NEWLINE INDENT statements DEDENT
+
+            // CPython 3.12 compatible: support both single-line and multi-line blocks
+            // Pattern 1: Single-line block (simple_stmts)
+            if (CurrentToken?.Type != TokenType.NEWLINE)
+            {
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: ParseBlock trying single-line mode");
+#endif
+                // Parse as simple statements (single line)
+                var singleLineStmts = ParseSimpleStmts();
+                if (singleLineStmts != null && singleLineStmts.Count > 0)
+                {
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] PEG: ParseBlock single-line success: {singleLineStmts.Count} statements");
+#endif
+                    return singleLineStmts;
+                }
+                return null;
+            }
+
+            // Pattern 2: Multi-line block (NEWLINE INDENT statements DEDENT)
+#if DEBUG_LOG
+            Console.WriteLine($"[DEBUG] PEG: ParseBlock trying multi-line mode");
+#endif
             if (!MatchToken(TokenType.NEWLINE))
             {
 #if DEBUG_LOG
