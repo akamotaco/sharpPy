@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using SharpPy.Generated;
-using SharpPy.Tokenizer.Generated;
+// using SharpPy.Tokenizer.Generated; // Now using SharpPy.Generated
 using SharpPy.Utils;
 
 namespace SharpPy
@@ -29,6 +29,14 @@ namespace SharpPy
             // Use generated parser
             var parser = new GeneratedPyParser(generatedTokens, filename);
             var parseResult = parser.File();
+
+#if DEBUG_LOG
+            Console.WriteLine($"[DEBUG] Parse result type: {parseResult?.GetType()?.Name ?? "null"}");
+            if (parseResult != null)
+            {
+                Console.WriteLine($"[DEBUG] Parse result toString: {parseResult}");
+            }
+#endif
 
             // Convert generated AST to SharpPy AST
             return ConvertToSharpPyAST(parseResult, filename);

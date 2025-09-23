@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using SharpPy.Tokenizer.Generated;
+using SharpPy.Generated;
 
 namespace SharpPy.Tools
 {

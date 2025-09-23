@@ -7,8 +7,10 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!-- Include Generated tokenizer for PegGenerator to use -->
   <ItemGroup>
-    <ProjectReference Include="..\SharpPy.Tokenizer\SharpPy.Tokenizer.csproj" />
+    <Compile Include="..\Generated\PyTokenizer.cs" Link="Generated\PyTokenizer.cs" />
   </ItemGroup>
+
 
 </Project>

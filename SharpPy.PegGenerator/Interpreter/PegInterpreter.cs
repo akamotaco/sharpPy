@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using SharpPy.PegGenerator.Grammar;
-using SharpPy.Tokenizer.Generated;
+using SharpPy.Generated;
 
 namespace SharpPy.PegGenerator.Interpreter
 {
@@ -41,6 +41,7 @@ namespace SharpPy.PegGenerator.Interpreter
         private readonly HashSet<(int, string)> _activeRules = new(); // Track active rules to prevent left recursion
         private readonly Dictionary<string, bool> _leftRecursiveRules = new(); // Cache for left-recursive rule detection
         private readonly Dictionary<string, object?> _seedResults = new(); // Store seed results for left-recursive expansion
+        private readonly Dictionary<int, int> _positionAttempts = new(); // Track attempts at each position for infinite loop detection
 
         public PegInterpreter(Grammar.Grammar grammar, List<ITokenInfo> tokens)
         {
@@ -64,13 +65,35 @@ namespace SharpPy.PegGenerator.Interpreter
         /// </summary>
         private void Advance()
         {
-            if (_position < _tokens.Count) _position++;
+            if (_position < _tokens.Count)
+            {
+                _position++;
+                // Reset position attempt counter when we advance
+                _positionAttempts.Clear();
+            }
         }
 
         /// <summary>
         /// Mark current position for backtracking
         /// </summary>
-        private int Mark() => _position;
+        private int Mark()
+        {
+            // Infinite loop detection
+            if (_positionAttempts.ContainsKey(_position))
+            {
+                _positionAttempts[_position]++;
+                if (_positionAttempts[_position] > 50) // Even lower threshold for faster debugging
+                {
+                    throw new InvalidOperationException($"Infinite loop detected at token position {_position}. Current token: {CurrentToken?.Type}('{CurrentToken?.Value}')");
+                }
+            }
+            else
+            {
+                _positionAttempts[_position] = 1;
+            }
+
+            return _position;
+        }
 
         /// <summary>
         /// Reset position for backtracking
@@ -399,12 +422,11 @@ namespace SharpPy.PegGenerator.Interpreter
                     return expected;
                 }
             }
-            // Handle operators and punctuation
+            // Handle operators and punctuation (CPython 3.12: all operators are OP tokens)
             else
             {
-                // Map string literals to token types
-                var expectedTokenType = MapStringToTokenType(expected);
-                if (expectedTokenType != null && current.Type.ToString() == expectedTokenType)
+                // Check if token is OP type with matching value
+                if (current.Type.ToString() == "OP" && current.Value == expected)
                 {
                     Advance();
                     return expected;
@@ -592,7 +614,17 @@ namespace SharpPy.PegGenerator.Interpreter
         private object? ParseAction(string action, Dictionary<string, object?> variables, List<object?> results)
         {
             // Handle common action patterns
-            if (action.Contains("_PyAST_Assign"))
+            if (action.Contains("_PyPegen_set_expr_context"))
+            {
+                // Expression context setting: _PyPegen_set_expr_context(p, a, Store)
+                // Just return the variable 'a' as this is primarily for context setting
+                if (variables.ContainsKey("a"))
+                {
+                    return variables["a"];
+                }
+                return results.FirstOrDefault();
+            }
+            else if (action.Contains("_PyAST_Assign"))
             {
                 // Assignment: a[asdl_expr_seq*]=(z=star_targets '=' { z })+ b=(yield_expr | star_expressions)
                 return new SimpleStmt
@@ -696,62 +728,5 @@ namespace SharpPy.PegGenerator.Interpreter
         /// <summary>
         /// Map string literals to token types
         /// </summary>
-        private string? MapStringToTokenType(string literal)
-        {
-            return literal switch
-            {
-                ":" => "COLON",
-                "=" => "EQUAL",
-                "(" => "LPAR",
-                ")" => "RPAR",
-                "[" => "LSQB",
-                "]" => "RSQB",
-                "{" => "LBRACE",
-                "}" => "RBRACE",
-                "," => "COMMA",
-                ";" => "SEMI",
-                "+" => "PLUS",
-                "-" => "MINUS",
-                "*" => "STAR",
-                "/" => "SLASH",
-                "%" => "PERCENT",
-                "&" => "AMPER",
-                "|" => "VBAR",
-                "^" => "CIRCUMFLEX",
-                "~" => "TILDE",
-                "<" => "LESS",
-                ">" => "GREATER",
-                "." => "DOT",
-                "==" => "EQEQUAL",
-                "!=" => "NOTEQUAL",
-                "<=" => "LESSEQUAL",
-                ">=" => "GREATEREQUAL",
-                "<<" => "LEFTSHIFT",
-                ">>" => "RIGHTSHIFT",
-                "**" => "DOUBLESTAR",
-                "//" => "DOUBLESLASH",
-                "+=" => "PLUSEQUAL",
-                "-=" => "MINEQUAL",
-                "*=" => "STAREQUAL",
-                "/=" => "SLASHEQUAL",
-                "%=" => "PERCENTEQUAL",
-                "&=" => "AMPEREQUAL",
-                "|=" => "VBAREQUAL",
-                "^=" => "CIRCUMFLEXEQUAL",
-                "<<=" => "LEFTSHIFTEQUAL",
-                ">>=" => "RIGHTSHIFTEQUAL",
-                "**=" => "DOUBLESTAREQUAL",
-                "//=" => "DOUBLESLASHEQUAL",
-                "@" => "AT",
-                "@=" => "ATEQUAL",
-                "->" => "RARROW",
-                "..." => "ELLIPSIS",
-                ":=" => "COLONEQUAL",
-                "!" => "EXCLAMATION",
-                "NEWLINE" => "NEWLINE",
-                "ENDMARKER" => "ENDMARKER",
-                _ => null
-            };
-        }
     }
 }
