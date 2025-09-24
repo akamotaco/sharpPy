@@ -2550,17 +2550,27 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Dedent();
             WriteLine("}");
             WriteLine();
+            WriteLine("var initialPos = _parser._position;");
             WriteLine("var stmt = ParseStmt();");
             WriteLine("Console.WriteLine($\"[DEBUG] ParseStmt returned: {(stmt != null ? stmt.GetType().Name : \"null\")}\");");
             WriteLine("if (stmt != null)");
             WriteLine("{");
             Indent();
             WriteLine("statements.Add(stmt);");
+            WriteLine("// Ensure position advanced after successful parsing");
+            WriteLine("if (_parser._position == initialPos)");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] Warning: ParseStmt succeeded but position not advanced, forcing advance\");");
+            WriteLine("_parser._position++;");
+            Dedent();
+            WriteLine("}");
             Dedent();
             WriteLine("}");
             WriteLine("else");
             WriteLine("{");
             Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseStmt failed, advancing position to prevent infinite loop\");");
             WriteLine("_parser._position++; // Skip unknown token");
             Dedent();
             WriteLine("}");
@@ -2676,6 +2686,27 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("private object ParseStmt()");
             WriteLine("{");
             Indent();
+            WriteLine("// Check for compound statements first (if, while, for, etc.)");
+            WriteLine("if (_parser._position < _tokens.Count)");
+            WriteLine("{");
+            Indent();
+            WriteLine("var token = _tokens[_parser._position];");
+            WriteLine("if (token.Type.ToString() == \"NAME\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("var tokenValue = token.Value?.ToString();");
+            WriteLine("if (tokenValue == \"if\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("var ifStmt = _parser.ParseIfStatement();");
+            WriteLine("if (ifStmt != null) return ifStmt;");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
             WriteLine("return ParseSimpleStmt();");
             Dedent();
             WriteLine("}");
@@ -2712,6 +2743,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // Generate sum parser (arithmetic: +, -)
             GenerateSumParser();
 
+            // Generate comparison parser (==, !=, <, >, <=, >=)
+            GenerateComparisonParser();
+
             // Generate main expression parser
             GenerateExpressionParser();
 
@@ -2720,6 +2754,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             // Generate simple expression statement parser
             GenerateExpressionStmtParser();
+
+            // Generate if statement parser
+            GenerateIfStatementParser();
 
             WriteLine("// === End Expression Hierarchy ===");
             WriteLine();
@@ -2950,15 +2987,87 @@ namespace SharpPy.PegGenerator.CodeGenerator
         }
 
         /// <summary>
-        /// Generate expression parser that delegates to sum for arithmetic operations
+        /// Generate comparison parser: comparison op sum | sum
+        /// Handles comparison operations with proper precedence
+        /// </summary>
+        private void GenerateComparisonParser()
+        {
+            WriteLine("// comparison: comparison ('=='|'!='|'<'|'<='|'>'|'>=') sum | sum");
+            WriteLine("private object? ParseComparison()");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseComparison at position {_position}\");");
+            WriteLine();
+
+            // Start with sum (base case)
+            WriteLine("var result = ParseSum();");
+            WriteLine("if (result == null) return null;");
+            WriteLine();
+
+            // Handle comparison operators (non-associative, single comparison only)
+            WriteLine("// Handle single comparison operation");
+            WriteLine("var mark = Mark();");
+            WriteLine();
+
+            // Check for comparison operators
+            WriteLine("string? op = null;");
+            WriteLine("if (CurrentToken?.Type.ToString() == \"OP\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("switch (CurrentToken?.Value)");
+            WriteLine("{");
+            Indent();
+            WriteLine("case \"==\": op = \"==\"; break;");
+            WriteLine("case \"!=\": op = \"!=\"; break;");
+            WriteLine("case \"<\": op = \"<\"; break;");
+            WriteLine("case \"<=\": op = \"<=\"; break;");
+            WriteLine("case \">\": op = \">\"; break;");
+            WriteLine("case \">=\": op = \">=\"; break;");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("if (op != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume operator");
+            WriteLine("var right = ParseSum();");
+            WriteLine("if (right != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("result = new { type = \"compare\", op = op, left = result, right = right };");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseComparison: Created {op} comparison\");");
+            Dedent();
+            WriteLine("}");
+            WriteLine("else");
+            WriteLine("{");
+            Indent();
+            WriteLine("Reset(mark); // backtrack on failure");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseComparison result: {result?.GetType().Name}\");");
+            WriteLine("return result;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
+        /// <summary>
+        /// Generate expression parser that delegates to comparison for operations
         /// </summary>
         private void GenerateExpressionParser()
         {
-            WriteLine("// expression: sum (arithmetic operations with proper precedence)");
+            WriteLine("// expression: comparison (operations with proper precedence)");
             WriteLine("private object? ParseExpression()");
             WriteLine("{");
             Indent();
-            WriteLine("return ParseSum();");
+            WriteLine("return ParseComparison();");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -3142,6 +3251,222 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Dedent();
             WriteLine("}");
             WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
+        /// <summary>
+        /// Generate if statement parser: if expression : block (elif expression : block)* (else : block)?
+        /// </summary>
+        private void GenerateIfStatementParser()
+        {
+            WriteLine("// if_stmt: 'if' expression ':' block ('elif' expression ':' block)* ['else' ':' block]");
+            WriteLine("public object? ParseIfStatement()");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement at position {_position}\");");
+            WriteLine();
+
+            // Check for 'if' keyword
+            WriteLine("if (CurrentToken?.Type.ToString() != \"NAME\" || CurrentToken?.Value != \"if\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Not an if token at position {_position}\");");
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Found 'if' token, advancing\");");
+            WriteLine("Advance(); // consume 'if'");
+            WriteLine();
+
+            // Parse condition
+            WriteLine("// Parse condition expression");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Parsing condition at position {_position}\");");
+            WriteLine("var condition = ParseExpression();");
+            WriteLine("if (condition == null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Missing condition\");");
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Condition parsed successfully\");");
+            WriteLine();
+
+            // Parse ':'
+            WriteLine("// Parse ':'");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Looking for ':' at position {_position}\");");
+            WriteLine("if (CurrentToken?.Type.ToString() != \"OP\" || CurrentToken?.Value != \":\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Missing ':' after condition\");");
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Found ':', advancing\");");
+            WriteLine("Advance(); // consume ':'");
+            WriteLine();
+
+            // Parse if body
+            WriteLine("// Parse if body");
+            WriteLine("// Skip NEWLINE and INDENT if present");
+            WriteLine("while (CurrentToken != null && (CurrentToken.Type.ToString() == \"NEWLINE\" || CurrentToken.Type.ToString() == \"INDENT\"))");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance();");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("var ifBody = new List<object>();");
+            WriteLine("// Parse if body - simplified to single statement");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: About to parse if body at position {_position}\");");
+            WriteLine("var bodyStmt = ParseExpressionStmt();");
+            WriteLine("if (bodyStmt != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("ifBody.Add(bodyStmt);");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: If body parsed successfully\");");
+            Dedent();
+            WriteLine("}");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: If body parsing complete, at position {_position}\");");
+            WriteLine();
+
+            // Skip DEDENT if present
+            WriteLine("// Skip DEDENT if present");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Checking for DEDENT at position {_position}, token: {CurrentToken?.Type}:{CurrentToken?.Value}\");");
+            WriteLine("if (CurrentToken?.Type.ToString() == \"DEDENT\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Found DEDENT, advancing\");");
+            WriteLine("Advance();");
+            Dedent();
+            WriteLine("}");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Post-DEDENT position {_position}, token: {CurrentToken?.Type}:{CurrentToken?.Value}\");");
+            WriteLine();
+
+            // Parse elif clauses
+            WriteLine("// Parse elif clauses");
+            WriteLine("// Skip any remaining NEWLINE/INDENT/DEDENT tokens after if body");
+            WriteLine("while (CurrentToken != null && (CurrentToken.Type.ToString() == \"NEWLINE\" || CurrentToken.Type.ToString() == \"INDENT\" || CurrentToken.Type.ToString() == \"DEDENT\"))");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance();");
+            Dedent();
+            WriteLine("}");
+            WriteLine("Console.WriteLine($\"[DEBUG] Looking for elif at position {_position}, current token: {CurrentToken?.Type}:{CurrentToken?.Value}\");");
+            WriteLine("var elifs = new List<object>();");
+            WriteLine("while (CurrentToken?.Type.ToString() == \"NAME\" && CurrentToken?.Value == \"elif\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] Found elif at position {_position}\");");
+            Dedent();
+            Indent();
+            WriteLine("Advance(); // consume 'elif'");
+            WriteLine();
+            WriteLine("var elifCondition = ParseExpression();");
+            WriteLine("if (elifCondition == null) break;");
+            WriteLine();
+            WriteLine("if (CurrentToken?.Type.ToString() != \"OP\" || CurrentToken?.Value != \":\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Missing ':' after elif condition\");");
+            WriteLine("break;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("Advance(); // consume ':'");
+            WriteLine();
+            WriteLine("// Skip NEWLINE and INDENT");
+            WriteLine("while (CurrentToken != null && (CurrentToken.Type.ToString() == \"NEWLINE\" || CurrentToken.Type.ToString() == \"INDENT\"))");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance();");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("var elifBody = new List<object>();");
+            WriteLine("var elifStmt = ParseExpressionStmt();");
+            WriteLine("if (elifStmt != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("elifBody.Add(elifStmt);");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// Skip DEDENT and any following NEWLINE/DEDENT tokens before next elif");
+            WriteLine("while (CurrentToken != null && (CurrentToken.Type.ToString() == \"DEDENT\" || CurrentToken.Type.ToString() == \"NEWLINE\"))");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance();");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("elifs.Add(new { condition = elifCondition, body = elifBody });");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            // Parse else clause if present
+            WriteLine("// Parse optional else clause");
+            WriteLine("// Skip any remaining NEWLINE/INDENT/DEDENT tokens before else");
+            WriteLine("while (CurrentToken != null && (CurrentToken.Type.ToString() == \"NEWLINE\" || CurrentToken.Type.ToString() == \"INDENT\" || CurrentToken.Type.ToString() == \"DEDENT\"))");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance();");
+            Dedent();
+            WriteLine("}");
+            WriteLine("Console.WriteLine($\"[DEBUG] Looking for else at position {_position}, current token: {CurrentToken?.Type}:{CurrentToken?.Value}\");");
+            WriteLine("List<object>? elseBody = null;");
+            WriteLine("if (CurrentToken?.Type.ToString() == \"NAME\" && CurrentToken?.Value == \"else\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume 'else'");
+            WriteLine();
+            WriteLine("// Parse ':'");
+            WriteLine("if (CurrentToken?.Type.ToString() == \"OP\" && CurrentToken?.Value == \":\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume ':'");
+            WriteLine();
+            WriteLine("// Skip NEWLINE and INDENT if present");
+            WriteLine("while (CurrentToken != null && (CurrentToken.Type.ToString() == \"NEWLINE\" || CurrentToken.Type.ToString() == \"INDENT\"))");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance();");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("elseBody = new List<object>();");
+            WriteLine("var elseStmt = ParseExpressionStmt();");
+            WriteLine("if (elseStmt != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("elseBody.Add(elseStmt);");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// Skip DEDENT");
+            WriteLine("if (CurrentToken?.Type.ToString() == \"DEDENT\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance();");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            // Create complete if statement
+            WriteLine("var ifStmt = new GeneratedStmt();");
+            WriteLine("ifStmt.StatementType = \"if\";");
+            WriteLine("ifStmt.Value = new { condition = condition, body = ifBody, elifs = elifs, elseBody = elseBody };");
+            WriteLine("Console.WriteLine($\"[DEBUG] Created complete if statement with {elifs.Count} elif clauses, hasElse: {elseBody != null}\");");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement finished at position {_position}, current token: {CurrentToken?.Type}:{CurrentToken?.Value}\");");
+            WriteLine("return ifStmt;");
+
             Dedent();
             WriteLine("}");
             WriteLine();

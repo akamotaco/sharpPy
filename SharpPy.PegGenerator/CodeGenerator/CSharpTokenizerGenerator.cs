@@ -242,6 +242,15 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
 
+            WriteLine("// Process indentation at start of line before any other tokens");
+            WriteLine("if (_atLineStart)");
+            WriteLine("{");
+            Indent();
+            WriteLine("HandleIndentation();");
+            WriteLine("ProcessPendingTokens();");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
 
             WriteLine("if (char.IsWhiteSpace(CurrentChar))");
             WriteLine("{");
@@ -310,7 +319,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("_indentStack.Pop();");
-            WriteLine("_pendingTokens.Enqueue(new GeneratedTokenInfo(GeneratedTokenType.DEDENT, \"\", _line + 1, 0));");
+            WriteLine("AddToken(GeneratedTokenType.DEDENT, \"\", _line + 1, 0);");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -434,9 +443,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("ProcessPendingTokens();");
             WriteLine("_currentLineHasRealTokens = false; // Reset for new line");
             WriteLine("Advance();");
-            WriteLine("// Handle indentation for the new line");
-            WriteLine("HandleIndentation();");
-            WriteLine("break; // Stop processing whitespace after handling newline and indentation");
+            WriteLine("// Indentation will be handled at the start of the main loop");
+            WriteLine("break; // Stop processing whitespace after handling newline");
             Dedent();
             WriteLine("}");
             WriteLine("Advance();");
@@ -1224,7 +1232,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("_indentStack.Pop();");
-            WriteLine("_pendingTokens.Enqueue(new GeneratedTokenInfo(GeneratedTokenType.DEDENT, \"\", _line + 1, 0));");
+            WriteLine("// Add DEDENT immediately for CPython compatibility (not in pending queue)");
+            WriteLine("AddToken(GeneratedTokenType.DEDENT, \"\", _line, 0);");
             Dedent();
             WriteLine("}");
             WriteLine();

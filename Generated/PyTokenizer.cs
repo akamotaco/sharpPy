@@ -250,6 +250,13 @@ namespace SharpPy.Generated
 
             while (_position < _source.Length)
             {
+                // Process indentation at start of line before any other tokens
+                if (_atLineStart)
+                {
+                    HandleIndentation();
+                    ProcessPendingTokens();
+                }
+
                 if (char.IsWhiteSpace(CurrentChar))
                 {
                     HandleWhitespace();
@@ -295,7 +302,7 @@ namespace SharpPy.Generated
             while (_indentStack.Count > 1)
             {
                 _indentStack.Pop();
-                _pendingTokens.Enqueue(new GeneratedTokenInfo(GeneratedTokenType.DEDENT, "", _line + 1, 0));
+                AddToken(GeneratedTokenType.DEDENT, "", _line + 1, 0);
             }
 
             // Process any pending tokens at EOF
@@ -379,9 +386,8 @@ namespace SharpPy.Generated
                     ProcessPendingTokens();
                     _currentLineHasRealTokens = false; // Reset for new line
                     Advance();
-                    // Handle indentation for the new line
-                    HandleIndentation();
-                    break; // Stop processing whitespace after handling newline and indentation
+                    // Indentation will be handled at the start of the main loop
+                    break; // Stop processing whitespace after handling newline
                 }
                 Advance();
             }
@@ -967,7 +973,8 @@ namespace SharpPy.Generated
                 while (_indentStack.Count > 1 && _indentStack.Peek() > indent)
                 {
                     _indentStack.Pop();
-                    _pendingTokens.Enqueue(new GeneratedTokenInfo(GeneratedTokenType.DEDENT, "", _line + 1, 0));
+                    // Add DEDENT immediately for CPython compatibility (not in pending queue)
+                    AddToken(GeneratedTokenType.DEDENT, "", _line, 0);
                 }
 
                 // Check for indentation error

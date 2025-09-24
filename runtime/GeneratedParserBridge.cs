@@ -322,25 +322,26 @@ namespace SharpPy
                     if (stmt.Value != null)
                     {
                         var ifData = stmt.Value as dynamic;
-                        var condition = ifData?.Condition as string;
-                        var body = ifData?.Body as string;
 
-                        if (condition == "True" && body == "pass")
+                        // Convert condition expression
+                        Expression conditionExpr = ConvertAnyExpression(ifData.condition);
+
+                        // Convert body statements
+                        var bodyStmts = new List<Statement>();
+                        if (ifData.body != null)
                         {
-                            // Create condition expression (for now, just handle "True")
-                            var conditionExpr = new ConstantExpression(PyBool.True);
-
-                            // Create body statements (for now, just handle "pass")
-                            var bodyStmts = new List<Statement>
+                            foreach (var bodyStmt in ifData.body)
                             {
-                                new ExpressionStatement(new ConstantExpression(PyNone.Instance))
-                            };
-
-                            // Create empty else clause
-                            var elseStmts = new List<Statement>();
-
-                            return new IfStatement(conditionExpr, bodyStmts, elseStmts);
+                                var convertedStmt = ConvertStatement(bodyStmt, insideLoop, insideFunction);
+                                if (convertedStmt != null)
+                                    bodyStmts.Add(convertedStmt);
+                            }
                         }
+
+                        // For now, create empty else clause (TODO: handle elif/else)
+                        var elseStmts = new List<Statement>();
+
+                        return new IfStatement(conditionExpr, bodyStmts, elseStmts);
                     }
                     return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
@@ -592,6 +593,26 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Convert comparison operation from parser to SharpPy comparison expression
+        /// </summary>
+        private static Expression ConvertComparisonOperation(dynamic compareOp)
+        {
+            // Extract operator and operands
+            string op = compareOp.op.ToString();
+            dynamic left = compareOp.left;
+            dynamic right = compareOp.right;
+
+            // Convert left operand
+            Expression leftExpr = ConvertAnyExpression(left);
+
+            // Convert right operand
+            Expression rightExpr = ConvertAnyExpression(right);
+
+            // CompareExpression takes string operator directly
+            return new CompareExpression(leftExpr, op, rightExpr);
+        }
+
+        /// <summary>
         /// Convert any dynamic expression object to Expression
         /// </summary>
         private static Expression ConvertAnyExpression(dynamic expr)
@@ -611,6 +632,8 @@ namespace SharpPy
                 "string" => new ConstantExpression(new PyString(expr.value.ToString().Trim('"'))),
 
                 "binop" => ConvertBinaryOperation(expr),
+
+                "compare" => ConvertComparisonOperation(expr),
 
                 _ => throw new NotSupportedException($"Unsupported expression type: {type}")
             };
