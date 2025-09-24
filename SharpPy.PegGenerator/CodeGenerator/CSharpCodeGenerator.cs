@@ -448,7 +448,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private void GenerateParserFields()
         {
             WriteLine("private readonly List<GeneratedTokenInfo> _tokens;");
-            WriteLine("private int _position;");
+            WriteLine("internal int _position;");
             WriteLine("private readonly Dictionary<(int, string), object?> _memoCache = new();");
             WriteLine("private readonly string _filename;");
             WriteLine("private readonly EmbeddedPegInterpreter _interpreter;");
@@ -467,7 +467,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("// Initialize embedded PEG interpreter");
             WriteLine("var grammar = CreateEmbeddedGrammar();");
             WriteLine("var tokenWrappers = tokens.Select(t => (IEmbeddedTokenInfo)new EmbeddedTokenInfoAdapter(t)).ToList();");
-            WriteLine("_interpreter = new EmbeddedPegInterpreter(grammar, tokenWrappers);");
+            WriteLine("_interpreter = new EmbeddedPegInterpreter(grammar, tokenWrappers, this);");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -477,6 +477,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
         {
             // Generate helper methods
             GenerateHelperMethods();
+
+            // Generate expression hierarchy at main parser level
+            GenerateExpressionHierarchy();
 
             // Generate embedded types and interpreter
             GenerateEmbeddedTypes();
@@ -2474,14 +2477,14 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
             WriteLine("private readonly EmbeddedGrammar _grammar;");
             WriteLine("private readonly List<IEmbeddedTokenInfo> _tokens;");
-            WriteLine("private int _position;");
+            WriteLine("private readonly GeneratedPyParser _parser;");
             WriteLine();
-            WriteLine("public EmbeddedPegInterpreter(EmbeddedGrammar grammar, List<IEmbeddedTokenInfo> tokens)");
+            WriteLine("public EmbeddedPegInterpreter(EmbeddedGrammar grammar, List<IEmbeddedTokenInfo> tokens, GeneratedPyParser parser)");
             WriteLine("{");
             Indent();
             WriteLine("_grammar = grammar;");
             WriteLine("_tokens = tokens;");
-            WriteLine("_position = 0;");
+            WriteLine("_parser = parser;");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -2511,6 +2514,14 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
             WriteLine("return ParseStmt();");
             Dedent();
+            WriteLine("case \"expression_stmt\":");
+            Indent();
+            WriteLine("return _parser.ParseExpressionStmt();");
+            Dedent();
+            WriteLine("case \"call\":");
+            Indent();
+            WriteLine("return _parser.ParseExpressionStmt();");
+            Dedent();
             WriteLine("default:");
             Indent();
             WriteLine("return null;");
@@ -2524,20 +2535,23 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("// Parse: statements ENDMARKER");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseFile starting: {_parser._position} / {_tokens.Count}\");");
             WriteLine("var statements = new List<object>();");
-            WriteLine("while (_position < _tokens.Count && _tokens[_position].Type.ToString() != \"ENDMARKER\")");
+            WriteLine("while (_parser._position < _tokens.Count && _tokens[_parser._position].Type.ToString() != \"ENDMARKER\")");
             WriteLine("{");
             Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseFile loop: position={_parser._position}, token={_tokens[_parser._position].Type}:{_tokens[_parser._position].Value}\");");
             WriteLine("// Skip NEWLINE tokens");
-            WriteLine("if (_tokens[_position].Type.ToString() == \"NEWLINE\")");
+            WriteLine("if (_tokens[_parser._position].Type.ToString() == \"NEWLINE\")");
             WriteLine("{");
             Indent();
-            WriteLine("_position++;");
+            WriteLine("_parser._position++;");
             WriteLine("continue;");
             Dedent();
             WriteLine("}");
             WriteLine();
             WriteLine("var stmt = ParseStmt();");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseStmt returned: {(stmt != null ? stmt.GetType().Name : \"null\")}\");");
             WriteLine("if (stmt != null)");
             WriteLine("{");
             Indent();
@@ -2547,12 +2561,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("else");
             WriteLine("{");
             Indent();
-            WriteLine("_position++; // Skip unknown token");
+            WriteLine("_parser._position++; // Skip unknown token");
             Dedent();
             WriteLine("}");
             Dedent();
             WriteLine("}");
             WriteLine();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseFile collected {statements.Count} statements\");");
             WriteLine("var module = new GeneratedModule();");
             WriteLine("module.Body = new GeneratedStmtSeq();");
             WriteLine("foreach (var stmt in statements)");
@@ -2561,7 +2576,14 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (stmt is GeneratedStmt generatedStmt)");
             WriteLine("{");
             Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] Adding statement: {generatedStmt.StatementType}\");");
             WriteLine("module.Body.Add(generatedStmt);");
+            Dedent();
+            WriteLine("}");
+            WriteLine("else");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] Skipping non-GeneratedStmt: {stmt?.GetType().Name}\");");
             Dedent();
             WriteLine("}");
             Dedent();
@@ -2574,22 +2596,41 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("// Parse: NAME '=' expr");
-            WriteLine("if (_position >= _tokens.Count) return null;");
+            WriteLine("var startPos = _parser._position;");
+            WriteLine("if (_parser._position >= _tokens.Count) return null;");
             WriteLine();
             WriteLine("// Check for NAME token");
-            WriteLine("var nameToken = _tokens[_position];");
+            WriteLine("var nameToken = _tokens[_parser._position];");
             WriteLine("if (nameToken.Type.ToString() != \"NAME\") return null;");
-            WriteLine("_position++;");
+            WriteLine("_parser._position++;");
             WriteLine();
             WriteLine("// Check for '=' operator");
-            WriteLine("if (_position >= _tokens.Count) return null;");
-            WriteLine("var opToken = _tokens[_position];");
-            WriteLine("if (opToken.Type.ToString() != \"OP\" || opToken.Value != \"=\") return null;");
-            WriteLine("_position++;");
+            WriteLine("if (_parser._position >= _tokens.Count)");
+            WriteLine("{");
+            Indent();
+            WriteLine("_parser._position = startPos; // Backtrack on failure");
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("var opToken = _tokens[_parser._position];");
+            WriteLine("if (opToken.Type.ToString() != \"OP\" || opToken.Value != \"=\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("_parser._position = startPos; // Backtrack on failure");
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("_parser._position++;");
             WriteLine();
             WriteLine("// Parse expression");
             WriteLine("var expr = ParseExpr();");
-            WriteLine("if (expr == null) return null;");
+            WriteLine("if (expr == null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("_parser._position = startPos; // Backtrack on failure");
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
             WriteLine();
             WriteLine("var stmt = new GeneratedStmt();");
             WriteLine("stmt.StatementType = \"assignment\";");
@@ -2602,13 +2643,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("// Parse: NUMBER | NAME");
-            WriteLine("if (_position >= _tokens.Count) return null;");
+            WriteLine("if (_parser._position >= _tokens.Count) return null;");
             WriteLine();
-            WriteLine("var token = _tokens[_position];");
+            WriteLine("var token = _tokens[_parser._position];");
             WriteLine("if (token.Type.ToString() == \"NUMBER\" || token.Type.ToString() == \"NAME\")");
             WriteLine("{");
             Indent();
-            WriteLine("_position++;");
+            WriteLine("_parser._position++;");
             WriteLine("return token.Value;");
             Dedent();
             WriteLine("}");
@@ -2620,7 +2661,15 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("private object ParseSimpleStmt()");
             WriteLine("{");
             Indent();
-            WriteLine("return ParseAssignment();");
+            WriteLine("// Try assignment first");
+            WriteLine("var assignment = ParseAssignment();");
+            WriteLine("if (assignment != null) return assignment;");
+            WriteLine("");
+            WriteLine("// Try expression statement (function calls, etc.)");
+            WriteLine("var expressionStmt = _parser.ParseExpressionStmt();");
+            WriteLine("if (expressionStmt != null) return expressionStmt;");
+            WriteLine("");
+            WriteLine("return null;");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -2630,9 +2679,476 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("return ParseSimpleStmt();");
             Dedent();
             WriteLine("}");
+            WriteLine();
+
+            // Close the EmbeddedPegInterpreter class
             Dedent();
             WriteLine("}");
             WriteLine();
+
+            // Generate CreateEmbeddedGrammar method for the main parser class
+            GenerateEmbeddedGrammar();
+        }
+
+        /// <summary>
+        /// Generates proper PEG expression hierarchy with left recursion support
+        /// Following python.gram structure: atom → primary → ... → expression
+        /// </summary>
+        private void GenerateExpressionHierarchy()
+        {
+            WriteLine();
+            WriteLine("// === PEG Expression Hierarchy with Left Recursion Support ===");
+            WriteLine();
+
+            // Generate atom parser (base level)
+            GenerateAtomParser();
+
+            // Generate primary parser with left recursion
+            GeneratePrimaryParser();
+
+            // Generate term parser (multiplication/division: *, /)
+            GenerateTermParser();
+
+            // Generate sum parser (arithmetic: +, -)
+            GenerateSumParser();
+
+            // Generate main expression parser
+            GenerateExpressionParser();
+
+            // Generate star_expressions parser (for statement expressions)
+            GenerateStarExpressionsParser();
+
+            // Generate simple expression statement parser
+            GenerateExpressionStmtParser();
+
+            WriteLine("// === End Expression Hierarchy ===");
+            WriteLine();
+        }
+
+        /// <summary>
+        /// Generate atom parser: NAME | NUMBER | STRING | '(' expression ')'
+        /// </summary>
+        private void GenerateAtomParser()
+        {
+            WriteLine("// atom: NAME | NUMBER | STRING | '(' expression ')'");
+            WriteLine("private object? ParseAtom()");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseAtom at position {_position}: {CurrentToken?.Type}={CurrentToken?.Value}\");");
+            WriteLine();
+            WriteLine("if (CurrentToken == null) return null;");
+            WriteLine();
+
+            WriteLine("// NAME");
+            WriteLine("if (CurrentToken.Type.ToString() == \"NAME\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("var name = CurrentToken.Value;");
+            WriteLine("Advance();");
+            WriteLine("return new { type = \"name\", value = name };");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// NUMBER");
+            WriteLine("if (CurrentToken.Type.ToString() == \"NUMBER\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("var number = CurrentToken.Value;");
+            WriteLine("Advance();");
+            WriteLine("return new { type = \"number\", value = number };");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// STRING");
+            WriteLine("if (CurrentToken.Type.ToString() == \"STRING\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("var str = CurrentToken.Value;");
+            WriteLine("Advance();");
+            WriteLine("return new { type = \"string\", value = str };");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// '(' expression ')'");
+            WriteLine("if (CurrentToken.Type.ToString() == \"OP\" && CurrentToken.Value == \"(\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume '('");
+            WriteLine("var expr = ParseExpression();");
+            WriteLine("if (expr != null && CurrentToken?.Type.ToString() == \"OP\" && CurrentToken?.Value == \")\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume ')'");
+            WriteLine("return expr;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("return null; // Malformed parenthesized expression");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
+        /// <summary>
+        /// Generate primary parser with left recursion: primary '.' NAME | primary '(' args ')' | atom
+        /// Uses iterative expansion to handle left recursion properly
+        /// </summary>
+        private void GeneratePrimaryParser()
+        {
+            WriteLine("// primary: primary '.' NAME | primary '(' [arguments] ')' | atom");
+            WriteLine("// Implemented with left recursion support");
+            WriteLine("private object? ParsePrimary()");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParsePrimary at position {_position}\");");
+            WriteLine();
+
+            WriteLine("// Check memoization for left recursion");
+            WriteLine("var memoKey = \"primary\";");
+            WriteLine("var memoResult = GetMemo<object>(memoKey);");
+            WriteLine("if (memoResult != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] Primary: Using memoized result\");");
+            WriteLine("return memoResult;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// Start with atom (base case)");
+            WriteLine("var result = ParseAtom();");
+            WriteLine("if (result == null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("SetMemo<object>(memoKey, null);");
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// Iteratively expand with left-recursive rules");
+            WriteLine("bool expanded = true;");
+            WriteLine("while (expanded)");
+            WriteLine("{");
+            Indent();
+            WriteLine("expanded = false;");
+            WriteLine();
+
+            WriteLine("// Try: primary '(' [arguments] ')' (function call)");
+            WriteLine("if (CurrentToken?.Type.ToString() == \"OP\" && CurrentToken?.Value == \"(\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("var mark = Mark();");
+            WriteLine("Advance(); // consume '('");
+            WriteLine();
+            WriteLine("var args = new List<object>();");
+            WriteLine("// Parse arguments (simplified)");
+            WriteLine("while (CurrentToken != null && !(CurrentToken.Type.ToString() == \"OP\" && CurrentToken.Value == \")\"))");
+            WriteLine("{");
+            Indent();
+            WriteLine("var arg = ParseExpression();");
+            WriteLine("if (arg != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("args.Add(arg);");
+            WriteLine("// Skip comma if present");
+            WriteLine("if (CurrentToken?.Type.ToString() == \"OP\" && CurrentToken?.Value == \",\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance();");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine("else break;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("if (CurrentToken?.Type.ToString() == \"OP\" && CurrentToken?.Value == \")\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume ')'");
+            WriteLine("result = new { type = \"call\", func = result, args = args };");
+            WriteLine("expanded = true;");
+            WriteLine("Console.WriteLine($\"[DEBUG] Primary: Created function call\");");
+            Dedent();
+            WriteLine("}");
+            WriteLine("else");
+            WriteLine("{");
+            Indent();
+            WriteLine("Reset(mark); // backtrack on failure");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// Try: primary '.' NAME (attribute access)");
+            WriteLine("if (!expanded && CurrentToken?.Type.ToString() == \"OP\" && CurrentToken?.Value == \".\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("var mark = Mark();");
+            WriteLine("Advance(); // consume '.'");
+            WriteLine("if (CurrentToken?.Type.ToString() == \"NAME\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("var attr = CurrentToken.Value;");
+            WriteLine("Advance();");
+            WriteLine("result = new { type = \"attribute\", value = result, attr = attr };");
+            WriteLine("expanded = true;");
+            WriteLine("Console.WriteLine($\"[DEBUG] Primary: Created attribute access\");");
+            Dedent();
+            WriteLine("}");
+            WriteLine("else");
+            WriteLine("{");
+            Indent();
+            WriteLine("Reset(mark); // backtrack on failure");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("SetMemo<object>(memoKey, result);");
+            WriteLine("Console.WriteLine($\"[DEBUG] Primary result: {result?.GetType().Name}\");");
+            WriteLine("return result;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
+        /// <summary>
+        /// Generate star_expressions parser: expression (',' expression)* [',']
+        /// This handles expression statements like function calls
+        /// </summary>
+        private void GenerateStarExpressionsParser()
+        {
+            WriteLine("// star_expressions: expression (',' expression)* [',']");
+            WriteLine("private object? ParseStarExpressions()");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseStarExpressions at position {_position}\");");
+            WriteLine();
+            WriteLine("var expr = ParseExpression();");
+            WriteLine("if (expr == null) return null;");
+            WriteLine();
+            WriteLine("// For now, just return single expression");
+            WriteLine("// TODO: Handle multiple expressions separated by commas");
+            WriteLine("return expr;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
+        /// <summary>
+        /// Generate expression parser that delegates to sum for arithmetic operations
+        /// </summary>
+        private void GenerateExpressionParser()
+        {
+            WriteLine("// expression: sum (arithmetic operations with proper precedence)");
+            WriteLine("private object? ParseExpression()");
+            WriteLine("{");
+            Indent();
+            WriteLine("return ParseSum();");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
+        /// <summary>
+        /// Generate term parser: term '*' primary | term '/' primary | primary
+        /// Handles multiplication and division with left recursion
+        /// </summary>
+        private void GenerateTermParser()
+        {
+            WriteLine("// term: term '*' primary | term '/' primary | primary");
+            WriteLine("private object? ParseTerm()");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseTerm at position {_position}\");");
+            WriteLine();
+
+            // Start with primary (base case)
+            WriteLine("var result = ParsePrimary();");
+            WriteLine("if (result == null) return null;");
+            WriteLine();
+
+            // Iteratively handle left recursion for * and /
+            WriteLine("// Handle left recursion iteratively");
+            WriteLine("while (true)");
+            WriteLine("{");
+            Indent();
+            WriteLine("var mark = Mark();");
+            WriteLine();
+
+            // Try: term '*' primary
+            WriteLine("if (CurrentToken?.Type.ToString() == \"OP\" && CurrentToken?.Value == \"*\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume '*'");
+            WriteLine("var right = ParsePrimary();");
+            WriteLine("if (right != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("result = new { type = \"binop\", op = \"*\", left = result, right = right };");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseTerm: Created multiplication\");");
+            WriteLine("continue;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("Reset(mark);");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            // Try: term '/' primary
+            WriteLine("if (CurrentToken?.Type.ToString() == \"OP\" && CurrentToken?.Value == \"/\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume '/'");
+            WriteLine("var right = ParsePrimary();");
+            WriteLine("if (right != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("result = new { type = \"binop\", op = \"/\", left = result, right = right };");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseTerm: Created division\");");
+            WriteLine("continue;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("Reset(mark);");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// No more operations");
+            WriteLine("break;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseTerm result: {result?.GetType().Name}\");");
+            WriteLine("return result;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
+        /// <summary>
+        /// Generate sum parser: sum '+' term | sum '-' term | term
+        /// Handles arithmetic addition and subtraction with left recursion
+        /// </summary>
+        private void GenerateSumParser()
+        {
+            WriteLine("// sum: sum '+' term | sum '-' term | term");
+            WriteLine("private object? ParseSum()");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseSum at position {_position}\");");
+            WriteLine();
+
+            // Start with term (base case)
+            WriteLine("var result = ParseTerm();");
+            WriteLine("if (result == null) return null;");
+            WriteLine();
+
+            // Iteratively handle left recursion for + and -
+            WriteLine("// Handle left recursion iteratively");
+            WriteLine("while (true)");
+            WriteLine("{");
+            Indent();
+            WriteLine("var mark = Mark();");
+            WriteLine();
+
+            // Try: sum '+' term
+            WriteLine("if (CurrentToken?.Type.ToString() == \"OP\" && CurrentToken?.Value == \"+\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume '+'");
+            WriteLine("var right = ParseTerm();");
+            WriteLine("if (right != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("result = new { type = \"binop\", op = \"+\", left = result, right = right };");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseSum: Created addition\");");
+            WriteLine("continue;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("Reset(mark);");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            // Try: sum '-' term
+            WriteLine("if (CurrentToken?.Type.ToString() == \"OP\" && CurrentToken?.Value == \"-\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume '-'");
+            WriteLine("var right = ParseTerm();");
+            WriteLine("if (right != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("result = new { type = \"binop\", op = \"-\", left = result, right = right };");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseSum: Created subtraction\");");
+            WriteLine("continue;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("Reset(mark);");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// No more operations");
+            WriteLine("break;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseSum result: {result?.GetType().Name}\");");
+            WriteLine("return result;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
+
+        /// <summary>
+        /// Generate expression statement parser following PEG grammar
+        /// </summary>
+        private void GenerateExpressionStmtParser()
+        {
+            WriteLine("// Parse expression statement following PEG grammar");
+            WriteLine("public object? ParseExpressionStmt()");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseExpressionStmt at position {_position}\");");
+            WriteLine();
+            WriteLine("var expr = ParseStarExpressions();");
+            WriteLine("if (expr != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("var stmt = new GeneratedStmt();");
+            WriteLine("stmt.StatementType = \"expression\";");
+            WriteLine("stmt.Value = expr;");
+            WriteLine("Console.WriteLine($\"[DEBUG] Created expression statement: {expr}\");");
+            WriteLine("return stmt;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
+        private void GenerateEmbeddedGrammar()
+        {
             WriteLine("private EmbeddedGrammar CreateEmbeddedGrammar()");
             WriteLine("{");
             Indent();

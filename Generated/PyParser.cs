@@ -34,7 +34,7 @@ namespace SharpPy.Generated
     public class GeneratedPyParser
     {
         private readonly List<GeneratedTokenInfo> _tokens;
-        private int _position;
+        internal int _position;
         private readonly Dictionary<(int, string), object?> _memoCache = new();
         private readonly string _filename;
         private readonly EmbeddedPegInterpreter _interpreter;
@@ -48,7 +48,7 @@ namespace SharpPy.Generated
             // Initialize embedded PEG interpreter
             var grammar = CreateEmbeddedGrammar();
             var tokenWrappers = tokens.Select(t => (IEmbeddedTokenInfo)new EmbeddedTokenInfoAdapter(t)).ToList();
-            _interpreter = new EmbeddedPegInterpreter(grammar, tokenWrappers);
+            _interpreter = new EmbeddedPegInterpreter(grammar, tokenWrappers, this);
         }
 
         // Helper methods
@@ -335,6 +335,278 @@ namespace SharpPy.Generated
             return results.FirstOrDefault(r => r != null);
         }
 
+
+        // === PEG Expression Hierarchy with Left Recursion Support ===
+
+        // atom: NAME | NUMBER | STRING | '(' expression ')'
+        private object? ParseAtom()
+        {
+            Console.WriteLine($"[DEBUG] ParseAtom at position {_position}: {CurrentToken?.Type}={CurrentToken?.Value}");
+
+            if (CurrentToken == null) return null;
+
+            // NAME
+            if (CurrentToken.Type.ToString() == "NAME")
+            {
+                var name = CurrentToken.Value;
+                Advance();
+                return new { type = "name", value = name };
+            }
+
+            // NUMBER
+            if (CurrentToken.Type.ToString() == "NUMBER")
+            {
+                var number = CurrentToken.Value;
+                Advance();
+                return new { type = "number", value = number };
+            }
+
+            // STRING
+            if (CurrentToken.Type.ToString() == "STRING")
+            {
+                var str = CurrentToken.Value;
+                Advance();
+                return new { type = "string", value = str };
+            }
+
+            // '(' expression ')'
+            if (CurrentToken.Type.ToString() == "OP" && CurrentToken.Value == "(")
+            {
+                Advance(); // consume '('
+                var expr = ParseExpression();
+                if (expr != null && CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == ")")
+                {
+                    Advance(); // consume ')'
+                    return expr;
+                }
+                return null; // Malformed parenthesized expression
+            }
+
+            return null;
+        }
+
+        // primary: primary '.' NAME | primary '(' [arguments] ')' | atom
+        // Implemented with left recursion support
+        private object? ParsePrimary()
+        {
+            Console.WriteLine($"[DEBUG] ParsePrimary at position {_position}");
+
+            // Check memoization for left recursion
+            var memoKey = "primary";
+            var memoResult = GetMemo<object>(memoKey);
+            if (memoResult != null)
+            {
+                Console.WriteLine($"[DEBUG] Primary: Using memoized result");
+                return memoResult;
+            }
+
+            // Start with atom (base case)
+            var result = ParseAtom();
+            if (result == null)
+            {
+                SetMemo<object>(memoKey, null);
+                return null;
+            }
+
+            // Iteratively expand with left-recursive rules
+            bool expanded = true;
+            while (expanded)
+            {
+                expanded = false;
+
+                // Try: primary '(' [arguments] ')' (function call)
+                if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "(")
+                {
+                    var mark = Mark();
+                    Advance(); // consume '('
+
+                    var args = new List<object>();
+                    // Parse arguments (simplified)
+                    while (CurrentToken != null && !(CurrentToken.Type.ToString() == "OP" && CurrentToken.Value == ")"))
+                    {
+                        var arg = ParseExpression();
+                        if (arg != null)
+                        {
+                            args.Add(arg);
+                            // Skip comma if present
+                            if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == ",")
+                            {
+                                Advance();
+                            }
+                        }
+                        else break;
+                    }
+
+                    if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == ")")
+                    {
+                        Advance(); // consume ')'
+                        result = new { type = "call", func = result, args = args };
+                        expanded = true;
+                        Console.WriteLine($"[DEBUG] Primary: Created function call");
+                    }
+                    else
+                    {
+                        Reset(mark); // backtrack on failure
+                    }
+                }
+
+                // Try: primary '.' NAME (attribute access)
+                if (!expanded && CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == ".")
+                {
+                    var mark = Mark();
+                    Advance(); // consume '.'
+                    if (CurrentToken?.Type.ToString() == "NAME")
+                    {
+                        var attr = CurrentToken.Value;
+                        Advance();
+                        result = new { type = "attribute", value = result, attr = attr };
+                        expanded = true;
+                        Console.WriteLine($"[DEBUG] Primary: Created attribute access");
+                    }
+                    else
+                    {
+                        Reset(mark); // backtrack on failure
+                    }
+                }
+            }
+
+            SetMemo<object>(memoKey, result);
+            Console.WriteLine($"[DEBUG] Primary result: {result?.GetType().Name}");
+            return result;
+        }
+
+        // term: term '*' primary | term '/' primary | primary
+        private object? ParseTerm()
+        {
+            Console.WriteLine($"[DEBUG] ParseTerm at position {_position}");
+
+            var result = ParsePrimary();
+            if (result == null) return null;
+
+            // Handle left recursion iteratively
+            while (true)
+            {
+                var mark = Mark();
+
+                if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "*")
+                {
+                    Advance(); // consume '*'
+                    var right = ParsePrimary();
+                    if (right != null)
+                    {
+                        result = new { type = "binop", op = "*", left = result, right = right };
+                        Console.WriteLine($"[DEBUG] ParseTerm: Created multiplication");
+                        continue;
+                    }
+                    Reset(mark);
+                }
+
+                if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "/")
+                {
+                    Advance(); // consume '/'
+                    var right = ParsePrimary();
+                    if (right != null)
+                    {
+                        result = new { type = "binop", op = "/", left = result, right = right };
+                        Console.WriteLine($"[DEBUG] ParseTerm: Created division");
+                        continue;
+                    }
+                    Reset(mark);
+                }
+
+                // No more operations
+                break;
+            }
+
+            Console.WriteLine($"[DEBUG] ParseTerm result: {result?.GetType().Name}");
+            return result;
+        }
+
+        // sum: sum '+' term | sum '-' term | term
+        private object? ParseSum()
+        {
+            Console.WriteLine($"[DEBUG] ParseSum at position {_position}");
+
+            var result = ParseTerm();
+            if (result == null) return null;
+
+            // Handle left recursion iteratively
+            while (true)
+            {
+                var mark = Mark();
+
+                if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "+")
+                {
+                    Advance(); // consume '+'
+                    var right = ParseTerm();
+                    if (right != null)
+                    {
+                        result = new { type = "binop", op = "+", left = result, right = right };
+                        Console.WriteLine($"[DEBUG] ParseSum: Created addition");
+                        continue;
+                    }
+                    Reset(mark);
+                }
+
+                if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "-")
+                {
+                    Advance(); // consume '-'
+                    var right = ParseTerm();
+                    if (right != null)
+                    {
+                        result = new { type = "binop", op = "-", left = result, right = right };
+                        Console.WriteLine($"[DEBUG] ParseSum: Created subtraction");
+                        continue;
+                    }
+                    Reset(mark);
+                }
+
+                // No more operations
+                break;
+            }
+
+            Console.WriteLine($"[DEBUG] ParseSum result: {result?.GetType().Name}");
+            return result;
+        }
+
+        // expression: sum (arithmetic operations with proper precedence)
+        private object? ParseExpression()
+        {
+            return ParseSum();
+        }
+
+        // star_expressions: expression (',' expression)* [',']
+        private object? ParseStarExpressions()
+        {
+            Console.WriteLine($"[DEBUG] ParseStarExpressions at position {_position}");
+
+            var expr = ParseExpression();
+            if (expr == null) return null;
+
+            // For now, just return single expression
+            // TODO: Handle multiple expressions separated by commas
+            return expr;
+        }
+
+        // Parse expression statement following PEG grammar
+        public object? ParseExpressionStmt()
+        {
+            Console.WriteLine($"[DEBUG] ParseExpressionStmt at position {_position}");
+
+            var expr = ParseStarExpressions();
+            if (expr != null)
+            {
+                var stmt = new GeneratedStmt();
+                stmt.StatementType = "expression";
+                stmt.Value = expr;
+                Console.WriteLine($"[DEBUG] Created expression statement: {expr}");
+                return stmt;
+            }
+            return null;
+        }
+
+        // === End Expression Hierarchy ===
+
         // Embedded PEG Interpreter types and classes
         // Note: GeneratedTokenType and GeneratedTokenInfo are defined in tokenizer
 
@@ -377,13 +649,13 @@ namespace SharpPy.Generated
         {
             private readonly EmbeddedGrammar _grammar;
             private readonly List<IEmbeddedTokenInfo> _tokens;
-            private int _position;
+            private readonly GeneratedPyParser _parser;
 
-            public EmbeddedPegInterpreter(EmbeddedGrammar grammar, List<IEmbeddedTokenInfo> tokens)
+            public EmbeddedPegInterpreter(EmbeddedGrammar grammar, List<IEmbeddedTokenInfo> tokens, GeneratedPyParser parser)
             {
                 _grammar = grammar;
                 _tokens = tokens;
-                _position = 0;
+                _parser = parser;
             }
 
             public object ParseRule(string ruleName)
@@ -400,6 +672,10 @@ namespace SharpPy.Generated
                         return ParseSimpleStmt();
                     case "stmt":
                         return ParseStmt();
+                    case "expression_stmt":
+                        return _parser.ParseExpressionStmt();
+                    case "call":
+                        return _parser.ParseExpressionStmt();
                     default:
                         return null;
                 }
@@ -408,34 +684,43 @@ namespace SharpPy.Generated
             private object ParseFile()
             {
                 // Parse: statements ENDMARKER
+                Console.WriteLine($"[DEBUG] ParseFile starting: {_parser._position} / {_tokens.Count}");
                 var statements = new List<object>();
-                while (_position < _tokens.Count && _tokens[_position].Type.ToString() != "ENDMARKER")
+                while (_parser._position < _tokens.Count && _tokens[_parser._position].Type.ToString() != "ENDMARKER")
                 {
+                    Console.WriteLine($"[DEBUG] ParseFile loop: position={_parser._position}, token={_tokens[_parser._position].Type}:{_tokens[_parser._position].Value}");
                     // Skip NEWLINE tokens
-                    if (_tokens[_position].Type.ToString() == "NEWLINE")
+                    if (_tokens[_parser._position].Type.ToString() == "NEWLINE")
                     {
-                        _position++;
+                        _parser._position++;
                         continue;
                     }
 
                     var stmt = ParseStmt();
+                    Console.WriteLine($"[DEBUG] ParseStmt returned: {(stmt != null ? stmt.GetType().Name : "null")}");
                     if (stmt != null)
                     {
                         statements.Add(stmt);
                     }
                     else
                     {
-                        _position++; // Skip unknown token
+                        _parser._position++; // Skip unknown token
                     }
                 }
 
+                Console.WriteLine($"[DEBUG] ParseFile collected {statements.Count} statements");
                 var module = new GeneratedModule();
                 module.Body = new GeneratedStmtSeq();
                 foreach (var stmt in statements)
                 {
                     if (stmt is GeneratedStmt generatedStmt)
                     {
+                        Console.WriteLine($"[DEBUG] Adding statement: {generatedStmt.StatementType}");
                         module.Body.Add(generatedStmt);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[DEBUG] Skipping non-GeneratedStmt: {stmt?.GetType().Name}");
                     }
                 }
                 return module;
@@ -444,22 +729,35 @@ namespace SharpPy.Generated
             private object ParseAssignment()
             {
                 // Parse: NAME '=' expr
-                if (_position >= _tokens.Count) return null;
+                var startPos = _parser._position;
+                if (_parser._position >= _tokens.Count) return null;
 
                 // Check for NAME token
-                var nameToken = _tokens[_position];
+                var nameToken = _tokens[_parser._position];
                 if (nameToken.Type.ToString() != "NAME") return null;
-                _position++;
+                _parser._position++;
 
                 // Check for '=' operator
-                if (_position >= _tokens.Count) return null;
-                var opToken = _tokens[_position];
-                if (opToken.Type.ToString() != "OP" || opToken.Value != "=") return null;
-                _position++;
+                if (_parser._position >= _tokens.Count)
+                {
+                    _parser._position = startPos; // Backtrack on failure
+                    return null;
+                }
+                var opToken = _tokens[_parser._position];
+                if (opToken.Type.ToString() != "OP" || opToken.Value != "=")
+                {
+                    _parser._position = startPos; // Backtrack on failure
+                    return null;
+                }
+                _parser._position++;
 
                 // Parse expression
                 var expr = ParseExpr();
-                if (expr == null) return null;
+                if (expr == null)
+                {
+                    _parser._position = startPos; // Backtrack on failure
+                    return null;
+                }
 
                 var stmt = new GeneratedStmt();
                 stmt.StatementType = "assignment";
@@ -470,12 +768,12 @@ namespace SharpPy.Generated
             private object ParseExpr()
             {
                 // Parse: NUMBER | NAME
-                if (_position >= _tokens.Count) return null;
+                if (_parser._position >= _tokens.Count) return null;
 
-                var token = _tokens[_position];
+                var token = _tokens[_parser._position];
                 if (token.Type.ToString() == "NUMBER" || token.Type.ToString() == "NAME")
                 {
-                    _position++;
+                    _parser._position++;
                     return token.Value;
                 }
 
@@ -484,13 +782,22 @@ namespace SharpPy.Generated
 
             private object ParseSimpleStmt()
             {
-                return ParseAssignment();
+                // Try assignment first
+                var assignment = ParseAssignment();
+                if (assignment != null) return assignment;
+
+                // Try expression statement (function calls, etc.)
+                var expressionStmt = _parser.ParseExpressionStmt();
+                if (expressionStmt != null) return expressionStmt;
+
+                return null;
             }
 
             private object ParseStmt()
             {
                 return ParseSimpleStmt();
             }
+
         }
 
         private EmbeddedGrammar CreateEmbeddedGrammar()

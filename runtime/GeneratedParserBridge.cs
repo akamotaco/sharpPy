@@ -185,8 +185,80 @@ namespace SharpPy
                     // Expression statement (standalone expression)
                     if (stmt.Value != null)
                     {
-                        var value = stmt.Value.ToString();
+                        // Check if it's a function call
+                        var dynamicValue = stmt.Value as dynamic;
+                        if (dynamicValue != null && dynamicValue.func != null)
+                        {
+                            // It's a function call
+                            var funcObject = dynamicValue.func as dynamic;
+                            var functionName = funcObject?.value?.ToString() ?? dynamicValue.func.ToString();
+                            var args = new List<Expression>();
 
+                            // Convert arguments
+                            if (dynamicValue.args != null)
+                            {
+                                foreach (var arg in dynamicValue.args)
+                                {
+                                    dynamic argObj = arg;
+                                    Expression argExpr;
+
+                                    // Parse argument based on type from the parsed AST node
+                                    if (argObj.type == "string")
+                                    {
+                                        // String literal - extract the actual string value
+                                        var stringValue = argObj.value.ToString();
+                                        // Remove quotes if present
+                                        if (stringValue.StartsWith("\"") && stringValue.EndsWith("\""))
+                                        {
+                                            stringValue = stringValue.Substring(1, stringValue.Length - 2);
+                                        }
+                                        argExpr = new ConstantExpression(new PyString(stringValue));
+                                    }
+                                    else if (argObj.type == "number")
+                                    {
+                                        var numStr = argObj.value.ToString();
+                                        if (int.TryParse(numStr, out int intValue))
+                                        {
+                                            argExpr = new ConstantExpression(new PyInt(intValue));
+                                        }
+                                        else if (double.TryParse(numStr, out double doubleValue))
+                                        {
+                                            argExpr = new ConstantExpression(new PyFloat(doubleValue));
+                                        }
+                                        else
+                                        {
+                                            // Fallback to string representation
+                                            argExpr = new NameExpression(numStr);
+                                        }
+                                    }
+                                    else if (argObj.type == "name")
+                                    {
+                                        // Variable reference
+                                        argExpr = new NameExpression(argObj.value.ToString());
+                                    }
+                                    else if (argObj.type == "binop")
+                                    {
+                                        // Binary operation (e.g., 1 + 2)
+                                        argExpr = ConvertBinaryOperation(argObj);
+                                    }
+                                    else
+                                    {
+                                        // Unknown type, treat as variable name
+                                        argExpr = new NameExpression(argObj.ToString());
+                                    }
+
+                                    args.Add(argExpr);
+                                }
+                            }
+
+                            // Create function call expression
+                            var functionExpr = new NameExpression(functionName);
+                            var funcExpr = new CallExpression(functionExpr, args);
+                            return new ExpressionStatement(funcExpr);
+                        }
+
+                        // Fallback for simple expressions
+                        var value = stmt.Value.ToString();
                         if (value != null)
                         {
                             // Create expression (for now, just handle numbers)
@@ -499,6 +571,51 @@ namespace SharpPy
         /// <summary>
         /// Convert Generated expression to SharpPy expression
         /// </summary>
+        /// <summary>
+        /// Convert binary operation from parser to SharpPy binary expression
+        /// </summary>
+        private static Expression ConvertBinaryOperation(dynamic binOp)
+        {
+            // Extract operator and operands
+            string op = binOp.op.ToString();
+            dynamic left = binOp.left;
+            dynamic right = binOp.right;
+
+            // Convert left operand
+            Expression leftExpr = ConvertAnyExpression(left);
+
+            // Convert right operand
+            Expression rightExpr = ConvertAnyExpression(right);
+
+            // BinaryOpExpression takes string operator directly
+            return new BinaryOpExpression(leftExpr, op, rightExpr);
+        }
+
+        /// <summary>
+        /// Convert any dynamic expression object to Expression
+        /// </summary>
+        private static Expression ConvertAnyExpression(dynamic expr)
+        {
+            string type = expr.type.ToString();
+
+            return type switch
+            {
+                "number" => int.TryParse(expr.value.ToString(), out int intVal)
+                    ? new ConstantExpression(new PyInt(intVal))
+                    : double.TryParse(expr.value.ToString(), out double doubleVal)
+                        ? new ConstantExpression(new PyFloat(doubleVal))
+                        : throw new InvalidOperationException($"Invalid number: {expr.value}"),
+
+                "name" => new NameExpression(expr.value.ToString()),
+
+                "string" => new ConstantExpression(new PyString(expr.value.ToString().Trim('"'))),
+
+                "binop" => ConvertBinaryOperation(expr),
+
+                _ => throw new NotSupportedException($"Unsupported expression type: {type}")
+            };
+        }
+
         private static Expression? ConvertExpression(GeneratedExpr expr)
         {
             // TODO: Implement specific expression conversions

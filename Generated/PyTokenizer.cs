@@ -301,8 +301,8 @@ namespace SharpPy.Generated
             // Process any pending tokens at EOF
             ProcessPendingTokens();
 
-            // Skip ENDMARKER for compatibility with CPython generate_tokens()
-            // AddToken(GeneratedTokenType.ENDMARKER, "", _line, _column);
+            // Add ENDMARKER for compatibility with CPython generate_tokens()
+            AddToken(GeneratedTokenType.ENDMARKER, "", _line, _column);
             return _tokens;
         }
 

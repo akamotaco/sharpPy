@@ -317,8 +317,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("// Process any pending tokens at EOF");
             WriteLine("ProcessPendingTokens();");
             WriteLine();
-            WriteLine("// Skip ENDMARKER for compatibility with CPython generate_tokens()");
-            WriteLine("// AddToken(GeneratedTokenType.ENDMARKER, \"\", _line, _column);");
+            WriteLine("// Add ENDMARKER for compatibility with CPython generate_tokens()");
+            WriteLine("AddToken(GeneratedTokenType.ENDMARKER, \"\", _line, _column);");
             WriteLine("return _tokens;");
 
             Dedent();
