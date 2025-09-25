@@ -300,7 +300,7 @@ namespace SharpPy.Generated
         }
 
         // expression: comparison (operations with proper precedence)
-        protected object? ParseExpression()
+        public object? ParseExpression()
         {
             // Check for tokens that should stop expression parsing
             if (CurrentToken == null) return null;

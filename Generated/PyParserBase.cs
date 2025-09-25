@@ -337,7 +337,8 @@ namespace SharpPy.Generated
             if (CurrentToken?.Type.ToString() != "OP" || CurrentToken?.Value != "=") return null;
             Advance(); // consume '='
 
-            var value = (object?)null; // ParseExpression(); // Will use generated method
+            var parser = this as GeneratedPyParser;
+            var value = parser?.ParseExpression();
             if (value == null) return null;
 
             // Return GeneratedStmt for compatibility with interpreter

@@ -3048,7 +3048,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         {
             Console.WriteLine("[DEBUG] GenerateExpressionParser called");
             WriteLine("// expression: comparison (operations with proper precedence)");
-            WriteLine("protected object? ParseExpression()");
+            WriteLine("public object? ParseExpression()");
             WriteLine("{");
             Indent();
             WriteLine("// Check for tokens that should stop expression parsing");

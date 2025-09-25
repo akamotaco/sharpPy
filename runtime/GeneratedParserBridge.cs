@@ -107,9 +107,46 @@ namespace SharpPy
 
             if (module.Body != null)
             {
-                // Convert each statement in the module body
-                foreach (var stmt in module.Body)
+                // Detect and merge chain assignments
+                var moduleStmts = module.Body.ToList();
+                for (int i = 0; i < moduleStmts.Count; i++)
                 {
+                    var stmt = moduleStmts[i];
+
+                    if (stmt.StatementType == "assignment")
+                    {
+                        // Look for chain assignment pattern
+                        var chainGroup = DetectChainAssignment(moduleStmts, i);
+
+#if DEBUG_LOG
+                        Console.WriteLine($"[DEBUG] Chain assignment detection: Index {i}, ChainGroup.Count = {chainGroup.Count}");
+                        for (int j = 0; j < chainGroup.Count; j++)
+                        {
+                            var chainStmt = chainGroup[j];
+                            var data = chainStmt.Value as dynamic;
+                            Console.WriteLine($"[DEBUG]   Chain[{j}]: Target='{data?.Target}', Value='{data?.Value}'");
+                        }
+#endif
+
+                        if (chainGroup.Count > 1)
+                        {
+                            // Convert chain assignment
+                            var chainStmt = ConvertChainAssignment(chainGroup);
+                            if (chainStmt != null)
+                            {
+#if DEBUG_LOG
+                                Console.WriteLine($"[DEBUG] Created ChainedAssignStatement with {((ChainedAssignStatement)chainStmt).Targets.Count} targets");
+#endif
+                                statements.Add(chainStmt);
+                            }
+
+                            // Skip the statements we just processed
+                            i += chainGroup.Count - 1;
+                            continue;
+                        }
+                    }
+
+                    // Regular statement conversion
                     var converted = ConvertStatement(stmt, false, false);
                     if (converted != null)
                         statements.Add(converted);
@@ -117,6 +154,120 @@ namespace SharpPy
             }
 
             return statements;
+        }
+
+        /// <summary>
+        /// Detect chain assignment pattern (a = b = c = value)
+        /// </summary>
+        private static List<GeneratedStmt> DetectChainAssignment(List<GeneratedStmt> statements, int startIndex)
+        {
+            var chainGroup = new List<GeneratedStmt>();
+            var currentIndex = startIndex;
+
+            // Find the end of the chain by looking for assignments where value is not a name
+            while (currentIndex < statements.Count && statements[currentIndex].StatementType == "assignment")
+            {
+                var stmt = statements[currentIndex];
+                var assignmentData = stmt.Value as dynamic;
+                var valueExpr = assignmentData?.Value;
+
+                chainGroup.Add(stmt);
+
+                // If value is not a name reference, this is the end of the chain
+                if (valueExpr != null)
+                {
+                    dynamic valueDynamic = valueExpr;
+                    if (valueDynamic.type?.ToString() != "name")
+                    {
+                        break; // Found the actual value, end of chain
+                    }
+                }
+
+                currentIndex++;
+            }
+
+            return chainGroup;
+        }
+
+        /// <summary>
+        /// Convert chain assignment to a single statement
+        /// </summary>
+        private static Statement? ConvertChainAssignment(List<GeneratedStmt> chainGroup)
+        {
+            if (chainGroup.Count == 0) return null;
+
+            // Find the statement with the actual value (not a name reference)
+            GeneratedStmt? valueStmt = null;
+            var targetNames = new List<string>();
+
+            // First pass: collect all target names
+            for (int i = 0; i < chainGroup.Count; i++)
+            {
+                var stmt = chainGroup[i];
+                var assignmentData = stmt.Value as dynamic;
+                var target = assignmentData?.Target;
+
+                if (target != null)
+                {
+                    dynamic targetDynamic = target;
+                    if (targetDynamic.type?.ToString() == "name")
+                    {
+                        var targetName = targetDynamic.value?.ToString();
+                        if (!string.IsNullOrEmpty(targetName))
+                        {
+                            targetNames.Add(targetName);
+#if DEBUG_LOG
+                            Console.WriteLine($"[DEBUG] Added target name: '{targetName}', Total targets: {targetNames.Count}");
+#endif
+                        }
+                    }
+                }
+            }
+
+            // Second pass: find the actual value (in the last statement)
+            var lastStmt = chainGroup[chainGroup.Count - 1];
+            var lastAssignmentData = lastStmt.Value as dynamic;
+            var lastValue = lastAssignmentData?.Value;
+
+#if DEBUG_LOG
+            Console.WriteLine($"[DEBUG] Last statement value: '{lastValue}', ValueType='{(lastValue != null ? (lastValue as dynamic).type?.ToString() : "null")}'");
+#endif
+
+            if (lastValue != null)
+            {
+                dynamic lastValueDynamic = lastValue;
+                if (lastValueDynamic.type?.ToString() != "name")
+                {
+                    valueStmt = lastStmt;
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] Found value statement at last position");
+#endif
+                }
+            }
+
+#if DEBUG_LOG
+            Console.WriteLine($"[DEBUG] ConvertChainAssignment: ValueStmt={valueStmt != null}, TargetNames.Count={targetNames.Count}");
+            Console.WriteLine($"[DEBUG] Target names: [{string.Join(", ", targetNames)}]");
+#endif
+
+            if (valueStmt != null && targetNames.Count > 1)
+            {
+                // Create a chain assignment statement
+                var assignmentData = valueStmt.Value as dynamic;
+                var valueExpr = assignmentData?.Value;
+
+                if (valueExpr != null)
+                {
+                    Expression convertedValueExpr = ConvertAnyExpression(valueExpr);
+
+                    // Convert target names to NameExpression objects
+                    var targetExpressions = targetNames.Select(name => (Expression)new NameExpression(name)).ToList();
+
+                    return new ChainedAssignStatement(targetExpressions, convertedValueExpr);
+                }
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -155,14 +306,32 @@ namespace SharpPy
                     if (stmt.Value != null)
                     {
                         var assignmentData = stmt.Value as dynamic;
-                        var targetName = assignmentData?.Target as string;
+                        var target = assignmentData?.Target;
                         var valueExpr = assignmentData?.Value;
 
-                        if (targetName != null && valueExpr != null)
+#if DEBUG_LOG
+                        Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Target='{target}', Value='{valueExpr}', ValueType={valueExpr?.GetType()}");
+#endif
+
+                        if (target != null && valueExpr != null)
                         {
-                            // Convert the value expression using ConvertAnyExpression
-                            Expression convertedValueExpr = ConvertAnyExpression(valueExpr);
-                            return new AssignStatement(targetName, convertedValueExpr);
+                            // Extract target name from expression object (e.g., { type = name, value = x })
+                            var targetName = "";
+                            if (target is object targetObj)
+                            {
+                                dynamic targetDynamic = targetObj;
+                                if (targetDynamic.type?.ToString() == "name")
+                                {
+                                    targetName = targetDynamic.value?.ToString() ?? "";
+                                }
+                            }
+
+                            if (!string.IsNullOrEmpty(targetName))
+                            {
+                                // Convert the value expression using ConvertAnyExpression
+                                Expression convertedValueExpr = ConvertAnyExpression(valueExpr);
+                                return new AssignStatement(targetName, convertedValueExpr);
+                            }
                         }
                     }
                     return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
