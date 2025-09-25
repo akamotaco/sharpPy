@@ -156,27 +156,13 @@ namespace SharpPy
                     {
                         var assignmentData = stmt.Value as dynamic;
                         var targetName = assignmentData?.Target as string;
-                        var value = assignmentData?.Value as string;
+                        var valueExpr = assignmentData?.Value;
 
-                        if (targetName != null && value != null)
+                        if (targetName != null && valueExpr != null)
                         {
-                            // Create value expression (for now, just handle numbers)
-                            Expression valueExpr;
-                            if (int.TryParse(value, out int intValue))
-                            {
-                                valueExpr = new ConstantExpression(new PyInt(intValue));
-                            }
-                            else if (double.TryParse(value, out double doubleValue))
-                            {
-                                valueExpr = new ConstantExpression(new PyFloat(doubleValue));
-                            }
-                            else
-                            {
-                                // Default to string
-                                valueExpr = new ConstantExpression(new PyString(value));
-                            }
-
-                            return new AssignStatement(targetName, valueExpr);
+                            // Convert the value expression using ConvertAnyExpression
+                            Expression convertedValueExpr = ConvertAnyExpression(valueExpr);
+                            return new AssignStatement(targetName, convertedValueExpr);
                         }
                     }
                     return new ExpressionStatement(new ConstantExpression(PyNone.Instance));

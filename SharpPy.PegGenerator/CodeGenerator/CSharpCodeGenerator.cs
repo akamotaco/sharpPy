@@ -428,13 +428,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             WriteLine("/// <summary>");
             WriteLine("/// Generated PEG parser for Python 3.12 grammar");
-            WriteLine("/// Complete standalone parser without runtime dependencies");
+            WriteLine("/// Inherits from PyParserBase for common parsing logic");
             WriteLine("/// </summary>");
-            WriteLine("public class GeneratedPyParser");
+            WriteLine("public partial class GeneratedPyParser : PyParserBase<GeneratedModule>");
             WriteLine("{");
             Indent();
 
-            GenerateParserFields();
             GenerateParserConstructor();
             GenerateParserMethods();
 
@@ -445,29 +444,28 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}"); // Close namespace
         }
 
-        private void GenerateParserFields()
-        {
-            WriteLine("private readonly List<GeneratedTokenInfo> _tokens;");
-            WriteLine("internal int _position;");
-            WriteLine("private readonly Dictionary<(int, string), object?> _memoCache = new();");
-            WriteLine("private readonly string _filename;");
-            WriteLine("private readonly EmbeddedPegInterpreter _interpreter;");
-            WriteLine();
-        }
 
         private void GenerateParserConstructor()
         {
+            WriteLine("private readonly EmbeddedPegInterpreter _interpreter;");
+            WriteLine();
             WriteLine("public GeneratedPyParser(List<GeneratedTokenInfo> tokens, string filename = \"<string>\")");
+            WriteLine("    : base(tokens, filename)");
             WriteLine("{");
             Indent();
-            WriteLine("_tokens = tokens ?? throw new ArgumentNullException(nameof(tokens));");
-            WriteLine("_filename = filename;");
-            WriteLine("_position = 0;");
-            WriteLine();
-            WriteLine("// Initialize embedded PEG interpreter");
+            WriteLine("// Initialize embedded PEG interpreter (from base class)");
             WriteLine("var grammar = CreateEmbeddedGrammar();");
             WriteLine("var tokenWrappers = tokens.Select(t => (IEmbeddedTokenInfo)new EmbeddedTokenInfoAdapter(t)).ToList();");
             WriteLine("_interpreter = new EmbeddedPegInterpreter(grammar, tokenWrappers, this);");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// Override abstract Parse method");
+            WriteLine("public override GeneratedModule Parse()");
+            WriteLine("{");
+            Indent();
+            WriteLine("return File();");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -475,14 +473,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
         private void GenerateParserMethods()
         {
-            // Generate helper methods
-            GenerateHelperMethods();
 
             // Generate expression hierarchy at main parser level
             GenerateExpressionHierarchy();
 
-            // Generate embedded types and interpreter
-            GenerateEmbeddedTypes();
+            // Note: EmbeddedPegInterpreter is now in PyParserBase
 
             // Use existing implementation for now
             foreach (var rule in _grammar.Rules)
@@ -1513,12 +1508,61 @@ namespace SharpPy.PegGenerator.CodeGenerator
             var returnType = TranslateCTypeToCS(rule.ReturnType ?? "object?");
             var methodName = ToCSharpMethodName(rule.Name);
 
+            // Skip methods that are already implemented in PyParserBase
+            var methodsInBase = new HashSet<string>
+            {
+                "sum", "term", "primary", "atom", "expression", "comparison", "statements"
+            };
+
+            if (methodsInBase.Contains(rule.Name.ToLower()))
+            {
+                // Generate only a simple delegation to the base class method
+                WriteLine($"// Rule: {rule.Name}");
+                WriteLine($"public {returnType} {methodName}()");
+                WriteLine("{");
+                Indent();
+
+                if (rule.Name == "statements")
+                {
+                    WriteLine("return ParseStatements();");
+                }
+                else if (rule.Name == "comparison")
+                {
+                    WriteLine($"return ({returnType})ParseComparisonTemplate();");
+                }
+                else if (rule.Name == "sum")
+                {
+                    WriteLine($"return ({returnType})ParseSum();");
+                }
+                else if (rule.Name == "term")
+                {
+                    WriteLine($"return ({returnType})ParseTerm();");
+                }
+                else if (rule.Name == "primary")
+                {
+                    WriteLine($"return ({returnType})ParsePrimary();");
+                }
+                else if (rule.Name == "atom")
+                {
+                    WriteLine($"return ({returnType})ParseAtom();");
+                }
+                else if (rule.Name == "expression")
+                {
+                    WriteLine($"return ({returnType})ParseExpression();");
+                }
+
+                Dedent();
+                WriteLine("}");
+                WriteLine();
+                return;
+            }
+
             WriteLine($"// Rule: {rule.Name}");
             WriteLine($"public {returnType} {methodName}()");
             WriteLine("{");
             Indent();
 
-            // Use PegInterpreter for all rules - embedded in generated code
+            // Use PegInterpreter for other rules - embedded in generated code
             WriteLine($"var result = _interpreter.ParseRule(\"{rule.Name}\");");
             // Fix nullable casting issue - use proper casting syntax
             if (returnType.EndsWith("?"))
@@ -2731,23 +2775,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("// === PEG Expression Hierarchy with Left Recursion Support ===");
             WriteLine();
 
-            // Generate atom parser (base level)
-            GenerateAtomParser();
-
-            // Generate primary parser with left recursion
-            GeneratePrimaryParser();
-
-            // Generate term parser (multiplication/division: *, /)
-            GenerateTermParser();
-
-            // Generate sum parser (arithmetic: +, -)
-            GenerateSumParser();
-
-            // Generate comparison parser (==, !=, <, >, <=, >=)
-            GenerateComparisonParser();
-
-            // Generate main expression parser
-            GenerateExpressionParser();
+            // Note: atom, primary, term, sum, comparison, expression parsers are now in PyParserBase
+            // Only generate delegation methods through GenerateRuleMethod
 
             // Generate star_expressions parser (for statement expressions)
             GenerateStarExpressionsParser();
@@ -2996,110 +3025,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("private object? ParseComparison()");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseComparison at position {_position}\");");
-            WriteLine();
-
-            // Start with sum (base case)
-            WriteLine("var left = ParseSum();");
-            WriteLine("if (left == null) return null;");
-            WriteLine();
-
-            // Handle chained comparison operators (x < 5 > 3 support)
-            WriteLine("// Handle chained comparison operations");
-            WriteLine("var ops = new List<string>();");
-            WriteLine("var comparators = new List<object>();");
-            WriteLine();
-
-            // Loop to collect all comparison operations
-            WriteLine("while (true)");
-            WriteLine("{");
-            Indent();
-            WriteLine("var mark = Mark();");
-            WriteLine("string? op = null;");
-            WriteLine();
-
-            // Check for comparison operators
-            WriteLine("if (CurrentToken?.Type.ToString() == \"OP\")");
-            WriteLine("{");
-            Indent();
-            WriteLine("switch (CurrentToken?.Value)");
-            WriteLine("{");
-            Indent();
-            WriteLine("case \"==\": op = \"==\"; break;");
-            WriteLine("case \"!=\": op = \"!=\"; break;");
-            WriteLine("case \"<\": op = \"<\"; break;");
-            WriteLine("case \"<=\": op = \"<=\"; break;");
-            WriteLine("case \">\": op = \">\"; break;");
-            WriteLine("case \">=\": op = \">=\"; break;");
-            WriteLine("case \"in\": op = \"in\"; break;");
-            WriteLine("case \"is\": op = \"is\"; break;");
-            Dedent();
-            WriteLine("}");
-            Dedent();
-            WriteLine("}");
-            WriteLine();
-
-            WriteLine("if (op != null)");
-            WriteLine("{");
-            Indent();
-            WriteLine("Advance(); // consume operator");
-            WriteLine("var right = ParseSum();");
-            WriteLine("if (right != null)");
-            WriteLine("{");
-            Indent();
-            WriteLine("ops.Add(op);");
-            WriteLine("comparators.Add(right);");
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseComparison: Added {op} operator to chain\");");
-            Dedent();
-            WriteLine("}");
-            WriteLine("else");
-            WriteLine("{");
-            Indent();
-            WriteLine("Reset(mark); // backtrack on failure");
-            WriteLine("break;");
-            Dedent();
-            WriteLine("}");
-            Dedent();
-            WriteLine("}");
-            WriteLine("else");
-            WriteLine("{");
-            Indent();
-            WriteLine("Reset(mark); // no more comparison operators");
-            WriteLine("break;");
-            Dedent();
-            WriteLine("}");
-            Dedent();
-            WriteLine("}");
-            WriteLine();
-
-            // Create result based on whether we have comparisons
-            WriteLine("// Create appropriate result");
-            WriteLine("if (ops.Count == 0)");
-            WriteLine("{");
-            Indent();
-            WriteLine("// No comparison operators found, return the original expression");
-            WriteLine("return left;");
-            Dedent();
-            WriteLine("}");
-            WriteLine("else if (ops.Count == 1)");
-            WriteLine("{");
-            Indent();
-            WriteLine("// Single comparison - create simple compare structure");
-            WriteLine("var result = new { type = \"compare\", op = ops[0], left = left, right = comparators[0] };");
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseComparison: Created single {ops[0]} comparison\");");
-            WriteLine("return result;");
-            Dedent();
-            WriteLine("}");
-            WriteLine("else");
-            WriteLine("{");
-            Indent();
-            WriteLine("// Chained comparison - create chained compare structure");
-            WriteLine("var result = new { type = \"chained_compare\", left = left, ops = ops.ToArray(), comparators = comparators.ToArray() };");
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseComparison: Created chained comparison with {ops.Count} operators\");");
-            WriteLine("return result;");
-            Dedent();
-            WriteLine("}");
-            WriteLine();
+            WriteLine("return ParseComparisonTemplate();");
             Dedent();
             WriteLine("}");
             WriteLine();
