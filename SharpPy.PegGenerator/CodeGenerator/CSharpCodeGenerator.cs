@@ -3000,17 +3000,25 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
 
             // Start with sum (base case)
-            WriteLine("var result = ParseSum();");
-            WriteLine("if (result == null) return null;");
+            WriteLine("var left = ParseSum();");
+            WriteLine("if (left == null) return null;");
             WriteLine();
 
-            // Handle comparison operators (non-associative, single comparison only)
-            WriteLine("// Handle single comparison operation");
+            // Handle chained comparison operators (x < 5 > 3 support)
+            WriteLine("// Handle chained comparison operations");
+            WriteLine("var ops = new List<string>();");
+            WriteLine("var comparators = new List<object>();");
+            WriteLine();
+
+            // Loop to collect all comparison operations
+            WriteLine("while (true)");
+            WriteLine("{");
+            Indent();
             WriteLine("var mark = Mark();");
+            WriteLine("string? op = null;");
             WriteLine();
 
             // Check for comparison operators
-            WriteLine("string? op = null;");
             WriteLine("if (CurrentToken?.Type.ToString() == \"OP\")");
             WriteLine("{");
             Indent();
@@ -3023,6 +3031,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("case \"<=\": op = \"<=\"; break;");
             WriteLine("case \">\": op = \">\"; break;");
             WriteLine("case \">=\": op = \">=\"; break;");
+            WriteLine("case \"in\": op = \"in\"; break;");
+            WriteLine("case \"is\": op = \"is\"; break;");
             Dedent();
             WriteLine("}");
             Dedent();
@@ -3037,22 +3047,59 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (right != null)");
             WriteLine("{");
             Indent();
-            WriteLine("result = new { type = \"compare\", op = op, left = result, right = right };");
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseComparison: Created {op} comparison\");");
+            WriteLine("ops.Add(op);");
+            WriteLine("comparators.Add(right);");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseComparison: Added {op} operator to chain\");");
             Dedent();
             WriteLine("}");
             WriteLine("else");
             WriteLine("{");
             Indent();
             WriteLine("Reset(mark); // backtrack on failure");
+            WriteLine("break;");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine("else");
+            WriteLine("{");
+            Indent();
+            WriteLine("Reset(mark); // no more comparison operators");
+            WriteLine("break;");
             Dedent();
             WriteLine("}");
             Dedent();
             WriteLine("}");
             WriteLine();
 
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseComparison result: {result?.GetType().Name}\");");
+            // Create result based on whether we have comparisons
+            WriteLine("// Create appropriate result");
+            WriteLine("if (ops.Count == 0)");
+            WriteLine("{");
+            Indent();
+            WriteLine("// No comparison operators found, return the original expression");
+            WriteLine("return left;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("else if (ops.Count == 1)");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Single comparison - create simple compare structure");
+            WriteLine("var result = new { type = \"compare\", op = ops[0], left = left, right = comparators[0] };");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseComparison: Created single {ops[0]} comparison\");");
             WriteLine("return result;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("else");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Chained comparison - create chained compare structure");
+            WriteLine("var result = new { type = \"chained_compare\", left = left, ops = ops.ToArray(), comparators = comparators.ToArray() };");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseComparison: Created chained comparison with {ops.Count} operators\");");
+            WriteLine("return result;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
             Dedent();
             WriteLine("}");
             WriteLine();

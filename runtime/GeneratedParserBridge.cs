@@ -185,100 +185,10 @@ namespace SharpPy
                     // Expression statement (standalone expression)
                     if (stmt.Value != null)
                     {
-                        // Check if it's a function call
-                        var dynamicValue = stmt.Value as dynamic;
-                        if (dynamicValue != null && dynamicValue.func != null)
-                        {
-                            // It's a function call
-                            var funcObject = dynamicValue.func as dynamic;
-                            var functionName = funcObject?.value?.ToString() ?? dynamicValue.func.ToString();
-                            var args = new List<Expression>();
+                        // Convert any expression using ConvertAnyExpression
+                        var expression = ConvertAnyExpression(stmt.Value);
+                        return new ExpressionStatement(expression);
 
-                            // Convert arguments
-                            if (dynamicValue.args != null)
-                            {
-                                foreach (var arg in dynamicValue.args)
-                                {
-                                    dynamic argObj = arg;
-                                    Expression argExpr;
-
-                                    // Parse argument based on type from the parsed AST node
-                                    if (argObj.type == "string")
-                                    {
-                                        // String literal - extract the actual string value
-                                        var stringValue = argObj.value.ToString();
-                                        // Remove quotes if present
-                                        if (stringValue.StartsWith("\"") && stringValue.EndsWith("\""))
-                                        {
-                                            stringValue = stringValue.Substring(1, stringValue.Length - 2);
-                                        }
-                                        argExpr = new ConstantExpression(new PyString(stringValue));
-                                    }
-                                    else if (argObj.type == "number")
-                                    {
-                                        var numStr = argObj.value.ToString();
-                                        if (int.TryParse(numStr, out int intValue))
-                                        {
-                                            argExpr = new ConstantExpression(new PyInt(intValue));
-                                        }
-                                        else if (double.TryParse(numStr, out double doubleValue))
-                                        {
-                                            argExpr = new ConstantExpression(new PyFloat(doubleValue));
-                                        }
-                                        else
-                                        {
-                                            // Fallback to string representation
-                                            argExpr = new NameExpression(numStr);
-                                        }
-                                    }
-                                    else if (argObj.type == "name")
-                                    {
-                                        // Variable reference
-                                        argExpr = new NameExpression(argObj.value.ToString());
-                                    }
-                                    else if (argObj.type == "binop")
-                                    {
-                                        // Binary operation (e.g., 1 + 2)
-                                        argExpr = ConvertBinaryOperation(argObj);
-                                    }
-                                    else
-                                    {
-                                        // Unknown type, treat as variable name
-                                        argExpr = new NameExpression(argObj.ToString());
-                                    }
-
-                                    args.Add(argExpr);
-                                }
-                            }
-
-                            // Create function call expression
-                            var functionExpr = new NameExpression(functionName);
-                            var funcExpr = new CallExpression(functionExpr, args);
-                            return new ExpressionStatement(funcExpr);
-                        }
-
-                        // Fallback for simple expressions
-                        var value = stmt.Value.ToString();
-                        if (value != null)
-                        {
-                            // Create expression (for now, just handle numbers)
-                            Expression expr;
-                            if (int.TryParse(value, out int intValue))
-                            {
-                                expr = new ConstantExpression(new PyInt(intValue));
-                            }
-                            else if (double.TryParse(value, out double doubleValue))
-                            {
-                                expr = new ConstantExpression(new PyFloat(doubleValue));
-                            }
-                            else
-                            {
-                                // Default to string
-                                expr = new ConstantExpression(new PyString(value));
-                            }
-
-                            return new ExpressionStatement(expr);
-                        }
                     }
                     return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
@@ -613,6 +523,63 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Convert chained comparison operation (x < 5 > 3) from parser to SharpPy chained comparison expression
+        /// </summary>
+        private static Expression ConvertChainedComparisonOperation(dynamic chainedCompareOp)
+        {
+            // Extract left operand
+            dynamic left = chainedCompareOp.left;
+            Expression leftExpr = ConvertAnyExpression(left);
+
+            // Extract operators array
+            string[] ops = ((object[])chainedCompareOp.ops).Cast<string>().ToArray();
+
+            // Extract comparators array and convert each
+            object[] comparators = (object[])chainedCompareOp.comparators;
+            Expression[] comparatorExprs = comparators.Select(comp => ConvertAnyExpression(comp)).ToArray();
+
+            // Create a chained comparison expression
+            // For now, create nested CompareExpression objects to represent the chain
+            // x < 5 > 3 becomes: (x < 5) AND (5 > 3)
+            Expression result = new CompareExpression(leftExpr, ops[0], comparatorExprs[0]);
+
+            for (int i = 1; i < ops.Length; i++)
+            {
+                var nextComparison = new CompareExpression(comparatorExprs[i-1], ops[i], comparatorExprs[i]);
+                result = new BoolOpExpression("and", new List<Expression> { result, nextComparison });
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Convert function call operation from parser to SharpPy call expression
+        /// </summary>
+        private static Expression ConvertCallOperation(dynamic callOp)
+        {
+            // Extract function and arguments
+            var func = callOp.func;
+            var args = callOp.args;
+
+            // Convert function expression
+            Expression functionExpr = ConvertAnyExpression(func);
+
+            // Convert arguments
+            var argExprs = new List<Expression>();
+            if (args != null)
+            {
+                foreach (var arg in args)
+                {
+                    var argExpr = ConvertAnyExpression(arg);
+                    argExprs.Add(argExpr);
+                }
+            }
+
+            // Create call expression
+            return new CallExpression(functionExpr, argExprs);
+        }
+
+        /// <summary>
         /// Convert any dynamic expression object to Expression
         /// </summary>
         private static Expression ConvertAnyExpression(dynamic expr)
@@ -634,6 +601,10 @@ namespace SharpPy
                 "binop" => ConvertBinaryOperation(expr),
 
                 "compare" => ConvertComparisonOperation(expr),
+
+                "chained_compare" => ConvertChainedComparisonOperation(expr),
+
+                "call" => ConvertCallOperation(expr),
 
                 _ => throw new NotSupportedException($"Unsupported expression type: {type}")
             };

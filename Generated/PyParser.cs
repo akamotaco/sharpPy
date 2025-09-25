@@ -574,43 +574,77 @@ namespace SharpPy.Generated
         {
             Console.WriteLine($"[DEBUG] ParseComparison at position {_position}");
 
-            var result = ParseSum();
-            if (result == null) return null;
+            var left = ParseSum();
+            if (left == null) return null;
 
-            // Handle single comparison operation
-            var mark = Mark();
+            // Handle chained comparison operations
+            var ops = new List<string>();
+            var comparators = new List<object>();
 
-            string? op = null;
-            if (CurrentToken?.Type.ToString() == "OP")
+            while (true)
             {
-                switch (CurrentToken?.Value)
+                var mark = Mark();
+                string? op = null;
+
+                if (CurrentToken?.Type.ToString() == "OP")
                 {
-                    case "==": op = "=="; break;
-                    case "!=": op = "!="; break;
-                    case "<": op = "<"; break;
-                    case "<=": op = "<="; break;
-                    case ">": op = ">"; break;
-                    case ">=": op = ">="; break;
+                    switch (CurrentToken?.Value)
+                    {
+                        case "==": op = "=="; break;
+                        case "!=": op = "!="; break;
+                        case "<": op = "<"; break;
+                        case "<=": op = "<="; break;
+                        case ">": op = ">"; break;
+                        case ">=": op = ">="; break;
+                        case "in": op = "in"; break;
+                        case "is": op = "is"; break;
+                    }
                 }
-            }
 
-            if (op != null)
-            {
-                Advance(); // consume operator
-                var right = ParseSum();
-                if (right != null)
+                if (op != null)
                 {
-                    result = new { type = "compare", op = op, left = result, right = right };
-                    Console.WriteLine($"[DEBUG] ParseComparison: Created {op} comparison");
+                    Advance(); // consume operator
+                    var right = ParseSum();
+                    if (right != null)
+                    {
+                        ops.Add(op);
+                        comparators.Add(right);
+                        Console.WriteLine($"[DEBUG] ParseComparison: Added {op} operator to chain");
+                    }
+                    else
+                    {
+                        Reset(mark); // backtrack on failure
+                        break;
+                    }
                 }
                 else
                 {
-                    Reset(mark); // backtrack on failure
+                    Reset(mark); // no more comparison operators
+                    break;
                 }
             }
 
-            Console.WriteLine($"[DEBUG] ParseComparison result: {result?.GetType().Name}");
-            return result;
+            // Create appropriate result
+            if (ops.Count == 0)
+            {
+                // No comparison operators found, return the original expression
+                return left;
+            }
+            else if (ops.Count == 1)
+            {
+                // Single comparison - create simple compare structure
+                var result = new { type = "compare", op = ops[0], left = left, right = comparators[0] };
+                Console.WriteLine($"[DEBUG] ParseComparison: Created single {ops[0]} comparison");
+                return result;
+            }
+            else
+            {
+                // Chained comparison - create chained compare structure
+                var result = new { type = "chained_compare", left = left, ops = ops.ToArray(), comparators = comparators.ToArray() };
+                Console.WriteLine($"[DEBUG] ParseComparison: Created chained comparison with {ops.Count} operators");
+                return result;
+            }
+
         }
 
         // expression: comparison (operations with proper precedence)
