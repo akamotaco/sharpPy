@@ -15,7 +15,11 @@ namespace SharpPy.Generated
         public string? StatementType { get; set; }
         public object? Value { get; set; }
     }
-    public class GeneratedExpr : GeneratedAstNode { }
+    public class GeneratedExpr : GeneratedAstNode
+    {
+        public string? ExpressionType { get; set; }
+        public object? Value { get; set; }
+    }
     public class GeneratedModule : GeneratedAstNode
     {
         public GeneratedStmtSeq? Body { get; set; }
@@ -33,30 +37,281 @@ namespace SharpPy.Generated
     /// </summary>
     public partial class GeneratedPyParser : PyParserBase<GeneratedModule>
     {
-        private readonly EmbeddedPegInterpreter _interpreter;
-
         public GeneratedPyParser(List<GeneratedTokenInfo> tokens, string filename = "<string>")
             : base(tokens, filename)
         {
-            // Initialize embedded PEG interpreter (from base class)
-            var grammar = CreateEmbeddedGrammar();
-            var tokenWrappers = tokens.Select(t => (IEmbeddedTokenInfo)new EmbeddedTokenInfoAdapter(t)).ToList();
-            _interpreter = new EmbeddedPegInterpreter(grammar, tokenWrappers, this);
+            // Parser initialized with tokens and filename
         }
 
         // Override abstract Parse method
         public override GeneratedModule Parse()
         {
-            return File();
+            return ParseFile();
+        }
+
+
+        // ========================================
+        // Generated Python Grammar Parsing Methods
+        // ========================================
+
+        /// <summary>
+        /// file[mod_ty]: a=[statements] ENDMARKER { _PyPegen_make_module(p, a) }
+        /// </summary>
+        public GeneratedModule ParseFile()
+        {
+            var statements = ParseStatements();
+            ExpectToken(GeneratedTokenType.ENDMARKER);
+            return _PyPegen_make_module(statements);
         }
 
 
         // === PEG Expression Hierarchy with Left Recursion Support ===
 
+        // atom: NAME | NUMBER | STRING | '(' expression ')'
+        protected object? ParseAtom()
+        {
+
+            if (CurrentToken == null) return null;
+
+            // NAME
+            if (CurrentToken.Type.ToString() == "NAME")
+            {
+                var name = CurrentToken.Value;
+                Advance();
+                return new { type = "name", value = name };
+            }
+
+            // NUMBER
+            if (CurrentToken.Type.ToString() == "NUMBER")
+            {
+                var number = CurrentToken.Value;
+                Advance();
+                return new { type = "number", value = number };
+            }
+
+            // STRING
+            if (CurrentToken.Type.ToString() == "STRING")
+            {
+                var str = CurrentToken.Value;
+                Advance();
+                return new { type = "string", value = str };
+            }
+
+            // '(' expression ')'
+            if (CurrentToken.Type.ToString() == "OP" && CurrentToken.Value == "(")
+            {
+                Advance(); // consume '('
+                var expr = ParseExpression();
+                if (expr != null && CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == ")")
+                {
+                    Advance(); // consume ')'
+                    return expr;
+                }
+                return null; // Malformed parenthesized expression
+            }
+
+            return null;
+        }
+
+        // primary: primary '.' NAME | primary '(' [arguments] ')' | atom
+        // Implemented with left recursion support
+        protected object? ParsePrimary()
+        {
+
+            // Check for tokens that should stop parsing
+            if (CurrentToken == null) return null;
+            if (CurrentToken.Type == GeneratedTokenType.DEDENT) return null;
+            if (CurrentToken.Type == GeneratedTokenType.ENDMARKER) return null;
+
+            // Check memoization for left recursion
+            var memoKey = "primary";
+            var memoResult = GetMemo<object>(memoKey);
+            if (memoResult != null)
+            {
+                return memoResult;
+            }
+
+            // Start with atom (base case)
+            var result = ParseAtom();
+            if (result == null)
+            {
+                SetMemo<object>(memoKey, null);
+                return null;
+            }
+
+            // Iteratively expand with left-recursive rules
+            bool expanded = true;
+            while (expanded)
+            {
+                expanded = false;
+
+                // Try: primary '(' [arguments] ')' (function call)
+                if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "(")
+                {
+                    var mark = Mark();
+                    Advance(); // consume '('
+
+                    var args = new List<object>();
+                    // Parse arguments (simplified)
+                    while (CurrentToken != null && !(CurrentToken.Type.ToString() == "OP" && CurrentToken.Value == ")"))
+                    {
+                        var arg = ParseExpression();
+                        if (arg != null)
+                        {
+                            args.Add(arg);
+                            // Skip comma if present
+                            if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == ",")
+                            {
+                                Advance();
+                            }
+                        }
+                        else break;
+                    }
+
+                    if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == ")")
+                    {
+                        Advance(); // consume ')'
+                        result = new { type = "call", func = result, args = args };
+                        expanded = true;
+                    }
+                    else
+                    {
+                        Reset(mark); // backtrack on failure
+                    }
+                }
+
+                // Try: primary '.' NAME (attribute access)
+                if (!expanded && CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == ".")
+                {
+                    var mark = Mark();
+                    Advance(); // consume '.'
+                    if (CurrentToken?.Type.ToString() == "NAME")
+                    {
+                        var attr = CurrentToken.Value;
+                        Advance();
+                        result = new { type = "attribute", value = result, attr = attr };
+                        expanded = true;
+                    }
+                    else
+                    {
+                        Reset(mark); // backtrack on failure
+                    }
+                }
+            }
+
+            SetMemo<object>(memoKey, result);
+            return result;
+        }
+
+        // term: term '*' primary | term '/' primary | primary
+        protected object? ParseTerm()
+        {
+
+            // Check for tokens that should stop parsing
+            if (CurrentToken == null) return null;
+            if (CurrentToken.Type == GeneratedTokenType.DEDENT) return null;
+            if (CurrentToken.Type == GeneratedTokenType.ENDMARKER) return null;
+
+            var result = ParsePrimary();
+            if (result == null) return null;
+
+            // Handle left recursion iteratively
+            while (true)
+            {
+                var mark = Mark();
+
+                if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "*")
+                {
+                    Advance(); // consume '*'
+                    var right = ParsePrimary();
+                    if (right != null)
+                    {
+                        result = new { type = "binop", op = "*", left = result, right = right };
+                        continue;
+                    }
+                    Reset(mark);
+                }
+
+                if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "/")
+                {
+                    Advance(); // consume '/'
+                    var right = ParsePrimary();
+                    if (right != null)
+                    {
+                        result = new { type = "binop", op = "/", left = result, right = right };
+                        continue;
+                    }
+                    Reset(mark);
+                }
+
+                // No more operations
+                break;
+            }
+
+            return result;
+        }
+
+        // sum: sum '+' term | sum '-' term | term
+        protected object? ParseSum()
+        {
+
+            // Check for tokens that should stop parsing
+            if (CurrentToken == null) return null;
+            if (CurrentToken.Type == GeneratedTokenType.DEDENT) return null;
+            if (CurrentToken.Type == GeneratedTokenType.ENDMARKER) return null;
+
+            var result = ParseTerm();
+            if (result == null) return null;
+
+            // Handle left recursion iteratively
+            while (true)
+            {
+                var mark = Mark();
+
+                if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "+")
+                {
+                    Advance(); // consume '+'
+                    var right = ParseTerm();
+                    if (right != null)
+                    {
+                        result = new { type = "binop", op = "+", left = result, right = right };
+                        continue;
+                    }
+                    Reset(mark);
+                }
+
+                if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "-")
+                {
+                    Advance(); // consume '-'
+                    var right = ParseTerm();
+                    if (right != null)
+                    {
+                        result = new { type = "binop", op = "-", left = result, right = right };
+                        continue;
+                    }
+                    Reset(mark);
+                }
+
+                // No more operations
+                break;
+            }
+
+            return result;
+        }
+
+        // expression: comparison (operations with proper precedence)
+        protected object? ParseExpression()
+        {
+            // Check for tokens that should stop expression parsing
+            if (CurrentToken == null) return null;
+            if (CurrentToken.Type == GeneratedTokenType.DEDENT) return null;
+            if (CurrentToken.Type == GeneratedTokenType.ENDMARKER) return null;
+            return ParseSum();
+        }
+
         // star_expressions: expression (',' expression)* [',']
         private object? ParseStarExpressions()
         {
-            Console.WriteLine($"[DEBUG] ParseStarExpressions at position {_position}");
 
             var expr = ParseExpression();
             if (expr == null) return null;
@@ -69,7 +324,6 @@ namespace SharpPy.Generated
         // Parse expression statement following PEG grammar
         public object? ParseExpressionStmt()
         {
-            Console.WriteLine($"[DEBUG] ParseExpressionStmt at position {_position}");
 
             var expr = ParseStarExpressions();
             if (expr != null)
@@ -77,7 +331,6 @@ namespace SharpPy.Generated
                 var stmt = new GeneratedStmt();
                 stmt.StatementType = "expression";
                 stmt.Value = expr;
-                Console.WriteLine($"[DEBUG] Created expression statement: {expr}");
                 return stmt;
             }
             return null;
@@ -86,34 +339,25 @@ namespace SharpPy.Generated
         // if_stmt: 'if' expression ':' block ('elif' expression ':' block)* ['else' ':' block]
         public object? ParseIfStatement()
         {
-            Console.WriteLine($"[DEBUG] ParseIfStatement at position {_position}");
 
             if (CurrentToken?.Type.ToString() != "NAME" || CurrentToken?.Value != "if")
             {
-                Console.WriteLine($"[DEBUG] ParseIfStatement: Not an if token at position {_position}");
                 return null;
             }
-            Console.WriteLine($"[DEBUG] ParseIfStatement: Found 'if' token, advancing");
             Advance(); // consume 'if'
 
             // Parse condition expression
-            Console.WriteLine($"[DEBUG] ParseIfStatement: Parsing condition at position {_position}");
             var condition = ParseExpression();
             if (condition == null)
             {
-                Console.WriteLine($"[DEBUG] ParseIfStatement: Missing condition");
                 return null;
             }
-            Console.WriteLine($"[DEBUG] ParseIfStatement: Condition parsed successfully");
 
             // Parse ':'
-            Console.WriteLine($"[DEBUG] ParseIfStatement: Looking for ':' at position {_position}");
             if (CurrentToken?.Type.ToString() != "OP" || CurrentToken?.Value != ":")
             {
-                Console.WriteLine($"[DEBUG] ParseIfStatement: Missing ':' after condition");
                 return null;
             }
-            Console.WriteLine($"[DEBUG] ParseIfStatement: Found ':', advancing");
             Advance(); // consume ':'
 
             // Parse if body
@@ -125,23 +369,17 @@ namespace SharpPy.Generated
 
             var ifBody = new List<object>();
             // Parse if body - simplified to single statement
-            Console.WriteLine($"[DEBUG] ParseIfStatement: About to parse if body at position {_position}");
             var bodyStmt = ParseExpressionStmt();
             if (bodyStmt != null)
             {
                 ifBody.Add(bodyStmt);
-                Console.WriteLine($"[DEBUG] ParseIfStatement: If body parsed successfully");
             }
-            Console.WriteLine($"[DEBUG] ParseIfStatement: If body parsing complete, at position {_position}");
 
             // Skip DEDENT if present
-            Console.WriteLine($"[DEBUG] ParseIfStatement: Checking for DEDENT at position {_position}, token: {CurrentToken?.Type}:{CurrentToken?.Value}");
             if (CurrentToken?.Type.ToString() == "DEDENT")
             {
-                Console.WriteLine($"[DEBUG] ParseIfStatement: Found DEDENT, advancing");
                 Advance();
             }
-            Console.WriteLine($"[DEBUG] ParseIfStatement: Post-DEDENT position {_position}, token: {CurrentToken?.Type}:{CurrentToken?.Value}");
 
             // Parse elif clauses
             // Skip any remaining NEWLINE/INDENT/DEDENT tokens after if body
@@ -149,11 +387,9 @@ namespace SharpPy.Generated
             {
                 Advance();
             }
-            Console.WriteLine($"[DEBUG] Looking for elif at position {_position}, current token: {CurrentToken?.Type}:{CurrentToken?.Value}");
             var elifs = new List<object>();
             while (CurrentToken?.Type.ToString() == "NAME" && CurrentToken?.Value == "elif")
             {
-                Console.WriteLine($"[DEBUG] Found elif at position {_position}");
                 Advance(); // consume 'elif'
 
                 var elifCondition = ParseExpression();
@@ -161,7 +397,6 @@ namespace SharpPy.Generated
 
                 if (CurrentToken?.Type.ToString() != "OP" || CurrentToken?.Value != ":")
                 {
-                    Console.WriteLine($"[DEBUG] ParseIfStatement: Missing ':' after elif condition");
                     break;
                 }
                 Advance(); // consume ':'
@@ -194,7 +429,6 @@ namespace SharpPy.Generated
             {
                 Advance();
             }
-            Console.WriteLine($"[DEBUG] Looking for else at position {_position}, current token: {CurrentToken?.Type}:{CurrentToken?.Value}");
             List<object>? elseBody = null;
             if (CurrentToken?.Type.ToString() == "NAME" && CurrentToken?.Value == "else")
             {
@@ -229,1712 +463,281 @@ namespace SharpPy.Generated
             var ifStmt = new GeneratedStmt();
             ifStmt.StatementType = "if";
             ifStmt.Value = new { condition = condition, body = ifBody, elifs = elifs, elseBody = elseBody };
-            Console.WriteLine($"[DEBUG] Created complete if statement with {elifs.Count} elif clauses, hasElse: {elseBody != null}");
-            Console.WriteLine($"[DEBUG] ParseIfStatement finished at position {_position}, current token: {CurrentToken?.Type}:{CurrentToken?.Value}");
             return ifStmt;
         }
 
         // === End Expression Hierarchy ===
 
-        // Rule: file
-        public GeneratedModule File()
-        {
-            var result = _interpreter.ParseRule("file");
-            return (GeneratedModule)result;
-        }
-
-        // Rule: interactive
-        public GeneratedModule Interactive()
-        {
-            var result = _interpreter.ParseRule("interactive");
-            return (GeneratedModule)result;
-        }
-
-        // Rule: eval
-        public GeneratedModule Eval()
-        {
-            var result = _interpreter.ParseRule("eval");
-            return (GeneratedModule)result;
-        }
-
-        // Rule: func_type
-        public GeneratedModule FuncType()
-        {
-            var result = _interpreter.ParseRule("func_type");
-            return (GeneratedModule)result;
-        }
-
-        // Rule: statements
-        public GeneratedStmtSeq Statements()
-        {
-            return ParseStatements();
-        }
-
-        // Rule: statement
-        public GeneratedStmtSeq Statement()
-        {
-            var result = _interpreter.ParseRule("statement");
-            return (GeneratedStmtSeq)result;
-        }
-
-        // Rule: statement_newline
-        public GeneratedStmtSeq StatementNewline()
-        {
-            var result = _interpreter.ParseRule("statement_newline");
-            return (GeneratedStmtSeq)result;
-        }
-
-        // Rule: simple_stmts
-        public GeneratedStmtSeq SimpleStmts()
-        {
-            var result = _interpreter.ParseRule("simple_stmts");
-            return (GeneratedStmtSeq)result;
-        }
-
-        // Rule: simple_stmt
-        public GeneratedStmt SimpleStmt()
-        {
-            var result = _interpreter.ParseRule("simple_stmt");
-            return (GeneratedStmt)result;
-        }
-
-        // Rule: compound_stmt
-        public GeneratedStmt CompoundStmt()
-        {
-            var result = _interpreter.ParseRule("compound_stmt");
-            return (GeneratedStmt)result;
-        }
-
-        // Rule: assignment
-        public GeneratedStmt Assignment()
-        {
-            var result = _interpreter.ParseRule("assignment");
-            return (GeneratedStmt)result;
-        }
-
-        // Rule: annotated_rhs
-        public GeneratedExpr AnnotatedRhs()
-        {
-            var result = _interpreter.ParseRule("annotated_rhs");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: augassign
-        public GeneratedSeq Augassign()
-        {
-            var result = _interpreter.ParseRule("augassign");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: return_stmt
-        public GeneratedStmt ReturnStmt()
-        {
-            var result = _interpreter.ParseRule("return_stmt");
-            return (GeneratedStmt)result;
-        }
-
-        // Rule: raise_stmt
-        public GeneratedStmt RaiseStmt()
-        {
-            var result = _interpreter.ParseRule("raise_stmt");
-            return (GeneratedStmt)result;
-        }
-
-        // Rule: global_stmt
-        public GeneratedStmt GlobalStmt()
-        {
-            var result = _interpreter.ParseRule("global_stmt");
-            return (GeneratedStmt)result;
-        }
-
-        // Rule: nonlocal_stmt
-        public GeneratedStmt NonlocalStmt()
-        {
-            var result = _interpreter.ParseRule("nonlocal_stmt");
-            return (GeneratedStmt)result;
-        }
-
-        // Rule: del_stmt
-        public GeneratedStmt DelStmt()
-        {
-            var result = _interpreter.ParseRule("del_stmt");
-            return (GeneratedStmt)result;
-        }
-
-        // Rule: yield_stmt
-        public GeneratedStmt YieldStmt()
-        {
-            var result = _interpreter.ParseRule("yield_stmt");
-            return (GeneratedStmt)result;
-        }
-
-        // Rule: assert_stmt
-        public GeneratedStmt AssertStmt()
-        {
-            var result = _interpreter.ParseRule("assert_stmt");
-            return (GeneratedStmt)result;
-        }
-
-        // Rule: import_stmt
-        public GeneratedStmt ImportStmt()
-        {
-            var result = _interpreter.ParseRule("import_stmt");
-            return (GeneratedStmt)result;
-        }
-
-        // Rule: import_name
-        public GeneratedStmt ImportName()
-        {
-            var result = _interpreter.ParseRule("import_name");
-            return (GeneratedStmt)result;
-        }
-
-        // Rule: import_from
-        public GeneratedStmt ImportFrom()
-        {
-            var result = _interpreter.ParseRule("import_from");
-            return (GeneratedStmt)result;
-        }
-
-        // Rule: import_from_targets
-        public GeneratedSeq ImportFromTargets()
-        {
-            var result = _interpreter.ParseRule("import_from_targets");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: import_from_as_names
-        public GeneratedSeq ImportFromAsNames()
-        {
-            var result = _interpreter.ParseRule("import_from_as_names");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: import_from_as_name
-        public GeneratedAstNode ImportFromAsName()
-        {
-            var result = _interpreter.ParseRule("import_from_as_name");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: dotted_as_names
-        public GeneratedSeq DottedAsNames()
-        {
-            var result = _interpreter.ParseRule("dotted_as_names");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: dotted_as_name
-        public GeneratedAstNode DottedAsName()
-        {
-            var result = _interpreter.ParseRule("dotted_as_name");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: dotted_name
-        public GeneratedExpr DottedName()
-        {
-            var result = _interpreter.ParseRule("dotted_name");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: block
-        public GeneratedStmtSeq Block()
-        {
-            var result = _interpreter.ParseRule("block");
-            return (GeneratedStmtSeq)result;
-        }
-
-        // Rule: decorators
-        public GeneratedExprSeq Decorators()
-        {
-            var result = _interpreter.ParseRule("decorators");
-            return (GeneratedExprSeq)result;
-        }
-
-        // Rule: class_def
-        public GeneratedStmt ClassDef()
-        {
-            var result = _interpreter.ParseRule("class_def");
-            return (GeneratedStmt)result;
-        }
-
-        // Rule: class_def_raw
-        public GeneratedStmt ClassDefRaw()
-        {
-            var result = _interpreter.ParseRule("class_def_raw");
-            return (GeneratedStmt)result;
-        }
-
-        // Rule: function_def
-        public GeneratedStmt FunctionDef()
-        {
-            var result = _interpreter.ParseRule("function_def");
-            return (GeneratedStmt)result;
-        }
-
-        // Rule: function_def_raw
-        public GeneratedStmt FunctionDefRaw()
-        {
-            var result = _interpreter.ParseRule("function_def_raw");
-            return (GeneratedStmt)result;
-        }
-
-        // Rule: params
-        public GeneratedAstNode Params()
-        {
-            var result = _interpreter.ParseRule("params");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: parameters
-        public GeneratedAstNode Parameters()
-        {
-            var result = _interpreter.ParseRule("parameters");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: slash_no_default
-        public GeneratedSeq SlashNoDefault()
-        {
-            var result = _interpreter.ParseRule("slash_no_default");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: slash_with_default
-        public GeneratedSeq SlashWithDefault()
-        {
-            var result = _interpreter.ParseRule("slash_with_default");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: star_etc
-        public GeneratedSeq StarEtc()
-        {
-            var result = _interpreter.ParseRule("star_etc");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: kwds
-        public GeneratedAstNode Kwds()
-        {
-            var result = _interpreter.ParseRule("kwds");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: param_no_default
-        public GeneratedAstNode ParamNoDefault()
-        {
-            var result = _interpreter.ParseRule("param_no_default");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: param_no_default_star_annotation
-        public GeneratedAstNode ParamNoDefaultStarAnnotation()
-        {
-            var result = _interpreter.ParseRule("param_no_default_star_annotation");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: param_with_default
-        public GeneratedSeq ParamWithDefault()
-        {
-            var result = _interpreter.ParseRule("param_with_default");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: param_maybe_default
-        public GeneratedSeq ParamMaybeDefault()
-        {
-            var result = _interpreter.ParseRule("param_maybe_default");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: param
-        public GeneratedAstNode Param()
-        {
-            var result = _interpreter.ParseRule("param");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: param_star_annotation
-        public GeneratedAstNode ParamStarAnnotation()
-        {
-            var result = _interpreter.ParseRule("param_star_annotation");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: annotation
-        public GeneratedExpr Annotation()
-        {
-            var result = _interpreter.ParseRule("annotation");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: star_annotation
-        public GeneratedExpr StarAnnotation()
-        {
-            var result = _interpreter.ParseRule("star_annotation");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: default
-        public GeneratedExpr Default()
-        {
-            var result = _interpreter.ParseRule("default");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: if_stmt
-        public GeneratedStmt IfStmt()
-        {
-            var result = _interpreter.ParseRule("if_stmt");
-            return (GeneratedStmt)result;
-        }
-
-        // Rule: elif_stmt
-        public GeneratedStmt ElifStmt()
-        {
-            var result = _interpreter.ParseRule("elif_stmt");
-            return (GeneratedStmt)result;
-        }
-
-        // Rule: else_block
-        public GeneratedStmtSeq ElseBlock()
-        {
-            var result = _interpreter.ParseRule("else_block");
-            return (GeneratedStmtSeq)result;
-        }
-
-        // Rule: while_stmt
-        public GeneratedStmt WhileStmt()
-        {
-            var result = _interpreter.ParseRule("while_stmt");
-            return (GeneratedStmt)result;
-        }
-
-        // Rule: for_stmt
-        public GeneratedStmt ForStmt()
-        {
-            var result = _interpreter.ParseRule("for_stmt");
-            return (GeneratedStmt)result;
-        }
-
-        // Rule: with_stmt
-        public GeneratedStmt WithStmt()
-        {
-            var result = _interpreter.ParseRule("with_stmt");
-            return (GeneratedStmt)result;
-        }
-
-        // Rule: with_item
-        public GeneratedAstNode WithItem()
-        {
-            var result = _interpreter.ParseRule("with_item");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: try_stmt
-        public GeneratedStmt TryStmt()
-        {
-            var result = _interpreter.ParseRule("try_stmt");
-            return (GeneratedStmt)result;
-        }
-
-        // Rule: except_block
-        public GeneratedAstNode ExceptBlock()
-        {
-            var result = _interpreter.ParseRule("except_block");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: except_star_block
-        public GeneratedAstNode ExceptStarBlock()
-        {
-            var result = _interpreter.ParseRule("except_star_block");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: finally_block
-        public GeneratedStmtSeq FinallyBlock()
-        {
-            var result = _interpreter.ParseRule("finally_block");
-            return (GeneratedStmtSeq)result;
-        }
-
-        // Rule: match_stmt
-        public GeneratedStmt MatchStmt()
-        {
-            var result = _interpreter.ParseRule("match_stmt");
-            return (GeneratedStmt)result;
-        }
-
-        // Rule: subject_expr
-        public GeneratedExpr SubjectExpr()
-        {
-            var result = _interpreter.ParseRule("subject_expr");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: case_block
-        public GeneratedAstNode CaseBlock()
-        {
-            var result = _interpreter.ParseRule("case_block");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: guard
-        public GeneratedExpr Guard()
-        {
-            var result = _interpreter.ParseRule("guard");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: patterns
-        public GeneratedAstNode Patterns()
-        {
-            var result = _interpreter.ParseRule("patterns");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: pattern
-        public GeneratedAstNode Pattern()
-        {
-            var result = _interpreter.ParseRule("pattern");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: as_pattern
-        public GeneratedAstNode AsPattern()
-        {
-            var result = _interpreter.ParseRule("as_pattern");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: or_pattern
-        public GeneratedAstNode OrPattern()
-        {
-            var result = _interpreter.ParseRule("or_pattern");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: closed_pattern
-        public GeneratedAstNode ClosedPattern()
-        {
-            var result = _interpreter.ParseRule("closed_pattern");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: literal_pattern
-        public GeneratedAstNode LiteralPattern()
-        {
-            var result = _interpreter.ParseRule("literal_pattern");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: literal_expr
-        public GeneratedExpr LiteralExpr()
-        {
-            var result = _interpreter.ParseRule("literal_expr");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: complex_number
-        public GeneratedExpr ComplexNumber()
-        {
-            var result = _interpreter.ParseRule("complex_number");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: signed_number
-        public GeneratedExpr SignedNumber()
-        {
-            var result = _interpreter.ParseRule("signed_number");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: signed_real_number
-        public GeneratedExpr SignedRealNumber()
-        {
-            var result = _interpreter.ParseRule("signed_real_number");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: real_number
-        public GeneratedExpr RealNumber()
-        {
-            var result = _interpreter.ParseRule("real_number");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: imaginary_number
-        public GeneratedExpr ImaginaryNumber()
-        {
-            var result = _interpreter.ParseRule("imaginary_number");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: capture_pattern
-        public GeneratedAstNode CapturePattern()
-        {
-            var result = _interpreter.ParseRule("capture_pattern");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: pattern_capture_target
-        public GeneratedExpr PatternCaptureTarget()
-        {
-            var result = _interpreter.ParseRule("pattern_capture_target");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: wildcard_pattern
-        public GeneratedAstNode WildcardPattern()
-        {
-            var result = _interpreter.ParseRule("wildcard_pattern");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: value_pattern
-        public GeneratedAstNode ValuePattern()
-        {
-            var result = _interpreter.ParseRule("value_pattern");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: attr
-        public GeneratedExpr Attr()
-        {
-            var result = _interpreter.ParseRule("attr");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: name_or_attr
-        public GeneratedExpr NameOrAttr()
-        {
-            var result = _interpreter.ParseRule("name_or_attr");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: group_pattern
-        public GeneratedAstNode GroupPattern()
-        {
-            var result = _interpreter.ParseRule("group_pattern");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: sequence_pattern
-        public GeneratedAstNode SequencePattern()
-        {
-            var result = _interpreter.ParseRule("sequence_pattern");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: open_sequence_pattern
-        public GeneratedSeq OpenSequencePattern()
-        {
-            var result = _interpreter.ParseRule("open_sequence_pattern");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: maybe_sequence_pattern
-        public GeneratedSeq MaybeSequencePattern()
-        {
-            var result = _interpreter.ParseRule("maybe_sequence_pattern");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: maybe_star_pattern
-        public GeneratedAstNode MaybeStarPattern()
-        {
-            var result = _interpreter.ParseRule("maybe_star_pattern");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: star_pattern
-        public GeneratedAstNode StarPattern()
-        {
-            var result = _interpreter.ParseRule("star_pattern");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: mapping_pattern
-        public GeneratedAstNode MappingPattern()
-        {
-            var result = _interpreter.ParseRule("mapping_pattern");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: items_pattern
-        public GeneratedSeq ItemsPattern()
-        {
-            var result = _interpreter.ParseRule("items_pattern");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: key_value_pattern
-        public GeneratedSeq KeyValuePattern()
-        {
-            var result = _interpreter.ParseRule("key_value_pattern");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: double_star_pattern
-        public GeneratedExpr DoubleStarPattern()
-        {
-            var result = _interpreter.ParseRule("double_star_pattern");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: class_pattern
-        public GeneratedAstNode ClassPattern()
-        {
-            var result = _interpreter.ParseRule("class_pattern");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: positional_patterns
-        public GeneratedSeq PositionalPatterns()
-        {
-            var result = _interpreter.ParseRule("positional_patterns");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: keyword_patterns
-        public GeneratedSeq KeywordPatterns()
-        {
-            var result = _interpreter.ParseRule("keyword_patterns");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: keyword_pattern
-        public GeneratedSeq KeywordPattern()
-        {
-            var result = _interpreter.ParseRule("keyword_pattern");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: type_alias
-        public GeneratedStmt TypeAlias()
-        {
-            var result = _interpreter.ParseRule("type_alias");
-            return (GeneratedStmt)result;
-        }
-
-        // Rule: type_params
-        public GeneratedSeq TypeParams()
-        {
-            var result = _interpreter.ParseRule("type_params");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: type_param_seq
-        public GeneratedSeq TypeParamSeq()
-        {
-            var result = _interpreter.ParseRule("type_param_seq");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: type_param
-        public GeneratedAstNode TypeParam()
-        {
-            var result = _interpreter.ParseRule("type_param");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: type_param_bound
-        public GeneratedExpr TypeParamBound()
-        {
-            var result = _interpreter.ParseRule("type_param_bound");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: expressions
-        public GeneratedExpr Expressions()
-        {
-            var result = _interpreter.ParseRule("expressions");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: expression
-        public GeneratedExpr Expression()
-        {
-            return (GeneratedExpr)ParseExpression();
-        }
-
-        // Rule: yield_expr
-        public GeneratedExpr YieldExpr()
-        {
-            var result = _interpreter.ParseRule("yield_expr");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: star_expressions
-        public GeneratedExpr StarExpressions()
-        {
-            var result = _interpreter.ParseRule("star_expressions");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: star_expression
-        public GeneratedExpr StarExpression()
-        {
-            var result = _interpreter.ParseRule("star_expression");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: star_named_expressions
-        public GeneratedExprSeq StarNamedExpressions()
-        {
-            var result = _interpreter.ParseRule("star_named_expressions");
-            return (GeneratedExprSeq)result;
-        }
-
-        // Rule: star_named_expression
-        public GeneratedExpr StarNamedExpression()
-        {
-            var result = _interpreter.ParseRule("star_named_expression");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: assignment_expression
-        public GeneratedExpr AssignmentExpression()
-        {
-            var result = _interpreter.ParseRule("assignment_expression");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: named_expression
-        public GeneratedExpr NamedExpression()
-        {
-            var result = _interpreter.ParseRule("named_expression");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: disjunction
-        public GeneratedExpr Disjunction()
-        {
-            var result = _interpreter.ParseRule("disjunction");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: conjunction
-        public GeneratedExpr Conjunction()
-        {
-            var result = _interpreter.ParseRule("conjunction");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: inversion
-        public GeneratedExpr Inversion()
-        {
-            var result = _interpreter.ParseRule("inversion");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: comparison
-        public GeneratedExpr Comparison()
-        {
-            return (GeneratedExpr)ParseComparisonTemplate();
-        }
-
-        // Rule: compare_op_bitwise_or_pair
-        public GeneratedSeq CompareOpBitwiseOrPair()
-        {
-            var result = _interpreter.ParseRule("compare_op_bitwise_or_pair");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: eq_bitwise_or
-        public GeneratedSeq EqBitwiseOr()
-        {
-            var result = _interpreter.ParseRule("eq_bitwise_or");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: noteq_bitwise_or
-        public GeneratedSeq NoteqBitwiseOr()
-        {
-            var result = _interpreter.ParseRule("noteq_bitwise_or");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: lte_bitwise_or
-        public GeneratedSeq LteBitwiseOr()
-        {
-            var result = _interpreter.ParseRule("lte_bitwise_or");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: lt_bitwise_or
-        public GeneratedSeq LtBitwiseOr()
-        {
-            var result = _interpreter.ParseRule("lt_bitwise_or");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: gte_bitwise_or
-        public GeneratedSeq GteBitwiseOr()
-        {
-            var result = _interpreter.ParseRule("gte_bitwise_or");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: gt_bitwise_or
-        public GeneratedSeq GtBitwiseOr()
-        {
-            var result = _interpreter.ParseRule("gt_bitwise_or");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: notin_bitwise_or
-        public GeneratedSeq NotinBitwiseOr()
-        {
-            var result = _interpreter.ParseRule("notin_bitwise_or");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: in_bitwise_or
-        public GeneratedSeq InBitwiseOr()
-        {
-            var result = _interpreter.ParseRule("in_bitwise_or");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: isnot_bitwise_or
-        public GeneratedSeq IsnotBitwiseOr()
-        {
-            var result = _interpreter.ParseRule("isnot_bitwise_or");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: is_bitwise_or
-        public GeneratedSeq IsBitwiseOr()
-        {
-            var result = _interpreter.ParseRule("is_bitwise_or");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: bitwise_or
-        public GeneratedExpr BitwiseOr()
-        {
-            var result = _interpreter.ParseRule("bitwise_or");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: bitwise_xor
-        public GeneratedExpr BitwiseXor()
-        {
-            var result = _interpreter.ParseRule("bitwise_xor");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: bitwise_and
-        public GeneratedExpr BitwiseAnd()
-        {
-            var result = _interpreter.ParseRule("bitwise_and");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: shift_expr
-        public GeneratedExpr ShiftExpr()
-        {
-            var result = _interpreter.ParseRule("shift_expr");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: sum
-        public GeneratedExpr Sum()
-        {
-            return (GeneratedExpr)ParseSum();
-        }
-
-        // Rule: term
-        public GeneratedExpr Term()
-        {
-            return (GeneratedExpr)ParseTerm();
-        }
-
-        // Rule: factor
-        public GeneratedExpr Factor()
-        {
-            var result = _interpreter.ParseRule("factor");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: power
-        public GeneratedExpr Power()
-        {
-            var result = _interpreter.ParseRule("power");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: await_primary
-        public GeneratedExpr AwaitPrimary()
-        {
-            var result = _interpreter.ParseRule("await_primary");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: primary
-        public GeneratedExpr Primary()
-        {
-            return (GeneratedExpr)ParsePrimary();
-        }
-
-        // Rule: slices
-        public GeneratedExpr Slices()
-        {
-            var result = _interpreter.ParseRule("slices");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: slice
-        public GeneratedExpr Slice()
-        {
-            var result = _interpreter.ParseRule("slice");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: atom
-        public GeneratedExpr Atom()
-        {
-            return (GeneratedExpr)ParseAtom();
-        }
-
-        // Rule: group
-        public GeneratedExpr Group()
-        {
-            var result = _interpreter.ParseRule("group");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: lambdef
-        public GeneratedExpr Lambdef()
-        {
-            var result = _interpreter.ParseRule("lambdef");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: lambda_params
-        public GeneratedAstNode LambdaParams()
-        {
-            var result = _interpreter.ParseRule("lambda_params");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: lambda_parameters
-        public GeneratedAstNode LambdaParameters()
-        {
-            var result = _interpreter.ParseRule("lambda_parameters");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: lambda_slash_no_default
-        public GeneratedSeq LambdaSlashNoDefault()
-        {
-            var result = _interpreter.ParseRule("lambda_slash_no_default");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: lambda_slash_with_default
-        public GeneratedSeq LambdaSlashWithDefault()
-        {
-            var result = _interpreter.ParseRule("lambda_slash_with_default");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: lambda_star_etc
-        public GeneratedSeq LambdaStarEtc()
-        {
-            var result = _interpreter.ParseRule("lambda_star_etc");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: lambda_kwds
-        public GeneratedAstNode LambdaKwds()
-        {
-            var result = _interpreter.ParseRule("lambda_kwds");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: lambda_param_no_default
-        public GeneratedAstNode LambdaParamNoDefault()
-        {
-            var result = _interpreter.ParseRule("lambda_param_no_default");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: lambda_param_with_default
-        public GeneratedSeq LambdaParamWithDefault()
-        {
-            var result = _interpreter.ParseRule("lambda_param_with_default");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: lambda_param_maybe_default
-        public GeneratedSeq LambdaParamMaybeDefault()
-        {
-            var result = _interpreter.ParseRule("lambda_param_maybe_default");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: lambda_param
-        public GeneratedAstNode LambdaParam()
-        {
-            var result = _interpreter.ParseRule("lambda_param");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: fstring_middle
-        public GeneratedExpr FstringMiddle()
-        {
-            var result = _interpreter.ParseRule("fstring_middle");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: fstring_replacement_field
-        public GeneratedExpr FstringReplacementField()
-        {
-            var result = _interpreter.ParseRule("fstring_replacement_field");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: fstring_conversion
-        public GeneratedSeq FstringConversion()
-        {
-            var result = _interpreter.ParseRule("fstring_conversion");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: fstring_full_format_spec
-        public GeneratedSeq FstringFullFormatSpec()
-        {
-            var result = _interpreter.ParseRule("fstring_full_format_spec");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: fstring_format_spec
-        public GeneratedExpr FstringFormatSpec()
-        {
-            var result = _interpreter.ParseRule("fstring_format_spec");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: fstring
-        public GeneratedExpr Fstring()
-        {
-            var result = _interpreter.ParseRule("fstring");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: string
-        public GeneratedExpr String()
-        {
-            var result = _interpreter.ParseRule("string");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: strings
-        public GeneratedExpr Strings()
-        {
-            var result = _interpreter.ParseRule("strings");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: list
-        public GeneratedExpr List()
-        {
-            var result = _interpreter.ParseRule("list");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: tuple
-        public GeneratedExpr Tuple()
-        {
-            var result = _interpreter.ParseRule("tuple");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: set
-        public GeneratedExpr Set()
-        {
-            var result = _interpreter.ParseRule("set");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: dict
-        public GeneratedExpr Dict()
-        {
-            var result = _interpreter.ParseRule("dict");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: double_starred_kvpairs
-        public GeneratedSeq DoubleStarredKvpairs()
-        {
-            var result = _interpreter.ParseRule("double_starred_kvpairs");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: double_starred_kvpair
-        public GeneratedSeq DoubleStarredKvpair()
-        {
-            var result = _interpreter.ParseRule("double_starred_kvpair");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: kvpair
-        public GeneratedSeq Kvpair()
-        {
-            var result = _interpreter.ParseRule("kvpair");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: for_if_clauses
-        public GeneratedSeq ForIfClauses()
-        {
-            var result = _interpreter.ParseRule("for_if_clauses");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: for_if_clause
-        public GeneratedAstNode ForIfClause()
-        {
-            var result = _interpreter.ParseRule("for_if_clause");
-            return (GeneratedAstNode)result;
-        }
-
-        // Rule: listcomp
-        public GeneratedExpr Listcomp()
-        {
-            var result = _interpreter.ParseRule("listcomp");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: setcomp
-        public GeneratedExpr Setcomp()
-        {
-            var result = _interpreter.ParseRule("setcomp");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: genexp
-        public GeneratedExpr Genexp()
-        {
-            var result = _interpreter.ParseRule("genexp");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: dictcomp
-        public GeneratedExpr Dictcomp()
-        {
-            var result = _interpreter.ParseRule("dictcomp");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: arguments
-        public GeneratedExpr Arguments()
-        {
-            var result = _interpreter.ParseRule("arguments");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: args
-        public GeneratedExpr Args()
-        {
-            var result = _interpreter.ParseRule("args");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: kwargs
-        public GeneratedSeq Kwargs()
-        {
-            var result = _interpreter.ParseRule("kwargs");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: starred_expression
-        public GeneratedExpr StarredExpression()
-        {
-            var result = _interpreter.ParseRule("starred_expression");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: kwarg_or_starred
-        public GeneratedSeq KwargOrStarred()
-        {
-            var result = _interpreter.ParseRule("kwarg_or_starred");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: kwarg_or_double_starred
-        public GeneratedSeq KwargOrDoubleStarred()
-        {
-            var result = _interpreter.ParseRule("kwarg_or_double_starred");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: star_targets
-        public GeneratedExpr StarTargets()
-        {
-            var result = _interpreter.ParseRule("star_targets");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: star_targets_list_seq
-        public GeneratedExprSeq StarTargetsListSeq()
-        {
-            var result = _interpreter.ParseRule("star_targets_list_seq");
-            return (GeneratedExprSeq)result;
-        }
-
-        // Rule: star_targets_tuple_seq
-        public GeneratedExprSeq StarTargetsTupleSeq()
-        {
-            var result = _interpreter.ParseRule("star_targets_tuple_seq");
-            return (GeneratedExprSeq)result;
-        }
-
-        // Rule: star_target
-        public GeneratedExpr StarTarget()
-        {
-            var result = _interpreter.ParseRule("star_target");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: target_with_star_atom
-        public GeneratedExpr TargetWithStarAtom()
-        {
-            var result = _interpreter.ParseRule("target_with_star_atom");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: star_atom
-        public GeneratedExpr StarAtom()
-        {
-            var result = _interpreter.ParseRule("star_atom");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: single_target
-        public GeneratedExpr SingleTarget()
-        {
-            var result = _interpreter.ParseRule("single_target");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: single_subscript_attribute_target
-        public GeneratedExpr SingleSubscriptAttributeTarget()
-        {
-            var result = _interpreter.ParseRule("single_subscript_attribute_target");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: t_primary
-        public GeneratedExpr TPrimary()
-        {
-            var result = _interpreter.ParseRule("t_primary");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: t_lookahead
-        public object? TLookahead()
-        {
-            var result = _interpreter.ParseRule("t_lookahead");
-            return result as object;
-        }
-
-        // Rule: del_targets
-        public GeneratedExprSeq DelTargets()
-        {
-            var result = _interpreter.ParseRule("del_targets");
-            return (GeneratedExprSeq)result;
-        }
-
-        // Rule: del_target
-        public GeneratedExpr DelTarget()
-        {
-            var result = _interpreter.ParseRule("del_target");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: del_t_atom
-        public GeneratedExpr DelTAtom()
-        {
-            var result = _interpreter.ParseRule("del_t_atom");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: type_expressions
-        public GeneratedExprSeq TypeExpressions()
-        {
-            var result = _interpreter.ParseRule("type_expressions");
-            return (GeneratedExprSeq)result;
-        }
-
-        // Rule: func_type_comment
-        public GeneratedSeq FuncTypeComment()
-        {
-            var result = _interpreter.ParseRule("func_type_comment");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: invalid_arguments
-        public object? InvalidArguments()
-        {
-            var result = _interpreter.ParseRule("invalid_arguments");
-            return result as object;
-        }
-
-        // Rule: invalid_kwarg
-        public object? InvalidKwarg()
-        {
-            var result = _interpreter.ParseRule("invalid_kwarg");
-            return result as object;
-        }
-
-        // Rule: expression_without_invalid
-        public GeneratedExpr ExpressionWithoutInvalid()
-        {
-            var result = _interpreter.ParseRule("expression_without_invalid");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: invalid_legacy_expression
-        public object? InvalidLegacyExpression()
-        {
-            var result = _interpreter.ParseRule("invalid_legacy_expression");
-            return result as object;
-        }
-
-        // Rule: invalid_expression
-        public object? InvalidExpression()
-        {
-            var result = _interpreter.ParseRule("invalid_expression");
-            return result as object;
-        }
-
-        // Rule: invalid_named_expression
-        public object? InvalidNamedExpression()
-        {
-            var result = _interpreter.ParseRule("invalid_named_expression");
-            return result as object;
-        }
-
-        // Rule: invalid_assignment
-        public object? InvalidAssignment()
-        {
-            var result = _interpreter.ParseRule("invalid_assignment");
-            return result as object;
-        }
-
-        // Rule: invalid_ann_assign_target
-        public GeneratedExpr InvalidAnnAssignTarget()
-        {
-            var result = _interpreter.ParseRule("invalid_ann_assign_target");
-            return (GeneratedExpr)result;
-        }
-
-        // Rule: invalid_del_stmt
-        public object? InvalidDelStmt()
-        {
-            var result = _interpreter.ParseRule("invalid_del_stmt");
-            return result as object;
-        }
-
-        // Rule: invalid_block
-        public object? InvalidBlock()
-        {
-            var result = _interpreter.ParseRule("invalid_block");
-            return result as object;
-        }
-
-        // Rule: invalid_comprehension
-        public object? InvalidComprehension()
-        {
-            var result = _interpreter.ParseRule("invalid_comprehension");
-            return result as object;
-        }
-
-        // Rule: invalid_dict_comprehension
-        public object? InvalidDictComprehension()
-        {
-            var result = _interpreter.ParseRule("invalid_dict_comprehension");
-            return result as object;
-        }
-
-        // Rule: invalid_parameters
-        public object? InvalidParameters()
-        {
-            var result = _interpreter.ParseRule("invalid_parameters");
-            return result as object;
-        }
-
-        // Rule: invalid_default
-        public object? InvalidDefault()
-        {
-            var result = _interpreter.ParseRule("invalid_default");
-            return result as object;
-        }
-
-        // Rule: invalid_star_etc
-        public object? InvalidStarEtc()
-        {
-            var result = _interpreter.ParseRule("invalid_star_etc");
-            return result as object;
-        }
-
-        // Rule: invalid_kwds
-        public object? InvalidKwds()
-        {
-            var result = _interpreter.ParseRule("invalid_kwds");
-            return result as object;
-        }
-
-        // Rule: invalid_parameters_helper
-        public object? InvalidParametersHelper()
-        {
-            var result = _interpreter.ParseRule("invalid_parameters_helper");
-            return result as object;
-        }
-
-        // Rule: invalid_lambda_parameters
-        public object? InvalidLambdaParameters()
-        {
-            var result = _interpreter.ParseRule("invalid_lambda_parameters");
-            return result as object;
-        }
-
-        // Rule: invalid_lambda_parameters_helper
-        public object? InvalidLambdaParametersHelper()
-        {
-            var result = _interpreter.ParseRule("invalid_lambda_parameters_helper");
-            return result as object;
-        }
-
-        // Rule: invalid_lambda_star_etc
-        public object? InvalidLambdaStarEtc()
-        {
-            var result = _interpreter.ParseRule("invalid_lambda_star_etc");
-            return result as object;
-        }
-
-        // Rule: invalid_lambda_kwds
-        public object? InvalidLambdaKwds()
-        {
-            var result = _interpreter.ParseRule("invalid_lambda_kwds");
-            return result as object;
-        }
-
-        // Rule: invalid_double_type_comments
-        public object? InvalidDoubleTypeComments()
-        {
-            var result = _interpreter.ParseRule("invalid_double_type_comments");
-            return result as object;
-        }
-
-        // Rule: invalid_with_item
-        public object? InvalidWithItem()
-        {
-            var result = _interpreter.ParseRule("invalid_with_item");
-            return result as object;
-        }
-
-        // Rule: invalid_for_target
-        public object? InvalidForTarget()
-        {
-            var result = _interpreter.ParseRule("invalid_for_target");
-            return result as object;
-        }
-
-        // Rule: invalid_group
-        public object? InvalidGroup()
-        {
-            var result = _interpreter.ParseRule("invalid_group");
-            return result as object;
-        }
-
-        // Rule: invalid_import
-        public object? InvalidImport()
-        {
-            var result = _interpreter.ParseRule("invalid_import");
-            return result as object;
-        }
-
-        // Rule: invalid_import_from_targets
-        public object? InvalidImportFromTargets()
-        {
-            var result = _interpreter.ParseRule("invalid_import_from_targets");
-            return result as object;
-        }
-
-        // Rule: invalid_with_stmt
-        public object? InvalidWithStmt()
-        {
-            var result = _interpreter.ParseRule("invalid_with_stmt");
-            return result as object;
-        }
-
-        // Rule: invalid_with_stmt_indent
-        public object? InvalidWithStmtIndent()
-        {
-            var result = _interpreter.ParseRule("invalid_with_stmt_indent");
-            return result as object;
-        }
-
-        // Rule: invalid_try_stmt
-        public object? InvalidTryStmt()
-        {
-            var result = _interpreter.ParseRule("invalid_try_stmt");
-            return result as object;
-        }
-
-        // Rule: invalid_except_stmt
-        public object? InvalidExceptStmt()
-        {
-            var result = _interpreter.ParseRule("invalid_except_stmt");
-            return result as object;
-        }
-
-        // Rule: invalid_finally_stmt
-        public object? InvalidFinallyStmt()
-        {
-            var result = _interpreter.ParseRule("invalid_finally_stmt");
-            return result as object;
-        }
-
-        // Rule: invalid_except_stmt_indent
-        public object? InvalidExceptStmtIndent()
-        {
-            var result = _interpreter.ParseRule("invalid_except_stmt_indent");
-            return result as object;
-        }
-
-        // Rule: invalid_except_star_stmt_indent
-        public object? InvalidExceptStarStmtIndent()
-        {
-            var result = _interpreter.ParseRule("invalid_except_star_stmt_indent");
-            return result as object;
-        }
-
-        // Rule: invalid_match_stmt
-        public object? InvalidMatchStmt()
-        {
-            var result = _interpreter.ParseRule("invalid_match_stmt");
-            return result as object;
-        }
-
-        // Rule: invalid_case_block
-        public object? InvalidCaseBlock()
-        {
-            var result = _interpreter.ParseRule("invalid_case_block");
-            return result as object;
-        }
-
-        // Rule: invalid_as_pattern
-        public object? InvalidAsPattern()
-        {
-            var result = _interpreter.ParseRule("invalid_as_pattern");
-            return result as object;
-        }
-
-        // Rule: invalid_class_pattern
-        public object? InvalidClassPattern()
-        {
-            var result = _interpreter.ParseRule("invalid_class_pattern");
-            return result as object;
-        }
-
-        // Rule: invalid_class_argument_pattern
-        public GeneratedSeq InvalidClassArgumentPattern()
-        {
-            var result = _interpreter.ParseRule("invalid_class_argument_pattern");
-            return (GeneratedSeq)result;
-        }
-
-        // Rule: invalid_if_stmt
-        public object? InvalidIfStmt()
-        {
-            var result = _interpreter.ParseRule("invalid_if_stmt");
-            return result as object;
-        }
-
-        // Rule: invalid_elif_stmt
-        public object? InvalidElifStmt()
-        {
-            var result = _interpreter.ParseRule("invalid_elif_stmt");
-            return result as object;
-        }
-
-        // Rule: invalid_else_stmt
-        public object? InvalidElseStmt()
-        {
-            var result = _interpreter.ParseRule("invalid_else_stmt");
-            return result as object;
-        }
-
-        // Rule: invalid_while_stmt
-        public object? InvalidWhileStmt()
-        {
-            var result = _interpreter.ParseRule("invalid_while_stmt");
-            return result as object;
-        }
-
-        // Rule: invalid_for_stmt
-        public object? InvalidForStmt()
-        {
-            var result = _interpreter.ParseRule("invalid_for_stmt");
-            return result as object;
-        }
-
-        // Rule: invalid_def_raw
-        public object? InvalidDefRaw()
-        {
-            var result = _interpreter.ParseRule("invalid_def_raw");
-            return result as object;
-        }
-
-        // Rule: invalid_class_def_raw
-        public object? InvalidClassDefRaw()
-        {
-            var result = _interpreter.ParseRule("invalid_class_def_raw");
-            return result as object;
-        }
-
-        // Rule: invalid_double_starred_kvpairs
-        public object? InvalidDoubleStarredKvpairs()
-        {
-            var result = _interpreter.ParseRule("invalid_double_starred_kvpairs");
-            return result as object;
-        }
-
-        // Rule: invalid_kvpair
-        public object? InvalidKvpair()
-        {
-            var result = _interpreter.ParseRule("invalid_kvpair");
-            return result as object;
-        }
-
-        // Rule: invalid_starred_expression
-        public object? InvalidStarredExpression()
-        {
-            var result = _interpreter.ParseRule("invalid_starred_expression");
-            return result as object;
-        }
-
-        // Rule: invalid_replacement_field
-        public object? InvalidReplacementField()
-        {
-            var result = _interpreter.ParseRule("invalid_replacement_field");
-            return result as object;
-        }
-
-        // Rule: invalid_conversion_character
-        public object? InvalidConversionCharacter()
-        {
-            var result = _interpreter.ParseRule("invalid_conversion_character");
-            return result as object;
+        /// <summary>
+        /// compound_stmt[stmt_ty]: &('def' | '@' | ASYNC) function_def | ...
+        /// </summary>
+        public GeneratedStmt ParseCompoundStmt()
+        {
+            // Check for function definition
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "def")
+            {
+                return ParseFunctionDef();
+            }
+
+            // TODO: Add other compound statements (if, class, etc.)
+            return null;
+        }
+
+        /// <summary>
+        /// function_def[stmt_ty]: decorators function_def_raw | function_def_raw
+        /// </summary>
+        public GeneratedStmt ParseFunctionDef()
+        {
+            // For now, just handle function_def_raw (no decorators)
+            return ParseFunctionDefRaw();
+        }
+
+        /// <summary>
+        /// function_def_raw[stmt_ty]: 'def' n=NAME '(' params=[params] ')' ':' b=block
+        /// { _PyAST_FunctionDef(n->v.Name.id, (params) ? params : _PyPegen_empty_arguments(p), b, NULL, a, NEW_TYPE_COMMENT(p, tc), t, EXTRA) }
+        /// </summary>
+        public GeneratedStmt ParseFunctionDefRaw()
+        {
+            Console.WriteLine($"[DEBUG] ParseFunctionDefRaw: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+
+            // Use left-recursion handling for function definition parsing
+            return TryLeftRecursive<GeneratedStmt>("ParseFunctionDefRaw", () =>
+            {
+                // 'def'
+                if (!ExpectKeyword("def"))
+                    return null;
+
+                // NAME
+                var name = ExpectName();
+                if (name == null)
+                    return null;
+
+                // '('
+                if (!ExpectToken(GeneratedTokenType.OP, "("))
+                    return null;
+
+                // [params] - optional parameters
+                var parameters = ParseParams() ?? _PyPegen_empty_arguments();
+
+                // ')'
+                if (!ExpectToken(GeneratedTokenType.OP, ")"))
+                    return null;
+
+                // ':'
+                if (!ExpectToken(GeneratedTokenType.OP, ":"))
+                    return null;
+
+                // block
+                var body = ParseBlock();
+                if (body == null)
+                    return null;
+
+                // Return the successful result
+                Console.WriteLine($"[DEBUG] ParseFunctionDefRaw: Successfully parsed function '{name}' at position {_position}");
+                return _PyAST_FunctionDef(name, parameters, body);
+            });
+        }
+
+        /// <summary>
+        /// statements[asdl_stmt_seq*]: a=statement+ { (asdl_stmt_seq*)_PyPegen_seq_flatten(p, a) }
+        /// </summary>
+        public List<object> ParseStatements()
+        {
+            var statements = new List<object>();
+            while (_position < _tokens.Count && CurrentToken?.Type != GeneratedTokenType.ENDMARKER)
+            {
+                // Skip NEWLINE, NL, COMMENT, and DEDENT tokens
+                if (CurrentToken?.Type == GeneratedTokenType.NEWLINE || CurrentToken?.Type == GeneratedTokenType.NL || CurrentToken?.Type == GeneratedTokenType.COMMENT || CurrentToken?.Type == GeneratedTokenType.DEDENT)
+                {
+                    Advance();
+                    continue;
+                }
+
+                var startPos = _position; // Track starting position
+                var stmt = ParseStatement();
+                if (stmt != null)
+                {
+                    if (_position == startPos)
+                    {
+                        // CRITICAL: Position didn't advance - force advance to prevent infinite loop
+                        Console.WriteLine($"[WARNING] ParseStatements: Position {_position} didn't advance, forcing advance to prevent infinite loop. Token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+                        Advance();
+                        continue;
+                    }
+                    if (stmt is List<object> stmtList)
+                        statements.AddRange(stmtList);
+                    else
+                        statements.Add(stmt);
+                }
+                else
+                {
+                    break;
+                }
+            }
+            return _PyPegen_seq_flatten(statements);
+        }
+
+        /// <summary>
+        /// statement[asdl_stmt_seq*]: a=compound_stmt { (asdl_stmt_seq*)_PyPegen_singleton_seq(p, a) } | a[asdl_stmt_seq*]=simple_stmts { a }
+        /// </summary>
+        public object ParseStatement()
+        {
+            Console.WriteLine($"[DEBUG] ParseStatement: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+
+            // Try compound statement first
+            var compound = ParseCompoundStmt();
+            if (compound != null)
+            {
+                Console.WriteLine($"[DEBUG] ParseStatement: Found compound statement");
+                return _PyPegen_singleton_seq(compound);
+            }
+
+            // Try simple statements
+            var simple = ParseSimpleStmts();
+            if (simple != null)
+            {
+                Console.WriteLine($"[DEBUG] ParseStatement: Found simple statements");
+                return simple;
+            }
+
+            Console.WriteLine($"[DEBUG] ParseStatement: No statement found at position {_position}");
+            return null;
+        }
+
+        /// <summary>
+        /// simple_stmts[asdl_stmt_seq*]: simple_stmt (';' simple_stmt)* [';'] NEWLINE
+        /// </summary>
+        public List<object> ParseSimpleStmts()
+        {
+            var statements = new List<object>();
+            var stmt = ParseSimpleStmt();
+            if (stmt != null)
+                statements.Add(stmt);
+
+            // Skip semicolons and additional statements for now
+            ExpectToken(GeneratedTokenType.NEWLINE);
+            return statements;
+        }
+
+        /// <summary>
+        /// simple_stmt[stmt_ty]: assignment | star_expressions | 'pass' | 'return' | ...
+        /// CRITICAL: assignment MUST precede expression per CPython grammar!
+        /// </summary>
+        public GeneratedStmt ParseAssignment()
+        {
+            // Try to parse: target '=' value
+            var mark = Mark();
+            var target = ParseExpression();
+            if (target != null && CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == "=")
+            {
+                Advance(); // consume '='
+                var value = ParseExpression();
+                if (value != null)
+                {
+                    return _PyAST_Assign(target, value);
+                }
+            }
+            Reset(mark);
+            return null;
+        }
+
+        /// <summary>
+        /// simple_stmt[stmt_ty]: assignment | star_expressions | 'pass' | 'return' | ...
+        /// </summary>
+        public GeneratedStmt ParseSimpleStmt()
+        {
+            // Check for 'return' FIRST to avoid memoization conflicts with assignment
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "return")
+            {
+                return ParseReturnStmt();
+            }
+
+            // CRITICAL: Try assignment NEXT (per python.gram comment)
+            var assignment = ParseAssignment();
+            if (assignment != null)
+            {
+                return assignment;
+            }
+
+            // Check for 'pass'
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "pass")
+            {
+                Advance();
+                return _PyAST_Pass();
+            }
+
+            // Try expression statement (fallback)
+            var expr = ParseExpression();
+            if (expr != null)
+                return _PyAST_Expr(expr);
+
+            return null;
+        }
+
+        /// <summary>
+        /// return_stmt[stmt_ty]: 'return' a=[star_expressions] { _PyAST_Return(a, EXTRA) }
+        /// </summary>
+        public GeneratedStmt ParseReturnStmt()
+        {
+            if (!ExpectKeyword("return"))
+                return null;
+
+            // Optional return value
+            var value = ParseExpression(); // Simplified - should be star_expressions
+            return _PyAST_Return(value);
+        }
+
+        /// <summary>
+        /// params[arguments_ty]: parameters
+        /// </summary>
+        public object ParseParams()
+        {
+            // Simplified parameter parsing for now
+            return _PyPegen_empty_arguments();
+        }
+
+        /// <summary>
+        /// block[asdl_stmt_seq*]: NEWLINE INDENT statements DEDENT | simple_stmts
+        /// </summary>
+        public List<object> ParseBlock()
+        {
+            Console.WriteLine($"[DEBUG] ParseBlock: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+
+            // Use left-recursion handling for block parsing
+            return TryLeftRecursive<List<object>>("ParseBlock", () =>
+            {
+                var statements = new List<object>();
+
+            // Check if we have a NEWLINE indicating an indented block
+            if (CurrentToken?.Type == GeneratedTokenType.NEWLINE)
+            {
+                Advance(); // consume NEWLINE
+
+                if (!ExpectToken(GeneratedTokenType.INDENT))
+                    return statements;
+
+                // Parse statements in the indented block - now safe after fixing ParseStatement conflict
+                var blockStatements = ParseStatements();
+                if (blockStatements != null)
+                {
+                    statements.AddRange(blockStatements);
+                }
+
+                ExpectToken(GeneratedTokenType.DEDENT);
+            }
+            else
+            {
+                // Single line block - parse one simple statement
+                var stmt = ParseSimpleStmt();
+                if (stmt != null)
+                {
+                    statements.Add(stmt);
+                }
+            }
+
+            Console.WriteLine($"[DEBUG] ParseBlock: Returning result with {statements.Count} statements at position {_position}");
+            return statements;
+            });
         }
 
     }

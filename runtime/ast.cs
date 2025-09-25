@@ -2162,43 +2162,7 @@ namespace SharpPy
         public override string ToString() => $"{Op}{Operand}";
     }
 
-    public class CompareExpression : Expression
-    {
-        public override string NodeType => "Compare";
-        public Expression Left { get; }
-        public string Op { get; }
-        public Expression Right { get; }
-        
-        public CompareExpression(Expression left, string op, Expression right)
-        {
-            Left = left;
-            Op = op;
-            Right = right;
-        }
-        
-        public override PyObject Evaluate(PyScope scope)
-        {
-            var left = Left.Evaluate(scope);
-            var right = Right.Evaluate(scope);
-            
-            return Op switch
-            {
-                "=="  => left.RichCompare(right, PyObject.CompareOp.EQ),
-                "!="  => left.RichCompare(right, PyObject.CompareOp.NE),
-                "<"   => left.RichCompare(right, PyObject.CompareOp.LT),
-                "<="  => left.RichCompare(right, PyObject.CompareOp.LE),
-                ">"   => left.RichCompare(right, PyObject.CompareOp.GT),
-                ">="  => left.RichCompare(right, PyObject.CompareOp.GE),
-                "in"  => PyBool.True, // 간단한 구현
-                "not in" => PyBool.False, // 간단한 구현
-                "is"  => PyBool.True, // 간단한 구현
-                "is not" => PyBool.False, // 간단한 구현
-                _ => throw new NotImplementedException($"Compare operator {Op} not implemented")
-            };
-        }
-        
-        public override string ToString() => $"({Left} {Op} {Right})";
-    }
+    // CompareExpression moved to CompareExpressions.cs
 
     public class BoolOpExpression : Expression
     {

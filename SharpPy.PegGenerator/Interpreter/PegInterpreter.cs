@@ -78,13 +78,21 @@ namespace SharpPy.PegGenerator.Interpreter
         /// </summary>
         private int Mark()
         {
-            // Infinite loop detection
+            // Infinite loop detection - aggressive threshold for early detection
             if (_positionAttempts.ContainsKey(_position))
             {
                 _positionAttempts[_position]++;
-                if (_positionAttempts[_position] > 50) // Even lower threshold for faster debugging
+                if (_positionAttempts[_position] > 20) // Lower threshold for faster infinite loop detection
                 {
-                    throw new InvalidOperationException($"Infinite loop detected at token position {_position}. Current token: {CurrentToken?.Type}('{CurrentToken?.Value}')");
+                    var tokenInfo = CurrentToken != null ? $"{CurrentToken.Type}('{CurrentToken.Value}')" : "EOF";
+                    var activeRulesInfo = _activeRules.Count > 0 ?
+                        string.Join(", ", _activeRules.Select(ar => $"{ar.Item2}@{ar.Item1}")) : "none";
+
+                    throw new InvalidOperationException(
+                        $"Infinite loop detected at token position {_position}. " +
+                        $"Current token: {tokenInfo}. " +
+                        $"Active rules: {activeRulesInfo}. " +
+                        $"Attempts at this position: {_positionAttempts[_position]}");
                 }
             }
             else
@@ -258,8 +266,13 @@ namespace SharpPy.PegGenerator.Interpreter
             }
 
             // Step 4: Iteratively expand the seed using recursive alternatives
-            while (true)
+            const int maxIterations = 1000; // Prevent infinite loops
+            int iterationCount = 0;
+            int lastPosition = seedPosition;
+
+            while (iterationCount < maxIterations)
             {
+                iterationCount++;
                 var expandedSeed = seed;
                 var expandedPosition = seedPosition;
                 var foundExpansion = false;
@@ -276,13 +289,14 @@ namespace SharpPy.PegGenerator.Interpreter
                     try
                     {
                         var result = ParseAlternative(recursiveAlt);
+                        // CPython-style check: must advance position to be a valid expansion
                         if (result != null && _position > seedPosition)
                         {
                             // Found a longer parse - update seed
                             expandedSeed = result;
                             expandedPosition = _position;
                             foundExpansion = true;
-                            // Console.WriteLine($"[LEFT-REC] Expanded seed for {ruleName}: {result}");
+                            // Console.WriteLine($"[LEFT-REC] Iteration {iterationCount}: Expanded seed for {ruleName} from pos {seedPosition} to {_position}");
                             break;
                         }
                     }
@@ -295,13 +309,27 @@ namespace SharpPy.PegGenerator.Interpreter
 
                 if (!foundExpansion)
                 {
-                    // No more expansions possible
+                    // No more expansions possible - terminate normally
+                    // Console.WriteLine($"[LEFT-REC] No expansion found for {ruleName} at iteration {iterationCount}, terminating");
+                    break;
+                }
+
+                // CPython-style progress check: if position didn't advance, we're stuck
+                if (expandedPosition <= lastPosition)
+                {
+                    // Console.WriteLine($"[LEFT-REC] Position didn't advance for {ruleName} (was {lastPosition}, now {expandedPosition}), terminating to prevent infinite loop");
                     break;
                 }
 
                 // Update seed for next iteration
                 seed = expandedSeed;
+                lastPosition = seedPosition;
                 seedPosition = expandedPosition;
+            }
+
+            if (iterationCount >= maxIterations)
+            {
+                Console.WriteLine($"[LEFT-REC] WARNING: Maximum iterations ({maxIterations}) reached for rule {ruleName}, terminating to prevent infinite loop");
             }
 
             // Step 5: Set final position and cache result

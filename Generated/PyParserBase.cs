@@ -43,15 +43,6 @@ namespace SharpPy.Generated
             return false;
         }
 
-        protected bool ExpectKeyword(string keyword)
-        {
-            if (CurrentToken?.Type.ToString() == "NAME" && CurrentToken?.Value == keyword)
-            {
-                Advance();
-                return true;
-            }
-            return false;
-        }
 
         protected bool ExpectOperator(string op)
         {
@@ -89,6 +80,86 @@ namespace SharpPy.Generated
         {
             var key = (_position, ruleName);
             _memoCache[key] = value;
+        }
+
+        // Left recursion support - based on Warth et al. "Packrat parsers can support left recursion"
+        protected T? TryLeftRecursive<T>(string ruleName, Func<T?> parseMethod) where T : class
+        {
+            var key = (_position, ruleName);
+            var startPos = _position;
+
+            Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} at position {startPos}");
+
+            // Check if we're already in a recursive call at this position for this rule
+            if (_memoCache.TryGetValue(key, out var existing) && existing == null)
+            {
+                // We're in a recursive call - return null to break initial recursion
+                Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} recursive call detected, breaking");
+                return null;
+            }
+
+            // Step 1: Mark as being processed (seed with failure)
+            SetMemo(ruleName, (T?)null);
+
+            // Step 2: Try initial parse (seed parse)
+            Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} attempting seed parse");
+            var lastResult = parseMethod();
+            if (lastResult == null)
+            {
+                // No seed parse succeeded, keep the null memo and return null
+                Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} seed parse failed");
+                return null;
+            }
+
+            var lastEndPos = _position;
+            Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} seed parse succeeded, position {startPos} -> {lastEndPos}");
+            SetMemo(ruleName, lastResult);
+
+            // Step 3: Expansion loop - keep trying to get longer parses
+            int loopCount = 0;
+            const int MAX_EXPANSION_ATTEMPTS = 100; // Safety limit
+            while (loopCount < MAX_EXPANSION_ATTEMPTS)
+            {
+                loopCount++;
+                Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} expansion attempt {loopCount}");
+
+                // Reset to start position for next attempt
+                Reset(startPos);
+
+                var result = parseMethod();
+                var endPos = _position;
+
+                Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} expansion result: {(result != null ? "success" : "null")}, position {startPos} -> {endPos} (last was {lastEndPos})");
+
+                // Step 4: Termination condition - no progress made or result is null
+                if (result == null)
+                {
+                    Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} result is null, terminating loop");
+                    break;
+                }
+
+                // Critical fix: position must advance to continue expansion
+                if (endPos <= lastEndPos)
+                {
+                    Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} no position advancement ({endPos} <= {lastEndPos}), terminating loop");
+                    break;
+                }
+
+                // Progress made - update the cached result
+                lastResult = result;
+                lastEndPos = endPos;
+                SetMemo(ruleName, lastResult);
+            }
+
+            if (loopCount >= MAX_EXPANSION_ATTEMPTS)
+            {
+                Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} hit safety limit, terminating");
+            }
+
+            // Reset to the final successful position
+            Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} final result at position {lastEndPos}");
+            Reset(lastEndPos);
+            return lastResult;
         }
 
         // Generic parsing methods
@@ -140,11 +211,21 @@ namespace SharpPy.Generated
         // Generic file parsing template
         protected TFileModule ParseFileTemplate<TFileModule>() where TFileModule : GeneratedAstNode, new()
         {
-            var statements = ParseStatements();
+            var parser = this as GeneratedPyParser;
+            var statements = parser?.ParseStatements();
 
             if (typeof(TFileModule) == typeof(GeneratedModule))
             {
-                var module = new GeneratedModule { Body = statements as GeneratedStmtSeq };
+                var stmtSeq = new GeneratedStmtSeq();
+                if (statements != null)
+                {
+                    foreach (var stmt in statements)
+                    {
+                        if (stmt is GeneratedStmt genStmt)
+                            stmtSeq.Add(genStmt);
+                    }
+                }
+                var module = new GeneratedModule { Body = stmtSeq };
                 return (TFileModule)(object)module;
             }
 
@@ -159,7 +240,18 @@ namespace SharpPy.Generated
             // Parse one or more statements
             while (_position < _tokens.Count && CurrentToken?.Type.ToString() != "ENDMARKER")
             {
-                var stmtSeq = ParseStatement(); // Abstract method to be implemented
+                // Skip NEWLINE tokens before parsing statements (NL tokens don't exist)
+                while (CurrentToken?.Type.ToString() == "NEWLINE")
+                {
+                    Advance();
+                }
+
+                // Check if we've reached the end after skipping tokens
+                if (_position >= _tokens.Count || CurrentToken?.Type.ToString() == "ENDMARKER")
+                    break;
+
+                var parser = this as GeneratedPyParser;
+                var stmtSeq = parser?.ParseStatement(); // Use generated parser's method
                 if (stmtSeq != null)
                 {
                     if (stmtSeq is GeneratedStmt singleStmt)
@@ -183,353 +275,23 @@ namespace SharpPy.Generated
             return statements;
         }
 
-        // Template for the actual Statements parsing (used by generated parser)
-        protected GeneratedStmtSeq ParseStatements()
-        {
-            return ParseStatementsTemplate();
-        }
+        // Removed ParseStatements() - using generated parser's implementation instead
 
-        // Generic comparison parsing template
+        // Generic comparison parsing template - will be replaced by generated ParseComparison
         protected object? ParseComparisonTemplate()
         {
-            var left = ParseSum();
-            if (left == null) return null;
-
-            // Handle chained comparison operations
-            var ops = new List<string>();
-            var comparators = new List<object>();
-
-            while (true)
-            {
-                var mark = Mark();
-                string? op = null;
-
-                if (CurrentToken?.Type.ToString() == "OP")
-                {
-                    switch (CurrentToken?.Value)
-                    {
-                        case "==": op = "=="; break;
-                        case "!=": op = "!="; break;
-                        case "<": op = "<"; break;
-                        case "<=": op = "<="; break;
-                        case ">": op = ">"; break;
-                        case ">=": op = ">="; break;
-                        case "in": op = "in"; break;
-                        case "is": op = "is"; break;
-                    }
-                }
-
-                if (op != null)
-                {
-                    Advance(); // consume operator
-                    var right = ParseSum();
-                    if (right != null)
-                    {
-                        ops.Add(op);
-                        comparators.Add(right);
-                        Console.WriteLine($"[DEBUG] ParseComparison: Added {op} operator to chain");
-                    }
-                    else
-                    {
-                        Reset(mark); // backtrack on failure
-                        break;
-                    }
-                }
-                else
-                {
-                    Reset(mark); // no more comparison operators
-                    break;
-                }
-            }
-
-            // Create appropriate result
-            if (ops.Count == 0)
-            {
-                // No comparison operators found, return the original expression
-                return left;
-            }
-            else if (ops.Count == 1)
-            {
-                // Single comparison - create simple compare structure
-                var result = new { type = "compare", op = ops[0], left = left, right = comparators[0] };
-                Console.WriteLine($"[DEBUG] ParseComparison: Created single {ops[0]} comparison");
-                return result;
-            }
-            else
-            {
-                // Chained comparison - create chained compare structure
-                var result = new { type = "chained_compare", left = left, ops = ops.ToArray(), comparators = comparators.ToArray() };
-                Console.WriteLine($"[DEBUG] ParseComparison: Created chained comparison with {ops.Count} operators");
-                return result;
-            }
+            // This is a temporary placeholder - the generated parser will have ParseComparison
+            return null;
         }
 
         // Common parsing methods - no need to generate these dynamically
 
-        // sum: sum '+' term | sum '-' term | term
-        protected object? ParseSum()
-        {
-            Console.WriteLine($"[DEBUG] ParseSum at position {_position}");
 
-            var result = ParseTerm();
-            if (result == null) return null;
 
-            // Handle left recursion iteratively
-            while (true)
-            {
-                var mark = Mark();
 
-                if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "+")
-                {
-                    Advance(); // consume '+'
-                    var right = ParseTerm();
-                    if (right != null)
-                    {
-                        result = new { type = "binop", op = "+", left = result, right = right };
-                        Console.WriteLine($"[DEBUG] ParseSum: Created addition");
-                        continue;
-                    }
-                    Reset(mark);
-                }
 
-                if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "-")
-                {
-                    Advance(); // consume '-'
-                    var right = ParseTerm();
-                    if (right != null)
-                    {
-                        result = new { type = "binop", op = "-", left = result, right = right };
-                        Console.WriteLine($"[DEBUG] ParseSum: Created subtraction");
-                        continue;
-                    }
-                    Reset(mark);
-                }
 
-                // No more operations
-                break;
-            }
-
-            Console.WriteLine($"[DEBUG] ParseSum result: {result?.GetType().Name}");
-            return result;
-        }
-
-        // term: term '*' primary | term '/' primary | primary
-        protected object? ParseTerm()
-        {
-            Console.WriteLine($"[DEBUG] ParseTerm at position {_position}");
-
-            var result = ParsePrimary();
-            if (result == null) return null;
-
-            // Handle left recursion iteratively
-            while (true)
-            {
-                var mark = Mark();
-
-                if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "*")
-                {
-                    Advance(); // consume '*'
-                    var right = ParsePrimary();
-                    if (right != null)
-                    {
-                        result = new { type = "binop", op = "*", left = result, right = right };
-                        Console.WriteLine($"[DEBUG] ParseTerm: Created multiplication");
-                        continue;
-                    }
-                    Reset(mark);
-                }
-
-                if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "/")
-                {
-                    Advance(); // consume '/'
-                    var right = ParsePrimary();
-                    if (right != null)
-                    {
-                        result = new { type = "binop", op = "/", left = result, right = right };
-                        Console.WriteLine($"[DEBUG] ParseTerm: Created division");
-                        continue;
-                    }
-                    Reset(mark);
-                }
-
-                // No more operations
-                break;
-            }
-
-            Console.WriteLine($"[DEBUG] ParseTerm result: {result?.GetType().Name}");
-            return result;
-        }
-
-        // primary: primary '.' NAME | primary '(' [arguments] ')' | atom
-        protected object? ParsePrimary()
-        {
-            Console.WriteLine($"[DEBUG] ParsePrimary at position {_position}");
-
-            // Check memoization for left recursion
-            var memoKey = "primary";
-            var memoResult = GetMemo<object>(memoKey);
-            if (memoResult != null)
-            {
-                Console.WriteLine($"[DEBUG] Primary: Using memoized result");
-                return memoResult;
-            }
-
-            // Start with atom (base case)
-            var result = ParseAtom();
-            if (result == null)
-            {
-                SetMemo<object>(memoKey, null);
-                return null;
-            }
-
-            // Iteratively expand with left-recursive rules
-            bool expanded = true;
-            while (expanded)
-            {
-                expanded = false;
-
-                // Try: primary '(' [arguments] ')' (function call)
-                if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "(")
-                {
-                    var mark = Mark();
-                    Advance(); // consume '('
-
-                    var args = new List<object>();
-                    // Parse arguments (simplified)
-                    while (CurrentToken != null && !(CurrentToken.Type.ToString() == "OP" && CurrentToken.Value == ")"))
-                    {
-                        var arg = ParseExpression();
-                        if (arg != null)
-                        {
-                            args.Add(arg);
-                            // Skip comma if present
-                            if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == ",")
-                            {
-                                Advance();
-                            }
-                        }
-                        else break;
-                    }
-
-                    if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == ")")
-                    {
-                        Advance(); // consume ')'
-                        result = new { type = "call", func = result, args = args };
-                        expanded = true;
-                        Console.WriteLine($"[DEBUG] Primary: Created function call");
-                    }
-                    else
-                    {
-                        Reset(mark); // backtrack on failure
-                    }
-                }
-
-                // Try: primary '.' NAME (attribute access)
-                if (!expanded && CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == ".")
-                {
-                    var mark = Mark();
-                    Advance(); // consume '.'
-                    if (CurrentToken?.Type.ToString() == "NAME")
-                    {
-                        var attr = CurrentToken.Value;
-                        Advance();
-                        result = new { type = "attribute", value = result, attr = attr };
-                        expanded = true;
-                        Console.WriteLine($"[DEBUG] Primary: Created attribute access");
-                    }
-                    else
-                    {
-                        Reset(mark); // backtrack on failure
-                    }
-                }
-            }
-
-            SetMemo<object>(memoKey, result);
-            Console.WriteLine($"[DEBUG] Primary result: {result?.GetType().Name}");
-            return result;
-        }
-
-        // atom: NAME | NUMBER | STRING | '(' expression ')'
-        protected object? ParseAtom()
-        {
-            Console.WriteLine($"[DEBUG] ParseAtom at position {_position}: {CurrentToken?.Type}={CurrentToken?.Value}");
-
-            if (CurrentToken == null) return null;
-
-            // NAME
-            if (CurrentToken.Type.ToString() == "NAME")
-            {
-                var name = CurrentToken.Value;
-                Advance();
-                return new { type = "name", value = name };
-            }
-
-            // NUMBER
-            if (CurrentToken.Type.ToString() == "NUMBER")
-            {
-                var number = CurrentToken.Value;
-                Advance();
-                return new { type = "number", value = number };
-            }
-
-            // STRING
-            if (CurrentToken.Type.ToString() == "STRING")
-            {
-                var str = CurrentToken.Value;
-                Advance();
-                return new { type = "string", value = str };
-            }
-
-            // '(' expression ')'
-            if (CurrentToken.Type.ToString() == "OP" && CurrentToken.Value == "(")
-            {
-                Advance(); // consume '('
-                var expr = ParseExpression();
-                if (expr != null && CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == ")")
-                {
-                    Advance(); // consume ')'
-                    return expr;
-                }
-                return null; // Malformed parenthesized expression
-            }
-
-            return null;
-        }
-
-        // expression: comparison (operations with proper precedence)
-        protected object? ParseExpression()
-        {
-            return ParseComparisonTemplate();
-        }
-
-        // Common statement parsing template
-        protected object? ParseStatement()
-        {
-            Console.WriteLine($"[DEBUG] ParseStatement at position {_position}");
-
-            // Skip NEWLINE tokens
-            while (CurrentToken?.Type.ToString() == "NEWLINE")
-            {
-                Advance();
-            }
-
-            if (CurrentToken == null) return null;
-
-            // Check for compound statements first (if, while, for, etc.)
-            if (CurrentToken.Type.ToString() == "NAME")
-            {
-                var tokenValue = CurrentToken.Value?.ToString();
-                if (tokenValue == "if")
-                {
-                    var ifStmt = ParseIfStatement();
-                    if (ifStmt != null) return ifStmt;
-                }
-                // Add more compound statements here as needed
-            }
-
-            // Try simple statements
-            return ParseSimpleStatement();
-        }
+        // Removed ParseStatement() - using generated parser's implementation instead
 
         // Template for simple statement parsing (assignment, expression, etc.)
         protected object? ParseSimpleStatement()
@@ -551,7 +313,7 @@ namespace SharpPy.Generated
             }
 
             // Try expression statement
-            var expr = ParseExpression();
+            var expr = (object?)null; // ParseExpression(); // Will use generated method
             if (expr != null)
             {
                 // Return GeneratedStmt for compatibility with interpreter
@@ -575,7 +337,7 @@ namespace SharpPy.Generated
             if (CurrentToken?.Type.ToString() != "OP" || CurrentToken?.Value != "=") return null;
             Advance(); // consume '='
 
-            var value = ParseExpression();
+            var value = (object?)null; // ParseExpression(); // Will use generated method
             if (value == null) return null;
 
             // Return GeneratedStmt for compatibility with interpreter
@@ -592,7 +354,7 @@ namespace SharpPy.Generated
 
             Advance(); // consume 'if'
 
-            var condition = ParseExpression();
+            var condition = (object?)null; // ParseExpression(); // Will use generated method
             if (condition == null) return null;
 
             if (CurrentToken?.Type.ToString() != "OP" || CurrentToken?.Value != ":") return null;
@@ -605,7 +367,8 @@ namespace SharpPy.Generated
             }
 
             var body = new List<object>();
-            var bodyStmt = ParseStatement();
+            var parser = this as GeneratedPyParser;
+            var bodyStmt = parser?.ParseStatement();
             if (bodyStmt != null)
             {
                 body.Add(bodyStmt);
@@ -649,150 +412,254 @@ namespace SharpPy.Generated
 
         public class EmbeddedGrammar
         {
-            // Hard-coded Python grammar rules for basic assignment
-            public Dictionary<string, string> Rules { get; } = new()
+            // Grammar rules will be dynamically generated from python.gram
+            public Dictionary<string, string> Rules { get; set; } = new();
+
+            public EmbeddedGrammar(Dictionary<string, string> rules)
             {
-                { "assignment", "NAME '=' expr" },
-                { "expr", "NUMBER | NAME" },
-                { "simple_stmt", "assignment" },
-                { "stmt", "simple_stmt" }
+                Rules = rules ?? new Dictionary<string, string>();
+            }
+        }
+
+
+
+        // ========================================
+        // Parser Helper Methods
+        // ========================================
+
+        /// <summary>
+        /// Expect a keyword token
+        /// </summary>
+        protected bool ExpectKeyword(string keyword)
+        {
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == keyword)
+            {
+                Advance();
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Expect a specific token type and value
+        /// </summary>
+        protected bool ExpectToken(GeneratedTokenType tokenType, string value = null)
+        {
+            if (CurrentToken?.Type == tokenType)
+            {
+                if (value == null || CurrentToken.Value == value)
+                {
+                    Advance();
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Expect and return a NAME token
+        /// </summary>
+        protected string ExpectName()
+        {
+            if (CurrentToken?.Type == GeneratedTokenType.NAME)
+            {
+                var name = CurrentToken.Value;
+                Advance();
+                return name;
+            }
+            return null;
+        }
+
+        // ========================================
+        // Python C Function Helpers (_PyAST_* and _PyPegen_*)
+        // ========================================
+
+        /// <summary>
+        /// _PyAST_FunctionDef - Create function definition AST node
+        /// </summary>
+        protected GeneratedStmt _PyAST_FunctionDef(string name, object arguments, object body,
+            object decorator_list = null, object returns = null, string type_comment = null,
+            object type_params = null)
+        {
+            Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: Creating function '{name}' with body type: {body?.GetType().Name}");
+
+            var funcDef = new GeneratedStmt();
+            funcDef.StatementType = "function_def";
+
+            var funcInfo = new GeneratedFunctionDef
+            {
+                Name = name,
+                Arguments = arguments ?? _PyPegen_empty_arguments(),
+                Body = body,
+                DecoratorList = decorator_list ?? new List<object>(),
+                Returns = returns,
+                TypeComment = type_comment,
+                TypeParams = type_params
+            };
+
+            funcDef.Value = funcInfo;
+            Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: Function definition created successfully");
+            return funcDef;
+        }
+
+        /// <summary>
+        /// _PyPegen_make_module - Create module from statements
+        /// </summary>
+        protected GeneratedModule _PyPegen_make_module(object statements)
+        {
+            var module = new GeneratedModule();
+            module.Body = new GeneratedStmtSeq();
+
+            if (statements is List<object> stmtList)
+            {
+                foreach (var stmt in stmtList)
+                {
+                    if (stmt is GeneratedStmt genStmt)
+                    {
+                        module.Body.Add(genStmt);
+                    }
+                }
+            }
+            else if (statements is GeneratedStmt singleStmt)
+            {
+                module.Body.Add(singleStmt);
+            }
+
+            return module;
+        }
+
+        /// <summary>
+        /// _PyPegen_singleton_seq - Create sequence with single item
+        /// </summary>
+        protected List<object> _PyPegen_singleton_seq(object item)
+        {
+            if (item == null) return new List<object>();
+            return new List<object> { item };
+        }
+
+        /// <summary>
+        /// _PyPegen_seq_flatten - Flatten sequence of sequences
+        /// </summary>
+        protected List<object> _PyPegen_seq_flatten(List<object> sequences)
+        {
+            var result = new List<object>();
+            foreach (var seq in sequences)
+            {
+                if (seq is List<object> subList)
+                {
+                    result.AddRange(subList);
+                }
+                else if (seq != null)
+                {
+                    result.Add(seq);
+                }
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// _PyPegen_empty_arguments - Create empty argument list
+        /// </summary>
+        protected object _PyPegen_empty_arguments()
+        {
+            return new Dictionary<string, object>
+            {
+                ["posonlyargs"] = new List<object>(),
+                ["args"] = new List<object>(),
+                ["vararg"] = null,
+                ["kwonlyargs"] = new List<object>(),
+                ["kw_defaults"] = new List<object>(),
+                ["kwarg"] = null,
+                ["defaults"] = new List<object>()
             };
         }
 
-        protected class EmbeddedPegInterpreter
+        /// <summary>
+        /// _PyAST_Pass - Create pass statement
+        /// </summary>
+        protected GeneratedStmt _PyAST_Pass()
         {
-            private readonly EmbeddedGrammar _grammar;
-            private readonly List<IEmbeddedTokenInfo> _tokens;
-            private readonly PyParserBase<TModule> _parser;
-
-            public EmbeddedPegInterpreter(EmbeddedGrammar grammar, List<IEmbeddedTokenInfo> tokens, PyParserBase<TModule> parser)
-            {
-                _grammar = grammar;
-                _tokens = tokens;
-                _parser = parser;
-            }
-
-            public object ParseRule(string ruleName)
-            {
-                switch (ruleName)
-                {
-                    case "file":
-                        return ParseFile();
-                    case "assignment":
-                        return _parser.ParseAssignment();  // Use base class method
-                    case "expr":
-                        return ParseExpr();
-                    case "simple_stmt":
-                        return ParseSimpleStmt();
-                    case "stmt":
-                        return ParseStmt();
-                    case "expression_stmt":
-                        return ParseExpressionStmt();
-                    case "call":
-                        return ParseExpressionStmt();
-                    default:
-                        return null;
-                }
-            }
-
-            private object ParseFile()
-            {
-                // Parse: statements ENDMARKER
-                Console.WriteLine($"[DEBUG] ParseFile starting: {_parser._position} / {_tokens.Count}");
-                var statements = new List<object>();
-                while (_parser._position < _tokens.Count && _tokens[_parser._position].Type.ToString() != "ENDMARKER")
-                {
-                    Console.WriteLine($"[DEBUG] ParseFile loop: position={_parser._position}, token={_tokens[_parser._position].Type}:{_tokens[_parser._position].Value}");
-                    // Skip NEWLINE tokens
-                    if (_tokens[_parser._position].Type.ToString() == "NEWLINE")
-                    {
-                        _parser._position++;
-                        continue;
-                    }
-
-                    var initialPos = _parser._position;
-                    var stmt = ParseStmt();
-                    Console.WriteLine($"[DEBUG] ParseStmt returned: {(stmt != null ? stmt.GetType().Name : "null")}");
-                    if (stmt != null)
-                    {
-                        statements.Add(stmt);
-                        // Ensure position advanced after successful parsing
-                        if (_parser._position == initialPos)
-                        {
-                            Console.WriteLine($"[DEBUG] Warning: ParseStmt succeeded but position not advanced, forcing advance");
-                            _parser._position++;
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine($"[DEBUG] ParseStmt failed, advancing position to prevent infinite loop");
-                        _parser._position++; // Skip unknown token
-                    }
-                }
-
-                Console.WriteLine($"[DEBUG] ParseFile collected {statements.Count} statements");
-                var module = new GeneratedModule();
-                module.Body = new GeneratedStmtSeq();
-                foreach (var stmt in statements)
-                {
-                    if (stmt is GeneratedStmt generatedStmt)
-                    {
-                        Console.WriteLine($"[DEBUG] Adding statement: {generatedStmt.StatementType}");
-                        module.Body.Add(generatedStmt);
-                    }
-                    else
-                    {
-                        Console.WriteLine($"[DEBUG] Skipping non-GeneratedStmt: {stmt?.GetType().Name}");
-                    }
-                }
-                return module;
-            }
-
-            private object ParseExpr()
-            {
-                // Use the full expression parser instead of only handling atoms
-                Console.WriteLine($"[DEBUG] ParseExpr: Using full expression parser");
-                return _parser.ParseExpression();
-            }
-
-            private object ParseSimpleStmt()
-            {
-                // Try assignment first
-                var assignment = _parser.ParseAssignment();
-                if (assignment != null) return assignment;
-
-                // Try expression statement (function calls, etc.)
-                var expressionStmt = ParseExpressionStmt();
-                if (expressionStmt != null) return expressionStmt;
-
-                return null;
-            }
-
-            private object ParseStmt()
-            {
-                return _parser.ParseStatement();
-            }
-
-            private object? ParseExpressionStmt()
-            {
-                Console.WriteLine($"[DEBUG] ParseExpressionStmt at position {_parser._position}");
-
-                var expr = _parser.ParseExpression();
-                if (expr != null)
-                {
-                    var stmt = new GeneratedStmt();
-                    stmt.StatementType = "expression";
-                    stmt.Value = expr;
-                    Console.WriteLine($"[DEBUG] Created expression statement: {expr}");
-                    return stmt;
-                }
-                return null;
-            }
+            var stmt = new GeneratedStmt();
+            stmt.StatementType = "pass";
+            stmt.Value = null;
+            return stmt;
         }
 
-        protected EmbeddedGrammar CreateEmbeddedGrammar()
+        /// <summary>
+        /// _PyAST_Return - Create return statement
+        /// </summary>
+        protected GeneratedStmt _PyAST_Return(object value)
         {
-            return new EmbeddedGrammar();
+            var stmt = new GeneratedStmt();
+            stmt.StatementType = "return";
+            stmt.Value = value;
+            return stmt;
         }
+
+        /// <summary>
+        /// _PyAST_Expr - Create expression statement
+        /// </summary>
+        protected GeneratedStmt _PyAST_Expr(object value)
+        {
+            var stmt = new GeneratedStmt();
+            stmt.StatementType = "expression";
+            stmt.Value = value;
+            return stmt;
+        }
+
+        /// <summary>
+        /// _PyAST_Constant - Create constant expression
+        /// </summary>
+        protected GeneratedExpr _PyAST_Constant(object value)
+        {
+            var expr = new GeneratedExpr();
+            expr.ExpressionType = "constant";
+            expr.Value = value;
+            return expr;
+        }
+
+        /// <summary>
+        /// _PyAST_Assign - Create assignment statement
+        /// </summary>
+        protected GeneratedStmt _PyAST_Assign(object target, object value)
+        {
+            var stmt = new GeneratedStmt();
+            stmt.StatementType = "assignment";
+            stmt.Value = new { Target = target, Value = value };
+            return stmt;
+        }
+
+    }
+
+    // ========================================
+    // Strongly-typed AST Node Classes
+    // ========================================
+
+    /// <summary>
+    /// Strongly-typed function definition AST node
+    /// </summary>
+    public class GeneratedFunctionDef
+    {
+        public string Name { get; set; } = "";
+        public object Arguments { get; set; } = null!;
+        public object Body { get; set; } = null!;
+        public object DecoratorList { get; set; } = null!;
+        public object Returns { get; set; } = null!;
+        public string? TypeComment { get; set; }
+        public object? TypeParams { get; set; }
+    }
+
+    /// <summary>
+    /// Strongly-typed class definition AST node
+    /// </summary>
+    public class GeneratedClassDef
+    {
+        public string Name { get; set; } = "";
+        public object Body { get; set; } = null!;
+        public object Bases { get; set; } = null!;
+        public object Keywords { get; set; } = null!;
+        public object DecoratorList { get; set; } = null!;
+        public string? TypeComment { get; set; }
+        public object? TypeParams { get; set; }
     }
 }

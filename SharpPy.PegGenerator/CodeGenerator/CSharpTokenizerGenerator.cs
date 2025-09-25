@@ -319,7 +319,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("_indentStack.Pop();");
-            WriteLine("AddToken(GeneratedTokenType.DEDENT, \"\", _line + 1, 0);");
+            WriteLine("_pendingTokens.Enqueue(new GeneratedTokenInfo(GeneratedTokenType.DEDENT, \"\", _line + 1, 0));");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -1232,8 +1232,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("_indentStack.Pop();");
-            WriteLine("// Add DEDENT immediately for CPython compatibility (not in pending queue)");
-            WriteLine("AddToken(GeneratedTokenType.DEDENT, \"\", _line, 0);");
+            WriteLine("// Add DEDENT to pending queue for proper NL → DEDENT order (CPython compatibility)");
+            WriteLine("_pendingTokens.Enqueue(new GeneratedTokenInfo(GeneratedTokenType.DEDENT, \"\", _line, 0));");
             Dedent();
             WriteLine("}");
             WriteLine();

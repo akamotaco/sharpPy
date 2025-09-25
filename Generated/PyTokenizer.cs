@@ -302,7 +302,7 @@ namespace SharpPy.Generated
             while (_indentStack.Count > 1)
             {
                 _indentStack.Pop();
-                AddToken(GeneratedTokenType.DEDENT, "", _line + 1, 0);
+                _pendingTokens.Enqueue(new GeneratedTokenInfo(GeneratedTokenType.DEDENT, "", _line + 1, 0));
             }
 
             // Process any pending tokens at EOF
@@ -973,8 +973,8 @@ namespace SharpPy.Generated
                 while (_indentStack.Count > 1 && _indentStack.Peek() > indent)
                 {
                     _indentStack.Pop();
-                    // Add DEDENT immediately for CPython compatibility (not in pending queue)
-                    AddToken(GeneratedTokenType.DEDENT, "", _line, 0);
+                    // Add DEDENT to pending queue for proper NL → DEDENT order (CPython compatibility)
+                    _pendingTokens.Enqueue(new GeneratedTokenInfo(GeneratedTokenType.DEDENT, "", _line, 0));
                 }
 
                 // Check for indentation error

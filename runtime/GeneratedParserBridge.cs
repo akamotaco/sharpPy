@@ -28,7 +28,7 @@ namespace SharpPy
 
             // Use generated parser
             var parser = new GeneratedPyParser(generatedTokens, filename);
-            var parseResult = parser.File();
+            var parseResult = parser.ParseFile();
 
 #if DEBUG_LOG
             Console.WriteLine($"[DEBUG] Parse result type: {parseResult?.GetType()?.Name ?? "null"}");
@@ -273,18 +273,16 @@ namespace SharpPy
 
                 case "function_def":
                     // Function definition (def name(): body)
-                    if (stmt.Value != null)
+                    if (stmt.Value is GeneratedFunctionDef funcData)
                     {
-                        var funcData = stmt.Value as dynamic;
-                        var name = funcData?.Name as string;
-                        var body = funcData?.Body as string;
+                        var name = funcData.Name;
 
-                        if (!string.IsNullOrEmpty(name) && body == "pass")
+                        if (!string.IsNullOrEmpty(name))
                         {
-                            // Create parameter list (empty for now)
+                            // Create parameter list (empty for now, TODO: parse arguments)
                             var parameters = new List<string>();
 
-                            // Create body statements
+                            // Create body statements (for now, simple pass statement)
                             var bodyStmts = new List<Statement>
                             {
                                 new ExpressionStatement(new ConstantExpression(PyNone.Instance))
@@ -524,18 +522,12 @@ namespace SharpPy
             object[] comparators = (object[])chainedCompareOp.comparators;
             Expression[] comparatorExprs = comparators.Select(comp => ConvertAnyExpression(comp)).ToArray();
 
-            // Create a chained comparison expression
-            // For now, create nested CompareExpression objects to represent the chain
-            // x < 5 > 3 becomes: (x < 5) AND (5 > 3)
-            Expression result = new CompareExpression(leftExpr, ops[0], comparatorExprs[0]);
-
-            for (int i = 1; i < ops.Length; i++)
-            {
-                var nextComparison = new CompareExpression(comparatorExprs[i-1], ops[i], comparatorExprs[i]);
-                result = new BoolOpExpression("and", new List<Expression> { result, nextComparison });
-            }
-
-            return result;
+            // Create ChainedCompareExpression for CPython-compatible bytecode generation
+            return new ChainedCompareExpression(
+                leftExpr,
+                ops.ToList(),
+                comparatorExprs.ToList()
+            );
         }
 
         /// <summary>

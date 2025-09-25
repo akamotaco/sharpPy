@@ -1757,7 +1757,11 @@ namespace SharpPy
                     CompileExpression(compare.Right);
                     EmitCompareOp(compare.Op);
                     break;
-                    
+
+                case ChainedCompareExpression chainedCompare:
+                    CompileChainedComparison(chainedCompare);
+                    break;
+
                 case BoolOpExpression boolOp:
                     CompileBoolOp(boolOp);
                     break;
@@ -7103,6 +7107,82 @@ namespace SharpPy
             // Place end label
             PlaceLabel(endLabel);
         }
+
+        /// <summary>
+        /// Compile chained comparison to match CPython 3.12 bytecode exactly
+        /// Pattern: a < b < c generates SWAP, COPY, COMPARE_OP with proper cleanup
+        /// </summary>
+        private void CompileChainedComparison(ChainedCompareExpression chainedCompare)
+        {
+            if (chainedCompare.Operators.Count == 0)
+            {
+                // No comparisons, just compile the left operand
+                CompileExpression(chainedCompare.Left);
+                return;
+            }
+
+            if (chainedCompare.Operators.Count == 1)
+            {
+                // Single comparison, use regular CompareExpression logic
+                CompileExpression(chainedCompare.Left);
+                CompileExpression(chainedCompare.Comparators[0]);
+                EmitCompareOp(chainedCompare.Operators[0]);
+                return;
+            }
+
+            // Load first two operands for the first comparison
+            CompileExpression(chainedCompare.Left);
+            CompileExpression(chainedCompare.Comparators[0]);
+
+            // Generate cleanup and end labels for short-circuiting
+            var cleanupLabel = CreateLabel($"chained_cleanup_{_labelCounter}");
+            var endLabel = CreateLabel($"chained_end_{_labelCounter++}");
+
+            // CPython pattern for first comparison
+            EmitInstruction(ByteCodeOp.SWAP, 2);      // Stack: [b, a]
+            EmitInstruction(ByteCodeOp.COPY, 2);      // Stack: [b, a, b]
+            EmitCompareOp(chainedCompare.Operators[0]); // Stack: [b, result1]
+            EmitInstruction(ByteCodeOp.COPY, 1);      // Stack: [b, result1, result1]
+            EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, cleanupLabel); // Stack: [b, result1]
+            EmitInstruction(ByteCodeOp.POP_TOP);      // Stack: [b]
+
+            // Handle remaining comparisons
+            for (int i = 1; i < chainedCompare.Operators.Count; i++)
+            {
+                var isLastComparison = (i == chainedCompare.Operators.Count - 1);
+
+                // Load next operand
+                CompileExpression(chainedCompare.Comparators[i]); // Stack: [prev, curr]
+
+                if (!isLastComparison)
+                {
+                    // Intermediate comparison
+                    EmitInstruction(ByteCodeOp.SWAP, 2);     // Stack: [curr, prev]
+                    EmitInstruction(ByteCodeOp.COPY, 2);     // Stack: [curr, prev, curr]
+                    EmitCompareOp(chainedCompare.Operators[i]); // Stack: [curr, result]
+                    EmitInstruction(ByteCodeOp.COPY, 1);     // Stack: [curr, result, result]
+                    EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, cleanupLabel); // Stack: [curr, result]
+                    EmitInstruction(ByteCodeOp.POP_TOP);     // Stack: [curr]
+                }
+                else
+                {
+                    // Last comparison - CPython doesn't SWAP here
+                    EmitCompareOp(chainedCompare.Operators[i]); // Stack: [result]
+                }
+            }
+
+            // Jump to end after successful completion
+            EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, endLabel);
+
+            // Cleanup: when any comparison fails
+            PlaceLabel(cleanupLabel);
+            EmitInstruction(ByteCodeOp.SWAP, 2);
+            EmitInstruction(ByteCodeOp.POP_TOP);
+
+            // End label
+            PlaceLabel(endLabel);
+        }
+
         private void CompileLambda(LambdaExpression lambda)
         {
             // CPython 3.12 compatible lambda compilation

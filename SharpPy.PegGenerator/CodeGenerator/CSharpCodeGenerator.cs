@@ -409,7 +409,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("public object? Value { get; set; }");
             Dedent();
             WriteLine("}");
-            WriteLine("public class GeneratedExpr : GeneratedAstNode { }");
+            WriteLine("public class GeneratedExpr : GeneratedAstNode");
+            WriteLine("{");
+            Indent();
+            WriteLine("public string? ExpressionType { get; set; }");
+            WriteLine("public object? Value { get; set; }");
+            Dedent();
+            WriteLine("}");
             WriteLine("public class GeneratedModule : GeneratedAstNode");
             WriteLine("{");
             Indent();
@@ -435,7 +441,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
 
             GenerateParserConstructor();
-            GenerateParserMethods();
+            // Skip old GenerateParserMethods() - we only use new grammar methods
+            GeneratePythonGrammarMethods();
 
             Dedent();
             WriteLine("}");
@@ -447,17 +454,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
         private void GenerateParserConstructor()
         {
-            WriteLine("private readonly EmbeddedPegInterpreter _interpreter;");
-            WriteLine();
             WriteLine("public GeneratedPyParser(List<GeneratedTokenInfo> tokens, string filename = \"<string>\")");
             WriteLine("    : base(tokens, filename)");
             WriteLine("{");
-            Indent();
-            WriteLine("// Initialize embedded PEG interpreter (from base class)");
-            WriteLine("var grammar = CreateEmbeddedGrammar();");
-            WriteLine("var tokenWrappers = tokens.Select(t => (IEmbeddedTokenInfo)new EmbeddedTokenInfoAdapter(t)).ToList();");
-            WriteLine("_interpreter = new EmbeddedPegInterpreter(grammar, tokenWrappers, this);");
-            Dedent();
+            WriteLine("    // Parser initialized with tokens and filename");
             WriteLine("}");
             WriteLine();
 
@@ -465,7 +465,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("public override GeneratedModule Parse()");
             WriteLine("{");
             Indent();
-            WriteLine("return File();");
+            WriteLine("return ParseFile();");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -668,7 +668,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("// Parse sequence of grammar items");
-            WriteLine("Console.WriteLine($\"[DEBUG] TryParseGrammarItems: {string.Join(\", \", items)}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] TryParseGrammarItems: {string.Join(\", \", items)}\");");
             WriteLine("var startPos = _position;");
             WriteLine("var results = new List<object?>();");
             WriteLine("var variables = new Dictionary<string, object?>();");
@@ -677,12 +677,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("var result = ParseGrammarItem(item, variables);");
-            WriteLine("Console.WriteLine($\"[DEBUG]   Item '{item}' result: {(result != null ? \"SUCCESS\" : \"FAILED\")}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG]   Item '{item}' result: {(result != null ? \"SUCCESS\" : \"FAILED\")}\");");
             WriteLine("if (result == null)");
             WriteLine("{");
             Indent();
             WriteLine("_position = startPos; // Reset on failure");
-            WriteLine("Console.WriteLine($\"[DEBUG] TryParseGrammarItems FAILED at item: {item}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] TryParseGrammarItems FAILED at item: {item}\");");
             WriteLine("return null;");
             Dedent();
             WriteLine("}");
@@ -2579,12 +2579,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("// Parse: statements ENDMARKER");
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseFile starting: {_parser._position} / {_tokens.Count}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseFile starting: {_parser._position} / {_tokens.Count}\");");
             WriteLine("var statements = new List<object>();");
             WriteLine("while (_parser._position < _tokens.Count && _tokens[_parser._position].Type.ToString() != \"ENDMARKER\")");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseFile loop: position={_parser._position}, token={_tokens[_parser._position].Type}:{_tokens[_parser._position].Value}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseFile loop: position={_parser._position}, token={_tokens[_parser._position].Type}:{_tokens[_parser._position].Value}\");");
             WriteLine("// Skip NEWLINE tokens");
             WriteLine("if (_tokens[_parser._position].Type.ToString() == \"NEWLINE\")");
             WriteLine("{");
@@ -2596,7 +2596,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("var initialPos = _parser._position;");
             WriteLine("var stmt = ParseStmt();");
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseStmt returned: {(stmt != null ? stmt.GetType().Name : \"null\")}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseStmt returned: {(stmt != null ? stmt.GetType().Name : \"null\")}\");");
             WriteLine("if (stmt != null)");
             WriteLine("{");
             Indent();
@@ -2605,7 +2605,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (_parser._position == initialPos)");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] Warning: ParseStmt succeeded but position not advanced, forcing advance\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] Warning: ParseStmt succeeded but position not advanced, forcing advance\");");
             WriteLine("_parser._position++;");
             Dedent();
             WriteLine("}");
@@ -2614,14 +2614,14 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("else");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseStmt failed, advancing position to prevent infinite loop\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseStmt failed, advancing position to prevent infinite loop\");");
             WriteLine("_parser._position++; // Skip unknown token");
             Dedent();
             WriteLine("}");
             Dedent();
             WriteLine("}");
             WriteLine();
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseFile collected {statements.Count} statements\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseFile collected {statements.Count} statements\");");
             WriteLine("var module = new GeneratedModule();");
             WriteLine("module.Body = new GeneratedStmtSeq();");
             WriteLine("foreach (var stmt in statements)");
@@ -2630,14 +2630,14 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (stmt is GeneratedStmt generatedStmt)");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] Adding statement: {generatedStmt.StatementType}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] Adding statement: {generatedStmt.StatementType}\");");
             WriteLine("module.Body.Add(generatedStmt);");
             Dedent();
             WriteLine("}");
             WriteLine("else");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] Skipping non-GeneratedStmt: {stmt?.GetType().Name}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] Skipping non-GeneratedStmt: {stmt?.GetType().Name}\");");
             Dedent();
             WriteLine("}");
             Dedent();
@@ -2760,9 +2760,6 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Dedent();
             WriteLine("}");
             WriteLine();
-
-            // Generate CreateEmbeddedGrammar method for the main parser class
-            GenerateEmbeddedGrammar();
         }
 
         /// <summary>
@@ -2771,12 +2768,17 @@ namespace SharpPy.PegGenerator.CodeGenerator
         /// </summary>
         private void GenerateExpressionHierarchy()
         {
+            Console.WriteLine("[DEBUG] GenerateExpressionHierarchy called");
             WriteLine();
             WriteLine("// === PEG Expression Hierarchy with Left Recursion Support ===");
             WriteLine();
 
-            // Note: atom, primary, term, sum, comparison, expression parsers are now in PyParserBase
-            // Only generate delegation methods through GenerateRuleMethod
+            // Generate core parsing methods from python.gram
+            GenerateAtomParser();
+            GeneratePrimaryParser();
+            GenerateTermParser();
+            GenerateSumParser();
+            GenerateExpressionParser();
 
             // Generate star_expressions parser (for statement expressions)
             GenerateStarExpressionsParser();
@@ -2796,14 +2798,17 @@ namespace SharpPy.PegGenerator.CodeGenerator
         /// </summary>
         private void GenerateAtomParser()
         {
+            Console.WriteLine("[DEBUG] GenerateAtomParser called");
             WriteLine("// atom: NAME | NUMBER | STRING | '(' expression ')'");
-            WriteLine("private object? ParseAtom()");
+            WriteLine("protected object? ParseAtom()");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseAtom at position {_position}: {CurrentToken?.Type}={CurrentToken?.Value}\");");
+            // Debug logging removed for performance
             WriteLine();
             WriteLine("if (CurrentToken == null) return null;");
             WriteLine();
+            // Remove NL handling since NL tokens don't exist in our tokenizer
+            // Only NEWLINE tokens exist and should be handled at statement level
 
             WriteLine("// NAME");
             WriteLine("if (CurrentToken.Type.ToString() == \"NAME\")");
@@ -2870,10 +2875,15 @@ namespace SharpPy.PegGenerator.CodeGenerator
         {
             WriteLine("// primary: primary '.' NAME | primary '(' [arguments] ')' | atom");
             WriteLine("// Implemented with left recursion support");
-            WriteLine("private object? ParsePrimary()");
+            WriteLine("protected object? ParsePrimary()");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] ParsePrimary at position {_position}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParsePrimary at position {_position}\");");
+            WriteLine();
+            WriteLine("// Check for tokens that should stop parsing");
+            WriteLine("if (CurrentToken == null) return null;");
+            WriteLine("if (CurrentToken.Type == GeneratedTokenType.DEDENT) return null;");
+            WriteLine("if (CurrentToken.Type == GeneratedTokenType.ENDMARKER) return null;");
             WriteLine();
 
             WriteLine("// Check memoization for left recursion");
@@ -2882,7 +2892,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (memoResult != null)");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] Primary: Using memoized result\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] Primary: Using memoized result\");");
             WriteLine("return memoResult;");
             Dedent();
             WriteLine("}");
@@ -2943,7 +2953,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Advance(); // consume ')'");
             WriteLine("result = new { type = \"call\", func = result, args = args };");
             WriteLine("expanded = true;");
-            WriteLine("Console.WriteLine($\"[DEBUG] Primary: Created function call\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] Primary: Created function call\");");
             Dedent();
             WriteLine("}");
             WriteLine("else");
@@ -2969,7 +2979,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Advance();");
             WriteLine("result = new { type = \"attribute\", value = result, attr = attr };");
             WriteLine("expanded = true;");
-            WriteLine("Console.WriteLine($\"[DEBUG] Primary: Created attribute access\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] Primary: Created attribute access\");");
             Dedent();
             WriteLine("}");
             WriteLine("else");
@@ -2985,7 +2995,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
 
             WriteLine("SetMemo<object>(memoKey, result);");
-            WriteLine("Console.WriteLine($\"[DEBUG] Primary result: {result?.GetType().Name}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] Primary result: {result?.GetType().Name}\");");
             WriteLine("return result;");
             Dedent();
             WriteLine("}");
@@ -3002,7 +3012,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("private object? ParseStarExpressions()");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseStarExpressions at position {_position}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseStarExpressions at position {_position}\");");
             WriteLine();
             WriteLine("var expr = ParseExpression();");
             WriteLine("if (expr == null) return null;");
@@ -3036,11 +3046,16 @@ namespace SharpPy.PegGenerator.CodeGenerator
         /// </summary>
         private void GenerateExpressionParser()
         {
+            Console.WriteLine("[DEBUG] GenerateExpressionParser called");
             WriteLine("// expression: comparison (operations with proper precedence)");
-            WriteLine("private object? ParseExpression()");
+            WriteLine("protected object? ParseExpression()");
             WriteLine("{");
             Indent();
-            WriteLine("return ParseComparison();");
+            WriteLine("// Check for tokens that should stop expression parsing");
+            WriteLine("if (CurrentToken == null) return null;");
+            WriteLine("if (CurrentToken.Type == GeneratedTokenType.DEDENT) return null;");
+            WriteLine("if (CurrentToken.Type == GeneratedTokenType.ENDMARKER) return null;");
+            WriteLine("return ParseSum();");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -3053,10 +3068,15 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private void GenerateTermParser()
         {
             WriteLine("// term: term '*' primary | term '/' primary | primary");
-            WriteLine("private object? ParseTerm()");
+            WriteLine("protected object? ParseTerm()");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseTerm at position {_position}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseTerm at position {_position}\");");
+            WriteLine();
+            WriteLine("// Check for tokens that should stop parsing");
+            WriteLine("if (CurrentToken == null) return null;");
+            WriteLine("if (CurrentToken.Type == GeneratedTokenType.DEDENT) return null;");
+            WriteLine("if (CurrentToken.Type == GeneratedTokenType.ENDMARKER) return null;");
             WriteLine();
 
             // Start with primary (base case)
@@ -3082,7 +3102,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("result = new { type = \"binop\", op = \"*\", left = result, right = right };");
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseTerm: Created multiplication\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseTerm: Created multiplication\");");
             WriteLine("continue;");
             Dedent();
             WriteLine("}");
@@ -3101,7 +3121,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("result = new { type = \"binop\", op = \"/\", left = result, right = right };");
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseTerm: Created division\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseTerm: Created division\");");
             WriteLine("continue;");
             Dedent();
             WriteLine("}");
@@ -3116,7 +3136,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
 
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseTerm result: {result?.GetType().Name}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseTerm result: {result?.GetType().Name}\");");
             WriteLine("return result;");
             Dedent();
             WriteLine("}");
@@ -3130,10 +3150,15 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private void GenerateSumParser()
         {
             WriteLine("// sum: sum '+' term | sum '-' term | term");
-            WriteLine("private object? ParseSum()");
+            WriteLine("protected object? ParseSum()");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseSum at position {_position}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseSum at position {_position}\");");
+            WriteLine();
+            WriteLine("// Check for tokens that should stop parsing");
+            WriteLine("if (CurrentToken == null) return null;");
+            WriteLine("if (CurrentToken.Type == GeneratedTokenType.DEDENT) return null;");
+            WriteLine("if (CurrentToken.Type == GeneratedTokenType.ENDMARKER) return null;");
             WriteLine();
 
             // Start with term (base case)
@@ -3159,7 +3184,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("result = new { type = \"binop\", op = \"+\", left = result, right = right };");
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseSum: Created addition\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseSum: Created addition\");");
             WriteLine("continue;");
             Dedent();
             WriteLine("}");
@@ -3178,7 +3203,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("result = new { type = \"binop\", op = \"-\", left = result, right = right };");
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseSum: Created subtraction\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseSum: Created subtraction\");");
             WriteLine("continue;");
             Dedent();
             WriteLine("}");
@@ -3193,7 +3218,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
 
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseSum result: {result?.GetType().Name}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseSum result: {result?.GetType().Name}\");");
             WriteLine("return result;");
             Dedent();
             WriteLine("}");
@@ -3210,7 +3235,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("public object? ParseExpressionStmt()");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseExpressionStmt at position {_position}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseExpressionStmt at position {_position}\");");
             WriteLine();
             WriteLine("var expr = ParseStarExpressions();");
             WriteLine("if (expr != null)");
@@ -3219,7 +3244,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("var stmt = new GeneratedStmt();");
             WriteLine("stmt.StatementType = \"expression\";");
             WriteLine("stmt.Value = expr;");
-            WriteLine("Console.WriteLine($\"[DEBUG] Created expression statement: {expr}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] Created expression statement: {expr}\");");
             WriteLine("return stmt;");
             Dedent();
             WriteLine("}");
@@ -3238,46 +3263,46 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("public object? ParseIfStatement()");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement at position {_position}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement at position {_position}\");");
             WriteLine();
 
             // Check for 'if' keyword
             WriteLine("if (CurrentToken?.Type.ToString() != \"NAME\" || CurrentToken?.Value != \"if\")");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Not an if token at position {_position}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Not an if token at position {_position}\");");
             WriteLine("return null;");
             Dedent();
             WriteLine("}");
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Found 'if' token, advancing\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Found 'if' token, advancing\");");
             WriteLine("Advance(); // consume 'if'");
             WriteLine();
 
             // Parse condition
             WriteLine("// Parse condition expression");
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Parsing condition at position {_position}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Parsing condition at position {_position}\");");
             WriteLine("var condition = ParseExpression();");
             WriteLine("if (condition == null)");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Missing condition\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Missing condition\");");
             WriteLine("return null;");
             Dedent();
             WriteLine("}");
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Condition parsed successfully\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Condition parsed successfully\");");
             WriteLine();
 
             // Parse ':'
             WriteLine("// Parse ':'");
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Looking for ':' at position {_position}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Looking for ':' at position {_position}\");");
             WriteLine("if (CurrentToken?.Type.ToString() != \"OP\" || CurrentToken?.Value != \":\")");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Missing ':' after condition\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Missing ':' after condition\");");
             WriteLine("return null;");
             Dedent();
             WriteLine("}");
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Found ':', advancing\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Found ':', advancing\");");
             WriteLine("Advance(); // consume ':'");
             WriteLine();
 
@@ -3294,29 +3319,29 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             WriteLine("var ifBody = new List<object>();");
             WriteLine("// Parse if body - simplified to single statement");
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: About to parse if body at position {_position}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: About to parse if body at position {_position}\");");
             WriteLine("var bodyStmt = ParseExpressionStmt();");
             WriteLine("if (bodyStmt != null)");
             WriteLine("{");
             Indent();
             WriteLine("ifBody.Add(bodyStmt);");
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: If body parsed successfully\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: If body parsed successfully\");");
             Dedent();
             WriteLine("}");
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: If body parsing complete, at position {_position}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: If body parsing complete, at position {_position}\");");
             WriteLine();
 
             // Skip DEDENT if present
             WriteLine("// Skip DEDENT if present");
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Checking for DEDENT at position {_position}, token: {CurrentToken?.Type}:{CurrentToken?.Value}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Checking for DEDENT at position {_position}, token: {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("if (CurrentToken?.Type.ToString() == \"DEDENT\")");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Found DEDENT, advancing\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Found DEDENT, advancing\");");
             WriteLine("Advance();");
             Dedent();
             WriteLine("}");
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Post-DEDENT position {_position}, token: {CurrentToken?.Type}:{CurrentToken?.Value}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Post-DEDENT position {_position}, token: {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine();
 
             // Parse elif clauses
@@ -3328,12 +3353,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Advance();");
             Dedent();
             WriteLine("}");
-            WriteLine("Console.WriteLine($\"[DEBUG] Looking for elif at position {_position}, current token: {CurrentToken?.Type}:{CurrentToken?.Value}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] Looking for elif at position {_position}, current token: {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("var elifs = new List<object>();");
             WriteLine("while (CurrentToken?.Type.ToString() == \"NAME\" && CurrentToken?.Value == \"elif\")");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] Found elif at position {_position}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] Found elif at position {_position}\");");
             Dedent();
             Indent();
             WriteLine("Advance(); // consume 'elif'");
@@ -3344,7 +3369,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (CurrentToken?.Type.ToString() != \"OP\" || CurrentToken?.Value != \":\")");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Missing ':' after elif condition\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement: Missing ':' after elif condition\");");
             WriteLine("break;");
             Dedent();
             WriteLine("}");
@@ -3389,7 +3414,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Advance();");
             Dedent();
             WriteLine("}");
-            WriteLine("Console.WriteLine($\"[DEBUG] Looking for else at position {_position}, current token: {CurrentToken?.Type}:{CurrentToken?.Value}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] Looking for else at position {_position}, current token: {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("List<object>? elseBody = null;");
             WriteLine("if (CurrentToken?.Type.ToString() == \"NAME\" && CurrentToken?.Value == \"else\")");
             WriteLine("{");
@@ -3436,8 +3461,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("var ifStmt = new GeneratedStmt();");
             WriteLine("ifStmt.StatementType = \"if\";");
             WriteLine("ifStmt.Value = new { condition = condition, body = ifBody, elifs = elifs, elseBody = elseBody };");
-            WriteLine("Console.WriteLine($\"[DEBUG] Created complete if statement with {elifs.Count} elif clauses, hasElse: {elseBody != null}\");");
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement finished at position {_position}, current token: {CurrentToken?.Type}:{CurrentToken?.Value}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] Created complete if statement with {elifs.Count} elif clauses, hasElse: {elseBody != null}\");");
+            // WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement finished at position {_position}, current token: {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("return ifStmt;");
 
             Dedent();
@@ -3445,14 +3470,418 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
         }
 
-        private void GenerateEmbeddedGrammar()
+        /// <summary>
+        /// Convert parsed Grammar AST to dictionary format for EmbeddedGrammar
+        /// </summary>
+        private Dictionary<string, string> ConvertGrammarToDictionary(Grammar.Grammar grammar)
         {
-            WriteLine("private EmbeddedGrammar CreateEmbeddedGrammar()");
+            var rules = new Dictionary<string, string>();
+
+            foreach (var rule in grammar.Rules)
+            {
+                var alternatives = new List<string>();
+
+                foreach (var alt in rule.Alternatives)
+                {
+                    var items = new List<string>();
+                    foreach (var item in alt.Items)
+                    {
+                        items.Add(ConvertAtomToString(item.Atom));
+                    }
+                    alternatives.Add(string.Join(" ", items));
+                }
+
+                rules[rule.Name] = string.Join(" | ", alternatives);
+            }
+
+            return rules;
+        }
+
+        /// <summary>
+        /// Convert a single Atom to its string representation
+        /// </summary>
+        private string ConvertAtomToString(Atom atom)
+        {
+            switch (atom)
+            {
+                case RuleRef ruleRef:
+                    return ruleRef.Name;
+                case StringLiteral stringLit:
+                    return $"'{stringLit.Value}'";
+                case Grammar.Group group:
+                    var alts = group.Alternatives.Select(alt =>
+                        string.Join(" ", alt.Items.Select(item => ConvertAtomToString(item.Atom))));
+                    return $"({string.Join(" | ", alts)})";
+                case Optional optional:
+                    return $"[{ConvertAtomToString(optional.Expression)}]";
+                case ZeroOrMore zeroOrMore:
+                    return $"{ConvertAtomToString(zeroOrMore.Expression)}*";
+                case OneOrMore oneOrMore:
+                    return $"{ConvertAtomToString(oneOrMore.Expression)}+";
+                case PositiveLookahead posLook:
+                    return $"&{ConvertAtomToString(posLook.Expression)}";
+                case NegativeLookahead negLook:
+                    return $"!{ConvertAtomToString(negLook.Expression)}";
+                case Cut cut:
+                    return $"~{ConvertAtomToString(cut.Expression)}";
+                default:
+                    return atom.ToString();
+            }
+        }
+
+        /// <summary>
+        /// Generate Python grammar parsing methods based on python.gram
+        /// </summary>
+        private void GeneratePythonGrammarMethods()
+        {
+            WriteLine();
+            WriteLine("// ========================================");
+            WriteLine("// Generated Python Grammar Parsing Methods");
+            WriteLine("// ========================================");
+            WriteLine();
+
+            // Generate File method (entry point)
+            GenerateFileMethod();
+
+            // Generate expression hierarchy (MOST IMPORTANT!)
+            GenerateExpressionHierarchy();
+
+            // Generate core methods needed for function parsing
+            GenerateFunctionDefMethods();
+            GenerateStatementMethods();
+            GenerateBasicMethods();
+        }
+
+        private void GenerateFileMethod()
+        {
+            WriteLine("/// <summary>");
+            WriteLine("/// file[mod_ty]: a=[statements] ENDMARKER { _PyPegen_make_module(p, a) }");
+            WriteLine("/// </summary>");
+            WriteLine("public GeneratedModule ParseFile()");
             WriteLine("{");
             Indent();
-            WriteLine("return new EmbeddedGrammar();");
+            WriteLine("var statements = ParseStatements();");
+            WriteLine("ExpectToken(GeneratedTokenType.ENDMARKER);");
+            WriteLine("return _PyPegen_make_module(statements);");
             Dedent();
             WriteLine("}");
+            WriteLine();
         }
+
+        private void GenerateStatementMethods()
+        {
+            WriteLine("/// <summary>");
+            WriteLine("/// statements[asdl_stmt_seq*]: a=statement+ { (asdl_stmt_seq*)_PyPegen_seq_flatten(p, a) }");
+            WriteLine("/// </summary>");
+            WriteLine("public List<object> ParseStatements()");
+            WriteLine("{");
+            Indent();
+            WriteLine("var statements = new List<object>();");
+            WriteLine("while (_position < _tokens.Count && CurrentToken?.Type != GeneratedTokenType.ENDMARKER)");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Skip NEWLINE, NL, COMMENT, and DEDENT tokens");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NEWLINE || CurrentToken?.Type == GeneratedTokenType.NL || CurrentToken?.Type == GeneratedTokenType.COMMENT || CurrentToken?.Type == GeneratedTokenType.DEDENT)");
+            WriteLine("{");
+            WriteLine("    Advance();");
+            WriteLine("    continue;");
+            WriteLine("}");
+            WriteLine();
+            WriteLine("var startPos = _position; // Track starting position");
+            WriteLine("var stmt = ParseStatement();");
+            WriteLine("if (stmt != null)");
+            WriteLine("{");
+            WriteLine("    if (_position == startPos)");
+            WriteLine("    {");
+            WriteLine("        // CRITICAL: Position didn't advance - force advance to prevent infinite loop");
+            WriteLine("        Console.WriteLine($\"[WARNING] ParseStatements: Position {_position} didn't advance, forcing advance to prevent infinite loop. Token: {CurrentToken?.Type} '{CurrentToken?.Value}'\");");
+            WriteLine("        Advance();");
+            WriteLine("        continue;");
+            WriteLine("    }");
+            WriteLine("    if (stmt is List<object> stmtList)");
+            WriteLine("        statements.AddRange(stmtList);");
+            WriteLine("    else");
+            WriteLine("        statements.Add(stmt);");
+            WriteLine("}");
+            WriteLine("else");
+            WriteLine("{");
+            WriteLine("    break;");
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine("return _PyPegen_seq_flatten(statements);");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("/// <summary>");
+            WriteLine("/// statement[asdl_stmt_seq*]: a=compound_stmt { (asdl_stmt_seq*)_PyPegen_singleton_seq(p, a) } | a[asdl_stmt_seq*]=simple_stmts { a }");
+            WriteLine("/// </summary>");
+            WriteLine("public object ParseStatement()");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseStatement: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'\");");
+            WriteLine();
+            WriteLine("// Try compound statement first");
+            WriteLine("var compound = ParseCompoundStmt();");
+            WriteLine("if (compound != null)");
+            WriteLine("{");
+            WriteLine("    Console.WriteLine($\"[DEBUG] ParseStatement: Found compound statement\");");
+            WriteLine("    return _PyPegen_singleton_seq(compound);");
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// Try simple statements");
+            WriteLine("var simple = ParseSimpleStmts();");
+            WriteLine("if (simple != null)");
+            WriteLine("{");
+            WriteLine("    Console.WriteLine($\"[DEBUG] ParseStatement: Found simple statements\");");
+            WriteLine("    return simple;");
+            WriteLine("}");
+            WriteLine();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseStatement: No statement found at position {_position}\");");
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
+        private void GenerateFunctionDefMethods()
+        {
+            WriteLine("/// <summary>");
+            WriteLine("/// compound_stmt[stmt_ty]: &('def' | '@' | ASYNC) function_def | ...");
+            WriteLine("/// </summary>");
+            WriteLine("public GeneratedStmt ParseCompoundStmt()");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Check for function definition");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"def\")");
+            WriteLine("{");
+            WriteLine("    return ParseFunctionDef();");
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// TODO: Add other compound statements (if, class, etc.)");
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("/// <summary>");
+            WriteLine("/// function_def[stmt_ty]: decorators function_def_raw | function_def_raw");
+            WriteLine("/// </summary>");
+            WriteLine("public GeneratedStmt ParseFunctionDef()");
+            WriteLine("{");
+            Indent();
+            WriteLine("// For now, just handle function_def_raw (no decorators)");
+            WriteLine("return ParseFunctionDefRaw();");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("/// <summary>");
+            WriteLine("/// function_def_raw[stmt_ty]: 'def' n=NAME '(' params=[params] ')' ':' b=block");
+            WriteLine("/// { _PyAST_FunctionDef(n->v.Name.id, (params) ? params : _PyPegen_empty_arguments(p), b, NULL, a, NEW_TYPE_COMMENT(p, tc), t, EXTRA) }");
+            WriteLine("/// </summary>");
+            WriteLine("public GeneratedStmt ParseFunctionDefRaw()");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseFunctionDefRaw: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'\");");
+            WriteLine();
+            WriteLine("// Use left-recursion handling for function definition parsing");
+            WriteLine("return TryLeftRecursive<GeneratedStmt>(\"ParseFunctionDefRaw\", () =>");
+            WriteLine("{");
+            WriteLine("    // 'def'");
+            WriteLine("    if (!ExpectKeyword(\"def\"))");
+            WriteLine("        return null;");
+            WriteLine();
+            WriteLine("    // NAME");
+            WriteLine("    var name = ExpectName();");
+            WriteLine("    if (name == null)");
+            WriteLine("        return null;");
+            WriteLine();
+            WriteLine("    // '('");
+            WriteLine("    if (!ExpectToken(GeneratedTokenType.OP, \"(\"))");
+            WriteLine("        return null;");
+            WriteLine();
+            WriteLine("    // [params] - optional parameters");
+            WriteLine("    var parameters = ParseParams() ?? _PyPegen_empty_arguments();");
+            WriteLine();
+            WriteLine("    // ')'");
+            WriteLine("    if (!ExpectToken(GeneratedTokenType.OP, \")\"))");
+            WriteLine("        return null;");
+            WriteLine();
+            WriteLine("    // ':'");
+            WriteLine("    if (!ExpectToken(GeneratedTokenType.OP, \":\"))");
+            WriteLine("        return null;");
+            WriteLine();
+            WriteLine("    // block");
+            WriteLine("    var body = ParseBlock();");
+            WriteLine("    if (body == null)");
+            WriteLine("        return null;");
+            WriteLine();
+            WriteLine("    // Return the successful result");
+            WriteLine("    Console.WriteLine($\"[DEBUG] ParseFunctionDefRaw: Successfully parsed function '{name}' at position {_position}\");");
+            WriteLine("    return _PyAST_FunctionDef(name, parameters, body);");
+            WriteLine("});");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
+        private void GenerateBasicMethods()
+        {
+            WriteLine("/// <summary>");
+            WriteLine("/// simple_stmts[asdl_stmt_seq*]: simple_stmt (';' simple_stmt)* [';'] NEWLINE");
+            WriteLine("/// </summary>");
+            WriteLine("public List<object> ParseSimpleStmts()");
+            WriteLine("{");
+            Indent();
+            WriteLine("var statements = new List<object>();");
+            WriteLine("var stmt = ParseSimpleStmt();");
+            WriteLine("if (stmt != null)");
+            WriteLine("    statements.Add(stmt);");
+            WriteLine();
+            WriteLine("// Skip semicolons and additional statements for now");
+            WriteLine("ExpectToken(GeneratedTokenType.NEWLINE);");
+            WriteLine("return statements;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("/// <summary>");
+            WriteLine("/// simple_stmt[stmt_ty]: assignment | star_expressions | 'pass' | 'return' | ...");
+            WriteLine("/// CRITICAL: assignment MUST precede expression per CPython grammar!");
+            WriteLine("/// </summary>");
+            WriteLine("public GeneratedStmt ParseAssignment()");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Try to parse: target '=' value");
+            WriteLine("var mark = Mark();");
+            WriteLine("var target = ParseExpression();");
+            WriteLine("if (target != null && CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == \"=\")");
+            WriteLine("{");
+            WriteLine("    Advance(); // consume '='");
+            WriteLine("    var value = ParseExpression();");
+            WriteLine("    if (value != null)");
+            WriteLine("    {");
+            WriteLine("        return _PyAST_Assign(target, value);");
+            WriteLine("    }");
+            WriteLine("}");
+            WriteLine("Reset(mark);");
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("/// <summary>");
+            WriteLine("/// simple_stmt[stmt_ty]: assignment | star_expressions | 'pass' | 'return' | ...");
+            WriteLine("/// </summary>");
+            WriteLine("public GeneratedStmt ParseSimpleStmt()");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Check for 'return' FIRST to avoid memoization conflicts with assignment");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"return\")");
+            WriteLine("{");
+            WriteLine("    return ParseReturnStmt();");
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// CRITICAL: Try assignment NEXT (per python.gram comment)");
+            WriteLine("var assignment = ParseAssignment();");
+            WriteLine("if (assignment != null)");
+            WriteLine("{");
+            WriteLine("    return assignment;");
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// Check for 'pass'");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"pass\")");
+            WriteLine("{");
+            WriteLine("    Advance();");
+            WriteLine("    return _PyAST_Pass();");
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// Try expression statement (fallback)");
+            WriteLine("var expr = ParseExpression();");
+            WriteLine("if (expr != null)");
+            WriteLine("    return _PyAST_Expr(expr);");
+            WriteLine();
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("/// <summary>");
+            WriteLine("/// return_stmt[stmt_ty]: 'return' a=[star_expressions] { _PyAST_Return(a, EXTRA) }");
+            WriteLine("/// </summary>");
+            WriteLine("public GeneratedStmt ParseReturnStmt()");
+            WriteLine("{");
+            Indent();
+            WriteLine("if (!ExpectKeyword(\"return\"))");
+            WriteLine("    return null;");
+            WriteLine();
+            WriteLine("// Optional return value");
+            WriteLine("var value = ParseExpression(); // Simplified - should be star_expressions");
+            WriteLine("return _PyAST_Return(value);");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("/// <summary>");
+            WriteLine("/// params[arguments_ty]: parameters");
+            WriteLine("/// </summary>");
+            WriteLine("public object ParseParams()");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Simplified parameter parsing for now");
+            WriteLine("return _PyPegen_empty_arguments();");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("/// <summary>");
+            WriteLine("/// block[asdl_stmt_seq*]: NEWLINE INDENT statements DEDENT | simple_stmts");
+            WriteLine("/// </summary>");
+            WriteLine("public List<object> ParseBlock()");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseBlock: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'\");");
+            WriteLine();
+            WriteLine("// Use left-recursion handling for block parsing");
+            WriteLine("return TryLeftRecursive<List<object>>(\"ParseBlock\", () =>");
+            WriteLine("{");
+            WriteLine("    var statements = new List<object>();");
+            WriteLine();
+            WriteLine("// Check if we have a NEWLINE indicating an indented block");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NEWLINE)");
+            WriteLine("{");
+            WriteLine("    Advance(); // consume NEWLINE");
+            WriteLine();
+            WriteLine("    if (!ExpectToken(GeneratedTokenType.INDENT))");
+            WriteLine("        return statements;");
+            WriteLine();
+            WriteLine("    // Parse statements in the indented block - now safe after fixing ParseStatement conflict");
+            WriteLine("    var blockStatements = ParseStatements();");
+            WriteLine("    if (blockStatements != null)");
+            WriteLine("    {");
+            WriteLine("        statements.AddRange(blockStatements);");
+            WriteLine("    }");
+            WriteLine();
+            WriteLine("    ExpectToken(GeneratedTokenType.DEDENT);");
+            WriteLine("}");
+            WriteLine("else");
+            WriteLine("{");
+            WriteLine("    // Single line block - parse one simple statement");
+            WriteLine("    var stmt = ParseSimpleStmt();");
+            WriteLine("    if (stmt != null)");
+            WriteLine("    {");
+            WriteLine("        statements.Add(stmt);");
+            WriteLine("    }");
+            WriteLine("}");
+            WriteLine();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseBlock: Returning result with {statements.Count} statements at position {_position}\");");
+            WriteLine("return statements;");
+            WriteLine("});");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
     }
 }
