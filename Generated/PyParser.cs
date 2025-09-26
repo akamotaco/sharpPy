@@ -113,7 +113,7 @@ namespace SharpPy.Generated
             return null;
         }
 
-        // primary: primary '.' NAME | primary '(' [arguments] ')' | atom
+        // primary: primary '.' NAME | primary '[' slices ']' | primary '(' [arguments] ')' | atom
         // Implemented with left recursion support
         protected object? ParsePrimary()
         {
@@ -190,6 +190,26 @@ namespace SharpPy.Generated
                         var attr = CurrentToken.Value;
                         Advance();
                         result = new { type = "attribute", value = result, attr = attr };
+                        expanded = true;
+                    }
+                    else
+                    {
+                        Reset(mark); // backtrack on failure
+                    }
+                }
+
+                // Try: primary '[' slices ']' (subscript access)
+                if (!expanded && CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "[")
+                {
+                    var mark = Mark();
+                    Advance(); // consume '['
+
+                    // Parse slice/index expression
+                    var slice = ParseExpression();
+                    if (slice != null && CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "]")
+                    {
+                        Advance(); // consume ']'
+                        result = new { type = "subscript", value = result, slice = slice };
                         expanded = true;
                     }
                     else

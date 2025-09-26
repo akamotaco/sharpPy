@@ -2873,7 +2873,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         /// </summary>
         private void GeneratePrimaryParser()
         {
-            WriteLine("// primary: primary '.' NAME | primary '(' [arguments] ')' | atom");
+            WriteLine("// primary: primary '.' NAME | primary '[' slices ']' | primary '(' [arguments] ')' | atom");
             WriteLine("// Implemented with left recursion support");
             WriteLine("protected object? ParsePrimary()");
             WriteLine("{");
@@ -2980,6 +2980,34 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("result = new { type = \"attribute\", value = result, attr = attr };");
             WriteLine("expanded = true;");
             // WriteLine("Console.WriteLine($\"[DEBUG] Primary: Created attribute access\");");
+            Dedent();
+            WriteLine("}");
+            WriteLine("else");
+            WriteLine("{");
+            Indent();
+            WriteLine("Reset(mark); // backtrack on failure");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// Try: primary '[' slices ']' (subscript access)");
+            WriteLine("if (!expanded && CurrentToken?.Type.ToString() == \"OP\" && CurrentToken?.Value == \"[\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("var mark = Mark();");
+            WriteLine("Advance(); // consume '['");
+            WriteLine();
+            WriteLine("// Parse slice/index expression");
+            WriteLine("var slice = ParseExpression();");
+            WriteLine("if (slice != null && CurrentToken?.Type.ToString() == \"OP\" && CurrentToken?.Value == \"]\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume ']'");
+            WriteLine("result = new { type = \"subscript\", value = result, slice = slice };");
+            WriteLine("expanded = true;");
+            // WriteLine("Console.WriteLine($\"[DEBUG] Primary: Created subscript access\");");
             Dedent();
             WriteLine("}");
             WriteLine("else");

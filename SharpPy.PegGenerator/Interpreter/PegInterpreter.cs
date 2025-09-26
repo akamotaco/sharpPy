@@ -124,6 +124,21 @@ namespace SharpPy.PegGenerator.Interpreter
                 alt.Items[0].Atom is RuleRef ruleRef &&
                 ruleRef.Name == rule.Name);
 
+            Console.WriteLine($"[LEFT-REC] Rule '{rule.Name}' left-recursive check: {isLeftRec}");
+            if (rule.Name == "primary")
+            {
+                Console.WriteLine($"[LEFT-REC] Primary rule has {rule.Alternatives.Count} alternatives");
+                for (int i = 0; i < rule.Alternatives.Count; i++)
+                {
+                    var alt = rule.Alternatives[i];
+                    var firstItem = alt.Items.Count > 0 ? alt.Items[0] : null;
+                    var firstAtom = firstItem?.Atom;
+                    var isRuleRef = firstAtom is RuleRef ruleRef;
+                    var refName = isRuleRef ? ((RuleRef)firstAtom).Name : "not-ruleref";
+                    Console.WriteLine($"[LEFT-REC]   Alt[{i}]: {alt.Items.Count} items, first={firstAtom?.GetType().Name}({refName})");
+                }
+            }
+
             _leftRecursiveRules[rule.Name] = isLeftRec;
             return isLeftRec;
         }
@@ -217,7 +232,7 @@ namespace SharpPy.PegGenerator.Interpreter
         {
             var cacheKey = (_position, ruleName);
 
-            // Console.WriteLine($"[LEFT-REC] Parsing left-recursive rule: {ruleName} at position {_position}");
+            Console.WriteLine($"[LEFT-REC] Parsing left-recursive rule: {ruleName} at position {_position}, token: {CurrentToken?.Type}('{CurrentToken?.Value}')");
 
             // Step 1: Find base alternatives (non-recursive ones)
             var baseAlternatives = rule.Alternatives.Where(alt =>
@@ -251,7 +266,7 @@ namespace SharpPy.PegGenerator.Interpreter
                 {
                     seed = result;
                     seedPosition = _position;
-                    // Console.WriteLine($"[LEFT-REC] Found seed for {ruleName}: {seed}");
+                    Console.WriteLine($"[LEFT-REC] Found seed for {ruleName} at position {seedPosition}: {seed}");
                     break;
                 }
 
@@ -296,7 +311,7 @@ namespace SharpPy.PegGenerator.Interpreter
                             expandedSeed = result;
                             expandedPosition = _position;
                             foundExpansion = true;
-                            // Console.WriteLine($"[LEFT-REC] Iteration {iterationCount}: Expanded seed for {ruleName} from pos {seedPosition} to {_position}");
+                            Console.WriteLine($"[LEFT-REC] Iteration {iterationCount}: Expanded seed for {ruleName} from pos {seedPosition} to {_position}");
                             break;
                         }
                     }
@@ -310,21 +325,21 @@ namespace SharpPy.PegGenerator.Interpreter
                 if (!foundExpansion)
                 {
                     // No more expansions possible - terminate normally
-                    // Console.WriteLine($"[LEFT-REC] No expansion found for {ruleName} at iteration {iterationCount}, terminating");
+                    Console.WriteLine($"[LEFT-REC] No expansion found for {ruleName} at iteration {iterationCount}, terminating");
                     break;
                 }
 
                 // CPython-style progress check: if position didn't advance, we're stuck
                 if (expandedPosition <= lastPosition)
                 {
-                    // Console.WriteLine($"[LEFT-REC] Position didn't advance for {ruleName} (was {lastPosition}, now {expandedPosition}), terminating to prevent infinite loop");
+                    Console.WriteLine($"[LEFT-REC] Position didn't advance for {ruleName} (was {lastPosition}, now {expandedPosition}), terminating to prevent infinite loop");
                     break;
                 }
 
                 // Update seed for next iteration
                 seed = expandedSeed;
-                lastPosition = seedPosition;
-                seedPosition = expandedPosition;
+                lastPosition = seedPosition;  // Store previous seed position
+                seedPosition = expandedPosition;  // New seed position
             }
 
             if (iterationCount >= maxIterations)
@@ -336,7 +351,7 @@ namespace SharpPy.PegGenerator.Interpreter
             _position = seedPosition;
             _memoCache[cacheKey] = seed;
 
-            // Console.WriteLine($"[LEFT-REC] Final result for {ruleName}: {seed}");
+            Console.WriteLine($"[LEFT-REC] Final result for {ruleName}: {seed} at position {seedPosition}");
             return seed;
         }
 

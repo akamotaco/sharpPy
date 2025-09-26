@@ -726,6 +726,37 @@ namespace SharpPy
             return new CallExpression(functionExpr, argExprs);
         }
 
+        private static Expression ConvertAttributeAccess(dynamic attrExpr)
+        {
+            // Extract value and attribute name from { type = "attribute", value = <obj>, attr = <name> }
+            var value = attrExpr.value;
+            var attr = attrExpr.attr.ToString();
+
+            Console.WriteLine($"[DEBUG] ConvertAttributeAccess: attr='{attr}', value type={value.GetType().Name}");
+
+            // Convert the base object expression
+            Expression valueExpr = ConvertAnyExpression(value);
+
+            return new AttributeExpression(valueExpr, attr);
+        }
+
+        private static Expression ConvertSubscriptAccess(dynamic subscriptExpr)
+        {
+            // Extract value and slice from { type = "subscript", value = <obj>, slice = <index> }
+            var value = subscriptExpr.value;
+            var slice = subscriptExpr.slice;
+
+            Console.WriteLine($"[DEBUG] ConvertSubscriptAccess: slice type={slice.GetType().Name}, value type={value.GetType().Name}");
+
+            // Convert the base object expression
+            Expression valueExpr = ConvertAnyExpression(value);
+
+            // Convert the slice/index expression
+            Expression sliceExpr = ConvertAnyExpression(slice);
+
+            return new SubscriptExpression(valueExpr, sliceExpr);
+        }
+
         /// <summary>
         /// Convert any dynamic expression object to Expression
         /// </summary>
@@ -752,6 +783,10 @@ namespace SharpPy
                 "chained_compare" => ConvertChainedComparisonOperation(expr),
 
                 "call" => ConvertCallOperation(expr),
+
+                "attribute" => ConvertAttributeAccess(expr),
+
+                "subscript" => ConvertSubscriptAccess(expr),
 
                 _ => throw new NotSupportedException($"Unsupported expression type: {type}")
             };
