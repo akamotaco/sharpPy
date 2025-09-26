@@ -458,6 +458,67 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
+        /// Parse a block of statements (INDENT statements DEDENT)
+        /// </summary>
+        protected List<object>? ParseBlock()
+        {
+            Console.WriteLine($"[DEBUG] ParseBlock: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+
+            var statements = new List<object>();
+
+            // Skip NEWLINE before INDENT
+            if (CurrentToken?.Type == GeneratedTokenType.NEWLINE)
+            {
+                Advance();
+            }
+
+            // Expect INDENT
+            if (!ExpectToken(GeneratedTokenType.INDENT))
+            {
+                Console.WriteLine($"[DEBUG] ParseBlock: Failed to find INDENT at position {_position}");
+                return null;
+            }
+
+            // Parse statements until DEDENT
+            while (_position < _tokens.Count &&
+                   CurrentToken?.Type != GeneratedTokenType.DEDENT &&
+                   CurrentToken?.Type != GeneratedTokenType.ENDMARKER)
+            {
+                var parser = this as GeneratedPyParser;
+                var stmt = parser?.ParseStatement();
+                if (stmt != null)
+                {
+                    if (stmt is List<object> stmtList)
+                        statements.AddRange(stmtList);
+                    else
+                        statements.Add(stmt);
+                }
+                else
+                {
+                    // Skip tokens that couldn't be parsed to avoid infinite loop
+                    if (CurrentToken?.Type == GeneratedTokenType.NEWLINE || CurrentToken?.Type == GeneratedTokenType.NL)
+                    {
+                        Advance();
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[DEBUG] ParseBlock: Skipping unparsed token at position {_position}: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+                        Advance();
+                    }
+                }
+            }
+
+            // Expect DEDENT to close the block
+            if (CurrentToken?.Type == GeneratedTokenType.DEDENT)
+            {
+                Advance();
+            }
+
+            Console.WriteLine($"[DEBUG] ParseBlock: Returning result with {statements.Count} statements at position {_position}");
+            return statements;
+        }
+
+        /// <summary>
         /// Expect and return a NAME token
         /// </summary>
         protected string ExpectName()

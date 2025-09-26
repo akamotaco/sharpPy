@@ -159,18 +159,25 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
 
-            // Python 3.12 keywords
+            // Python 3.12 keywords (excluding soft keywords match/case)
             var pythonKeywords = new[]
             {
                 "False", "None", "True", "__peg_parser__", "and", "as", "assert", "async", "await",
                 "break", "class", "continue", "def", "del", "elif", "else", "except", "finally",
                 "for", "from", "global", "if", "import", "in", "is", "lambda", "nonlocal", "not",
-                "or", "pass", "raise", "return", "try", "while", "with", "yield", "match", "case"
+                "or", "pass", "raise", "return", "try", "while", "with", "yield"
             };
 
             foreach (var keyword in pythonKeywords)
             {
-                WriteLine($"{{ \"{keyword}\", GeneratedTokenType.NAME }}, // {keyword}");
+                // Map special keywords to their specific token types
+                var tokenType = keyword switch
+                {
+                    "async" => "GeneratedTokenType.ASYNC",
+                    "await" => "GeneratedTokenType.AWAIT",
+                    _ => "GeneratedTokenType.NAME"
+                };
+                WriteLine($"{{ \"{keyword}\", {tokenType} }}, // {keyword}");
             }
 
             Dedent();
@@ -227,26 +234,34 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
 
+            WriteLine("Console.WriteLine(\"[DEBUG] Tokenize() method started\");");
             WriteLine("_tokens.Clear();");
             WriteLine("_position = 0;");
             WriteLine("_line = 1;");
             WriteLine("_column = 0; // CPython uses 0-based column indexing");
             WriteLine("_currentLineHasRealTokens = false; // Reset line state tracking");
+            WriteLine("Console.WriteLine($\"[DEBUG] Source length: {_source.Length}, Source: '{_source}'\");");
             WriteLine();
 
             WriteLine("// Skip ENCODING token for compatibility with CPython generate_tokens()");
             WriteLine("// AddToken(GeneratedTokenType.ENCODING, \"utf-8\", 0, 0);");
             WriteLine();
 
+            WriteLine("Console.WriteLine(\"[DEBUG] Starting main tokenization loop\");");
             WriteLine("while (_position < _source.Length)");
             WriteLine("{");
             Indent();
+            WriteLine("var startPosition = _position; // Track position for infinite loop detection");
+            WriteLine("Console.WriteLine($\"[DEBUG] Loop iteration: position={_position}, char='{CurrentChar}'\");");
+            WriteLine();
 
             WriteLine("// Process indentation at start of line before any other tokens");
             WriteLine("if (_atLineStart)");
             WriteLine("{");
             Indent();
+            WriteLine("Console.WriteLine(\"[DEBUG] Calling HandleIndentation\");");
             WriteLine("HandleIndentation();");
+            WriteLine("Console.WriteLine(\"[DEBUG] HandleIndentation completed\");");
             WriteLine("ProcessPendingTokens();");
             Dedent();
             WriteLine("}");
@@ -299,6 +314,15 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Advance();");
             Dedent();
             WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// CRITICAL: Infinite loop protection");
+            WriteLine("if (_position == startPosition)");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine($\"[ERROR] Tokenizer infinite loop detected at position {_position}, char: '{CurrentChar}'. Forcing advance.\");");
+            WriteLine("Advance(); // Force advance to prevent infinite loop");
             Dedent();
             WriteLine("}");
 
@@ -522,7 +546,29 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Dedent();
             WriteLine("}");
             WriteLine("var name = _source.Substring(start, _position - start);");
-            WriteLine("var tokenType = Keywords.ContainsKey(name) ? Keywords[name] : GeneratedTokenType.NAME;");
+            WriteLine();
+            WriteLine("// Handle soft keywords (match/case are context-sensitive)");
+            WriteLine("GeneratedTokenType tokenType;");
+            WriteLine("if (Keywords.ContainsKey(name))");
+            WriteLine("{");
+            Indent();
+            WriteLine("tokenType = Keywords[name];");
+            Dedent();
+            WriteLine("}");
+            WriteLine("else if (name == \"match\" || name == \"case\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("// For now, treat match/case as NAME tokens");
+            WriteLine("// TODO: Context-sensitive parsing will be handled in parser");
+            WriteLine("tokenType = GeneratedTokenType.NAME;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("else");
+            WriteLine("{");
+            Indent();
+            WriteLine("tokenType = GeneratedTokenType.NAME;");
+            Dedent();
+            WriteLine("}");
             WriteLine("AddToken(tokenType, name, startLine, startColumn);");
             WriteLine("_currentLineHasRealTokens = true; // Mark line as having real tokens");
             Dedent();
@@ -1190,9 +1236,17 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("private void HandleIndentation()");
             WriteLine("{");
             Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] HandleIndentation: _atLineStart={_atLineStart}, position={_position}\");");
             WriteLine("if (!_atLineStart) return;");
             WriteLine("// Skip indentation processing inside parentheses");
-            WriteLine("if (IsInsideParentheses) return;");
+            WriteLine("if (IsInsideParentheses)");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine(\"[DEBUG] Inside parentheses, setting _atLineStart=false\");");
+            WriteLine("_atLineStart = false; // CRITICAL: Must set this to avoid infinite loop");
+            WriteLine("return;");
+            Dedent();
+            WriteLine("}");
             WriteLine();
             WriteLine("// Calculate current line indentation");
             WriteLine("int indent = 0;");
@@ -1206,9 +1260,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Skip empty lines and comment-only lines for indentation");
+            WriteLine("Console.WriteLine($\"[DEBUG] Checking empty line: position={_position}, length={_source.Length}, char='{CurrentChar}'\");");
             WriteLine("if (_position >= _source.Length || CurrentChar == '\\n' || CurrentChar == '#')");
             WriteLine("{");
             Indent();
+            WriteLine("Console.WriteLine(\"[DEBUG] Empty line detected, setting _atLineStart=false\");");
+            WriteLine("_atLineStart = false; // CRITICAL: Must set this to avoid infinite loop");
             WriteLine("return;");
             Dedent();
             WriteLine("}");
@@ -1247,9 +1304,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Dedent();
             WriteLine("}");
             WriteLine();
+            WriteLine("Console.WriteLine(\"[DEBUG] Setting _atLineStart=false at end of HandleIndentation\");");
             WriteLine("_atLineStart = false;");
             WriteLine("// Now that we're starting to process this line, reset the line state for real token tracking");
             WriteLine("_currentLineHasRealTokens = false;");
+            WriteLine("Console.WriteLine(\"[DEBUG] HandleIndentation method ending normally\");");
             Dedent();
             WriteLine("}");
             WriteLine();

@@ -39,7 +39,16 @@ namespace SharpPy
             AddClass("Unpack", () => new PyUnpackType());
             AddClass("Required", () => new PyRequiredType());
             AddClass("NotRequired", () => new PyNotRequiredType());
-            
+
+            // Python 3.12 새로운 Type Hints 기능들
+            AddClass("TypeAlias", () => new PyTypeAliasType());
+            AddClass("Self", () => PySelfType.Instance);
+            AddClass("LiteralString", () => PyLiteralStringType.Instance);
+            AddClass("Never", () => PyNeverType.Instance);
+            AddFunction("assert_never", (args) => new PyAssertNeverFunction().Call(args, null));
+            AddFunction("reveal_type", (args) => new PyRevealTypeFunction().Call(args, null));
+            AddClass("dataclass_transform", () => new PyDataclassTransformType());
+
             // PEP 698: @override 데코레이터 - CPython 호환 구현
             AddFunction("override", (args) => {
                 if (args.Length == 1) 
@@ -832,5 +841,172 @@ namespace SharpPy
         public override string ToString() => GetTypeName();
     }
     
+    #endregion
+
+    #region Python 3.12 새로운 Type Hints 기능들
+
+    /// <summary>
+    /// PEP 696: TypeAlias - 명시적 타입 별칭 선언
+    /// </summary>
+    public class PyTypeAliasType : PyType
+    {
+        public PyTypeAliasType() : base("TypeAlias", new PyType[] { PyType.ObjectType })
+        {
+        }
+
+        public override PyObject CreateInstance(params PyObject[] args)
+        {
+            return new PyTypeAliasWrapper();
+        }
+    }
+
+    public class PyTypeAliasWrapper : PyObject
+    {
+        public override string GetTypeName() => "TypeAlias";
+        public override string ToString() => "TypeAlias";
+    }
+
+    /// <summary>
+    /// typing_extensions.Self - 자기 자신의 타입을 나타냄
+    /// </summary>
+    public class PySelfType : PyType
+    {
+        public static readonly PySelfType Instance = new PySelfType();
+
+        private PySelfType() : base("Self", new PyType[] { PyType.ObjectType })
+        {
+        }
+
+        public override string ToString() => "Self";
+    }
+
+    /// <summary>
+    /// typing_extensions.LiteralString - 리터럴 문자열 타입
+    /// </summary>
+    public class PyLiteralStringType : PyType
+    {
+        public static readonly PyLiteralStringType Instance = new PyLiteralStringType();
+
+        private PyLiteralStringType() : base("LiteralString", new PyType[] { PyType.StrType })
+        {
+        }
+
+        public override string ToString() => "LiteralString";
+    }
+
+    /// <summary>
+    /// typing.Never - 절대 반환되지 않는 타입 (Bottom type)
+    /// </summary>
+    public class PyNeverType : PyType
+    {
+        public static readonly PyNeverType Instance = new PyNeverType();
+
+        private PyNeverType() : base("Never", new PyType[] { PyType.ObjectType })
+        {
+        }
+
+        public override string ToString() => "Never";
+    }
+
+    /// <summary>
+    /// typing.assert_never - 코드가 절대 실행되지 않음을 보장
+    /// </summary>
+    public class PyAssertNeverFunction : PyObject
+    {
+        public override string GetTypeName() => "builtin_function_or_method";
+
+        public PyObject Call(PyObject[] args, Dictionary<string, PyObject> kwargs)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"assert_never() takes exactly one argument ({args.Length} given)");
+
+            var arg = args[0];
+            throw PyAssertionError.Create($"assert_never() should never be called with argument of type {arg.GetTypeName()}");
+        }
+    }
+
+    /// <summary>
+    /// typing.reveal_type - 타입 체커를 위한 디버깅 함수
+    /// </summary>
+    public class PyRevealTypeFunction : PyObject
+    {
+        public override string GetTypeName() => "builtin_function_or_method";
+
+        public PyObject Call(PyObject[] args, Dictionary<string, PyObject> kwargs)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"reveal_type() takes exactly one argument ({args.Length} given)");
+
+            var arg = args[0];
+            Console.WriteLine($"Runtime type is '{arg.GetTypeName()}'");
+            return arg; // 인자를 그대로 반환
+        }
+    }
+
+    /// <summary>
+    /// typing.dataclass_transform - 데이터클래스 변환 데코레이터
+    /// </summary>
+    public class PyDataclassTransformType : PyType
+    {
+        public PyDataclassTransformType() : base("dataclass_transform", new PyType[] { PyType.ObjectType })
+        {
+        }
+
+        public override PyObject CreateInstance(params PyObject[] args)
+        {
+            return new PyDataclassTransformDecorator();
+        }
+    }
+
+    public class PyDataclassTransformDecorator : PyObject
+    {
+        public override string GetTypeName() => "dataclass_transform";
+
+        public PyObject Call(PyObject[] args, Dictionary<string, PyObject> kwargs)
+        {
+            if (args.Length == 1 && args[0] is PyClass pyClass)
+            {
+                // 데이터클래스 변환 적용 (간단한 구현)
+                return pyClass;
+            }
+            return args.Length > 0 ? args[0] : PyNone.Instance;
+        }
+    }
+
+    /// <summary>
+    /// typing.override - 메서드 오버라이드 데코레이터 (PEP 698)
+    /// </summary>
+    public class PyOverrideType : PyType
+    {
+        public PyOverrideType() : base("override", new PyType[] { PyType.ObjectType })
+        {
+        }
+
+        public override PyObject CreateInstance(params PyObject[] args)
+        {
+            return new PyOverrideDecorator();
+        }
+    }
+
+    public class PyOverrideDecorator : PyObject
+    {
+        public override string GetTypeName() => "override";
+
+        public PyObject Call(PyObject[] args, Dictionary<string, PyObject> kwargs)
+        {
+            if (args.Length == 1)
+            {
+                var method = args[0];
+                // __override__ 속성 설정 (표시용)
+                if (method is PyFunction pyFunc)
+                {
+                    // 오버라이드 표시 추가
+                }
+                return method;
+            }
+            return PyNone.Instance;
+        }
+    }
+
     #endregion
 }

@@ -141,8 +141,8 @@ namespace SharpPy.Generated
             { "and", GeneratedTokenType.NAME }, // and
             { "as", GeneratedTokenType.NAME }, // as
             { "assert", GeneratedTokenType.NAME }, // assert
-            { "async", GeneratedTokenType.NAME }, // async
-            { "await", GeneratedTokenType.NAME }, // await
+            { "async", GeneratedTokenType.ASYNC }, // async
+            { "await", GeneratedTokenType.AWAIT }, // await
             { "break", GeneratedTokenType.NAME }, // break
             { "class", GeneratedTokenType.NAME }, // class
             { "continue", GeneratedTokenType.NAME }, // continue
@@ -170,8 +170,6 @@ namespace SharpPy.Generated
             { "while", GeneratedTokenType.NAME }, // while
             { "with", GeneratedTokenType.NAME }, // with
             { "yield", GeneratedTokenType.NAME }, // yield
-            { "match", GeneratedTokenType.NAME }, // match
-            { "case", GeneratedTokenType.NAME }, // case
         };
 
         private static readonly Dictionary<string, GeneratedTokenType> Operators = new()
@@ -239,21 +237,29 @@ namespace SharpPy.Generated
         /// </summary>
         public List<GeneratedTokenInfo> Tokenize()
         {
+            Console.WriteLine("[DEBUG] Tokenize() method started");
             _tokens.Clear();
             _position = 0;
             _line = 1;
             _column = 0; // CPython uses 0-based column indexing
             _currentLineHasRealTokens = false; // Reset line state tracking
+            Console.WriteLine($"[DEBUG] Source length: {_source.Length}, Source: '{_source}'");
 
             // Skip ENCODING token for compatibility with CPython generate_tokens()
             // AddToken(GeneratedTokenType.ENCODING, "utf-8", 0, 0);
 
+            Console.WriteLine("[DEBUG] Starting main tokenization loop");
             while (_position < _source.Length)
             {
+                var startPosition = _position; // Track position for infinite loop detection
+                Console.WriteLine($"[DEBUG] Loop iteration: position={_position}, char='{CurrentChar}'");
+
                 // Process indentation at start of line before any other tokens
                 if (_atLineStart)
                 {
+                    Console.WriteLine("[DEBUG] Calling HandleIndentation");
                     HandleIndentation();
+                    Console.WriteLine("[DEBUG] HandleIndentation completed");
                     ProcessPendingTokens();
                 }
 
@@ -289,6 +295,13 @@ namespace SharpPy.Generated
                         _currentLineHasRealTokens = true; // Mark line as having real tokens
                         Advance();
                     }
+                }
+
+                // CRITICAL: Infinite loop protection
+                if (_position == startPosition)
+                {
+                    Console.WriteLine($"[ERROR] Tokenizer infinite loop detected at position {_position}, char: '{CurrentChar}'. Forcing advance.");
+                    Advance(); // Force advance to prevent infinite loop
                 }
             }
 
@@ -441,7 +454,23 @@ namespace SharpPy.Generated
                 Advance();
             }
             var name = _source.Substring(start, _position - start);
-            var tokenType = Keywords.ContainsKey(name) ? Keywords[name] : GeneratedTokenType.NAME;
+
+            // Handle soft keywords (match/case are context-sensitive)
+            GeneratedTokenType tokenType;
+            if (Keywords.ContainsKey(name))
+            {
+                tokenType = Keywords[name];
+            }
+            else if (name == "match" || name == "case")
+            {
+                // For now, treat match/case as NAME tokens
+                // TODO: Context-sensitive parsing will be handled in parser
+                tokenType = GeneratedTokenType.NAME;
+            }
+            else
+            {
+                tokenType = GeneratedTokenType.NAME;
+            }
             AddToken(tokenType, name, startLine, startColumn);
             _currentLineHasRealTokens = true; // Mark line as having real tokens
         }
@@ -939,9 +968,15 @@ namespace SharpPy.Generated
 
         private void HandleIndentation()
         {
+            Console.WriteLine($"[DEBUG] HandleIndentation: _atLineStart={_atLineStart}, position={_position}");
             if (!_atLineStart) return;
             // Skip indentation processing inside parentheses
-            if (IsInsideParentheses) return;
+            if (IsInsideParentheses)
+            {
+                Console.WriteLine("[DEBUG] Inside parentheses, setting _atLineStart=false");
+                _atLineStart = false; // CRITICAL: Must set this to avoid infinite loop
+                return;
+            }
 
             // Calculate current line indentation
             int indent = 0;
@@ -953,8 +988,11 @@ namespace SharpPy.Generated
             }
 
             // Skip empty lines and comment-only lines for indentation
+            Console.WriteLine($"[DEBUG] Checking empty line: position={_position}, length={_source.Length}, char='{CurrentChar}'");
             if (_position >= _source.Length || CurrentChar == '\n' || CurrentChar == '#')
             {
+                Console.WriteLine("[DEBUG] Empty line detected, setting _atLineStart=false");
+                _atLineStart = false; // CRITICAL: Must set this to avoid infinite loop
                 return;
             }
 
@@ -984,9 +1022,11 @@ namespace SharpPy.Generated
                 }
             }
 
+            Console.WriteLine("[DEBUG] Setting _atLineStart=false at end of HandleIndentation");
             _atLineStart = false;
             // Now that we're starting to process this line, reset the line state for real token tracking
             _currentLineHasRealTokens = false;
+            Console.WriteLine("[DEBUG] HandleIndentation method ending normally");
         }
 
         private bool IsStringPrefix()

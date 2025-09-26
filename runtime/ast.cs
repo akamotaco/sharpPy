@@ -1692,6 +1692,184 @@ namespace SharpPy
         public override string ToString() => $"with {string.Join(", ", Items)}: ...";
     }
 
+    public class AsyncForStatement : Statement
+    {
+        public override string NodeType => "AsyncFor";
+        public string Target { get; }
+        public Expression Iter { get; }
+        public List<Statement> Body { get; }
+        public List<Statement>? ElseClause { get; }
+
+        public AsyncForStatement(string target, Expression iter, List<Statement> body, List<Statement>? elseClause = null)
+        {
+            Target = target;
+            Iter = iter;
+            Body = body;
+            ElseClause = elseClause;
+        }
+
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // Async for loop - similar to regular for but with await support
+            var asyncIterable = Iter.Evaluate(scope);
+            PyObject result = PyNone.Instance;
+
+            try
+            {
+                // For now, treat as regular for loop
+                // TODO: Implement proper async iteration protocol (__aiter__, __anext__)
+                if (asyncIterable is PyList list)
+                {
+                    foreach (var item in list.Items)
+                    {
+                        scope.SetVariable(Target, item);
+
+                        try
+                        {
+                            foreach (var stmt in Body)
+                            {
+                                result = stmt.Evaluate(scope);
+                            }
+                        }
+                        catch (PyBreakException)
+                        {
+                            return result;
+                        }
+                        catch (PyContinueException)
+                        {
+                            continue;
+                        }
+                    }
+
+                    // Execute else clause if loop completed normally
+                    if (ElseClause != null)
+                    {
+                        foreach (var stmt in ElseClause)
+                        {
+                            result = stmt.Evaluate(scope);
+                        }
+                    }
+                }
+
+                return result;
+            }
+            catch (PyBreakException)
+            {
+                return result;
+            }
+        }
+
+        public override string ToString() => $"async for {Target} in {Iter}: ...";
+    }
+
+    public class AsyncWithStatement : Statement
+    {
+        public override string NodeType => "AsyncWith";
+        public List<WithItem> Items { get; }
+        public List<Statement> Body { get; }
+
+        public AsyncWithStatement(List<WithItem> items, List<Statement> body)
+        {
+            Items = items;
+            Body = body;
+        }
+
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // Async with statement - similar to regular with but with await support
+            PyObject result = PyNone.Instance;
+            var contextManagers = new List<(PyObject manager, PyObject exitMethod, PyObject? target)>();
+
+            try
+            {
+                // Phase 1: Initialize all async context managers and call __aenter__
+                // For now, treat as regular context managers
+                // TODO: Implement proper async context manager protocol (__aenter__, __aexit__)
+                foreach (var item in Items)
+                {
+                    var contextManager = item.ContextExpr.Evaluate(scope);
+
+                    // Call __enter__ (should be __aenter__ for async)
+                    var enterMethod = contextManager.GetAttribute("__enter__");
+                    var enterResult = enterMethod.Call(new PyObject[0], null);
+
+                    // Get __exit__ method (should be __aexit__ for async)
+                    var exitMethod = contextManager.GetAttribute("__exit__");
+
+                    // Store context manager info
+                    contextManagers.Add((contextManager, exitMethod, null));
+
+                    // Bind to target variable if specified
+                    if (item.OptionalVars != null)
+                    {
+                        if (item.OptionalVars is NameExpression nameExpr)
+                        {
+                            scope.SetVariable(nameExpr.Name, enterResult);
+                        }
+                    }
+                }
+
+                // Phase 2: Execute body
+                foreach (var stmt in Body)
+                {
+                    result = stmt.Evaluate(scope);
+                }
+
+                // Phase 3: Normal exit - call __aexit__(None, None, None)
+                for (int i = contextManagers.Count - 1; i >= 0; i--)
+                {
+                    var (manager, exitMethod, target) = contextManagers[i];
+                    try
+                    {
+                        exitMethod.Call(new PyObject[] { PyNone.Instance, PyNone.Instance, PyNone.Instance }, null);
+                    }
+                    catch (Exception exitEx)
+                    {
+                        throw PyRuntimeError.Create($"Exception in async __aexit__: {exitEx.Message}");
+                    }
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                // Phase 3: Exception exit - call __aexit__ with exception info
+                bool suppressException = false;
+
+                for (int i = contextManagers.Count - 1; i >= 0; i--)
+                {
+                    var (manager, exitMethod, target) = contextManagers[i];
+                    try
+                    {
+                        var excType = new PyType(ex.GetType().Name, new PyType[0]);
+                        var excValue = new PyString(ex.Message);
+                        var traceback = PyNone.Instance;
+
+                        var exitResult = exitMethod.Call(new PyObject[] { excType, excValue, traceback }, null);
+
+                        if (exitResult.PyBoolValue())
+                        {
+                            suppressException = true;
+                        }
+                    }
+                    catch (Exception exitEx)
+                    {
+                        throw PyRuntimeError.Create($"Exception in async __aexit__: {exitEx.Message}");
+                    }
+                }
+
+                if (!suppressException)
+                {
+                    throw;
+                }
+
+                return PyNone.Instance;
+            }
+        }
+
+        public override string ToString() => $"async with {string.Join(", ", Items)}: ...";
+    }
+
     public class WithItem : ASTNode
     {
         public override string NodeType => "withitem";
@@ -2652,6 +2830,35 @@ namespace SharpPy
         }
         
         public override string ToString() => $"*{Value}";
+    }
+
+    public class NamedExpression : Expression
+    {
+        public override string NodeType => "NamedExpr";
+        public Expression Target { get; }
+        public Expression Value { get; }
+
+        public NamedExpression(Expression target, Expression value)
+        {
+            Target = target;
+            Value = value;
+        }
+
+        public override PyObject Evaluate(PyScope scope)
+        {
+            // Walrus operator (:=) - assigns and returns the value
+            var result = Value.Evaluate(scope);
+
+            // Assign to target
+            if (Target is NameExpression nameExpr)
+            {
+                scope.SetVariable(nameExpr.Name, result);
+            }
+
+            return result;
+        }
+
+        public override string ToString() => $"({Target} := {Value})";
     }
 
     public class FStringExpression : Expression

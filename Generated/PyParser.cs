@@ -14,6 +14,33 @@ namespace SharpPy.Generated
     {
         public string? StatementType { get; set; }
         public object? Value { get; set; }
+
+        // Class definition properties
+        public string? Type { get; set; }
+        public string? ClassName { get; set; }
+        public List<object>? BaseClasses { get; set; }
+        public List<object>? Body { get; set; }
+
+        // Try-except statement properties
+        public List<object>? TryBody { get; set; }
+        public List<object>? ExceptClauses { get; set; }
+        public List<object>? FinallyBody { get; set; }
+
+        // Import statement properties
+        public List<object>? ImportModules { get; set; }
+        public string? FromModule { get; set; }
+        public int ImportLevel { get; set; }
+        public List<object>? ImportNames { get; set; }
+
+        // With statement properties
+        public List<object>? WithItems { get; set; }
+
+        // Decorator properties
+        public List<object>? Decorators { get; set; }
+
+        // Match statement properties
+        public object? Subject { get; set; }
+        public List<object>? Cases { get; set; }
     }
     public class GeneratedExpr : GeneratedAstNode
     {
@@ -73,6 +100,12 @@ namespace SharpPy.Generated
 
             if (CurrentToken == null) return null;
 
+            // Check for lambda expression first
+            if (CurrentToken.Type.ToString() == "NAME" && CurrentToken.Value == "lambda")
+            {
+                return ParseLambda();
+            }
+
             // NAME
             if (CurrentToken.Type.ToString() == "NAME")
             {
@@ -97,17 +130,84 @@ namespace SharpPy.Generated
                 return new { type = "string", value = str };
             }
 
-            // '(' expression ')'
+            // '[' [star_named_expressions] ']' - List literal or list comprehension
+            if (CurrentToken.Type.ToString() == "OP" && CurrentToken.Value == "[")
+            {
+                return ParseListOrListComp();
+            }
+
+            // '{' [double_starred_kvpairs] '}' - Dictionary literal, set literal, or comprehensions
+            if (CurrentToken.Type.ToString() == "OP" && CurrentToken.Value == "{")
+            {
+                return ParseDictSetOrComp();
+            }
+
+            // '(' [star_named_expressions] ')' - Tuple literal or parenthesized expression
+            // Note: Single element tuple requires comma: (x,)
             if (CurrentToken.Type.ToString() == "OP" && CurrentToken.Value == "(")
             {
+                var mark = Mark();
                 Advance(); // consume '('
-                var expr = ParseExpression();
-                if (expr != null && CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == ")")
+                var elements = new List<object>();
+                bool hasComma = false;
+
+                // Handle empty tuple
+                if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == ")")
                 {
                     Advance(); // consume ')'
-                    return expr;
+                    return new { type = "tuple", elements = elements };
                 }
-                return null; // Malformed parenthesized expression
+
+                // Parse tuple elements or single parenthesized expression
+                while (CurrentToken != null && !(CurrentToken.Type.ToString() == "OP" && CurrentToken.Value == ")"))
+                {
+                    var element = ParseExpression();
+                    if (element != null)
+                    {
+                        elements.Add(element);
+                    }
+
+                    // Check for comma separator
+                    if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == ",")
+                    {
+                        hasComma = true;
+                        Advance(); // consume ','
+                        // Allow trailing comma before ')'
+                        if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == ")")
+                        {
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        // No comma, expect end of tuple/expression
+                        break;
+                    }
+                }
+
+                // Consume closing ')'
+                if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == ")")
+                {
+                    Advance();
+                    // Return tuple only if multiple elements or trailing comma
+                    if (elements.Count > 1 || hasComma)
+                    {
+                        return new { type = "tuple", elements = elements };
+                    }
+                    // Single element without comma is parenthesized expression
+                    else if (elements.Count == 1)
+                    {
+                        return elements[0];
+                    }
+                    // Empty parentheses is empty tuple
+                    else
+                    {
+                        return new { type = "tuple", elements = elements };
+                    }
+                }
+
+                Reset(mark);
+                return null; // Malformed tuple/parenthesized expression
             }
 
             return null;
@@ -326,7 +426,27 @@ namespace SharpPy.Generated
             if (CurrentToken == null) return null;
             if (CurrentToken.Type == GeneratedTokenType.DEDENT) return null;
             if (CurrentToken.Type == GeneratedTokenType.ENDMARKER) return null;
-            return ParseSum();
+
+            // Parse comparison (handles <, >, ==, !=, etc.)
+            var left = ParseSum();
+            if (left == null) return null;
+
+            // Check for comparison operators
+            if (CurrentToken?.Type.ToString() == "OP")
+            {
+                var op = CurrentToken.Value;
+                if (op == "<" || op == ">" || op == "==" || op == "!=" || op == "<=" || op == ">=")
+                {
+                    Advance(); // consume operator
+                    var right = ParseSum();
+                    if (right != null)
+                    {
+                        return new { type = "compare", op = op, left = left, right = right };
+                    }
+                }
+            }
+
+            return left;
         }
 
         // star_expressions: expression (',' expression)* [',']
@@ -486,6 +606,800 @@ namespace SharpPy.Generated
             return ifStmt;
         }
 
+        // while_stmt: 'while' named_expression ':' block [else_block]
+        public object? ParseWhileStatement()
+        {
+            Console.WriteLine($"[DEBUG] ParseWhileStatement: Starting at pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}");
+
+            if (CurrentToken?.Type.ToString() != "NAME" || CurrentToken?.Value != "while")
+            {
+                return null;
+            }
+            Advance(); // consume 'while'
+
+            // Parse condition expression
+            Console.WriteLine($"[DEBUG] ParseWhileStatement: Parsing condition at pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}");
+            var condition = ParseExpression();
+            Console.WriteLine($"[DEBUG] ParseWhileStatement: Condition parsed: {condition}");
+            if (condition == null)
+            {
+                Console.WriteLine($"[DEBUG] ParseWhileStatement: Condition parsing failed");
+                return null;
+            }
+
+            // Parse ':'
+            Console.WriteLine($"[DEBUG] ParseWhileStatement: Parsing colon at pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}");
+            if (CurrentToken?.Type.ToString() != "OP" || CurrentToken?.Value != ":")
+            {
+                Console.WriteLine($"[DEBUG] ParseWhileStatement: Colon parsing failed");
+                return null;
+            }
+            Console.WriteLine($"[DEBUG] ParseWhileStatement: Colon found, advancing");
+            Advance(); // consume ':'
+
+            // Parse while body
+            // Skip NEWLINE and INDENT if present
+            while (CurrentToken != null && (CurrentToken.Type.ToString() == "NEWLINE" || CurrentToken.Type.ToString() == "INDENT"))
+            {
+                Advance();
+            }
+
+            var whileBody = new List<object>();
+            // Parse while body - handle multiple statements in indented block
+            // Continue parsing statements until DEDENT
+            while (CurrentToken != null && CurrentToken.Type.ToString() != "DEDENT" && CurrentToken.Type.ToString() != "ENDMARKER")
+            {
+                // Skip any NEWLINE tokens between statements
+                while (CurrentToken?.Type.ToString() == "NEWLINE")
+                {
+                    Advance();
+                }
+
+                if (CurrentToken == null || CurrentToken.Type.ToString() == "DEDENT") break;
+
+                // Try to parse a simple statement (including assignments)
+                var stmt = ParseSimpleStmt();
+                if (stmt != null)
+                {
+                    whileBody.Add(stmt);
+                    // Consume NEWLINE after statement if present
+                    if (CurrentToken?.Type.ToString() == "NEWLINE")
+                    {
+                        Advance();
+                    }
+                }
+                else
+                {
+                    // If no statement could be parsed, break to avoid infinite loop
+                    break;
+                }
+            }
+
+            // Skip DEDENT if present
+            if (CurrentToken?.Type.ToString() == "DEDENT")
+            {
+                Advance();
+            }
+
+            // Parse optional else clause
+            // Skip any remaining NEWLINE/INDENT/DEDENT tokens before else
+            while (CurrentToken != null && (CurrentToken.Type.ToString() == "NEWLINE" || CurrentToken.Type.ToString() == "INDENT" || CurrentToken.Type.ToString() == "DEDENT"))
+            {
+                Advance();
+            }
+            List<object>? elseBody = null;
+            if (CurrentToken?.Type.ToString() == "NAME" && CurrentToken?.Value == "else")
+            {
+                Advance(); // consume 'else'
+
+                // Parse ':'
+                if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == ":")
+                {
+                    Advance(); // consume ':'
+
+                    // Skip NEWLINE and INDENT if present
+                    while (CurrentToken != null && (CurrentToken.Type.ToString() == "NEWLINE" || CurrentToken.Type.ToString() == "INDENT"))
+                    {
+                        Advance();
+                    }
+
+                    elseBody = new List<object>();
+                    var elseStmt = ParseExpressionStmt();
+                    if (elseStmt != null)
+                    {
+                        elseBody.Add(elseStmt);
+                    }
+
+                    // Skip DEDENT
+                    if (CurrentToken?.Type.ToString() == "DEDENT")
+                    {
+                        Advance();
+                    }
+                }
+            }
+
+            var whileStmt = new GeneratedStmt();
+            whileStmt.StatementType = "while";
+            whileStmt.Value = new { condition = condition, body = whileBody, elseBody = elseBody };
+            return whileStmt;
+        }
+
+        // for_stmt: 'for' target 'in' iter ':' block [else_block]
+        public object? ParseForStatement()
+        {
+            Console.WriteLine($"[DEBUG] ParseForStatement: Starting at pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}");
+
+            if (CurrentToken?.Type.ToString() != "NAME" || CurrentToken?.Value != "for")
+            {
+                return null;
+            }
+            Advance(); // consume 'for'
+
+            // Parse target (variable)
+            Console.WriteLine($"[DEBUG] ParseForStatement: Parsing target at pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}");
+            var target = ParseExpression();
+            Console.WriteLine($"[DEBUG] ParseForStatement: Target parsed: {target}");
+            if (target == null)
+            {
+                Console.WriteLine($"[DEBUG] ParseForStatement: Target parsing failed");
+                return null;
+            }
+
+            // Parse 'in' keyword
+            Console.WriteLine($"[DEBUG] ParseForStatement: Parsing 'in' at pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}");
+            if (CurrentToken?.Type.ToString() != "NAME" || CurrentToken?.Value != "in")
+            {
+                Console.WriteLine($"[DEBUG] ParseForStatement: 'in' keyword parsing failed");
+                return null;
+            }
+            Advance(); // consume 'in'
+
+            // Parse iterator expression
+            Console.WriteLine($"[DEBUG] ParseForStatement: Parsing iterator at pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}");
+            var iter = ParseExpression();
+            Console.WriteLine($"[DEBUG] ParseForStatement: Iterator parsed: {iter}");
+            if (iter == null)
+            {
+                Console.WriteLine($"[DEBUG] ParseForStatement: Iterator parsing failed");
+                return null;
+            }
+
+            // Parse ':'
+            Console.WriteLine($"[DEBUG] ParseForStatement: Parsing colon at pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}");
+            if (CurrentToken?.Type.ToString() != "OP" || CurrentToken?.Value != ":")
+            {
+                Console.WriteLine($"[DEBUG] ParseForStatement: Colon parsing failed");
+                return null;
+            }
+            Console.WriteLine($"[DEBUG] ParseForStatement: Colon found, advancing");
+            Advance(); // consume ':'
+
+            // Parse for body
+            // Skip NEWLINE and INDENT if present
+            while (CurrentToken != null && (CurrentToken.Type.ToString() == "NEWLINE" || CurrentToken.Type.ToString() == "INDENT"))
+            {
+                Advance();
+            }
+
+            var forBody = new List<object>();
+            // Parse for body - handle multiple statements in indented block
+            // Continue parsing statements until DEDENT
+            while (CurrentToken != null && CurrentToken.Type.ToString() != "DEDENT" && CurrentToken.Type.ToString() != "ENDMARKER")
+            {
+                // Skip any NEWLINE tokens between statements
+                while (CurrentToken?.Type.ToString() == "NEWLINE")
+                {
+                    Advance();
+                }
+
+                if (CurrentToken == null || CurrentToken.Type.ToString() == "DEDENT") break;
+
+                // Try to parse a simple statement (including assignments)
+                var stmt = ParseSimpleStmt();
+                if (stmt != null)
+                {
+                    forBody.Add(stmt);
+                    // Consume NEWLINE after statement if present
+                    if (CurrentToken?.Type.ToString() == "NEWLINE")
+                    {
+                        Advance();
+                    }
+                }
+                else
+                {
+                    // If no statement could be parsed, break to avoid infinite loop
+                    break;
+                }
+            }
+
+            // Skip DEDENT if present
+            if (CurrentToken?.Type.ToString() == "DEDENT")
+            {
+                Advance();
+            }
+
+            // TODO: Parse optional else clause
+            List<object>? elseBody = null;
+
+            var forStmt = new GeneratedStmt();
+            forStmt.StatementType = "for";
+            forStmt.Value = new { target = target, iter = iter, body = forBody, elseBody = elseBody };
+            return forStmt;
+        }
+
+        /// <summary>
+        /// lambdef[expr_ty]: 'lambda' a=[lambda_params] ':' b=expression
+        /// </summary>
+        public object ParseLambda()
+        {
+            Console.WriteLine($"[DEBUG] ParseLambda: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+
+            // Expect 'lambda' keyword
+            if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != "lambda")
+            {
+                Console.WriteLine($"[DEBUG] ParseLambda: Expected 'lambda' but found {CurrentToken?.Type}:{CurrentToken?.Value}");
+                return null;
+            }
+            Advance(); // consume 'lambda'
+
+            // Parse optional parameters (simplified - no parameters for now)
+            var parameters = new List<string>();
+            while (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value != ":")
+            {
+                parameters.Add(CurrentToken.Value);
+                Advance();
+                // Skip comma if present
+                if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ",")
+                {
+                    Advance();
+                }
+            }
+
+            // Expect ':'
+            if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != ":")
+            {
+                Console.WriteLine($"[DEBUG] ParseLambda: Expected ':' but found {CurrentToken?.Type}:{CurrentToken?.Value}");
+                return null;
+            }
+            Advance(); // consume ':'
+
+            // Parse lambda body expression
+            var body = ParseExpression();
+            if (body == null)
+            {
+                Console.WriteLine($"[DEBUG] ParseLambda: Failed to parse lambda body");
+                return null;
+            }
+
+            Console.WriteLine($"[DEBUG] ParseLambda: Successfully parsed lambda with {parameters.Count} parameters");
+            return new { type = "lambda", parameters = parameters, body = body };
+        }
+
+        /// <summary>
+        /// Parse list literal or list comprehension
+        /// list: '[' a=[star_named_expressions] ']'
+        /// listcomp: '[' a=named_expression b=for_if_clauses ']'
+        /// </summary>
+        public object ParseListOrListComp()
+        {
+            Advance(); // consume '['
+
+            // Handle empty list
+            if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "]")
+            {
+                Advance(); // consume ']'
+                return new { type = "list", elements = new List<object>() };
+            }
+
+            // Parse first expression
+            var firstExpr = ParseExpression();
+            if (firstExpr == null) return null;
+
+            // Check if this is a comprehension (look for 'for' keyword)
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == "for")
+            {
+                // This is a list comprehension
+                var forIfClauses = ParseForIfClauses();
+                if (forIfClauses == null) return null;
+
+                // Expect closing ']'
+                if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != "]")
+                    return null;
+                Advance(); // consume ']'
+
+                return new { type = "listcomp", element = firstExpr, generators = forIfClauses };
+            }
+            else
+            {
+                // This is a regular list literal
+                var elements = new List<object> { firstExpr };
+
+                // Parse remaining elements
+                while (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ",")
+                {
+                    Advance(); // consume ','
+                    // Allow trailing comma
+                    if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "]")
+                        break;
+                    var element = ParseExpression();
+                    if (element != null)
+                        elements.Add(element);
+                }
+
+                // Expect closing ']'
+                if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != "]")
+                    return null;
+                Advance(); // consume ']'
+
+                return new { type = "list", elements = elements };
+            }
+        }
+
+        /// <summary>
+        /// Parse dict literal, set literal, dict comprehension, or set comprehension
+        /// dict: '{' a=[double_starred_kvpairs] '}'
+        /// set: '{' a=star_named_expressions '}'
+        /// dictcomp: '{' a=kvpair b=for_if_clauses '}'
+        /// setcomp: '{' a=named_expression b=for_if_clauses '}'
+        /// </summary>
+        public object ParseDictSetOrComp()
+        {
+            Advance(); // consume '{'
+
+            // Handle empty dict
+            if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "}")
+            {
+                Advance(); // consume '}'
+                return new { type = "dict", pairs = new List<object>() };
+            }
+
+            // Parse first expression
+            var firstExpr = ParseExpression();
+            if (firstExpr == null) return null;
+
+            // Check if this is a key-value pair (dict)
+            if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ":")
+            {
+                Advance(); // consume ':'
+                var value = ParseExpression();
+                if (value == null) return null;
+
+                // Check if this is a dict comprehension
+                if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == "for")
+                {
+                    // This is a dict comprehension
+                    var forIfClauses = ParseForIfClauses();
+                    if (forIfClauses == null) return null;
+
+                    // Expect closing '}'
+                    if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != "}")
+                        return null;
+                    Advance(); // consume '}'
+
+                    return new { type = "dictcomp", key = firstExpr, value = value, generators = forIfClauses };
+                }
+                else
+                {
+                    // This is a regular dict literal
+                    var pairs = new List<object> { new { key = firstExpr, value = value } };
+
+                    // Parse remaining pairs
+                    while (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ",")
+                    {
+                        Advance(); // consume ','
+                        // Allow trailing comma
+                        if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "}")
+                            break;
+                        var key = ParseExpression();
+                        if (key == null) break;
+                        if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != ":")
+                            break;
+                        Advance(); // consume ':'
+                        var val = ParseExpression();
+                        if (val != null)
+                            pairs.Add(new { key = key, value = val });
+                    }
+
+                    // Expect closing '}'
+                    if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != "}")
+                        return null;
+                    Advance(); // consume '}'
+
+                    return new { type = "dict", pairs = pairs };
+                }
+            }
+            else if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == "for")
+            {
+                // This is a set comprehension
+                var forIfClauses = ParseForIfClauses();
+                if (forIfClauses == null) return null;
+
+                // Expect closing '}'
+                if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != "}")
+                    return null;
+                Advance(); // consume '}'
+
+                return new { type = "setcomp", element = firstExpr, generators = forIfClauses };
+            }
+            else
+            {
+                // This is a regular set literal
+                var elements = new List<object> { firstExpr };
+
+                // Parse remaining elements
+                while (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ",")
+                {
+                    Advance(); // consume ','
+                    // Allow trailing comma
+                    if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "}")
+                        break;
+                    var element = ParseExpression();
+                    if (element != null)
+                        elements.Add(element);
+                }
+
+                // Expect closing '}'
+                if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != "}")
+                    return null;
+                Advance(); // consume '}'
+
+                return new { type = "set", elements = elements };
+            }
+        }
+
+        /// <summary>
+        /// Parse for_if_clauses in comprehensions
+        /// for_if_clauses: for_if_clause+
+        /// for_if_clause: 'for' star_targets 'in' disjunction ('if' disjunction)*
+        /// </summary>
+        public object ParseForIfClauses()
+        {
+            var clauses = new List<object>();
+
+            // Parse at least one for clause
+            do
+            {
+                // Expect 'for' keyword
+                if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != "for")
+                    break;
+                Advance(); // consume 'for'
+
+                // Parse target variable
+                if (CurrentToken?.Type != GeneratedTokenType.NAME)
+                    return null;
+                var target = CurrentToken.Value;
+                Advance();
+
+                // Expect 'in' keyword
+                if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != "in")
+                    return null;
+                Advance(); // consume 'in'
+
+                // Parse iterable expression
+                var iterable = ParseExpression();
+                if (iterable == null) return null;
+
+                // Parse optional 'if' conditions
+                var conditions = new List<object>();
+                while (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == "if")
+                {
+                    Advance(); // consume 'if'
+                    var condition = ParseExpression();
+                    if (condition != null)
+                        conditions.Add(condition);
+                }
+
+                clauses.Add(new { target = target, iterable = iterable, conditions = conditions });
+            } while (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == "for");
+
+            return clauses;
+        }
+
+        /// <summary>
+        /// Parse decorators: ('@' named_expression NEWLINE)+
+        /// </summary>
+        public List<object> ParseDecorators()
+        {
+            var decorators = new List<object>();
+
+            // Parse one or more decorators
+            while (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "@")
+            {
+                Advance(); // consume '@'
+
+                // Parse decorator expression
+                var decoratorExpr = ParseExpression();
+                if (decoratorExpr == null)
+                    return null;
+
+                decorators.Add(decoratorExpr);
+
+                // Expect NEWLINE after decorator
+                if (CurrentToken?.Type == GeneratedTokenType.NEWLINE)
+                {
+                    Advance(); // consume NEWLINE
+                }
+            }
+
+            return decorators.Count > 0 ? decorators : null;
+        }
+
+        /// <summary>
+        /// Parse class definition without decorators
+        /// class_def_raw: 'class' NAME [type_params] ['(' [arguments] ')'] ':' block
+        /// </summary>
+        public GeneratedStmt ParseClassDefRaw()
+        {
+            Console.WriteLine($"[DEBUG] ParseClassDefRaw: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+
+            // Expect 'class' keyword
+            if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != "class")
+            {
+                Console.WriteLine($"[DEBUG] ParseClassDefRaw: Expected 'class' but found {CurrentToken?.Type}:{CurrentToken?.Value}");
+                return null;
+            }
+            Advance(); // consume 'class'
+
+            // Parse class name
+            if (CurrentToken?.Type != GeneratedTokenType.NAME)
+            {
+                Console.WriteLine($"[DEBUG] ParseClassDefRaw: Expected class name but found {CurrentToken?.Type}:{CurrentToken?.Value}");
+                return null;
+            }
+            var className = CurrentToken.Value;
+            Advance(); // consume class name
+
+            // Parse optional base classes '(' [arguments] ')'
+            var baseClasses = new List<object>();
+            if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "(")
+            {
+                Advance(); // consume '('
+                // Parse base class names
+                while (CurrentToken != null && !(CurrentToken.Type == GeneratedTokenType.OP && CurrentToken.Value == ")"))
+                {
+                    if (CurrentToken.Type == GeneratedTokenType.NAME)
+                    {
+                        baseClasses.Add(new { type = "name", value = CurrentToken.Value });
+                        Advance();
+                    }
+                    // Handle comma separator
+                    if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ",")
+                    {
+                        Advance(); // consume ','
+                    }
+                    else if (!(CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ")"))
+                    {
+                        Console.WriteLine($"[DEBUG] ParseClassDefRaw: Unexpected token in base classes: {CurrentToken?.Type}:{CurrentToken?.Value}");
+                        break;
+                    }
+                }
+                if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ")")
+                {
+                    Advance(); // consume ')'
+                }
+            }
+
+            // Expect ':'
+            if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != ":")
+            {
+                Console.WriteLine($"[DEBUG] ParseClassDefRaw: Expected ':' but found {CurrentToken?.Type}:{CurrentToken?.Value}");
+                return null;
+            }
+            Advance(); // consume ':'
+
+            // Parse class body
+            var body = ParseBlock();
+            if (body == null || body.Count == 0)
+            {
+                Console.WriteLine($"[DEBUG] ParseClassDefRaw: Failed to parse class body");
+                return null;
+            }
+
+            Console.WriteLine($"[DEBUG] ParseClassDefRaw: Successfully parsed class '{className}' with {baseClasses.Count} base classes and {body.Count} statements");
+            return new GeneratedStmt
+            {
+                StatementType = "class",
+                ClassName = className,
+                BaseClasses = baseClasses,
+                Body = body
+            };
+        }
+
+        /// <summary>
+        /// match_stmt[stmt_ty]: "match" subject_expr ':' NEWLINE INDENT cases DEDENT
+        /// </summary>
+        public GeneratedStmt ParseMatchStatement()
+        {
+            Console.WriteLine($"[DEBUG] ParseMatchStatement: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+
+            var startPos = _position;
+
+            // 'match'
+            if (!ExpectKeyword("match"))
+            {
+                Console.WriteLine($"[DEBUG] ParseMatchStatement: Failed to match 'match' keyword at position {_position}");
+                _position = startPos;
+                return null;
+            }
+
+            // Parse subject expression (simplified - just expect NAME for now)
+            var subjectName = ExpectName();
+            if (subjectName == null)
+            {
+                Console.WriteLine($"[DEBUG] ParseMatchStatement: Failed to match subject at position {_position}");
+                _position = startPos;
+                return null;
+            }
+            // Create subject as NAME expression object
+            var subject = new { type = "name", value = subjectName };
+
+            // ':'
+            if (!ExpectToken(GeneratedTokenType.OP, ":"))
+            {
+                Console.WriteLine($"[DEBUG] ParseMatchStatement: Failed to match ':' at position {_position}");
+                _position = startPos;
+                return null;
+            }
+
+            // NEWLINE
+            if (!ExpectToken(GeneratedTokenType.NEWLINE))
+            {
+                Console.WriteLine($"[DEBUG] ParseMatchStatement: Failed to match NEWLINE at position {_position}");
+                _position = startPos;
+                return null;
+            }
+
+            // INDENT
+            if (!ExpectToken(GeneratedTokenType.INDENT))
+            {
+                Console.WriteLine($"[DEBUG] ParseMatchStatement: Failed to match INDENT at position {_position}");
+                _position = startPos;
+                return null;
+            }
+
+            // Parse case blocks
+            var cases = new List<object>();
+            while (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "case")
+            {
+                var caseBlock = ParseCaseBlock();
+                if (caseBlock != null)
+                {
+                    cases.Add(caseBlock);
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            // DEDENT - consume all remaining DEDENTs to get back to match level
+            var dedentCount = 0;
+            while (CurrentToken?.Type == GeneratedTokenType.DEDENT)
+            {
+                dedentCount++;
+                Console.WriteLine($"[DEBUG] ParseMatchStatement: Consuming DEDENT #{dedentCount} at position {_position}");
+                Advance();
+            }
+            if (dedentCount == 0)
+            {
+                Console.WriteLine($"[DEBUG] ParseMatchStatement: No DEDENT found at position {_position}, current token: {CurrentToken?.Type}:{CurrentToken?.Value}");
+                _position = startPos;
+                return null;
+            }
+
+            Console.WriteLine($"[DEBUG] ParseMatchStatement: Successfully parsed match statement with {cases.Count} cases at position {_position}");
+            return new GeneratedStmt
+            {
+                StatementType = "match_stmt",
+                Value = new { subject = subject, cases = cases }
+            };
+        }
+
+        /// <summary>
+        /// case_block[match_case_ty]: "case" pattern ':' body
+        /// </summary>
+        public object ParseCaseBlock()
+        {
+            Console.WriteLine($"[DEBUG] ParseCaseBlock: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+
+            var startPos = _position;
+
+            // 'case'
+            if (!ExpectKeyword("case"))
+            {
+                Console.WriteLine($"[DEBUG] ParseCaseBlock: Failed to match 'case' keyword at position {_position}");
+                _position = startPos;
+                return null;
+            }
+
+            // Parse pattern (support NAME, NUMBER, STRING literals)
+            object pattern = null;
+            if (CurrentToken?.Type == GeneratedTokenType.NAME)
+            {
+                // Create a NAME expression object for pattern
+                pattern = new { type = "name", value = CurrentToken.Value };
+                Advance(); // consume NAME
+            }
+            else if (CurrentToken?.Type == GeneratedTokenType.NUMBER)
+            {
+                // Create a NUMBER expression object for pattern
+                pattern = new { type = "number", value = CurrentToken.Value };
+                Advance(); // consume NUMBER
+            }
+            else if (CurrentToken?.Type == GeneratedTokenType.STRING)
+            {
+                // Create a STRING expression object for pattern
+                pattern = new { type = "string", value = CurrentToken.Value };
+                Advance(); // consume STRING
+            }
+            else
+            {
+                Console.WriteLine($"[DEBUG] ParseCaseBlock: Failed to match pattern at position {_position}, token: {CurrentToken?.Type}:{CurrentToken?.Value}");
+                _position = startPos;
+                return null;
+            }
+
+            // ':'
+            if (!ExpectToken(GeneratedTokenType.OP, ":"))
+            {
+                Console.WriteLine($"[DEBUG] ParseCaseBlock: Failed to match ':' at position {_position}");
+                _position = startPos;
+                return null;
+            }
+
+            // Parse case body according to grammar: block = NEWLINE INDENT statements DEDENT
+            if (CurrentToken?.Type == GeneratedTokenType.NEWLINE)
+            {
+                // Consume NEWLINE
+                Advance();
+                
+                // Consume INDENT
+                if (!ExpectToken(GeneratedTokenType.INDENT))
+                {
+                    Console.WriteLine($"[DEBUG] ParseCaseBlock: Failed to match INDENT after NEWLINE at position {_position}");
+                    _position = startPos;
+                    return null;
+                }
+                
+                // Parse statements within the case body
+                var statements = new List<object>();
+                while (CurrentToken?.Type != GeneratedTokenType.DEDENT && CurrentToken?.Type != GeneratedTokenType.ENDMARKER)
+                {
+                    var stmt = ParseStatement();
+                    if (stmt != null)
+                    {
+                        statements.Add(stmt);
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                
+                // Consume DEDENT (end of case body)
+                if (!ExpectToken(GeneratedTokenType.DEDENT))
+                {
+                    Console.WriteLine($"[DEBUG] ParseCaseBlock: Failed to match DEDENT at end of case body at position {_position}");
+                    _position = startPos;
+                    return null;
+                }
+                
+                Console.WriteLine($"[DEBUG] ParseCaseBlock: Successfully parsed case block with {statements.Count} statements");
+                return new { pattern = pattern, guard = (object)null, body = statements };
+            }
+            else if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "pass")
+            {
+                // Simple pass statement
+                Advance(); // consume 'pass'
+                Console.WriteLine($"[DEBUG] ParseCaseBlock: Successfully parsed simple pass statement");
+                return new { pattern = pattern, guard = (object)null, body = "pass" };
+            }
+
+            Console.WriteLine($"[DEBUG] ParseCaseBlock: Failed to parse case body at position {_position}, token: {CurrentToken?.Type}:{CurrentToken?.Value}");
+            _position = startPos;
+            return null;
+        }
+
         // === End Expression Hierarchy ===
 
         /// <summary>
@@ -493,13 +1407,104 @@ namespace SharpPy.Generated
         /// </summary>
         public GeneratedStmt ParseCompoundStmt()
         {
+            Console.WriteLine($"[DEBUG] ParseCompoundStmt: pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}");
+            // Check for decorator (function or class definition with decorators)
+            if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == "@")
+            {
+                var decorators = ParseDecorators();
+                if (decorators != null)
+                {
+                    // Check what follows the decorators
+                    if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "def")
+                    {
+                        var function = ParseFunctionDefRaw();
+                        if (function != null)
+                        {
+                            function.Decorators = decorators;
+                            return function;
+                        }
+                    }
+                    else if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "class")
+                    {
+                        var cls = ParseClassDefRaw();
+                        if (cls != null)
+                        {
+                            cls.Decorators = decorators;
+                            return cls;
+                        }
+                    }
+                }
+                return null; // Invalid decorator usage
+            }
+
             // Check for function definition
             if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "def")
             {
                 return ParseFunctionDef();
             }
 
-            // TODO: Add other compound statements (if, class, etc.)
+            // Check for if statement
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "if")
+            {
+                return ParseIfStatement() as GeneratedStmt;
+            }
+
+            // Check for match statement (Python 3.10+ pattern matching) - HIGH PRIORITY
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "match")
+            {
+                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found match statement, calling ParseMatchStatement");
+                var result = ParseMatchStatement() as GeneratedStmt;
+                Console.WriteLine($"[DEBUG] ParseCompoundStmt: ParseMatchStatement returned: {result}");
+                return result;
+            }
+
+            // Check for while statement
+            Console.WriteLine($"[DEBUG] ParseCompoundStmt: Checking while - Type={CurrentToken?.Type}, Value={CurrentToken?.Value}");
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "while")
+            {
+                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found while statement, calling ParseWhileStatement");
+                var result = ParseWhileStatement() as GeneratedStmt;
+                Console.WriteLine($"[DEBUG] ParseCompoundStmt: ParseWhileStatement returned: {result}");
+                return result;
+            }
+
+            // Check for for statement
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "for")
+            {
+                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found for statement, calling ParseForStatement");
+                var result = ParseForStatement() as GeneratedStmt;
+                Console.WriteLine($"[DEBUG] ParseCompoundStmt: ParseForStatement returned: {result}");
+                return result;
+            }
+
+            // Check for class statement
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "class")
+            {
+                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found class statement, calling ParseClassDef");
+                var result = ParseClassDef() as GeneratedStmt;
+                Console.WriteLine($"[DEBUG] ParseCompoundStmt: ParseClassDef returned: {result}");
+                return result;
+            }
+
+            // Check for try statement
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "try")
+            {
+                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found try statement, calling ParseTryStatement");
+                var result = ParseTryStatement() as GeneratedStmt;
+                Console.WriteLine($"[DEBUG] ParseCompoundStmt: ParseTryStatement returned: {result}");
+                return result;
+            }
+
+            // Check for with statement
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "with")
+            {
+                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found with statement, calling ParseWithStatement");
+                var result = ParseWithStatement() as GeneratedStmt;
+                Console.WriteLine($"[DEBUG] ParseCompoundStmt: ParseWithStatement returned: {result}");
+                return result;
+            }
+
+            // TODO: Add other compound statements
             return null;
         }
 
@@ -520,42 +1525,69 @@ namespace SharpPy.Generated
         {
             Console.WriteLine($"[DEBUG] ParseFunctionDefRaw: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
 
-            // Use left-recursion handling for function definition parsing
-            return TryLeftRecursive<GeneratedStmt>("ParseFunctionDefRaw", () =>
+            var startPos = _position;
+
+            // 'def'
+            if (!ExpectKeyword("def"))
             {
-                // 'def'
-                if (!ExpectKeyword("def"))
-                    return null;
+                Console.WriteLine($"[DEBUG] ParseFunctionDefRaw: Failed to match 'def' keyword at position {_position}");
+                _position = startPos;
+                return null;
+            }
 
-                // NAME
-                var name = ExpectName();
-                if (name == null)
-                    return null;
+            // NAME
+            var name = ExpectName();
+            if (name == null)
+            {
+                Console.WriteLine($"[DEBUG] ParseFunctionDefRaw: Failed to match function name at position {_position}");
+                _position = startPos;
+                return null;
+            }
 
-                // '('
-                if (!ExpectToken(GeneratedTokenType.OP, "("))
-                    return null;
+            // '('
+            if (!ExpectToken(GeneratedTokenType.OP, "("))
+            {
+                Console.WriteLine($"[DEBUG] ParseFunctionDefRaw: Failed to match '(' at position {_position}");
+                _position = startPos;
+                return null;
+            }
 
-                // [params] - optional parameters
-                var parameters = ParseParams() ?? _PyPegen_empty_arguments();
+            // [params] - Skip parameters for now (simple implementation)
+            // TODO: Implement proper parameter parsing
+            while (CurrentToken?.Type == GeneratedTokenType.NAME || CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == ",")
+            {
+                Advance();
+            }
+            var parameters = _PyPegen_empty_arguments();
 
-                // ')'
-                if (!ExpectToken(GeneratedTokenType.OP, ")"))
-                    return null;
+            // ')'
+            if (!ExpectToken(GeneratedTokenType.OP, ")"))
+            {
+                Console.WriteLine($"[DEBUG] ParseFunctionDefRaw: Failed to match ')' at position {_position}");
+                _position = startPos;
+                return null;
+            }
 
-                // ':'
-                if (!ExpectToken(GeneratedTokenType.OP, ":"))
-                    return null;
+            // ':'
+            if (!ExpectToken(GeneratedTokenType.OP, ":"))
+            {
+                Console.WriteLine($"[DEBUG] ParseFunctionDefRaw: Failed to match ':' at position {_position}");
+                _position = startPos;
+                return null;
+            }
 
-                // block
-                var body = ParseBlock();
-                if (body == null)
-                    return null;
+            // block
+            var body = ParseBlock();
+            if (body == null)
+            {
+                Console.WriteLine($"[DEBUG] ParseFunctionDefRaw: Failed to parse function body at position {_position}");
+                _position = startPos;
+                return null;
+            }
 
-                // Return the successful result
-                Console.WriteLine($"[DEBUG] ParseFunctionDefRaw: Successfully parsed function '{name}' at position {_position}");
-                return _PyAST_FunctionDef(name, parameters, body);
-            });
+            // Return the successful result
+            Console.WriteLine($"[DEBUG] ParseFunctionDefRaw: Successfully parsed function '{name}' at position {_position}");
+            return _PyAST_FunctionDef(name, parameters, body);
         }
 
         /// <summary>
@@ -602,12 +1634,20 @@ namespace SharpPy.Generated
         /// </summary>
         public object ParseStatement()
         {
+            var startPos = _position; // Track starting position to prevent infinite loops
             Console.WriteLine($"[DEBUG] ParseStatement: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
 
             // Try compound statement first
             var compound = ParseCompoundStmt();
             if (compound != null)
             {
+                if (_position == startPos)
+                {
+                    // CRITICAL: Position didn't advance - this indicates an infinite loop
+                    Console.WriteLine($"[ERROR] ParseStatement: Position {_position} didn't advance after ParseCompoundStmt, forcing advance to prevent infinite loop. Token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+                    Advance();
+                    return null;
+                }
                 Console.WriteLine($"[DEBUG] ParseStatement: Found compound statement");
                 return _PyPegen_singleton_seq(compound);
             }
@@ -616,6 +1656,13 @@ namespace SharpPy.Generated
             var simple = ParseSimpleStmts();
             if (simple != null)
             {
+                if (_position == startPos)
+                {
+                    // CRITICAL: Position didn't advance - this indicates an infinite loop
+                    Console.WriteLine($"[ERROR] ParseStatement: Position {_position} didn't advance after ParseSimpleStmts, forcing advance to prevent infinite loop. Token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+                    Advance();
+                    return null;
+                }
                 Console.WriteLine($"[DEBUG] ParseStatement: Found simple statements");
                 return simple;
             }
@@ -672,6 +1719,18 @@ namespace SharpPy.Generated
                 return ParseReturnStmt();
             }
 
+            // Check for 'import' statement
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "import")
+            {
+                return ParseImportStatement();
+            }
+
+            // Check for 'from' statement (from ... import ...)
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "from")
+            {
+                return ParseFromImportStatement();
+            }
+
             // CRITICAL: Try assignment NEXT (per python.gram comment)
             var assignment = ParseAssignment();
             if (assignment != null)
@@ -684,6 +1743,21 @@ namespace SharpPy.Generated
             {
                 Advance();
                 return _PyAST_Pass();
+            }
+
+            // CRITICAL: Do not parse compound statement keywords as expressions
+            // This prevents match/case, if/while/for, def/class, etc. from being consumed as expressions
+            if (CurrentToken?.Type == GeneratedTokenType.NAME)
+            {
+                var tokenValue = CurrentToken.Value;
+                // List of compound statement keywords that should NOT be parsed as expressions
+                if (tokenValue == "match" || tokenValue == "if" || tokenValue == "while" || tokenValue == "for" ||
+                    tokenValue == "def" || tokenValue == "class" || tokenValue == "try" || tokenValue == "with" ||
+                    tokenValue == "async")
+                {
+                    Console.WriteLine($"[DEBUG] ParseSimpleStmt: Rejecting compound keyword '{tokenValue}' as expression");
+                    return null; // Let ParseCompoundStmt handle this
+                }
             }
 
             // Try expression statement (fallback)
@@ -758,6 +1832,464 @@ namespace SharpPy.Generated
             Console.WriteLine($"[DEBUG] ParseBlock: Returning result with {statements.Count} statements at position {_position}");
             return statements;
             });
+        }
+
+        /// <summary>
+        /// class_def[stmt_ty]: 'class' a=NAME [type_params] b=['(' z=[arguments] ')'] ':' c=block
+        /// </summary>
+        public GeneratedStmt ParseClassDef()
+        {
+            Console.WriteLine($"[DEBUG] ParseClassDef: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+
+            // Expect 'class' keyword
+            if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != "class")
+            {
+                Console.WriteLine($"[DEBUG] ParseClassDef: Expected 'class' but found {CurrentToken?.Type}:{CurrentToken?.Value}");
+                return null;
+            }
+            Advance(); // consume 'class'
+
+            // Parse class name
+            if (CurrentToken?.Type != GeneratedTokenType.NAME)
+            {
+                Console.WriteLine($"[DEBUG] ParseClassDef: Expected class name but found {CurrentToken?.Type}:{CurrentToken?.Value}");
+                return null;
+            }
+            var className = CurrentToken.Value;
+            Advance(); // consume class name
+
+            // Parse optional base classes '(' [arguments] ')'
+            var baseClasses = new List<object>();
+            if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "(")
+            {
+                Advance(); // consume '('
+                // Parse base class names
+                while (CurrentToken != null && !(CurrentToken.Type == GeneratedTokenType.OP && CurrentToken.Value == ")"))
+                {
+                    if (CurrentToken.Type == GeneratedTokenType.NAME)
+                    {
+                        baseClasses.Add(new { type = "name", value = CurrentToken.Value });
+                        Advance();
+                    }
+                    // Handle comma separator
+                    if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ",")
+                    {
+                        Advance(); // consume ','
+                    }
+                    else if (!(CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ")"))
+                    {
+                        Console.WriteLine($"[DEBUG] ParseClassDef: Unexpected token in base classes: {CurrentToken?.Type}:{CurrentToken?.Value}");
+                        break;
+                    }
+                }
+                if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ")")
+                {
+                    Advance(); // consume ')'
+                }
+            }
+
+            // Expect ':'
+            if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != ":")
+            {
+                Console.WriteLine($"[DEBUG] ParseClassDef: Expected ':' but found {CurrentToken?.Type}:{CurrentToken?.Value}");
+                return null;
+            }
+            Advance(); // consume ':'
+
+            // Parse class body
+            var body = ParseBlock();
+            if (body == null || body.Count == 0)
+            {
+                Console.WriteLine($"[DEBUG] ParseClassDef: Failed to parse class body");
+                return null;
+            }
+
+            Console.WriteLine($"[DEBUG] ParseClassDef: Successfully parsed class '{className}' with {baseClasses.Count} base classes and {body.Count} statements");
+            return new GeneratedStmt
+            {
+                StatementType = "class",
+                ClassName = className,
+                BaseClasses = baseClasses,
+                Body = body
+            };
+        }
+
+        /// <summary>
+        /// try_stmt: 'try' ':' b=block ((except_block+ except_star_block* [finally_block]) | except_star_block+ [finally_block] | finally_block)
+        /// </summary>
+        public GeneratedStmt ParseTryStatement()
+        {
+            Console.WriteLine($"[DEBUG] ParseTryStatement: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+
+            // Expect 'try' keyword
+            if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != "try")
+            {
+                Console.WriteLine($"[DEBUG] ParseTryStatement: Expected 'try' but found {CurrentToken?.Type}:{CurrentToken?.Value}");
+                return null;
+            }
+            Advance(); // consume 'try'
+
+            // Expect ':'
+            if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != ":")
+            {
+                Console.WriteLine($"[DEBUG] ParseTryStatement: Expected ':' but found {CurrentToken?.Type}:{CurrentToken?.Value}");
+                return null;
+            }
+            Advance(); // consume ':'
+
+            // Parse try body
+            var tryBody = ParseBlock();
+            if (tryBody == null || tryBody.Count == 0)
+            {
+                Console.WriteLine($"[DEBUG] ParseTryStatement: Failed to parse try body");
+                return null;
+            }
+
+            // Parse except clauses
+            var exceptClauses = new List<object>();
+            while (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == "except")
+            {
+                Advance(); // consume 'except'
+                var exceptionType = ""; // Optional exception type
+                var exceptionName = ""; // Optional exception variable name
+
+                // Parse optional exception type
+                if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value != ":")
+                {
+                    exceptionType = CurrentToken.Value;
+                    Advance();
+
+                    // Parse optional 'as' variable
+                    if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == "as")
+                    {
+                        Advance(); // consume 'as'
+                        if (CurrentToken?.Type == GeneratedTokenType.NAME)
+                        {
+                            exceptionName = CurrentToken.Value;
+                            Advance();
+                        }
+                    }
+                }
+
+                // Expect ':'
+                if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != ":")
+                {
+                    Console.WriteLine($"[DEBUG] ParseTryStatement: Expected ':' after except but found {CurrentToken?.Type}:{CurrentToken?.Value}");
+                    return null;
+                }
+                Advance(); // consume ':'
+
+                // Parse except body
+                var exceptBody = ParseBlock();
+                if (exceptBody == null || exceptBody.Count == 0)
+                {
+                    Console.WriteLine($"[DEBUG] ParseTryStatement: Failed to parse except body");
+                    return null;
+                }
+
+                exceptClauses.Add(new { type = exceptionType, name = exceptionName, body = exceptBody });
+            }
+
+            // Parse optional finally clause
+            var finallyBody = new List<object>();
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == "finally")
+            {
+                Advance(); // consume 'finally'
+                // Expect ':'
+                if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != ":")
+                {
+                    Console.WriteLine($"[DEBUG] ParseTryStatement: Expected ':' after finally but found {CurrentToken?.Type}:{CurrentToken?.Value}");
+                    return null;
+                }
+                Advance(); // consume ':'
+
+                // Parse finally body
+                finallyBody = ParseBlock();
+                if (finallyBody == null)
+                {
+                    Console.WriteLine($"[DEBUG] ParseTryStatement: Failed to parse finally body");
+                    return null;
+                }
+            }
+
+            Console.WriteLine($"[DEBUG] ParseTryStatement: Successfully parsed try statement with {exceptClauses.Count} except clauses and {finallyBody.Count} finally statements");
+            return new GeneratedStmt
+            {
+                StatementType = "try",
+                TryBody = tryBody,
+                ExceptClauses = exceptClauses,
+                FinallyBody = finallyBody
+            };
+        }
+
+        /// <summary>
+        /// import_name[stmt_ty]: 'import' a=dotted_as_names
+        /// </summary>
+        public GeneratedStmt ParseImportStatement()
+        {
+            Console.WriteLine($"[DEBUG] ParseImportStatement: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+
+            // Expect 'import' keyword
+            if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != "import")
+            {
+                Console.WriteLine($"[DEBUG] ParseImportStatement: Expected 'import' but found {CurrentToken?.Type}:{CurrentToken?.Value}");
+                return null;
+            }
+            Advance(); // consume 'import'
+
+            // Parse module names (dotted_as_names)
+            var modules = new List<object>();
+            while (CurrentToken?.Type == GeneratedTokenType.NAME)
+            {
+                var moduleName = "";
+                var asName = "";
+
+                // Parse dotted name (e.g., os.path)
+                while (CurrentToken?.Type == GeneratedTokenType.NAME)
+                {
+                    moduleName += CurrentToken.Value;
+                    Advance();
+                    if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ".")
+                    {
+                        moduleName += ".";
+                        Advance(); // consume '.'
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
+                // Parse optional 'as' alias
+                if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == "as")
+                {
+                    Advance(); // consume 'as'
+                    if (CurrentToken?.Type == GeneratedTokenType.NAME)
+                    {
+                        asName = CurrentToken.Value;
+                        Advance();
+                    }
+                }
+
+                modules.Add(new { name = moduleName, asname = asName });
+
+                // Check for comma separator
+                if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ",")
+                {
+                    Advance(); // consume ','
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            Console.WriteLine($"[DEBUG] ParseImportStatement: Successfully parsed import with {modules.Count} modules");
+            return new GeneratedStmt
+            {
+                StatementType = "import",
+                ImportModules = modules
+            };
+        }
+
+        /// <summary>
+        /// import_from[stmt_ty]: 'from' ... 'import' ...
+        /// </summary>
+        public GeneratedStmt ParseFromImportStatement()
+        {
+            Console.WriteLine($"[DEBUG] ParseFromImportStatement: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+
+            // Expect 'from' keyword
+            if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != "from")
+            {
+                Console.WriteLine($"[DEBUG] ParseFromImportStatement: Expected 'from' but found {CurrentToken?.Type}:{CurrentToken?.Value}");
+                return null;
+            }
+            Advance(); // consume 'from'
+
+            // Parse module name (with optional relative imports)
+            var fromModule = "";
+            var level = 0; // relative import level
+
+            // Handle relative imports (. or ..)
+            while (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ".")
+            {
+                level++;
+                fromModule += ".";
+                Advance();
+            }
+
+            // Parse module name
+            while (CurrentToken?.Type == GeneratedTokenType.NAME)
+            {
+                fromModule += CurrentToken.Value;
+                Advance();
+                if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ".")
+                {
+                    fromModule += ".";
+                    Advance(); // consume '.'
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            // Expect 'import' keyword
+            if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != "import")
+            {
+                Console.WriteLine($"[DEBUG] ParseFromImportStatement: Expected 'import' but found {CurrentToken?.Type}:{CurrentToken?.Value}");
+                return null;
+            }
+            Advance(); // consume 'import'
+
+            // Parse import names
+            var importNames = new List<object>();
+
+            // Handle 'import *'
+            if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "*")
+            {
+                importNames.Add(new { name = "*", asname = "" });
+                Advance();
+            }
+            else
+            {
+                // Parse import name list
+                while (CurrentToken?.Type == GeneratedTokenType.NAME)
+                {
+                    var importName = CurrentToken.Value;
+                    var asName = "";
+                    Advance();
+
+                    // Parse optional 'as' alias
+                    if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == "as")
+                    {
+                        Advance(); // consume 'as'
+                        if (CurrentToken?.Type == GeneratedTokenType.NAME)
+                        {
+                            asName = CurrentToken.Value;
+                            Advance();
+                        }
+                    }
+
+                    importNames.Add(new { name = importName, asname = asName });
+
+                    // Check for comma separator
+                    if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ",")
+                    {
+                        Advance(); // consume ','
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+            }
+
+            Console.WriteLine($"[DEBUG] ParseFromImportStatement: Successfully parsed 'from {fromModule} import' with {importNames.Count} names");
+            return new GeneratedStmt
+            {
+                StatementType = "from_import",
+                FromModule = fromModule,
+                ImportLevel = level,
+                ImportNames = importNames
+            };
+        }
+
+        /// <summary>
+        /// with_stmt: 'with' '(' a=with_item [',' with_item]* ')' ':' b=block | 'with' a=with_item [',' with_item]* ':' b=block
+        /// </summary>
+        public GeneratedStmt ParseWithStatement()
+        {
+            Console.WriteLine($"[DEBUG] ParseWithStatement: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+
+            // Expect 'with' keyword
+            if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != "with")
+            {
+                Console.WriteLine($"[DEBUG] ParseWithStatement: Expected 'with' but found {CurrentToken?.Type}:{CurrentToken?.Value}");
+                return null;
+            }
+            Advance(); // consume 'with'
+
+            // Check for optional parentheses
+            bool hasParentheses = false;
+            if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "(")
+            {
+                hasParentheses = true;
+                Advance(); // consume '('
+            }
+
+            // Parse with items
+            var withItems = new List<object>();
+            while (CurrentToken != null)
+            {
+                // Parse context expression
+                var contextExpr = ParseExpression();
+                if (contextExpr == null)
+                {
+                    Console.WriteLine($"[DEBUG] ParseWithStatement: Failed to parse context expression");
+                    return null;
+                }
+
+                var asVar = "";
+                // Parse optional 'as' target
+                if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == "as")
+                {
+                    Advance(); // consume 'as'
+                    if (CurrentToken?.Type == GeneratedTokenType.NAME)
+                    {
+                        asVar = CurrentToken.Value;
+                        Advance();
+                    }
+                }
+
+                withItems.Add(new { context = contextExpr, target = asVar });
+
+                // Check for comma separator
+                if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ",")
+                {
+                    Advance(); // consume ','
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            // Check for closing parenthesis if we had opening one
+            if (hasParentheses)
+            {
+                if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != ")")
+                {
+                    Console.WriteLine($"[DEBUG] ParseWithStatement: Expected ')' but found {CurrentToken?.Type}:{CurrentToken?.Value}");
+                    return null;
+                }
+                Advance(); // consume ')'
+            }
+
+            // Expect ':'
+            if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != ":")
+            {
+                Console.WriteLine($"[DEBUG] ParseWithStatement: Expected ':' but found {CurrentToken?.Type}:{CurrentToken?.Value}");
+                return null;
+            }
+            Advance(); // consume ':'
+
+            // Parse with body
+            var body = ParseBlock();
+            if (body == null || body.Count == 0)
+            {
+                Console.WriteLine($"[DEBUG] ParseWithStatement: Failed to parse with body");
+                return null;
+            }
+
+            Console.WriteLine($"[DEBUG] ParseWithStatement: Successfully parsed with statement with {withItems.Count} items and {body.Count} statements");
+            return new GeneratedStmt
+            {
+                StatementType = "with",
+                WithItems = withItems,
+                Body = body
+            };
         }
 
     }
