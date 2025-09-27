@@ -1036,6 +1036,24 @@ namespace SharpPy.PegGenerator.Interpreter
                     }
                 };
             }
+            else if (action.Contains("_PyAST_Break"))
+            {
+                // Break statement: 'break' { _PyAST_Break(EXTRA) }
+                return new SimpleStmt
+                {
+                    Type = "break",
+                    Data = null
+                };
+            }
+            else if (action.Contains("_PyAST_Continue"))
+            {
+                // Continue statement: 'continue' { _PyAST_Continue(EXTRA) }
+                return new SimpleStmt
+                {
+                    Type = "continue",
+                    Data = null
+                };
+            }
 
             // Default: return generic success marker for now
             Console.WriteLine($"[DEBUG] Unhandled action pattern: {action}");

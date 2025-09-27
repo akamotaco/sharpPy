@@ -633,7 +633,7 @@ namespace SharpPy.Generated
 
             var ifBody = new List<object>();
             // Parse if body - simplified to single statement
-            var bodyStmt = ParseExpressionStmt();
+            var bodyStmt = ParseStatement();
             if (bodyStmt != null)
             {
                 ifBody.Add(bodyStmt);
@@ -672,7 +672,7 @@ namespace SharpPy.Generated
                 }
 
                 var elifBody = new List<object>();
-                var elifStmt = ParseExpressionStmt();
+                var elifStmt = ParseStatement();
                 if (elifStmt != null)
                 {
                     elifBody.Add(elifStmt);
@@ -710,7 +710,7 @@ namespace SharpPy.Generated
                     }
 
                     elseBody = new List<object>();
-                    var elseStmt = ParseExpressionStmt();
+                    var elseStmt = ParseStatement();
                     if (elseStmt != null)
                     {
                         elseBody.Add(elseStmt);
@@ -828,7 +828,7 @@ namespace SharpPy.Generated
                     }
 
                     elseBody = new List<object>();
-                    var elseStmt = ParseExpressionStmt();
+                    var elseStmt = ParseStatement();
                     if (elseStmt != null)
                     {
                         elseBody.Add(elseStmt);
@@ -859,9 +859,21 @@ namespace SharpPy.Generated
             }
             Advance(); // consume 'for'
 
-            // Parse target (variable)
+            // Parse target (variable) - CPython 3.12 uses star_targets, simplified to NAME for basic cases
             Console.WriteLine($"[DEBUG] ParseForStatement: Parsing target at pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}");
-            var target = ParseExpression();
+            // Simple implementation: just parse NAME token for basic for loops
+            if (CurrentToken?.Type.ToString() != "NAME")
+            {
+                Console.WriteLine($"[DEBUG] ParseForStatement: Expected NAME for target, got {CurrentToken?.Type}");
+                return null;
+            }
+            var targetName = CurrentToken.Value;
+            Advance(); // consume target name
+            var target = new GeneratedExpr
+            {
+                ExpressionType = "Name",
+                Value = new { id = targetName }
+            };
             Console.WriteLine($"[DEBUG] ParseForStatement: Target parsed: {target}");
             if (target == null)
             {
@@ -918,8 +930,8 @@ namespace SharpPy.Generated
 
                 if (CurrentToken == null || CurrentToken.Type.ToString() == "DEDENT") break;
 
-                // Try to parse a simple statement (including assignments)
-                var stmt = ParseSimpleStmt();
+                // Try to parse any statement (simple or compound like if, while, etc.)
+                var stmt = ParseStatement();
                 if (stmt != null)
                 {
                     forBody.Add(stmt);
@@ -2461,11 +2473,22 @@ namespace SharpPy.Generated
                 return ParseFromImportStatement();
             }
 
-            // CRITICAL: Try assignment NEXT (per python.gram comment)
-            var assignment = ParseAssignment();
-            if (assignment != null)
+            // PRIORITY: Check for 'break' and 'continue' FIRST (before assignment/expression parsing)
+            // This prevents continue/break from being parsed as variable names
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "break")
             {
-                return assignment;
+                Advance();
+                var breakStmt = new GeneratedStmt();
+                breakStmt.StatementType = "break";
+                return breakStmt;
+            }
+
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "continue")
+            {
+                Advance();
+                var continueStmt = new GeneratedStmt();
+                continueStmt.StatementType = "continue";
+                return continueStmt;
             }
 
             // Check for 'pass'
@@ -2473,6 +2496,13 @@ namespace SharpPy.Generated
             {
                 Advance();
                 return _PyAST_Pass();
+            }
+
+            // CRITICAL: Try assignment NEXT (per python.gram comment)
+            var assignment = ParseAssignment();
+            if (assignment != null)
+            {
+                return assignment;
             }
 
             // CRITICAL: Do not parse compound statement keywords as expressions

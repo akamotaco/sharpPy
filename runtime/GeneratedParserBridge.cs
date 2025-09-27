@@ -568,9 +568,25 @@ namespace SharpPy
                         {
                             foreach (var bodyStmt in ifData.body)
                             {
-                                var convertedStmt = ConvertStatement(bodyStmt, insideLoop, insideFunction);
-                                if (convertedStmt != null)
-                                    bodyStmts.Add(convertedStmt);
+                                if (bodyStmt is GeneratedStmt generatedStmt)
+                                {
+                                    var convertedStmt = ConvertStatement(generatedStmt, insideLoop, insideFunction);
+                                    if (convertedStmt != null)
+                                        bodyStmts.Add(convertedStmt);
+                                }
+                                else if (bodyStmt is System.Collections.IEnumerable enumerable && !(bodyStmt is string))
+                                {
+                                    // Handle nested list of statements
+                                    foreach (var nestedStmt in enumerable)
+                                    {
+                                        if (nestedStmt is GeneratedStmt nestedGeneratedStmt)
+                                        {
+                                            var convertedStmt = ConvertStatement(nestedGeneratedStmt, insideLoop, insideFunction);
+                                            if (convertedStmt != null)
+                                                bodyStmts.Add(convertedStmt);
+                                        }
+                                    }
+                                }
                             }
                         }
 
@@ -654,9 +670,35 @@ namespace SharpPy
                         {
                             foreach (var bodyStmt in forData.body)
                             {
-                                var convertedStmt = ConvertStatement(bodyStmt, true, insideFunction); // insideLoop = true
-                                if (convertedStmt != null)
-                                    bodyStmts.Add(convertedStmt);
+                                // bodyStmt might be a GeneratedStmt or a List<Object> containing statements
+                                if (bodyStmt is GeneratedStmt generatedStmt)
+                                {
+                                    var convertedStmt = ConvertStatement(generatedStmt, true, insideFunction); // insideLoop = true
+                                    if (convertedStmt != null)
+                                        bodyStmts.Add(convertedStmt);
+                                }
+                                else if (bodyStmt is System.Collections.IEnumerable enumerable && !(bodyStmt is string))
+                                {
+                                    // Handle nested list of statements
+                                    foreach (var nestedStmt in enumerable)
+                                    {
+                                        if (nestedStmt is GeneratedStmt nestedGeneratedStmt)
+                                        {
+                                            var convertedStmt = ConvertStatement(nestedGeneratedStmt, true, insideFunction);
+                                            if (convertedStmt != null)
+                                                bodyStmts.Add(convertedStmt);
+                                        }
+                                        else
+                                        {
+                                            Console.WriteLine($"[DEBUG] Unexpected nested statement type: {nestedStmt?.GetType()}");
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    // Handle other types if needed
+                                    Console.WriteLine($"[DEBUG] Unexpected body statement type: {bodyStmt?.GetType()}");
+                                }
                             }
                         }
 
