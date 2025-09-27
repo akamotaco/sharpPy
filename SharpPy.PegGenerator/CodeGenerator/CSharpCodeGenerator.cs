@@ -3603,6 +3603,124 @@ namespace SharpPy.PegGenerator.CodeGenerator
         }
 
         /// <summary>
+        /// Generate Comparison method for expression hierarchy
+        /// Based on grammar rule: comparison[expr_ty]: bitwise_or (('==' | '!=' | '<=' | '>=' | '<' | '>' | 'in' | 'not' 'in' | 'is' | 'is' 'not') bitwise_or)*
+        /// </summary>
+        private void GenerateComparisonMethod()
+        {
+            WriteLine("/// <summary>");
+            WriteLine("/// comparison[expr_ty]: bitwise_or (('==' | '!=' | '<=' | '>=' | '<' | '>' | 'in' | 'not' 'in' | 'is' | 'is' 'not') bitwise_or)*");
+            WriteLine("/// Handles comparison operations");
+            WriteLine("/// </summary>");
+            WriteLine("public GeneratedExpr? Comparison()");
+            WriteLine("{");
+            Indent();
+
+            WriteLine("var left = ParseSum(); // Start with sum for arithmetic precedence");
+            WriteLine("if (left == null) return null;");
+            WriteLine();
+
+            WriteLine("var comparisons = new List<object>();");
+            WriteLine("var operators = new List<string>();");
+            WriteLine();
+
+            WriteLine("// Look for comparison operators");
+            WriteLine("while (CurrentToken != null)");
+            WriteLine("{");
+            Indent();
+
+            WriteLine("string? op = null;");
+            WriteLine();
+
+            WriteLine("if (CurrentToken.Type == GeneratedTokenType.OP)");
+            WriteLine("{");
+            Indent();
+            WriteLine("switch (CurrentToken.Value)");
+            WriteLine("{");
+            Indent();
+            WriteLine("case \"==\": op = \"Eq\"; break;");
+            WriteLine("case \"!=\": op = \"NotEq\"; break;");
+            WriteLine("case \"<\": op = \"Lt\"; break;");
+            WriteLine("case \"<=\": op = \"LtE\"; break;");
+            WriteLine("case \">\": op = \"Gt\"; break;");
+            WriteLine("case \">=\": op = \"GtE\"; break;");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine("else if (CurrentToken.Type == GeneratedTokenType.NAME)");
+            WriteLine("{");
+            Indent();
+            WriteLine("switch (CurrentToken.Value)");
+            WriteLine("{");
+            Indent();
+            WriteLine("case \"in\": op = \"In\"; break;");
+            WriteLine("case \"is\": op = \"Is\"; break;");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("if (op == null) break; // No more comparison operators");
+            WriteLine();
+
+            WriteLine("Advance(); // consume operator");
+            WriteLine("var right = ParseSum();");
+            WriteLine("if (right == null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Error: expected expression after comparison operator");
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("comparisons.Add(right);");
+            WriteLine("operators.Add(op);");
+
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// If we found comparison operators, create Compare expression");
+            WriteLine("if (comparisons.Count > 0)");
+            WriteLine("{");
+            Indent();
+            WriteLine("return new GeneratedExpr");
+            WriteLine("{");
+            Indent();
+            WriteLine("ExpressionType = \"Compare\",");
+            WriteLine("Value = new { left = left, ops = operators, comparators = comparisons }");
+            Dedent();
+            WriteLine("};");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// No comparison operators - return left operand wrapped in GeneratedExpr");
+            WriteLine("if (left is GeneratedExpr genExpr)");
+            WriteLine("{");
+            Indent();
+            WriteLine("return genExpr;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("return new GeneratedExpr");
+            WriteLine("{");
+            Indent();
+            WriteLine("ExpressionType = \"Expression\",");
+            WriteLine("Value = left");
+            Dedent();
+            WriteLine("};");
+
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
+        /// <summary>
         /// Generate expression parser that delegates to comparison for operations
         /// </summary>
         private void GenerateExpressionParser()
@@ -3750,6 +3868,72 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    Value = new { op = \"/\", left = result, right = right }");
             WriteLine("};");
             // WriteLine("Console.WriteLine($\"[DEBUG] ParseTerm: Created division\");");
+            WriteLine("continue;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("Reset(mark);");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            // Try: term '//' primary (floor division)
+            WriteLine("if (CurrentToken?.Type.ToString() == \"OP\" && CurrentToken?.Value == \"//\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume '//'");
+            WriteLine("var right = ParsePower();");
+            WriteLine("if (right != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("result = new GeneratedExpr");
+            WriteLine("{");
+            WriteLine("    ExpressionType = \"BinOp\",");
+            WriteLine("    Value = new { op = \"//\", left = result, right = right }");
+            WriteLine("};");
+            WriteLine("continue;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("Reset(mark);");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            // Try: term '%' primary (modulo)
+            WriteLine("if (CurrentToken?.Type.ToString() == \"OP\" && CurrentToken?.Value == \"%\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume '%'");
+            WriteLine("var right = ParsePower();");
+            WriteLine("if (right != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("result = new GeneratedExpr");
+            WriteLine("{");
+            WriteLine("    ExpressionType = \"BinOp\",");
+            WriteLine("    Value = new { op = \"%\", left = result, right = right }");
+            WriteLine("};");
+            WriteLine("continue;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("Reset(mark);");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            // Try: term '@' primary (matrix multiplication)
+            WriteLine("if (CurrentToken?.Type.ToString() == \"OP\" && CurrentToken?.Value == \"@\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume '@'");
+            WriteLine("var right = ParsePower();");
+            WriteLine("if (right != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("result = new GeneratedExpr");
+            WriteLine("{");
+            WriteLine("    ExpressionType = \"BinOp\",");
+            WriteLine("    Value = new { op = \"@\", left = result, right = right }");
+            WriteLine("};");
             WriteLine("continue;");
             Dedent();
             WriteLine("}");
@@ -4529,11 +4713,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Console.WriteLine("[CODEGEN] Generating assignment_expression rule for walrus operator");
             GenerateAssignmentExpressionMethod();
 
-            // Generate expression hierarchy: disjunction, conjunction, inversion
-            Console.WriteLine("[CODEGEN] Generating expression hierarchy: disjunction, conjunction, inversion");
+            // Generate expression hierarchy: disjunction, conjunction, inversion, comparison
+            Console.WriteLine("[CODEGEN] Generating expression hierarchy: disjunction, conjunction, inversion, comparison");
             GenerateDisjunctionMethod();
             GenerateConjunctionMethod();
             GenerateInversionMethod();
+            GenerateComparisonMethod();
 
             // Generate f-string support methods
             Console.WriteLine("[CODEGEN] Generating f-string support methods");
@@ -4871,7 +5056,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
 
             WriteLine("// Fall back to comparison - wrap result in GeneratedExpr");
-            WriteLine("var result = ParseSum();");
+            WriteLine("var result = Comparison();");
             WriteLine("if (result != null)");
             WriteLine("{");
             Indent();
@@ -6813,8 +6998,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    _position = startPos;");
             WriteLine("    return null;");
             WriteLine("}");
-            WriteLine("// Create subject as NAME expression object");
-            WriteLine("var subject = new { type = \"name\", value = subjectName };");
+            WriteLine("// Create subject as GeneratedExpr");
+            WriteLine("var subject = new GeneratedExpr");
+            WriteLine("{");
+            WriteLine("    ExpressionType = \"Name\",");
+            WriteLine("    Value = new { id = subjectName }");
+            WriteLine("};");
             WriteLine();
             WriteLine("// ':'");
             WriteLine("if (!ExpectToken(GeneratedTokenType.OP, \":\"))");
@@ -6899,23 +7088,35 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Parse pattern (support NAME, NUMBER, STRING literals)");
-            WriteLine("object pattern = null;");
+            WriteLine("GeneratedExpr pattern = null;");
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME)");
             WriteLine("{");
             WriteLine("    // Create a NAME expression object for pattern");
-            WriteLine("    pattern = new { type = \"name\", value = CurrentToken.Value };");
+            WriteLine("    pattern = new GeneratedExpr");
+            WriteLine("    {");
+            WriteLine("        ExpressionType = \"Name\",");
+            WriteLine("        Value = new { id = CurrentToken.Value }");
+            WriteLine("    };");
             WriteLine("    Advance(); // consume NAME");
             WriteLine("}");
             WriteLine("else if (CurrentToken?.Type == GeneratedTokenType.NUMBER)");
             WriteLine("{");
             WriteLine("    // Create a NUMBER expression object for pattern");
-            WriteLine("    pattern = new { type = \"number\", value = CurrentToken.Value };");
+            WriteLine("    pattern = new GeneratedExpr");
+            WriteLine("    {");
+            WriteLine("        ExpressionType = \"Constant\",");
+            WriteLine("        Value = new { value = CurrentToken.Value, kind = \"number\" }");
+            WriteLine("    };");
             WriteLine("    Advance(); // consume NUMBER");
             WriteLine("}");
             WriteLine("else if (CurrentToken?.Type == GeneratedTokenType.STRING)");
             WriteLine("{");
             WriteLine("    // Create a STRING expression object for pattern");
-            WriteLine("    pattern = new { type = \"string\", value = CurrentToken.Value };");
+            WriteLine("    pattern = new GeneratedExpr");
+            WriteLine("    {");
+            WriteLine("        ExpressionType = \"Constant\",");
+            WriteLine("        Value = new { value = CurrentToken.Value, kind = \"string\" }");
+            WriteLine("    };");
             WriteLine("    Advance(); // consume STRING");
             WriteLine("}");
             WriteLine("else");

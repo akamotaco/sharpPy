@@ -454,6 +454,54 @@ namespace SharpPy.Generated
                     Reset(mark);
                 }
 
+                if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "//")
+                {
+                    Advance(); // consume '//'
+                    var right = ParsePower();
+                    if (right != null)
+                    {
+                        result = new GeneratedExpr
+                        {
+                            ExpressionType = "BinOp",
+                            Value = new { op = "//", left = result, right = right }
+                        };
+                        continue;
+                    }
+                    Reset(mark);
+                }
+
+                if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "%")
+                {
+                    Advance(); // consume '%'
+                    var right = ParsePower();
+                    if (right != null)
+                    {
+                        result = new GeneratedExpr
+                        {
+                            ExpressionType = "BinOp",
+                            Value = new { op = "%", left = result, right = right }
+                        };
+                        continue;
+                    }
+                    Reset(mark);
+                }
+
+                if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "@")
+                {
+                    Advance(); // consume '@'
+                    var right = ParsePower();
+                    if (right != null)
+                    {
+                        result = new GeneratedExpr
+                        {
+                            ExpressionType = "BinOp",
+                            Value = new { op = "@", left = result, right = right }
+                        };
+                        continue;
+                    }
+                    Reset(mark);
+                }
+
                 // No more operations
                 break;
             }
@@ -1342,8 +1390,12 @@ namespace SharpPy.Generated
                 _position = startPos;
                 return null;
             }
-            // Create subject as NAME expression object
-            var subject = new { type = "name", value = subjectName };
+            // Create subject as GeneratedExpr
+            var subject = new GeneratedExpr
+            {
+                ExpressionType = "Name",
+                Value = new { id = subjectName }
+            };
 
             // ':'
             if (!ExpectToken(GeneratedTokenType.OP, ":"))
@@ -1425,23 +1477,35 @@ namespace SharpPy.Generated
             }
 
             // Parse pattern (support NAME, NUMBER, STRING literals)
-            object pattern = null;
+            GeneratedExpr pattern = null;
             if (CurrentToken?.Type == GeneratedTokenType.NAME)
             {
                 // Create a NAME expression object for pattern
-                pattern = new { type = "name", value = CurrentToken.Value };
+                pattern = new GeneratedExpr
+                {
+                    ExpressionType = "Name",
+                    Value = new { id = CurrentToken.Value }
+                };
                 Advance(); // consume NAME
             }
             else if (CurrentToken?.Type == GeneratedTokenType.NUMBER)
             {
                 // Create a NUMBER expression object for pattern
-                pattern = new { type = "number", value = CurrentToken.Value };
+                pattern = new GeneratedExpr
+                {
+                    ExpressionType = "Constant",
+                    Value = new { value = CurrentToken.Value, kind = "number" }
+                };
                 Advance(); // consume NUMBER
             }
             else if (CurrentToken?.Type == GeneratedTokenType.STRING)
             {
                 // Create a STRING expression object for pattern
-                pattern = new { type = "string", value = CurrentToken.Value };
+                pattern = new GeneratedExpr
+                {
+                    ExpressionType = "Constant",
+                    Value = new { value = CurrentToken.Value, kind = "string" }
+                };
                 Advance(); // consume STRING
             }
             else
@@ -1731,7 +1795,7 @@ namespace SharpPy.Generated
             }
 
             // Fall back to comparison - wrap result in GeneratedExpr
-            var result = ParseSum();
+            var result = Comparison();
             if (result != null)
             {
                 return new GeneratedExpr
@@ -1741,6 +1805,81 @@ namespace SharpPy.Generated
                 };
             }
             return null;
+        }
+
+        /// <summary>
+        /// comparison[expr_ty]: bitwise_or (('==' | '!=' | '<=' | '>=' | '<' | '>' | 'in' | 'not' 'in' | 'is' | 'is' 'not') bitwise_or)*
+        /// Handles comparison operations
+        /// </summary>
+        public GeneratedExpr? Comparison()
+        {
+            var left = ParseSum(); // Start with sum for arithmetic precedence
+            if (left == null) return null;
+
+            var comparisons = new List<object>();
+            var operators = new List<string>();
+
+            // Look for comparison operators
+            while (CurrentToken != null)
+            {
+                string? op = null;
+
+                if (CurrentToken.Type == GeneratedTokenType.OP)
+                {
+                    switch (CurrentToken.Value)
+                    {
+                        case "==": op = "Eq"; break;
+                        case "!=": op = "NotEq"; break;
+                        case "<": op = "Lt"; break;
+                        case "<=": op = "LtE"; break;
+                        case ">": op = "Gt"; break;
+                        case ">=": op = "GtE"; break;
+                    }
+                }
+                else if (CurrentToken.Type == GeneratedTokenType.NAME)
+                {
+                    switch (CurrentToken.Value)
+                    {
+                        case "in": op = "In"; break;
+                        case "is": op = "Is"; break;
+                    }
+                }
+
+                if (op == null) break; // No more comparison operators
+
+                Advance(); // consume operator
+                var right = ParseSum();
+                if (right == null)
+                {
+                    // Error: expected expression after comparison operator
+                    return null;
+                }
+
+                comparisons.Add(right);
+                operators.Add(op);
+            }
+
+            // If we found comparison operators, create Compare expression
+            if (comparisons.Count > 0)
+            {
+                return new GeneratedExpr
+                {
+                    ExpressionType = "Compare",
+                    Value = new { left = left, ops = operators, comparators = comparisons }
+                };
+            }
+
+            // No comparison operators - return left operand wrapped in GeneratedExpr
+            if (left is GeneratedExpr genExpr)
+            {
+                return genExpr;
+            }
+
+            return new GeneratedExpr
+            {
+                ExpressionType = "Expression",
+                Value = left
+            };
         }
 
 

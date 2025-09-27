@@ -624,11 +624,29 @@ namespace SharpPy
                     {
                         var forData = stmt.Value as dynamic;
 
-                        // Extract target variable name
-                        string targetVar = forData.target?.ToString() ?? "i";
+                        // Extract target variable name from GeneratedExpr
+                        string targetVar = "i"; // default
+                        if (forData.target is GeneratedExpr targetExpr && targetExpr.ExpressionType == "Name")
+                        {
+                            if (targetExpr.Value is object targetValue)
+                            {
+                                var valueType = targetValue.GetType();
+                                var idProperty = valueType.GetProperty("id");
+                                var valueProperty = valueType.GetProperty("value");
+
+                                if (idProperty != null)
+                                {
+                                    targetVar = idProperty.GetValue(targetValue)?.ToString() ?? "i";
+                                }
+                                else if (valueProperty != null)
+                                {
+                                    targetVar = valueProperty.GetValue(targetValue)?.ToString() ?? "i";
+                                }
+                            }
+                        }
 
                         // Convert iterable expression
-                        Expression iterableExpr = ConvertAnyExpression(forData.iterable);
+                        Expression iterableExpr = ConvertAnyExpression(forData.iter);
 
                         // Convert body statements
                         var bodyStmts = new List<Statement>();
@@ -664,11 +682,29 @@ namespace SharpPy
                     {
                         var asyncForData = stmt.Value as dynamic;
 
-                        // Extract target variable name
-                        string targetVar = asyncForData.target?.ToString() ?? "i";
+                        // Extract target variable name from GeneratedExpr
+                        string targetVar = "i"; // default
+                        if (asyncForData.target is GeneratedExpr targetExpr && targetExpr.ExpressionType == "Name")
+                        {
+                            if (targetExpr.Value is object targetValue)
+                            {
+                                var valueType = targetValue.GetType();
+                                var idProperty = valueType.GetProperty("id");
+                                var valueProperty = valueType.GetProperty("value");
+
+                                if (idProperty != null)
+                                {
+                                    targetVar = idProperty.GetValue(targetValue)?.ToString() ?? "i";
+                                }
+                                else if (valueProperty != null)
+                                {
+                                    targetVar = valueProperty.GetValue(targetValue)?.ToString() ?? "i";
+                                }
+                            }
+                        }
 
                         // Convert iterable expression
-                        Expression iterableExpr = ConvertAnyExpression(asyncForData.iterable);
+                        Expression iterableExpr = ConvertAnyExpression(asyncForData.iter);
 
                         // Convert body statements
                         var bodyStmts = new List<Statement>();
@@ -1878,6 +1914,7 @@ namespace SharpPy
                 "string" => new ConstantExpression(new PyString(value.ToString() ?? "")),
                 "int" => new ConstantExpression(new PyInt(Convert.ToInt32(value))),
                 "float" => new ConstantExpression(new PyFloat(Convert.ToDouble(value))),
+                "number" => new ConstantExpression(new PyInt(Convert.ToInt32(value))),
                 _ => new ConstantExpression(new PyString(value.ToString() ?? ""))
             };
         }
@@ -1892,13 +1929,23 @@ namespace SharpPy
                 throw new InvalidOperationException("Name value is null");
             }
 
+            // Try both "id" and "value" properties for backward compatibility
+            var idProperty = valueObj.GetType().GetProperty("id");
             var valueProperty = valueObj.GetType().GetProperty("value");
-            if (valueProperty == null)
-            {
-                throw new InvalidOperationException("Name value object missing value property");
-            }
 
-            var name = valueProperty.GetValue(valueObj)?.ToString();
+            string? name = null;
+            if (idProperty != null)
+            {
+                name = idProperty.GetValue(valueObj)?.ToString();
+            }
+            else if (valueProperty != null)
+            {
+                name = valueProperty.GetValue(valueObj)?.ToString();
+            }
+            else
+            {
+                throw new InvalidOperationException("Name value object missing both id and value properties");
+            }
             if (string.IsNullOrEmpty(name))
             {
                 throw new InvalidOperationException("Name value is null or empty");
@@ -2167,30 +2214,36 @@ namespace SharpPy
             }
 
             var valueType = valueObj.GetType();
-            var keysProperty = valueType.GetProperty("keys");
-            var valuesProperty = valueType.GetProperty("values");
+            var pairsProperty = valueType.GetProperty("pairs");
 
-            if (keysProperty == null || valuesProperty == null)
+            if (pairsProperty == null)
             {
-                throw new InvalidOperationException("Dict value object missing keys or values property");
+                throw new InvalidOperationException("Dict value object missing pairs property");
             }
 
-            var keys = keysProperty.GetValue(valueObj) as IEnumerable<object>;
-            var values = valuesProperty.GetValue(valueObj) as IEnumerable<object>;
-
+            var pairs = pairsProperty.GetValue(valueObj) as IEnumerable<object>;
             var items = new List<(Expression Key, Expression Value)>();
 
-            if (keys != null && values != null)
+            if (pairs != null)
             {
-                var keyArray = keys.ToArray();
-                var valueArray = values.ToArray();
-
-                int count = Math.Min(keyArray.Length, valueArray.Length);
-                for (int i = 0; i < count; i++)
+                foreach (var pair in pairs)
                 {
-                    var keyExpr = ConvertAnyExpression(keyArray[i]);
-                    var valueExpr = ConvertAnyExpression(valueArray[i]);
-                    items.Add((keyExpr, valueExpr));
+                    var pairType = pair.GetType();
+                    var keyProperty = pairType.GetProperty("key");
+                    var valueProperty = pairType.GetProperty("value");
+
+                    if (keyProperty != null && valueProperty != null)
+                    {
+                        var key = keyProperty.GetValue(pair);
+                        var value = valueProperty.GetValue(pair);
+
+                        if (key != null && value != null)
+                        {
+                            var convertedKey = ConvertAnyExpression(key);
+                            var convertedValue = ConvertAnyExpression(value);
+                            items.Add((convertedKey, convertedValue));
+                        }
+                    }
                 }
             }
 

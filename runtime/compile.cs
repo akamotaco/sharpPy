@@ -351,6 +351,16 @@ namespace SharpPy
                     _definedVars.Add(walrus.Target);
                     break;
 
+                case NamedExpression named:
+                    // Analyze the value expression first
+                    AnalyzeExpression(named.Value);
+                    // Mark the target variable as defined (should be NameExpression)
+                    if (named.Target is NameExpression nameTarget)
+                    {
+                        _definedVars.Add(nameTarget.Name);
+                    }
+                    break;
+
                 // For ConstantExpression and other leaf expressions, no variables are used
                 case ConstantExpression _:
                     break;
@@ -1738,6 +1748,23 @@ namespace SharpPy
                     EmitInstruction(ByteCodeOp.COPY, 1);
                     // Store to variable using correct scope like CPython 3.12
                     EmitStoreVariable(walrus.Target);
+                    // Value remains on stack as return value
+                    break;
+
+                case NamedExpression named:
+                    // Compile value first
+                    CompileExpression(named.Value);
+                    // Duplicate value on stack for assignment
+                    EmitInstruction(ByteCodeOp.COPY, 1);
+                    // Store to target variable (should be NameExpression)
+                    if (named.Target is NameExpression nameTarget)
+                    {
+                        EmitStoreVariable(nameTarget.Name);
+                    }
+                    else
+                    {
+                        throw new NotSupportedException($"NamedExpression target must be a name, got: {named.Target.GetType()}");
+                    }
                     // Value remains on stack as return value
                     break;
                     
