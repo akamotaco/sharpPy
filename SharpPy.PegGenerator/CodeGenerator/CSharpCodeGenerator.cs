@@ -3148,7 +3148,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
             WriteLine("var name = CurrentToken.Value;");
             WriteLine("Advance();");
-            WriteLine("return new { type = \"name\", value = name };");
+            WriteLine("return new GeneratedExpr");
+            WriteLine("{");
+            Indent();
+            WriteLine("ExpressionType = \"Name\",");
+            WriteLine("Value = new { value = name }");
+            Dedent();
+            WriteLine("};");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -3159,7 +3165,22 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
             WriteLine("var number = CurrentToken.Value;");
             WriteLine("Advance();");
-            WriteLine("return new { type = \"number\", value = number };");
+            WriteLine("return new GeneratedExpr");
+            WriteLine("{");
+            Indent();
+            WriteLine("ExpressionType = \"Constant\",");
+            WriteLine("Value = new { value = number, kind = \"number\" }");
+            Dedent();
+            WriteLine("};");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// F-STRING (check before regular STRING)");
+            WriteLine("if (CurrentToken.Type.ToString() == \"FSTRING_START\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("return Fstring();");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -3170,7 +3191,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
             WriteLine("var str = CurrentToken.Value;");
             WriteLine("Advance();");
-            WriteLine("return new { type = \"string\", value = str };");
+            WriteLine("return new GeneratedExpr");
+            WriteLine("{");
+            Indent();
+            WriteLine("ExpressionType = \"Constant\",");
+            WriteLine("Value = new { value = str, kind = \"string\" }");
+            Dedent();
+            WriteLine("};");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -3209,7 +3236,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume ')'");
-            WriteLine("return new { type = \"tuple\", elements = elements };");
+            WriteLine("return new GeneratedExpr");
+            WriteLine("{");
+            Indent();
+            WriteLine("ExpressionType = \"Tuple\",");
+            WriteLine("Value = new { elements = elements }");
+            Dedent();
+            WriteLine("};");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -3259,7 +3292,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (elements.Count > 1 || hasComma)");
             WriteLine("{");
             Indent();
-            WriteLine("return new { type = \"tuple\", elements = elements };");
+            WriteLine("return new GeneratedExpr");
+            WriteLine("{");
+            Indent();
+            WriteLine("ExpressionType = \"Tuple\",");
+            WriteLine("Value = new { elements = elements }");
+            Dedent();
+            WriteLine("};");
             Dedent();
             WriteLine("}");
             WriteLine("// Single element without comma is parenthesized expression");
@@ -3273,7 +3312,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("else");
             WriteLine("{");
             Indent();
-            WriteLine("return new { type = \"tuple\", elements = elements };");
+            WriteLine("return new GeneratedExpr");
+            WriteLine("{");
+            Indent();
+            WriteLine("ExpressionType = \"Tuple\",");
+            WriteLine("Value = new { elements = elements }");
+            Dedent();
+            WriteLine("};");
             Dedent();
             WriteLine("}");
             Dedent();
@@ -3375,7 +3420,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume ')'");
-            WriteLine("result = new { type = \"call\", func = result, args = args };");
+            WriteLine("result = new GeneratedExpr");
+            WriteLine("{");
+            WriteLine("    ExpressionType = \"Call\",");
+            WriteLine("    Value = new { func = result, args = args }");
+            WriteLine("};");
             WriteLine("expanded = true;");
             // WriteLine("Console.WriteLine($\"[DEBUG] Primary: Created function call\");");
             Dedent();
@@ -3401,7 +3450,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
             WriteLine("var attr = CurrentToken.Value;");
             WriteLine("Advance();");
-            WriteLine("result = new { type = \"attribute\", value = result, attr = attr };");
+            WriteLine("result = new GeneratedExpr");
+            WriteLine("{");
+            WriteLine("    ExpressionType = \"Attribute\",");
+            WriteLine("    Value = new { value = result, attr = attr }");
+            WriteLine("};");
             WriteLine("expanded = true;");
             // WriteLine("Console.WriteLine($\"[DEBUG] Primary: Created attribute access\");");
             Dedent();
@@ -3429,7 +3482,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume ']'");
-            WriteLine("result = new { type = \"subscript\", value = result, slice = slice };");
+            WriteLine("result = new GeneratedExpr");
+            WriteLine("{");
+            WriteLine("    ExpressionType = \"Subscript\",");
+            WriteLine("    Value = new { value = result, slice = slice }");
+            WriteLine("};");
             WriteLine("expanded = true;");
             // WriteLine("Console.WriteLine($\"[DEBUG] Primary: Created subscript access\");");
             Dedent();
@@ -3499,41 +3556,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private void GenerateExpressionParser()
         {
             Console.WriteLine("[DEBUG] GenerateExpressionParser called");
-            WriteLine("// expression: comparison (operations with proper precedence)");
+            WriteLine("// expression: assignment_expression - delegate to top level of expression hierarchy");
             WriteLine("public object? ParseExpression()");
             WriteLine("{");
             Indent();
-            WriteLine("// Check for tokens that should stop expression parsing");
-            WriteLine("if (CurrentToken == null) return null;");
-            WriteLine("if (CurrentToken.Type == GeneratedTokenType.DEDENT) return null;");
-            WriteLine("if (CurrentToken.Type == GeneratedTokenType.ENDMARKER) return null;");
-            WriteLine();
-            WriteLine("// Parse comparison (handles <, >, ==, !=, etc.)");
-            WriteLine("var left = ParseSum();");
-            WriteLine("if (left == null) return null;");
-            WriteLine();
-            WriteLine("// Check for comparison operators");
-            WriteLine("if (CurrentToken?.Type.ToString() == \"OP\")");
-            WriteLine("{");
-            Indent();
-            WriteLine("var op = CurrentToken.Value;");
-            WriteLine("if (op == \"<\" || op == \">\" || op == \"==\" || op == \"!=\" || op == \"<=\" || op == \">=\")");
-            WriteLine("{");
-            Indent();
-            WriteLine("Advance(); // consume operator");
-            WriteLine("var right = ParseSum();");
-            WriteLine("if (right != null)");
-            WriteLine("{");
-            Indent();
-            WriteLine("return new { type = \"compare\", op = op, left = left, right = right };");
-            Dedent();
-            WriteLine("}");
-            Dedent();
-            WriteLine("}");
-            Dedent();
-            WriteLine("}");
-            WriteLine();
-            WriteLine("return left;");
+            WriteLine("// In Python 3.12, expression is the top-level rule that includes assignment expressions (walrus operator)");
+            WriteLine("// Delegate to assignment_expression which handles := operator");
+            WriteLine("return AssignmentExpression();");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -3579,7 +3608,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (right != null)");
             WriteLine("{");
             Indent();
-            WriteLine("result = new { type = \"binop\", op = \"*\", left = result, right = right };");
+            WriteLine("result = new GeneratedExpr");
+            WriteLine("{");
+            WriteLine("    ExpressionType = \"BinOp\",");
+            WriteLine("    Value = new { op = \"*\", left = result, right = right }");
+            WriteLine("};");
             // WriteLine("Console.WriteLine($\"[DEBUG] ParseTerm: Created multiplication\");");
             WriteLine("continue;");
             Dedent();
@@ -3598,7 +3631,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (right != null)");
             WriteLine("{");
             Indent();
-            WriteLine("result = new { type = \"binop\", op = \"/\", left = result, right = right };");
+            WriteLine("result = new GeneratedExpr");
+            WriteLine("{");
+            WriteLine("    ExpressionType = \"BinOp\",");
+            WriteLine("    Value = new { op = \"/\", left = result, right = right }");
+            WriteLine("};");
             // WriteLine("Console.WriteLine($\"[DEBUG] ParseTerm: Created division\");");
             WriteLine("continue;");
             Dedent();
@@ -3661,7 +3698,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (right != null)");
             WriteLine("{");
             Indent();
-            WriteLine("result = new { type = \"binop\", op = \"+\", left = result, right = right };");
+            WriteLine("result = new GeneratedExpr");
+            WriteLine("{");
+            WriteLine("    ExpressionType = \"BinOp\",");
+            WriteLine("    Value = new { op = \"+\", left = result, right = right }");
+            WriteLine("};");
             // WriteLine("Console.WriteLine($\"[DEBUG] ParseSum: Created addition\");");
             WriteLine("continue;");
             Dedent();
@@ -3680,7 +3721,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (right != null)");
             WriteLine("{");
             Indent();
-            WriteLine("result = new { type = \"binop\", op = \"-\", left = result, right = right };");
+            WriteLine("result = new GeneratedExpr");
+            WriteLine("{");
+            WriteLine("    ExpressionType = \"BinOp\",");
+            WriteLine("    Value = new { op = \"-\", left = result, right = right }");
+            WriteLine("};");
             // WriteLine("Console.WriteLine($\"[DEBUG] ParseSum: Created subtraction\");");
             WriteLine("continue;");
             Dedent();
@@ -4349,10 +4394,693 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // Generate expression hierarchy (MOST IMPORTANT!)
             GenerateExpressionHierarchy();
 
+            // Generate specific grammar rules from python.gram that are missing
+            GenerateSpecificGrammarRules();
+
             // Generate core methods needed for function parsing
             GenerateFunctionDefMethods();
             GenerateStatementMethods();
             GenerateBasicMethods();
+        }
+
+        /// <summary>
+        /// Generate specific grammar rules that are missing from the hardcoded expression hierarchy
+        /// </summary>
+        private void GenerateSpecificGrammarRules()
+        {
+            WriteLine();
+            WriteLine("// === Specific Grammar Rules ===");
+            WriteLine();
+
+            // Generate assignment_expression rule directly for walrus operator
+            Console.WriteLine("[CODEGEN] Generating assignment_expression rule for walrus operator");
+            GenerateAssignmentExpressionMethod();
+
+            // Generate expression hierarchy: disjunction, conjunction, inversion
+            Console.WriteLine("[CODEGEN] Generating expression hierarchy: disjunction, conjunction, inversion");
+            GenerateDisjunctionMethod();
+            GenerateConjunctionMethod();
+            GenerateInversionMethod();
+
+            // Generate f-string support methods
+            Console.WriteLine("[CODEGEN] Generating f-string support methods");
+            GenerateFStringMethods();
+
+            WriteLine("// === End Specific Grammar Rules ===");
+            WriteLine();
+        }
+
+        /// <summary>
+        /// Generate assignment_expression method for walrus operator (:=)
+        /// Based on grammar rule: assignment_expression[expr_ty]: | a=NAME ':=' ~ b=expression
+        /// </summary>
+        private void GenerateAssignmentExpressionMethod()
+        {
+            WriteLine("/// <summary>");
+            WriteLine("/// assignment_expression[expr_ty]: | a=NAME ':=' ~ b=expression");
+            WriteLine("/// Handles the walrus operator (:=) for assignment expressions");
+            WriteLine("/// </summary>");
+            WriteLine("public GeneratedExpr? AssignmentExpression()");
+            WriteLine("{");
+            Indent();
+
+            WriteLine("// Try to parse walrus operator: NAME := expression");
+            WriteLine("var startPos = _position;");
+            WriteLine();
+
+            WriteLine("// Handle parenthesized assignment expression: (NAME := expression)");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == \"(\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("var parenStart = _position;");
+            WriteLine("Advance(); // consume '('");
+            WriteLine();
+            WriteLine("// Check if this is an assignment expression inside parentheses");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("{");
+            Indent();
+            WriteLine("var namePos = _position;");
+            WriteLine("var name = CurrentToken.Value;");
+            WriteLine("Advance(); // consume NAME");
+            WriteLine();
+            WriteLine("// Check for ':=' operator");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.COLONEQUAL)");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume ':='");
+            WriteLine();
+            WriteLine("// Parse the expression on the right side");
+            WriteLine("var rightExpr = ParseSum();");
+            WriteLine("if (rightExpr != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Expect closing parenthesis");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == \")\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume ')'");
+            WriteLine("// Create named expression AST node");
+            WriteLine("var namedExpr = new GeneratedExpr");
+            WriteLine("{");
+            Indent();
+            WriteLine("ExpressionType = \"NamedExpr\",");
+            WriteLine("Value = new { target = name, value = rightExpr }");
+            Dedent();
+            WriteLine("};");
+            WriteLine("return namedExpr;");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// Not assignment expression in parentheses - backtrack to start");
+            WriteLine("_position = startPos;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            // Check for NAME token (original logic)
+            WriteLine("// Direct assignment expression: a=NAME ':=' ~ b=expression");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("{");
+            Indent();
+            WriteLine("var name = CurrentToken.Value;");
+            WriteLine("var nameToken = CurrentToken;");
+            WriteLine("Advance(); // consume NAME");
+            WriteLine();
+
+            // Check for ':=' operator
+            WriteLine("// Check for ':=' operator");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.COLONEQUAL)");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume ':='");
+            WriteLine();
+
+            // Parse expression on the right side
+            WriteLine("// Parse the expression on the right side (b=expression)");
+            WriteLine("// Note: To avoid circular call, parse at disjunction level (lower than assignment_expression)");
+            WriteLine("var rightExpr = ParseSum(); // Use ParseSum for now, should be disjunction in full implementation");
+            WriteLine("if (rightExpr != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Create named expression AST node");
+            WriteLine("var namedExpr = new GeneratedExpr");
+            WriteLine("{");
+            Indent();
+            WriteLine("ExpressionType = \"NamedExpr\",");
+            WriteLine("Value = new { target = name, value = rightExpr }");
+            Dedent();
+            WriteLine("};");
+            WriteLine("return namedExpr;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// Right side expression failed - backtrack");
+            WriteLine("_position = startPos;");
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// Not ':=' operator - backtrack");
+            WriteLine("_position = startPos;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            // Fall back to regular expression
+            WriteLine("// Fallback: if not walrus operator, parse at lower level of expression hierarchy");
+            WriteLine("// This handles the case where assignment_expression -> expression (non-assignment case)");
+            WriteLine("var fallbackExpr = Disjunction();");
+            WriteLine("if (fallbackExpr != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Wrap the result in a GeneratedExpr if it's not already one");
+            WriteLine("if (fallbackExpr is GeneratedExpr genExpr)");
+            WriteLine("{");
+            Indent();
+            WriteLine("return genExpr;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("else");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Create a new GeneratedExpr to wrap the result");
+            WriteLine("return new GeneratedExpr");
+            WriteLine("{");
+            Indent();
+            WriteLine("ExpressionType = \"Expression\",");
+            WriteLine("Value = fallbackExpr");
+            Dedent();
+            WriteLine("};");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine("return null;");
+
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
+        /// <summary>
+        /// Generate disjunction method for 'or' expressions
+        /// Based on grammar rule: disjunction[expr_ty] (memo): | a=conjunction b=('or' c=conjunction { c })+ | conjunction
+        /// </summary>
+        private void GenerateDisjunctionMethod()
+        {
+            WriteLine("/// <summary>");
+            WriteLine("/// disjunction[expr_ty] (memo): | a=conjunction b=('or' c=conjunction { c })+ | conjunction");
+            WriteLine("/// Handles 'or' Boolean operations");
+            WriteLine("/// </summary>");
+            WriteLine("public GeneratedExpr? Disjunction()");
+            WriteLine("{");
+            Indent();
+
+            WriteLine("// Try to parse: a=conjunction b=('or' c=conjunction { c })+");
+            WriteLine("var left = Conjunction();");
+            WriteLine("if (left == null) return null;");
+            WriteLine();
+
+            WriteLine("var orExpressions = new List<object>();");
+            WriteLine("orExpressions.Add(left);");
+            WriteLine();
+
+            WriteLine("// Look for 'or' followed by conjunction");
+            WriteLine("while (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"or\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume 'or'");
+            WriteLine("var right = Conjunction();");
+            WriteLine("if (right == null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Error: expected conjunction after 'or'");
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("orExpressions.Add(right);");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// If we found 'or' expressions, create BoolOp");
+            WriteLine("if (orExpressions.Count > 1)");
+            WriteLine("{");
+            Indent();
+            WriteLine("return new GeneratedExpr");
+            WriteLine("{");
+            Indent();
+            WriteLine("ExpressionType = \"BoolOp\",");
+            WriteLine("Value = new { op = \"Or\", values = orExpressions }");
+            Dedent();
+            WriteLine("};");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// Single conjunction - return it");
+            WriteLine("return left;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
+        /// <summary>
+        /// Generate conjunction method for 'and' expressions
+        /// Based on grammar rule: conjunction[expr_ty] (memo): | a=inversion b=('and' c=inversion { c })+ | inversion
+        /// </summary>
+        private void GenerateConjunctionMethod()
+        {
+            WriteLine("/// <summary>");
+            WriteLine("/// conjunction[expr_ty] (memo): | a=inversion b=('and' c=inversion { c })+ | inversion");
+            WriteLine("/// Handles 'and' Boolean operations");
+            WriteLine("/// </summary>");
+            WriteLine("public GeneratedExpr? Conjunction()");
+            WriteLine("{");
+            Indent();
+
+            WriteLine("// Try to parse: a=inversion b=('and' c=inversion { c })+");
+            WriteLine("var left = Inversion();");
+            WriteLine("if (left == null) return null;");
+            WriteLine();
+
+            WriteLine("var andExpressions = new List<object>();");
+            WriteLine("andExpressions.Add(left);");
+            WriteLine();
+
+            WriteLine("// Look for 'and' followed by inversion");
+            WriteLine("while (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"and\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume 'and'");
+            WriteLine("var right = Inversion();");
+            WriteLine("if (right == null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Error: expected inversion after 'and'");
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("andExpressions.Add(right);");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// If we found 'and' expressions, create BoolOp");
+            WriteLine("if (andExpressions.Count > 1)");
+            WriteLine("{");
+            Indent();
+            WriteLine("return new GeneratedExpr");
+            WriteLine("{");
+            Indent();
+            WriteLine("ExpressionType = \"BoolOp\",");
+            WriteLine("Value = new { op = \"And\", values = andExpressions }");
+            Dedent();
+            WriteLine("};");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// Single inversion - return it");
+            WriteLine("return left;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
+        /// <summary>
+        /// Generate inversion method for 'not' expressions
+        /// Based on grammar rule: inversion[expr_ty] (memo): | 'not' a=inversion | comparison
+        /// </summary>
+        private void GenerateInversionMethod()
+        {
+            WriteLine("/// <summary>");
+            WriteLine("/// inversion[expr_ty] (memo): | 'not' a=inversion | comparison");
+            WriteLine("/// Handles 'not' unary operations");
+            WriteLine("/// </summary>");
+            WriteLine("public GeneratedExpr? Inversion()");
+            WriteLine("{");
+            Indent();
+
+            WriteLine("// Try to parse: 'not' a=inversion");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"not\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume 'not'");
+            WriteLine("var operand = Inversion(); // recursive call for 'not not x'");
+            WriteLine("if (operand == null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Error: expected expression after 'not'");
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("return new GeneratedExpr");
+            WriteLine("{");
+            Indent();
+            WriteLine("ExpressionType = \"UnaryOp\",");
+            WriteLine("Value = new { op = \"Not\", operand = operand }");
+            Dedent();
+            WriteLine("};");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// Fall back to comparison - wrap result in GeneratedExpr");
+            WriteLine("var result = ParseSum();");
+            WriteLine("if (result != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("return new GeneratedExpr");
+            WriteLine("{");
+            Indent();
+            WriteLine("ExpressionType = \"Expression\",");
+            WriteLine("Value = result");
+            Dedent();
+            WriteLine("};");
+            Dedent();
+            WriteLine("}");
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
+        /// <summary>
+        /// Generate f-string support methods for PEP 701 Enhanced f-strings
+        /// Based on grammar rules: fstring, fstring_middle, fstring_replacement_field
+        /// </summary>
+        private void GenerateFStringMethods()
+        {
+            WriteLine();
+            WriteLine("// === F-String Support Methods ===");
+            WriteLine();
+
+            GenerateFStringMethod();
+            GenerateFStringMiddleMethod();
+            GenerateFStringReplacementFieldMethod();
+            GenerateStringsMethod();
+
+            WriteLine("// === End F-String Support Methods ===");
+            WriteLine();
+        }
+
+        /// <summary>
+        /// fstring[expr_ty]: | a=FSTRING_START b=fstring_middle* c=FSTRING_END
+        /// </summary>
+        private void GenerateFStringMethod()
+        {
+            WriteLine("/// <summary>");
+            WriteLine("/// fstring[expr_ty]: | a=FSTRING_START b=fstring_middle* c=FSTRING_END");
+            WriteLine("/// Handles f-string literals with embedded expressions");
+            WriteLine("/// </summary>");
+            WriteLine("public GeneratedExpr? Fstring()");
+            WriteLine("{");
+            Indent();
+
+            WriteLine("// Check for FSTRING_START token");
+            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.FSTRING_START)");
+            WriteLine("{");
+            Indent();
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("var startToken = CurrentToken;");
+            WriteLine("Advance(); // consume FSTRING_START");
+            WriteLine();
+
+            WriteLine("// Parse fstring_middle* (zero or more)");
+            WriteLine("var middleParts = new List<object>();");
+            WriteLine("while (CurrentToken?.Type == GeneratedTokenType.FSTRING_MIDDLE || ");
+            WriteLine("       (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == \"{\"))");
+            WriteLine("{");
+            Indent();
+            WriteLine("var middle = FstringMiddle();");
+            WriteLine("if (middle != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("middleParts.Add(middle);");
+            Dedent();
+            WriteLine("}");
+            WriteLine("else");
+            WriteLine("{");
+            Indent();
+            WriteLine("break;");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// Check for FSTRING_END token");
+            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.FSTRING_END)");
+            WriteLine("{");
+            Indent();
+            WriteLine("return null; // Error: expected FSTRING_END");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("var endToken = CurrentToken;");
+            WriteLine("Advance(); // consume FSTRING_END");
+            WriteLine();
+
+            WriteLine("// Create JoinedStr AST node");
+            WriteLine("return new GeneratedExpr");
+            WriteLine("{");
+            Indent();
+            WriteLine("ExpressionType = \"JoinedStr\",");
+            WriteLine("Value = new { values = middleParts }");
+            Dedent();
+            WriteLine("};");
+
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
+        /// <summary>
+        /// fstring_middle[expr_ty]: | fstring_replacement_field | FSTRING_MIDDLE
+        /// </summary>
+        private void GenerateFStringMiddleMethod()
+        {
+            WriteLine("/// <summary>");
+            WriteLine("/// fstring_middle[expr_ty]: | fstring_replacement_field | FSTRING_MIDDLE");
+            WriteLine("/// Handles literal text and replacement fields in f-strings");
+            WriteLine("/// </summary>");
+            WriteLine("public GeneratedExpr? FstringMiddle()");
+            WriteLine("{");
+            Indent();
+
+            WriteLine("// Try fstring_replacement_field first");
+            WriteLine("var replacementField = FstringReplacementField();");
+            WriteLine("if (replacementField != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("return replacementField;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// Try FSTRING_MIDDLE literal text");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.FSTRING_MIDDLE)");
+            WriteLine("{");
+            Indent();
+            WriteLine("var value = CurrentToken.Value;");
+            WriteLine("Advance(); // consume FSTRING_MIDDLE");
+            WriteLine();
+            WriteLine("return new GeneratedExpr");
+            WriteLine("{");
+            Indent();
+            WriteLine("ExpressionType = \"Constant\",");
+            WriteLine("Value = new { value = value, kind = \"string\" }");
+            Dedent();
+            WriteLine("};");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("return null;");
+
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
+        /// <summary>
+        /// fstring_replacement_field[expr_ty]: | '{' a=(yield_expr | star_expressions) debug_expr='='? conversion=[fstring_conversion] format=[fstring_full_format_spec] rbrace='}'
+        /// </summary>
+        private void GenerateFStringReplacementFieldMethod()
+        {
+            WriteLine("/// <summary>");
+            WriteLine("/// fstring_replacement_field[expr_ty]: | '{' a=(yield_expr | star_expressions) debug_expr='='? conversion=[fstring_conversion] format=[fstring_full_format_spec] rbrace='}'");
+            WriteLine("/// Handles {expression} replacement fields in f-strings");
+            WriteLine("/// </summary>");
+            WriteLine("public GeneratedExpr? FstringReplacementField()");
+            WriteLine("{");
+            Indent();
+
+            WriteLine("// Check for opening brace");
+            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken.Value != \"{\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("Advance(); // consume '{'");
+            WriteLine();
+
+            WriteLine("// Parse the expression (star_expressions covers most cases)");
+            WriteLine("var expr = Disjunction(); // Use disjunction for full expression support");
+            WriteLine("if (expr == null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("return null; // Error: expected expression");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// Check for optional debug expression ('=')");
+            WriteLine("bool hasDebug = false;");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == \"=\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("hasDebug = true;");
+            WriteLine("Advance(); // consume '='");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// Skip optional conversion (!r, !s, !a) for now");
+            WriteLine("// Skip optional format specification (:spec) for now");
+            WriteLine();
+
+            WriteLine("// Check for closing brace");
+            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken.Value != \"}\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("return null; // Error: expected '}'");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("Advance(); // consume '}'");
+            WriteLine();
+
+            WriteLine("// Create FormattedValue AST node");
+            WriteLine("return new GeneratedExpr");
+            WriteLine("{");
+            Indent();
+            WriteLine("ExpressionType = \"FormattedValue\",");
+            WriteLine("Value = new { value = expr, conversion = -1, format_spec = (object?)null }");
+            Dedent();
+            WriteLine("};");
+
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
+        /// <summary>
+        /// strings[expr_ty] (memo): a[asdl_expr_seq*]=(fstring|string)+ { _PyPegen_concatenate_strings(p, a, EXTRA) }
+        /// </summary>
+        private void GenerateStringsMethod()
+        {
+            WriteLine("/// <summary>");
+            WriteLine("/// strings[expr_ty] (memo): a[asdl_expr_seq*]=(fstring|string)+ { _PyPegen_concatenate_strings(p, a, EXTRA) }");
+            WriteLine("/// Handles string concatenation including f-strings");
+            WriteLine("/// </summary>");
+            WriteLine("public GeneratedExpr? Strings()");
+            WriteLine("{");
+            Indent();
+
+            WriteLine("var stringParts = new List<object>();");
+            WriteLine();
+
+            WriteLine("// Parse first string/fstring");
+            WriteLine("var first = Fstring() ?? ParseStringLiteral();");
+            WriteLine("if (first == null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("stringParts.Add(first);");
+            WriteLine();
+
+            WriteLine("// Parse additional strings/fstrings");
+            WriteLine("while (true)");
+            WriteLine("{");
+            Indent();
+            WriteLine("var next = Fstring() ?? ParseStringLiteral();");
+            WriteLine("if (next == null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("break;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("stringParts.Add(next);");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// If only one string, return it directly");
+            WriteLine("if (stringParts.Count == 1)");
+            WriteLine("{");
+            Indent();
+            WriteLine("return stringParts[0] as GeneratedExpr;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// Multiple strings - concatenate");
+            WriteLine("return new GeneratedExpr");
+            WriteLine("{");
+            Indent();
+            WriteLine("ExpressionType = \"JoinedStr\",");
+            WriteLine("Value = new { values = stringParts }");
+            Dedent();
+            WriteLine("};");
+
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("/// <summary>");
+            WriteLine("/// Helper method to parse regular string literals");
+            WriteLine("/// </summary>");
+            WriteLine("private GeneratedExpr? ParseStringLiteral()");
+            WriteLine("{");
+            Indent();
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.STRING)");
+            WriteLine("{");
+            Indent();
+            WriteLine("var value = CurrentToken.Value;");
+            WriteLine("Advance();");
+            WriteLine("return new GeneratedExpr");
+            WriteLine("{");
+            Indent();
+            WriteLine("ExpressionType = \"Constant\",");
+            WriteLine("Value = new { value = value, kind = \"string\" }");
+            Dedent();
+            WriteLine("};");
+            Dedent();
+            WriteLine("}");
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
         }
 
         private void GenerateFileMethod()
@@ -5381,7 +6109,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseLambda: Successfully parsed lambda with {parameters.Count} parameters\");");
-            WriteLine("return new { type = \"lambda\", parameters = parameters, body = body };");
+            WriteLine("return new GeneratedExpr");
+            WriteLine("{");
+            Indent();
+            WriteLine("ExpressionType = \"Lambda\",");
+            WriteLine("Value = new { parameters = parameters, body = body }");
+            Dedent();
+            WriteLine("};");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -5411,7 +6145,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"]\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume ']'");
-            WriteLine("    return new { type = \"list\", elements = new List<object>() };");
+            WriteLine("    return new GeneratedExpr");
+            WriteLine("    {");
+            WriteLine("        ExpressionType = \"List\",");
+            WriteLine("        Value = new { elements = new List<object>() }");
+            WriteLine("    };");
             WriteLine("}");
             WriteLine();
             WriteLine("// Parse first expression");
@@ -5430,7 +6168,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("        return null;");
             WriteLine("    Advance(); // consume ']'");
             WriteLine();
-            WriteLine("    return new { type = \"listcomp\", element = firstExpr, generators = forIfClauses };");
+            WriteLine("    return new GeneratedExpr");
+            WriteLine("    {");
+            WriteLine("        ExpressionType = \"ListComp\",");
+            WriteLine("        Value = new { element = firstExpr, generators = forIfClauses }");
+            WriteLine("    };");
             WriteLine("}");
             WriteLine("else");
             WriteLine("{");
@@ -5454,7 +6196,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("        return null;");
             WriteLine("    Advance(); // consume ']'");
             WriteLine();
-            WriteLine("    return new { type = \"list\", elements = elements };");
+            WriteLine("    return new GeneratedExpr");
+            WriteLine("    {");
+            WriteLine("        ExpressionType = \"List\",");
+            WriteLine("        Value = new { elements = elements }");
+            WriteLine("    };");
             WriteLine("}");
             Dedent();
             WriteLine("}");
@@ -5482,7 +6228,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"}\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume '}'");
-            WriteLine("    return new { type = \"dict\", pairs = new List<object>() };");
+            WriteLine("    return new GeneratedExpr");
+            WriteLine("    {");
+            WriteLine("        ExpressionType = \"Dict\",");
+            WriteLine("        Value = new { pairs = new List<object>() }");
+            WriteLine("    };");
             WriteLine("}");
             WriteLine();
             WriteLine("// Parse first expression");
@@ -5508,7 +6258,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("            return null;");
             WriteLine("        Advance(); // consume '}'");
             WriteLine();
-            WriteLine("        return new { type = \"dictcomp\", key = firstExpr, value = value, generators = forIfClauses };");
+            WriteLine("        return new GeneratedExpr");
+            WriteLine("        {");
+            WriteLine("            ExpressionType = \"DictComp\",");
+            WriteLine("            Value = new { key = firstExpr, value = value, generators = forIfClauses }");
+            WriteLine("        };");
             WriteLine("    }");
             WriteLine("    else");
             WriteLine("    {");
@@ -5537,7 +6291,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("            return null;");
             WriteLine("        Advance(); // consume '}'");
             WriteLine();
-            WriteLine("        return new { type = \"dict\", pairs = pairs };");
+            WriteLine("        return new GeneratedExpr");
+            WriteLine("        {");
+            WriteLine("            ExpressionType = \"Dict\",");
+            WriteLine("            Value = new { pairs = pairs }");
+            WriteLine("        };");
             WriteLine("    }");
             WriteLine("}");
             WriteLine("else if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == \"for\")");
@@ -5551,7 +6309,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("        return null;");
             WriteLine("    Advance(); // consume '}'");
             WriteLine();
-            WriteLine("    return new { type = \"setcomp\", element = firstExpr, generators = forIfClauses };");
+            WriteLine("    return new GeneratedExpr");
+            WriteLine("    {");
+            WriteLine("        ExpressionType = \"SetComp\",");
+            WriteLine("        Value = new { element = firstExpr, generators = forIfClauses }");
+            WriteLine("    };");
             WriteLine("}");
             WriteLine("else");
             WriteLine("{");
@@ -5575,7 +6337,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("        return null;");
             WriteLine("    Advance(); // consume '}'");
             WriteLine();
-            WriteLine("    return new { type = \"set\", elements = elements };");
+            WriteLine("    return new GeneratedExpr");
+            WriteLine("    {");
+            WriteLine("        ExpressionType = \"Set\",");
+            WriteLine("        Value = new { elements = elements }");
+            WriteLine("    };");
             WriteLine("}");
             Dedent();
             WriteLine("}");

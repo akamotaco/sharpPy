@@ -177,8 +177,27 @@ namespace SharpPy
                 // If value is not a name reference, this is the end of the chain
                 if (valueExpr != null)
                 {
-                    dynamic valueDynamic = valueExpr;
-                    if (valueDynamic.type?.ToString() != "name")
+                    bool isNameReference = false;
+
+                    if (valueExpr is GeneratedExpr genExpr)
+                    {
+                        isNameReference = genExpr.ExpressionType == "Name";
+                    }
+                    else
+                    {
+                        // Legacy dynamic object handling
+                        dynamic valueDynamic = valueExpr;
+                        try
+                        {
+                            isNameReference = valueDynamic.type?.ToString() == "name";
+                        }
+                        catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
+                        {
+                            isNameReference = false;
+                        }
+                    }
+
+                    if (!isNameReference)
                     {
                         break; // Found the actual value, end of chain
                     }
@@ -210,17 +229,39 @@ namespace SharpPy
 
                 if (target != null)
                 {
-                    dynamic targetDynamic = target;
-                    if (targetDynamic.type?.ToString() == "name")
+                    string? targetName = null;
+
+                    if (target is GeneratedExpr genExpr && genExpr.ExpressionType == "Name")
                     {
-                        var targetName = targetDynamic.value?.ToString();
-                        if (!string.IsNullOrEmpty(targetName))
+                        if (genExpr.Value is object valueObj)
                         {
-                            targetNames.Add(targetName);
-#if DEBUG_LOG
-                            Console.WriteLine($"[DEBUG] Added target name: '{targetName}', Total targets: {targetNames.Count}");
-#endif
+                            var valueProperty = valueObj.GetType().GetProperty("value");
+                            targetName = valueProperty?.GetValue(valueObj)?.ToString();
                         }
+                    }
+                    else
+                    {
+                        // Legacy dynamic object handling
+                        dynamic targetDynamic = target;
+                        try
+                        {
+                            if (targetDynamic.type?.ToString() == "name")
+                            {
+                                targetName = targetDynamic.value?.ToString();
+                            }
+                        }
+                        catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
+                        {
+                            // Ignore and continue
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(targetName))
+                    {
+                        targetNames.Add(targetName);
+#if DEBUG_LOG
+                        Console.WriteLine($"[DEBUG] Added target name: '{targetName}', Total targets: {targetNames.Count}");
+#endif
                     }
                 }
             }
@@ -231,13 +272,51 @@ namespace SharpPy
             var lastValue = lastAssignmentData?.Value;
 
 #if DEBUG_LOG
-            Console.WriteLine($"[DEBUG] Last statement value: '{lastValue}', ValueType='{(lastValue != null ? (lastValue as dynamic).type?.ToString() : "null")}'");
+            string lastValueType = "null";
+            if (lastValue != null)
+            {
+                if (lastValue is GeneratedExpr genExpr)
+                {
+                    lastValueType = genExpr.ExpressionType;
+                }
+                else
+                {
+                    try
+                    {
+                        lastValueType = (lastValue as dynamic).type?.ToString() ?? "unknown";
+                    }
+                    catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
+                    {
+                        lastValueType = "no-type-property";
+                    }
+                }
+            }
+            Console.WriteLine($"[DEBUG] Last statement value: '{lastValue}', ValueType='{lastValueType}'");
 #endif
 
             if (lastValue != null)
             {
-                dynamic lastValueDynamic = lastValue;
-                if (lastValueDynamic.type?.ToString() != "name")
+                bool isNameValue = false;
+
+                if (lastValue is GeneratedExpr genExpr)
+                {
+                    isNameValue = genExpr.ExpressionType == "Name";
+                }
+                else
+                {
+                    // Legacy dynamic object handling
+                    dynamic lastValueDynamic = lastValue;
+                    try
+                    {
+                        isNameValue = lastValueDynamic.type?.ToString() == "name";
+                    }
+                    catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
+                    {
+                        isNameValue = false;
+                    }
+                }
+
+                if (!isNameValue)
                 {
                     valueStmt = lastStmt;
 #if DEBUG_LOG
@@ -312,6 +391,11 @@ namespace SharpPy
 
 #if DEBUG_LOG
                         Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Target='{target}', Value='{valueExpr}', ValueType={valueExpr?.GetType()}");
+                        Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Target Type='{target?.GetType()}', is GeneratedExpr: {target is GeneratedExpr}");
+                        if (target is GeneratedExpr genExprDebug)
+                        {
+                            Console.WriteLine($"[DEBUG] ConvertStatement Assignment: GeneratedExpr.ExpressionType='{genExprDebug.ExpressionType}'");
+                        }
 #endif
 
                         if (target != null && valueExpr != null)
@@ -319,14 +403,87 @@ namespace SharpPy
                             // Extract variable name from target object
                             string? targetName = null;
 
-                            // Handle target object with { type = "name", value = "variable_name" } structure
-                            if (target is object targetObj)
+                            // Handle GeneratedExpr target
+                            if (target is GeneratedExpr genExpr)
                             {
-                                var targetType = targetObj.GetType();
-                                var valueProperty = targetType.GetProperty("value");
-                                if (valueProperty != null)
+                                if (genExpr.ExpressionType == "Name")
                                 {
-                                    targetName = valueProperty.GetValue(targetObj)?.ToString();
+#if DEBUG_LOG
+                                    Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Found GeneratedExpr target with ExpressionType='Name'");
+#endif
+                                    if (genExpr.Value is object valueObj)
+                                    {
+                                        var valueProperty = valueObj.GetType().GetProperty("value");
+                                        targetName = valueProperty?.GetValue(valueObj)?.ToString();
+#if DEBUG_LOG
+                                        Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Extracted targetName='{targetName}' from GeneratedExpr");
+#endif
+                                    }
+                                }
+                                else if (genExpr.ExpressionType == "Expression")
+                                {
+#if DEBUG_LOG
+                                    Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Found GeneratedExpr target with ExpressionType='Expression', unwrapping...");
+#endif
+                                    // This is a wrapped expression, recursively extract the name
+                                    if (genExpr.Value is GeneratedExpr innerExpr && innerExpr.ExpressionType == "Name")
+                                    {
+                                        if (innerExpr.Value is object valueObj)
+                                        {
+                                            var valueProperty = valueObj.GetType().GetProperty("value");
+                                            targetName = valueProperty?.GetValue(valueObj)?.ToString();
+#if DEBUG_LOG
+                                            Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Extracted targetName='{targetName}' from wrapped GeneratedExpr");
+#endif
+                                        }
+                                    }
+                                    else
+                                    {
+                                        // Try to extract from the wrapper's Value using ConvertAnyExpression
+                                        try
+                                        {
+                                            var unwrappedExpr = ConvertAnyExpression(genExpr.Value);
+                                            if (unwrappedExpr is NameExpression nameExpr)
+                                            {
+                                                targetName = nameExpr.Name;
+#if DEBUG_LOG
+                                                Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Extracted targetName='{targetName}' from converted NameExpression");
+#endif
+                                            }
+                                        }
+                                        catch (Exception ex)
+                                        {
+#if DEBUG_LOG
+                                            Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Failed to unwrap Expression: {ex.Message}");
+#endif
+                                        }
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                // Handle legacy target object with { type = "name", value = "variable_name" } structure
+                                if (target is object targetObj)
+                                {
+                                    var targetType = targetObj.GetType();
+                                    try
+                                    {
+                                        var typeProperty = targetType.GetProperty("type");
+                                        var valueProperty = targetType.GetProperty("value");
+
+                                        if (typeProperty != null && valueProperty != null)
+                                        {
+                                            var typeValue = typeProperty.GetValue(targetObj)?.ToString();
+                                            if (typeValue == "name")
+                                            {
+                                                targetName = valueProperty.GetValue(targetObj)?.ToString();
+                                            }
+                                        }
+                                    }
+                                    catch (Exception)
+                                    {
+                                        // Ignore property access errors for legacy objects
+                                    }
                                 }
                             }
 
@@ -354,6 +511,7 @@ namespace SharpPy
                     // Expression statement (standalone expression)
                     if (stmt.Value != null)
                     {
+                        Console.WriteLine($"[DEBUG] ConvertStatement Expression: stmt.Value type = {stmt.Value.GetType().Name}, value = {stmt.Value}");
                         // Convert any expression using ConvertAnyExpression
                         var expression = ConvertAnyExpression(stmt.Value);
                         return new ExpressionStatement(expression);
@@ -953,6 +1111,48 @@ namespace SharpPy
                     }
                     return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
+                case "type_alias":
+                    // Type alias statement (PEP 695: type Point = tuple[float, float])
+                    if (stmt.Value != null)
+                    {
+                        var aliasData = stmt.Value as dynamic;
+                        var name = aliasData?.Name;
+                        var value = aliasData?.Value;
+                        var typeParams = aliasData?.TypeParams;
+
+#if DEBUG_LOG
+                        Console.WriteLine($"[DEBUG] ConvertStatement TypeAlias: Name='{name}', Value='{value}', TypeParams='{typeParams}'");
+#endif
+
+                        if (name != null && value != null)
+                        {
+                            // Convert type parameters if any
+                            List<string> paramList = new List<string>();
+                            if (typeParams != null)
+                            {
+                                // Handle type parameters conversion
+                                if (typeParams is IEnumerable<dynamic> paramEnumerable)
+                                {
+                                    foreach (var param in paramEnumerable)
+                                    {
+                                        if (param?.ToString() != null)
+                                        {
+                                            paramList.Add(param.ToString());
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Convert value expression
+                            var valueExpression = ConvertExpression(value);
+                            if (valueExpression != null)
+                            {
+                                return new TypeAliasStatement(name.ToString(), valueExpression, paramList.Any() ? paramList : null);
+                            }
+                        }
+                    }
+                    return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
+
                 default:
                     // Fallback for unhandled statement types
 #if DEBUG_LOG
@@ -1132,52 +1332,732 @@ namespace SharpPy
         /// </summary>
         private static Expression ConvertAnyExpression(dynamic expr)
         {
-            string type = expr.type.ToString();
+            Console.WriteLine($"[DEBUG] ConvertAnyExpression: Input object type: {expr?.GetType()?.Name}, Value: {expr}");
 
-            return type switch
+            if (expr == null)
             {
-                "number" => int.TryParse(expr.value.ToString(), out int intVal)
-                    ? new ConstantExpression(new PyInt(intVal))
-                    : double.TryParse(expr.value.ToString(), out double doubleVal)
-                        ? new ConstantExpression(new PyFloat(doubleVal))
-                        : throw new InvalidOperationException($"Invalid number: {expr.value}"),
+                throw new ArgumentNullException(nameof(expr), "Expression cannot be null");
+            }
 
-                "name" => new NameExpression(expr.value.ToString()),
+            // Primary path: Handle GeneratedExpr objects (modern parser output)
+            if (expr is GeneratedExpr genExpr)
+            {
+                Console.WriteLine($"[DEBUG] ConvertAnyExpression: Converting GeneratedExpr with type '{genExpr.ExpressionType}'");
+                return ConvertGeneratedExpression(genExpr);
+            }
 
-                "string" => new ConstantExpression(new PyString(expr.value.ToString().Trim('"'))),
+            // Also check by type name in case dynamic binding interferes
+            if (expr?.GetType()?.Name == "GeneratedExpr")
+            {
+                Console.WriteLine($"[DEBUG] ConvertAnyExpression: Found GeneratedExpr by type name");
+                var exprType = expr.GetType().GetProperty("ExpressionType")?.GetValue(expr)?.ToString();
+                Console.WriteLine($"[DEBUG] ConvertAnyExpression: ExpressionType = {exprType}");
+                return ConvertGeneratedExpression(expr);
+            }
 
-                "binop" => ConvertBinaryOperation(expr),
+            // This should not happen - all parsers should return GeneratedExpr objects
+            throw new InvalidOperationException($"ConvertAnyExpression received non-GeneratedExpr object: {expr?.GetType()?.Name}. Object: {expr}. All parsers should return GeneratedExpr objects. This indicates a parser inconsistency that needs to be fixed.");
+        }
 
-                "compare" => ConvertComparisonOperation(expr),
+        /// <summary>
+        /// Convert GeneratedExpr to SharpPy Expression
+        /// </summary>
+        private static Expression ConvertGeneratedExpression(GeneratedExpr genExpr)
+        {
+            return genExpr.ExpressionType switch
+            {
+                // Assignment expressions (walrus operator)
+                "NamedExpr" => ConvertNamedExpressionFromGenerated(genExpr),
 
-                "chained_compare" => ConvertChainedComparisonOperation(expr),
+                // Boolean operations
+                "BoolOp" => ConvertBoolOpFromGenerated(genExpr),
+                "UnaryOp" => ConvertUnaryOpFromGenerated(genExpr),
 
-                "call" => ConvertCallOperation(expr),
+                // F-strings
+                "JoinedStr" => ConvertJoinedStrFromGenerated(genExpr),
+                "FormattedValue" => ConvertFormattedValueFromGenerated(genExpr),
 
-                "attribute" => ConvertAttributeAccess(expr),
+                // Basic expressions
+                "Constant" => ConvertConstantFromGenerated(genExpr),
+                "Name" => ConvertNameFromGenerated(genExpr),
 
-                "subscript" => ConvertSubscriptAccess(expr),
+                // Binary and comparison operations
+                "BinOp" => ConvertBinOpFromGenerated(genExpr),
+                "Compare" => ConvertCompareFromGenerated(genExpr),
 
-                "list" => ConvertListLiteral(expr),
+                // Function calls and attribute access
+                "Call" => ConvertCallFromGenerated(genExpr),
+                "Attribute" => ConvertAttributeFromGenerated(genExpr),
+                "Subscript" => ConvertSubscriptFromGenerated(genExpr),
 
-                "tuple" => ConvertTupleLiteral(expr),
+                // Collections
+                "List" => ConvertListFromGenerated(genExpr),
+                "Tuple" => ConvertTupleFromGenerated(genExpr),
+                "Dict" => ConvertDictFromGenerated(genExpr),
+                "Set" => ConvertSetFromGenerated(genExpr),
 
-                "lambda" => ConvertLambdaExpression(expr),
+                // Comprehensions
+                "ListComp" => ConvertListCompFromGenerated(genExpr),
+                "DictComp" => ConvertDictCompFromGenerated(genExpr),
+                "SetComp" => ConvertSetCompFromGenerated(genExpr),
+                "GeneratorExp" => ConvertGeneratorExpFromGenerated(genExpr),
 
-                "listcomp" => ConvertListComprehension(expr),
+                // Lambda expressions
+                "Lambda" => ConvertLambdaFromGenerated(genExpr),
 
-                "dictcomp" => ConvertDictComprehension(expr),
-
-                "setcomp" => ConvertSetComprehension(expr),
-
-                "genexp" => ConvertGeneratorExpression(expr),
-
-                "dict" => ConvertDictLiteral(expr),
-
-                "set" => ConvertSetLiteral(expr),
-
-                _ => throw new NotSupportedException($"Unsupported expression type: {type}")
+                "Expression" => ConvertAnyExpression(genExpr.Value), // Fallback for wrapped expressions
+                _ => throw new NotSupportedException($"Unsupported GeneratedExpr type: {genExpr.ExpressionType}")
             };
+        }
+
+        /// <summary>
+        /// Convert NamedExpr (walrus operator) from GeneratedExpr to SharpPy NamedExpression
+        /// </summary>
+        private static Expression ConvertNamedExpressionFromGenerated(GeneratedExpr genExpr)
+        {
+            if (genExpr.Value is not object valueObj)
+            {
+                throw new InvalidOperationException("NamedExpr value is null");
+            }
+
+            // Extract target and value from the anonymous object created by the parser
+            var valueType = valueObj.GetType();
+            var targetProperty = valueType.GetProperty("target");
+            var valueProperty = valueType.GetProperty("value");
+
+            if (targetProperty == null || valueProperty == null)
+            {
+                throw new InvalidOperationException("NamedExpr value object missing target or value property");
+            }
+
+            var targetName = targetProperty.GetValue(valueObj)?.ToString();
+            var value = valueProperty.GetValue(valueObj);
+
+            if (string.IsNullOrEmpty(targetName))
+            {
+                throw new InvalidOperationException("NamedExpr target name is null or empty");
+            }
+
+            // Convert the value expression
+            var valueExpr = ConvertAnyExpression(value);
+
+            // Create target expression (simple name)
+            var targetExpr = new NameExpression(targetName);
+
+            return new NamedExpression(targetExpr, valueExpr);
+        }
+
+        /// <summary>
+        /// Convert BoolOp (and/or expressions) from GeneratedExpr to SharpPy BoolOpExpression
+        /// </summary>
+        private static Expression ConvertBoolOpFromGenerated(GeneratedExpr genExpr)
+        {
+            if (genExpr.Value is not object valueObj)
+            {
+                throw new InvalidOperationException("BoolOp value is null");
+            }
+
+            // Extract op and values from the anonymous object created by the parser
+            var valueType = valueObj.GetType();
+            var opProperty = valueType.GetProperty("op");
+            var valuesProperty = valueType.GetProperty("values");
+
+            if (opProperty == null || valuesProperty == null)
+            {
+                throw new InvalidOperationException("BoolOp value object missing op or values property");
+            }
+
+            var opValue = opProperty.GetValue(valueObj)?.ToString();
+            var values = valuesProperty.GetValue(valueObj);
+
+            if (opValue == null || values == null)
+            {
+                throw new InvalidOperationException("BoolOp op or values is null");
+            }
+
+            // Convert values list to expressions
+            var expressions = new List<Expression>();
+            if (values is System.Collections.IEnumerable valuesEnum)
+            {
+                foreach (var value in valuesEnum)
+                {
+                    expressions.Add(ConvertAnyExpression(value));
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException("BoolOp values is not enumerable");
+            }
+
+            // Create BoolOpExpression based on operator
+            var boolOpString = opValue switch
+            {
+                "And" => "and",
+                "Or" => "or",
+                _ => throw new NotSupportedException($"Unsupported BoolOp: {opValue}")
+            };
+
+            return new BoolOpExpression(boolOpString, expressions);
+        }
+
+        /// <summary>
+        /// Convert UnaryOp (not expressions) from GeneratedExpr to SharpPy UnaryOpExpression
+        /// </summary>
+        private static Expression ConvertUnaryOpFromGenerated(GeneratedExpr genExpr)
+        {
+            if (genExpr.Value is not object valueObj)
+            {
+                throw new InvalidOperationException("UnaryOp value is null");
+            }
+
+            // Extract op and operand from the anonymous object created by the parser
+            var valueType = valueObj.GetType();
+            var opProperty = valueType.GetProperty("op");
+            var operandProperty = valueType.GetProperty("operand");
+
+            if (opProperty == null || operandProperty == null)
+            {
+                throw new InvalidOperationException("UnaryOp value object missing op or operand property");
+            }
+
+            var opValue = opProperty.GetValue(valueObj)?.ToString();
+            var operand = operandProperty.GetValue(valueObj);
+
+            if (opValue == null || operand == null)
+            {
+                throw new InvalidOperationException("UnaryOp op or operand is null");
+            }
+
+            // Convert operand to expression
+            var operandExpr = ConvertAnyExpression(operand);
+
+            // Create UnaryOpExpression based on operator
+            var unaryOpString = opValue switch
+            {
+                "Not" => "not",
+                "UAdd" => "+",
+                "USub" => "-",
+                "Invert" => "~",
+                _ => throw new NotSupportedException($"Unsupported UnaryOp: {opValue}")
+            };
+
+            return new UnaryOpExpression(unaryOpString, operandExpr);
+        }
+
+        /// <summary>
+        /// Convert JoinedStr (f-string) from GeneratedExpr to SharpPy JoinedStrExpression
+        /// </summary>
+        private static Expression ConvertJoinedStrFromGenerated(GeneratedExpr genExpr)
+        {
+            if (genExpr.Value is not object valueObj)
+            {
+                throw new InvalidOperationException("JoinedStr value is null");
+            }
+
+            // Extract values from the anonymous object created by the parser
+            var valueType = valueObj.GetType();
+            var valuesProperty = valueType.GetProperty("values");
+
+            if (valuesProperty == null)
+            {
+                throw new InvalidOperationException("JoinedStr value object missing values property");
+            }
+
+            var values = valuesProperty.GetValue(valueObj);
+
+            if (values == null)
+            {
+                throw new InvalidOperationException("JoinedStr values is null");
+            }
+
+            // Convert values list to expressions
+            var expressions = new List<Expression>();
+            if (values is System.Collections.IEnumerable valuesEnum)
+            {
+                foreach (var value in valuesEnum)
+                {
+                    expressions.Add(ConvertAnyExpression(value));
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException("JoinedStr values is not enumerable");
+            }
+
+            return new JoinedStrExpression(expressions);
+        }
+
+        /// <summary>
+        /// Convert FormattedValue from GeneratedExpr to SharpPy FormattedValueExpression
+        /// </summary>
+        private static Expression ConvertFormattedValueFromGenerated(GeneratedExpr genExpr)
+        {
+            if (genExpr.Value is not object valueObj)
+            {
+                throw new InvalidOperationException("FormattedValue value is null");
+            }
+
+            // Extract value, conversion, and format_spec from the anonymous object
+            var valueType = valueObj.GetType();
+            var valueProperty = valueType.GetProperty("value");
+            var conversionProperty = valueType.GetProperty("conversion");
+            var formatSpecProperty = valueType.GetProperty("format_spec");
+
+            if (valueProperty == null)
+            {
+                throw new InvalidOperationException("FormattedValue value object missing value property");
+            }
+
+            var value = valueProperty.GetValue(valueObj);
+            var conversion = conversionProperty?.GetValue(valueObj) ?? -1;
+            var formatSpec = formatSpecProperty?.GetValue(valueObj);
+
+            if (value == null)
+            {
+                throw new InvalidOperationException("FormattedValue value is null");
+            }
+
+            // Convert the expression
+            var valueExpr = ConvertAnyExpression(value);
+
+            // Convert format spec if present
+            Expression? formatSpecExpr = null;
+            if (formatSpec != null)
+            {
+                formatSpecExpr = ConvertAnyExpression(formatSpec);
+            }
+
+            return new FormattedValueExpression(valueExpr, (int)conversion, formatSpecExpr);
+        }
+
+        /// <summary>
+        /// Convert Constant from GeneratedExpr to SharpPy ConstantExpression
+        /// </summary>
+        private static Expression ConvertConstantFromGenerated(GeneratedExpr genExpr)
+        {
+            if (genExpr.Value is not object valueObj)
+            {
+                throw new InvalidOperationException("Constant value is null");
+            }
+
+            // Extract value and kind from the anonymous object
+            var valueType = valueObj.GetType();
+            var valueProperty = valueType.GetProperty("value");
+            var kindProperty = valueType.GetProperty("kind");
+
+            if (valueProperty == null)
+            {
+                throw new InvalidOperationException("Constant value object missing value property");
+            }
+
+            var value = valueProperty.GetValue(valueObj);
+            var kind = kindProperty?.GetValue(valueObj)?.ToString();
+
+            if (value == null)
+            {
+                throw new InvalidOperationException("Constant value is null");
+            }
+
+            // Convert based on kind
+            return kind switch
+            {
+                "string" => new ConstantExpression(new PyString(value.ToString() ?? "")),
+                "int" => new ConstantExpression(new PyInt(Convert.ToInt32(value))),
+                "float" => new ConstantExpression(new PyFloat(Convert.ToDouble(value))),
+                _ => new ConstantExpression(new PyString(value.ToString() ?? ""))
+            };
+        }
+
+        /// <summary>
+        /// Convert Name from GeneratedExpr to SharpPy NameExpression
+        /// </summary>
+        private static Expression ConvertNameFromGenerated(GeneratedExpr genExpr)
+        {
+            if (genExpr.Value is not object valueObj)
+            {
+                throw new InvalidOperationException("Name value is null");
+            }
+
+            var valueProperty = valueObj.GetType().GetProperty("value");
+            if (valueProperty == null)
+            {
+                throw new InvalidOperationException("Name value object missing value property");
+            }
+
+            var name = valueProperty.GetValue(valueObj)?.ToString();
+            if (string.IsNullOrEmpty(name))
+            {
+                throw new InvalidOperationException("Name value is null or empty");
+            }
+
+            return new NameExpression(name);
+        }
+
+        /// <summary>
+        /// Convert BinOp from GeneratedExpr to SharpPy BinaryOpExpression
+        /// </summary>
+        private static Expression ConvertBinOpFromGenerated(GeneratedExpr genExpr)
+        {
+            if (genExpr.Value is not object valueObj)
+            {
+                throw new InvalidOperationException("BinOp value is null");
+            }
+
+            var valueType = valueObj.GetType();
+            var leftProperty = valueType.GetProperty("left");
+            var opProperty = valueType.GetProperty("op");
+            var rightProperty = valueType.GetProperty("right");
+
+            if (leftProperty == null || opProperty == null || rightProperty == null)
+            {
+                throw new InvalidOperationException("BinOp value object missing required properties");
+            }
+
+            var left = leftProperty.GetValue(valueObj);
+            var op = opProperty.GetValue(valueObj)?.ToString();
+            var right = rightProperty.GetValue(valueObj);
+
+            if (left == null || op == null || right == null)
+            {
+                throw new InvalidOperationException("BinOp properties cannot be null");
+            }
+
+            var leftExpr = ConvertAnyExpression(left);
+            var rightExpr = ConvertAnyExpression(right);
+
+            return new BinaryOpExpression(leftExpr, op, rightExpr);
+        }
+
+        /// <summary>
+        /// Convert Compare from GeneratedExpr to SharpPy CompareExpression
+        /// </summary>
+        private static Expression ConvertCompareFromGenerated(GeneratedExpr genExpr)
+        {
+            if (genExpr.Value is not object valueObj)
+            {
+                throw new InvalidOperationException("Compare value is null");
+            }
+
+            var valueType = valueObj.GetType();
+            var leftProperty = valueType.GetProperty("left");
+            var opsProperty = valueType.GetProperty("ops");
+            var comparatorsProperty = valueType.GetProperty("comparators");
+
+            if (leftProperty == null || opsProperty == null || comparatorsProperty == null)
+            {
+                throw new InvalidOperationException("Compare value object missing required properties");
+            }
+
+            var left = leftProperty.GetValue(valueObj);
+            var ops = opsProperty.GetValue(valueObj) as IEnumerable<object>;
+            var comparators = comparatorsProperty.GetValue(valueObj) as IEnumerable<object>;
+
+            if (left == null || ops == null || comparators == null)
+            {
+                throw new InvalidOperationException("Compare properties cannot be null");
+            }
+
+            var leftExpr = ConvertAnyExpression(left);
+            var opList = ops.Select(op => op.ToString()).ToList();
+            var comparatorList = comparators.Select(comp => ConvertAnyExpression(comp)).ToList();
+
+            // Use ChainedCompareExpression for multiple comparisons, CompareExpression for single
+            if (opList.Count == 1 && comparatorList.Count == 1)
+            {
+                return new CompareExpression(leftExpr, opList[0], comparatorList[0]);
+            }
+            else
+            {
+                return new ChainedCompareExpression(leftExpr, opList, comparatorList);
+            }
+        }
+
+        /// <summary>
+        /// Convert Call from GeneratedExpr to SharpPy CallExpression
+        /// </summary>
+        private static Expression ConvertCallFromGenerated(GeneratedExpr genExpr)
+        {
+            if (genExpr.Value is not object valueObj)
+            {
+                throw new InvalidOperationException("Call value is null");
+            }
+
+            var valueType = valueObj.GetType();
+            var funcProperty = valueType.GetProperty("func");
+            var argsProperty = valueType.GetProperty("args");
+
+            if (funcProperty == null || argsProperty == null)
+            {
+                throw new InvalidOperationException("Call value object missing required properties");
+            }
+
+            var func = funcProperty.GetValue(valueObj);
+            var args = argsProperty.GetValue(valueObj) as IEnumerable<object>;
+
+            if (func == null)
+            {
+                throw new InvalidOperationException("Call function cannot be null");
+            }
+
+            var functionExpr = ConvertAnyExpression(func);
+            var argList = new List<Expression>();
+
+            if (args != null)
+            {
+                foreach (var arg in args)
+                {
+                    var argExpr = ConvertAnyExpression(arg);
+                    argList.Add(argExpr);
+                }
+            }
+
+            return new CallExpression(functionExpr, argList);
+        }
+
+        /// <summary>
+        /// Convert Attribute from GeneratedExpr to SharpPy AttributeExpression
+        /// </summary>
+        private static Expression ConvertAttributeFromGenerated(GeneratedExpr genExpr)
+        {
+            if (genExpr.Value is not object valueObj)
+            {
+                throw new InvalidOperationException("Attribute value is null");
+            }
+
+            var valueType = valueObj.GetType();
+            var valueProperty = valueType.GetProperty("value");
+            var attrProperty = valueType.GetProperty("attr");
+
+            if (valueProperty == null || attrProperty == null)
+            {
+                throw new InvalidOperationException("Attribute value object missing required properties");
+            }
+
+            var value = valueProperty.GetValue(valueObj);
+            var attr = attrProperty.GetValue(valueObj)?.ToString();
+
+            if (value == null || string.IsNullOrEmpty(attr))
+            {
+                throw new InvalidOperationException("Attribute properties cannot be null");
+            }
+
+            var valueExpr = ConvertAnyExpression(value);
+            return new AttributeExpression(valueExpr, attr);
+        }
+
+        /// <summary>
+        /// Convert Subscript from GeneratedExpr to SharpPy SubscriptExpression
+        /// </summary>
+        private static Expression ConvertSubscriptFromGenerated(GeneratedExpr genExpr)
+        {
+            if (genExpr.Value is not object valueObj)
+            {
+                throw new InvalidOperationException("Subscript value is null");
+            }
+
+            var valueType = valueObj.GetType();
+            var valueProperty = valueType.GetProperty("value");
+            var sliceProperty = valueType.GetProperty("slice");
+
+            if (valueProperty == null || sliceProperty == null)
+            {
+                throw new InvalidOperationException("Subscript value object missing required properties");
+            }
+
+            var value = valueProperty.GetValue(valueObj);
+            var slice = sliceProperty.GetValue(valueObj);
+
+            if (value == null || slice == null)
+            {
+                throw new InvalidOperationException("Subscript properties cannot be null");
+            }
+
+            var valueExpr = ConvertAnyExpression(value);
+            var sliceExpr = ConvertAnyExpression(slice);
+
+            return new SubscriptExpression(valueExpr, sliceExpr);
+        }
+
+        /// <summary>
+        /// Convert List from GeneratedExpr to SharpPy ListExpression
+        /// </summary>
+        private static Expression ConvertListFromGenerated(GeneratedExpr genExpr)
+        {
+            if (genExpr.Value is not object valueObj)
+            {
+                throw new InvalidOperationException("List value is null");
+            }
+
+            var valueType = valueObj.GetType();
+            var elementsProperty = valueType.GetProperty("elements");
+
+            if (elementsProperty == null)
+            {
+                throw new InvalidOperationException("List value object missing elements property");
+            }
+
+            var elements = elementsProperty.GetValue(valueObj) as IEnumerable<object>;
+            var convertedElements = new List<Expression>();
+
+            if (elements != null)
+            {
+                foreach (var element in elements)
+                {
+                    convertedElements.Add(ConvertAnyExpression(element));
+                }
+            }
+
+            return new ListExpression(convertedElements);
+        }
+
+        /// <summary>
+        /// Convert Tuple from GeneratedExpr to SharpPy TupleExpression
+        /// </summary>
+        private static Expression ConvertTupleFromGenerated(GeneratedExpr genExpr)
+        {
+            if (genExpr.Value is not object valueObj)
+            {
+                throw new InvalidOperationException("Tuple value is null");
+            }
+
+            var valueType = valueObj.GetType();
+            var elementsProperty = valueType.GetProperty("elements");
+
+            if (elementsProperty == null)
+            {
+                throw new InvalidOperationException("Tuple value object missing elements property");
+            }
+
+            var elements = elementsProperty.GetValue(valueObj) as IEnumerable<object>;
+            var convertedElements = new List<Expression>();
+
+            if (elements != null)
+            {
+                foreach (var element in elements)
+                {
+                    convertedElements.Add(ConvertAnyExpression(element));
+                }
+            }
+
+            return new TupleExpression(convertedElements);
+        }
+
+        /// <summary>
+        /// Convert Dict from GeneratedExpr to SharpPy DictExpression
+        /// </summary>
+        private static Expression ConvertDictFromGenerated(GeneratedExpr genExpr)
+        {
+            if (genExpr.Value is not object valueObj)
+            {
+                throw new InvalidOperationException("Dict value is null");
+            }
+
+            var valueType = valueObj.GetType();
+            var keysProperty = valueType.GetProperty("keys");
+            var valuesProperty = valueType.GetProperty("values");
+
+            if (keysProperty == null || valuesProperty == null)
+            {
+                throw new InvalidOperationException("Dict value object missing keys or values property");
+            }
+
+            var keys = keysProperty.GetValue(valueObj) as IEnumerable<object>;
+            var values = valuesProperty.GetValue(valueObj) as IEnumerable<object>;
+
+            var items = new List<(Expression Key, Expression Value)>();
+
+            if (keys != null && values != null)
+            {
+                var keyArray = keys.ToArray();
+                var valueArray = values.ToArray();
+
+                int count = Math.Min(keyArray.Length, valueArray.Length);
+                for (int i = 0; i < count; i++)
+                {
+                    var keyExpr = ConvertAnyExpression(keyArray[i]);
+                    var valueExpr = ConvertAnyExpression(valueArray[i]);
+                    items.Add((keyExpr, valueExpr));
+                }
+            }
+
+            return new DictExpression(items);
+        }
+
+        /// <summary>
+        /// Convert Set from GeneratedExpr to SharpPy SetExpression
+        /// </summary>
+        private static Expression ConvertSetFromGenerated(GeneratedExpr genExpr)
+        {
+            if (genExpr.Value is not object valueObj)
+            {
+                throw new InvalidOperationException("Set value is null");
+            }
+
+            var valueType = valueObj.GetType();
+            var elementsProperty = valueType.GetProperty("elements");
+
+            if (elementsProperty == null)
+            {
+                throw new InvalidOperationException("Set value object missing elements property");
+            }
+
+            var elements = elementsProperty.GetValue(valueObj) as IEnumerable<object>;
+            var convertedElements = new List<Expression>();
+
+            if (elements != null)
+            {
+                foreach (var element in elements)
+                {
+                    convertedElements.Add(ConvertAnyExpression(element));
+                }
+            }
+
+            return new SetExpression(convertedElements);
+        }
+
+        /// <summary>
+        /// Convert ListComp from GeneratedExpr to SharpPy ListComprehension
+        /// </summary>
+        private static Expression ConvertListCompFromGenerated(GeneratedExpr genExpr)
+        {
+            // Delegate to existing method
+            return ConvertListComprehension(genExpr.Value);
+        }
+
+        /// <summary>
+        /// Convert DictComp from GeneratedExpr to SharpPy DictComprehension
+        /// </summary>
+        private static Expression ConvertDictCompFromGenerated(GeneratedExpr genExpr)
+        {
+            // Delegate to existing method
+            return ConvertDictComprehension(genExpr.Value);
+        }
+
+        /// <summary>
+        /// Convert SetComp from GeneratedExpr to SharpPy SetComprehension
+        /// </summary>
+        private static Expression ConvertSetCompFromGenerated(GeneratedExpr genExpr)
+        {
+            // Delegate to existing method
+            return ConvertSetComprehension(genExpr.Value);
+        }
+
+        /// <summary>
+        /// Convert GeneratorExp from GeneratedExpr to SharpPy GeneratorExpression
+        /// </summary>
+        private static Expression ConvertGeneratorExpFromGenerated(GeneratedExpr genExpr)
+        {
+            // Delegate to existing method
+            return ConvertGeneratorExpression(genExpr.Value);
+        }
+
+        /// <summary>
+        /// Convert Lambda from GeneratedExpr to SharpPy LambdaExpression
+        /// </summary>
+        private static Expression ConvertLambdaFromGenerated(GeneratedExpr genExpr)
+        {
+            // Delegate to existing method
+            return ConvertLambdaExpression(genExpr.Value);
         }
 
         /// <summary>
@@ -1203,17 +2083,33 @@ namespace SharpPy
         {
             if (expr == null) return new ConstantExpression(PyNone.Instance);
 
-            var type = expr.type as string;
-            if (string.IsNullOrEmpty(type))
+            // If this is a GeneratedExpr, delegate to ConvertAnyExpression
+            if (expr is GeneratedExpr)
             {
-                return new ConstantExpression(PyNone.Instance);
+                return ConvertAnyExpression(expr);
+            }
+
+            // Handle legacy dynamic objects with .type property
+            string type;
+            try
+            {
+                type = expr.type as string;
+                if (string.IsNullOrEmpty(type))
+                {
+                    return new ConstantExpression(PyNone.Instance);
+                }
+            }
+            catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
+            {
+                // Object doesn't have .type property, might be a GeneratedExpr that wasn't caught above
+                return ConvertAnyExpression(expr);
             }
 
             return type switch
             {
                 "name" => new NameExpression(expr.value as string ?? ""),
                 "number" => new ConstantExpression(new PyInt((int)Convert.ToInt64(expr.value ?? 0))),
-                "string" => new ConstantExpression(new PyString(expr.value as string ?? "")),
+                "string" => ConvertStringLiteral(expr.value as string ?? ""),
                 "binop" => ConvertBinaryOperation(expr),
                 "list" => ConvertListLiteral(expr),
                 "call" => ConvertCallOperation(expr),
@@ -1588,6 +2484,97 @@ namespace SharpPy
         }
 
         #endregion
+
+        /// <summary>
+        /// Convert string literal with proper handling of bytes literals (CPython 3.12 compatible)
+        /// </summary>
+        private static Expression ConvertStringLiteral(string literal)
+        {
+            // Handle empty string
+            if (string.IsNullOrEmpty(literal))
+                return new ConstantExpression(new PyString(""));
+
+            // Check for string prefixes (b, r, f, br, rb, fr, rf)
+            string prefix = "";
+            string content = literal;
+
+            // Extract prefix
+            int quoteStart = -1;
+            for (int i = 0; i < literal.Length; i++)
+            {
+                if (literal[i] == '"' || literal[i] == '\'')
+                {
+                    quoteStart = i;
+                    break;
+                }
+                else if (char.IsLetter(literal[i]))
+                {
+                    prefix += char.ToLower(literal[i]);
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            // Extract content (remove quotes)
+            if (quoteStart >= 0)
+            {
+                content = literal.Substring(quoteStart);
+                if (content.Length >= 2)
+                {
+                    // Handle triple quotes
+                    if (content.StartsWith("\"\"\"") && content.EndsWith("\"\"\"") && content.Length >= 6)
+                    {
+                        content = content.Substring(3, content.Length - 6);
+                    }
+                    else if (content.StartsWith("'''") && content.EndsWith("'''") && content.Length >= 6)
+                    {
+                        content = content.Substring(3, content.Length - 6);
+                    }
+                    // Handle single quotes
+                    else if ((content.StartsWith("\"") && content.EndsWith("\"")) ||
+                             (content.StartsWith("'") && content.EndsWith("'")))
+                    {
+                        content = content.Substring(1, content.Length - 2);
+                    }
+                }
+            }
+
+            // Create appropriate object based on prefix
+            if (prefix.Contains("b"))
+            {
+                // Bytes literal (b"..." or br"..." or rb"...")
+                try
+                {
+                    // For now, create bytes from UTF-8 encoding
+                    // TODO: Handle proper bytes literal parsing with escape sequences
+                    var bytes = System.Text.Encoding.UTF8.GetBytes(content);
+                    return new ConstantExpression(new PyBytesObject(bytes));
+                }
+                catch
+                {
+                    // Fallback to empty bytes
+                    return new ConstantExpression(new PyBytesObject(new byte[0]));
+                }
+            }
+            else if (prefix.Contains("f"))
+            {
+                // F-string literal - for now treat as regular string
+                // TODO: Implement proper f-string parsing
+                return new ConstantExpression(new PyString(content));
+            }
+            else
+            {
+                // Regular string literal (may include r prefix for raw strings)
+                if (prefix.Contains("r"))
+                {
+                    // Raw string - don't process escape sequences
+                    // TODO: Implement proper raw string handling
+                }
+                return new ConstantExpression(new PyString(content));
+            }
+        }
     }
 
     /// <summary>

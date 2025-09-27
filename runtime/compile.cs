@@ -2133,6 +2133,20 @@ namespace SharpPy
                     CompileKeywordExpression(keyword);
                     break;
 
+                case JoinedStrExpression joinedStr:
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] Compiler: Compiling JoinedStrExpression with {joinedStr.Values.Count} values");
+#endif
+                    CompileJoinedStrExpression(joinedStr);
+                    break;
+
+                case FormattedValueExpression formattedValueExpr:
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] Compiler: Compiling FormattedValueExpression");
+#endif
+                    CompileFormattedValueExpression(formattedValueExpr);
+                    break;
+
                 case FStringFormattedValue fstringValue:
 #if DEBUG_LOG
                     Console.WriteLine($"[DEBUG] Compiler: Compiling FStringFormattedValue");
@@ -2184,6 +2198,65 @@ namespace SharpPy
             }
 
             EmitInstruction(ByteCodeOp.FORMAT_VALUE, formatFlags);
+#if DEBUG_LOG
+            Console.WriteLine($"[DEBUG] Compiler: Emitted FORMAT_VALUE with flags: {formatFlags}");
+#endif
+        }
+
+        /// <summary>
+        /// CPython 3.12 compatible f-string compilation
+        /// Compiles f-strings by concatenating all parts using BUILD_STRING
+        /// </summary>
+        private void CompileJoinedStrExpression(JoinedStrExpression joinedStr)
+        {
+#if DEBUG_LOG
+            Console.WriteLine($"[DEBUG] Compiler: CompileJoinedStrExpression with {joinedStr.Values.Count} parts");
+#endif
+
+            // Compile each part of the f-string
+            foreach (var value in joinedStr.Values)
+            {
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] Compiler: Compiling f-string part: {value.GetType().Name}");
+#endif
+                CompileExpression(value);
+            }
+
+            // Use BUILD_STRING to concatenate all parts
+            EmitInstruction(ByteCodeOp.BUILD_STRING, joinedStr.Values.Count);
+
+#if DEBUG_LOG
+            Console.WriteLine($"[DEBUG] Compiler: Emitted BUILD_STRING with {joinedStr.Values.Count} parts");
+#endif
+        }
+
+        /// <summary>
+        /// CPython 3.12 compatible formatted value compilation
+        /// Compiles the {expression} parts inside f-strings using FORMAT_VALUE
+        /// </summary>
+        private void CompileFormattedValueExpression(FormattedValueExpression formattedValue)
+        {
+#if DEBUG_LOG
+            Console.WriteLine($"[DEBUG] Compiler: CompileFormattedValueExpression");
+#endif
+
+            // Compile the inner expression
+            CompileExpression(formattedValue.Value);
+
+            // Emit FORMAT_VALUE instruction
+            int formatFlags = 0;
+            if (formattedValue.Conversion != -1) // -1 means no conversion
+            {
+                formatFlags |= (formattedValue.Conversion << 2); // Conversion in bits 2-3
+            }
+            if (formattedValue.FormatSpec != null)
+            {
+                CompileExpression(formattedValue.FormatSpec);
+                formatFlags |= 1; // Has format spec
+            }
+
+            EmitInstruction(ByteCodeOp.FORMAT_VALUE, formatFlags);
+
 #if DEBUG_LOG
             Console.WriteLine($"[DEBUG] Compiler: Emitted FORMAT_VALUE with flags: {formatFlags}");
 #endif

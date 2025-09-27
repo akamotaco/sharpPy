@@ -112,7 +112,11 @@ namespace SharpPy.Generated
             {
                 var name = CurrentToken.Value;
                 Advance();
-                return new { type = "name", value = name };
+                return new GeneratedExpr
+                {
+                    ExpressionType = "Name",
+                    Value = new { value = name }
+                };
             }
 
             // NUMBER
@@ -120,7 +124,17 @@ namespace SharpPy.Generated
             {
                 var number = CurrentToken.Value;
                 Advance();
-                return new { type = "number", value = number };
+                return new GeneratedExpr
+                {
+                    ExpressionType = "Constant",
+                    Value = new { value = number, kind = "number" }
+                };
+            }
+
+            // F-STRING (check before regular STRING)
+            if (CurrentToken.Type.ToString() == "FSTRING_START")
+            {
+                return Fstring();
             }
 
             // STRING
@@ -128,7 +142,11 @@ namespace SharpPy.Generated
             {
                 var str = CurrentToken.Value;
                 Advance();
-                return new { type = "string", value = str };
+                return new GeneratedExpr
+                {
+                    ExpressionType = "Constant",
+                    Value = new { value = str, kind = "string" }
+                };
             }
 
             // '[' [star_named_expressions] ']' - List literal or list comprehension
@@ -156,7 +174,11 @@ namespace SharpPy.Generated
                 if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == ")")
                 {
                     Advance(); // consume ')'
-                    return new { type = "tuple", elements = elements };
+                    return new GeneratedExpr
+                    {
+                        ExpressionType = "Tuple",
+                        Value = new { elements = elements }
+                    };
                 }
 
                 // Parse tuple elements or single parenthesized expression
@@ -193,7 +215,11 @@ namespace SharpPy.Generated
                     // Return tuple only if multiple elements or trailing comma
                     if (elements.Count > 1 || hasComma)
                     {
-                        return new { type = "tuple", elements = elements };
+                        return new GeneratedExpr
+                        {
+                            ExpressionType = "Tuple",
+                            Value = new { elements = elements }
+                        };
                     }
                     // Single element without comma is parenthesized expression
                     else if (elements.Count == 1)
@@ -203,7 +229,11 @@ namespace SharpPy.Generated
                     // Empty parentheses is empty tuple
                     else
                     {
-                        return new { type = "tuple", elements = elements };
+                        return new GeneratedExpr
+                        {
+                            ExpressionType = "Tuple",
+                            Value = new { elements = elements }
+                        };
                     }
                 }
 
@@ -272,7 +302,11 @@ namespace SharpPy.Generated
                     if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == ")")
                     {
                         Advance(); // consume ')'
-                        result = new { type = "call", func = result, args = args };
+                        result = new GeneratedExpr
+                        {
+                            ExpressionType = "Call",
+                            Value = new { func = result, args = args }
+                        };
                         expanded = true;
                     }
                     else
@@ -290,7 +324,11 @@ namespace SharpPy.Generated
                     {
                         var attr = CurrentToken.Value;
                         Advance();
-                        result = new { type = "attribute", value = result, attr = attr };
+                        result = new GeneratedExpr
+                        {
+                            ExpressionType = "Attribute",
+                            Value = new { value = result, attr = attr }
+                        };
                         expanded = true;
                     }
                     else
@@ -310,7 +348,11 @@ namespace SharpPy.Generated
                     if (slice != null && CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "]")
                     {
                         Advance(); // consume ']'
-                        result = new { type = "subscript", value = result, slice = slice };
+                        result = new GeneratedExpr
+                        {
+                            ExpressionType = "Subscript",
+                            Value = new { value = result, slice = slice }
+                        };
                         expanded = true;
                     }
                     else
@@ -347,7 +389,11 @@ namespace SharpPy.Generated
                     var right = ParsePrimary();
                     if (right != null)
                     {
-                        result = new { type = "binop", op = "*", left = result, right = right };
+                        result = new GeneratedExpr
+                        {
+                            ExpressionType = "BinOp",
+                            Value = new { op = "*", left = result, right = right }
+                        };
                         continue;
                     }
                     Reset(mark);
@@ -359,7 +405,11 @@ namespace SharpPy.Generated
                     var right = ParsePrimary();
                     if (right != null)
                     {
-                        result = new { type = "binop", op = "/", left = result, right = right };
+                        result = new GeneratedExpr
+                        {
+                            ExpressionType = "BinOp",
+                            Value = new { op = "/", left = result, right = right }
+                        };
                         continue;
                     }
                     Reset(mark);
@@ -395,7 +445,11 @@ namespace SharpPy.Generated
                     var right = ParseTerm();
                     if (right != null)
                     {
-                        result = new { type = "binop", op = "+", left = result, right = right };
+                        result = new GeneratedExpr
+                        {
+                            ExpressionType = "BinOp",
+                            Value = new { op = "+", left = result, right = right }
+                        };
                         continue;
                     }
                     Reset(mark);
@@ -407,7 +461,11 @@ namespace SharpPy.Generated
                     var right = ParseTerm();
                     if (right != null)
                     {
-                        result = new { type = "binop", op = "-", left = result, right = right };
+                        result = new GeneratedExpr
+                        {
+                            ExpressionType = "BinOp",
+                            Value = new { op = "-", left = result, right = right }
+                        };
                         continue;
                     }
                     Reset(mark);
@@ -420,34 +478,12 @@ namespace SharpPy.Generated
             return result;
         }
 
-        // expression: comparison (operations with proper precedence)
+        // expression: assignment_expression - delegate to top level of expression hierarchy
         public object? ParseExpression()
         {
-            // Check for tokens that should stop expression parsing
-            if (CurrentToken == null) return null;
-            if (CurrentToken.Type == GeneratedTokenType.DEDENT) return null;
-            if (CurrentToken.Type == GeneratedTokenType.ENDMARKER) return null;
-
-            // Parse comparison (handles <, >, ==, !=, etc.)
-            var left = ParseSum();
-            if (left == null) return null;
-
-            // Check for comparison operators
-            if (CurrentToken?.Type.ToString() == "OP")
-            {
-                var op = CurrentToken.Value;
-                if (op == "<" || op == ">" || op == "==" || op == "!=" || op == "<=" || op == ">=")
-                {
-                    Advance(); // consume operator
-                    var right = ParseSum();
-                    if (right != null)
-                    {
-                        return new { type = "compare", op = op, left = left, right = right };
-                    }
-                }
-            }
-
-            return left;
+            // In Python 3.12, expression is the top-level rule that includes assignment expressions (walrus operator)
+            // Delegate to assignment_expression which handles := operator
+            return AssignmentExpression();
         }
 
         // star_expressions: expression (',' expression)* [',']
@@ -873,7 +909,11 @@ namespace SharpPy.Generated
             }
 
             Console.WriteLine($"[DEBUG] ParseLambda: Successfully parsed lambda with {parameters.Count} parameters");
-            return new { type = "lambda", parameters = parameters, body = body };
+            return new GeneratedExpr
+            {
+                ExpressionType = "Lambda",
+                Value = new { parameters = parameters, body = body }
+            };
         }
 
         /// <summary>
@@ -889,7 +929,11 @@ namespace SharpPy.Generated
             if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "]")
             {
                 Advance(); // consume ']'
-                return new { type = "list", elements = new List<object>() };
+                return new GeneratedExpr
+                {
+                    ExpressionType = "List",
+                    Value = new { elements = new List<object>() }
+                };
             }
 
             // Parse first expression
@@ -908,7 +952,11 @@ namespace SharpPy.Generated
                     return null;
                 Advance(); // consume ']'
 
-                return new { type = "listcomp", element = firstExpr, generators = forIfClauses };
+                return new GeneratedExpr
+                {
+                    ExpressionType = "ListComp",
+                    Value = new { element = firstExpr, generators = forIfClauses }
+                };
             }
             else
             {
@@ -932,7 +980,11 @@ namespace SharpPy.Generated
                     return null;
                 Advance(); // consume ']'
 
-                return new { type = "list", elements = elements };
+                return new GeneratedExpr
+                {
+                    ExpressionType = "List",
+                    Value = new { elements = elements }
+                };
             }
         }
 
@@ -951,7 +1003,11 @@ namespace SharpPy.Generated
             if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "}")
             {
                 Advance(); // consume '}'
-                return new { type = "dict", pairs = new List<object>() };
+                return new GeneratedExpr
+                {
+                    ExpressionType = "Dict",
+                    Value = new { pairs = new List<object>() }
+                };
             }
 
             // Parse first expression
@@ -977,7 +1033,11 @@ namespace SharpPy.Generated
                         return null;
                     Advance(); // consume '}'
 
-                    return new { type = "dictcomp", key = firstExpr, value = value, generators = forIfClauses };
+                    return new GeneratedExpr
+                    {
+                        ExpressionType = "DictComp",
+                        Value = new { key = firstExpr, value = value, generators = forIfClauses }
+                    };
                 }
                 else
                 {
@@ -1006,7 +1066,11 @@ namespace SharpPy.Generated
                         return null;
                     Advance(); // consume '}'
 
-                    return new { type = "dict", pairs = pairs };
+                    return new GeneratedExpr
+                    {
+                        ExpressionType = "Dict",
+                        Value = new { pairs = pairs }
+                    };
                 }
             }
             else if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == "for")
@@ -1020,7 +1084,11 @@ namespace SharpPy.Generated
                     return null;
                 Advance(); // consume '}'
 
-                return new { type = "setcomp", element = firstExpr, generators = forIfClauses };
+                return new GeneratedExpr
+                {
+                    ExpressionType = "SetComp",
+                    Value = new { element = firstExpr, generators = forIfClauses }
+                };
             }
             else
             {
@@ -1044,7 +1112,11 @@ namespace SharpPy.Generated
                     return null;
                 Advance(); // consume '}'
 
-                return new { type = "set", elements = elements };
+                return new GeneratedExpr
+                {
+                    ExpressionType = "Set",
+                    Value = new { elements = elements }
+                };
             }
         }
 
@@ -1402,6 +1474,426 @@ namespace SharpPy.Generated
         }
 
         // === End Expression Hierarchy ===
+
+
+        // === Specific Grammar Rules ===
+
+        /// <summary>
+        /// assignment_expression[expr_ty]: | a=NAME ':=' ~ b=expression
+        /// Handles the walrus operator (:=) for assignment expressions
+        /// </summary>
+        public GeneratedExpr? AssignmentExpression()
+        {
+            // Try to parse walrus operator: NAME := expression
+            var startPos = _position;
+
+            // Handle parenthesized assignment expression: (NAME := expression)
+            if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == "(")
+            {
+                var parenStart = _position;
+                Advance(); // consume '('
+
+                // Check if this is an assignment expression inside parentheses
+                if (CurrentToken?.Type == GeneratedTokenType.NAME)
+                {
+                    var namePos = _position;
+                    var name = CurrentToken.Value;
+                    Advance(); // consume NAME
+
+                    // Check for ':=' operator
+                    if (CurrentToken?.Type == GeneratedTokenType.COLONEQUAL)
+                    {
+                        Advance(); // consume ':='
+
+                        // Parse the expression on the right side
+                        var rightExpr = ParseSum();
+                        if (rightExpr != null)
+                        {
+                            // Expect closing parenthesis
+                            if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == ")")
+                            {
+                                Advance(); // consume ')'
+                                // Create named expression AST node
+                                var namedExpr = new GeneratedExpr
+                                {
+                                    ExpressionType = "NamedExpr",
+                                    Value = new { target = name, value = rightExpr }
+                                };
+                                return namedExpr;
+                            }
+                        }
+                    }
+                }
+
+                // Not assignment expression in parentheses - backtrack to start
+                _position = startPos;
+            }
+
+            // Direct assignment expression: a=NAME ':=' ~ b=expression
+            if (CurrentToken?.Type == GeneratedTokenType.NAME)
+            {
+                var name = CurrentToken.Value;
+                var nameToken = CurrentToken;
+                Advance(); // consume NAME
+
+                // Check for ':=' operator
+                if (CurrentToken?.Type == GeneratedTokenType.COLONEQUAL)
+                {
+                    Advance(); // consume ':='
+
+                    // Parse the expression on the right side (b=expression)
+                    // Note: To avoid circular call, parse at disjunction level (lower than assignment_expression)
+                    var rightExpr = ParseSum(); // Use ParseSum for now, should be disjunction in full implementation
+                    if (rightExpr != null)
+                    {
+                        // Create named expression AST node
+                        var namedExpr = new GeneratedExpr
+                        {
+                            ExpressionType = "NamedExpr",
+                            Value = new { target = name, value = rightExpr }
+                        };
+                        return namedExpr;
+                    }
+
+                    // Right side expression failed - backtrack
+                    _position = startPos;
+                    return null;
+                }
+
+                // Not ':=' operator - backtrack
+                _position = startPos;
+            }
+
+            // Fallback: if not walrus operator, parse at lower level of expression hierarchy
+            // This handles the case where assignment_expression -> expression (non-assignment case)
+            var fallbackExpr = Disjunction();
+            if (fallbackExpr != null)
+            {
+                // Wrap the result in a GeneratedExpr if it's not already one
+                if (fallbackExpr is GeneratedExpr genExpr)
+                {
+                    return genExpr;
+                }
+                else
+                {
+                    // Create a new GeneratedExpr to wrap the result
+                    return new GeneratedExpr
+                    {
+                        ExpressionType = "Expression",
+                        Value = fallbackExpr
+                    };
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// disjunction[expr_ty] (memo): | a=conjunction b=('or' c=conjunction { c })+ | conjunction
+        /// Handles 'or' Boolean operations
+        /// </summary>
+        public GeneratedExpr? Disjunction()
+        {
+            // Try to parse: a=conjunction b=('or' c=conjunction { c })+
+            var left = Conjunction();
+            if (left == null) return null;
+
+            var orExpressions = new List<object>();
+            orExpressions.Add(left);
+
+            // Look for 'or' followed by conjunction
+            while (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "or")
+            {
+                Advance(); // consume 'or'
+                var right = Conjunction();
+                if (right == null)
+                {
+                    // Error: expected conjunction after 'or'
+                    return null;
+                }
+                orExpressions.Add(right);
+            }
+
+            // If we found 'or' expressions, create BoolOp
+            if (orExpressions.Count > 1)
+            {
+                return new GeneratedExpr
+                {
+                    ExpressionType = "BoolOp",
+                    Value = new { op = "Or", values = orExpressions }
+                };
+            }
+
+            // Single conjunction - return it
+            return left;
+        }
+
+        /// <summary>
+        /// conjunction[expr_ty] (memo): | a=inversion b=('and' c=inversion { c })+ | inversion
+        /// Handles 'and' Boolean operations
+        /// </summary>
+        public GeneratedExpr? Conjunction()
+        {
+            // Try to parse: a=inversion b=('and' c=inversion { c })+
+            var left = Inversion();
+            if (left == null) return null;
+
+            var andExpressions = new List<object>();
+            andExpressions.Add(left);
+
+            // Look for 'and' followed by inversion
+            while (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "and")
+            {
+                Advance(); // consume 'and'
+                var right = Inversion();
+                if (right == null)
+                {
+                    // Error: expected inversion after 'and'
+                    return null;
+                }
+                andExpressions.Add(right);
+            }
+
+            // If we found 'and' expressions, create BoolOp
+            if (andExpressions.Count > 1)
+            {
+                return new GeneratedExpr
+                {
+                    ExpressionType = "BoolOp",
+                    Value = new { op = "And", values = andExpressions }
+                };
+            }
+
+            // Single inversion - return it
+            return left;
+        }
+
+        /// <summary>
+        /// inversion[expr_ty] (memo): | 'not' a=inversion | comparison
+        /// Handles 'not' unary operations
+        /// </summary>
+        public GeneratedExpr? Inversion()
+        {
+            // Try to parse: 'not' a=inversion
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "not")
+            {
+                Advance(); // consume 'not'
+                var operand = Inversion(); // recursive call for 'not not x'
+                if (operand == null)
+                {
+                    // Error: expected expression after 'not'
+                    return null;
+                }
+
+                return new GeneratedExpr
+                {
+                    ExpressionType = "UnaryOp",
+                    Value = new { op = "Not", operand = operand }
+                };
+            }
+
+            // Fall back to comparison - wrap result in GeneratedExpr
+            var result = ParseSum();
+            if (result != null)
+            {
+                return new GeneratedExpr
+                {
+                    ExpressionType = "Expression",
+                    Value = result
+                };
+            }
+            return null;
+        }
+
+
+        // === F-String Support Methods ===
+
+        /// <summary>
+        /// fstring[expr_ty]: | a=FSTRING_START b=fstring_middle* c=FSTRING_END
+        /// Handles f-string literals with embedded expressions
+        /// </summary>
+        public GeneratedExpr? Fstring()
+        {
+            // Check for FSTRING_START token
+            if (CurrentToken?.Type != GeneratedTokenType.FSTRING_START)
+            {
+                return null;
+            }
+
+            var startToken = CurrentToken;
+            Advance(); // consume FSTRING_START
+
+            // Parse fstring_middle* (zero or more)
+            var middleParts = new List<object>();
+            while (CurrentToken?.Type == GeneratedTokenType.FSTRING_MIDDLE || 
+                   (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == "{"))
+            {
+                var middle = FstringMiddle();
+                if (middle != null)
+                {
+                    middleParts.Add(middle);
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            // Check for FSTRING_END token
+            if (CurrentToken?.Type != GeneratedTokenType.FSTRING_END)
+            {
+                return null; // Error: expected FSTRING_END
+            }
+
+            var endToken = CurrentToken;
+            Advance(); // consume FSTRING_END
+
+            // Create JoinedStr AST node
+            return new GeneratedExpr
+            {
+                ExpressionType = "JoinedStr",
+                Value = new { values = middleParts }
+            };
+        }
+
+        /// <summary>
+        /// fstring_middle[expr_ty]: | fstring_replacement_field | FSTRING_MIDDLE
+        /// Handles literal text and replacement fields in f-strings
+        /// </summary>
+        public GeneratedExpr? FstringMiddle()
+        {
+            // Try fstring_replacement_field first
+            var replacementField = FstringReplacementField();
+            if (replacementField != null)
+            {
+                return replacementField;
+            }
+
+            // Try FSTRING_MIDDLE literal text
+            if (CurrentToken?.Type == GeneratedTokenType.FSTRING_MIDDLE)
+            {
+                var value = CurrentToken.Value;
+                Advance(); // consume FSTRING_MIDDLE
+
+                return new GeneratedExpr
+                {
+                    ExpressionType = "Constant",
+                    Value = new { value = value, kind = "string" }
+                };
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// fstring_replacement_field[expr_ty]: | '{' a=(yield_expr | star_expressions) debug_expr='='? conversion=[fstring_conversion] format=[fstring_full_format_spec] rbrace='}'
+        /// Handles {expression} replacement fields in f-strings
+        /// </summary>
+        public GeneratedExpr? FstringReplacementField()
+        {
+            // Check for opening brace
+            if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken.Value != "{")
+            {
+                return null;
+            }
+
+            Advance(); // consume '{'
+
+            // Parse the expression (star_expressions covers most cases)
+            var expr = Disjunction(); // Use disjunction for full expression support
+            if (expr == null)
+            {
+                return null; // Error: expected expression
+            }
+
+            // Check for optional debug expression ('=')
+            bool hasDebug = false;
+            if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == "=")
+            {
+                hasDebug = true;
+                Advance(); // consume '='
+            }
+
+            // Skip optional conversion (!r, !s, !a) for now
+            // Skip optional format specification (:spec) for now
+
+            // Check for closing brace
+            if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken.Value != "}")
+            {
+                return null; // Error: expected '}'
+            }
+
+            Advance(); // consume '}'
+
+            // Create FormattedValue AST node
+            return new GeneratedExpr
+            {
+                ExpressionType = "FormattedValue",
+                Value = new { value = expr, conversion = -1, format_spec = (object?)null }
+            };
+        }
+
+        /// <summary>
+        /// strings[expr_ty] (memo): a[asdl_expr_seq*]=(fstring|string)+ { _PyPegen_concatenate_strings(p, a, EXTRA) }
+        /// Handles string concatenation including f-strings
+        /// </summary>
+        public GeneratedExpr? Strings()
+        {
+            var stringParts = new List<object>();
+
+            // Parse first string/fstring
+            var first = Fstring() ?? ParseStringLiteral();
+            if (first == null)
+            {
+                return null;
+            }
+            stringParts.Add(first);
+
+            // Parse additional strings/fstrings
+            while (true)
+            {
+                var next = Fstring() ?? ParseStringLiteral();
+                if (next == null)
+                {
+                    break;
+                }
+                stringParts.Add(next);
+            }
+
+            // If only one string, return it directly
+            if (stringParts.Count == 1)
+            {
+                return stringParts[0] as GeneratedExpr;
+            }
+
+            // Multiple strings - concatenate
+            return new GeneratedExpr
+            {
+                ExpressionType = "JoinedStr",
+                Value = new { values = stringParts }
+            };
+        }
+
+        /// <summary>
+        /// Helper method to parse regular string literals
+        /// </summary>
+        private GeneratedExpr? ParseStringLiteral()
+        {
+            if (CurrentToken?.Type == GeneratedTokenType.STRING)
+            {
+                var value = CurrentToken.Value;
+                Advance();
+                return new GeneratedExpr
+                {
+                    ExpressionType = "Constant",
+                    Value = new { value = value, kind = "string" }
+                };
+            }
+            return null;
+        }
+
+        // === End F-String Support Methods ===
+
+        // === End Specific Grammar Rules ===
 
         /// <summary>
         /// compound_stmt[stmt_ty]: &('def' | '@' | ASYNC) function_def | ...

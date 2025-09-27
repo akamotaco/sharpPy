@@ -1008,6 +1008,34 @@ namespace SharpPy.PegGenerator.Interpreter
                     }
                 };
             }
+            else if (action.Contains("_PyAST_TypeAlias"))
+            {
+                // Type alias: "type" n=NAME t=[type_params] '=' b=expression
+                return new SimpleStmt
+                {
+                    Type = "type_alias",
+                    Data = new {
+                        Name = variables.ContainsKey("n") ? variables["n"] : null,
+                        TypeParams = variables.ContainsKey("t") ? variables["t"] : null,
+                        Value = variables.ContainsKey("b") ? variables["b"] : null
+                    }
+                };
+            }
+            else if (action.Contains("_PyAST_AsyncFunctionDef"))
+            {
+                // Async function definition: ASYNC 'def' n=NAME params=[params] b=block
+                return new SimpleStmt
+                {
+                    Type = "async_function_def",
+                    Data = new {
+                        Name = variables.ContainsKey("n") ? variables["n"] : null,
+                        Params = variables.ContainsKey("params") ? variables["params"] : null,
+                        Body = variables.ContainsKey("b") ? variables["b"] : null,
+                        TypeParams = variables.ContainsKey("t") ? variables["t"] : null,
+                        Returns = variables.ContainsKey("a") ? variables["a"] : null
+                    }
+                };
+            }
 
             // Default: return generic success marker for now
             Console.WriteLine($"[DEBUG] Unhandled action pattern: {action}");

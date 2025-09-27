@@ -76,6 +76,8 @@ public class PyBuiltinsModule : PyObject
         // CPython 3.12 호환성: 타입들을 PyType으로 등록 (isinstance 지원)
         BuiltinDict["str"] = PyType.StrType;
         BuiltinDict["bytes"] = PyType.BytesType;
+        BuiltinDict["bytearray"] = PyType.BytearrayType;
+        BuiltinDict["memoryview"] = PyType.MemoryViewType;
         BuiltinDict["int"] = PyType.IntType;
         BuiltinDict["float"] = PyType.FloatType;
         BuiltinDict["bool"] = PyType.BoolType;

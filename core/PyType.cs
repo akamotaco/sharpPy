@@ -22,6 +22,8 @@ namespace SharpPy
         // 컬렉션 타입들
         public static readonly PyType StrType = new PyType("str", new[] { ObjectType });
         public static readonly PyType BytesType = new PyType("bytes", new[] { ObjectType });
+        public static readonly PyType BytearrayType = new PyType("bytearray", new[] { ObjectType });
+        public static readonly PyType MemoryViewType = new PyType("memoryview", new[] { ObjectType });
         public static readonly PyType ListType = new PyType("list", new[] { ObjectType });
         public static readonly PyType TupleType = new PyType("tuple", new[] { ObjectType });
         public static readonly PyType DictType = new PyType("dict", new[] { ObjectType });
@@ -80,7 +82,6 @@ namespace SharpPy
         
         // Buffer Protocol (PEP 688)
         public static readonly PyType BufferType = new PyType("buffer", new[] { ObjectType });
-        public static readonly PyType MemoryViewType = new PyType("memoryview", new[] { ObjectType });
         
         // Closure Support
         public static readonly PyType CellType = new PyType("cell", new[] { ObjectType });

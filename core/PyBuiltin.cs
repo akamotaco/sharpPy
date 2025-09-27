@@ -2544,18 +2544,18 @@ namespace SharpPy
             if (args.Length == 0)
             {
                 // bytes() with no arguments creates empty bytes
-                return new PyBytes(new byte[0]);
+                return new PyBytesObject(new byte[0]);
             }
             else if (args.Length == 1)
             {
                 var arg = args[0];
-                
+
                 // bytes(string, encoding) - convert string to bytes
                 if (arg is PyString str)
                 {
                     // Default encoding is utf-8
                     var bytes = System.Text.Encoding.UTF8.GetBytes(str.Value);
-                    return new PyBytes(bytes);
+                    return new PyBytesObject(bytes);
                 }
                 // bytes(iterable) - create from iterable of integers
                 else if (arg is PyList list)
@@ -2635,29 +2635,30 @@ namespace SharpPy
         /// </summary>
         private PyObject CallBytearray(PyObject[] args, PyDict kwargs = null)
         {
-            // Temporary implementation: return PyBytes for now
-            // TODO: Implement full mutable PyBytearray class
             if (args.Length == 0)
             {
-                return new PyBytes(new byte[0]);
+                return new PyBytearrayObject();
             }
             else if (args.Length == 1)
             {
                 var arg = args[0];
                 if (arg is PyString str)
                 {
-                    var bytes = System.Text.Encoding.UTF8.GetBytes(str.Value);
-                    return new PyBytes(bytes);
+                    return new PyBytearrayObject(str.Value);
                 }
-                else if (arg is PyBytes bytesObj)
+                else if (arg is PyBytesObject bytesObj)
                 {
-                    return new PyBytes((byte[])bytesObj.Value.Clone());
+                    return new PyBytearrayObject(bytesObj.Data);
+                }
+                else if (arg is PyBytearrayObject bytearrayObj)
+                {
+                    return new PyBytearrayObject(bytearrayObj.Data);
                 }
                 else if (arg is PyInt size)
                 {
                     if (size.Value < 0)
                         throw PyValueError.Create("negative count");
-                    return new PyBytes(new byte[size.Value]);
+                    return new PyBytearrayObject(new byte[size.Value]);
                 }
                 else if (arg is PyList list)
                 {
@@ -2692,14 +2693,13 @@ namespace SharpPy
             var obj = args[0];
 
             // Check if object supports buffer protocol
-            if (obj is PyBytes bytes)
+            if (obj is PyBytesObject bytes)
             {
-                return new PyMemoryView(bytes.Value, true); // bytes are read-only
+                return new PyMemoryViewObject(bytes);
             }
-            else if (obj.SupportsBuffer())
+            else if (obj is PyBytearrayObject bytearray)
             {
-                var buffer = obj.GetBuffer(0);
-                return buffer;
+                return new PyMemoryViewObject(bytearray);
             }
             else
             {

@@ -902,9 +902,21 @@ namespace SharpPy.Generated
                         Advance();
                     }
                     var name = _source.Substring(start, _position - start);
-                    var tokenType = Keywords.ContainsKey(name) ? Keywords[name] : GeneratedTokenType.NAME;
-                    AddToken(tokenType, name, startLine, startColumn);
-                    _currentLineHasRealTokens = true;
+
+                    // Check if this is a nested f-string start (f followed by quote)
+                    if (name == "f" && _position < _source.Length && (_source[_position] == '"' || _source[_position] == '\''))
+                    {
+                        // This is a nested f-string, handle it as a complete f-string
+                        _position = start; // Reset position to the 'f'
+                        HandleFString(); // Recursively handle nested f-string
+                    }
+                    else
+                    {
+                        // Regular identifier or keyword
+                        var tokenType = Keywords.ContainsKey(name) ? Keywords[name] : GeneratedTokenType.NAME;
+                        AddToken(tokenType, name, startLine, startColumn);
+                        _currentLineHasRealTokens = true;
+                    }
                 }
                 // Handle operators and punctuation
                 else

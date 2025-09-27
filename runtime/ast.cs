@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 namespace SharpPy
 {
@@ -2383,6 +2384,90 @@ namespace SharpPy
         }
         
         public override string ToString() => $"({string.Join($" {Op} ", Values)})";
+    }
+
+    public class JoinedStrExpression : Expression
+    {
+        public override string NodeType => "JoinedStr";
+        public List<Expression> Values { get; }
+
+        public JoinedStrExpression(List<Expression> values)
+        {
+            Values = values ?? new List<Expression>();
+        }
+
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var result = new StringBuilder();
+
+            foreach (var value in Values)
+            {
+                var evaluated = value.Evaluate(scope);
+
+                if (evaluated is PyString pyStr)
+                {
+                    result.Append(pyStr.Value);
+                }
+                else
+                {
+                    // For FormattedValue expressions, call their string representation
+                    result.Append(evaluated.ToString());
+                }
+            }
+
+            return new PyString(result.ToString());
+        }
+
+        public override string ToString() => $"f\"{string.Join("", Values)}\"";
+    }
+
+    public class FormattedValueExpression : Expression
+    {
+        public override string NodeType => "FormattedValue";
+        public Expression Value { get; }
+        public int Conversion { get; } // -1: no conversion, 114: !r, 115: !s, 97: !a
+        public Expression? FormatSpec { get; }
+
+        public FormattedValueExpression(Expression value, int conversion = -1, Expression? formatSpec = null)
+        {
+            Value = value;
+            Conversion = conversion;
+            FormatSpec = formatSpec;
+        }
+
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var value = Value.Evaluate(scope);
+
+            // Apply conversion if specified
+            if (Conversion == 114) // !r (repr)
+            {
+                value = new PyString($"'{value}'");
+            }
+            else if (Conversion == 115) // !s (str)
+            {
+                value = new PyString(value.ToString());
+            }
+            else if (Conversion == 97) // !a (ascii)
+            {
+                var str = value.ToString();
+                var escaped = str.Replace("\\", "\\\\").Replace("'", "\\'");
+                value = new PyString($"'{escaped}'");
+            }
+
+            // Apply format specification if present
+            if (FormatSpec != null)
+            {
+                var formatSpec = FormatSpec.Evaluate(scope);
+                // TODO: Implement full format specification support
+                // For now, just use default string representation
+            }
+
+            return value;
+        }
+
+        public override string ToString() =>
+            $"{{{Value}{(Conversion != -1 ? $"!{(char)Conversion}" : "")}{(FormatSpec != null ? $":{FormatSpec}" : "")}}}";
     }
 
     /// <summary>
