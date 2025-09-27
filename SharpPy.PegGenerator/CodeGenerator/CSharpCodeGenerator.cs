@@ -471,6 +471,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             GenerateParserConstructor();
             // Skip old GenerateParserMethods() - we only use new grammar methods
             GeneratePythonGrammarMethods();
+            GenerateTypeParameterMethods();
 
             Dedent();
             WriteLine("}");
@@ -510,6 +511,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // Use existing implementation for now
             foreach (var rule in _grammar.Rules)
             {
+                Console.WriteLine($"[DEBUG] Processing rule: {rule.Name}");
                 GenerateRuleMethod(rule);
             }
         }
@@ -1656,6 +1658,14 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 "sum", "term", "primary", "atom", "expression", "comparison", "statements"
             };
 
+            // Special handling for await_primary rule
+            if (rule.Name == "await_primary")
+            {
+                Console.WriteLine($"[DEBUG] Generating special await_primary method with return type {returnType}");
+                GenerateAwaitPrimaryMethod(returnType);
+                return;
+            }
+
             if (methodsInBase.Contains(rule.Name.ToLower()))
             {
                 // Generate only a simple delegation to the base class method
@@ -2069,6 +2079,47 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("// No match found");
             WriteLine($"return default({returnType});");
+        }
+
+        private void GenerateAwaitPrimaryMethod(string returnType)
+        {
+            Console.WriteLine($"[DEBUG] GenerateAwaitPrimaryMethod called with returnType: {returnType}");
+            WriteLine("// await_primary[expr_ty] (memo): AWAIT a=primary | primary");
+            WriteLine("// Generated method for await_primary rule");
+            WriteLine($"public {returnType} AwaitPrimary()");
+            WriteLine("{");
+            Indent();
+            WriteLine();
+
+            WriteLine("// Check for AWAIT token");
+            WriteLine("if (CurrentToken?.Type.ToString() == \"AWAIT\" && CurrentToken?.Value == \"await\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume 'await'");
+            WriteLine("var primary = ParsePrimary() as GeneratedExpr;");
+            WriteLine("if (primary != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("return _PyAST_Await(primary);");
+            Dedent();
+            WriteLine("}");
+            WriteLine("else");
+            WriteLine("{");
+            Indent();
+            WriteLine("throw new InvalidOperationException(\"Expected primary expression after 'await'\");");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine("else");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Not an await expression, delegate to primary");
+            WriteLine("return ParsePrimary() as GeneratedExpr;");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
         }
 
         private void GenerateAtomMethod(string returnType)
@@ -3091,6 +3142,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // Generate core parsing methods from python.gram
             GenerateAtomParser();
             GeneratePrimaryParser();
+            GeneratePowerParser();
             GenerateTermParser();
             GenerateSumParser();
             GenerateExpressionParser();
@@ -3569,12 +3621,73 @@ namespace SharpPy.PegGenerator.CodeGenerator
         }
 
         /// <summary>
-        /// Generate term parser: term '*' primary | term '/' primary | primary
+        /// Generate power parser: await_primary '**' factor | await_primary
+        /// Handles power operator with right recursion
+        /// </summary>
+        private void GeneratePowerParser()
+        {
+            WriteLine("// power[expr_ty]: a=await_primary '**' b=factor | await_primary");
+            WriteLine("protected object? ParsePower()");
+            WriteLine("{");
+            Indent();
+            WriteLine();
+            WriteLine("// Check for tokens that should stop parsing");
+            WriteLine("if (CurrentToken == null) return null;");
+            WriteLine("if (CurrentToken.Type == GeneratedTokenType.DEDENT) return null;");
+            WriteLine("if (CurrentToken.Type == GeneratedTokenType.ENDMARKER) return null;");
+            WriteLine();
+
+            WriteLine("// Start with await_primary (base case)");
+            WriteLine("var left = AwaitPrimary();");
+            WriteLine("if (left == null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// Check for '**' power operator");
+            WriteLine("if (CurrentToken?.Type.ToString() == \"OP\" && CurrentToken?.Value == \"**\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume '**'");
+            WriteLine("var right = ParsePower(); // Simplified - will be fixed in full factor implementation");
+            WriteLine("if (right != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("return new GeneratedExpr");
+            WriteLine("{");
+            WriteLine("    ExpressionType = \"BinOp\",");
+            WriteLine("    Value = new { op = \"**\", left = left, right = right }");
+            WriteLine("};");
+            Dedent();
+            WriteLine("}");
+            WriteLine("else");
+            WriteLine("{");
+            Indent();
+            WriteLine("throw new InvalidOperationException(\"Expected factor after '**'\");");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// No power operator, return await_primary result");
+            WriteLine("return left;");
+
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
+        /// <summary>
+        /// Generate term parser: term '*' power | term '/' power | power
         /// Handles multiplication and division with left recursion
         /// </summary>
         private void GenerateTermParser()
         {
-            WriteLine("// term: term '*' primary | term '/' primary | primary");
+            WriteLine("// term: term '*' power | term '/' power | power");
             WriteLine("protected object? ParseTerm()");
             WriteLine("{");
             Indent();
@@ -3586,8 +3699,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (CurrentToken.Type == GeneratedTokenType.ENDMARKER) return null;");
             WriteLine();
 
-            // Start with primary (base case)
-            WriteLine("var result = ParsePrimary();");
+            // Start with power (base case)
+            WriteLine("var result = ParsePower();");
             WriteLine("if (result == null) return null;");
             WriteLine();
 
@@ -3604,7 +3717,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume '*'");
-            WriteLine("var right = ParsePrimary();");
+            WriteLine("var right = ParsePower();");
             WriteLine("if (right != null)");
             WriteLine("{");
             Indent();
@@ -3627,7 +3740,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume '/'");
-            WriteLine("var right = ParsePrimary();");
+            WriteLine("var right = ParsePower();");
             WriteLine("if (right != null)");
             WriteLine("{");
             Indent();
@@ -4426,6 +4539,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Console.WriteLine("[CODEGEN] Generating f-string support methods");
             GenerateFStringMethods();
 
+            // Generate await_primary method for async/await support
+            Console.WriteLine("[CODEGEN] Generating await_primary method for async/await support");
+            GenerateAwaitPrimaryGrammarMethod();
+
             WriteLine("// === End Specific Grammar Rules ===");
             WriteLine();
         }
@@ -5083,6 +5200,52 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
         }
 
+        /// <summary>
+        /// await_primary[expr_ty] (memo): AWAIT a=primary | primary
+        /// </summary>
+        private void GenerateAwaitPrimaryGrammarMethod()
+        {
+            WriteLine("/// <summary>");
+            WriteLine("/// await_primary[expr_ty] (memo): AWAIT a=primary | primary");
+            WriteLine("/// Handles await expressions and delegates to primary for non-await expressions");
+            WriteLine("/// </summary>");
+            WriteLine("public GeneratedExpr? AwaitPrimary()");
+            WriteLine("{");
+            Indent();
+
+            WriteLine("// Check for AWAIT token");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.AWAIT && CurrentToken?.Value == \"await\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume 'await'");
+            WriteLine("var primary = ParsePrimary() as GeneratedExpr;");
+            WriteLine("if (primary != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("return _PyAST_Await(primary);");
+            Dedent();
+            WriteLine("}");
+            WriteLine("else");
+            WriteLine("{");
+            Indent();
+            WriteLine("throw new InvalidOperationException(\"Expected primary expression after 'await'\");");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine("else");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Not an await expression, delegate to primary");
+            WriteLine("return ParsePrimary() as GeneratedExpr;");
+            Dedent();
+            WriteLine("}");
+
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
         private void GenerateFileMethod()
         {
             WriteLine("/// <summary>");
@@ -5236,6 +5399,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    return null; // Invalid decorator usage");
             WriteLine("}");
             WriteLine();
+            WriteLine("// Check for async function definition");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.ASYNC)");
+            WriteLine("{");
+            WriteLine("    Console.WriteLine($\"[DEBUG] ParseCompoundStmt: Found ASYNC token, calling ParseFunctionDef\");");
+            WriteLine("    return ParseFunctionDef();");
+            WriteLine("}");
+            WriteLine();
             WriteLine("// Check for function definition");
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"def\")");
             WriteLine("{");
@@ -5323,7 +5493,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             WriteLine("/// <summary>");
             WriteLine("/// function_def_raw[stmt_ty]: 'def' n=NAME '(' params=[params] ')' ':' b=block");
-            WriteLine("/// { _PyAST_FunctionDef(n->v.Name.id, (params) ? params : _PyPegen_empty_arguments(p), b, NULL, a, NEW_TYPE_COMMENT(p, tc), t, EXTRA) }");
+            WriteLine("///                        | ASYNC 'def' n=NAME '(' params=[params] ')' ':' b=block");
+            WriteLine("/// { _PyAST_FunctionDef / _PyAST_AsyncFunctionDef }");
             WriteLine("/// </summary>");
             WriteLine("public GeneratedStmt ParseFunctionDefRaw()");
             WriteLine("{");
@@ -5331,6 +5502,17 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Console.WriteLine($\"[DEBUG] ParseFunctionDefRaw: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'\");");
             WriteLine();
             WriteLine("var startPos = _position;");
+            WriteLine("bool isAsync = false;");
+            WriteLine();
+            WriteLine("// Check for ASYNC 'def' or just 'def'");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.ASYNC)");
+            WriteLine("{");
+            Indent();
+            WriteLine("isAsync = true;");
+            WriteLine("Advance(); // consume ASYNC");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseFunctionDefRaw: Found ASYNC keyword, expecting 'def' next\");");
+            Dedent();
+            WriteLine("}");
             WriteLine();
             WriteLine("// 'def'");
             WriteLine("if (!ExpectKeyword(\"def\"))");
@@ -5349,6 +5531,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    return null;");
             WriteLine("}");
             WriteLine();
+            WriteLine("// [type_params] - Optional type parameters for PEP 695");
+            WriteLine("var typeParams = ParseTypeParams();");
+            WriteLine();
             WriteLine("// '('");
             WriteLine("if (!ExpectToken(GeneratedTokenType.OP, \"(\"))");
             WriteLine("{");
@@ -5357,13 +5542,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    return null;");
             WriteLine("}");
             WriteLine();
-            WriteLine("// [params] - Skip parameters for now (simple implementation)");
-            WriteLine("// TODO: Implement proper parameter parsing");
-            WriteLine("while (CurrentToken?.Type == GeneratedTokenType.NAME || CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == \",\")");
-            WriteLine("{");
-            WriteLine("    Advance();");
-            WriteLine("}");
-            WriteLine("var parameters = _PyPegen_empty_arguments();");
+            WriteLine("// [params] - Parse function parameters");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseFunctionDefRaw: About to parse parameters at position {_position}\");");
+            WriteLine("var parameters = ParseParams();");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseFunctionDefRaw: Parameters parsing completed\");");
             WriteLine();
             WriteLine("// ')'");
             WriteLine("if (!ExpectToken(GeneratedTokenType.OP, \")\"))");
@@ -5390,9 +5572,21 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    return null;");
             WriteLine("}");
             WriteLine();
-            WriteLine("// Return the successful result");
+            WriteLine("// Return the appropriate result based on async/sync");
+            WriteLine("if (isAsync)");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseFunctionDefRaw: Successfully parsed async function '{name}' at position {_position}\");");
+            WriteLine("return _PyAST_AsyncFunctionDef(name, parameters, body, type_params: typeParams);");
+            Dedent();
+            WriteLine("}");
+            WriteLine("else");
+            WriteLine("{");
+            Indent();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseFunctionDefRaw: Successfully parsed function '{name}' at position {_position}\");");
-            WriteLine("return _PyAST_FunctionDef(name, parameters, body);");
+            WriteLine("return _PyAST_FunctionDef(name, parameters, body, type_params: typeParams);");
+            Dedent();
+            WriteLine("}");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -5527,8 +5721,71 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("public object ParseParams()");
             WriteLine("{");
             Indent();
-            WriteLine("// Simplified parameter parsing for now");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseParams called at position {_position}\");");
+            WriteLine("var result = ParseParameters();");
+            WriteLine("if (result != null)");
+            WriteLine("{");
+            WriteLine("    Console.WriteLine($\"[DEBUG] ParseParams: parameters rule succeeded\");");
+            WriteLine("    return result;");
+            WriteLine("}");
+            WriteLine();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseParams: parameters rule failed, returning empty arguments\");");
             WriteLine("return _PyPegen_empty_arguments();");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            // Generate ParseParameters method
+            WriteLine("/// <summary>");
+            WriteLine("/// parameters[arguments_ty]: param_no_default+ param_with_default* [star_etc] | ...");
+            WriteLine("/// Simplified implementation to parse basic function parameters");
+            WriteLine("/// </summary>");
+            WriteLine("public object ParseParameters()");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseParameters called at position {_position}\");");
+            WriteLine();
+            WriteLine("var args = new List<object>();");
+            WriteLine("var startPos = _position;");
+            WriteLine();
+            WriteLine("// Simple parameter parsing for \"NAME\" patterns like \"x\", \"y\", etc.");
+            WriteLine("while (CurrentToken != null && CurrentToken.Type == GeneratedTokenType.NAME)");
+            WriteLine("{");
+            Indent();
+            WriteLine("var nameToken = CurrentToken;");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseParameters: found NAME token '{nameToken.Value}' at position {_position}\");");
+            WriteLine();
+            WriteLine("// Create _PyAST_arg(name, annotation, type_comment)");
+            WriteLine("var argNode = _PyAST_arg(nameToken.Value, null, null);");
+            WriteLine("args.Add(argNode);");
+            WriteLine();
+            WriteLine("Advance(); // Move past the NAME token");
+            WriteLine();
+            WriteLine("// Check for comma (if there are more parameters)");
+            WriteLine("if (CurrentToken != null && CurrentToken.Type == GeneratedTokenType.OP && CurrentToken.Value == \",\")");
+            WriteLine("{");
+            WriteLine("    Advance(); // Move past comma");
+            WriteLine("    Console.WriteLine($\"[DEBUG] ParseParameters: found comma, continuing to next parameter\");");
+            WriteLine("}");
+            WriteLine("else");
+            WriteLine("{");
+            WriteLine("    // End of parameters");
+            WriteLine("    break;");
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("if (args.Count > 0)");
+            WriteLine("{");
+            WriteLine("    Console.WriteLine($\"[DEBUG] ParseParameters: parsed {args.Count} arguments\");");
+            WriteLine("    // Call _PyPegen_make_arguments(p, posonlyargs, posonly_defaults, args, defaults, star_etc)");
+            WriteLine("    var result = _PyPegen_make_arguments(this, null, null, args, null, null);");
+            WriteLine("    Console.WriteLine($\"[DEBUG] ParseParameters: _PyPegen_make_arguments called successfully\");");
+            WriteLine("    return result;");
+            WriteLine("}");
+            WriteLine();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseParameters: no parameters found\");");
+            WriteLine("return null;");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -6727,6 +6984,147 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Console.WriteLine($\"[DEBUG] ParseCaseBlock: Failed to parse case body at position {_position}, token: {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("_position = startPos;");
             WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
+        /// <summary>
+        /// Generate type parameter parsing methods for PEP 695
+        /// </summary>
+        private void GenerateTypeParameterMethods()
+        {
+            // ParseTypeParams method
+            WriteLine("/// <summary>");
+            WriteLine("/// type_params[asdl_type_param_seq*]: '[' t=type_param_seq ']'");
+            WriteLine("/// Parse optional type parameters for PEP 695");
+            WriteLine("/// </summary>");
+            WriteLine("public List<object>? ParseTypeParams()");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Check for '[' - if not present, return null (no type parameters)");
+            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != \"[\")");
+            WriteLine("{");
+            WriteLine("    return null;");
+            WriteLine("}");
+            WriteLine();
+            WriteLine("var startPos = _position;");
+            WriteLine("Advance(); // consume '['");
+            WriteLine();
+            WriteLine("var typeParams = new List<object>();");
+            WriteLine();
+            WriteLine("// Parse type_param_seq: comma-separated type parameters");
+            WriteLine("while (CurrentToken != null)");
+            WriteLine("{");
+            WriteLine("    var typeParam = ParseTypeParam();");
+            WriteLine("    if (typeParam == null)");
+            WriteLine("    {");
+            WriteLine("        Console.WriteLine($\"[DEBUG] ParseTypeParams: Failed to parse type parameter at position {_position}\");");
+            WriteLine("        _position = startPos;");
+            WriteLine("        return null;");
+            WriteLine("    }");
+            WriteLine();
+            WriteLine("    typeParams.Add(typeParam);");
+            WriteLine();
+            WriteLine("    // Check for comma or end");
+            WriteLine("    if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \",\")");
+            WriteLine("    {");
+            WriteLine("        Advance(); // consume ','");
+            WriteLine("        continue;");
+            WriteLine("    }");
+            WriteLine("    else if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"]\")");
+            WriteLine("    {");
+            WriteLine("        break; // End of type parameters");
+            WriteLine("    }");
+            WriteLine("    else");
+            WriteLine("    {");
+            WriteLine("        Console.WriteLine($\"[DEBUG] ParseTypeParams: Expected ',' or ']' at position {_position}\");");
+            WriteLine("        _position = startPos;");
+            WriteLine("        return null;");
+            WriteLine("    }");
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// Expect ']'");
+            WriteLine("if (!ExpectToken(GeneratedTokenType.OP, \"]\"))");
+            WriteLine("{");
+            WriteLine("    Console.WriteLine($\"[DEBUG] ParseTypeParams: Failed to match ']' at position {_position}\");");
+            WriteLine("    _position = startPos;");
+            WriteLine("    return null;");
+            WriteLine("}");
+            WriteLine();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseTypeParams: Successfully parsed {typeParams.Count} type parameters\");");
+            WriteLine("return typeParams;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            // ParseTypeParam method
+            WriteLine("/// <summary>");
+            WriteLine("/// type_param[type_param_ty]: TypeVar | TypeVarTuple | ParamSpec");
+            WriteLine("/// Parse individual type parameter (T, *Ts, **P)");
+            WriteLine("/// </summary>");
+            WriteLine("public object? ParseTypeParam()");
+            WriteLine("{");
+            Indent();
+            WriteLine("var startPos = _position;");
+            WriteLine();
+            WriteLine("// Check for TypeVarTuple: '*' NAME");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"*\")");
+            WriteLine("{");
+            WriteLine("    Advance(); // consume '*'");
+            WriteLine("    var name = ExpectName();");
+            WriteLine("    if (name == null)");
+            WriteLine("    {");
+            WriteLine("        Console.WriteLine($\"[DEBUG] ParseTypeParam: Failed to parse TypeVarTuple name at position {_position}\");");
+            WriteLine("        _position = startPos;");
+            WriteLine("        return null;");
+            WriteLine("    }");
+            WriteLine();
+            WriteLine("    Console.WriteLine($\"[DEBUG] ParseTypeParam: Parsed TypeVarTuple '{name}'\");");
+            WriteLine("    return _PyAST_TypeVarTuple(name);");
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// Check for ParamSpec: '**' NAME");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"**\")");
+            WriteLine("{");
+            WriteLine("    Advance(); // consume '**'");
+            WriteLine("    var name = ExpectName();");
+            WriteLine("    if (name == null)");
+            WriteLine("    {");
+            WriteLine("        Console.WriteLine($\"[DEBUG] ParseTypeParam: Failed to parse ParamSpec name at position {_position}\");");
+            WriteLine("        _position = startPos;");
+            WriteLine("        return null;");
+            WriteLine("    }");
+            WriteLine();
+            WriteLine("    Console.WriteLine($\"[DEBUG] ParseTypeParam: Parsed ParamSpec '{name}'\");");
+            WriteLine("    return _PyAST_ParamSpec(name);");
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// TypeVar: NAME [':' expression]");
+            WriteLine("var typeVarName = ExpectName();");
+            WriteLine("if (typeVarName == null)");
+            WriteLine("{");
+            WriteLine("    Console.WriteLine($\"[DEBUG] ParseTypeParam: Failed to parse TypeVar name at position {_position}\");");
+            WriteLine("    _position = startPos;");
+            WriteLine("    return null;");
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// Optional bound: ':' expression");
+            WriteLine("object? bound = null;");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \":\")");
+            WriteLine("{");
+            WriteLine("    Advance(); // consume ':'");
+            WriteLine("    bound = ParseExpression();");
+            WriteLine("    if (bound == null)");
+            WriteLine("    {");
+            WriteLine("        Console.WriteLine($\"[DEBUG] ParseTypeParam: Failed to parse TypeVar bound at position {_position}\");");
+            WriteLine("        _position = startPos;");
+            WriteLine("        return null;");
+            WriteLine("    }");
+            WriteLine("}");
+            WriteLine();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseTypeParam: Parsed TypeVar '{typeVarName}' with bound: {bound != null}\");");
+            WriteLine("return _PyAST_TypeVar(typeVarName, bound);");
             Dedent();
             WriteLine("}");
             WriteLine();

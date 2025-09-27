@@ -74,6 +74,12 @@ public partial class PyFunction : PyObject, IDescriptor
             // async generator 객체 생성 (kwargs는 생성 시 사용하지 않음)
             return CreateAsyncGenerator(args);
         }
+        // 코루틴 함수인지 확인 (async def, but not async generator)
+        else if (CodeObject?.IsCoroutine() == true)
+        {
+            // 코루틴 객체 생성 (kwargs는 생성 시 사용하지 않음)
+            return CreateCoroutine(args);
+        }
         // 일반 generator 함수인지 확인
         else if (CodeObject?.IsGenerator() == true)
         {
@@ -108,7 +114,28 @@ public partial class PyFunction : PyObject, IDescriptor
         
         return new SharpPy.Core.PyAsyncGenerator(enumerator, Name);
     }
-    
+
+    /// <summary>
+    /// 코루틴 객체 생성 - PEP 492 호환
+    /// </summary>
+    private SharpPy.Core.PyCoroutine CreateCoroutine(PyObject[] args)
+    {
+        // CPython 3.12 방식: Frame과 VM을 사용한 실제 코루틴
+        if (CodeObject == null)
+        {
+            throw new InvalidOperationException("Cannot create coroutine without code object");
+        }
+
+        // 코루틴용 VM 인스턴스 사용
+        var vm = PyVM.Instance;
+
+        // 코루틴 실행용 Frame 생성
+        var frame = new PyFrame(CodeObject, args, null, Closure);
+        frame.IsCoroutine = true;  // CPython 3.12: coroutine frame 표시
+
+        return new SharpPy.Core.PyCoroutine(frame, vm, Name);
+    }
+
     /// <summary>
     /// 제너레이터 객체 생성 - CPython 3.12 완전 호환
     /// </summary>

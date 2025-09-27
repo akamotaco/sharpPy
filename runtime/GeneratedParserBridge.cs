@@ -530,11 +530,21 @@ namespace SharpPy
 
                     if (stmt.Value != null)
                     {
-                        var returnData = stmt.Value as dynamic;
-                        if (returnData?.value != null)
+                        var returnData = stmt.Value;
+
+                        // Handle GeneratedExpr directly
+                        if (returnData is GeneratedExpr genExpr && genExpr.Value != null)
                         {
-                            // Convert the return value expression using ConvertAnyExpression
-                            returnValue = ConvertAnyExpression(returnData.value);
+                            returnValue = ConvertAnyExpression(genExpr.Value);
+                        }
+                        // Handle dynamic objects with .value property
+                        else if (returnData is not GeneratedExpr)
+                        {
+                            var dynamicData = returnData as dynamic;
+                            if (dynamicData?.value != null)
+                            {
+                                returnValue = ConvertAnyExpression(dynamicData.value);
+                            }
                         }
                     }
 
@@ -742,6 +752,86 @@ namespace SharpPy
                     }
                     return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
+                case "try_star":
+                    // Try statement with except* handlers (PEP 654: Exception Groups)
+                    if (stmt.Value != null)
+                    {
+                        var tryData = stmt.Value as dynamic;
+
+                        // Convert try body statements
+                        var tryBodyStmts = new List<Statement>();
+                        if (tryData.body != null)
+                        {
+                            foreach (var bodyStmt in tryData.body)
+                            {
+                                var convertedStmt = ConvertStatement(bodyStmt, insideLoop, insideFunction);
+                                if (convertedStmt != null)
+                                    tryBodyStmts.Add(convertedStmt);
+                            }
+                        }
+
+                        // Convert except* handlers
+                        var exceptHandlers = new List<ExceptHandler>();
+                        if (tryData.handlers != null)
+                        {
+                            foreach (var handlerData in tryData.handlers)
+                            {
+                                var handler = handlerData as dynamic;
+
+                                // Convert except body statements
+                                var exceptBodyStmts = new List<Statement>();
+                                if (handler.body != null)
+                                {
+                                    foreach (var exceptStmt in handler.body)
+                                    {
+                                        var convertedStmt = ConvertStatement(exceptStmt, insideLoop, insideFunction);
+                                        if (convertedStmt != null)
+                                            exceptBodyStmts.Add(convertedStmt);
+                                    }
+                                }
+
+                                // Handle exception type and variable name for except*
+                                Expression? exceptionTypeExpr = null;
+                                if (handler.type != null)
+                                {
+                                    exceptionTypeExpr = ConvertAnyExpression(handler.type);
+                                }
+
+                                string? variableName = handler.name != null ? handler.name.ToString() : null;
+
+                                // Create except* handler (marked as exception group handler)
+                                var exHandler = new ExceptHandler(exceptionTypeExpr, variableName, exceptBodyStmts, isStar: true);  // Mark as except* handler for PEP 654
+                                exceptHandlers.Add(exHandler);
+                            }
+                        }
+
+                        // Handle else and finally blocks
+                        var elseStmts = new List<Statement>();
+                        if (tryData.orelse != null)
+                        {
+                            foreach (var elseStmt in tryData.orelse)
+                            {
+                                var convertedStmt = ConvertStatement(elseStmt, insideLoop, insideFunction);
+                                if (convertedStmt != null)
+                                    elseStmts.Add(convertedStmt);
+                            }
+                        }
+
+                        var finallyStmts = new List<Statement>();
+                        if (tryData.finalbody != null)
+                        {
+                            foreach (var finallyStmt in tryData.finalbody)
+                            {
+                                var convertedStmt = ConvertStatement(finallyStmt, insideLoop, insideFunction);
+                                if (convertedStmt != null)
+                                    finallyStmts.Add(convertedStmt);
+                            }
+                        }
+
+                        return new TryStatement(tryBodyStmts, exceptHandlers, elseStmts, finallyStmts);
+                    }
+                    return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
+
                 case "function_def":
                     // Function definition (def name(): body)
                     if (stmt.Value is GeneratedFunctionDef funcData)
@@ -750,8 +840,124 @@ namespace SharpPy
 
                         if (!string.IsNullOrEmpty(name))
                         {
-                            // Create parameter list (empty for now, TODO: parse arguments)
+                            // Extract parameters from Arguments field
                             var parameters = new List<string>();
+                            if (funcData.Arguments != null)
+                            {
+                                // Debug Arguments structure
+                                Console.WriteLine($"[DEBUG] Arguments type: {funcData.Arguments.GetType().Name}");
+                                Console.WriteLine($"[DEBUG] Arguments value: {funcData.Arguments}");
+
+                                // Arguments structure parsing - try Dictionary first
+                                if (funcData.Arguments is Dictionary<string, object> argsDict)
+                                {
+                                    Console.WriteLine($"[DEBUG] Arguments is Dictionary with keys: [{string.Join(", ", argsDict.Keys)}]");
+                                    foreach (var kvp in argsDict)
+                                    {
+                                        Console.WriteLine($"[DEBUG] Key: {kvp.Key}, Value: {kvp.Value} (Type: {kvp.Value?.GetType().Name})");
+
+                                        // Look for parameter-related keys
+                                        if (kvp.Key == "args" || kvp.Key == "arguments" || kvp.Key == "parameters" || kvp.Key == "params")
+                                        {
+                                            if (kvp.Value is List<object> paramList)
+                                            {
+                                                Console.WriteLine($"[DEBUG] Found parameter list with {paramList.Count} items");
+                                                foreach (var param in paramList)
+                                                {
+                                                    Console.WriteLine($"[DEBUG] Processing param: {param} (Type: {param?.GetType().Name})");
+                                                    if (param is string paramName)
+                                                    {
+                                                        Console.WriteLine($"[DEBUG] Adding string parameter: {paramName}");
+                                                        parameters.Add(paramName);
+                                                    }
+                                                    else if (param != null)
+                                                    {
+                                                        // Try to extract parameter name from complex objects
+                                                        if (param is Dictionary<string, object> paramDict)
+                                                        {
+                                                            Console.WriteLine($"[DEBUG] Parameter is Dictionary with keys: [{string.Join(", ", paramDict.Keys)}]");
+                                                            if (paramDict.ContainsKey("arg"))
+                                                            {
+                                                                Console.WriteLine($"[DEBUG] Adding arg parameter: {paramDict["arg"]}");
+                                                                parameters.Add(paramDict["arg"].ToString());
+                                                            }
+                                                            else if (paramDict.ContainsKey("name"))
+                                                            {
+                                                                Console.WriteLine($"[DEBUG] Adding name parameter: {paramDict["name"]}");
+                                                                parameters.Add(paramDict["name"].ToString());
+                                                            }
+                                                            else
+                                                            {
+                                                                Console.WriteLine($"[DEBUG] No 'arg' or 'name' key found in parameter dict");
+                                                            }
+                                                        }
+                                                        else
+                                                        {
+                                                            Console.WriteLine($"[DEBUG] Adding toString parameter: {param}");
+                                                            parameters.Add(param.ToString());
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        Console.WriteLine("[DEBUG] Parameter is null, skipping");
+                                                    }
+                                                }
+                                            }
+                                            else if (kvp.Value != null)
+                                            {
+                                                Console.WriteLine($"[DEBUG] Parameter value is not a list: {kvp.Value}");
+                                            }
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    // Try alternative parsing approaches
+                                    try
+                                    {
+                                        var argsData = funcData.Arguments as dynamic;
+                                        if (argsData != null && argsData.args != null)
+                                        {
+                                            Console.WriteLine("[DEBUG] Found args field via dynamic");
+                                            foreach (var arg in argsData.args)
+                                            {
+                                                var argData = arg as dynamic;
+                                                if (argData != null && argData.arg != null)
+                                                {
+                                                    parameters.Add(argData.arg.ToString());
+                                                }
+                                            }
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Console.WriteLine($"[DEBUG] Dynamic parsing failed: {ex.Message}");
+
+                                        // Final fallback - try as List<object>
+                                        if (funcData.Arguments is List<object> argsList)
+                                        {
+                                            Console.WriteLine("[DEBUG] Arguments is List<object>");
+                                            foreach (var arg in argsList)
+                                            {
+                                                if (arg is string argName)
+                                                {
+                                                    parameters.Add(argName);
+                                                }
+                                                else if (arg != null)
+                                                {
+                                                    parameters.Add(arg.ToString());
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Console.WriteLine($"[DEBUG] Extracted function parameters: [{string.Join(", ", parameters)}]");
+                            }
+                            else
+                            {
+                                Console.WriteLine("[DEBUG] funcData.Arguments is null");
+                            }
 
                             // Convert function body with insideFunction=true
                             var bodyStmts = new List<Statement>();
@@ -1404,6 +1610,14 @@ namespace SharpPy
 
                 // Lambda expressions
                 "Lambda" => ConvertLambdaFromGenerated(genExpr),
+
+                // Async/await expressions
+                "await" => ConvertAwaitFromGenerated(genExpr),
+
+                // PEP 695 Type Parameters
+                "type_var" => ConvertTypeVarFromGenerated(genExpr),
+                "type_var_tuple" => ConvertTypeVarTupleFromGenerated(genExpr),
+                "param_spec" => ConvertParamSpecFromGenerated(genExpr),
 
                 "Expression" => ConvertAnyExpression(genExpr.Value), // Fallback for wrapped expressions
                 _ => throw new NotSupportedException($"Unsupported GeneratedExpr type: {genExpr.ExpressionType}")
@@ -2206,6 +2420,92 @@ namespace SharpPy
         {
             var value = ConvertDynamicToExpression(expr.value);
             return new AwaitExpression(value);
+        }
+
+        /// <summary>
+        /// Convert Await from GeneratedExpr to SharpPy AwaitExpression
+        /// </summary>
+        private static Expression ConvertAwaitFromGenerated(GeneratedExpr genExpr)
+        {
+            if (genExpr.Value == null)
+            {
+                throw new InvalidOperationException("Await expression value is null");
+            }
+
+            var awaitedExpr = ConvertAnyExpression(genExpr.Value);
+            return new AwaitExpression(awaitedExpr);
+        }
+
+        /// <summary>
+        /// Convert TypeVar from GeneratedExpr to SharpPy TypeVarExpression
+        /// </summary>
+        private static Expression ConvertTypeVarFromGenerated(GeneratedExpr genExpr)
+        {
+            if (genExpr.Value == null)
+            {
+                throw new InvalidOperationException("TypeVar expression value is null");
+            }
+
+            var typeVarData = genExpr.Value;
+            string name = "";
+            Expression? bound = null;
+
+            // Extract name and bound from anonymous object
+            if (typeVarData.GetType().GetProperty("name")?.GetValue(typeVarData) is string nameValue)
+            {
+                name = nameValue;
+            }
+
+            if (typeVarData.GetType().GetProperty("bound")?.GetValue(typeVarData) is object boundValue && boundValue != null)
+            {
+                bound = ConvertAnyExpression(boundValue);
+            }
+
+            return new TypeVarExpression(name, bound);
+        }
+
+        /// <summary>
+        /// Convert TypeVarTuple from GeneratedExpr to SharpPy TypeVarTupleExpression
+        /// </summary>
+        private static Expression ConvertTypeVarTupleFromGenerated(GeneratedExpr genExpr)
+        {
+            if (genExpr.Value == null)
+            {
+                throw new InvalidOperationException("TypeVarTuple expression value is null");
+            }
+
+            var typeVarTupleData = genExpr.Value;
+            string name = "";
+
+            // Extract name from anonymous object
+            if (typeVarTupleData.GetType().GetProperty("name")?.GetValue(typeVarTupleData) is string nameValue)
+            {
+                name = nameValue;
+            }
+
+            return new TypeVarTupleExpression(name);
+        }
+
+        /// <summary>
+        /// Convert ParamSpec from GeneratedExpr to SharpPy ParamSpecExpression
+        /// </summary>
+        private static Expression ConvertParamSpecFromGenerated(GeneratedExpr genExpr)
+        {
+            if (genExpr.Value == null)
+            {
+                throw new InvalidOperationException("ParamSpec expression value is null");
+            }
+
+            var paramSpecData = genExpr.Value;
+            string name = "";
+
+            // Extract name from anonymous object
+            if (paramSpecData.GetType().GetProperty("name")?.GetValue(paramSpecData) is string nameValue)
+            {
+                name = nameValue;
+            }
+
+            return new ParamSpecExpression(name);
         }
 
 

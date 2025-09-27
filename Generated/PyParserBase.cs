@@ -572,9 +572,46 @@ namespace SharpPy.Generated
             object type_params = null)
         {
             Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: Creating function '{name}' with body type: {body?.GetType().Name}");
+            Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: arguments parameter is null: {arguments == null}");
+            if (arguments != null)
+            {
+                Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: arguments type: {arguments.GetType().Name}");
+                Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: arguments value: {arguments}");
+            }
 
             var funcDef = new GeneratedStmt();
             funcDef.StatementType = "function_def";
+
+            var finalArguments = arguments ?? _PyPegen_empty_arguments();
+            Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: Using {(arguments == null ? "empty" : "provided")} arguments");
+
+            var funcInfo = new GeneratedFunctionDef
+            {
+                Name = name,
+                Arguments = finalArguments,
+                Body = body,
+                DecoratorList = decorator_list ?? new List<object>(),
+                Returns = returns,
+                TypeComment = type_comment,
+                TypeParams = type_params
+            };
+
+            funcDef.Value = funcInfo;
+            Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: Function definition created successfully");
+            return funcDef;
+        }
+
+        /// <summary>
+        /// _PyAST_AsyncFunctionDef - Create async function definition AST node
+        /// </summary>
+        protected GeneratedStmt _PyAST_AsyncFunctionDef(string name, object arguments, object body,
+            object decorator_list = null, object returns = null, string type_comment = null,
+            object type_params = null)
+        {
+            Console.WriteLine($"[DEBUG] _PyAST_AsyncFunctionDef: Creating async function '{name}' with body type: {body?.GetType().Name}");
+
+            var funcDef = new GeneratedStmt();
+            funcDef.StatementType = "async_function_def";
 
             var funcInfo = new GeneratedFunctionDef
             {
@@ -588,7 +625,7 @@ namespace SharpPy.Generated
             };
 
             funcDef.Value = funcInfo;
-            Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: Function definition created successfully");
+            Console.WriteLine($"[DEBUG] _PyAST_AsyncFunctionDef: Async function definition created successfully");
             return funcDef;
         }
 
@@ -1244,6 +1281,95 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
+        /// _PyAST_Await - Create await expression AST node
+        /// </summary>
+        protected GeneratedExpr _PyAST_Await(object value)
+        {
+            var expr = new GeneratedExpr();
+            expr.ExpressionType = "await";
+            expr.Value = value;
+            return expr;
+        }
+
+        /// <summary>
+        /// _PyAST_TypeVar - Create TypeVar expression AST node for PEP 695
+        /// </summary>
+        protected GeneratedExpr _PyAST_TypeVar(string name, object bound = null)
+        {
+            var expr = new GeneratedExpr();
+            expr.ExpressionType = "type_var";
+            expr.Value = new { name = name, bound = bound };
+            return expr;
+        }
+
+        /// <summary>
+        /// _PyAST_TypeVarTuple - Create TypeVarTuple expression AST node for PEP 695
+        /// </summary>
+        protected GeneratedExpr _PyAST_TypeVarTuple(string name)
+        {
+            var expr = new GeneratedExpr();
+            expr.ExpressionType = "type_var_tuple";
+            expr.Value = new { name = name };
+            return expr;
+        }
+
+        /// <summary>
+        /// _PyAST_ParamSpec - Create ParamSpec expression AST node for PEP 695
+        /// </summary>
+        protected GeneratedExpr _PyAST_ParamSpec(string name)
+        {
+            var expr = new GeneratedExpr();
+            expr.ExpressionType = "param_spec";
+            expr.Value = new { name = name };
+            return expr;
+        }
+
+        /// <summary>
+        /// _PyAST_Try - Create try statement AST node
+        /// </summary>
+        protected GeneratedStmt _PyAST_Try(object body, object handlers = null, object orelse = null, object finalbody = null)
+        {
+            var stmt = new GeneratedStmt();
+            stmt.StatementType = "try";
+            stmt.Value = new {
+                body = body,
+                handlers = handlers,
+                orelse = orelse,
+                finalbody = finalbody
+            };
+            return stmt;
+        }
+
+        /// <summary>
+        /// _PyAST_TryStar - Create try statement AST node with except* handlers (PEP 654)
+        /// </summary>
+        protected GeneratedStmt _PyAST_TryStar(object body, object handlers = null, object orelse = null, object finalbody = null)
+        {
+            var stmt = new GeneratedStmt();
+            stmt.StatementType = "try_star";  // Different type to distinguish except* handling
+            stmt.Value = new {
+                body = body,
+                handlers = handlers,
+                orelse = orelse,
+                finalbody = finalbody
+            };
+            return stmt;
+        }
+
+        /// <summary>
+        /// _PyAST_ExceptHandler - Create except handler AST node (supports both except and except*)
+        /// </summary>
+        protected object _PyAST_ExceptHandler(object type, string name, object body, bool is_star = false)
+        {
+            return new {
+                type = type,
+                name = name,
+                body = body,
+                is_star = is_star  // PEP 654: except* support
+            };
+        }
+
+        /// <summary>
         /// _PyPegen_checked_future_import - Check future import validity
         /// </summary>
         protected GeneratedStmt _PyPegen_checked_future_import(string featureName, object alias, int level)
@@ -1472,6 +1598,118 @@ namespace SharpPy.Generated
             {
                 Console.WriteLine($"[CONTEXT-STACK]   {ctx}");
             }
+        }
+
+        // ===== Missing PEG Parser Functions for Function Parameters =====
+
+        /// <summary>
+        /// Create an argument AST node from name and optional annotation
+        /// </summary>
+        protected GeneratedExpr _PyAST_arg(string name, object? annotation = null, string? type_comment = null)
+        {
+            var expr = new GeneratedExpr();
+            expr.ExpressionType = "arg";
+            expr.Value = new {
+                arg = name,
+                annotation = annotation,
+                type_comment = type_comment
+            };
+            return expr;
+        }
+
+        /// <summary>
+        /// Helper function to add type comment to argument
+        /// </summary>
+        protected GeneratedExpr _PyPegen_add_type_comment_to_arg(object p, GeneratedExpr arg, object? type_comment)
+        {
+            if (type_comment != null && arg.Value is object argValue)
+            {
+                // Create new arg with type comment
+                var newArg = new GeneratedExpr();
+                newArg.ExpressionType = "arg";
+
+                dynamic dynArgValue = argValue;
+                newArg.Value = new {
+                    arg = dynArgValue.arg,
+                    annotation = dynArgValue.annotation,
+                    type_comment = type_comment
+                };
+                return newArg;
+            }
+            return arg;
+        }
+
+        /// <summary>
+        /// Create arguments structure from parameter lists
+        /// CPython compatible function for parsing function parameters
+        /// </summary>
+        protected object _PyPegen_make_arguments(object p,
+            object? posonlyargs = null,
+            object? posonly_defaults = null,
+            object? args = null,
+            object? defaults = null,
+            object? star_etc = null)
+        {
+            var result = new Dictionary<string, object>();
+
+            // Convert parameter lists to proper format
+            result["posonlyargs"] = ConvertArgsList(posonlyargs) ?? new List<object>();
+            result["args"] = ConvertArgsList(args) ?? new List<object>();
+            result["vararg"] = null;
+            result["kwonlyargs"] = new List<object>();
+            result["kw_defaults"] = new List<object>();
+            result["kwarg"] = null;
+            result["defaults"] = ConvertDefaultsList(defaults) ?? new List<object>();
+
+            // Handle star_etc (varargs, kwargs, kwonly args)
+            if (star_etc != null)
+            {
+                // star_etc contains varargs, kwonly args, and kwargs
+                // This is a simplified implementation - may need enhancement
+                Console.WriteLine($"[DEBUG] _PyPegen_make_arguments: Processing star_etc: {star_etc.GetType().Name}");
+            }
+
+            Console.WriteLine($"[DEBUG] _PyPegen_make_arguments: Created arguments with {((List<object>)result["args"]).Count} regular args");
+            return result;
+        }
+
+        /// <summary>
+        /// Convert argument sequence to list format
+        /// </summary>
+        private List<object> ConvertArgsList(object? argSeq)
+        {
+            if (argSeq == null) return new List<object>();
+
+            if (argSeq is List<object> list)
+            {
+                Console.WriteLine($"[DEBUG] ConvertArgsList: Input is List<object> with {list.Count} items");
+                return list;
+            }
+
+            if (argSeq is IEnumerable<object> enumerable)
+            {
+                var result = enumerable.ToList();
+                Console.WriteLine($"[DEBUG] ConvertArgsList: Converted IEnumerable to List with {result.Count} items");
+                return result;
+            }
+
+            // Single argument case
+            var singleArgList = new List<object> { argSeq };
+            Console.WriteLine($"[DEBUG] ConvertArgsList: Created single-arg list");
+            return singleArgList;
+        }
+
+        /// <summary>
+        /// Convert defaults sequence to list format
+        /// </summary>
+        private List<object> ConvertDefaultsList(object? defaults)
+        {
+            if (defaults == null) return new List<object>();
+
+            if (defaults is List<object> list) return list;
+            if (defaults is IEnumerable<object> enumerable) return enumerable.ToList();
+
+            return new List<object> { defaults };
         }
 
     }
