@@ -131,26 +131,90 @@ public class PyModule : PyObject
         ModuleDict[name] = value;
     }
     
-    // 모듈 실행 (소스 코드 실행)
+    // 모듈 실행 (소스 코드 실행) - 전체 Python 인터프리터 파이프라인 사용
     public void Execute(string sourceCode)
     {
         Console.WriteLine($"📄 모듈 '{Name}' 실행 중...");
-        
-        var lines = sourceCode.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        
-        foreach (var line in lines)
+
+        try
         {
-            var trimmed = line.Trim();
-            if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith("#"))
-                continue;
-                
-            ExecuteLine(trimmed);
+            // 1단계: 파싱 (소스 → AST)
+            var statements = GeneratedParserBridge.ParseSource(sourceCode, FileName);
+
+            // 2단계: 컴파일 (AST → 바이트코드)
+            var compiler = new PythonCompiler();
+            var codeObject = compiler.Compile(statements, Name, new List<string>(), FileName);
+
+            // 3단계: 모듈 전용 글로벌 스코프 생성
+            var moduleGlobalScope = CreateModuleGlobalScope();
+
+            // 4단계: VM 실행 (모듈 네임스페이스에서 실행)
+            var vm = PyVM.Instance;
+            vm.ExecuteModule(codeObject, moduleGlobalScope);
+
+            // 5단계: 모듈 딕셔너리 업데이트 (실행 결과를 ModuleDict에 반영)
+            UpdateModuleDictFromScope(moduleGlobalScope);
+
+            IsInitialized = true;
+            Console.WriteLine($"✅ 모듈 '{Name}' 초기화 완료");
         }
-        
-        IsInitialized = true;
-        Console.WriteLine($"✅ 모듈 '{Name}' 초기화 완료");
+        catch (System.Exception ex)
+        {
+            Console.WriteLine($"❌ 모듈 '{Name}' 실행 실패: {ex.Message}");
+            throw PyImportError.Create($"Failed to execute module '{Name}': {ex.Message}");
+        }
     }
-    
+
+    /// <summary>
+    /// 모듈 전용 글로벌 스코프 생성 (모듈의 __dict__를 기반으로)
+    /// </summary>
+    private PyScopeChain CreateModuleGlobalScope()
+    {
+        var moduleScope = new PyScopeChain();
+
+        // 기본 모듈 속성들을 글로벌 스코프에 설정
+        foreach (var kvp in ModuleDict)
+        {
+            moduleScope.AssignVariable(kvp.Key, kvp.Value);
+        }
+
+        // 내장 함수들은 PyScopeChain 생성 시 자동으로 설정됨 (PyBuiltinsModule.Instance)
+
+        return moduleScope;
+    }
+
+    /// <summary>
+    /// 실행 후 모듈 딕셔너리를 글로벌 스코프 결과로 업데이트
+    /// </summary>
+    private void UpdateModuleDictFromScope(PyScopeChain moduleScope)
+    {
+        // 글로벌 스코프의 변수들을 모듈 딕셔너리에 반영
+        var globalVars = moduleScope.GetGlobalVariables();
+
+        foreach (var kvp in globalVars)
+        {
+            // 내장 함수나 시스템 변수는 제외하고 사용자 정의 변수만 저장
+            if (!IsSystemVariable(kvp.Key))
+            {
+                ModuleDict[kvp.Key] = kvp.Value;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 시스템 변수인지 확인 (모듈 딕셔너리에 저장하지 않을 변수들)
+    /// </summary>
+    private bool IsSystemVariable(string name)
+    {
+        return name.StartsWith("__builtins__") ||
+               name == "print" ||
+               name == "len" ||
+               name == "type" ||
+               name == "abs" ||
+               name == "max" ||
+               name == "min";
+    }
+
     private void ExecuteLine(string line)
     {
         if (line.StartsWith("def "))
@@ -431,20 +495,28 @@ public class PyModule : PyObject
             return CreateDefaultSysPath();
         }
 
-        // 기본 sys.path 생성
+        // 기본 sys.path 생성 (CPython 호환 구조)
         private static PyList CreateDefaultSysPath()
         {
             var pathList = new List<PyObject>();
 
-            // 현재 디렉토리
+            // 현재 디렉토리 (사용자 모듈)
             pathList.Add(new PyString("."));
 
-            // 실행 파일 디렉토리
+            // 실행 파일 디렉토리 기준 경로
             var exeDir = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? "";
-            pathList.Add(new PyString(exeDir));
 
-            // modules 디렉토리
-            pathList.Add(new PyString(System.IO.Path.Combine(exeDir, "modules")));
+            // 프로젝트 루트 디렉토리 (exe는 bin/Debug/net8.0/에 있으므로 3단계 위로)
+            var projectRoot = System.IO.Path.GetFullPath(System.IO.Path.Combine(exeDir, "..", "..", ".."));
+
+            // 1순위: Lib 디렉토리 (CPython 호환 표준 라이브러리) - 프로젝트 루트에서
+            pathList.Add(new PyString(System.IO.Path.Combine(projectRoot, "Lib")));
+
+            // 2순위: modules 디렉토리 (SharpPy 전용 C# 구현 모듈) - 프로젝트 루트에서
+            pathList.Add(new PyString(System.IO.Path.Combine(projectRoot, "modules")));
+
+            // 3순위: 실행 파일 디렉토리
+            pathList.Add(new PyString(exeDir));
 
             return new PyList(pathList.ToArray());
         }

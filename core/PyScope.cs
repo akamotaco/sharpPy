@@ -600,6 +600,19 @@ public class PyScope
             Console.WriteLine($"  ⭐ Builtin Module (전역): {_builtinModule}");
 #endif
         }
+
+        /// <summary>
+        /// 글로벌 스코프의 모든 변수를 반환 (모듈 실행 후 변수 추출용)
+        /// </summary>
+        public Dictionary<string, PyObject> GetGlobalVariables()
+        {
+            if (GlobalScope?.Variables != null)
+            {
+                return new Dictionary<string, PyObject>(GlobalScope.Variables);
+            }
+            return new Dictionary<string, PyObject>();
+        }
+
     }
     #endregion
 }
