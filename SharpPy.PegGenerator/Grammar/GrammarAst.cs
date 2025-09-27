@@ -35,7 +35,7 @@ namespace SharpPy.PegGenerator.Grammar
         public string Name { get; set; } = "";
         public string? ReturnType { get; set; }
         public List<Alternative> Alternatives { get; set; } = new();
-        public bool IsMemoized { get; set; } = true; // Default to memoized
+        public bool IsMemoized { get; set; } = false; // Default to NOT memoized (CPython 3.12 behavior)
 
         public override string ToString()
         {

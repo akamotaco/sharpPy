@@ -46,6 +46,7 @@ namespace SharpPy.Generated
     {
         public string? ExpressionType { get; set; }
         public object? Value { get; set; }
+        public string? Context { get; set; } = "Load"; // Load, Store, Del context
     }
     public class GeneratedModule : GeneratedAstNode
     {
@@ -1598,8 +1599,15 @@ namespace SharpPy.Generated
             var statements = new List<object>();
             while (_position < _tokens.Count && CurrentToken?.Type != GeneratedTokenType.ENDMARKER)
             {
-                // Skip NEWLINE, NL, COMMENT, and DEDENT tokens
-                if (CurrentToken?.Type == GeneratedTokenType.NEWLINE || CurrentToken?.Type == GeneratedTokenType.NL || CurrentToken?.Type == GeneratedTokenType.COMMENT || CurrentToken?.Type == GeneratedTokenType.DEDENT)
+                // Handle different token types appropriately
+                if (CurrentToken?.Type == GeneratedTokenType.DEDENT)
+                {
+                    // CPython 3.12 PEG: Stop parsing at DEDENT boundary
+                    break;
+                }
+
+                // Skip NEWLINE, NL, COMMENT tokens
+                if (CurrentToken?.Type == GeneratedTokenType.NEWLINE || CurrentToken?.Type == GeneratedTokenType.NL || CurrentToken?.Type == GeneratedTokenType.COMMENT)
                 {
                     Advance();
                     continue;

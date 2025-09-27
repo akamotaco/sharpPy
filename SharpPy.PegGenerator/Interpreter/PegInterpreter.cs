@@ -7,6 +7,45 @@ using SharpPy.Generated;
 namespace SharpPy.PegGenerator.Interpreter
 {
     /// <summary>
+    /// Parser context types for tracking parsing state
+    /// CPython 3.12 compatible context management
+    /// </summary>
+    public enum ContextType
+    {
+        Module,
+        Function,
+        Class,
+        Loop,
+        Async,
+        Lambda,
+        Comprehension
+    }
+
+    /// <summary>
+    /// Parser context information for validation
+    /// </summary>
+    public class ParserContext
+    {
+        public ContextType Type { get; set; }
+        public int NestingLevel { get; set; }
+        public int StartPosition { get; set; }
+        public string? Name { get; set; } // Function/class name for debugging
+
+        public ParserContext(ContextType type, int nestingLevel = 0, int startPosition = 0, string? name = null)
+        {
+            Type = type;
+            NestingLevel = nestingLevel;
+            StartPosition = startPosition;
+            Name = name;
+        }
+
+        public override string ToString()
+        {
+            return $"{Type}({Name ?? "anonymous"}) at level {NestingLevel}, pos {StartPosition}";
+        }
+    }
+
+    /// <summary>
     /// Simple AST node types for temporary parsing results
     /// </summary>
     public class SimpleModule
@@ -36,18 +75,36 @@ namespace SharpPy.PegGenerator.Interpreter
         private readonly Grammar.Grammar _grammar;
         private readonly List<ITokenInfo> _tokens;
         private int _position;
+        // ===== Performance Optimization: Cache Management =====
         private readonly Dictionary<(int, string), object?> _memoCache = new();
+        private readonly Queue<(int, string)> _cacheAccessOrder = new();
+        private const int MAX_CACHE_SIZE = 10000; // CPython 3.12 style cache limit
+        private int _cacheHits = 0;
+        private int _cacheMisses = 0;
+
         private readonly Dictionary<string, object?> _variables = new();
         private readonly HashSet<(int, string)> _activeRules = new(); // Track active rules to prevent left recursion
         private readonly Dictionary<string, bool> _leftRecursiveRules = new(); // Cache for left-recursive rule detection
         private readonly Dictionary<string, object?> _seedResults = new(); // Store seed results for left-recursive expansion
+
+        // ===== Advanced Left Recursion Support (CPython 3.12 Style) =====
+        private readonly Dictionary<string, HashSet<string>> _leftRecursiveDependencies = new(); // Track indirect dependencies
+        private readonly HashSet<string> _currentRecursionStack = new(); // Track current recursion chain
+        private readonly Dictionary<string, int> _recursionDepth = new(); // Track recursion depth for each rule
         private readonly Dictionary<int, int> _positionAttempts = new(); // Track attempts at each position for infinite loop detection
+
+        // ===== Parser Context Stack (CPython 3.12 Style) =====
+        private readonly Stack<ParserContext> _contextStack = new();
+        private int _indentLevel = 0; // Track current indentation level
 
         public PegInterpreter(Grammar.Grammar grammar, List<ITokenInfo> tokens)
         {
             _grammar = grammar ?? throw new ArgumentNullException(nameof(grammar));
             _tokens = tokens ?? throw new ArgumentNullException(nameof(tokens));
             _position = 0;
+
+            // Initialize with module context
+            _contextStack.Push(new ParserContext(ContextType.Module, 0, 0, "<module>"));
         }
 
         /// <summary>
@@ -109,7 +166,8 @@ namespace SharpPy.PegGenerator.Interpreter
         private void Reset(int mark) => _position = mark;
 
         /// <summary>
-        /// Check if a rule is left-recursive
+        /// Check if a rule is left-recursive (direct, indirect, or mutual)
+        /// CPython 3.12 compatible advanced left recursion detection
         /// </summary>
         private bool IsLeftRecursive(Rule rule)
         {
@@ -118,11 +176,21 @@ namespace SharpPy.PegGenerator.Interpreter
                 return cached;
             }
 
-            // A rule is left-recursive if any alternative starts with the rule itself
-            var isLeftRec = rule.Alternatives.Any(alt =>
-                alt.Items.Count > 0 &&
-                alt.Items[0].Atom is RuleRef ruleRef &&
-                ruleRef.Name == rule.Name);
+            // Exclude certain rules from left recursion handling to preserve correct parsing behavior
+            // These rules rely on token boundaries (INDENT/DEDENT) that must be processed sequentially
+            if (rule.Name == "block" || rule.Name == "statements" || rule.Name == "statement")
+            {
+                Console.WriteLine($"[LEFT-REC] Excluding rule '{rule.Name}' from left recursion detection");
+                _leftRecursiveRules[rule.Name] = false;
+                return false;
+            }
+
+            // Clear recursion tracking for this check
+            _currentRecursionStack.Clear();
+            _recursionDepth.Clear();
+
+            // Check for any form of left recursion
+            var isLeftRec = CheckIndirectLeftRecursion(rule.Name, rule.Name);
 
             Console.WriteLine($"[LEFT-REC] Rule '{rule.Name}' left-recursive check: {isLeftRec}");
             if (rule.Name == "primary")
@@ -144,13 +212,88 @@ namespace SharpPy.PegGenerator.Interpreter
         }
 
         /// <summary>
+        /// Check for indirect left recursion using depth-first search
+        /// This detects patterns like: A -> B, B -> A (mutual) or A -> B, B -> C, C -> A (indirect)
+        /// </summary>
+        private bool CheckIndirectLeftRecursion(string originalRule, string currentRule)
+        {
+            // Prevent infinite recursion during detection
+            if (_currentRecursionStack.Contains(currentRule))
+            {
+                // Found a cycle - check if it involves the original rule
+                return currentRule == originalRule;
+            }
+
+            // Prevent too deep recursion
+            if (_recursionDepth.GetValueOrDefault(currentRule, 0) > 50)
+            {
+                return false;
+            }
+
+            _currentRecursionStack.Add(currentRule);
+            _recursionDepth[currentRule] = _recursionDepth.GetValueOrDefault(currentRule, 0) + 1;
+
+            try
+            {
+                // Get the rule definition
+                var rule = _grammar.Rules.FirstOrDefault(r => r.Name == currentRule);
+                if (rule == null) return false;
+
+                // Check each alternative
+                foreach (var alternative in rule.Alternatives)
+                {
+                    if (alternative.Items.Count == 0) continue;
+
+                    var firstItem = alternative.Items[0];
+                    if (firstItem.Atom is RuleRef ruleRef)
+                    {
+                        var referencedRule = ruleRef.Name;
+
+                        // Direct left recursion
+                        if (referencedRule == originalRule)
+                        {
+                            return true;
+                        }
+
+                        // Indirect left recursion - recurse
+                        if (CheckIndirectLeftRecursion(originalRule, referencedRule))
+                        {
+                            return true;
+                        }
+                    }
+                }
+
+                return false;
+            }
+            finally
+            {
+                _currentRecursionStack.Remove(currentRule);
+                if (_recursionDepth.ContainsKey(currentRule))
+                {
+                    _recursionDepth[currentRule]--;
+                    if (_recursionDepth[currentRule] <= 0)
+                    {
+                        _recursionDepth.Remove(currentRule);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
         /// Main entry point: Parse a rule by name
         /// </summary>
         public object? ParseRule(string ruleName)
         {
-            // Check memoization cache
+            // Check if this rule should be excluded in first pass
+            if (ShouldExcludeRuleInFirstPass(ruleName))
+            {
+                Console.WriteLine($"[2-PASS] Excluding invalid rule '{ruleName}' in first pass");
+                return null;
+            }
+
+            // Check memoization cache with performance tracking
             var cacheKey = (_position, ruleName);
-            if (_memoCache.TryGetValue(cacheKey, out var cachedResult))
+            if (TryGetFromCache(cacheKey, out var cachedResult))
             {
                 // Console.WriteLine($"[MEMO] Cache hit for {ruleName} at position {_position}");
                 return cachedResult;
@@ -201,10 +344,17 @@ namespace SharpPy.PegGenerator.Interpreter
                     var mark = Mark();
                     var result = ParseAlternative(alternative);
 
-                    if (result != null)
+                    if (result is CutFailure cutFailure)
+                    {
+                        // Cut failed - no backtracking to other alternatives allowed
+                        Console.WriteLine($"[DEBUG] Rule {ruleName}: Cut failure prevents trying other alternatives");
+                        StoreInCache(cacheKey, null);
+                        return null;
+                    }
+                    else if (result != null)
                     {
                         // Success - cache and return
-                        _memoCache[cacheKey] = result;
+                        StoreInCache(cacheKey, result);
                         // Console.WriteLine($"[DEBUG] Rule {ruleName} succeeded at position {_position}");
                         return result;
                     }
@@ -215,7 +365,7 @@ namespace SharpPy.PegGenerator.Interpreter
 
                 // No alternative succeeded
                 // Console.WriteLine($"[DEBUG] Rule {ruleName} failed at position {_position}");
-                _memoCache[cacheKey] = null;
+                StoreInCache(cacheKey, null);
                 return null;
             }
             finally
@@ -276,7 +426,7 @@ namespace SharpPy.PegGenerator.Interpreter
             if (seed == null)
             {
                 // No base case matched
-                _memoCache[cacheKey] = null;
+                StoreInCache(cacheKey, null);
                 return null;
             }
 
@@ -299,7 +449,7 @@ namespace SharpPy.PegGenerator.Interpreter
 
                     // Temporarily set the seed result for this rule
                     var tempCacheKey = (_position, ruleName);
-                    _memoCache[tempCacheKey] = seed;
+                    _memoCache[tempCacheKey] = seed; // Direct assignment for left recursion
 
                     try
                     {
@@ -349,7 +499,7 @@ namespace SharpPy.PegGenerator.Interpreter
 
             // Step 5: Set final position and cache result
             _position = seedPosition;
-            _memoCache[cacheKey] = seed;
+            StoreInCache(cacheKey, seed);
 
             Console.WriteLine($"[LEFT-REC] Final result for {ruleName}: {seed} at position {seedPosition}");
             return seed;
@@ -369,7 +519,28 @@ namespace SharpPy.PegGenerator.Interpreter
             foreach (var item in alternative.Items)
             {
                 var result = ParseItem(item);
-                if (result == null)
+
+                // Handle cut operations
+                if (result is CutSuccess cutSuccess)
+                {
+                    // Cut succeeded - use the result and continue with committed parse
+                    Console.WriteLine($"[DEBUG] Cut succeeded, committed to this alternative");
+                    results.Add(cutSuccess.Result);
+                    // Store variable binding if item has a name
+                    if (!string.IsNullOrEmpty(item.Name))
+                    {
+                        variables[item.Name] = cutSuccess.Result;
+                    }
+                    // Continue parsing rest of the alternative
+                    continue;
+                }
+                else if (result is CutFailure cutFailure)
+                {
+                    // Cut failed - this prevents backtracking to other alternatives
+                    Console.WriteLine($"[DEBUG] Cut failed at position {cutFailure.CutPosition}, no backtracking allowed");
+                    return cutFailure; // Propagate cut failure up to prevent backtracking
+                }
+                else if (result == null)
                 {
                     // Item failed - alternative fails
                     // Console.WriteLine($"[DEBUG] Item failed in alternative");
@@ -624,12 +795,131 @@ namespace SharpPy.PegGenerator.Interpreter
         }
 
         /// <summary>
-        /// Parse cut operator ~expr (not implemented yet)
+        /// Parse cut operator ~expr - prevents backtracking beyond this point
+        /// In CPython 3.12, cut operator commits to the current alternative and
+        /// prevents exploring other alternatives in case of failure
         /// </summary>
         private object? ParseCut(Cut cut)
         {
-            Console.WriteLine($"[DEBUG] Cut operator not implemented yet");
-            return ParseAtom(cut.Expression);
+            Console.WriteLine($"[DEBUG] ParseCut: Cut operator encountered at position {_position}");
+
+            // Save the current position - this is our "cut point"
+            var cutPosition = _position;
+
+            // Try to parse the expression after the cut
+            var result = ParseAtom(cut.Expression);
+
+            if (result != null)
+            {
+                Console.WriteLine($"[DEBUG] ParseCut: Expression after cut succeeded, committing to this path");
+                // Success - mark this as a "committed" parse by setting a special flag
+                // The cut succeeds and we return the result
+                return new CutSuccess { Result = result, CutPosition = cutPosition };
+            }
+            else
+            {
+                Console.WriteLine($"[DEBUG] ParseCut: Expression after cut failed, cut prevents backtracking");
+                // Failure after cut - this should prevent backtracking to earlier alternatives
+                // In a full implementation, this would throw a special exception or set a flag
+                // For now, we'll return a special failure marker
+                return new CutFailure { CutPosition = cutPosition };
+            }
+        }
+
+        /// <summary>
+        /// Marker class for successful cut operations
+        /// </summary>
+        private class CutSuccess
+        {
+            public object? Result { get; set; }
+            public int CutPosition { get; set; }
+        }
+
+        /// <summary>
+        /// Marker class for failed cut operations (prevents backtracking)
+        /// </summary>
+        private class CutFailure
+        {
+            public int CutPosition { get; set; }
+        }
+
+        // ===== Performance Optimization: Cache Management Methods =====
+
+        /// <summary>
+        /// Try to get value from cache with LRU tracking
+        /// </summary>
+        private bool TryGetFromCache((int, string) key, out object? result)
+        {
+            if (_memoCache.TryGetValue(key, out result))
+            {
+                _cacheHits++;
+                // Update access order for LRU
+                UpdateCacheAccess(key);
+                return true;
+            }
+
+            _cacheMisses++;
+            return false;
+        }
+
+        /// <summary>
+        /// Store value in cache with size management
+        /// </summary>
+        private void StoreInCache((int, string) key, object? value)
+        {
+            // Evict oldest entries if cache is full
+            while (_memoCache.Count >= MAX_CACHE_SIZE)
+            {
+                EvictOldestCacheEntry();
+            }
+
+            _memoCache[key] = value;
+            _cacheAccessOrder.Enqueue(key);
+        }
+
+        /// <summary>
+        /// Update cache access order for LRU
+        /// </summary>
+        private void UpdateCacheAccess((int, string) key)
+        {
+            // For simplicity, we just add to queue again
+            // In a full LRU implementation, we would remove from middle and add to end
+            _cacheAccessOrder.Enqueue(key);
+        }
+
+        /// <summary>
+        /// Evict oldest cache entry (LRU policy)
+        /// </summary>
+        private void EvictOldestCacheEntry()
+        {
+            if (_cacheAccessOrder.Count > 0)
+            {
+                var oldestKey = _cacheAccessOrder.Dequeue();
+                _memoCache.Remove(oldestKey);
+                Console.WriteLine($"[CACHE] Evicted entry: {oldestKey}");
+            }
+        }
+
+        /// <summary>
+        /// Get cache performance statistics
+        /// </summary>
+        public string GetCacheStats()
+        {
+            var hitRate = _cacheHits + _cacheMisses > 0
+                ? (double)_cacheHits / (_cacheHits + _cacheMisses) * 100
+                : 0;
+
+            return $"Cache Stats: {_cacheHits} hits, {_cacheMisses} misses, " +
+                   $"{hitRate:F1}% hit rate, {_memoCache.Count}/{MAX_CACHE_SIZE} entries";
+        }
+
+        /// <summary>
+        /// Clear performance counters
+        /// </summary>
+        public void ResetCacheStats()
+        {
+            _cacheHits = 0;
+            _cacheMisses = 0;
         }
 
         /// <summary>
@@ -771,5 +1061,166 @@ namespace SharpPy.PegGenerator.Interpreter
         /// <summary>
         /// Map string literals to token types
         /// </summary>
+
+        // ===== 2-Pass Parsing Support for Invalid Rules =====
+
+        /// <summary>
+        /// Indicates whether we're in the first pass (excluding invalid rules) or second pass (including invalid rules)
+        /// </summary>
+        private bool _isFirstPass = true;
+        private int _firstPassFailurePosition = -1;
+
+        /// <summary>
+        /// Parse a rule with 2-pass support for better error messages
+        /// This is the new main entry point that handles invalid rules properly
+        /// </summary>
+        public object? ParseRuleWithTwoPass(string ruleName)
+        {
+            Console.WriteLine($"[2-PASS] Starting 2-pass parsing for rule: {ruleName}");
+
+            // First pass: exclude invalid rules
+            _isFirstPass = true;
+            _firstPassFailurePosition = -1;
+            var firstPassPosition = _position;
+
+            var result = ParseRule(ruleName);
+            if (result != null)
+            {
+                Console.WriteLine($"[2-PASS] First pass succeeded for rule: {ruleName}");
+                return result;
+            }
+
+            // First pass failed - record failure position
+            _firstPassFailurePosition = _position;
+            Console.WriteLine($"[2-PASS] First pass failed for rule: {ruleName} at position {_firstPassFailurePosition}");
+
+            // Reset position for second pass
+            _position = firstPassPosition;
+            _memoCache.Clear(); // Clear memoization cache for second pass
+
+            // Second pass: include invalid rules for better error messages
+            _isFirstPass = false;
+            Console.WriteLine($"[2-PASS] Starting second pass (with invalid rules) for rule: {ruleName}");
+
+            result = ParseRule(ruleName);
+            if (result != null)
+            {
+                Console.WriteLine($"[2-PASS] Second pass succeeded for rule: {ruleName}");
+                return result;
+            }
+
+            // Both passes failed - use first pass failure position for more accurate error location
+            if (_firstPassFailurePosition >= 0)
+            {
+                _position = _firstPassFailurePosition;
+                Console.WriteLine($"[2-PASS] Both passes failed, using first pass failure position: {_firstPassFailurePosition}");
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Check if a rule should be excluded in the first pass (is it an invalid rule?)
+        /// </summary>
+        private bool ShouldExcludeRuleInFirstPass(string ruleName)
+        {
+            return _isFirstPass && ruleName.StartsWith("invalid_");
+        }
+
+        // ===== Parser Context Management (CPython 3.12 Style) =====
+
+        /// <summary>
+        /// Push a new context onto the context stack
+        /// </summary>
+        private void PushContext(ContextType type, string? name = null)
+        {
+            var newLevel = _contextStack.Count > 0 ? _contextStack.Peek().NestingLevel + 1 : 0;
+            var context = new ParserContext(type, newLevel, _position, name);
+            _contextStack.Push(context);
+
+            Console.WriteLine($"[CONTEXT] Pushed {context}");
+        }
+
+        /// <summary>
+        /// Pop the current context from the context stack
+        /// </summary>
+        private ParserContext? PopContext()
+        {
+            if (_contextStack.Count > 1) // Keep module context
+            {
+                var context = _contextStack.Pop();
+                Console.WriteLine($"[CONTEXT] Popped {context}");
+                return context;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Check if we're currently in a specific context type
+        /// </summary>
+        private bool IsInContext(ContextType type)
+        {
+            return _contextStack.Any(ctx => ctx.Type == type);
+        }
+
+        /// <summary>
+        /// Get the current top context
+        /// </summary>
+        private ParserContext? GetCurrentContext()
+        {
+            return _contextStack.Count > 0 ? _contextStack.Peek() : null;
+        }
+
+        /// <summary>
+        /// Validate if a statement is allowed in the current context
+        /// </summary>
+        private void ValidateStatementContext(string statementType)
+        {
+            switch (statementType)
+            {
+                case "return":
+                    if (!IsInContext(ContextType.Function) && !IsInContext(ContextType.Lambda))
+                    {
+                        throw new InvalidOperationException("SyntaxError: 'return' outside function");
+                    }
+                    break;
+
+                case "yield":
+                    if (!IsInContext(ContextType.Function))
+                    {
+                        throw new InvalidOperationException("SyntaxError: 'yield' outside function");
+                    }
+                    break;
+
+                case "break":
+                case "continue":
+                    if (!IsInContext(ContextType.Loop))
+                    {
+                        var msg = statementType == "break" ? "'break' outside loop" : "'continue' not properly in loop";
+                        throw new InvalidOperationException($"SyntaxError: {msg}");
+                    }
+                    break;
+
+                case "await":
+                    if (!IsInContext(ContextType.Async))
+                    {
+                        throw new InvalidOperationException("SyntaxError: 'await' outside async function");
+                    }
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Debug method to print current context stack
+        /// </summary>
+        private void PrintContextStack()
+        {
+            Console.WriteLine($"[CONTEXT-STACK] Current stack ({_contextStack.Count} levels):");
+            foreach (var ctx in _contextStack.Reverse())
+            {
+                Console.WriteLine($"[CONTEXT-STACK]   {ctx}");
+            }
+        }
+
     }
 }

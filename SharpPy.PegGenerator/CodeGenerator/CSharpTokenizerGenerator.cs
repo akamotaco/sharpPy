@@ -173,8 +173,14 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 // Map special keywords to their specific token types
                 var tokenType = keyword switch
                 {
+                    // Built-in constants - these are special in CPython 3.12
+                    "True" => "GeneratedTokenType.NAME",  // Constants handled as special NAME tokens
+                    "False" => "GeneratedTokenType.NAME", // Constants handled as special NAME tokens
+                    "None" => "GeneratedTokenType.NAME",  // Constants handled as special NAME tokens
+                    // Async/await keywords
                     "async" => "GeneratedTokenType.ASYNC",
                     "await" => "GeneratedTokenType.AWAIT",
+                    // All other keywords are standard NAME tokens in CPython 3.12
                     _ => "GeneratedTokenType.NAME"
                 };
                 WriteLine($"{{ \"{keyword}\", {tokenType} }}, // {keyword}");

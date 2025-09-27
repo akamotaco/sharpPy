@@ -595,11 +595,28 @@ namespace SharpPy
                             // Create parameter list (empty for now, TODO: parse arguments)
                             var parameters = new List<string>();
 
-                            // Create body statements (for now, simple pass statement)
-                            var bodyStmts = new List<Statement>
+                            // Convert function body with insideFunction=true
+                            var bodyStmts = new List<Statement>();
+                            if (funcData.Body is List<object> bodyList)
                             {
-                                new ExpressionStatement(new ConstantExpression(PyNone.Instance))
-                            };
+                                foreach (var bodyItem in bodyList)
+                                {
+                                    if (bodyItem is GeneratedStmt bodyStmt)
+                                    {
+                                        var convertedStmt = ConvertStatement(bodyStmt, insideLoop, true); // insideFunction=true
+                                        if (convertedStmt != null)
+                                        {
+                                            bodyStmts.Add(convertedStmt);
+                                        }
+                                    }
+                                }
+                            }
+
+                            // If no body statements, add a pass statement
+                            if (bodyStmts.Count == 0)
+                            {
+                                bodyStmts.Add(new ExpressionStatement(new ConstantExpression(PyNone.Instance)));
+                            }
 
                             return new FunctionDefStatement(name, parameters, bodyStmts);
                         }

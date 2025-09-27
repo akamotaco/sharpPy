@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using SharpPy.PegGenerator.Interpreter;
 
 namespace SharpPy.Generated
 {
@@ -16,12 +17,19 @@ namespace SharpPy.Generated
         protected readonly Dictionary<(int, string), object?> _memoCache = new();
         protected readonly string _filename;
 
+        // Context management for CPython 3.12 compatibility
+        protected readonly Stack<ParserContext> _contextStack = new();
+        protected int _indentLevel = 0;
+
         // Constructor
         protected PyParserBase(List<GeneratedTokenInfo> tokens, string filename = "<string>")
         {
             _tokens = tokens ?? throw new ArgumentNullException(nameof(tokens));
             _filename = filename;
             _position = 0;
+
+            // Initialize with module context
+            _contextStack.Push(new ParserContext(ContextType.Module, 0, 0, "<module>"));
         }
 
         // Common token access
@@ -484,8 +492,14 @@ namespace SharpPy.Generated
                    CurrentToken?.Type != GeneratedTokenType.DEDENT &&
                    CurrentToken?.Type != GeneratedTokenType.ENDMARKER)
             {
+                Console.WriteLine($"[DEBUG] ParseBlock: Loop iteration at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+
+                var startPos = _position;
                 var parser = this as GeneratedPyParser;
                 var stmt = parser?.ParseStatement();
+
+                Console.WriteLine($"[DEBUG] ParseBlock: After ParseStatement, position {startPos} -> {_position}, stmt = {stmt?.GetType()?.Name}");
+
                 if (stmt != null)
                 {
                     if (stmt is List<object> stmtList)
@@ -505,6 +519,20 @@ namespace SharpPy.Generated
                         Console.WriteLine($"[DEBUG] ParseBlock: Skipping unparsed token at position {_position}: {CurrentToken?.Type} '{CurrentToken?.Value}'");
                         Advance();
                     }
+                }
+
+                // Safety check: if we didn't advance, break to avoid infinite loop
+                if (_position == startPos && stmt == null)
+                {
+                    Console.WriteLine($"[DEBUG] ParseBlock: No advancement, breaking at position {_position}");
+                    break;
+                }
+
+                // Check if we hit DEDENT after statement parsing
+                if (CurrentToken?.Type == GeneratedTokenType.DEDENT)
+                {
+                    Console.WriteLine($"[DEBUG] ParseBlock: Found DEDENT at position {_position}, breaking");
+                    break;
                 }
             }
 
@@ -691,6 +719,761 @@ namespace SharpPy.Generated
             return stmt;
         }
 
+        /// <summary>
+        /// _PyAST_AnnAssign - Create annotated assignment statement
+        /// </summary>
+        protected GeneratedStmt _PyAST_AnnAssign(object target, object annotation, object value = null, int simple = 1)
+        {
+            var stmt = new GeneratedStmt();
+            stmt.StatementType = "ann_assign";
+            stmt.Value = new { Target = target, Annotation = annotation, Value = value, Simple = simple };
+            return stmt;
+        }
+
+        /// <summary>
+        /// _PyAST_AugAssign - Create augmented assignment statement (+=, -=, etc.)
+        /// </summary>
+        protected GeneratedStmt _PyAST_AugAssign(object target, object op, object value)
+        {
+            var stmt = new GeneratedStmt();
+            stmt.StatementType = "aug_assign";
+            stmt.Value = new { Target = target, Op = op, Value = value };
+            return stmt;
+        }
+
+        /// <summary>
+        /// _PyPegen_augoperator - Create augmented assignment operator
+        /// </summary>
+        protected object _PyPegen_augoperator(object operatorType)
+        {
+            return new { Type = "operator", Value = operatorType };
+        }
+
+        /// <summary>
+        /// _PyPegen_set_expr_context - Set expression context (Load, Store, Del)
+        /// </summary>
+        protected object _PyPegen_set_expr_context(object expr, object context)
+        {
+            if (expr is GeneratedExpr genExpr)
+            {
+                genExpr.Context = context?.ToString();
+                return genExpr;
+            }
+            return expr;
+        }
+
+        /// <summary>
+        /// _PyAST_Name - Create name expression
+        /// </summary>
+        protected GeneratedExpr _PyAST_Name(string id, object context = null)
+        {
+            var expr = new GeneratedExpr();
+            expr.ExpressionType = "name";
+            expr.Value = id;
+            expr.Context = context?.ToString() ?? "Load";
+            return expr;
+        }
+
+        /// <summary>
+        /// _PyAST_If - Create if statement
+        /// </summary>
+        protected GeneratedStmt _PyAST_If(object test, object body, object orelse = null)
+        {
+            var stmt = new GeneratedStmt();
+            stmt.StatementType = "if";
+            stmt.Value = new { Test = test, Body = body, Orelse = orelse ?? new List<object>() };
+            return stmt;
+        }
+
+        /// <summary>
+        /// _PyAST_While - Create while statement
+        /// </summary>
+        protected GeneratedStmt _PyAST_While(object test, object body, object orelse = null)
+        {
+            var stmt = new GeneratedStmt();
+            stmt.StatementType = "while";
+            stmt.Value = new { Test = test, Body = body, Orelse = orelse ?? new List<object>() };
+            return stmt;
+        }
+
+        /// <summary>
+        /// _PyAST_For - Create for statement
+        /// </summary>
+        protected GeneratedStmt _PyAST_For(object target, object iter, object body, object orelse = null)
+        {
+            var stmt = new GeneratedStmt();
+            stmt.StatementType = "for";
+            stmt.Value = new { Target = target, Iter = iter, Body = body, Orelse = orelse ?? new List<object>() };
+            return stmt;
+        }
+
+        /// <summary>
+        /// _PyAST_Break - Create break statement
+        /// </summary>
+        protected GeneratedStmt _PyAST_Break()
+        {
+            var stmt = new GeneratedStmt();
+            stmt.StatementType = "break";
+            stmt.Value = null;
+            return stmt;
+        }
+
+        /// <summary>
+        /// _PyAST_Continue - Create continue statement
+        /// </summary>
+        protected GeneratedStmt _PyAST_Continue()
+        {
+            var stmt = new GeneratedStmt();
+            stmt.StatementType = "continue";
+            stmt.Value = null;
+            return stmt;
+        }
+
+        /// <summary>
+        /// _PyAST_Match - Create match statement (Python 3.10+)
+        /// </summary>
+        protected GeneratedStmt _PyAST_Match(object subject, object cases)
+        {
+            var stmt = new GeneratedStmt();
+            stmt.StatementType = "match";
+            stmt.Value = new { Subject = subject, Cases = cases };
+            return stmt;
+        }
+
+        /// <summary>
+        /// _PyAST_Global - Create global statement
+        /// </summary>
+        protected GeneratedStmt _PyAST_Global(object names)
+        {
+            var stmt = new GeneratedStmt();
+            stmt.StatementType = "global";
+            stmt.Value = new { Names = names };
+            return stmt;
+        }
+
+        /// <summary>
+        /// _PyAST_Nonlocal - Create nonlocal statement
+        /// </summary>
+        protected GeneratedStmt _PyAST_Nonlocal(object names)
+        {
+            var stmt = new GeneratedStmt();
+            stmt.StatementType = "nonlocal";
+            stmt.Value = new { Names = names };
+            return stmt;
+        }
+
+        /// <summary>
+        /// _PyAST_Import - Create import statement
+        /// </summary>
+        protected GeneratedStmt _PyAST_Import(object names)
+        {
+            var stmt = new GeneratedStmt();
+            stmt.StatementType = "import";
+            stmt.Value = new { Names = names };
+            return stmt;
+        }
+
+        /// <summary>
+        /// _PyAST_ImportFrom - Create from import statement
+        /// </summary>
+        protected GeneratedStmt _PyAST_ImportFrom(object module, object names, object level = null)
+        {
+            var stmt = new GeneratedStmt();
+            stmt.StatementType = "import_from";
+            stmt.Value = new { Module = module, Names = names, Level = level ?? 0 };
+            return stmt;
+        }
+
+        /// <summary>
+        /// _PyAST_ClassDef - Create class definition
+        /// </summary>
+        protected GeneratedStmt _PyAST_ClassDef(string name, object bases, object keywords, object body,
+            object decorator_list = null, object type_params = null)
+        {
+            var stmt = new GeneratedStmt();
+            stmt.StatementType = "class_def";
+
+            var classDef = new GeneratedClassDef
+            {
+                Name = name,
+                Body = body,
+                Bases = bases ?? new List<object>(),
+                Keywords = keywords ?? new List<object>(),
+                DecoratorList = decorator_list ?? new List<object>(),
+                TypeParams = type_params
+            };
+
+            stmt.Value = classDef;
+            return stmt;
+        }
+
+        /// <summary>
+        /// _PyPegen_interactive_exit - Handle interactive mode exit
+        /// </summary>
+        protected object _PyPegen_interactive_exit()
+        {
+            // Return null to signal end of interactive input
+            return null;
+        }
+
+        /// <summary>
+        /// CHECK macro equivalent - Runtime type checking and conversion
+        /// </summary>
+        protected T CHECK<T>(T value, string expectedType = null) where T : class
+        {
+            if (value == null)
+            {
+                Console.WriteLine($"[DEBUG] CHECK: null value for type {typeof(T).Name}");
+                return null;
+            }
+
+            if (expectedType != null)
+            {
+                Console.WriteLine($"[DEBUG] CHECK: {value.GetType().Name} -> {expectedType}");
+            }
+
+            return value;
+        }
+
+        /// <summary>
+        /// CHECK_VERSION macro equivalent - Version checking for features
+        /// </summary>
+        protected T CHECK_VERSION<T>(T value, int minVersion, string featureName) where T : class
+        {
+            // Always allow for Python 3.12 compatibility
+            Console.WriteLine($"[DEBUG] CHECK_VERSION: {featureName} (min version: {minVersion}) - ALLOWED");
+            return value;
+        }
+
+        /// <summary>
+        /// NEW_TYPE_COMMENT - Create type comment
+        /// </summary>
+        protected string NEW_TYPE_COMMENT(string comment)
+        {
+            return comment;
+        }
+
+        /// <summary>
+        /// EXTRA macro equivalent - Create source location info
+        /// </summary>
+        protected object EXTRA => new {
+            Line = CurrentToken?.Line ?? 0,
+            Column = CurrentToken?.Column ?? 0,
+            Filename = _filename
+        };
+
+        // ===== Additional CPython 3.12 Helper Functions =====
+
+        /// <summary>
+        /// _PyPegen_seq_insert_in_front - Insert item at front of sequence
+        /// </summary>
+        protected List<object> _PyPegen_seq_insert_in_front(object item, List<object> sequence)
+        {
+            var result = new List<object>();
+            if (item != null)
+            {
+                result.Add(item);
+            }
+            if (sequence != null)
+            {
+                result.AddRange(sequence);
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// _PyPegen_seq_extract_starred_exprs - Extract starred expressions from sequence
+        /// </summary>
+        protected List<object> _PyPegen_seq_extract_starred_exprs(List<object> sequence)
+        {
+            var result = new List<object>();
+            if (sequence != null)
+            {
+                foreach (var item in sequence)
+                {
+                    if (item is GeneratedExpr expr && expr.ExpressionType == "starred")
+                    {
+                        result.Add(item);
+                    }
+                    else if (item?.ToString()?.Contains("starred") == true)
+                    {
+                        result.Add(item);
+                    }
+                }
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// _PyPegen_seq_delete_starred_exprs - Remove starred expressions from sequence
+        /// </summary>
+        protected List<object> _PyPegen_seq_delete_starred_exprs(List<object> sequence)
+        {
+            var result = new List<object>();
+            if (sequence != null)
+            {
+                foreach (var item in sequence)
+                {
+                    if (item is GeneratedExpr expr && expr.ExpressionType == "starred")
+                    {
+                        continue; // Skip starred expressions
+                    }
+                    else if (item?.ToString()?.Contains("starred") == true)
+                    {
+                        continue; // Skip starred expressions
+                    }
+                    result.Add(item);
+                }
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// _PyPegen_join_sequences - Join two sequences
+        /// </summary>
+        protected List<object> _PyPegen_join_sequences(List<object> sequence1, List<object> sequence2)
+        {
+            var result = new List<object>();
+            if (sequence1 != null)
+            {
+                result.AddRange(sequence1);
+            }
+            if (sequence2 != null)
+            {
+                result.AddRange(sequence2);
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// _PyPegen_join_names_with_dot - Join names with dot separator
+        /// </summary>
+        protected string _PyPegen_join_names_with_dot(string name1, string name2)
+        {
+            if (string.IsNullOrEmpty(name1))
+                return name2 ?? "";
+            if (string.IsNullOrEmpty(name2))
+                return name1;
+            return $"{name1}.{name2}";
+        }
+
+        /// <summary>
+        /// _PyPegen_seq_count_dots - Count dots in import sequence
+        /// </summary>
+        protected int _PyPegen_seq_count_dots(List<object> sequence)
+        {
+            int count = 0;
+            if (sequence != null)
+            {
+                foreach (var item in sequence)
+                {
+                    if (item?.ToString() == ".")
+                    {
+                        count++;
+                    }
+                    else if (item is string str && str.Contains("."))
+                    {
+                        count += str.Count(c => c == '.');
+                    }
+                }
+            }
+            return count;
+        }
+
+        /// <summary>
+        /// _PyPegen_keyword_or_starred - Create keyword or starred wrapper
+        /// </summary>
+        protected object _PyPegen_keyword_or_starred(object item, int isKeyword)
+        {
+            return new {
+                Type = isKeyword == 1 ? "keyword" : "starred",
+                Value = item,
+                IsKeyword = isKeyword == 1
+            };
+        }
+
+        /// <summary>
+        /// _PyPegen_joined_str - Create joined string for f-strings
+        /// </summary>
+        protected GeneratedExpr _PyPegen_joined_str(object start, List<object> middle, object end)
+        {
+            var expr = new GeneratedExpr();
+            expr.ExpressionType = "joined_str";
+            expr.Value = new {
+                Start = start,
+                Middle = middle ?? new List<object>(),
+                End = end
+            };
+            return expr;
+        }
+
+        /// <summary>
+        /// _PyPegen_concatenate_strings - Concatenate string literals and f-strings
+        /// </summary>
+        protected GeneratedExpr _PyPegen_concatenate_strings(List<object> strings)
+        {
+            if (strings == null || strings.Count == 0)
+            {
+                var emptyExpr = new GeneratedExpr();
+                emptyExpr.ExpressionType = "constant";
+                emptyExpr.Value = "";
+                return emptyExpr;
+            }
+
+            if (strings.Count == 1)
+            {
+                var single = strings[0];
+                if (single is GeneratedExpr expr)
+                {
+                    return expr;
+                }
+            }
+
+            // Multiple strings - create concatenated expression
+            var concatExpr = new GeneratedExpr();
+            concatExpr.ExpressionType = "concatenated_str";
+            concatExpr.Value = strings;
+            return concatExpr;
+        }
+
+        /// <summary>
+        /// _PyPegen_constant_from_token - Create constant from token
+        /// </summary>
+        protected GeneratedExpr _PyPegen_constant_from_token(object token)
+        {
+            var expr = new GeneratedExpr();
+            expr.ExpressionType = "constant";
+
+            if (token is GeneratedTokenInfo genToken)
+            {
+                expr.Value = genToken.Value;
+            }
+            else
+            {
+                expr.Value = token?.ToString() ?? "";
+            }
+
+            return expr;
+        }
+
+        /// <summary>
+        /// _PyPegen_decoded_constant_from_token - Create decoded constant from token
+        /// </summary>
+        protected GeneratedExpr _PyPegen_decoded_constant_from_token(object token)
+        {
+            var expr = new GeneratedExpr();
+            expr.ExpressionType = "constant";
+
+            if (token is GeneratedTokenInfo genToken)
+            {
+                // Decode escaped sequences in f-string format specs
+                var value = genToken.Value;
+                if (!string.IsNullOrEmpty(value))
+                {
+                    // Basic decoding - could be enhanced
+                    value = value.Replace("\\n", "\n")
+                                 .Replace("\\t", "\t")
+                                 .Replace("\\r", "\r")
+                                 .Replace("\\\\", "\\");
+                }
+                expr.Value = value;
+            }
+            else
+            {
+                expr.Value = token?.ToString() ?? "";
+            }
+
+            return expr;
+        }
+
+        /// <summary>
+        /// _PyPegen_check_fstring_conversion - Check f-string conversion specifier
+        /// </summary>
+        protected object _PyPegen_check_fstring_conversion(object convToken, object conv)
+        {
+            var convStr = conv?.ToString();
+
+            // Valid conversion characters: s, r, a
+            if (convStr != "s" && convStr != "r" && convStr != "a")
+            {
+                Console.WriteLine($"[DEBUG] _PyPegen_check_fstring_conversion: Invalid conversion '{convStr}', should be 's', 'r', or 'a'");
+                // In a full implementation, this might raise a syntax error
+            }
+
+            return new {
+                ConversionToken = convToken,
+                Conversion = convStr
+            };
+        }
+
+        /// <summary>
+        /// _PyPegen_setup_full_format_spec - Setup full format specification
+        /// </summary>
+        protected object _PyPegen_setup_full_format_spec(object colon, List<object> spec)
+        {
+            return new {
+                Colon = colon,
+                FormatSpec = spec ?? new List<object>()
+            };
+        }
+
+        /// <summary>
+        /// _PyAST_FormattedValue - Create formatted value AST node for f-strings
+        /// </summary>
+        protected GeneratedExpr _PyAST_FormattedValue(object value, object conversion = null, object formatSpec = null)
+        {
+            var expr = new GeneratedExpr();
+            expr.ExpressionType = "formatted_value";
+            expr.Value = new {
+                Value = value,
+                Conversion = conversion,
+                FormatSpec = formatSpec
+            };
+            return expr;
+        }
+
+        /// <summary>
+        /// _PyAST_JoinedStr - Create joined string AST node for f-strings
+        /// </summary>
+        protected GeneratedExpr _PyAST_JoinedStr(List<object> values)
+        {
+            var expr = new GeneratedExpr();
+            expr.ExpressionType = "joined_str";
+            expr.Value = values ?? new List<object>();
+            return expr;
+        }
+
+        /// <summary>
+        /// _PyPegen_checked_future_import - Check future import validity
+        /// </summary>
+        protected GeneratedStmt _PyPegen_checked_future_import(string featureName, object alias, int level)
+        {
+            // For now, allow all future imports
+            Console.WriteLine($"[DEBUG] _PyPegen_checked_future_import: {featureName} (level: {level})");
+
+            var stmt = new GeneratedStmt();
+            stmt.StatementType = "import_from";
+            stmt.Value = new {
+                Module = "__future__",
+                Name = featureName,
+                Alias = alias,
+                Level = level
+            };
+            return stmt;
+        }
+
+        /// <summary>
+        /// CHECK_NULL_ALLOWED - Check for null with allowance
+        /// </summary>
+        protected T CHECK_NULL_ALLOWED<T>(T value) where T : class
+        {
+            // Allow null values in this context
+            return value;
+        }
+
+        /// <summary>
+        /// _PyPegen_get_last_comprehension_item - Get last item from comprehension
+        /// </summary>
+        protected object _PyPegen_get_last_comprehension_item(object comprehension)
+        {
+            if (comprehension is List<object> list && list.Count > 0)
+            {
+                return list.Last();
+            }
+            return comprehension;
+        }
+
+        /// <summary>
+        /// PyPegen_last_item - Get last item from sequence
+        /// </summary>
+        protected T PyPegen_last_item<T>(List<T> sequence) where T : class
+        {
+            if (sequence != null && sequence.Count > 0)
+            {
+                return sequence.Last();
+            }
+            return null;
+        }
+
+        // ===== Error Handling System (CPython 3.12 Style) =====
+
+        /// <summary>
+        /// RAISE_SYNTAX_ERROR - Raise syntax error with message
+        /// </summary>
+        protected object RAISE_SYNTAX_ERROR(string message)
+        {
+            var token = CurrentToken;
+            var location = new {
+                Line = token?.Line ?? 0,
+                Column = token?.Column ?? 0,
+                Filename = _filename
+            };
+
+            Console.WriteLine($"[SYNTAX ERROR] {message} at {_filename}:{location.Line}:{location.Column}");
+
+            // For now, throw an exception to stop parsing
+            // In a full implementation, this would be accumulated for better error reporting
+            throw new SyntaxErrorException(message, _filename, location.Line, location.Column);
+        }
+
+        /// <summary>
+        /// RAISE_SYNTAX_ERROR_KNOWN_RANGE - Raise syntax error with known range
+        /// </summary>
+        protected object RAISE_SYNTAX_ERROR_KNOWN_RANGE(object startToken, object endToken, string message)
+        {
+            var location = GetLocationFromToken(startToken);
+            var endLocation = GetLocationFromToken(endToken);
+
+            Console.WriteLine($"[SYNTAX ERROR RANGE] {message} at {_filename}:{location.Line}:{location.Column}-{endLocation.Line}:{endLocation.Column}");
+
+            throw new SyntaxErrorException(message, _filename, location.Line, location.Column, endLocation.Line, endLocation.Column);
+        }
+
+        /// <summary>
+        /// RAISE_SYNTAX_ERROR_STARTING_FROM - Raise syntax error starting from specific token
+        /// </summary>
+        protected object RAISE_SYNTAX_ERROR_STARTING_FROM(object startToken, string message)
+        {
+            var location = GetLocationFromToken(startToken);
+
+            Console.WriteLine($"[SYNTAX ERROR FROM] {message} starting from {_filename}:{location.Line}:{location.Column}");
+
+            throw new SyntaxErrorException(message, _filename, location.Line, location.Column);
+        }
+
+        /// <summary>
+        /// RAISE_INDENTATION_ERROR - Raise indentation error
+        /// </summary>
+        protected object RAISE_INDENTATION_ERROR(string message)
+        {
+            var token = CurrentToken;
+            var location = new {
+                Line = token?.Line ?? 0,
+                Column = token?.Column ?? 0,
+                Filename = _filename
+            };
+
+            Console.WriteLine($"[INDENTATION ERROR] {message} at {_filename}:{location.Line}:{location.Column}");
+
+            throw new IndentationErrorException(message, _filename, location.Line, location.Column);
+        }
+
+        /// <summary>
+        /// Get location information from a token object
+        /// </summary>
+        private dynamic GetLocationFromToken(object token)
+        {
+            if (token == null)
+            {
+                return new { Line = 0, Column = 0 };
+            }
+
+            // Handle GeneratedTokenInfo
+            if (token is GeneratedTokenInfo genToken)
+            {
+                return new { Line = genToken.Line, Column = genToken.Column };
+            }
+
+            // Handle current token fallback
+            var current = CurrentToken;
+            return new { Line = current?.Line ?? 0, Column = current?.Column ?? 0 };
+        }
+
+        // ===== Context Management Methods (CPython 3.12 Style) =====
+
+        /// <summary>
+        /// Push a new context onto the context stack
+        /// </summary>
+        protected void PushContext(ContextType type, string? name = null)
+        {
+            var newLevel = _contextStack.Count > 0 ? _contextStack.Peek().NestingLevel + 1 : 0;
+            var context = new ParserContext(type, newLevel, _position, name);
+            _contextStack.Push(context);
+
+            Console.WriteLine($"[CONTEXT] Pushed {context}");
+        }
+
+        /// <summary>
+        /// Pop the current context from the context stack
+        /// </summary>
+        protected ParserContext? PopContext()
+        {
+            if (_contextStack.Count > 1) // Keep module context
+            {
+                var context = _contextStack.Pop();
+                Console.WriteLine($"[CONTEXT] Popped {context}");
+                return context;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Check if we're currently in a specific context type
+        /// </summary>
+        protected bool IsInContext(ContextType type)
+        {
+            return _contextStack.Any(ctx => ctx.Type == type);
+        }
+
+        /// <summary>
+        /// Get the current top context
+        /// </summary>
+        protected ParserContext? GetCurrentContext()
+        {
+            return _contextStack.Count > 0 ? _contextStack.Peek() : null;
+        }
+
+        /// <summary>
+        /// Validate if a statement is allowed in the current context
+        /// </summary>
+        protected void ValidateStatementContext(string statementType)
+        {
+            switch (statementType)
+            {
+                case "return":
+                    if (!IsInContext(ContextType.Function) && !IsInContext(ContextType.Lambda))
+                    {
+                        RAISE_SYNTAX_ERROR("'return' outside function");
+                    }
+                    break;
+
+                case "yield":
+                    if (!IsInContext(ContextType.Function))
+                    {
+                        RAISE_SYNTAX_ERROR("'yield' outside function");
+                    }
+                    break;
+
+                case "break":
+                case "continue":
+                    if (!IsInContext(ContextType.Loop))
+                    {
+                        var msg = statementType == "break" ? "'break' outside loop" : "'continue' not properly in loop";
+                        RAISE_SYNTAX_ERROR(msg);
+                    }
+                    break;
+
+                case "await":
+                    if (!IsInContext(ContextType.Async))
+                    {
+                        RAISE_SYNTAX_ERROR("'await' outside async function");
+                    }
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Debug method to print current context stack
+        /// </summary>
+        protected void PrintContextStack()
+        {
+            Console.WriteLine($"[CONTEXT-STACK] Current stack ({_contextStack.Count} levels):");
+            foreach (var ctx in _contextStack.Reverse())
+            {
+                Console.WriteLine($"[CONTEXT-STACK]   {ctx}");
+            }
+        }
+
     }
 
     // ========================================
@@ -723,5 +1506,61 @@ namespace SharpPy.Generated
         public object DecoratorList { get; set; } = null!;
         public string? TypeComment { get; set; }
         public object? TypeParams { get; set; }
+
+    }
+
+    /// <summary>
+    /// Syntax error exception for CPython 3.12 compatible error handling
+    /// </summary>
+    public class SyntaxErrorException : Exception
+    {
+        public string Filename { get; }
+        public int Line { get; }
+        public int Column { get; }
+        public int? EndLine { get; }
+        public int? EndColumn { get; }
+
+        public SyntaxErrorException(string message, string filename, int line, int column)
+            : base(message)
+        {
+            Filename = filename;
+            Line = line;
+            Column = column;
+        }
+
+        public SyntaxErrorException(string message, string filename, int line, int column, int endLine, int endColumn)
+            : base(message)
+        {
+            Filename = filename;
+            Line = line;
+            Column = column;
+            EndLine = endLine;
+            EndColumn = endColumn;
+        }
+
+        public override string ToString()
+        {
+            if (EndLine.HasValue && EndColumn.HasValue)
+            {
+                return $"SyntaxError: {Message} ({Filename}:{Line}:{Column}-{EndLine}:{EndColumn})";
+            }
+            return $"SyntaxError: {Message} ({Filename}:{Line}:{Column})";
+        }
+    }
+
+    /// <summary>
+    /// Indentation error exception for CPython 3.12 compatible error handling
+    /// </summary>
+    public class IndentationErrorException : SyntaxErrorException
+    {
+        public IndentationErrorException(string message, string filename, int line, int column)
+            : base(message, filename, line, column)
+        {
+        }
+
+        public override string ToString()
+        {
+            return $"IndentationError: {Message} ({Filename}:{Line}:{Column})";
+        }
     }
 }

@@ -441,6 +441,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
             WriteLine("public string? ExpressionType { get; set; }");
             WriteLine("public object? Value { get; set; }");
+            WriteLine("public string? Context { get; set; } = \"Load\"; // Load, Store, Del context");
             Dedent();
             WriteLine("}");
             WriteLine("public class GeneratedModule : GeneratedAstNode");
@@ -1698,22 +1699,42 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 return;
             }
 
-            WriteLine($"// Rule: {rule.Name}");
+            WriteLine($"// Rule: {rule.Name}{(rule.IsMemoized ? " (memo)" : "")}");
             WriteLine($"public {returnType} {methodName}()");
             WriteLine("{");
             Indent();
 
-            // Use PegInterpreter for other rules - embedded in generated code
-            WriteLine($"var result = _interpreter.ParseRule(\"{rule.Name}\");");
-            // Fix nullable casting issue - use proper casting syntax
-            if (returnType.EndsWith("?"))
+            if (rule.IsMemoized)
             {
-                var baseType = returnType.Substring(0, returnType.Length - 1);
-                WriteLine($"return result as {baseType};");
+                // Generate memoization code for (memo) rules
+                WriteLine($"// Memoization for rule '{rule.Name}'");
+                WriteLine($"var memoKey = \"{rule.Name}\";");
+                WriteLine($"var memoResult = GetMemo<{returnType}>(memoKey);");
+                WriteLine("if (memoResult != null)");
+                WriteLine("{");
+                WriteLine("    return memoResult;");
+                WriteLine("}");
+                WriteLine();
+                WriteLine("var startPos = _position;");
+                WriteLine($"var result = _interpreter.ParseRule(\"{rule.Name}\");");
+                WriteLine($"var parsedResult = result as {returnType.TrimEnd('?')};");
+                WriteLine($"SetMemo<{returnType}>(memoKey, parsedResult);");
+                WriteLine("return parsedResult;");
             }
             else
             {
-                WriteLine($"return ({returnType})result;");
+                // Use PegInterpreter for non-memoized rules
+                WriteLine($"var result = _interpreter.ParseRule(\"{rule.Name}\");");
+                // Fix nullable casting issue - use proper casting syntax
+                if (returnType.EndsWith("?"))
+                {
+                    var baseType = returnType.Substring(0, returnType.Length - 1);
+                    WriteLine($"return result as {baseType};");
+                }
+                else
+                {
+                    WriteLine($"return ({returnType})result;");
+                }
             }
 
             Dedent();
@@ -2749,6 +2770,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("private readonly EmbeddedGrammar _grammar;");
             WriteLine("private readonly List<IEmbeddedTokenInfo> _tokens;");
             WriteLine("private readonly GeneratedPyParser _parser;");
+            WriteLine("private bool _isFirstPass = true;");
+            WriteLine("private int _firstPassFailurePosition = -1;");
             WriteLine();
             WriteLine("public EmbeddedPegInterpreter(EmbeddedGrammar grammar, List<IEmbeddedTokenInfo> tokens, GeneratedPyParser parser)");
             WriteLine("{");
@@ -2759,9 +2782,74 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Dedent();
             WriteLine("}");
             WriteLine();
+            WriteLine("/// <summary>");
+            WriteLine("/// Parse a rule with 2-pass support for invalid rules");
+            WriteLine("/// </summary>");
+            WriteLine("public object ParseRuleWithTwoPass(string ruleName)");
+            WriteLine("{");
+            Indent();
+            WriteLine("// First pass: exclude invalid rules");
+            WriteLine("_isFirstPass = true;");
+            WriteLine("_firstPassFailurePosition = -1;");
+            WriteLine("var firstPassPosition = _parser._position;");
+            WriteLine();
+            WriteLine("var result = ParseRule(ruleName);");
+            WriteLine("if (result != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("return result;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// First pass failed - record failure position");
+            WriteLine("_firstPassFailurePosition = _parser._position;");
+            WriteLine();
+            WriteLine("// Reset position for second pass");
+            WriteLine("_parser._position = firstPassPosition;");
+            WriteLine();
+            WriteLine("// Second pass: include invalid rules for better error messages");
+            WriteLine("_isFirstPass = false;");
+            WriteLine("result = ParseRule(ruleName);");
+            WriteLine("if (result != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("return result;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// Both passes failed - use first pass failure position for more accurate error location");
+            WriteLine("if (_firstPassFailurePosition >= 0)");
+            WriteLine("{");
+            Indent();
+            WriteLine("_parser._position = _firstPassFailurePosition;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("/// <summary>");
+            WriteLine("/// Check if a rule should be excluded in the first pass");
+            WriteLine("/// </summary>");
+            WriteLine("private bool ShouldExcludeRuleInFirstPass(string ruleName)");
+            WriteLine("{");
+            Indent();
+            WriteLine("return _isFirstPass && ruleName.StartsWith(\"invalid_\");");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
             WriteLine("public object ParseRule(string ruleName)");
             WriteLine("{");
             Indent();
+            WriteLine("// Check if this rule should be excluded in first pass");
+            WriteLine("if (ShouldExcludeRuleInFirstPass(ruleName))");
+            WriteLine("{");
+            Indent();
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
             WriteLine("switch (ruleName)");
             WriteLine("{");
             Indent();
@@ -4295,8 +4383,15 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("while (_position < _tokens.Count && CurrentToken?.Type != GeneratedTokenType.ENDMARKER)");
             WriteLine("{");
             Indent();
-            WriteLine("// Skip NEWLINE, NL, COMMENT, and DEDENT tokens");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NEWLINE || CurrentToken?.Type == GeneratedTokenType.NL || CurrentToken?.Type == GeneratedTokenType.COMMENT || CurrentToken?.Type == GeneratedTokenType.DEDENT)");
+            WriteLine("// Handle different token types appropriately");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.DEDENT)");
+            WriteLine("{");
+            WriteLine("    // CPython 3.12 PEG: Stop parsing at DEDENT boundary");
+            WriteLine("    break;");
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// Skip NEWLINE, NL, COMMENT tokens");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NEWLINE || CurrentToken?.Type == GeneratedTokenType.NL || CurrentToken?.Type == GeneratedTokenType.COMMENT)");
             WriteLine("{");
             WriteLine("    Advance();");
             WriteLine("    continue;");
