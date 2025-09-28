@@ -719,5 +719,91 @@ public static class PEP692CallHelper
     }
 }
 
+/// <summary>
+/// typing.TypedDict 구현 - PEP 589
+/// </summary>
+public class PyTypedDict : PyObject
+{
+    public string Name { get; }
+    public HashSet<string> RequiredKeys { get; } = new HashSet<string>();
+    public HashSet<string> OptionalKeys { get; } = new HashSet<string>();
+    public Dictionary<string, PyObject> KeyTypes { get; } = new Dictionary<string, PyObject>();
+
+    public PyTypedDict(string name)
+    {
+        Name = name;
+    }
+
+    public void AddRequired(string key, PyObject type)
+    {
+        RequiredKeys.Add(key);
+        KeyTypes[key] = type;
+    }
+
+    public void AddOptional(string key, PyObject type)
+    {
+        OptionalKeys.Add(key);
+        KeyTypes[key] = type;
+    }
+
+    public override string GetTypeName() => "TypedDict";
+    public override string ToString() => $"TypedDict('{Name}')";
+}
+
+/// <summary>
+/// PEP 692: Unpack 래퍼 - **kwargs: Unpack[TypedDict] 표현
+/// </summary>
+public class PyUnpackWrapper : PyObject
+{
+    public PyObject WrappedType { get; }
+    public PyTypedDict? TypedDict => WrappedType as PyTypedDict;
+
+    public PyUnpackWrapper(PyObject wrappedType)
+    {
+        WrappedType = wrappedType;
+    }
+
+    public override string GetTypeName() => $"Unpack[{WrappedType.GetTypeName()}]";
+    public override string ToString() => GetTypeName();
+
+    /// <summary>
+    /// kwargs 딕셔너리가 이 TypedDict와 호환되는지 검증
+    /// </summary>
+    public bool IsCompatibleWith(PyDict kwargs)
+    {
+        if (TypedDict == null) return true; // 검증할 TypedDict가 없으면 통과
+
+        var requiredKeys = TypedDict.RequiredKeys;
+        var allKeys = TypedDict.RequiredKeys.Concat(TypedDict.OptionalKeys).ToHashSet();
+
+        // 필수 키가 모두 있는지 확인
+        foreach (var requiredKey in requiredKeys)
+        {
+            if (!kwargs.InternalDict.ContainsKey(new PyString(requiredKey)))
+                return false;
+        }
+
+        // 추가 키가 허용되지 않는 키인지 확인
+        foreach (var kvp in kwargs.InternalDict)
+        {
+            if (kvp.Key is PyString keyStr)
+            {
+                if (!allKeys.Contains(keyStr.Value))
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// kwargs 딕셔너리 검증 (예외 던지지 않고 boolean 반환)
+    /// </summary>
+    public bool ValidateKwargs(PyDict kwargs)
+    {
+        return IsCompatibleWith(kwargs);
+    }
+}
+
 #endregion
 }

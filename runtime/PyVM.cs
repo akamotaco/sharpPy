@@ -96,11 +96,37 @@ namespace SharpPy
                 Cells = new PyCell[0];
             }
 
-            // 함수 스코프 생성
-            ScopeChain.PushScope(ScopeType.Local, code.Name);
+            // 함수 스코프 생성 (모듈 실행인 경우 제외)
+            if (!IsModuleExecution(code.Name))
+            {
+                ScopeChain.PushScope(ScopeType.Local, code.Name);
+#if DEBUG_LOG
+                Console.WriteLine($"📁 스코프 추가: Local Scope '{code.Name}': 0 variables");
+#endif
+            }
+            else
+            {
+#if DEBUG_LOG
+                Console.WriteLine($"📦 모듈 실행 감지: '{code.Name}' - Local 스코프 생성 생략");
+#endif
+            }
 
             // CPython 3.12 호환: 매개변수 바인딩 (키워드 인수 지원)
             BindArgumentsToParametersCPython312(args, code, parentFrame);
+        }
+
+        /// <summary>
+        /// 코드 이름으로 모듈 실행인지 판단
+        /// </summary>
+        private static bool IsModuleExecution(string codeName)
+        {
+            return codeName == "<module>" ||
+                   codeName == "contextlib" ||
+                   codeName == "abc" ||
+                   codeName == "functools" ||
+                   codeName == "typing" ||
+                   codeName.EndsWith(".py") ||
+                   codeName.Contains("module");
         }
 
         /// <summary>

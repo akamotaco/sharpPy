@@ -96,6 +96,14 @@ namespace SharpPy
         public static readonly PyType AssertionErrorType = new PyType("AssertionError", new[] { ExceptionType });
         public static readonly PyType GeneratorExitType = new PyType("GeneratorExit", new[] { BaseExceptionType });
 
+        // Typing system types (PEP 484, 585, 695)
+        public static readonly PyType UnionType = new PyType("Union", new[] { ObjectType });
+        public static readonly PyType TypeVarType = new PyType("TypeVar", new[] { ObjectType });
+        public static readonly PyType OptionalType = new PyType("Optional", new[] { ObjectType });
+        public static readonly PyType CallableType = new PyType("Callable", new[] { ObjectType });
+        public static readonly PyType AnyType = new PyType("Any", new[] { ObjectType });
+        public static readonly PyType NoReturnType = new PyType("NoReturn", new[] { ObjectType });
+        public static readonly PyType ProtocolType = new PyType("Protocol", new[] { ObjectType });
 
         #endregion
 
@@ -547,6 +555,36 @@ namespace SharpPy
         protected override PyObject PyEquals(PyObject other)
         {
             return PyBool.FromBool(ReferenceEquals(this, other));
+        }
+
+        #endregion
+
+        #region Union Type Support (PEP 585)
+
+        /// <summary>
+        /// Union type operator support: int | str -> Union[int, str]
+        /// </summary>
+        public override PyObject BitwiseOr(PyObject other)
+        {
+            // Both operands should be types for Union
+            if (other is PyType otherType)
+            {
+                return new PyUnionType(new PyObject[] { this, otherType });
+            }
+            else if (other is PyUnionType unionType)
+            {
+                // Type | Union -> extend Union
+                var newTypes = new List<PyObject> { this };
+                newTypes.AddRange(unionType.Args);
+                return new PyUnionType(newTypes.ToArray());
+            }
+            else if (other is PyBuiltinType builtinType)
+            {
+                return new PyUnionType(new PyObject[] { this, builtinType });
+            }
+
+            // Fall back to base implementation for non-type objects
+            return base.BitwiseOr(other);
         }
 
         #endregion

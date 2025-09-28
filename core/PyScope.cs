@@ -312,6 +312,32 @@ public class PyBuiltinType : PyObject
                 return base.GetAttribute(name);
         }
     }
+
+    /// <summary>
+    /// Union type operator support: int | str -> Union[int, str]
+    /// </summary>
+    public override PyObject BitwiseOr(PyObject other)
+    {
+        // Support Union operator for builtin types
+        if (other is PyBuiltinType otherBuiltinType)
+        {
+            return new PyUnionType(new PyObject[] { this, otherBuiltinType });
+        }
+        else if (other is PyType otherType)
+        {
+            return new PyUnionType(new PyObject[] { this, otherType });
+        }
+        else if (other is PyUnionType unionType)
+        {
+            // Type | Union -> extend Union
+            var newTypes = new List<PyObject> { this };
+            newTypes.AddRange(unionType.Args);
+            return new PyUnionType(newTypes.ToArray());
+        }
+
+        // Fall back to base implementation for non-type objects
+        return base.BitwiseOr(other);
+    }
 }
 
 // 일반 스코프 (G, E, L만)
@@ -326,6 +352,17 @@ public class PyScope
     {
         Type = type;
         Variables = new Dictionary<string, PyObject>();
+        EnclosingScope = enclosingScope;
+        Name = name;
+    }
+
+    /// <summary>
+    /// 모듈용 생성자: 기존 딕셔너리를 Variables로 사용
+    /// </summary>
+    public PyScope(ScopeType type, Dictionary<string, PyObject> existingVariables, PyScope enclosingScope = null, string name = "")
+    {
+        Type = type;
+        Variables = existingVariables ?? new Dictionary<string, PyObject>();
         EnclosingScope = enclosingScope;
         Name = name;
     }
@@ -379,6 +416,28 @@ public class PyScope
             globalScope.SetVariable("__builtins__", _builtinModule);
 
             SharpPyConfig.DebugWriteInternal("🏗️ LEGB 시스템 초기화 (Builtin 특별 관리)");
+        }
+
+        /// <summary>
+        /// 모듈용 생성자: 기존 모듈 딕셔너리를 글로벌 스코프로 사용
+        /// </summary>
+        public PyScopeChain(Dictionary<string, PyObject> moduleDict, string moduleName)
+        {
+            // Builtin은 전역 싱글톤 모듈 (특별!)
+            _builtinModule = PyBuiltinsModule.Instance;
+
+            // 일반 스코프들 (모듈 딕셔너리를 Global로 시작)
+            _normalScopes = new List<PyScope>();
+            var globalScope = new PyScope(ScopeType.Global, moduleDict, null, moduleName);
+            _normalScopes.Add(globalScope);
+
+            // Global 스코프에 __builtins__ 참조 추가 (Python과 동일) - moduleDict가 이미 포함할 수 있음
+            if (!moduleDict.ContainsKey("__builtins__"))
+            {
+                globalScope.SetVariable("__builtins__", _builtinModule);
+            }
+
+            SharpPyConfig.DebugWriteInternal($"🏗️ 모듈용 LEGB 시스템 초기화: {moduleName}");
         }
 
         public PyScope PushScope(ScopeType type, string name = "", PyScope enclosingScope = null)
@@ -536,8 +595,8 @@ public class PyScope
                 Console.WriteLine($"📝 Global 변수 할당: {name} = {value}");
 #endif
             }
-            // **핵심 수정**: 모듈 레벨에서는 GlobalScope에 저장
-            else if (CurrentScope != null && CurrentScope.Name == "<module>")
+            // **핵심 수정**: 모듈 실행에서는 GlobalScope에 저장 (CPython 3.12 호환)
+            else if (CurrentScope != null && IsModuleScope(CurrentScope.Name))
             {
                 GlobalScope.SetVariable(name, value);
 #if DEBUG_LOG
@@ -602,15 +661,38 @@ public class PyScope
         }
 
         /// <summary>
+        /// 스코프 이름으로 모듈 스코프인지 판단
+        /// </summary>
+        private static bool IsModuleScope(string scopeName)
+        {
+            return scopeName == "<module>" ||
+                   scopeName == "contextlib" ||
+                   scopeName == "abc" ||
+                   scopeName == "functools" ||
+                   scopeName == "typing" ||
+                   scopeName.EndsWith(".py") ||
+                   scopeName.Contains("module");
+        }
+
+
+        /// <summary>
         /// 글로벌 스코프의 모든 변수를 반환 (모듈 실행 후 변수 추출용)
+        /// 모듈 실행 시에는 CurrentScope(Local)의 변수들이 실제로는 모듈의 global 변수들임
         /// </summary>
         public Dictionary<string, PyObject> GetGlobalVariables()
         {
+            var result = new Dictionary<string, PyObject>();
+
+            // 글로벌 스코프의 변수들 반환 (CPython 3.12 호환)
             if (GlobalScope?.Variables != null)
             {
-                return new Dictionary<string, PyObject>(GlobalScope.Variables);
+                foreach (var kvp in GlobalScope.Variables)
+                {
+                    result[kvp.Key] = kvp.Value;
+                }
             }
-            return new Dictionary<string, PyObject>();
+
+            return result;
         }
 
     }

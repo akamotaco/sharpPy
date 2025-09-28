@@ -123,7 +123,11 @@ namespace SharpPy
                 // CPython 3.12: Or patterns (pattern1 | pattern2)
                 case OrPattern orPattern:
                     return MatchOrPattern(subject, orPattern, scope);
-                    
+
+                // CPython 3.12: As patterns (pattern as name)
+                case AsPattern asPattern:
+                    return MatchAsPattern(subject, asPattern, scope);
+
                 default:
                     // More complex patterns would be implemented here
                     return false;
@@ -326,7 +330,22 @@ namespace SharpPy
                 _orPatternDepth--;
             }
         }
-        
+
+        /// <summary>
+        /// CPython 3.12: Match AS patterns like (pattern as name)
+        /// </summary>
+        private static bool MatchAsPattern(PyObject subject, AsPattern asPattern, PyScope scope)
+        {
+            // First try to match the inner pattern
+            if (MatchPattern(subject, asPattern.Pattern, scope))
+            {
+                // If pattern matches, bind the matched value to the variable name
+                scope.SetVariable(asPattern.Name, subject);
+                return true;
+            }
+            return false;
+        }
+
         #endregion
         
         #region f-string Execution

@@ -406,6 +406,33 @@ namespace SharpPy
                     }
                     break;
 
+                case MatchStatement matchStmt:
+#if DEBUG_LOG
+                    Console.WriteLine($"  AnalyzeStatement: MatchStatement in scope '{_currentTable?.GetName()}'");
+#endif
+                    // 1. Analyze the subject expression
+                    AnalyzeExpression(matchStmt.Subject);
+
+                    // 2. Analyze each match case
+                    foreach (var matchCase in matchStmt.Cases)
+                    {
+                        // Analyze pattern (may define new variables)
+                        AnalyzeExpression(matchCase.Pattern);
+
+                        // Analyze guard if present
+                        if (matchCase.Guard != null)
+                        {
+                            AnalyzeExpression(matchCase.Guard);
+                        }
+
+                        // Analyze case body
+                        foreach (var stmt in matchCase.Body)
+                        {
+                            AnalyzeStatement(stmt);
+                        }
+                    }
+                    break;
+
                 // For now, skip complex statement types
                 default:
 #if DEBUG_LOG

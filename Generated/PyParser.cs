@@ -82,6 +82,298 @@ namespace SharpPy.Generated
         // Generated Python Grammar Parsing Methods
         // ========================================
 
+        // Helper methods
+        private GeneratedTokenInfo? CurrentToken => _position < _tokens.Count ? _tokens[_position] : null;
+
+        private void Advance()
+        {
+            if (_position < _tokens.Count) _position++;
+        }
+
+        private bool Expect(string expected)
+        {
+            if (CurrentToken?.Type.ToString() == expected)
+            {
+                Advance();
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Skip NL tokens for implicit line joining (CPython 3.12 compatible)
+        /// </summary>
+        private void SkipNL()
+        {
+            while (CurrentToken?.Type == GeneratedTokenType.NL)
+            {
+                Advance(); // skip NL token
+            }
+        }
+
+        private bool ExpectKeyword(string keyword)
+        {
+            if (CurrentToken?.Type.ToString() == "NAME" && CurrentToken?.Value == keyword)
+            {
+                Advance();
+                return true;
+            }
+            return false;
+        }
+
+        private int Mark() => _position;
+
+        private void Reset(int mark) => _position = mark;
+
+        private T? GetMemo<T>(string ruleName)
+        {
+            var key = (_position, ruleName);
+            return _memoCache.TryGetValue(key, out var value) ? (T?)value : default;
+        }
+
+        private void SetMemo<T>(string ruleName, T? value)
+        {
+            var key = (_position, ruleName);
+            _memoCache[key] = value;
+        }
+
+        private List<T> ParseZeroOrMore<T>(Func<T?> parseFunc) where T : class
+        {
+            var results = new List<T>();
+            while (true)
+            {
+                var startPos = _position;
+                var result = parseFunc();
+                if (result == null)
+                {
+                    _position = startPos;
+                    break;
+                }
+                results.Add(result);
+            }
+            return results;
+        }
+
+        private List<T>? ParseOneOrMore<T>(Func<T?> parseFunc) where T : class
+        {
+            var results = ParseZeroOrMore(parseFunc);
+            return results.Count > 0 ? results : null;
+        }
+
+        private T? ParseOptional<T>(Func<T?> parseFunc) where T : class
+        {
+            var startPos = _position;
+            var result = parseFunc();
+            if (result == null)
+            {
+                _position = startPos;
+            }
+            return result;
+        }
+
+        private T? ParseGroup<T>(Func<T?> parseFunc) where T : class
+        {
+            return parseFunc();
+        }
+
+        private bool AtEndOfFile()
+        {
+            return _position >= _tokens.Count || CurrentToken?.Type.ToString() == "ENDMARKER";
+        }
+
+        private bool ExpectOperator(string op)
+        {
+            if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == op)
+            {
+                Advance();
+                return true;
+            }
+            return false;
+        }
+
+        private object? ExpectTokenType(string tokenType)
+        {
+            if (CurrentToken?.Type.ToString() == tokenType)
+            {
+                var value = CurrentToken?.Value;
+                Advance();
+                return value;
+            }
+            return null;
+        }
+
+        private object? TryParseGrammarItems(string[] items)
+        {
+            // Parse sequence of grammar items
+            var startPos = _position;
+            var results = new List<object?>();
+            var variables = new Dictionary<string, object?>();
+
+            foreach (var item in items)
+            {
+                var result = ParseGrammarItem(item, variables);
+                if (result == null)
+                {
+                    _position = startPos; // Reset on failure
+                    return null;
+                }
+                results.Add(result);
+            }
+
+            // Return appropriate result based on pattern
+            return CreateResultFromItems(items, results, variables);
+        }
+
+        private object? ParseGrammarItem(string item, Dictionary<string, object?> variables)
+        {
+            // Handle variable assignments (e.g., "a=statements")
+            if (item.Contains('='))
+            {
+                var parts = item.Split('=', 2);
+                var varName = parts[0];
+                var pattern = parts[1];
+                var result = ParsePattern(pattern);
+                if (result != null) variables[varName] = result;
+                return result;
+            }
+
+            // Direct pattern matching
+            return ParsePattern(item);
+        }
+
+        private object? ParsePattern(string pattern)
+        {
+            // Remove optional markers
+            if (pattern.StartsWith("[") && pattern.EndsWith("]"))
+            {
+                var innerPattern = pattern.Substring(1, pattern.Length - 2);
+                var result = ParsePattern(innerPattern);
+                return result; // Optional always succeeds, may return null
+            }
+
+            // Handle grouping
+            if (pattern.StartsWith("(") && pattern.EndsWith(")"))
+            {
+                var innerPattern = pattern.Substring(1, pattern.Length - 2);
+                return ParsePattern(innerPattern);
+            }
+
+            // Handle string literals (keywords/operators)
+            if (pattern.StartsWith('"') && pattern.EndsWith('"'))
+            {
+                var literal = pattern.Substring(1, pattern.Length - 2);
+                return ParseStringLiteral(literal);
+            }
+
+            // Handle quoted string literals
+            if (pattern.StartsWith("'") && pattern.EndsWith("'"))
+            {
+                var literal = pattern.Substring(1, pattern.Length - 2);
+                return ParseStringLiteral(literal);
+            }
+
+            // Handle token types
+            if (pattern == "ENDMARKER") return AtEndOfFile() ? "ENDMARKER" : null;
+            if (pattern == "NAME") return ExpectTokenType("NAME");
+            if (pattern == "NUMBER") return ExpectTokenType("NUMBER");
+            if (pattern == "STRING") return ExpectTokenType("STRING");
+            if (pattern == "NEWLINE") return ExpectTokenType("NEWLINE");
+
+            // Handle repetition patterns
+            if (pattern.EndsWith("+"))
+            {
+                var basePattern = pattern.Substring(0, pattern.Length - 1);
+                var results = new List<object?>();
+                while (true)
+                {
+                    var startPos = _position;
+                    var result = ParsePattern(basePattern);
+                    if (result == null)
+                    {
+                        _position = startPos;
+                        break;
+                    }
+                    results.Add(result);
+                }
+                return results.Count > 0 ? results : null; // + requires at least one match
+            }
+
+            if (pattern.EndsWith("*"))
+            {
+                var basePattern = pattern.Substring(0, pattern.Length - 1);
+                var results = new List<object?>();
+                while (true)
+                {
+                    var startPos = _position;
+                    var result = ParsePattern(basePattern);
+                    if (result == null)
+                    {
+                        _position = startPos;
+                        break;
+                    }
+                    results.Add(result);
+                }
+                return results; // * always succeeds, may return empty list
+            }
+
+            // Handle rule references
+            return ParseRuleReference(pattern);
+        }
+
+        private object? ParseStringLiteral(string literal)
+        {
+            // Handle operators
+            if (literal == "=") return ExpectOperator("=") ? "=" : null;
+            if (literal == "+") return ExpectOperator("+") ? "+" : null;
+            if (literal == "-") return ExpectOperator("-") ? "-" : null;
+            if (literal == "*") return ExpectOperator("*") ? "*" : null;
+            if (literal == "/") return ExpectOperator("/") ? "/" : null;
+
+            // Handle keywords
+            if (ExpectKeyword(literal)) return literal;
+            return null;
+        }
+
+        private object? ParseRuleReference(string ruleName)
+        {
+            // Map rule names to method calls
+            switch (ruleName)
+            {
+                case "statements": return Statements();
+                case "statement": return Statement();
+                case "assignment": return Assignment();
+                case "star_targets": return StarTargets();
+                case "star_expressions": return StarExpressions();
+                case "expressions": return Expressions();
+                case "expression": return Expression();
+                case "primary": return Primary();
+                case "atom": return Atom();
+                default: return null; // Rule not implemented
+            }
+        }
+
+        private object? CreateResultFromItems(string[] items, List<object?> results, Dictionary<string, object?> variables)
+        {
+            // Create appropriate result based on the pattern context
+            if (items.Length == 2 && items[1] == "ENDMARKER")
+            {
+                // This is likely a file rule - create module
+                var statements = variables.ContainsKey("a") ? variables["a"] : null;
+                return new GeneratedModule { Body = statements as GeneratedStmtSeq };
+            }
+
+            // For assignment patterns
+            if (variables.ContainsKey("a") && variables.ContainsKey("b"))
+            {
+                // Assignment: targets = expressions
+                return new GeneratedStmt { StatementType = "Assign", Value = new { targets = variables["a"], value = variables["b"] } };
+            }
+
+            // Return first non-null result or first variable
+            if (variables.Count > 0) return variables.Values.FirstOrDefault(v => v != null);
+            return results.FirstOrDefault(r => r != null);
+        }
+
         /// <summary>
         /// file[mod_ty]: a=[statements] ENDMARKER { _PyPegen_make_module(p, a) }
         /// </summary>
@@ -1023,6 +1315,7 @@ namespace SharpPy.Generated
         public object ParseListOrListComp()
         {
             Advance(); // consume '['
+            SkipNL(); // skip newlines after opening bracket
 
             // Handle empty list
             if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "]")
@@ -1066,12 +1359,14 @@ namespace SharpPy.Generated
                 while (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ",")
                 {
                     Advance(); // consume ','
+                    SkipNL(); // skip newlines after comma
                     // Allow trailing comma
                     if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "]")
                         break;
                     var element = ParseExpression();
                     if (element != null)
                         elements.Add(element);
+                    SkipNL(); // skip newlines after element
                 }
 
                 // Expect closing ']'
@@ -1088,6 +1383,96 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
+        /// statements: statement+
+        /// </summary>
+        public List<object> Statements()
+        {
+            var statements = new List<object>();
+            var stmt = Statement();
+            if (stmt != null) statements.Add(stmt);
+            return statements;
+        }
+
+        /// <summary>
+        /// statement: compound_stmt | simple_stmts
+        /// </summary>
+        public object Statement()
+        {
+            return ParseSimpleStmt();
+        }
+
+        /// <summary>
+        /// expression: disjunction | lambdef
+        /// </summary>
+        public object Expression()
+        {
+            return ParseExpression();
+        }
+
+        /// <summary>
+        /// star_targets: star_target ((',' star_target))* [',']
+        /// </summary>
+        public List<object> StarTargets()
+        {
+            var targets = new List<object>();
+            var target = Expression();
+            if (target != null) targets.Add(target);
+            return targets;
+        }
+
+        /// <summary>
+        /// star_expressions: star_expression ((',' star_expression))* [',']
+        /// </summary>
+        public List<object> StarExpressions()
+        {
+            var expressions = new List<object>();
+            var expr = Expression();
+            if (expr != null) expressions.Add(expr);
+            return expressions;
+        }
+
+        /// <summary>
+        /// expressions: expression ((',' expression))* [',']
+        /// </summary>
+        public List<object> Expressions()
+        {
+            var expressions = new List<object>();
+            var expr = Expression();
+            if (expr != null) expressions.Add(expr);
+            return expressions;
+        }
+
+        /// <summary>
+        /// primary: atom | primary '.' NAME | primary '[' slices ']' | primary '(' [arguments] ')'
+        /// </summary>
+        public object Primary()
+        {
+            return Atom();
+        }
+
+        /// <summary>
+        /// atom: NAME | 'True' | 'False' | 'None' | '__peg_parser__' | STRING | NUMBER | ...
+        /// </summary>
+        public object Atom()
+        {
+            if (CurrentToken?.Type == GeneratedTokenType.NAME)
+            {
+                var name = CurrentToken.Value;
+                Advance();
+                return new GeneratedExpr { ExpressionType = "Name", Value = name };
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// assignment: target '=' expression
+        /// </summary>
+        public object Assignment()
+        {
+            return ParseAssignment();
+        }
+
+        /// <summary>
         /// Parse dict literal, set literal, dict comprehension, or set comprehension
         /// dict: '{' a=[double_starred_kvpairs] '}'
         /// set: '{' a=star_named_expressions '}'
@@ -1097,6 +1482,7 @@ namespace SharpPy.Generated
         public object ParseDictSetOrComp()
         {
             Advance(); // consume '{'
+            SkipNL(); // skip newlines after opening brace
 
             // Handle empty dict
             if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "}")
@@ -1117,6 +1503,7 @@ namespace SharpPy.Generated
             if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ":")
             {
                 Advance(); // consume ':'
+                SkipNL(); // skip newlines after colon
                 var value = ParseExpression();
                 if (value == null) return null;
 
@@ -1147,17 +1534,21 @@ namespace SharpPy.Generated
                     while (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ",")
                     {
                         Advance(); // consume ','
+                        SkipNL(); // skip newlines after comma
                         // Allow trailing comma
                         if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "}")
                             break;
                         var key = ParseExpression();
                         if (key == null) break;
+                        SkipNL(); // skip newlines after key
                         if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != ":")
                             break;
                         Advance(); // consume ':'
+                        SkipNL(); // skip newlines after colon
                         var val = ParseExpression();
                         if (val != null)
                             pairs.Add(new { key = key, value = val });
+                        SkipNL(); // skip newlines after value
                     }
 
                     // Expect closing '}'
@@ -1360,7 +1751,7 @@ namespace SharpPy.Generated
             Advance(); // consume ':'
 
             // Parse class body
-            var body = ParseBlock();
+            var body = ParseClassBody();
             if (body == null || body.Count == 0)
             {
                 Console.WriteLine($"[DEBUG] ParseClassDefRaw: Failed to parse class body");
@@ -2652,6 +3043,60 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
+        /// Parse class body without left-recursion
+        /// </summary>
+        public List<object> ParseClassBody()
+        {
+            Console.WriteLine($"[DEBUG] ParseClassBody: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+            var statements = new List<object>();
+
+            if (CurrentToken?.Type == GeneratedTokenType.NEWLINE)
+            {
+                Advance(); // consume NEWLINE
+                if (!ExpectToken(GeneratedTokenType.INDENT))
+                {
+                    Console.WriteLine($"[DEBUG] ParseClassBody: Expected INDENT after class declaration");
+                    return statements;
+                }
+
+                // Parse statements until DEDENT
+                while (CurrentToken != null && CurrentToken.Type != GeneratedTokenType.DEDENT)
+                {
+                    var stmt = ParseStatement();
+                    if (stmt != null)
+                    {
+                        statements.Add(stmt);
+                        Console.WriteLine($"[DEBUG] ParseClassBody: Added statement, total: {statements.Count}");
+                    }
+                    else
+                    {
+                        // Skip problematic tokens to avoid infinite loop
+                        Console.WriteLine($"[DEBUG] ParseClassBody: Failed to parse statement at {_position}, advancing");
+                        if (CurrentToken?.Type != GeneratedTokenType.DEDENT)
+                            Advance();
+                    }
+                }
+
+                if (CurrentToken?.Type == GeneratedTokenType.DEDENT)
+                {
+                    Advance(); // consume DEDENT
+                }
+            }
+            else
+            {
+                // Single line class body - parse one statement
+                var stmt = ParseSimpleStmt();
+                if (stmt != null)
+                {
+                    statements.Add(stmt);
+                }
+            }
+
+            Console.WriteLine($"[DEBUG] ParseClassBody: Returning {statements.Count} statements");
+            return statements;
+        }
+
+        /// <summary>
         /// class_def[stmt_ty]: 'class' a=NAME [type_params] b=['(' z=[arguments] ')'] ':' c=block
         /// </summary>
         public GeneratedStmt ParseClassDef()
@@ -2714,7 +3159,7 @@ namespace SharpPy.Generated
             Advance(); // consume ':'
 
             // Parse class body
-            var body = ParseBlock();
+            var body = ParseClassBody();
             if (body == null || body.Count == 0)
             {
                 Console.WriteLine($"[DEBUG] ParseClassDef: Failed to parse class body");

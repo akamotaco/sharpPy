@@ -114,6 +114,10 @@ namespace SharpPy
                 {
                     var stmt = moduleStmts[i];
 
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] Module statement {i}: Type='{stmt.StatementType}', Value={stmt.Value}");
+#endif
+
                     if (stmt.StatementType == "assignment")
                     {
                         // Look for chain assignment pattern
@@ -971,8 +975,77 @@ namespace SharpPy
                                                         }
                                                         else
                                                         {
-                                                            Console.WriteLine($"[DEBUG] Adding toString parameter: {param}");
-                                                            parameters.Add(param.ToString());
+                                                            // Handle GeneratedExpr parameters (especially with PEP 695 type params)
+                                                            if (param is GeneratedExpr genExpr && (genExpr.ExpressionType == "Name" || genExpr.ExpressionType == "arg"))
+                                                            {
+                                                                if (genExpr.Value is object valueObj)
+                                                                {
+                                                                    Console.WriteLine($"[DEBUG] GeneratedExpr.Value type: {valueObj.GetType().Name}");
+
+                                                                    // Try 'arg' property first (for function parameters)
+                                                                    var argProperty = valueObj.GetType().GetProperty("arg");
+                                                                    if (argProperty != null)
+                                                                    {
+                                                                        var argValue = argProperty.GetValue(valueObj);
+                                                                        Console.WriteLine($"[DEBUG] Found 'arg' property: '{argValue}' (type: {argValue?.GetType().Name})");
+                                                                        var extractedParamName = argValue?.ToString();
+                                                                        if (!string.IsNullOrEmpty(extractedParamName))
+                                                                        {
+                                                                            Console.WriteLine($"[DEBUG] Adding extracted parameter name from 'arg': {extractedParamName}");
+                                                                            parameters.Add(extractedParamName);
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            Console.WriteLine($"[DEBUG] 'arg' property is empty, using toString: {param}");
+                                                                            parameters.Add(param.ToString());
+                                                                        }
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        // Fallback to 'value' property (for other cases)
+                                                                        var valueProperty = valueObj.GetType().GetProperty("value");
+                                                                        if (valueProperty != null)
+                                                                        {
+                                                                            var extractedValue = valueProperty.GetValue(valueObj);
+                                                                            Console.WriteLine($"[DEBUG] Found 'value' property: '{extractedValue}' (type: {extractedValue?.GetType().Name})");
+                                                                            var extractedParamName = extractedValue?.ToString();
+                                                                            if (!string.IsNullOrEmpty(extractedParamName))
+                                                                            {
+                                                                                Console.WriteLine($"[DEBUG] Adding extracted parameter name from 'value': {extractedParamName}");
+                                                                                parameters.Add(extractedParamName);
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                Console.WriteLine($"[DEBUG] 'value' property is empty, using toString: {param}");
+                                                                                parameters.Add(param.ToString());
+                                                                            }
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            Console.WriteLine($"[DEBUG] No 'arg' or 'value' property found in {valueObj.GetType().Name}, using toString: {param}");
+                                                                            parameters.Add(param.ToString());
+                                                                        }
+                                                                    }
+                                                                }
+                                                                else
+                                                                {
+                                                                    Console.WriteLine($"[DEBUG] GeneratedExpr.Value is null, using toString: {param}");
+                                                                    parameters.Add(param.ToString());
+                                                                }
+                                                            }
+                                                            else
+                                                            {
+                                                                // Debug info for non-GeneratedExpr case
+                                                                if (param is GeneratedExpr genExprDebug)
+                                                                {
+                                                                    Console.WriteLine($"[DEBUG] GeneratedExpr with ExpressionType '{genExprDebug.ExpressionType}' != 'Name', using toString: {param}");
+                                                                }
+                                                                else
+                                                                {
+                                                                    Console.WriteLine($"[DEBUG] Not a GeneratedExpr (type: {param?.GetType().Name}), using toString: {param}");
+                                                                }
+                                                                parameters.Add(param.ToString());
+                                                            }
                                                         }
                                                     }
                                                     else
@@ -1087,27 +1160,114 @@ namespace SharpPy
                     }
                     return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
+                case "class":
+                    // Class definition from parser (class name: body)
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] ConvertStatement: Processing class statement");
+                    Console.WriteLine($"[DEBUG] stmt.Value: {stmt.Value}");
+                    Console.WriteLine($"[DEBUG] stmt.Value type: {stmt.Value?.GetType()?.Name}");
+                    Console.WriteLine($"[DEBUG] stmt properties:");
+                    foreach (var prop in stmt.GetType().GetProperties())
+                    {
+                        try
+                        {
+                            var value = prop.GetValue(stmt);
+                            Console.WriteLine($"[DEBUG]   {prop.Name}: {value} (type: {value?.GetType()?.Name})");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[DEBUG]   {prop.Name}: Error - {ex.Message}");
+                        }
+                    }
+#endif
+                    // Get class name directly from stmt
+                    var className = stmt.ClassName ?? "";
+
+                    // Get base classes directly from stmt
+                    var baseClassExprs = new List<Expression>();
+                    if (stmt.BaseClasses != null)
+                    {
+                        foreach (var baseClass in stmt.BaseClasses)
+                        {
+                            if (baseClass is string baseName)
+                            {
+                                baseClassExprs.Add(new NameExpression(baseName));
+                            }
+                            else
+                            {
+                                try
+                                {
+                                    var expr = ConvertAnyExpression(baseClass);
+                                    if (expr != null)
+                                        baseClassExprs.Add(expr);
+                                }
+                                catch (Exception ex)
+                                {
+#if DEBUG_LOG
+                                    Console.WriteLine($"[DEBUG] Class base class conversion error: {ex.Message}");
+#endif
+                                }
+                            }
+                        }
+                    }
+
+                    // Get body statements directly from stmt
+                    var classBodyStmts = new List<Statement>();
+                    if (stmt.Body != null)
+                    {
+                        foreach (var bodyStmt in stmt.Body)
+                        {
+                            try
+                            {
+                                if (bodyStmt is GeneratedStmt generatedStmt)
+                                {
+                                    var convertedStmt = ConvertStatement(generatedStmt, insideLoop, insideFunction);
+                                    if (convertedStmt != null)
+                                        classBodyStmts.Add(convertedStmt);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+#if DEBUG_LOG
+                                Console.WriteLine($"[DEBUG] Class body statement conversion error: {ex.Message}");
+#endif
+                            }
+                        }
+                    }
+
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] ConvertStatement: Creating ClassDefStatement with name='{className}', bases={baseClassExprs.Count}, body={classBodyStmts.Count}");
+#endif
+                    return new ClassDefStatement(className, baseClassExprs, classBodyStmts);
+
                 case "class_def":
                     // Class definition (class name: body)
                     if (stmt.Value != null)
                     {
                         var classData = stmt.Value as dynamic;
-                        var name = classData?.Name as string;
-                        var body = classData?.Body as string;
+                        Console.WriteLine($"[DEBUG] Class definition data: {classData}");
+                        Console.WriteLine($"[DEBUG] Class data type: {classData?.GetType()?.Name}");
 
-                        if (!string.IsNullOrEmpty(name) && body == "pass")
+                        // Try to get properties through reflection
+                        var type = classData?.GetType();
+                        if (type != null)
                         {
-                            // Create base classes list (empty for now)
-                            var bases = new List<Expression>();
-
-                            // Create body statements
-                            var bodyStmts = new List<Statement>
+                            foreach (var prop in type.GetProperties())
                             {
-                                new ExpressionStatement(new ConstantExpression(PyNone.Instance))
-                            };
-
-                            return new ClassDefStatement(name, bases, bodyStmts);
+                                try
+                                {
+                                    var value = prop.GetValue(classData);
+                                    Console.WriteLine($"[DEBUG] Class property {prop.Name}: {value} (type: {value?.GetType()?.Name})");
+                                }
+                                catch (Exception ex)
+                                {
+                                    Console.WriteLine($"[DEBUG] Class property {prop.Name}: Error - {ex.Message}");
+                                }
+                            }
                         }
+
+                        // For now, return a placeholder
+                        return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
                     return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
@@ -1950,15 +2110,69 @@ namespace SharpPy
                 throw new InvalidOperationException("Constant value is null");
             }
 
-            // Convert based on kind
+            // Convert based on kind with robust parsing
             return kind switch
             {
                 "string" => new ConstantExpression(new PyString(value.ToString() ?? "")),
-                "int" => new ConstantExpression(new PyInt(Convert.ToInt32(value))),
-                "float" => new ConstantExpression(new PyFloat(Convert.ToDouble(value))),
-                "number" => new ConstantExpression(new PyInt(Convert.ToInt32(value))),
+                "int" => new ConstantExpression(new PyInt(ParseInt(value))),
+                "float" => new ConstantExpression(new PyFloat(ParseFloat(value))),
+                "number" => new ConstantExpression(new PyInt(ParseInt(value))),
                 _ => new ConstantExpression(new PyString(value.ToString() ?? ""))
             };
+        }
+
+        /// <summary>
+        /// Safely parse integer values from various formats
+        /// </summary>
+        private static int ParseInt(object value)
+        {
+            if (value is int intVal)
+                return intVal;
+            if (value is long longVal)
+                return (int)longVal;
+            if (value is float floatVal)
+                return (int)floatVal;
+            if (value is double doubleVal)
+                return (int)doubleVal;
+
+            // Handle string conversion
+            var strVal = value.ToString() ?? "";
+
+            // Try parsing as integer first
+            if (int.TryParse(strVal, System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out var result))
+                return result;
+
+            // If that fails, try parsing as double and convert to int
+            if (double.TryParse(strVal, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var doubleResult))
+                return (int)doubleResult;
+
+            throw new InvalidOperationException($"Cannot convert '{strVal}' to integer");
+        }
+
+        /// <summary>
+        /// Safely parse float values from various formats
+        /// </summary>
+        private static double ParseFloat(object value)
+        {
+            if (value is double doubleVal)
+                return doubleVal;
+            if (value is float floatVal)
+                return floatVal;
+            if (value is int intVal)
+                return intVal;
+            if (value is long longVal)
+                return longVal;
+
+            // Handle string conversion with culture-invariant parsing
+            var strVal = value.ToString() ?? "";
+
+            if (double.TryParse(strVal, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var result))
+                return result;
+
+            throw new InvalidOperationException($"Cannot convert '{strVal}' to float");
         }
 
         /// <summary>

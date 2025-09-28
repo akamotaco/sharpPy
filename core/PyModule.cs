@@ -152,8 +152,7 @@ public class PyModule : PyObject
             var vm = PyVM.Instance;
             vm.ExecuteModule(codeObject, moduleGlobalScope);
 
-            // 5단계: 모듈 딕셔너리 업데이트 (실행 결과를 ModuleDict에 반영)
-            UpdateModuleDictFromScope(moduleGlobalScope);
+            // CPython 3.12 호환: 모듈 딕셔너리가 직접 사용되므로 별도 업데이트 불필요
 
             IsInitialized = true;
             Console.WriteLine($"✅ 모듈 '{Name}' 초기화 완료");
@@ -166,53 +165,12 @@ public class PyModule : PyObject
     }
 
     /// <summary>
-    /// 모듈 전용 글로벌 스코프 생성 (모듈의 __dict__를 기반으로)
+    /// 모듈 전용 글로벌 스코프 생성 (모듈의 __dict__를 직접 글로벌 스코프로 사용)
     /// </summary>
     private PyScopeChain CreateModuleGlobalScope()
     {
-        var moduleScope = new PyScopeChain();
-
-        // 기본 모듈 속성들을 글로벌 스코프에 설정
-        foreach (var kvp in ModuleDict)
-        {
-            moduleScope.AssignVariable(kvp.Key, kvp.Value);
-        }
-
-        // 내장 함수들은 PyScopeChain 생성 시 자동으로 설정됨 (PyBuiltinsModule.Instance)
-
-        return moduleScope;
-    }
-
-    /// <summary>
-    /// 실행 후 모듈 딕셔너리를 글로벌 스코프 결과로 업데이트
-    /// </summary>
-    private void UpdateModuleDictFromScope(PyScopeChain moduleScope)
-    {
-        // 글로벌 스코프의 변수들을 모듈 딕셔너리에 반영
-        var globalVars = moduleScope.GetGlobalVariables();
-
-        foreach (var kvp in globalVars)
-        {
-            // 내장 함수나 시스템 변수는 제외하고 사용자 정의 변수만 저장
-            if (!IsSystemVariable(kvp.Key))
-            {
-                ModuleDict[kvp.Key] = kvp.Value;
-            }
-        }
-    }
-
-    /// <summary>
-    /// 시스템 변수인지 확인 (모듈 딕셔너리에 저장하지 않을 변수들)
-    /// </summary>
-    private bool IsSystemVariable(string name)
-    {
-        return name.StartsWith("__builtins__") ||
-               name == "print" ||
-               name == "len" ||
-               name == "type" ||
-               name == "abs" ||
-               name == "max" ||
-               name == "min";
+        // CPython 3.12 호환: 모듈 딕셔너리를 직접 글로벌 스코프로 사용
+        return new PyScopeChain(ModuleDict, Name);
     }
 
     private void ExecuteLine(string line)
@@ -281,27 +239,29 @@ public class PyModule : PyObject
         // sys.modules 캐시
         public static Dictionary<string, PyModule> SysModules { get; } = new Dictionary<string, PyModule>();
 
-        // 내장 모듈들
+        // C# 구현 모듈들 (성능 또는 시스템 접근이 중요한 모듈)
         private static Dictionary<string, Func<PyModule>> _builtinModules = new Dictionary<string, Func<PyModule>>
         {
+            // 핵심 C# 모듈 (성능 중요)
             ["math"] = () => SharpPy.Modules.MathModule.CreateMathModule(),
-            ["random"] = () => SharpPy.Modules.RandomModule.CreateRandomModule(),
-            ["sys"] = () => SharpPy.Modules.SysModule.CreateSysModule(),
             ["time"] = () => new TimeModule(),
             ["itertools"] = () => ItertoolsModule.Instance,
-            ["functools"] = () => FunctoolsModule.Instance,
-            ["collections"] = () => CollectionsModule.Instance,
-            ["typing"] = () => TypingModule.Instance,
+            ["random"] = () => SharpPy.Modules.RandomModule.CreateRandomModule(),
+            ["typing"] = () => SharpPy.Modules.TypingModule.CreateTypingModule(),
+            ["types"] = () => SharpPy.Modules.TypesModule.CreateTypesModule(),
+
+            // 시스템 인터페이스 모듈
+            ["sys"] = () => SharpPy.Modules.SysModule.CreateSysModule(),
             ["os"] = () => SharpPy.Modules.Stdlib.OsModule.CreateOsModule(),
-            ["pathlib"] = () => SharpPy.Modules.Stdlib.PathlibModule.CreatePathlibModule(),
-            ["json"] = () => SharpPy.Modules.Stdlib.JsonModule.CreateJsonModule(),
-            ["re"] = () => SharpPy.Modules.Stdlib.RegexModule.CreateRegexModule(),
             ["datetime"] = () => SharpPy.Modules.Stdlib.DatetimeModule.CreateDatetimeModule(),
+
+            // 아직 Python으로 전환하지 않은 모듈들 (collections,json,traceback,pathlib → Lib/*.py로 전환 완료)
+            ["re"] = () => SharpPy.Modules.Stdlib.RegexModule.CreateRegexModule(),
             ["urllib"] = () => SharpPy.Modules.Stdlib.UrllibModule.CreateUrllibModule(),
-            ["abc"] = () => CreateAbcModule(),
-            ["contextlib"] = () => CreateContextlibModule(),
-            ["traceback"] = () => SharpPy.Modules.Stdlib.TracebackModule.CreateModule(),
             ["asyncio"] = () => CreateAsyncioModule()
+
+            // 주석: 다음 모듈들은 이제 순수 Python 모듈로 Lib/ 디렉토리에서 로드됨:
+            // functools, contextlib, typing, abc, collections, json, traceback, pathlib
         };
 
 
@@ -666,26 +626,7 @@ public class PyModule : PyObject
             return result;
         }
 
-        // abc 모듈 생성
-        private static PyModule CreateAbcModule()
-        {
-            var module = new PyModule("abc", "<abc module>");
-            
-            // abc 모듈의 내용을 AbcModule에서 가져오기
-            var abcContent = SharpPy.Modules.AbcModule.GetModule();
-            foreach (var item in abcContent)
-            {
-                module.ModuleDict[item.Key] = item.Value;
-            }
-            
-            return module;
-        }
-
-        // contextlib 모듈 생성
-        private static PyModule CreateContextlibModule()
-        {
-            return SharpPy.ContextlibModule.Create();
-        }
+        // abc and contextlib modules are now loaded as .py files from Lib/ directory
 
         // asyncio 모듈 생성
         private static PyModule CreateAsyncioModule()

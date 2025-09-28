@@ -2,1011 +2,313 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace SharpPy
+namespace SharpPy.Modules
 {
     /// <summary>
-    /// typing 모듈 - Python 타입 힌트 시스템
+    /// Python typing 모듈 구현 - 타입 힌트 및 제네릭 지원
     /// </summary>
-    public class TypingModule : PyModule
+    public static class TypingModule
     {
-        public static TypingModule Instance { get; } = new TypingModule();
-
-        private TypingModule() : base("typing")
+        public static PyModule CreateTypingModule()
         {
-            // 핵심 타입 구성자들
-            AddClass("TypeVar", () => new PyTypeVarType());
-            AddClass("Generic", () => PyGeneric.Instance);
-            AddClass("Union", () => new PyUnionType());
-            AddClass("Optional", () => new PyOptionalType());
-            AddClass("Any", () => new PyAnyType());
-            
-            // 제네릭 컬렉션 타입들
-            AddClass("List", () => new PyGenericListType());
-            AddClass("Dict", () => new PyGenericDictType());
-            AddClass("Tuple", () => new PyGenericTupleType());
-            AddClass("Set", () => new PyGenericSetType());
-            
-            // 함수 타입
-            AddClass("Callable", () => new PyCallableType());
-            
-            // 이터레이션 타입들
-            AddClass("Iterator", () => new PyTypingIteratorType());
-            AddClass("Iterable", () => new PyTypingIterableType());
-            AddClass("Generator", () => new PyTypingGeneratorType());
-            
-            // PEP 692: TypedDict **kwargs 지원
-            AddClass("TypedDict", () => new PyTypedDictType());
-            AddClass("Unpack", () => new PyUnpackType());
-            AddClass("Required", () => new PyRequiredType());
-            AddClass("NotRequired", () => new PyNotRequiredType());
+            var module = new PyModule("typing", "C:\\Users\\m11\\Desktop\\work\\sharpPy\\modules\\typing.py");
 
-            // Python 3.12 새로운 Type Hints 기능들
-            AddClass("TypeAlias", () => new PyTypeAliasType());
-            AddClass("Self", () => PySelfType.Instance);
-            AddClass("LiteralString", () => PyLiteralStringType.Instance);
-            AddClass("Never", () => PyNeverType.Instance);
-            AddFunction("assert_never", (args) => new PyAssertNeverFunction().Call(args, null));
-            AddFunction("reveal_type", (args) => new PyRevealTypeFunction().Call(args, null));
-            AddClass("dataclass_transform", () => new PyDataclassTransformType());
+            // Union type support
+            module.ModuleDict["Union"] = new PyUnionType();
+            module.ModuleDict["Optional"] = new PyOptionalType();
 
-            // PEP 698: @override 데코레이터 - CPython 호환 구현
-            AddFunction("override", (args) => {
-                if (args.Length == 1) 
-                {
-                    var method = args[0];
-                    
-                    // CPython처럼 __override__ 속성 설정 시도 (best-effort)
-                    if (method is PyFunction pyFunc)
-                    {
-                        try
-                        {
-                            // CPython과 동일: __override__ 속성을 True로 설정
-                            pyFunc.Attributes["__override__"] = PyBool.True;
-                        }
-                        catch
-                        {
-                            // 실패해도 무시 (CPython의 best-effort 방식)
-                        }
-                    }
-                    
-                    // CPython과 동일: method를 그대로 반환하는 identity 함수
-                    return method;
-                }
-                throw PyTypeError.Create("override() takes exactly 1 argument");
-            });
-            
-            // 타입 유틸리티 함수들
-            AddFunction("get_origin", GetOriginFunction);
-            AddFunction("get_args", GetArgsFunction);
-            AddFunction("is_generic", IsGenericFunction);
-        }
+            // Generic types
+            module.ModuleDict["List"] = new PyGenericAlias("List");
+            module.ModuleDict["Dict"] = new PyGenericAlias("Dict");
+            module.ModuleDict["Set"] = new PyGenericAlias("Set");
+            module.ModuleDict["Tuple"] = new PyGenericAlias("Tuple");
 
-        /// <summary>
-        /// typing.get_origin() - 제네릭 타입의 기본 타입 반환
-        /// </summary>
-        private PyObject GetOriginFunction(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"get_origin expected 1 argument ({args.Length} given)");
+            // Type variables
+            module.ModuleDict["TypeVar"] = new PyTypeVarFactory();
+            module.ModuleDict["Generic"] = new PyGenericType();
 
-            var obj = args[0];
-            
-            if (obj is PyGenericType genericType)
-                return genericType.OriginType;
-                
-            // 제네릭이 아닌 경우 None 반환
-            return PyNone.Instance;
-        }
+            // Callable
+            module.ModuleDict["Callable"] = new PyCallableType();
 
-        /// <summary>
-        /// typing.get_args() - 제네릭 타입의 타입 인자 반환
-        /// </summary>
-        private PyObject GetArgsFunction(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"get_args expected 1 argument ({args.Length} given)");
+            // Any and special forms
+            module.ModuleDict["Any"] = new PyAnyType();
+            module.ModuleDict["NoReturn"] = new PyNoReturnType();
 
-            var obj = args[0];
-            
-            if (obj is PyGenericType genericType && genericType.TypeArgs.Count > 0)
-                return new PyTuple(genericType.TypeArgs.ToArray());
-                
-            // 타입 인자가 없는 경우 빈 튜플 반환
-            return new PyTuple(new PyObject[0]);
-        }
+            // Protocol support (basic)
+            module.ModuleDict["Protocol"] = new PyProtocolType();
 
-        /// <summary>
-        /// typing.is_generic() - 제네릭 타입인지 확인
-        /// </summary>
-        private PyObject IsGenericFunction(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"is_generic expected 1 argument ({args.Length} given)");
-
-            var obj = args[0];
-            return PyBool.FromBool(obj is PyGenericType);
+            return module;
         }
     }
 
-    #region TypeVar 구현
-
     /// <summary>
-    /// typing.TypeVar 타입
+    /// Union type implementation for typing.Union
     /// </summary>
-    public class PyTypeVarType : PyType
+    public class PyUnionType : PyObject
     {
-        public PyTypeVarType() : base("TypeVar", new PyType[] { PyType.ObjectType })
-        {
-        }
+        public override PyType GetPyType() => PyType.TypeType;
 
-        public override PyObject CreateInstance(params PyObject[] args)
+        public override PyObject GetItem(PyObject key)
         {
-            if (args.Length == 0)
-                throw PyTypeError.Create("TypeVar expected at least 1 argument");
-
-            var name = args[0].ToStr();
-            
-            // bound 매개변수 추출
-            PyObject bound = null;
-            var constraints = new List<PyObject>();
-            
-            // 키워드 인자 파싱은 단순화 (실제로는 더 복잡)
-            for (int i = 1; i < args.Length; i++)
+            if (key is PyTuple tuple)
             {
-                constraints.Add(args[i]);
+                return new PyUnionInstance(tuple.Items.ToArray());
             }
+            else
+            {
+                return new PyUnionInstance(new PyObject[] { key });
+            }
+        }
 
-            return new PyTypeVar(name, bound, constraints);
+        public override string ToString() => "typing.Union";
+
+        public static PyUnionType Create() => new PyUnionType();
+    }
+
+    /// <summary>
+    /// Union type instance (e.g., Union[int, str])
+    /// </summary>
+    public class PyUnionInstance : PyObject
+    {
+        public PyObject[] Types { get; }
+
+        public PyUnionInstance(PyObject[] types)
+        {
+            Types = types ?? throw new ArgumentNullException(nameof(types));
+        }
+
+        public override PyType GetPyType() => PyType.GenericAliasType;
+
+        public override string ToString()
+        {
+            var typeNames = Types.Select(t => t.ToString()).ToArray();
+            return $"typing.Union[{string.Join(", ", typeNames)}]";
+        }
+
+        /// <summary>
+        /// Check if a value matches this union type
+        /// </summary>
+        public bool IsInstance(PyObject value)
+        {
+            foreach (var type in Types)
+            {
+                if (type is PyBuiltinType builtinType)
+                {
+                    if (value.GetPyType().Name == builtinType.Name)
+                        return true;
+                }
+                else if (type.ToString() == value.GetPyType().Name)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 
     /// <summary>
-    /// TypeVar 인스턴스
+    /// Optional type (Union[T, None])
+    /// </summary>
+    public class PyOptionalType : PyObject
+    {
+        public override PyType GetPyType() => PyType.TypeType;
+
+        public override PyObject GetItem(PyObject key)
+        {
+            return new PyUnionInstance(new PyObject[] { key, PyNone.Instance });
+        }
+
+        public override string ToString() => "typing.Optional";
+    }
+
+    /// <summary>
+    /// Generic alias for List[T], Dict[K, V], etc.
+    /// </summary>
+    public class PyGenericAlias : PyObject
+    {
+        public string Name { get; }
+
+        public PyGenericAlias(string name)
+        {
+            Name = name ?? throw new ArgumentNullException(nameof(name));
+        }
+
+        public override PyType GetPyType() => PyType.TypeType;
+
+        public override PyObject GetItem(PyObject key)
+        {
+            return new PyGenericAliasInstance(Name, key);
+        }
+
+        public override string ToString() => $"typing.{Name}";
+    }
+
+    /// <summary>
+    /// Generic alias instance (e.g., List[int], Dict[str, int])
+    /// </summary>
+    public class PyGenericAliasInstance : PyObject
+    {
+        public string GenericName { get; }
+        public PyObject TypeArg { get; }
+
+        public PyGenericAliasInstance(string genericName, PyObject typeArg)
+        {
+            GenericName = genericName ?? throw new ArgumentNullException(nameof(genericName));
+            TypeArg = typeArg ?? throw new ArgumentNullException(nameof(typeArg));
+        }
+
+        public override PyType GetPyType() => PyType.GenericAliasType;
+
+        public override string ToString()
+        {
+            if (TypeArg is PyTuple tuple)
+            {
+                var args = tuple.Items.Select(item => item.ToString()).ToArray();
+                return $"typing.{GenericName}[{string.Join(", ", args)}]";
+            }
+            else
+            {
+                return $"typing.{GenericName}[{TypeArg}]";
+            }
+        }
+    }
+
+    /// <summary>
+    /// TypeVar factory for creating type variables
+    /// </summary>
+    public class PyTypeVarFactory : PyBuiltinFunction
+    {
+        public PyTypeVarFactory() : base("TypeVar", CreateTypeVar)
+        {
+        }
+
+        private static PyObject CreateTypeVar(PyObject[] args, PyDict? kwargs)
+        {
+            if (args.Length < 1)
+                throw PyTypeError.Create("TypeVar() missing 1 required positional argument: 'name'");
+
+            var name = args[0].ToString();
+            var constraints = args.Skip(1).ToArray();
+
+            return new PyTypeVar(name, constraints);
+        }
+    }
+
+    /// <summary>
+    /// Type variable implementation
     /// </summary>
     public class PyTypeVar : PyObject
     {
         public string Name { get; }
-        public PyObject Bound { get; }
-        public List<PyObject> Constraints { get; }
+        public PyObject[] Constraints { get; }
 
-        public PyTypeVar(string name, PyObject bound = null, List<PyObject> constraints = null)
+        public PyTypeVar(string name, PyObject[] constraints)
         {
-            Name = name;
-            Bound = bound;
-            Constraints = constraints ?? new List<PyObject>();
+            Name = name ?? throw new ArgumentNullException(nameof(name));
+            Constraints = constraints ?? new PyObject[0];
         }
 
-        /// <summary>
-        /// 타입이 이 TypeVar의 제약을 만족하는지 확인
-        /// </summary>
-        public bool IsValidType(PyObject type)
+        public override PyType GetPyType() => PyType.TypeVarType;
+
+        public override string ToString()
         {
-            // bound 제약 확인
-            if (Bound != null)
+            if (Constraints.Length > 0)
             {
-                // type이 bound의 서브타입인지 확인
-                try
-                {
-                    var boundType = Bound.GetPyType();
-                    var checkType = type.GetPyType();
-                    return checkType.IsSubclassOf(boundType) || checkType == boundType;
-                }
-                catch
-                {
-                    // 타입 비교 실패시 제약 위반으로 처리
-                    return false;
-                }
+                var constraintNames = Constraints.Select(c => c.ToString()).ToArray();
+                return $"~{Name} (bound by {string.Join(", ", constraintNames)})";
             }
-            
-            // constraints 제약 확인
-            if (Constraints.Count > 0)
-            {
-                // type이 constraints 중 하나와 일치해야 함
-                return Constraints.Any(constraint => 
-                {
-                    try
-                    {
-                        var constraintType = constraint.GetPyType();
-                        var checkType = type.GetPyType();
-                        return checkType.IsSubclassOf(constraintType) || checkType == constraintType;
-                    }
-                    catch
-                    {
-                        return false;
-                    }
-                });
-            }
-            
-            // 제약이 없으면 모든 타입 허용
-            return true;
+            return $"~{Name}";
         }
-        
-        /// <summary>
-        /// CPython 호환: __bound__ 속성 제공
-        /// </summary>
-        public PyObject GetBound()
-        {
-            return Bound ?? PyNone.Instance;
-        }
-        
-        /// <summary>
-        /// CPython 호환: __constraints__ 속성 제공
-        /// </summary>
-        public PyObject GetConstraints()
-        {
-            if (Constraints.Count == 0)
-                return new PyTuple(new PyObject[0]);
-            return new PyTuple(Constraints.ToArray());
-        }
-
-        public override PyObject GetAttribute(string name)
-        {
-            return name switch
-            {
-                "__name__" => new PyString(Name),
-                "__bound__" => GetBound(),
-                "__constraints__" => GetConstraints(),
-                _ => base.GetAttribute(name)
-            };
-        }
-
-        public override PyType GetPyType() => new PyTypeVarType();
-        public override string GetTypeName() => "TypeVar";
-        public override string ToString() => $"~{Name}";
     }
 
-    #endregion
-
-    #region Union 구현
-
     /// <summary>
-    /// typing.Union 타입
+    /// Generic base class
     /// </summary>
-    public class PyUnionType : PyType
+    public class PyGenericType : PyObject
     {
-        public PyUnionType() : base("Union", new PyType[] { PyType.ObjectType })
-        {
-        }
+        public override PyType GetPyType() => PyType.TypeType;
 
         public override PyObject GetItem(PyObject key)
         {
-            var args = new List<PyObject>();
-            
-            if (key is PyTuple tuple)
-            {
-                args.AddRange(tuple.Items);
-            }
-            else
-            {
-                args.Add(key);
-            }
-
-            return new PyUnion(args);
+            return new PyGenericInstance(key);
         }
+
+        public override string ToString() => "typing.Generic";
     }
 
     /// <summary>
-    /// Union[X, Y, ...] 타입
+    /// Generic instance (Generic[T])
     /// </summary>
-    public class PyUnion : PyObject
+    public class PyGenericInstance : PyObject
     {
-        public List<PyObject> Types { get; }
+        public PyObject TypeParam { get; }
 
-        public PyUnion(List<PyObject> types)
+        public PyGenericInstance(PyObject typeParam)
         {
-            Types = types ?? new List<PyObject>();
+            TypeParam = typeParam ?? throw new ArgumentNullException(nameof(typeParam));
         }
 
-        /// <summary>
-        /// 객체가 Union의 타입 중 하나와 일치하는지 확인
-        /// </summary>
-        public bool IsInstance(PyObject obj)
-        {
-            return Types.Any(type => 
-            {
-                // 실제로는 더 복잡한 타입 체킹이 필요
-                if (type is PyType pyType)
-                    return obj.GetPyType().IsSubclassOf(pyType);
-                return false;
-            });
-        }
+        public override PyType GetPyType() => PyType.GenericAliasType;
 
-        public override PyType GetPyType() => new PyUnionType();
-        public override string GetTypeName() => "Union";
-        public override string ToString() => $"Union[{string.Join(", ", Types)}]";
+        public override string ToString() => $"typing.Generic[{TypeParam}]";
     }
 
-    #endregion
-
-    #region Optional 구현
-
     /// <summary>
-    /// typing.Optional 타입 (Union[X, None]의 축약형)
+    /// Callable type support
     /// </summary>
-    public class PyOptionalType : PyType
+    public class PyCallableType : PyObject
     {
-        public PyOptionalType() : base("Optional", new PyType[] { PyType.ObjectType })
-        {
-        }
+        public override PyType GetPyType() => PyType.TypeType;
 
         public override PyObject GetItem(PyObject key)
         {
-            // Optional[X] = Union[X, None]
-            var types = new List<PyObject> { key, PyNone.Instance.GetPyType() };
-            return new PyUnion(types);
-        }
-    }
-
-    #endregion
-
-    #region Any 구현
-
-    /// <summary>
-    /// typing.Any 타입 - 모든 타입과 호환
-    /// </summary>
-    public class PyAnyType : PyType
-    {
-        public PyAnyType() : base("Any", new PyType[] { PyType.ObjectType })
-        {
+            return new PyCallableInstance(key);
         }
 
-        public override PyObject CreateInstance(params PyObject[] args)
-        {
-            return new PyAny();
-        }
+        public override string ToString() => "typing.Callable";
     }
 
     /// <summary>
-    /// Any 타입 인스턴스
+    /// Callable instance (Callable[[int, str], bool])
     /// </summary>
-    public class PyAny : PyObject
+    public class PyCallableInstance : PyObject
     {
-        public override PyType GetPyType() => new PyAnyType();
-        public override string GetTypeName() => "Any";
-        public override string ToString() => "Any";
-    }
+        public PyObject TypeArg { get; }
 
-    #endregion
-
-    #region 제네릭 컬렉션 타입들
-
-    /// <summary>
-    /// typing.List 타입
-    /// </summary>
-    public class PyGenericListType : PyType
-    {
-        public PyGenericListType() : base("List", new PyType[] { PyType.ListType })
+        public PyCallableInstance(PyObject typeArg)
         {
+            TypeArg = typeArg ?? throw new ArgumentNullException(nameof(typeArg));
         }
 
-        public override PyObject GetItem(PyObject key)
-        {
-            var typeArgs = new List<PyObject>();
-            
-            if (key is PyTuple tuple)
-            {
-                typeArgs.AddRange(tuple.Items);
-            }
-            else
-            {
-                typeArgs.Add(key);
-            }
+        public override PyType GetPyType() => PyType.GenericAliasType;
 
-            return new PyGenericList(typeArgs);
-        }
+        public override string ToString() => $"typing.Callable[{TypeArg}]";
     }
 
     /// <summary>
-    /// typing.Dict 타입
+    /// Any type (matches anything)
     /// </summary>
-    public class PyGenericDictType : PyType
+    public class PyAnyType : PyObject
     {
-        public PyGenericDictType() : base("Dict", new PyType[] { PyType.DictType })
-        {
-        }
-
-        public override PyObject GetItem(PyObject key)
-        {
-            var typeArgs = new List<PyObject>();
-            
-            if (key is PyTuple tuple)
-            {
-                typeArgs.AddRange(tuple.Items);
-            }
-            else
-            {
-                typeArgs.Add(key);
-            }
-
-            if (typeArgs.Count != 2)
-                throw PyTypeError.Create("Dict requires exactly 2 type arguments");
-
-            return new PyGenericDict(typeArgs);
-        }
+        public override PyType GetPyType() => PyType.TypeType;
+        public override string ToString() => "typing.Any";
     }
 
     /// <summary>
-    /// typing.Tuple 타입
+    /// NoReturn type (for functions that never return)
     /// </summary>
-    public class PyGenericTupleType : PyType
+    public class PyNoReturnType : PyObject
     {
-        public PyGenericTupleType() : base("Tuple", new PyType[] { PyType.TupleType })
-        {
-        }
-
-        public override PyObject GetItem(PyObject key)
-        {
-            var typeArgs = new List<PyObject>();
-            
-            if (key is PyTuple tuple)
-            {
-                typeArgs.AddRange(tuple.Items);
-            }
-            else
-            {
-                typeArgs.Add(key);
-            }
-
-            return new PyGenericTuple(typeArgs);
-        }
+        public override PyType GetPyType() => PyType.TypeType;
+        public override string ToString() => "typing.NoReturn";
     }
 
     /// <summary>
-    /// typing.Set 타입
+    /// Protocol type (basic implementation)
     /// </summary>
-    public class PyGenericSetType : PyType
+    public class PyProtocolType : PyObject
     {
-        public PyGenericSetType() : base("Set", new PyType[] { PyType.SetType })
-        {
-        }
-
-        public override PyObject GetItem(PyObject key)
-        {
-            var typeArgs = new List<PyObject>();
-            
-            if (key is PyTuple tuple)
-            {
-                typeArgs.AddRange(tuple.Items);
-            }
-            else
-            {
-                typeArgs.Add(key);
-            }
-
-            return new PyGenericSet(typeArgs);
-        }
+        public override PyType GetPyType() => PyType.TypeType;
+        public override string ToString() => "typing.Protocol";
     }
-
-    #endregion
-
-    #region 제네릭 컬렉션 구현체들
-
-    /// <summary>
-    /// 제네릭 튜플 타입
-    /// </summary>
-    public class PyGenericTuple : PyGenericType
-    {
-        public PyGenericTuple(List<PyObject> typeArgs) 
-            : base($"tuple[{string.Join(", ", typeArgs)}]", PyType.TupleType, typeArgs)
-        {
-        }
-    }
-
-    /// <summary>
-    /// 제네릭 셋 타입
-    /// </summary>
-    public class PyGenericSet : PyGenericType
-    {
-        public PyGenericSet(List<PyObject> typeArgs) 
-            : base($"set[{string.Join(", ", typeArgs)}]", PyType.SetType, typeArgs)
-        {
-        }
-    }
-
-    #endregion
-
-    #region Callable과 Iterator 타입들
-
-    /// <summary>
-    /// typing.Callable 타입
-    /// </summary>
-    public class PyCallableType : PyType
-    {
-        public PyCallableType() : base("Callable", new PyType[] { PyType.ObjectType })
-        {
-        }
-
-        public override PyObject GetItem(PyObject key)
-        {
-            // Callable[[args...], return_type] 형태
-            if (key is PyTuple keyTuple && keyTuple.Items.Length == 2)
-            {
-                var argsTypes = keyTuple.Items[0];
-                var returnType = keyTuple.Items[1];
-                return new PyCallable(argsTypes, returnType);
-            }
-
-            throw PyTypeError.Create("Callable requires [args, return_type] format");
-        }
-    }
-
-    /// <summary>
-    /// Callable 타입 인스턴스
-    /// </summary>
-    public class PyCallable : PyObject
-    {
-        public PyObject ArgsTypes { get; }
-        public PyObject ReturnType { get; }
-
-        public PyCallable(PyObject argsTypes, PyObject returnType)
-        {
-            ArgsTypes = argsTypes;
-            ReturnType = returnType;
-        }
-
-        public override PyType GetPyType() => new PyCallableType();
-        public override string GetTypeName() => "Callable";
-        public override string ToString() => $"Callable[[{ArgsTypes}], {ReturnType}]";
-    }
-
-    /// <summary>
-    /// typing.Iterator 타입
-    /// </summary>
-    public class PyTypingIteratorType : PyType
-    {
-        public PyTypingIteratorType() : base("Iterator", new PyType[] { PyType.ObjectType })
-        {
-        }
-
-        public override PyObject GetItem(PyObject key)
-        {
-            var typeArgs = new List<PyObject> { key };
-            return new PyTypingIterator(typeArgs);
-        }
-    }
-
-    /// <summary>
-    /// typing 제네릭 이터레이터 타입
-    /// </summary>
-    public class PyTypingIterator : PyGenericType
-    {
-        public PyTypingIterator(List<PyObject> typeArgs) 
-            : base($"Iterator[{string.Join(", ", typeArgs)}]", PyType.ObjectType, typeArgs)
-        {
-        }
-    }
-
-    /// <summary>
-    /// typing.Iterable 타입
-    /// </summary>
-    public class PyTypingIterableType : PyType
-    {
-        public PyTypingIterableType() : base("Iterable", new PyType[] { PyType.ObjectType })
-        {
-        }
-
-        public override PyObject GetItem(PyObject key)
-        {
-            var typeArgs = new List<PyObject> { key };
-            return new PyTypingIterable(typeArgs);
-        }
-    }
-
-    /// <summary>
-    /// typing 제네릭 이터러블 타입
-    /// </summary>
-    public class PyTypingIterable : PyGenericType
-    {
-        public PyTypingIterable(List<PyObject> typeArgs) 
-            : base($"Iterable[{string.Join(", ", typeArgs)}]", PyType.ObjectType, typeArgs)
-        {
-        }
-    }
-
-    /// <summary>
-    /// typing.Generator 타입
-    /// </summary>
-    public class PyTypingGeneratorType : PyType
-    {
-        public PyTypingGeneratorType() : base("Generator", new PyType[] { PyType.ObjectType })
-        {
-        }
-
-        public override PyObject GetItem(PyObject key)
-        {
-            // Generator[YieldType, SendType, ReturnType]
-            if (key is PyTuple tuple)
-            {
-                return new PyTypingGenerator(tuple.Items.ToList());
-            }
-            else
-            {
-                // Single type argument: Generator[YieldType, None, None]
-                var typeArgs = new List<PyObject> { key, PyNone.Instance, PyNone.Instance };
-                return new PyTypingGenerator(typeArgs);
-            }
-        }
-    }
-
-    /// <summary>
-    /// typing 제네릭 제너레이터 타입
-    /// </summary>
-    public class PyTypingGenerator : PyGenericType
-    {
-        public PyTypingGenerator(List<PyObject> typeArgs) 
-            : base($"Generator[{string.Join(", ", typeArgs)}]", PyType.ObjectType, typeArgs)
-        {
-        }
-    }
-
-    #endregion
-    
-    #region PEP 692: TypedDict **kwargs Support
-    
-    /// <summary>
-    /// PEP 692: typing.TypedDict - 구조화된 딕셔너리 타입
-    /// </summary>
-    public class PyTypedDictType : PyType
-    {
-        public PyTypedDictType() : base("TypedDict", new PyType[] { PyType.ObjectType })
-        {
-        }
-        
-        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
-        {
-            if (args.Length < 2)
-                throw PyTypeError.Create("TypedDict() missing required arguments");
-                
-            var name = ((PyString)args[0]).Value;
-            var fields = args[1];
-            
-            // 딕셔너리 형태의 필드 정의 처리
-            if (fields is PyDict fieldsDict)
-            {
-                return new PyTypedDict(name, fieldsDict.InternalDict);
-            }
-            
-            throw PyTypeError.Create("TypedDict fields must be a dictionary");
-        }
-    }
-    
-    /// <summary>
-    /// PEP 692: TypedDict 인스턴스
-    /// </summary>
-    public class PyTypedDict : PyType
-    {
-        public Dictionary<PyObject, PyObject> Fields { get; }
-        public HashSet<string> RequiredKeys { get; }
-        public HashSet<string> OptionalKeys { get; }
-        
-        public PyTypedDict(string name, Dictionary<PyObject, PyObject> fields) 
-            : base(name, new PyType[] { PyType.DictType })
-        {
-            Fields = fields;
-            RequiredKeys = new HashSet<string>();
-            OptionalKeys = new HashSet<string>();
-            
-            // 필드 분석
-            foreach (var field in fields)
-            {
-                var keyName = ((PyString)field.Key).Value;
-                var fieldType = field.Value;
-                
-                // Required/NotRequired 처리
-                if (fieldType is PyNotRequiredWrapper)
-                {
-                    OptionalKeys.Add(keyName);
-                }
-                else
-                {
-                    RequiredKeys.Add(keyName);
-                }
-            }
-        }
-        
-        /// <summary>
-        /// TypedDict가 주어진 딕셔너리와 호환되는지 검증
-        /// </summary>
-        public bool IsCompatible(PyDict dict)
-        {
-            // 필수 키가 모두 있는지 확인
-            foreach (var requiredKey in RequiredKeys)
-            {
-                if (!dict.InternalDict.ContainsKey(new PyString(requiredKey)))
-                {
-                    return false;
-                }
-            }
-            
-            // 추가 키가 허용되지 않는 키인지 확인
-            foreach (var key in dict.InternalDict.Keys)
-            {
-                var keyName = ((PyString)key).Value;
-                if (!RequiredKeys.Contains(keyName) && !OptionalKeys.Contains(keyName))
-                {
-                    return false; // 정의되지 않은 키
-                }
-            }
-            
-            return true;
-        }
-        
-        public override string ToString() => $"TypedDict('{Name}', {{{string.Join(", ", Fields.Select(f => $"'{((PyString)f.Key).Value}': {f.Value}"))}}}";
-    }
-    
-    /// <summary>
-    /// PEP 692: typing.Unpack - **kwargs에서 TypedDict 언팩
-    /// </summary>
-    public class PyUnpackType : PyType
-    {
-        public PyUnpackType() : base("Unpack", new PyType[] { PyType.ObjectType })
-        {
-        }
-        
-        public override PyObject GetItem(PyObject key)
-        {
-            // Handle any type for generic subscript
-            return new PyUnpackWrapper(key);
-        }
-    }
-    
-    /// <summary>
-    /// PEP 692: Unpack 래퍼 - **kwargs: Unpack[TypedDict] 표현
-    /// </summary>
-    public class PyUnpackWrapper : PyObject
-    {
-        public PyObject WrappedType { get; }
-        public PyTypedDict? TypedDict => WrappedType as PyTypedDict;
-        
-        public PyUnpackWrapper(PyObject wrappedType)
-        {
-            WrappedType = wrappedType;
-        }
-        
-        public override string GetTypeName() => $"Unpack[{WrappedType.GetTypeName()}]";
-        public override string ToString() => GetTypeName();
-        
-        /// <summary>
-        /// kwargs 딕셔너리가 이 TypedDict와 호환되는지 검증
-        /// </summary>
-        public bool ValidateKwargs(PyDict kwargs)
-        {
-            if (TypedDict != null)
-            {
-                return TypedDict.IsCompatible(kwargs);
-            }
-            return true; // For non-TypedDict types, allow all
-        }
-    }
-    
-    /// <summary>
-    /// PEP 692: typing.Required - 필수 필드 표시
-    /// </summary>
-    public class PyRequiredType : PyType
-    {
-        public PyRequiredType() : base("Required", new PyType[] { PyType.ObjectType })
-        {
-        }
-        
-        public override PyObject GetItem(PyObject key)
-        {
-            return new PyRequiredWrapper(key);
-        }
-    }
-    
-    /// <summary>
-    /// PEP 692: Required 래퍼
-    /// </summary>
-    public class PyRequiredWrapper : PyObject
-    {
-        public PyObject InnerType { get; }
-        
-        public PyRequiredWrapper(PyObject innerType)
-        {
-            InnerType = innerType;
-        }
-        
-        public override string GetTypeName() => $"Required[{InnerType}]";
-        public override string ToString() => GetTypeName();
-    }
-    
-    /// <summary>
-    /// PEP 692: typing.NotRequired - 선택적 필드 표시
-    /// </summary>
-    public class PyNotRequiredType : PyType
-    {
-        public PyNotRequiredType() : base("NotRequired", new PyType[] { PyType.ObjectType })
-        {
-        }
-        
-        public override PyObject GetItem(PyObject key)
-        {
-            return new PyNotRequiredWrapper(key);
-        }
-    }
-    
-    /// <summary>
-    /// PEP 692: NotRequired 래퍼
-    /// </summary>
-    public class PyNotRequiredWrapper : PyObject
-    {
-        public PyObject InnerType { get; }
-        
-        public PyNotRequiredWrapper(PyObject innerType)
-        {
-            InnerType = innerType;
-        }
-        
-        public override string GetTypeName() => $"NotRequired[{InnerType}]";
-        public override string ToString() => GetTypeName();
-    }
-    
-    #endregion
-
-    #region Python 3.12 새로운 Type Hints 기능들
-
-    /// <summary>
-    /// PEP 696: TypeAlias - 명시적 타입 별칭 선언
-    /// </summary>
-    public class PyTypeAliasType : PyType
-    {
-        public PyTypeAliasType() : base("TypeAlias", new PyType[] { PyType.ObjectType })
-        {
-        }
-
-        public override PyObject CreateInstance(params PyObject[] args)
-        {
-            return new PyTypeAliasWrapper();
-        }
-    }
-
-    public class PyTypeAliasWrapper : PyObject
-    {
-        public override string GetTypeName() => "TypeAlias";
-        public override string ToString() => "TypeAlias";
-    }
-
-    /// <summary>
-    /// typing_extensions.Self - 자기 자신의 타입을 나타냄
-    /// </summary>
-    public class PySelfType : PyType
-    {
-        public static readonly PySelfType Instance = new PySelfType();
-
-        private PySelfType() : base("Self", new PyType[] { PyType.ObjectType })
-        {
-        }
-
-        public override string ToString() => "Self";
-    }
-
-    /// <summary>
-    /// typing_extensions.LiteralString - 리터럴 문자열 타입
-    /// </summary>
-    public class PyLiteralStringType : PyType
-    {
-        public static readonly PyLiteralStringType Instance = new PyLiteralStringType();
-
-        private PyLiteralStringType() : base("LiteralString", new PyType[] { PyType.StrType })
-        {
-        }
-
-        public override string ToString() => "LiteralString";
-    }
-
-    /// <summary>
-    /// typing.Never - 절대 반환되지 않는 타입 (Bottom type)
-    /// </summary>
-    public class PyNeverType : PyType
-    {
-        public static readonly PyNeverType Instance = new PyNeverType();
-
-        private PyNeverType() : base("Never", new PyType[] { PyType.ObjectType })
-        {
-        }
-
-        public override string ToString() => "Never";
-    }
-
-    /// <summary>
-    /// typing.assert_never - 코드가 절대 실행되지 않음을 보장
-    /// </summary>
-    public class PyAssertNeverFunction : PyObject
-    {
-        public override string GetTypeName() => "builtin_function_or_method";
-
-        public PyObject Call(PyObject[] args, Dictionary<string, PyObject> kwargs)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"assert_never() takes exactly one argument ({args.Length} given)");
-
-            var arg = args[0];
-            throw PyAssertionError.Create($"assert_never() should never be called with argument of type {arg.GetTypeName()}");
-        }
-    }
-
-    /// <summary>
-    /// typing.reveal_type - 타입 체커를 위한 디버깅 함수
-    /// </summary>
-    public class PyRevealTypeFunction : PyObject
-    {
-        public override string GetTypeName() => "builtin_function_or_method";
-
-        public PyObject Call(PyObject[] args, Dictionary<string, PyObject> kwargs)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"reveal_type() takes exactly one argument ({args.Length} given)");
-
-            var arg = args[0];
-            Console.WriteLine($"Runtime type is '{arg.GetTypeName()}'");
-            return arg; // 인자를 그대로 반환
-        }
-    }
-
-    /// <summary>
-    /// typing.dataclass_transform - 데이터클래스 변환 데코레이터
-    /// </summary>
-    public class PyDataclassTransformType : PyType
-    {
-        public PyDataclassTransformType() : base("dataclass_transform", new PyType[] { PyType.ObjectType })
-        {
-        }
-
-        public override PyObject CreateInstance(params PyObject[] args)
-        {
-            return new PyDataclassTransformDecorator();
-        }
-    }
-
-    public class PyDataclassTransformDecorator : PyObject
-    {
-        public override string GetTypeName() => "dataclass_transform";
-
-        public PyObject Call(PyObject[] args, Dictionary<string, PyObject> kwargs)
-        {
-            if (args.Length == 1 && args[0] is PyClass pyClass)
-            {
-                // 데이터클래스 변환 적용 (간단한 구현)
-                return pyClass;
-            }
-            return args.Length > 0 ? args[0] : PyNone.Instance;
-        }
-    }
-
-    /// <summary>
-    /// typing.override - 메서드 오버라이드 데코레이터 (PEP 698)
-    /// </summary>
-    public class PyOverrideType : PyType
-    {
-        public PyOverrideType() : base("override", new PyType[] { PyType.ObjectType })
-        {
-        }
-
-        public override PyObject CreateInstance(params PyObject[] args)
-        {
-            return new PyOverrideDecorator();
-        }
-    }
-
-    public class PyOverrideDecorator : PyObject
-    {
-        public override string GetTypeName() => "override";
-
-        public PyObject Call(PyObject[] args, Dictionary<string, PyObject> kwargs)
-        {
-            if (args.Length == 1)
-            {
-                var method = args[0];
-                // __override__ 속성 설정 (표시용)
-                if (method is PyFunction pyFunc)
-                {
-                    // 오버라이드 표시 추가
-                }
-                return method;
-            }
-            return PyNone.Instance;
-        }
-    }
-
-    #endregion
 }

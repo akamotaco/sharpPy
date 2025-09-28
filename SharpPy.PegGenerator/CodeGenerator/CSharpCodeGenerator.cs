@@ -549,6 +549,21 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
 
+            // Skip NL tokens method - for implicit line joining inside parentheses
+            WriteLine("/// <summary>");
+            WriteLine("/// Skip NL tokens for implicit line joining (CPython 3.12 compatible)");
+            WriteLine("/// </summary>");
+            WriteLine("private void SkipNL()");
+            WriteLine("{");
+            Indent();
+            WriteLine("while (CurrentToken?.Type == GeneratedTokenType.NL)");
+            WriteLine("{");
+            WriteLine("    Advance(); // skip NL token");
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
             // Expect keyword method
             WriteLine("private bool ExpectKeyword(string keyword)");
             WriteLine("{");
@@ -4701,6 +4716,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("// ========================================");
             WriteLine();
 
+            // Generate helper methods first (including SkipNL)
+            GenerateHelperMethods();
+
             // Generate File method (entry point)
             GenerateFileMethod();
 
@@ -6056,6 +6074,64 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
 
+            // Add Class Body Parser (no left-recursion)
+            WriteLine("/// <summary>");
+            WriteLine("/// Parse class body without left-recursion");
+            WriteLine("/// </summary>");
+            WriteLine("public List<object> ParseClassBody()");
+            WriteLine("{");
+            Indent();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseClassBody: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'\");");
+            WriteLine("var statements = new List<object>();");
+            WriteLine();
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NEWLINE)");
+            WriteLine("{");
+            WriteLine("    Advance(); // consume NEWLINE");
+            WriteLine("    if (!ExpectToken(GeneratedTokenType.INDENT))");
+            WriteLine("    {");
+            WriteLine("        Console.WriteLine($\"[DEBUG] ParseClassBody: Expected INDENT after class declaration\");");
+            WriteLine("        return statements;");
+            WriteLine("    }");
+            WriteLine();
+            WriteLine("    // Parse statements until DEDENT");
+            WriteLine("    while (CurrentToken != null && CurrentToken.Type != GeneratedTokenType.DEDENT)");
+            WriteLine("    {");
+            WriteLine("        var stmt = ParseStatement();");
+            WriteLine("        if (stmt != null)");
+            WriteLine("        {");
+            WriteLine("            statements.Add(stmt);");
+            WriteLine("            Console.WriteLine($\"[DEBUG] ParseClassBody: Added statement, total: {statements.Count}\");");
+            WriteLine("        }");
+            WriteLine("        else");
+            WriteLine("        {");
+            WriteLine("            // Skip problematic tokens to avoid infinite loop");
+            WriteLine("            Console.WriteLine($\"[DEBUG] ParseClassBody: Failed to parse statement at {_position}, advancing\");");
+            WriteLine("            if (CurrentToken?.Type != GeneratedTokenType.DEDENT)");
+            WriteLine("                Advance();");
+            WriteLine("        }");
+            WriteLine("    }");
+            WriteLine();
+            WriteLine("    if (CurrentToken?.Type == GeneratedTokenType.DEDENT)");
+            WriteLine("    {");
+            WriteLine("        Advance(); // consume DEDENT");
+            WriteLine("    }");
+            WriteLine("}");
+            WriteLine("else");
+            WriteLine("{");
+            WriteLine("    // Single line class body - parse one statement");
+            WriteLine("    var stmt = ParseSimpleStmt();");
+            WriteLine("    if (stmt != null)");
+            WriteLine("    {");
+            WriteLine("        statements.Add(stmt);");
+            WriteLine("    }");
+            WriteLine("}");
+            WriteLine();
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseClassBody: Returning {statements.Count} statements\");");
+            WriteLine("return statements;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
             // Add Class Definition Parser
             WriteLine("/// <summary>");
             WriteLine("/// class_def[stmt_ty]: 'class' a=NAME [type_params] b=['(' z=[arguments] ')'] ':' c=block");
@@ -6121,7 +6197,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Advance(); // consume ':'");
             WriteLine();
             WriteLine("// Parse class body");
-            WriteLine("var body = ParseBlock();");
+            WriteLine("var body = ParseClassBody();");
             WriteLine("if (body == null || body.Count == 0)");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseClassDef: Failed to parse class body\");");
@@ -6616,6 +6692,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume '['");
+            WriteLine("SkipNL(); // skip newlines after opening bracket");
             WriteLine();
             WriteLine("// Handle empty list");
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"]\")");
@@ -6659,12 +6736,14 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    while (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \",\")");
             WriteLine("    {");
             WriteLine("        Advance(); // consume ','");
+            WriteLine("        SkipNL(); // skip newlines after comma");
             WriteLine("        // Allow trailing comma");
             WriteLine("        if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"]\")");
             WriteLine("            break;");
             WriteLine("        var element = ParseExpression();");
             WriteLine("        if (element != null)");
             WriteLine("            elements.Add(element);");
+            WriteLine("        SkipNL(); // skip newlines after element");
             WriteLine("    }");
             WriteLine();
             WriteLine("    // Expect closing ']'");
@@ -6678,6 +6757,124 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("        Value = new { elements = elements }");
             WriteLine("    };");
             WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            // Add missing methods that are referenced by the parser switch statement
+            WriteLine("/// <summary>");
+            WriteLine("/// statements: statement+");
+            WriteLine("/// </summary>");
+            WriteLine("public List<object> Statements()");
+            WriteLine("{");
+            Indent();
+            WriteLine("var statements = new List<object>();");
+            WriteLine("var stmt = Statement();");
+            WriteLine("if (stmt != null) statements.Add(stmt);");
+            WriteLine("return statements;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("/// <summary>");
+            WriteLine("/// statement: compound_stmt | simple_stmts");
+            WriteLine("/// </summary>");
+            WriteLine("public object Statement()");
+            WriteLine("{");
+            Indent();
+            WriteLine("return ParseSimpleStmt();");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("/// <summary>");
+            WriteLine("/// expression: disjunction | lambdef");
+            WriteLine("/// </summary>");
+            WriteLine("public object Expression()");
+            WriteLine("{");
+            Indent();
+            WriteLine("return ParseExpression();");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("/// <summary>");
+            WriteLine("/// star_targets: star_target ((',' star_target))* [',']");
+            WriteLine("/// </summary>");
+            WriteLine("public List<object> StarTargets()");
+            WriteLine("{");
+            Indent();
+            WriteLine("var targets = new List<object>();");
+            WriteLine("var target = Expression();");
+            WriteLine("if (target != null) targets.Add(target);");
+            WriteLine("return targets;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("/// <summary>");
+            WriteLine("/// star_expressions: star_expression ((',' star_expression))* [',']");
+            WriteLine("/// </summary>");
+            WriteLine("public List<object> StarExpressions()");
+            WriteLine("{");
+            Indent();
+            WriteLine("var expressions = new List<object>();");
+            WriteLine("var expr = Expression();");
+            WriteLine("if (expr != null) expressions.Add(expr);");
+            WriteLine("return expressions;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("/// <summary>");
+            WriteLine("/// expressions: expression ((',' expression))* [',']");
+            WriteLine("/// </summary>");
+            WriteLine("public List<object> Expressions()");
+            WriteLine("{");
+            Indent();
+            WriteLine("var expressions = new List<object>();");
+            WriteLine("var expr = Expression();");
+            WriteLine("if (expr != null) expressions.Add(expr);");
+            WriteLine("return expressions;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("/// <summary>");
+            WriteLine("/// primary: atom | primary '.' NAME | primary '[' slices ']' | primary '(' [arguments] ')'");
+            WriteLine("/// </summary>");
+            WriteLine("public object Primary()");
+            WriteLine("{");
+            Indent();
+            WriteLine("return Atom();");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("/// <summary>");
+            WriteLine("/// atom: NAME | 'True' | 'False' | 'None' | '__peg_parser__' | STRING | NUMBER | ...");
+            WriteLine("/// </summary>");
+            WriteLine("public object Atom()");
+            WriteLine("{");
+            Indent();
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("{");
+            WriteLine("    var name = CurrentToken.Value;");
+            WriteLine("    Advance();");
+            WriteLine("    return new GeneratedExpr { ExpressionType = \"Name\", Value = name };");
+            WriteLine("}");
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("/// <summary>");
+            WriteLine("/// assignment: target '=' expression");
+            WriteLine("/// </summary>");
+            WriteLine("public object Assignment()");
+            WriteLine("{");
+            Indent();
+            WriteLine("return ParseAssignment();");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -6699,6 +6896,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume '{'");
+            WriteLine("SkipNL(); // skip newlines after opening brace");
             WriteLine();
             WriteLine("// Handle empty dict");
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"}\")");
@@ -6719,6 +6917,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \":\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume ':'");
+            WriteLine("    SkipNL(); // skip newlines after colon");
             WriteLine("    var value = ParseExpression();");
             WriteLine("    if (value == null) return null;");
             WriteLine();
@@ -6749,17 +6948,21 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("        while (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \",\")");
             WriteLine("        {");
             WriteLine("            Advance(); // consume ','");
+            WriteLine("            SkipNL(); // skip newlines after comma");
             WriteLine("            // Allow trailing comma");
             WriteLine("            if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"}\")");
             WriteLine("                break;");
             WriteLine("            var key = ParseExpression();");
             WriteLine("            if (key == null) break;");
+            WriteLine("            SkipNL(); // skip newlines after key");
             WriteLine("            if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != \":\")");
             WriteLine("                break;");
             WriteLine("            Advance(); // consume ':'");
+            WriteLine("            SkipNL(); // skip newlines after colon");
             WriteLine("            var val = ParseExpression();");
             WriteLine("            if (val != null)");
             WriteLine("                pairs.Add(new { key = key, value = val });");
+            WriteLine("            SkipNL(); // skip newlines after value");
             WriteLine("        }");
             WriteLine();
             WriteLine("        // Expect closing '}'");
@@ -6986,7 +7189,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Advance(); // consume ':'");
             WriteLine();
             WriteLine("// Parse class body");
-            WriteLine("var body = ParseBlock();");
+            WriteLine("var body = ParseClassBody();");
             WriteLine("if (body == null || body.Count == 0)");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseClassDefRaw: Failed to parse class body\");");
