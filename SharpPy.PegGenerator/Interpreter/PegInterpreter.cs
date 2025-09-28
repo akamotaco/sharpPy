@@ -76,7 +76,7 @@ namespace SharpPy.PegGenerator.Interpreter
         private readonly List<ITokenInfo> _tokens;
         private int _position;
         // ===== Performance Optimization: Cache Management =====
-        private readonly Dictionary<(int, string), object?> _memoCache = new();
+        private readonly Dictionary<(int, string), IPegParseResult> _memoCache = new();
         private readonly Queue<(int, string)> _cacheAccessOrder = new();
         private const int MAX_CACHE_SIZE = 10000; // CPython 3.12 style cache limit
         private int _cacheHits = 0;
@@ -85,7 +85,7 @@ namespace SharpPy.PegGenerator.Interpreter
         private readonly Dictionary<string, object?> _variables = new();
         private readonly HashSet<(int, string)> _activeRules = new(); // Track active rules to prevent left recursion
         private readonly Dictionary<string, bool> _leftRecursiveRules = new(); // Cache for left-recursive rule detection
-        private readonly Dictionary<string, object?> _seedResults = new(); // Store seed results for left-recursive expansion
+        private readonly Dictionary<string, IPegParseResult> _seedResults = new(); // Store seed results for left-recursive expansion
 
         // ===== Advanced Left Recursion Support (CPython 3.12 Style) =====
         private readonly Dictionary<string, HashSet<string>> _leftRecursiveDependencies = new(); // Track indirect dependencies
@@ -282,13 +282,13 @@ namespace SharpPy.PegGenerator.Interpreter
         /// <summary>
         /// Main entry point: Parse a rule by name
         /// </summary>
-        public object? ParseRule(string ruleName)
+        public IPegParseResult ParseRule(string ruleName)
         {
             // Check if this rule should be excluded in first pass
             if (ShouldExcludeRuleInFirstPass(ruleName))
             {
                 Console.WriteLine($"[2-PASS] Excluding invalid rule '{ruleName}' in first pass");
-                return null;
+                return PegFailure.Instance;
             }
 
             // Check memoization cache with performance tracking
@@ -304,7 +304,7 @@ namespace SharpPy.PegGenerator.Interpreter
             if (rule == null)
             {
                 // Console.WriteLine($"[DEBUG] Rule not found: {ruleName}");
-                return null;
+                return PegFailure.Instance;
             }
 
             // Check if this is a left-recursive rule and handle specially
@@ -320,7 +320,7 @@ namespace SharpPy.PegGenerator.Interpreter
         /// <summary>
         /// Parse normal (non-left-recursive) rules
         /// </summary>
-        private object? ParseNormalRule(string ruleName, Rule rule)
+        private IPegParseResult ParseNormalRule(string ruleName, Rule rule)
         {
             var cacheKey = (_position, ruleName);
 
@@ -328,7 +328,7 @@ namespace SharpPy.PegGenerator.Interpreter
             if (_activeRules.Contains(cacheKey))
             {
                 // Console.WriteLine($"[RECURSION] Infinite recursion detected for {ruleName} at position {_position}");
-                return null;
+                return PegFailure.Instance;
             }
 
             // Mark rule as active
@@ -344,14 +344,14 @@ namespace SharpPy.PegGenerator.Interpreter
                     var mark = Mark();
                     var result = ParseAlternative(alternative);
 
-                    if (result is CutFailure cutFailure)
+                    if (result is PegCutResult cutResult && cutResult.IsCutFailure)
                     {
                         // Cut failed - no backtracking to other alternatives allowed
                         Console.WriteLine($"[DEBUG] Rule {ruleName}: Cut failure prevents trying other alternatives");
-                        StoreInCache(cacheKey, null);
-                        return null;
+                        StoreInCache(cacheKey, PegFailure.Instance);
+                        return PegFailure.Instance;
                     }
-                    else if (result != null)
+                    else if (result.IsSuccess)
                     {
                         // Success - cache and return
                         StoreInCache(cacheKey, result);
@@ -365,8 +365,8 @@ namespace SharpPy.PegGenerator.Interpreter
 
                 // No alternative succeeded
                 // Console.WriteLine($"[DEBUG] Rule {ruleName} failed at position {_position}");
-                StoreInCache(cacheKey, null);
-                return null;
+                StoreInCache(cacheKey, PegFailure.Instance);
+                return PegFailure.Instance;
             }
             finally
             {
@@ -378,7 +378,7 @@ namespace SharpPy.PegGenerator.Interpreter
         /// <summary>
         /// Parse left-recursive rules using seed parsing technique
         /// </summary>
-        private object? ParseLeftRecursiveRule(string ruleName, Rule rule)
+        private IPegParseResult ParseLeftRecursiveRule(string ruleName, Rule rule)
         {
             var cacheKey = (_position, ruleName);
 
@@ -400,11 +400,11 @@ namespace SharpPy.PegGenerator.Interpreter
             {
                 // No base case - this shouldn't happen in well-formed grammar
                 // Console.WriteLine($"[LEFT-REC] No base alternatives found for {ruleName}");
-                return null;
+                return PegFailure.Instance;
             }
 
             // Step 3: Parse base alternatives to get initial seed
-            object? seed = null;
+            IPegParseResult? seed = null;
             int seedPosition = _position;
 
             foreach (var baseAlt in baseAlternatives)
@@ -412,7 +412,7 @@ namespace SharpPy.PegGenerator.Interpreter
                 var mark = Mark();
                 var result = ParseAlternative(baseAlt);
 
-                if (result != null)
+                if (result.IsSuccess)
                 {
                     seed = result;
                     seedPosition = _position;
@@ -426,8 +426,8 @@ namespace SharpPy.PegGenerator.Interpreter
             if (seed == null)
             {
                 // No base case matched
-                StoreInCache(cacheKey, null);
-                return null;
+                StoreInCache(cacheKey, PegFailure.Instance);
+                return PegFailure.Instance;
             }
 
             // Step 4: Iteratively expand the seed using recursive alternatives
@@ -455,7 +455,7 @@ namespace SharpPy.PegGenerator.Interpreter
                     {
                         var result = ParseAlternative(recursiveAlt);
                         // CPython-style check: must advance position to be a valid expansion
-                        if (result != null && _position > seedPosition)
+                        if (result.IsSuccess && _position > seedPosition)
                         {
                             // Found a longer parse - update seed
                             expandedSeed = result;
@@ -508,10 +508,10 @@ namespace SharpPy.PegGenerator.Interpreter
         /// <summary>
         /// Parse a single alternative (sequence of items)
         /// </summary>
-        private object? ParseAlternative(Alternative alternative)
+        private IPegParseResult ParseAlternative(Alternative alternative)
         {
-            var results = new List<object?>();
-            var variables = new Dictionary<string, object?>();
+            var results = new List<IPegParseResult>();
+            var variables = new Dictionary<string, IPegParseResult>();
 
             // Console.WriteLine($"[DEBUG] Parsing alternative with {alternative.Items.Count} items");
 
@@ -521,30 +521,34 @@ namespace SharpPy.PegGenerator.Interpreter
                 var result = ParseItem(item);
 
                 // Handle cut operations
-                if (result is CutSuccess cutSuccess)
+                if (result is PegCutResult cutResult)
                 {
-                    // Cut succeeded - use the result and continue with committed parse
-                    Console.WriteLine($"[DEBUG] Cut succeeded, committed to this alternative");
-                    results.Add(cutSuccess.Result);
-                    // Store variable binding if item has a name
-                    if (!string.IsNullOrEmpty(item.Name))
+                    if (!cutResult.IsCutFailure)
                     {
-                        variables[item.Name] = cutSuccess.Result;
+                        // Cut succeeded - use the result and continue with committed parse
+                        Console.WriteLine($"[DEBUG] Cut succeeded, committed to this alternative");
+                        var innerResult = cutResult.InnerResult ?? PegSuccess.Instance;
+                        results.Add(innerResult);
+                        // Store variable binding if item has a name
+                        if (!string.IsNullOrEmpty(item.Name))
+                        {
+                            variables[item.Name] = innerResult;
+                        }
+                        // Continue parsing rest of the alternative
+                        continue;
                     }
-                    // Continue parsing rest of the alternative
-                    continue;
+                    else
+                    {
+                        // Cut failed - this prevents backtracking to other alternatives
+                        Console.WriteLine($"[DEBUG] Cut failed at position {cutResult.EndPosition}, no backtracking allowed");
+                        return cutResult; // Propagate cut failure up to prevent backtracking
+                    }
                 }
-                else if (result is CutFailure cutFailure)
-                {
-                    // Cut failed - this prevents backtracking to other alternatives
-                    Console.WriteLine($"[DEBUG] Cut failed at position {cutFailure.CutPosition}, no backtracking allowed");
-                    return cutFailure; // Propagate cut failure up to prevent backtracking
-                }
-                else if (result == null)
+                else if (!result.IsSuccess)
                 {
                     // Item failed - alternative fails
                     // Console.WriteLine($"[DEBUG] Item failed in alternative");
-                    return null;
+                    return PegFailure.Instance;
                 }
 
                 results.Add(result);
@@ -564,7 +568,7 @@ namespace SharpPy.PegGenerator.Interpreter
         /// <summary>
         /// Parse a single item (with optional variable binding)
         /// </summary>
-        private object? ParseItem(Item item)
+        private IPegParseResult ParseItem(Item item)
         {
             // Console.WriteLine($"[DEBUG] Parsing item: {item.Name}={item.Atom}");
             return ParseAtom(item.Atom);
@@ -573,7 +577,7 @@ namespace SharpPy.PegGenerator.Interpreter
         /// <summary>
         /// Parse an atomic expression based on its type
         /// </summary>
-        private object? ParseAtom(Atom atom)
+        private IPegParseResult ParseAtom(Atom atom)
         {
             switch (atom)
             {
@@ -611,21 +615,21 @@ namespace SharpPy.PegGenerator.Interpreter
 
                 default:
                     Console.WriteLine($"[ERROR] Unknown atom type: {atom.GetType()}");
-                    return null;
+                    return PegFailure.Instance;
             }
         }
 
         /// <summary>
         /// Parse string literal (keywords and operators)
         /// </summary>
-        private object? ParseStringLiteral(StringLiteral stringLiteral)
+        private IPegParseResult ParseStringLiteral(StringLiteral stringLiteral)
         {
             var expected = stringLiteral.Value;
             var current = CurrentToken;
 
             Console.WriteLine($"[DEBUG] Expecting string literal: '{expected}', current token: {current?.Type}('{current?.Value}')");
 
-            if (current == null) return null;
+            if (current == null) return PegFailure.Instance;
 
             // Handle keywords (they come as NAME tokens)
             if (IsKeyword(expected))
@@ -633,7 +637,7 @@ namespace SharpPy.PegGenerator.Interpreter
                 if (current.Type.ToString() == "NAME" && current.Value == expected)
                 {
                     Advance();
-                    return expected;
+                    return new PegTokenResult(current, _position);
                 }
             }
             // Handle operators and punctuation (CPython 3.12: all operators are OP tokens)
@@ -643,29 +647,29 @@ namespace SharpPy.PegGenerator.Interpreter
                 if (current.Type.ToString() == "OP" && current.Value == expected)
                 {
                     Advance();
-                    return expected;
+                    return new PegTokenResult(current, _position);
                 }
             }
 
-            return null;
+            return PegFailure.Instance;
         }
 
         /// <summary>
         /// Parse optional expression [expr]
         /// </summary>
-        private object? ParseOptional(Optional optional)
+        private IPegParseResult ParseOptional(Optional optional)
         {
             // Console.WriteLine($"[DEBUG] Parsing optional: [{optional.Expression}]");
 
             var mark = Mark();
             var result = ParseAtom(optional.Expression);
 
-            if (result == null)
+            if (!result.IsSuccess)
             {
                 // Optional failed - reset and return empty success
                 Reset(mark);
                 // Console.WriteLine($"[DEBUG] Optional failed, continuing");
-                return new object(); // Return non-null to indicate success
+                return new PegSuccess(_position); // Return success to indicate optional succeeded
             }
 
             // Console.WriteLine($"[DEBUG] Optional succeeded");
@@ -675,7 +679,7 @@ namespace SharpPy.PegGenerator.Interpreter
         /// <summary>
         /// Parse group (alternatives in parentheses)
         /// </summary>
-        private object? ParseGroup(Group group)
+        private IPegParseResult ParseGroup(Group group)
         {
             Console.WriteLine($"[DEBUG] Parsing group with {group.Alternatives.Count} alternatives");
 
@@ -685,7 +689,7 @@ namespace SharpPy.PegGenerator.Interpreter
                 var mark = Mark();
                 var result = ParseAlternative(alternative);
 
-                if (result != null)
+                if (result.IsSuccess)
                 {
                     return result;
                 }
@@ -693,24 +697,24 @@ namespace SharpPy.PegGenerator.Interpreter
                 Reset(mark);
             }
 
-            return null;
+            return PegFailure.Instance;
         }
 
         /// <summary>
         /// Parse zero or more repetitions expr*
         /// </summary>
-        private object? ParseZeroOrMore(ZeroOrMore zeroOrMore)
+        private IPegParseResult ParseZeroOrMore(ZeroOrMore zeroOrMore)
         {
             Console.WriteLine($"[DEBUG] Parsing zero or more: {zeroOrMore.Expression}*");
 
-            var results = new List<object?>();
+            var results = new List<IPegParseResult>();
 
             while (true)
             {
                 var mark = Mark();
                 var result = ParseAtom(zeroOrMore.Expression);
 
-                if (result == null)
+                if (!result.IsSuccess)
                 {
                     Reset(mark);
                     break;
@@ -720,23 +724,23 @@ namespace SharpPy.PegGenerator.Interpreter
             }
 
             Console.WriteLine($"[DEBUG] Zero or more matched {results.Count} items");
-            return results;
+            return new PegListResult(results, _position);
         }
 
         /// <summary>
         /// Parse one or more repetitions expr+
         /// </summary>
-        private object? ParseOneOrMore(OneOrMore oneOrMore)
+        private IPegParseResult ParseOneOrMore(OneOrMore oneOrMore)
         {
             Console.WriteLine($"[DEBUG] Parsing one or more: {oneOrMore.Expression}+");
 
-            var results = new List<object?>();
+            var results = new List<IPegParseResult>();
 
             // Must match at least once
             var firstResult = ParseAtom(oneOrMore.Expression);
-            if (firstResult == null)
+            if (!firstResult.IsSuccess)
             {
-                return null;
+                return PegFailure.Instance;
             }
 
             results.Add(firstResult);
@@ -747,7 +751,7 @@ namespace SharpPy.PegGenerator.Interpreter
                 var mark = Mark();
                 var result = ParseAtom(oneOrMore.Expression);
 
-                if (result == null)
+                if (!result.IsSuccess)
                 {
                     Reset(mark);
                     break;
@@ -757,13 +761,13 @@ namespace SharpPy.PegGenerator.Interpreter
             }
 
             Console.WriteLine($"[DEBUG] One or more matched {results.Count} items");
-            return results;
+            return new PegListResult(results, _position);
         }
 
         /// <summary>
         /// Parse positive lookahead &expr
         /// </summary>
-        private object? ParsePositiveLookahead(PositiveLookahead positiveLookahead)
+        private IPegParseResult ParsePositiveLookahead(PositiveLookahead positiveLookahead)
         {
             Console.WriteLine($"[DEBUG] Parsing positive lookahead: &{positiveLookahead.Expression}");
 
@@ -774,13 +778,13 @@ namespace SharpPy.PegGenerator.Interpreter
             Reset(mark);
 
             // Return success/failure based on whether expression matched
-            return result != null ? new object() : null;
+            return result.IsSuccess ? new PegSuccess(_position) : PegFailure.Instance;
         }
 
         /// <summary>
         /// Parse negative lookahead !expr
         /// </summary>
-        private object? ParseNegativeLookahead(NegativeLookahead negativeLookahead)
+        private IPegParseResult ParseNegativeLookahead(NegativeLookahead negativeLookahead)
         {
             Console.WriteLine($"[DEBUG] Parsing negative lookahead: !{negativeLookahead.Expression}");
 
@@ -791,7 +795,7 @@ namespace SharpPy.PegGenerator.Interpreter
             Reset(mark);
 
             // Return success if expression did NOT match
-            return result == null ? new object() : null;
+            return !result.IsSuccess ? new PegSuccess(_position) : PegFailure.Instance;
         }
 
         /// <summary>
@@ -799,7 +803,7 @@ namespace SharpPy.PegGenerator.Interpreter
         /// In CPython 3.12, cut operator commits to the current alternative and
         /// prevents exploring other alternatives in case of failure
         /// </summary>
-        private object? ParseCut(Cut cut)
+        private IPegParseResult ParseCut(Cut cut)
         {
             Console.WriteLine($"[DEBUG] ParseCut: Cut operator encountered at position {_position}");
 
@@ -809,12 +813,12 @@ namespace SharpPy.PegGenerator.Interpreter
             // Try to parse the expression after the cut
             var result = ParseAtom(cut.Expression);
 
-            if (result != null)
+            if (result.IsSuccess)
             {
                 Console.WriteLine($"[DEBUG] ParseCut: Expression after cut succeeded, committing to this path");
                 // Success - mark this as a "committed" parse by setting a special flag
                 // The cut succeeds and we return the result
-                return new CutSuccess { Result = result, CutPosition = cutPosition };
+                return CreateCutSuccess(result, cutPosition);
             }
             else
             {
@@ -822,25 +826,21 @@ namespace SharpPy.PegGenerator.Interpreter
                 // Failure after cut - this should prevent backtracking to earlier alternatives
                 // In a full implementation, this would throw a special exception or set a flag
                 // For now, we'll return a special failure marker
-                return new CutFailure { CutPosition = cutPosition };
+                return CreateCutFailure(cutPosition);
             }
         }
 
         /// <summary>
-        /// Marker class for successful cut operations
+        /// Helper methods for creating cut results
         /// </summary>
-        private class CutSuccess
+        private static IPegParseResult CreateCutSuccess(IPegParseResult result, int cutPosition)
         {
-            public object? Result { get; set; }
-            public int CutPosition { get; set; }
+            return new PegCutResult(false, result, cutPosition);
         }
 
-        /// <summary>
-        /// Marker class for failed cut operations (prevents backtracking)
-        /// </summary>
-        private class CutFailure
+        private static IPegParseResult CreateCutFailure(int cutPosition)
         {
-            public int CutPosition { get; set; }
+            return new PegCutResult(true, null, cutPosition);
         }
 
         // ===== Performance Optimization: Cache Management Methods =====
@@ -848,7 +848,7 @@ namespace SharpPy.PegGenerator.Interpreter
         /// <summary>
         /// Try to get value from cache with LRU tracking
         /// </summary>
-        private bool TryGetFromCache((int, string) key, out object? result)
+        private bool TryGetFromCache((int, string) key, out IPegParseResult result)
         {
             if (_memoCache.TryGetValue(key, out result))
             {
@@ -865,7 +865,7 @@ namespace SharpPy.PegGenerator.Interpreter
         /// <summary>
         /// Store value in cache with size management
         /// </summary>
-        private void StoreInCache((int, string) key, object? value)
+        private void StoreInCache((int, string) key, IPegParseResult value)
         {
             // Evict oldest entries if cache is full
             while (_memoCache.Count >= MAX_CACHE_SIZE)
@@ -925,12 +925,12 @@ namespace SharpPy.PegGenerator.Interpreter
         /// <summary>
         /// Execute action with parsed results and variable bindings
         /// </summary>
-        private object? ExecuteAction(string? action, Dictionary<string, object?> variables, List<object?> results)
+        private IPegParseResult ExecuteAction(string? action, Dictionary<string, IPegParseResult> variables, List<IPegParseResult> results)
         {
             if (string.IsNullOrEmpty(action))
             {
                 // No action - return first result or success marker
-                return results.FirstOrDefault() ?? new object();
+                return results.FirstOrDefault() ?? new PegSuccess(_position);
             }
 
             Console.WriteLine($"[DEBUG] Executing action: {action}");
@@ -944,7 +944,7 @@ namespace SharpPy.PegGenerator.Interpreter
         /// <summary>
         /// Parse semantic action and create corresponding AST node
         /// </summary>
-        private object? ParseAction(string action, Dictionary<string, object?> variables, List<object?> results)
+        private IPegParseResult ParseAction(string action, Dictionary<string, IPegParseResult> variables, List<IPegParseResult> results)
         {
             // Handle common action patterns
             if (action.Contains("_PyPegen_set_expr_context"))
@@ -955,12 +955,12 @@ namespace SharpPy.PegGenerator.Interpreter
                 {
                     return variables["a"];
                 }
-                return results.FirstOrDefault();
+                return results.FirstOrDefault() ?? new PegSuccess(_position);
             }
             else if (action.Contains("_PyAST_Assign"))
             {
                 // Assignment: a[asdl_expr_seq*]=(z=star_targets '=' { z })+ b=(yield_expr | star_expressions)
-                return new SimpleStmt
+                var stmt = new SimpleStmt
                 {
                     Type = "assignment",
                     Data = new {
@@ -968,37 +968,41 @@ namespace SharpPy.PegGenerator.Interpreter
                         Value = variables.ContainsKey("b") ? variables["b"] : null
                     }
                 };
+                return new PegAstResult(stmt, _position);
             }
             else if (action.Contains("_PyAST_Module"))
             {
                 // Module: statements+
-                return new SimpleModule
+                var module = new SimpleModule
                 {
                     Body = variables.ContainsKey("a") ? variables["a"] as List<object> : new List<object>()
                 };
+                return new PegAstResult(module, _position);
             }
             else if (action.Contains("_PyAST_Name"))
             {
                 // Name expression: NAME
-                return new SimpleExpr
+                var expr = new SimpleExpr
                 {
                     Type = "name",
                     Data = variables.ContainsKey("id") ? variables["id"] : null
                 };
+                return new PegAstResult(expr, _position);
             }
             else if (action.Contains("_PyAST_Constant") || action.Contains("_PyAST_Num"))
             {
                 // Constant/Number expression
-                return new SimpleExpr
+                var expr = new SimpleExpr
                 {
                     Type = "constant",
                     Data = variables.ContainsKey("value") ? variables["value"] : null
                 };
+                return new PegAstResult(expr, _position);
             }
             else if (action.Contains("_PyAST_BinOp"))
             {
                 // Binary operation: left op right
-                return new SimpleExpr
+                var expr = new SimpleExpr
                 {
                     Type = "binop",
                     Data = new {
@@ -1007,11 +1011,12 @@ namespace SharpPy.PegGenerator.Interpreter
                         Right = variables.ContainsKey("right") ? variables["right"] : null
                     }
                 };
+                return new PegAstResult(expr, _position);
             }
             else if (action.Contains("_PyAST_TypeAlias"))
             {
                 // Type alias: "type" n=NAME t=[type_params] '=' b=expression
-                return new SimpleStmt
+                var stmt = new SimpleStmt
                 {
                     Type = "type_alias",
                     Data = new {
@@ -1020,11 +1025,12 @@ namespace SharpPy.PegGenerator.Interpreter
                         Value = variables.ContainsKey("b") ? variables["b"] : null
                     }
                 };
+                return new PegAstResult(stmt, _position);
             }
             else if (action.Contains("_PyAST_AsyncFunctionDef"))
             {
                 // Async function definition: ASYNC 'def' n=NAME params=[params] b=block
-                return new SimpleStmt
+                var stmt = new SimpleStmt
                 {
                     Type = "async_function_def",
                     Data = new {
@@ -1035,29 +1041,33 @@ namespace SharpPy.PegGenerator.Interpreter
                         Returns = variables.ContainsKey("a") ? variables["a"] : null
                     }
                 };
+                return new PegAstResult(stmt, _position);
             }
             else if (action.Contains("_PyAST_Break"))
             {
                 // Break statement: 'break' { _PyAST_Break(EXTRA) }
-                return new SimpleStmt
+                var stmt = new SimpleStmt
                 {
                     Type = "break",
                     Data = null
                 };
+                return new PegAstResult(stmt, _position);
             }
             else if (action.Contains("_PyAST_Continue"))
             {
                 // Continue statement: 'continue' { _PyAST_Continue(EXTRA) }
-                return new SimpleStmt
+                var stmt = new SimpleStmt
                 {
                     Type = "continue",
                     Data = null
                 };
+                return new PegAstResult(stmt, _position);
             }
 
             // Default: return generic success marker for now
             Console.WriteLine($"[DEBUG] Unhandled action pattern: {action}");
-            return new { Action = action, Variables = variables, Results = results };
+            var defaultResult = new { Action = action, Variables = variables, Results = results };
+            return new PegActionResult(defaultResult, _position);
         }
 
         /// <summary>
@@ -1072,21 +1082,20 @@ namespace SharpPy.PegGenerator.Interpreter
         /// <summary>
         /// Parse a token type by matching current token against expected type
         /// </summary>
-        private object? ParseTokenType(string tokenType)
+        private IPegParseResult ParseTokenType(string tokenType)
         {
             var current = CurrentToken;
-            if (current == null) return null;
+            if (current == null) return PegFailure.Instance;
 
             Console.WriteLine($"[DEBUG] Expecting token type: {tokenType}, current token: {current.Type}('{current.Value}')");
 
             if (current.Type.ToString() == tokenType)
             {
-                var value = current.Value;
                 Advance();
-                return value; // Return the token value
+                return new PegTokenResult(current, _position);
             }
 
-            return null;
+            return PegFailure.Instance;
         }
 
         /// <summary>
@@ -1120,7 +1129,7 @@ namespace SharpPy.PegGenerator.Interpreter
         /// Parse a rule with 2-pass support for better error messages
         /// This is the new main entry point that handles invalid rules properly
         /// </summary>
-        public object? ParseRuleWithTwoPass(string ruleName)
+        public IPegParseResult ParseRuleWithTwoPass(string ruleName)
         {
             Console.WriteLine($"[2-PASS] Starting 2-pass parsing for rule: {ruleName}");
 
@@ -1130,7 +1139,7 @@ namespace SharpPy.PegGenerator.Interpreter
             var firstPassPosition = _position;
 
             var result = ParseRule(ruleName);
-            if (result != null)
+            if (result.IsSuccess)
             {
                 Console.WriteLine($"[2-PASS] First pass succeeded for rule: {ruleName}");
                 return result;
@@ -1149,7 +1158,7 @@ namespace SharpPy.PegGenerator.Interpreter
             Console.WriteLine($"[2-PASS] Starting second pass (with invalid rules) for rule: {ruleName}");
 
             result = ParseRule(ruleName);
-            if (result != null)
+            if (result.IsSuccess)
             {
                 Console.WriteLine($"[2-PASS] Second pass succeeded for rule: {ruleName}");
                 return result;
@@ -1162,7 +1171,7 @@ namespace SharpPy.PegGenerator.Interpreter
                 Console.WriteLine($"[2-PASS] Both passes failed, using first pass failure position: {_firstPassFailurePosition}");
             }
 
-            return null;
+            return PegFailure.Instance;
         }
 
         /// <summary>
