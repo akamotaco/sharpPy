@@ -690,6 +690,20 @@ namespace SharpPy
             return base.GetAttribute(name);
         }
 
+        public override void SetAttribute(string name, PyObject value)
+        {
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 PyClassInstance.SetAttribute: {InstanceType.Name} instance.{name} = {value}");
+            #endif
+
+            // CPython 3.12 호환: 인스턴스 __dict__에 속성 저장
+            InstanceDict[name] = value;
+
+            #if DEBUG_LOG
+            Console.WriteLine($"   → stored in instance dict (now {InstanceDict.Count} items)");
+            #endif
+        }
+
         public override string ToRepr()
         {
             return $"<{GetTypeName()} object at 0x{GetHashCode():x}>";

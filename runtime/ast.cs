@@ -31,9 +31,27 @@ namespace SharpPy
         public PyObject Iterable { get; }
         public PyYieldFromException(PyObject iterable) { Iterable = iterable; }
     }
-    
+
     public class PyBreakException : Exception { }
     public class PyContinueException : Exception { }
+
+    // Import alias for from import statements
+    public class ImportAlias
+    {
+        public string Name { get; set; }
+        public string AsName { get; set; }
+
+        public ImportAlias(string name, string asName = null)
+        {
+            Name = name;
+            AsName = asName;
+        }
+
+        public override string ToString()
+        {
+            return AsName != null ? $"{Name} as {AsName}" : Name;
+        }
+    }
 }
 
 namespace SharpPy
@@ -190,21 +208,47 @@ namespace SharpPy
         public override string NodeType => "Assign";
         public string VariableName { get; }
         public Expression Value { get; }
-        
+
         public AssignStatement(string variableName, Expression value)
         {
             VariableName = variableName;
             Value = value;
         }
-        
+
         public override PyObject Evaluate(PyScope scope)
         {
             var value = Value.Evaluate(scope);
             scope.SetVariable(VariableName, value);
             return value;
         }
-        
+
         public override string ToString() => $"{VariableName} = {Value}";
+    }
+
+    // CPython 3.12: Attribute assignment (self.x = value)
+    public class AttributeStatement : Statement
+    {
+        public override string NodeType => "AttributeAssign";
+        public Expression Object { get; }
+        public string Attr { get; }
+        public Expression Value { get; }
+
+        public AttributeStatement(Expression obj, string attr, Expression value)
+        {
+            Object = obj;
+            Attr = attr;
+            Value = value;
+        }
+
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var obj = Object.Evaluate(scope);
+            var value = Value.Evaluate(scope);
+            obj.SetAttribute(Attr, value);
+            return value;
+        }
+
+        public override string ToString() => $"{Object}.{Attr} = {Value}";
     }
     
     // CPython 3.12: General assignment with expression target
@@ -687,7 +731,23 @@ namespace SharpPy
                 if (hasStarArgs) flags |= PyCodeObject.CO_VARARGS;
                 if (hasKwArgs) flags |= PyCodeObject.CO_VARKEYWORDS;
 
-                var funcCode = compiler.CompileFunction(Body, Name, paramNames, defaults, flags);
+                // Count positional-only parameters (CPython 3.12)
+                int posonlyArgCount = 0;
+                foreach (var param in Parameters)
+                {
+                    if (param.Contains("[posonly]"))
+                    {
+                        posonlyArgCount++;
+                    }
+                    else
+                    {
+                        break; // positional-only parameters must come first
+                    }
+                }
+
+                Console.WriteLine($"[DEBUG] Function '{Name}': {posonlyArgCount} positional-only parameters");
+
+                var funcCode = compiler.CompileFunction(Body, Name, paramNames, defaults, flags, posonlyArgCount);
 
                 // Create a simple implementation that properly executes the function using VM frame
                 function = new PyFunction(Name, args =>
@@ -2205,29 +2265,73 @@ namespace SharpPy
     public class ImportFromStatement : Statement
     {
         public override string NodeType => "ImportFrom";
-        public string Module { get; }
-        public List<string> Names { get; }
-        
-        public ImportFromStatement(string module, List<string> names)
+        public string? Module { get; }          // CPython 3.12: None for relative imports
+        public List<ImportAlias> Names { get; } // CPython 3.12: support for aliases
+        public int Level { get; }               // CPython 3.12: relative import level (0=absolute, 1=., 2=..)
+
+        public ImportFromStatement(string? module, List<ImportAlias> names, int level = 0)
         {
             Module = module;
             Names = names;
+            Level = level;
         }
-        
+
         public override PyObject Evaluate(PyScope scope)
         {
-            // from ... import 구현
-            var module = new PyModule(Module); // 간단한 구현
-            foreach (var name in Names)
+            Console.WriteLine($"📦 ImportFromStatement.Evaluate: from {Module ?? "."} import {string.Join(", ", Names.Select(n => n.ToString()))} (level={Level})");
+
+            try
             {
-                var value = module.GetAttribute(name);
-                scope.SetVariable(name, value);
+                // Use existing PyImportSystem for CPython 3.12 compatibility
+                string moduleName = ConstructModuleName(Module, Level, scope);
+
+                // Extract item names for PyImportSystem.FromImport
+                var itemNames = Names.Select(alias => alias.Name).ToArray();
+
+                // Use PyImportSystem.FromImport which handles modules, caching, relative imports
+                var importedItems = PyImportSystem.FromImport(moduleName, itemNames);
+
+                // Set variables in scope with proper aliases
+                foreach (var alias in Names)
+                {
+                    if (importedItems.TryGetValue(alias.Name, out var value))
+                    {
+                        var localName = alias.AsName ?? alias.Name;
+                        scope.SetVariable(localName, value);
+                        Console.WriteLine($"📥 Imported {alias.Name} as {localName}");
+                    }
+                    else
+                    {
+                        throw PyImportError.Create($"cannot import name '{alias.Name}' from '{moduleName}'");
+                    }
+                }
+
+                return PyNone.Instance;
             }
-            return PyNone.Instance;
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ ImportFromStatement failed: {ex.Message}");
+                if (ex is PythonException) throw; // Re-throw Python exceptions as-is
+                throw PyImportError.Create($"cannot import name '{string.Join(", ", Names.Select(n => n.Name))}' from '{Module ?? "."}'");
+            }
         }
-        
-        public override string ToString() => $"from {Module} import {string.Join(", ", Names)}";
+
+        private string ConstructModuleName(string? module, int level, PyScope scope)
+        {
+            if (level == 0)
+            {
+                // Absolute import
+                return module ?? "";
+            }
+
+            // Relative import - construct dotted name
+            var prefix = new string('.', level);
+            return prefix + (module ?? "");
+        }
+
+        public override string ToString() => $"from {Module ?? "."} import {string.Join(", ", Names)}";
     }
+
 
     #endregion
 

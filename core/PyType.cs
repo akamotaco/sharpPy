@@ -292,6 +292,13 @@ namespace SharpPy
 
             switch (Name)
             {
+                case "object":
+                    // object() creates a new basic object instance
+                    if (args.Length > 0)
+                    {
+                        throw PyTypeError.Create("object() takes no arguments");
+                    }
+                    return new PyInstance(); // Create basic object instance
                 case "BaseException":
                     return new PyBaseException(message);
                 case "Exception":
@@ -597,5 +604,17 @@ namespace SharpPy
         }
 
         #endregion
+    }
+
+    /// <summary>
+    /// Simple object instance for object() constructor
+    /// </summary>
+    public class PyInstance : PyObject
+    {
+        public override PyType GetPyType() => PyType.ObjectType;
+        public override string GetTypeName() => "object";
+
+        public override string ToString() => "<object>";
+        public override string ToRepr() => "<object>";
     }
 }

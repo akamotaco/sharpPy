@@ -665,24 +665,25 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
-        /// _PyPegen_seq_flatten - Flatten sequence of sequences
+        /// _PyPegen_seq_flatten - Flatten statement sequences (CPython 3.12 compatible)
+        /// CPython 3.12: NEVER flatten - preserve nested structure exactly as parsed
+        /// Only used for simple_stmts sequences (semicolon-separated statements)
         /// </summary>
         protected List<object> _PyPegen_seq_flatten(List<object> sequences)
         {
+            // CRITICAL: CPython 3.12 does NOT flatten compound statement bodies
+            // Return sequences as-is to preserve nested structure
             var result = new List<object>();
             foreach (var seq in sequences)
             {
-                if (seq is List<object> subList)
-                {
-                    result.AddRange(subList);
-                }
-                else if (seq != null)
+                if (seq != null)
                 {
                     result.Add(seq);
                 }
             }
             return result;
         }
+
 
         /// <summary>
         /// _PyPegen_empty_arguments - Create empty argument list
@@ -1008,6 +1009,142 @@ namespace SharpPy.Generated
         };
 
         // ===== Additional CPython 3.12 Helper Functions =====
+
+        /// <summary>
+        /// ParseClassArguments - Parse class arguments including base classes and keyword arguments like metaclass=
+        /// Note: This is a simple version that handles basic name-based arguments
+        /// </summary>
+        protected (List<object> bases, List<object> keywords) ParseClassArguments()
+        {
+            var bases = new List<object>();
+            var keywords = new List<object>();
+
+            Console.WriteLine($"[DEBUG] ParseClassArguments: Starting at position {_position}, token: {CurrentToken?.Type}:{CurrentToken?.Value}");
+
+            while (CurrentToken != null && !(CurrentToken.Type == GeneratedTokenType.OP && CurrentToken.Value == ")"))
+            {
+                // Check if this is a keyword argument (name = value)
+                if (CurrentToken.Type == GeneratedTokenType.NAME)
+                {
+                    var nameValue = CurrentToken.Value;
+                    var nextToken = _position + 1 < _tokens.Count ? _tokens[_position + 1] : null;
+
+                    if (nextToken?.Type == GeneratedTokenType.OP && nextToken.Value == "=")
+                    {
+                        // This is a keyword argument like metaclass=Meta
+                        Console.WriteLine($"[DEBUG] ParseClassArguments: Found keyword argument: {nameValue}");
+                        Advance(); // consume keyword name
+                        Advance(); // consume '='
+
+                        // For simple cases, we expect another NAME token for the value
+                        if (CurrentToken?.Type == GeneratedTokenType.NAME)
+                        {
+                            var valueExpr = new { type = "name", value = CurrentToken.Value };
+                            var keyword = new {
+                                arg = nameValue,
+                                value = valueExpr
+                            };
+                            keywords.Add(keyword);
+                            Console.WriteLine($"[DEBUG] ParseClassArguments: Added keyword: {nameValue} = {CurrentToken.Value}");
+                            Advance(); // consume value
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[DEBUG] ParseClassArguments: Expected NAME for keyword value, got {CurrentToken?.Type}:{CurrentToken?.Value}");
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        // This is a positional argument (base class)
+                        var baseExpr = new { type = "name", value = nameValue };
+                        bases.Add(baseExpr);
+                        Console.WriteLine($"[DEBUG] ParseClassArguments: Added base class: {nameValue}");
+                        Advance(); // consume name
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"[DEBUG] ParseClassArguments: Unexpected token type: {CurrentToken?.Type}:{CurrentToken?.Value}");
+                    break;
+                }
+
+                // Check for comma separator
+                if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == ",")
+                {
+                    Advance(); // consume ','
+                    // Skip whitespace/newlines if any
+                    while (CurrentToken?.Type == GeneratedTokenType.NEWLINE || CurrentToken?.Type == GeneratedTokenType.NL)
+                    {
+                        Advance();
+                    }
+                }
+                else
+                {
+                    break; // No more arguments
+                }
+            }
+
+            Console.WriteLine($"[DEBUG] ParseClassArguments: Completed with {bases.Count} bases and {keywords.Count} keywords");
+            return (bases, keywords);
+        }
+
+        /// <summary>
+        /// Check if operator is an augmented assignment operator
+        /// </summary>
+        protected bool IsAugmentedAssignmentOperator(string op)
+        {
+            return op switch
+            {
+                "+=" => true,
+                "-=" => true,
+                "*=" => true,
+                "/=" => true,
+                "//=" => true,
+                "%=" => true,
+                "**=" => true,
+                "&=" => true,
+                "|=" => true,
+                "^=" => true,
+                "<<=" => true,
+                ">>=" => true,
+                "@=" => true,
+                _ => false
+            };
+        }
+
+        /// <summary>
+        /// Parse augmented assignment statement
+        /// </summary>
+        protected GeneratedStmt ParseAugmentedAssignment(object target, string augOp, object value)
+        {
+            Console.WriteLine($"[DEBUG] ParseAugmentedAssignment: target={target}, op={augOp}, value={value}");
+
+            // Convert the operator to the corresponding binary operator
+            var binaryOp = augOp switch
+            {
+                "+=" => "Add",
+                "-=" => "Sub",
+                "*=" => "Mult",
+                "/=" => "Div",
+                "//=" => "FloorDiv",
+                "%=" => "Mod",
+                "**=" => "Pow",
+                "&=" => "BitAnd",
+                "|=" => "BitOr",
+                "^=" => "BitXor",
+                "<<=" => "LShift",
+                ">>=" => "RShift",
+                "@=" => "MatMult",
+                _ => throw new InvalidOperationException($"Unknown augmented assignment operator: {augOp}")
+            };
+
+            return new GeneratedStmt
+            {
+                StatementType = "augassign",
+                Value = new { Target = target, Op = binaryOp, Value = value }
+            };
+        }
 
         /// <summary>
         /// _PyPegen_seq_insert_in_front - Insert item at front of sequence
@@ -1713,6 +1850,19 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
+        /// CPython compatible function for creating slash_with_default structure
+        /// </summary>
+        protected object _PyPegen_slash_with_default(object p, object? noDefaults, object? withDefaults)
+        {
+            var result = new Dictionary<string, object>();
+            result["no_defaults"] = noDefaults ?? new List<object>();
+            result["with_defaults"] = withDefaults ?? new List<object>();
+
+            Console.WriteLine($"[DEBUG] _PyPegen_slash_with_default: Created");
+            return result;
+        }
+
+        /// <summary>
         /// Convert argument sequence to list format
         /// </summary>
         private List<object> ConvertArgsList(object? argSeq)
@@ -1749,6 +1899,14 @@ namespace SharpPy.Generated
             if (defaults is IEnumerable<object> enumerable) return enumerable.ToList();
 
             return new List<object> { defaults };
+        }
+
+        /// <summary>
+        /// Helper method to create augmented assignment operator objects
+        /// </summary>
+        protected object CreateAugOperator(string operatorType)
+        {
+            return new { kind = operatorType };
         }
 
     }

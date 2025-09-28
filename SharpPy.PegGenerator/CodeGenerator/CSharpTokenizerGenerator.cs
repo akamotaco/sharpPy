@@ -1331,8 +1331,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("_indentStack.Pop();");
-            WriteLine("// Add DEDENT to pending queue for proper NL → DEDENT order (CPython compatibility)");
-            WriteLine("_pendingTokens.Enqueue(new GeneratedTokenInfo(GeneratedTokenType.DEDENT, \"\", _line, 0));");
+            WriteLine("// CPython 3.12: DEDENT column position reflects the target indentation level");
+            WriteLine("int dedentColumn = _indentStack.Count > 0 ? _indentStack.Peek() : 0;");
+            WriteLine("_pendingTokens.Enqueue(new GeneratedTokenInfo(GeneratedTokenType.DEDENT, \"\", _line, dedentColumn));");
             Dedent();
             WriteLine("}");
             WriteLine();

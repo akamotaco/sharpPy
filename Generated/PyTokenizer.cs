@@ -1043,8 +1043,9 @@ namespace SharpPy.Generated
                 while (_indentStack.Count > 1 && _indentStack.Peek() > indent)
                 {
                     _indentStack.Pop();
-                    // Add DEDENT to pending queue for proper NL → DEDENT order (CPython compatibility)
-                    _pendingTokens.Enqueue(new GeneratedTokenInfo(GeneratedTokenType.DEDENT, "", _line, 0));
+                    // CPython 3.12: DEDENT column position reflects the target indentation level
+                    int dedentColumn = _indentStack.Count > 0 ? _indentStack.Peek() : 0;
+                    _pendingTokens.Enqueue(new GeneratedTokenInfo(GeneratedTokenType.DEDENT, "", _line, dedentColumn));
                 }
 
                 // Check for indentation error

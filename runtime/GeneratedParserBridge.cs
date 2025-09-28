@@ -108,6 +108,7 @@ namespace SharpPy
 
             if (module.Body != null)
             {
+
                 // Detect and merge chain assignments
                 var moduleStmts = module.Body.ToList();
                 for (int i = 0; i < moduleStmts.Count; i++)
@@ -484,21 +485,76 @@ namespace SharpPy
 #endif
                                     }
                                 }
+                                else if (genExpr.ExpressionType == "Attribute")
+                                {
+#if DEBUG_LOG
+                                    Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Found GeneratedExpr target with ExpressionType='Attribute' (CPython 3.12 compatible)");
+#endif
+                                    // Handle attribute assignment: self.x = value
+                                    // Convert to AttributeStatement instead of AssignStatement
+                                    try
+                                    {
+                                        var attrExpr = ConvertAnyExpression(genExpr);
+                                        if (attrExpr is AttributeExpression attributeExpr)
+                                        {
+#if DEBUG_LOG
+                                            Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Converting attribute assignment {attributeExpr.Value}.{attributeExpr.Attr}");
+#endif
+                                            Expression convertedValueExpr = ConvertAnyExpression(valueExpr);
+                                            return new AttributeStatement(attributeExpr.Value, attributeExpr.Attr, convertedValueExpr);
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+#if DEBUG_LOG
+                                        Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Failed to convert attribute assignment: {ex.Message}");
+#endif
+                                    }
+                                }
                                 else if (genExpr.ExpressionType == "Expression")
                                 {
 #if DEBUG_LOG
                                     Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Found GeneratedExpr target with ExpressionType='Expression', unwrapping...");
 #endif
-                                    // This is a wrapped expression, recursively extract the name
-                                    if (genExpr.Value is GeneratedExpr innerExpr && innerExpr.ExpressionType == "Name")
+
+                                    // Check if this Expression wrapper contains an Attribute
+                                    if (genExpr.Value is GeneratedExpr innerExpr)
                                     {
-                                        if (innerExpr.Value is object valueObj)
+                                        if (innerExpr.ExpressionType == "Attribute")
                                         {
-                                            var valueProperty = valueObj.GetType().GetProperty("value");
-                                            targetName = valueProperty?.GetValue(valueObj)?.ToString();
 #if DEBUG_LOG
-                                            Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Extracted targetName='{targetName}' from wrapped GeneratedExpr");
+                                            Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Found wrapped Attribute in Expression (CPython 3.12 compatible)");
 #endif
+                                            // Handle wrapped attribute assignment: self.x = value
+                                            try
+                                            {
+                                                var attrExpr = ConvertAnyExpression(innerExpr);
+                                                if (attrExpr is AttributeExpression attributeExpr)
+                                                {
+#if DEBUG_LOG
+                                                    Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Converting wrapped attribute assignment {attributeExpr.Value}.{attributeExpr.Attr}");
+#endif
+                                                    Expression convertedValueExpr = ConvertAnyExpression(valueExpr);
+                                                    return new AttributeStatement(attributeExpr.Value, attributeExpr.Attr, convertedValueExpr);
+                                                }
+                                            }
+                                            catch (Exception ex)
+                                            {
+#if DEBUG_LOG
+                                                Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Failed to convert wrapped attribute assignment: {ex.Message}");
+#endif
+                                            }
+                                        }
+                                        else if (innerExpr.ExpressionType == "Name")
+                                        {
+                                            if (innerExpr.Value is object valueObj)
+                                            {
+                                                var valueProperty = valueObj.GetType().GetProperty("value");
+                                                targetName = valueProperty?.GetValue(valueObj)?.ToString();
+#if DEBUG_LOG
+                                                Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Extracted targetName='{targetName}' from wrapped GeneratedExpr");
+#endif
+                                            }
                                         }
                                     }
                                     else
@@ -513,6 +569,14 @@ namespace SharpPy
 #if DEBUG_LOG
                                                 Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Extracted targetName='{targetName}' from converted NameExpression");
 #endif
+                                            }
+                                            else if (unwrappedExpr is AttributeExpression attrExpr)
+                                            {
+#if DEBUG_LOG
+                                                Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Found AttributeExpression via unwrapping");
+#endif
+                                                Expression convertedValueExpr = ConvertAnyExpression(valueExpr);
+                                                return new AttributeStatement(attrExpr.Value, attrExpr.Attr, convertedValueExpr);
                                             }
                                         }
                                         catch (Exception ex)
@@ -566,6 +630,106 @@ namespace SharpPy
                                 // Convert the value expression using ConvertAnyExpression
                                 Expression convertedValueExpr = ConvertAnyExpression(valueExpr);
                                 return new AssignStatement(targetName, convertedValueExpr);
+                            }
+                        }
+                    }
+                    return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
+
+                case "aug_assign":
+                    // Augmented assignment statement (name += value)
+                    if (stmt.Value != null)
+                    {
+                        var augAssignData = stmt.Value as dynamic;
+                        var target = augAssignData?.Target;
+                        var op = augAssignData?.Op;
+                        var value = augAssignData?.Value;
+
+#if DEBUG_LOG
+                        Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Target='{target}', Op='{op}', Value='{value}'");
+#endif
+
+                        // Extract target name
+                        string targetName = null;
+                        if (target is GeneratedExpr genExpr)
+                        {
+                            if (genExpr.ExpressionType == "Name" && genExpr.Value is { } nameValue)
+                            {
+                                dynamic dynNameValue = nameValue;
+                                targetName = dynNameValue.id?.ToString();
+#if DEBUG_LOG
+                                Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Extracted targetName='{targetName}' from Name expression");
+#endif
+                            }
+                            else if (genExpr.ExpressionType == "Expression" && genExpr.Value is { } exprValue)
+                            {
+                                dynamic dynExprValue = exprValue;
+                                targetName = dynExprValue.name?.ToString();
+#if DEBUG_LOG
+                                Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Extracted targetName='{targetName}' from Expression");
+#endif
+                            }
+                        }
+                        else if (target is string strTarget)
+                        {
+                            targetName = strTarget;
+#if DEBUG_LOG
+                            Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Using string target='{targetName}'");
+#endif
+                        }
+                        else
+                        {
+                            // Handle anonymous object case: { kind = "Name", id = "x" }
+                            dynamic dynTarget = target;
+                            if (dynTarget?.kind == "Name" && dynTarget?.id != null)
+                            {
+                                targetName = dynTarget.id.ToString();
+#if DEBUG_LOG
+                                Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Extracted targetName='{targetName}' from anonymous object");
+#endif
+                            }
+                        }
+
+                        // Extract operator
+                        string operatorType = null;
+                        if (op is { } opValue)
+                        {
+                            dynamic dynOp = opValue;
+                            var opKind = dynOp.kind?.ToString();
+
+                            // Map from operator kind to operator symbol
+                            operatorType = opKind switch
+                            {
+                                "Add" => "+=",
+                                "Sub" => "-=",
+                                "Mult" => "*=",
+                                "Div" => "/=",
+                                "Mod" => "%=",
+                                "Pow" => "**=",
+                                "FloorDiv" => "//=",
+                                "LShift" => "<<=",
+                                "RShift" => ">>=",
+                                "BitOr" => "|=",
+                                "BitXor" => "^=",
+                                "BitAnd" => "&=",
+                                "MatMult" => "@=",
+                                _ => opKind // fallback to original
+                            };
+
+#if DEBUG_LOG
+                            Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Mapped operator '{opKind}' to '{operatorType}'");
+#endif
+                        }
+
+                        // Convert value expression
+                        if (targetName != null && operatorType != null && value != null)
+                        {
+                            var convertedValueExpr = ConvertAnyExpression(value);
+                            if (convertedValueExpr != null)
+                            {
+#if DEBUG_LOG
+                                Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Creating AugAssignStatement with target='{targetName}', op='{operatorType}'");
+#endif
+                                return new AugAssignStatement(targetName, operatorType, convertedValueExpr);
                             }
                         }
                     }
@@ -1060,6 +1224,43 @@ namespace SharpPy
                                     {
                                         Console.WriteLine($"[DEBUG] Key: {kvp.Key}, Value: {kvp.Value} (Type: {kvp.Value?.GetType().Name})");
 
+                                        // Look for posonlyargs (CPython 3.12 positional-only parameters)
+                                        if (kvp.Key == "posonlyargs")
+                                        {
+                                            if (kvp.Value is List<object> posonlyArgsList)
+                                            {
+                                                Console.WriteLine($"[DEBUG] Found posonlyargs list with {posonlyArgsList.Count} items");
+                                                foreach (var param in posonlyArgsList)
+                                                {
+                                                    if (param != null)
+                                                    {
+                                                        Console.WriteLine($"[DEBUG] Processing positional-only parameter: {param} (Type: {param.GetType().Name})");
+
+                                                        if (param is GeneratedExpr genExpr && genExpr.Value != null)
+                                                        {
+                                                            var valueObj = genExpr.Value;
+                                                            var argProperty = valueObj.GetType().GetProperty("arg");
+                                                            if (argProperty != null)
+                                                            {
+                                                                var extractedArg = argProperty.GetValue(valueObj);
+                                                                var extractedParamName = extractedArg?.ToString();
+                                                                if (!string.IsNullOrEmpty(extractedParamName))
+                                                                {
+                                                                    Console.WriteLine($"[DEBUG] Adding positional-only parameter: {extractedParamName}");
+                                                                    parameters.Add(extractedParamName + " [posonly]"); // Mark as positional-only
+                                                                }
+                                                            }
+                                                        }
+                                                        else
+                                                        {
+                                                            Console.WriteLine($"[DEBUG] Adding positional-only parameter (toString): {param}");
+                                                            parameters.Add(param.ToString() + " [posonly]");
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+
                                         // Look for parameter-related keys
                                         if (kvp.Key == "args" || kvp.Key == "arguments" || kvp.Key == "parameters" || kvp.Key == "params")
                                         {
@@ -1520,35 +1721,35 @@ namespace SharpPy
                     if (stmt.ImportModules != null)
                     {
                         Console.WriteLine($"  ImportModules count: {((List<object>)stmt.ImportModules).Count}");
-                        foreach (var module in (List<object>)stmt.ImportModules)
+                        foreach (var moduleItem in (List<object>)stmt.ImportModules)
                         {
-                            Console.WriteLine($"  Module: {module}");
+                            Console.WriteLine($"  Module: {moduleItem}");
                         }
                     }
 #endif
                     if (stmt.ImportModules != null && stmt.ImportModules is List<object> modules && modules.Count > 0)
                     {
                         var names = new List<string>();
-                        foreach (var module in modules)
+                        foreach (var moduleObj in modules)
                         {
                             string moduleName = "";
 
                             // Try to extract module name from dynamic object
                             try
                             {
-                                var moduleObj = module as dynamic;
-                                if (moduleObj?.name != null)
+                                var moduleObjDyn = moduleObj as dynamic;
+                                if (moduleObjDyn?.name != null)
                                 {
-                                    moduleName = moduleObj.name.ToString();
+                                    moduleName = moduleObjDyn.name.ToString();
                                 }
                                 else
                                 {
-                                    moduleName = module.ToString();
+                                    moduleName = moduleObj.ToString();
                                 }
                             }
                             catch
                             {
-                                moduleName = module.ToString();
+                                moduleName = moduleObj.ToString();
                             }
 
                             if (!string.IsNullOrEmpty(moduleName) && moduleName != "{ name = , asname =  }")
@@ -1571,19 +1772,71 @@ namespace SharpPy
                     return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
                 case "from_import":
-                    // From import statement (from module import name)
-                    if (stmt.Value != null)
-                    {
-                        var fromImportData = stmt.Value as dynamic;
-                        var module = fromImportData?.Module as string;
-                        var name = fromImportData?.Name as string;
+                    // From import statement (from module import name) - CPython 3.12 compatible
+                    Console.WriteLine($"[DEBUG] Processing from_import: module={stmt.FromModule}, level={stmt.ImportLevel}, names={stmt.ImportNames?.Count ?? 0}");
 
-                        if (!string.IsNullOrEmpty(module) && !string.IsNullOrEmpty(name))
+                    var module = stmt.FromModule;
+                    var level = stmt.ImportLevel;
+                    var importAliases = new List<ImportAlias>();
+
+                    if (stmt.ImportNames != null)
+                    {
+                        foreach (var nameItem in stmt.ImportNames)
                         {
-                            var names = new List<string> { name };
-                            return new ImportFromStatement(module, names);
+                            if (nameItem is Dictionary<string, object> nameDict)
+                            {
+                                var name = nameDict.ContainsKey("Name") ? nameDict["Name"]?.ToString() : null;
+                                var asName = nameDict.ContainsKey("AsName") ? nameDict["AsName"]?.ToString() : null;
+
+                                if (!string.IsNullOrEmpty(name))
+                                {
+                                    importAliases.Add(new ImportAlias(name, asName));
+                                    Console.WriteLine($"[DEBUG] Added import alias: {name} as {asName ?? name}");
+                                }
+                            }
+                            else if (nameItem is string simpleName)
+                            {
+                                importAliases.Add(new ImportAlias(simpleName));
+                                Console.WriteLine($"[DEBUG] Added simple import: {simpleName}");
+                            }
+                            else if (nameItem != null)
+                            {
+                                // Handle anonymous objects with Name and AsName properties
+                                var nameObj = nameItem as dynamic;
+                                try
+                                {
+                                    var name = nameObj?.Name?.ToString();
+                                    var asName = nameObj?.AsName?.ToString();
+
+                                    if (!string.IsNullOrEmpty(name))
+                                    {
+                                        importAliases.Add(new ImportAlias(name, string.IsNullOrEmpty(asName) ? null : asName));
+                                        Console.WriteLine($"[DEBUG] Added dynamic import: {name} as {asName ?? name}");
+                                    }
+                                    else
+                                    {
+                                        // Fallback for other formats
+                                        importAliases.Add(new ImportAlias(nameItem.ToString()));
+                                        Console.WriteLine($"[DEBUG] Added fallback import: {nameItem}");
+                                    }
+                                }
+                                catch
+                                {
+                                    // Final fallback
+                                    importAliases.Add(new ImportAlias(nameItem.ToString()));
+                                    Console.WriteLine($"[DEBUG] Added fallback import: {nameItem}");
+                                }
+                            }
                         }
                     }
+
+                    if (importAliases.Count > 0)
+                    {
+                        Console.WriteLine($"[DEBUG] Creating ImportFromStatement: module={module}, level={level}, aliases={importAliases.Count}");
+                        return new ImportFromStatement(module, importAliases, level);
+                    }
+
+                    Console.WriteLine("[DEBUG] Failed to parse from_import, returning placeholder");
                     return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
                 case "with":

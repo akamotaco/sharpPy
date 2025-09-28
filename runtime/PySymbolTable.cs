@@ -397,11 +397,13 @@ namespace SharpPy
 
                 case ImportFromStatement importFromStmt:
                     // Register imported names as global variables
-                    foreach (var importName in importFromStmt.Names)
+                    foreach (var importAlias in importFromStmt.Names)
                     {
-                        _currentTable?.DefineSymbol(importName, SymbolFlags.Assigned);
+                        // Use alias name if available, otherwise use the actual name
+                        string symbolName = importAlias.AsName ?? importAlias.Name;
+                        _currentTable?.DefineSymbol(symbolName, SymbolFlags.Assigned);
                         #if DEBUG_LOG
-                        Console.WriteLine($"  ImportFromStatement: Registered '{importName}' as global symbol");
+                        Console.WriteLine($"  ImportFromStatement: Registered '{symbolName}' as global symbol");
                         #endif
                     }
                     break;

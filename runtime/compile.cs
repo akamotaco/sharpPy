@@ -1531,7 +1531,14 @@ namespace SharpPy
                     CompileExpression(assign.Value);
                     EmitStoreName(assign.VariableName);
                     break;
-                    
+
+                case AttributeStatement attrAssign:
+                    // CPython 3.12: Attribute assignment (self.x = value)
+                    CompileExpression(attrAssign.Value);    // 값을 먼저 스택에 로드
+                    CompileExpression(attrAssign.Object);   // 객체를 스택에 로드
+                    EmitInstruction(ByteCodeOp.STORE_ATTR, GetOrAddName(attrAssign.Attr));
+                    break;
+
                 case AssignTargetStatement assignTarget:
                     CompileAssignTarget(assignTarget);
                     break;
@@ -4566,25 +4573,41 @@ namespace SharpPy
                 case FunctionDefStatement func:
                     // Check method bodies for super() calls
                     return ContainsSuperCalls(func.Body);
-                    
+
                 case IfStatement ifStmt:
                     bool result = ContainsSuperCallsInExpression(ifStmt.Test);
                     result |= ContainsSuperCalls(ifStmt.Body);
                     if (ifStmt.OrElse != null && ifStmt.OrElse.Count > 0)
                         result |= ContainsSuperCalls(ifStmt.OrElse);
                     return result;
-                    
+
+                case TryStatement tryStmt:
+                    // Check try body for super() calls
+                    bool tryResult = ContainsSuperCalls(tryStmt.Body);
+                    // Check except handlers for super() calls
+                    foreach (var handler in tryStmt.Handlers)
+                    {
+                        tryResult |= ContainsSuperCalls(handler.Body);
+                    }
+                    // Check else clause if it exists
+                    if (tryStmt.OrElse != null && tryStmt.OrElse.Count > 0)
+                        tryResult |= ContainsSuperCalls(tryStmt.OrElse);
+                    // Check finally clause if it exists
+                    if (tryStmt.FinalBody != null && tryStmt.FinalBody.Count > 0)
+                        tryResult |= ContainsSuperCalls(tryStmt.FinalBody);
+                    return tryResult;
+
                 case ExpressionStatement exprStmt:
                     return ContainsSuperCallsInExpression(exprStmt.Expression);
-                    
+
                 case AssignStatement assignStmt:
                     return ContainsSuperCallsInExpression(assignStmt.Value);
-                    
+
                 case ReturnStatement returnStmt:
                     if (returnStmt.Value != null)
                         return ContainsSuperCallsInExpression(returnStmt.Value);
                     return false;
-                    
+
                 default:
                     #if DEBUG_LOG
                     Console.WriteLine($"  ⚠️  Unhandled statement type: {stmt.GetType().Name}");
@@ -4822,21 +4845,11 @@ namespace SharpPy
             var moduleIndex = GetOrAddConstant(new PyString(importFrom.Module));
             EmitInstruction(ByteCodeOp.IMPORT_NAME, moduleIndex);
             
-            foreach (var itemName in importFrom.Names)
+            foreach (var importAlias in importFrom.Names)
             {
-                // Handle "item as alias" format
-                string actualItem, alias;
-                if (itemName.Contains(" as "))
-                {
-                    var parts = itemName.Split(new[] { " as " }, StringSplitOptions.RemoveEmptyEntries);
-                    actualItem = parts[0].Trim();
-                    alias = parts[1].Trim();
-                }
-                else
-                {
-                    actualItem = itemName;
-                    alias = itemName;
-                }
+                // Extract actual item name and alias from ImportAlias object
+                string actualItem = importAlias.Name;
+                string alias = importAlias.AsName ?? importAlias.Name;
                 
                 // Emit IMPORT_FROM bytecode
                 var itemIndex = GetOrAddConstant(new PyString(actualItem));
@@ -5063,12 +5076,13 @@ namespace SharpPy
             #if DEBUG_LOG
             Console.WriteLine("  Phase 3: 루프 끝 조건 체크");
             #endif
+            var conditionRecheckStart = _instructions.Count; // 조건 재체크 시작점
             CompileExpression(whileStmt.Test);  // 조건을 두 번째로 체크
-            
+
             var endJumpIfFalse = _instructions.Count;
             EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // 주소는 나중에 패치
-            
-            // Phase 4: JUMP_BACKWARD (바디 시작점으로 - CPython 패턴 확인됨)
+
+            // Phase 4: JUMP_BACKWARD (루프 바디 시작점으로 - CPython 3.12 패턴)
             int currentPos = _instructions.Count;
             int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, bodyStart);
             #if DEBUG_LOG

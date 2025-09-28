@@ -2007,7 +2007,7 @@ namespace SharpPy.Generated
                     Advance(); // consume NAME
 
                     // Check for ':=' operator
-                    if (CurrentToken?.Type == GeneratedTokenType.COLONEQUAL)
+                    if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == ":=")
                     {
                         Advance(); // consume ':='
 
@@ -2043,7 +2043,7 @@ namespace SharpPy.Generated
                 Advance(); // consume NAME
 
                 // Check for ':=' operator
-                if (CurrentToken?.Type == GeneratedTokenType.COLONEQUAL)
+                if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == ":=")
                 {
                     Advance(); // consume ':='
 
@@ -2501,6 +2501,121 @@ namespace SharpPy.Generated
             }
         }
 
+        // augassign[AugOperator*]: '+=' | '-=' | '*=' | '@=' | '/=' | '%=' | '&=' | '|=' | '^=' | '<<=' | '>>=' | '**=' | '//='
+        // Generated method for augassign rule
+        public object? Augassign()
+        {
+
+            if (CurrentToken?.Type == GeneratedTokenType.OP)
+            {
+                var op = CurrentToken.Value;
+                switch (op)
+                {
+                    case "+=":
+                        Advance();
+                        return CreateAugOperator("Add");
+                    case "-=":
+                        Advance();
+                        return CreateAugOperator("Sub");
+                    case "*=":
+                        Advance();
+                        return CreateAugOperator("Mult");
+                    case "@=":
+                        Advance();
+                        return CreateAugOperator("MatMult");
+                    case "/=":
+                        Advance();
+                        return CreateAugOperator("Div");
+                    case "%=":
+                        Advance();
+                        return CreateAugOperator("Mod");
+                    case "&=":
+                        Advance();
+                        return CreateAugOperator("BitAnd");
+                    case "|=":
+                        Advance();
+                        return CreateAugOperator("BitOr");
+                    case "^=":
+                        Advance();
+                        return CreateAugOperator("BitXor");
+                    case "<<=":
+                        Advance();
+                        return CreateAugOperator("LShift");
+                    case ">>=":
+                        Advance();
+                        return CreateAugOperator("RShift");
+                    case "**=":
+                        Advance();
+                        return CreateAugOperator("Pow");
+                    case "//=":
+                        Advance();
+                        return CreateAugOperator("FloorDiv");
+                    default:
+                        return null;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Enhanced ParseAssignment method with augmented assignment support
+        /// Handles both regular assignment (=) and augmented assignment (+=, -=, etc.)
+        /// </summary>
+        public GeneratedStmt ParseAssignmentEnhanced()
+        {
+            // Try to parse: target '=' value OR target augassign value
+            var mark = Mark();
+
+            // For augmented assignment, check NAME token first
+            if (CurrentToken?.Type == GeneratedTokenType.NAME)
+            {
+                var targetName = CurrentToken.Value;
+                var namePos = Mark();
+                Advance(); // consume NAME
+
+                // Check if this is augmented assignment
+                if (CurrentToken?.Type == GeneratedTokenType.OP && IsAugmentedAssignmentOp(CurrentToken.Value))
+                {
+                    var augOp = Augassign();
+                    if (augOp != null)
+                    {
+                        var value = ParseExpression();
+                        if (value != null)
+                        {
+                            var augTarget = new { kind = "Name", id = targetName };
+                            return _PyAST_AugAssign(augTarget, augOp, value);
+                        }
+                    }
+                }
+
+                // If not augmented assignment, reset and try full assignment parsing
+                Reset(namePos);
+            }
+
+            // Try regular assignment with full expression parsing
+            var target = ParseExpression();
+            if (target != null && CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == "=")
+            {
+                Advance(); // consume '='
+                var value = ParseExpression();
+                if (value != null)
+                {
+                    return _PyAST_Assign(target, value);
+                }
+            }
+
+            Reset(mark);
+            return null;
+        }
+
+        private bool IsAugmentedAssignmentOp(string op)
+        {
+            return op == "+=" || op == "-=" || op == "*=" || op == "/=" || op == "%=" ||
+                   op == "**=" || op == "//=" || op == "&=" || op == "|=" || op == "^=" ||
+                   op == "<<=" || op == ">>="|| op == "@=";
+        }
+
         // === End Specific Grammar Rules ===
 
         /// <summary>
@@ -2686,6 +2801,25 @@ namespace SharpPy.Generated
                 return null;
             }
 
+            // ['->' expression] - Optional return type annotation
+            object returnAnnotation = null;
+            if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "->")
+            {
+                Console.WriteLine($"[DEBUG] ParseFunctionDefRaw: Found '->' for return type annotation at position {_position}");
+                Advance(); // consume '->'
+                returnAnnotation = ParseExpression();
+                if (returnAnnotation != null)
+                {
+                    Console.WriteLine($"[DEBUG] ParseFunctionDefRaw: parsed return type annotation");
+                }
+                else
+                {
+                    Console.WriteLine($"[DEBUG] ParseFunctionDefRaw: failed to parse return type annotation");
+                    _position = startPos;
+                    return null;
+                }
+            }
+
             // ':'
             if (!ExpectToken(GeneratedTokenType.OP, ":"))
             {
@@ -2814,8 +2948,28 @@ namespace SharpPy.Generated
             if (stmt != null)
                 statements.Add(stmt);
 
-            // Skip semicolons and additional statements for now
-            ExpectToken(GeneratedTokenType.NEWLINE);
+            // Handle semicolons and additional statements
+            while (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == ";")
+            {
+                Advance(); // consume ';'
+
+                // Optional trailing semicolon before NEWLINE
+                if (CurrentToken?.Type == GeneratedTokenType.NEWLINE)
+                    break;
+
+                var nextStmt = ParseSimpleStmt();
+                if (nextStmt != null)
+                    statements.Add(nextStmt);
+                else
+                    break;
+            }
+
+            // Only expect NEWLINE if we're not at end of input and current token is NEWLINE
+            if (CurrentToken?.Type == GeneratedTokenType.NEWLINE)
+            {
+                Advance(); // consume NEWLINE
+            }
+
             return statements;
         }
 
@@ -2890,7 +3044,7 @@ namespace SharpPy.Generated
             }
 
             // CRITICAL: Try assignment NEXT (per python.gram comment)
-            var assignment = ParseAssignment();
+            var assignment = ParseAssignmentEnhanced();
             if (assignment != null)
             {
                 return assignment;
@@ -2950,74 +3104,336 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
-        /// parameters[arguments_ty]: param_no_default+ param_with_default* [star_etc] | ...
-        /// Simplified implementation to parse basic function parameters
+        /// parameters[arguments_ty]: CPython 3.12 compatible parameter parsing
+        /// Implements: slash_no_default | slash_with_default | param_no_default+ | param_with_default+ | star_etc
         /// </summary>
         public object ParseParameters()
         {
             Console.WriteLine($"[DEBUG] ParseParameters called at position {_position}");
 
-            var args = new List<object>();
-            var defaults = new List<object>();
             var startPos = _position;
 
-            // Simple parameter parsing for "NAME" patterns like "x", "y", etc.
-            while (CurrentToken != null && CurrentToken.Type == GeneratedTokenType.NAME)
+            // Try each alternative in order (PEG first-match semantics)
+
+            // Alternative 1: a=slash_no_default b=param_no_default* c=param_with_default* d=[star_etc]
+            var slashNoDefault = ParseSlashNoDefault();
+            if (slashNoDefault != null)
             {
-                var nameToken = CurrentToken;
-                Console.WriteLine($"[DEBUG] ParseParameters: found NAME token '{nameToken.Value}' at position {_position}");
-
-                // Create _PyAST_arg(name, annotation, type_comment)
-                var argNode = _PyAST_arg(nameToken.Value, null, null);
-                args.Add(argNode);
-
-                Advance(); // Move past the NAME token
-
-                // Check for default value assignment (e.g., "y=10")
-                Console.WriteLine($"[DEBUG] ParseParameters: After NAME '{nameToken.Value}', current token: {CurrentToken?.Type}('{CurrentToken?.Value}') at position {_position}");
-                if (CurrentToken != null && CurrentToken.Type == GeneratedTokenType.OP && CurrentToken.Value == "=")
+                var paramNoDefaults = new List<object>();
+                while (true)
                 {
-                    Console.WriteLine($"[DEBUG] ParseParameters: found '=' for default value at position {_position}");
-                    Advance(); // Move past '='
-
-                    // Parse the default value expression
-                    var defaultExpr = ParseExpression();
-                    if (defaultExpr != null)
-                    {
-                        defaults.Add(defaultExpr);
-                        Console.WriteLine($"[DEBUG] ParseParameters: parsed default value for '{nameToken.Value}'");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"[DEBUG] ParseParameters: failed to parse default value for '{nameToken.Value}'");
-                        _position = startPos;
-                        return null;
-                    }
+                    var param = ParseParamNoDefault();
+                    if (param == null) break;
+                    paramNoDefaults.Add(param);
                 }
 
-                // Check for comma (if there are more parameters)
-                if (CurrentToken != null && CurrentToken.Type == GeneratedTokenType.OP && CurrentToken.Value == ",")
+                var paramWithDefaults = new List<object>();
+                while (true)
                 {
-                    Advance(); // Move past comma
-                    Console.WriteLine($"[DEBUG] ParseParameters: found comma, continuing to next parameter");
+                    var param = ParseParamWithDefault();
+                    if (param == null) break;
+                    paramWithDefaults.Add(param);
                 }
-                else
-                {
-                    // End of parameters
-                    break;
-                }
+
+                var starEtc = ParseStarEtc();
+
+                Console.WriteLine($"[DEBUG] ParseParameters: Alternative 1 matched - positional-only args: {((List<object>)slashNoDefault).Count}");
+                return _PyPegen_make_arguments(this, slashNoDefault, null, paramNoDefaults, paramWithDefaults.Count > 0 ? paramWithDefaults : null, starEtc);
             }
 
-            if (args.Count > 0)
+            // Reset position for next alternative
+            _position = startPos;
+
+            // Alternative 2: a=slash_with_default b=param_with_default* c=[star_etc]
+            var slashWithDefault = ParseSlashWithDefault();
+            if (slashWithDefault != null)
             {
-                Console.WriteLine($"[DEBUG] ParseParameters: parsed {args.Count} arguments with {defaults.Count} defaults");
-                // Call _PyPegen_make_arguments(p, posonlyargs, posonly_defaults, args, defaults, star_etc)
-                var result = _PyPegen_make_arguments(this, null, null, args, defaults.Count > 0 ? defaults : null, null);
-                Console.WriteLine($"[DEBUG] ParseParameters: _PyPegen_make_arguments called successfully");
-                return result;
+                var paramWithDefaults = new List<object>();
+                while (true)
+                {
+                    var param = ParseParamWithDefault();
+                    if (param == null) break;
+                    paramWithDefaults.Add(param);
+                }
+
+                var starEtc = ParseStarEtc();
+
+                Console.WriteLine($"[DEBUG] ParseParameters: Alternative 2 matched - positional-only args with defaults");
+                return _PyPegen_make_arguments(this, null, slashWithDefault, null, paramWithDefaults.Count > 0 ? paramWithDefaults : null, starEtc);
+            }
+
+            // Reset position for next alternative
+            _position = startPos;
+
+            // Alternative 3: a=param_no_default+ b=param_with_default* c=[star_etc]
+            var paramNoDefaults3 = new List<object>();
+            var param3 = ParseParamNoDefault();
+            if (param3 != null)
+            {
+                paramNoDefaults3.Add(param3);
+                while (true)
+                {
+                    param3 = ParseParamNoDefault();
+                    if (param3 == null) break;
+                    paramNoDefaults3.Add(param3);
+                }
+
+                var paramWithDefaults3 = new List<object>();
+                while (true)
+                {
+                    param3 = ParseParamWithDefault();
+                    if (param3 == null) break;
+                    paramWithDefaults3.Add(param3);
+                }
+
+                var starEtc3 = ParseStarEtc();
+
+                Console.WriteLine($"[DEBUG] ParseParameters: Alternative 3 matched - regular args: {paramNoDefaults3.Count}");
+                return _PyPegen_make_arguments(this, null, null, paramNoDefaults3, paramWithDefaults3.Count > 0 ? paramWithDefaults3 : null, starEtc3);
+            }
+
+            // Reset position for next alternative
+            _position = startPos;
+
+            // Alternative 4: a=param_with_default+ b=[star_etc]
+            var paramWithDefaults4 = new List<object>();
+            var param4 = ParseParamWithDefault();
+            if (param4 != null)
+            {
+                paramWithDefaults4.Add(param4);
+                while (true)
+                {
+                    param4 = ParseParamWithDefault();
+                    if (param4 == null) break;
+                    paramWithDefaults4.Add(param4);
+                }
+
+                var starEtc4 = ParseStarEtc();
+
+                Console.WriteLine($"[DEBUG] ParseParameters: Alternative 4 matched - args with defaults: {paramWithDefaults4.Count}");
+                return _PyPegen_make_arguments(this, null, null, null, paramWithDefaults4, starEtc4);
+            }
+
+            // Reset position for next alternative
+            _position = startPos;
+
+            // Alternative 5: a=star_etc
+            var starEtc2 = ParseStarEtc();
+            if (starEtc2 != null)
+            {
+                Console.WriteLine($"[DEBUG] ParseParameters: Alternative 5 matched - star_etc only");
+                return _PyPegen_make_arguments(this, null, null, null, null, starEtc2);
             }
 
             Console.WriteLine($"[DEBUG] ParseParameters: no parameters found");
+            return null;
+        }
+        /// <summary>
+        /// slash_no_default[asdl_arg_seq*]: param_no_default+ '/' ','
+        /// </summary>
+        public object ParseSlashNoDefault()
+        {
+            var startPos = _position;
+            var paramsList = new List<object>();
+
+            // Parse param_no_default+
+            var param = ParseParamNoDefault();
+            if (param == null) return null;
+            paramsList.Add(param);
+
+            while (true)
+            {
+                param = ParseParamNoDefault();
+                if (param == null) break;
+                paramsList.Add(param);
+            }
+
+            // Expect '/'
+            if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == "/")
+            {
+                Advance(); // consume '/'
+                // Expect ',' or lookahead for ')'
+                if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == ",")
+                {
+                    Advance(); // consume ','
+                    Console.WriteLine($"[DEBUG] ParseSlashNoDefault: Found {paramsList.Count} positional-only parameters");
+                    return paramsList;
+                }
+                else if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == ")")
+                {
+                    // Lookahead for ')' - don't consume
+                    Console.WriteLine($"[DEBUG] ParseSlashNoDefault: Found {paramsList.Count} positional-only parameters (end)");
+                    return paramsList;
+                }
+            }
+
+            _position = startPos;
+            return null;
+        }
+
+        /// <summary>
+        /// slash_with_default[SlashWithDefault*]: param_no_default* param_with_default+ '/' ','
+        /// </summary>
+        public object ParseSlashWithDefault()
+        {
+            var startPos = _position;
+            var noDefaults = new List<object>();
+            var withDefaults = new List<object>();
+
+            // Parse param_no_default*
+            while (true)
+            {
+                var param = ParseParamNoDefault();
+                if (param == null) break;
+                noDefaults.Add(param);
+            }
+
+            // Parse param_with_default+
+            var paramDefault = ParseParamWithDefault();
+            if (paramDefault == null)
+            {
+                _position = startPos;
+                return null;
+            }
+            withDefaults.Add(paramDefault);
+
+            while (true)
+            {
+                paramDefault = ParseParamWithDefault();
+                if (paramDefault == null) break;
+                withDefaults.Add(paramDefault);
+            }
+
+            // Expect '/'
+            if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == "/")
+            {
+                Advance();
+                if (CurrentToken?.Type == GeneratedTokenType.OP && (CurrentToken.Value == "," || CurrentToken.Value == ")"))
+                {
+                    if (CurrentToken.Value == ",") Advance();
+                    Console.WriteLine($"[DEBUG] ParseSlashWithDefault: Found positional-only with defaults");
+                    return _PyPegen_slash_with_default(this, noDefaults, withDefaults);
+                }
+            }
+
+            _position = startPos;
+            return null;
+        }
+
+        /// <summary>
+        /// param_no_default[arg_ty]: param ',' TYPE_COMMENT? | param TYPE_COMMENT? &(')'|'/')
+        /// </summary>
+        public object ParseParamNoDefault()
+        {
+            var startPos = _position;
+            var param = ParseParam();
+            if (param == null) return null;
+
+            // Check for comma or lookahead for ')' or '/'
+            if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == ",")
+            {
+                Advance(); // consume comma
+                return param;
+            }
+            else if (CurrentToken?.Type == GeneratedTokenType.OP && (CurrentToken.Value == ")" || CurrentToken.Value == "/"))
+            {
+                // Lookahead - don't consume
+                return param;
+            }
+
+            _position = startPos;
+            return null;
+        }
+
+        /// <summary>
+        /// param_with_default[NamedExpr]: param default ',' TYPE_COMMENT? | param default TYPE_COMMENT? &(')'|'/')
+        /// </summary>
+        public object ParseParamWithDefault()
+        {
+            var startPos = _position;
+            var param = ParseParam();
+            if (param == null) return null;
+
+            // Expect '='
+            if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken.Value != "=")
+            {
+                _position = startPos;
+                return null;
+            }
+            Advance(); // consume '='
+
+            var defaultValue = ParseExpression();
+            if (defaultValue == null)
+            {
+                _position = startPos;
+                return null;
+            }
+
+            // Check for comma or lookahead
+            if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == ",")
+            {
+                Advance(); // consume comma
+            }
+            else if (CurrentToken?.Type == GeneratedTokenType.OP && (CurrentToken.Value == ")" || CurrentToken.Value == "/"))
+            {
+                // Lookahead - don't consume
+            }
+            else
+            {
+                _position = startPos;
+                return null;
+            }
+
+            return new { param = param, defaultValue = defaultValue };
+        }
+
+        /// <summary>
+        /// param[arg_ty]: NAME annotation?
+        /// </summary>
+        public object ParseParam()
+        {
+            if (CurrentToken?.Type != GeneratedTokenType.NAME) return null;
+
+            var name = CurrentToken.Value;
+            Advance();
+
+            object annotation = null;
+            if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == ":")
+            {
+                Advance(); // consume ':'
+                annotation = ParseExpression();
+                if (annotation == null) return null;
+            }
+
+            return _PyAST_arg(name, annotation, null);
+        }
+
+        /// <summary>
+        /// star_etc[StarEtc*]: '*' param_no_default param_maybe_default* [kwds] | '*' ',' param_maybe_default+ [kwds] | kwds
+        /// </summary>
+        public object ParseStarEtc()
+        {
+            if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == "*")
+            {
+                Advance(); // consume '*'
+                // Simplified star_etc parsing
+                var result = new Dictionary<string, object>();
+                result["vararg"] = "*args"; // Placeholder
+                result["kwonlyargs"] = new List<object>();
+                result["kwarg"] = null;
+                return result;
+            }
+            else if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == "**")
+            {
+                Advance(); // consume '**'
+                var kwarg = ParseParam();
+                var result = new Dictionary<string, object>();
+                result["vararg"] = null;
+                result["kwonlyargs"] = new List<object>();
+                result["kwarg"] = kwarg;
+                return result;
+            }
+
             return null;
         }
 
@@ -3041,11 +3457,12 @@ namespace SharpPy.Generated
                 if (!ExpectToken(GeneratedTokenType.INDENT))
                     return statements;
 
-                // Parse statements in the indented block - now safe after fixing ParseStatement conflict
+                // Parse statements in the indented block - CPython 3.12: return statements directly, no flattening
                 var blockStatements = ParseStatements();
                 if (blockStatements != null)
                 {
-                    statements.AddRange(blockStatements);
+                    // CPython 3.12: Return block statements as-is, do not flatten
+                    return blockStatements;
                 }
 
                 ExpectToken(GeneratedTokenType.DEDENT);
@@ -3230,13 +3647,22 @@ namespace SharpPy.Generated
                 return null;
             }
 
-            // Parse except clauses
+            // Parse except clauses (both except and except*)
             var exceptClauses = new List<object>();
             while (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == "except")
             {
                 Advance(); // consume 'except'
                 var exceptionType = ""; // Optional exception type
                 var exceptionName = ""; // Optional exception variable name
+                var isExceptStar = false; // Track if this is except* clause
+
+                // Check for except* syntax (PEP 654)
+                if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "*")
+                {
+                    isExceptStar = true;
+                    Console.WriteLine($"[DEBUG] ParseTryStatement: Found except* clause");
+                    Advance(); // consume '*'
+                }
 
                 // Parse optional exception type
                 if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value != ":")
@@ -3259,7 +3685,7 @@ namespace SharpPy.Generated
                 // Expect ':'
                 if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != ":")
                 {
-                    Console.WriteLine($"[DEBUG] ParseTryStatement: Expected ':' after except but found {CurrentToken?.Type}:{CurrentToken?.Value}");
+                    Console.WriteLine($"[DEBUG] ParseTryStatement: Expected ':' after except{(isExceptStar ? "*" : "")} but found {CurrentToken?.Type}:{CurrentToken?.Value}");
                     return null;
                 }
                 Advance(); // consume ':'
@@ -3268,11 +3694,11 @@ namespace SharpPy.Generated
                 var exceptBody = ParseBlock();
                 if (exceptBody == null || exceptBody.Count == 0)
                 {
-                    Console.WriteLine($"[DEBUG] ParseTryStatement: Failed to parse except body");
+                    Console.WriteLine($"[DEBUG] ParseTryStatement: Failed to parse except{(isExceptStar ? "*" : "")} body");
                     return null;
                 }
 
-                exceptClauses.Add(new { type = exceptionType, name = exceptionName, body = exceptBody });
+                exceptClauses.Add(new { type = exceptionType, name = exceptionName, body = exceptBody, isExceptStar = isExceptStar });
             }
 
             // Parse optional finally clause
@@ -3434,7 +3860,7 @@ namespace SharpPy.Generated
             // Handle 'import *'
             if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "*")
             {
-                importNames.Add(new { name = "*", asname = "" });
+                importNames.Add(new { Name = "*", AsName = (string)null });
                 Advance();
             }
             else
@@ -3457,7 +3883,7 @@ namespace SharpPy.Generated
                         }
                     }
 
-                    importNames.Add(new { name = importName, asname = asName });
+                    importNames.Add(new { Name = importName, AsName = string.IsNullOrEmpty(asName) ? (string)null : asName });
 
                     // Check for comma separator
                     if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ",")

@@ -205,9 +205,16 @@ public class PyBuiltinType : PyObject
     
     public override PyObject Call(PyObject[] args, PyDict kwargs = null)
     {
-        // Handle exception type constructors
+        // Handle exception type constructors and object constructor
         switch (Name)
         {
+            case "object":
+                // object() creates a new basic object instance
+                if (args.Length > 0)
+                {
+                    throw PyTypeError.Create("object() takes no arguments");
+                }
+                return new PyInstance(); // Create basic object instance
             case "ValueError":
                 string message = args.Length > 0 ? args[0].ToStr() : "";
                 return new PyValueError(message);

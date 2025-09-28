@@ -1048,45 +1048,20 @@ namespace SharpPy
                         }
                     }
 
-                    // WHILE 루프의 JUMP_BACKWARD 타겟 수정
-                    // 1. 루프 조건 확인 지점을 찾기 (첫 번째 COMPARE_OP가 있는 위치)
-                    int loopConditionPos = -1;
+                    // CPython 3.12 완전 호환 WHILE 루프 분석
+                    // 패턴: 초기조건체크 → POP_JUMP_IF_FALSE → [loop body] → 재조건체크 → JUMP_BACKWARD
                     int loopBodyStartPos = -1;
 
-                    // JUMP_BACKWARD 이전에서 루프 구조 분석
-                    for (int k = jumpBackwardPos - 1; k >= 0; k--)
+                    // CPython 3.12 패턴 분석: 첫 번째 POP_JUMP_IF_FALSE 다음이 loop body 시작
+                    for (int k = 0; k < jumpBackwardPos; k++)
                     {
-                        var inst = _instructions[k];
-                        if (inst.OpCode == ByteCodeOp.COMPARE_OP)
+                        if (_instructions[k].OpCode == ByteCodeOp.POP_JUMP_IF_FALSE)
                         {
-                            if (loopBodyStartPos == -1)
-                            {
-                                // 가장 가까운 COMPARE_OP 다음이 루프 바디 시작
-                                // POP_JUMP_IF_FALSE 다음을 찾기
-                                for (int m = k + 1; m < jumpBackwardPos; m++)
-                                {
-                                    if (_instructions[m].OpCode == ByteCodeOp.POP_JUMP_IF_FALSE)
-                                    {
-                                        loopBodyStartPos = m + 1;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if (loopConditionPos == -1)
-                            {
-                                // 첫 번째 COMPARE_OP의 시작점 찾기 (보통 LOAD_NAME부터)
-                                for (int n = k - 1; n >= 0; n--)
-                                {
-                                    if (_instructions[n].OpCode == ByteCodeOp.LOAD_NAME ||
-                                        _instructions[n].OpCode == ByteCodeOp.LOAD_GLOBAL ||
-                                        _instructions[n].OpCode == ByteCodeOp.LOAD_FAST)
-                                    {
-                                        loopConditionPos = n;
-                                        break;
-                                    }
-                                }
-                            }
+                            // 첫 번째 POP_JUMP_IF_FALSE 다음이 loop body 시작점
+                            loopBodyStartPos = k + 1;
+                            #if DEBUG_LOG
+                            Console.WriteLine($"  🔍 CPython 패턴 분석: POP_JUMP_IF_FALSE at {k}, loop body starts at {loopBodyStartPos}");
+                            #endif
                             break;
                         }
                     }
@@ -1102,13 +1077,32 @@ namespace SharpPy
                     {
                         isContinueStatement = true;
                         // continue statement: 루프 조건 확인으로 점프
-                        // WHILE 루프에서는 첫 번째 LOAD_NAME (루프 변수 로드)으로 점프
-                        for (int k = 0; k < jumpBackwardPos; k++)
+                        // WHILE 루프에서는 해당 while 루프의 조건 확인 부분으로 점프해야 함
+                        // CPython 호환: JUMP_BACKWARD는 loop body 시작점으로 점프해야 함
+                        if (loopBodyStartPos != -1)
                         {
-                            if (_instructions[k].OpCode == ByteCodeOp.LOAD_NAME)
+                            jumpBackwardTarget = loopBodyStartPos;
+                        }
+                        else
+                        {
+                            // fallback: JUMP_BACKWARD 이전의 가장 가까운 COMPARE_OP 이전의 LOAD_NAME 찾기
+                            for (int k = jumpBackwardPos - 1; k >= 0; k--)
                             {
-                                jumpBackwardTarget = k;
-                                break;
+                                if (_instructions[k].OpCode == ByteCodeOp.COMPARE_OP)
+                                {
+                                    // 이 COMPARE_OP 이전의 LOAD_NAME 찾기
+                                    for (int m = k - 1; m >= 0; m--)
+                                    {
+                                        if (_instructions[m].OpCode == ByteCodeOp.LOAD_NAME ||
+                                            _instructions[m].OpCode == ByteCodeOp.LOAD_GLOBAL ||
+                                            _instructions[m].OpCode == ByteCodeOp.LOAD_FAST)
+                                        {
+                                            jumpBackwardTarget = m;
+                                            break;
+                                        }
+                                    }
+                                    break;
+                                }
                             }
                         }
                     }
