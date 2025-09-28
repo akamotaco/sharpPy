@@ -756,6 +756,14 @@ namespace SharpPy.Generated
             return stmt;
         }
 
+        protected GeneratedStmt _PyAST_AnnAssign(object target, object annotation, object value = null)
+        {
+            var stmt = new GeneratedStmt();
+            stmt.StatementType = "annassign";
+            stmt.Value = new { target = target, annotation = annotation, value = value };
+            return stmt;
+        }
+
         /// <summary>
         /// _PyAST_AnnAssign - Create annotated assignment statement
         /// </summary>
@@ -1665,11 +1673,42 @@ namespace SharpPy.Generated
             if (star_etc != null)
             {
                 // star_etc contains varargs, kwonly args, and kwargs
-                // This is a simplified implementation - may need enhancement
                 Console.WriteLine($"[DEBUG] _PyPegen_make_arguments: Processing star_etc: {star_etc.GetType().Name}");
+
+                if (star_etc is Dictionary<string, object> starDict)
+                {
+                    if (starDict.ContainsKey("vararg") && starDict["vararg"] != null)
+                    {
+                        result["vararg"] = starDict["vararg"];
+                        Console.WriteLine($"[DEBUG] _PyPegen_make_arguments: Set vararg from star_etc");
+                    }
+                    if (starDict.ContainsKey("kwarg") && starDict["kwarg"] != null)
+                    {
+                        result["kwarg"] = starDict["kwarg"];
+                        Console.WriteLine($"[DEBUG] _PyPegen_make_arguments: Set kwarg from star_etc");
+                    }
+                    if (starDict.ContainsKey("kwonlyargs"))
+                    {
+                        result["kwonlyargs"] = starDict["kwonlyargs"];
+                    }
+                }
             }
 
             Console.WriteLine($"[DEBUG] _PyPegen_make_arguments: Created arguments with {((List<object>)result["args"]).Count} regular args");
+            return result;
+        }
+
+        /// <summary>
+        /// CPython compatible function for creating star_etc structure (varargs/kwargs)
+        /// </summary>
+        protected object _PyPegen_star_etc(object p, object? vararg, object? kwonlyargs, object? kwarg)
+        {
+            var result = new Dictionary<string, object>();
+            result["vararg"] = vararg;
+            result["kwonlyargs"] = kwonlyargs ?? new List<object>();
+            result["kwarg"] = kwarg;
+
+            Console.WriteLine($"[DEBUG] _PyPegen_star_etc: Created with vararg={vararg != null}, kwarg={kwarg != null}");
             return result;
         }
 

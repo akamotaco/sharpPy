@@ -284,6 +284,14 @@ namespace SharpPy.PegGenerator.Interpreter
         /// </summary>
         public IPegParseResult ParseRule(string ruleName)
         {
+#if DEBUG_LOG
+            // Add debug for assignment-related rules
+            if (ruleName == "assignment" || ruleName == "simple_stmt" || ruleName == "simple_stmts")
+            {
+                Console.WriteLine($"[DEBUG] PEG ParseRule: Attempting '{ruleName}' at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+            }
+#endif
+
             // Check if this rule should be excluded in first pass
             if (ShouldExcludeRuleInFirstPass(ruleName))
             {
@@ -956,6 +964,105 @@ namespace SharpPy.PegGenerator.Interpreter
                     return variables["a"];
                 }
                 return results.FirstOrDefault() ?? new PegSuccess(_position);
+            }
+            else if (action.Contains("CHECK_VERSION"))
+            {
+                // Handle version checks - for Python 3.12 interpreter, allow all modern features
+                // Extract the version requirement (typically version 6 for annotations)
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: CHECK_VERSION called, allowing modern Python features");
+#endif
+
+                // For now, always allow version checks and return the actual AST construction
+                if (action.Contains("_PyAST_AnnAssign"))
+                {
+                    // Annotated Assignment: a=NAME ':' b=expression c=['=' d=annotated_rhs { d }]
+                    var stmt = new SimpleStmt
+                    {
+                        Type = "ann_assign",
+                        Data = new {
+                            Target = variables.ContainsKey("a") ? variables["a"] : null,
+                            Annotation = variables.ContainsKey("b") ? variables["b"] : null,
+                            Value = variables.ContainsKey("c") ? variables["c"] : null,
+                            Simple = 1 // Always 1 for NAME annotations as per CPython
+                        }
+                    };
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] PEG: Created ann_assign statement");
+#endif
+                    return new PegAstResult(stmt, _position);
+                }
+
+                // For other version checks, continue with normal processing
+                return results.FirstOrDefault() ?? new PegSuccess(_position);
+            }
+            else if (action.Contains("_PyAST_AnnAssign"))
+            {
+                // Annotated Assignment: a=NAME ':' b=expression c=['=' d=annotated_rhs { d }]
+                var stmt = new SimpleStmt
+                {
+                    Type = "ann_assign",
+                    Data = new {
+                        Target = variables.ContainsKey("a") ? variables["a"] : null,
+                        Annotation = variables.ContainsKey("b") ? variables["b"] : null,
+                        Value = variables.ContainsKey("c") ? variables["c"] : null,
+                        Simple = 1 // Always 1 for NAME annotations as per CPython
+                    }
+                };
+                return new PegAstResult(stmt, _position);
+            }
+            else if (action.Contains("_PyAST_TryStar"))
+            {
+                // Try statement with except* handlers (Python 3.11+ Exception Groups)
+                var stmt = new SimpleStmt
+                {
+                    Type = "try_star",
+                    Data = new {
+                        body = variables.ContainsKey("b") ? variables["b"] : null,
+                        handlers = variables.ContainsKey("ex") ? variables["ex"] : null,
+                        orelse = variables.ContainsKey("el") ? variables["el"] : null,
+                        finalbody = variables.ContainsKey("f") ? variables["f"] : null
+                    }
+                };
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: Created try_star statement");
+#endif
+                return new PegAstResult(stmt, _position);
+            }
+            else if (action.Contains("_PyAST_Try"))
+            {
+                // Regular try statement
+                var stmt = new SimpleStmt
+                {
+                    Type = "try",
+                    Data = new {
+                        body = variables.ContainsKey("b") ? variables["b"] : null,
+                        handlers = variables.ContainsKey("ex") ? variables["ex"] : null,
+                        orelse = variables.ContainsKey("el") ? variables["el"] : null,
+                        finalbody = variables.ContainsKey("f") ? variables["f"] : null
+                    }
+                };
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: Created try statement");
+#endif
+                return new PegAstResult(stmt, _position);
+            }
+            else if (action.Contains("_PyAST_ExceptHandler"))
+            {
+                // Exception handler: 'except' [expression ['as' NAME]] ':' block
+                var handler = new SimpleStmt
+                {
+                    Type = "except_handler",
+                    Data = new {
+                        type = variables.ContainsKey("e") ? variables["e"] : null,
+                        name = variables.ContainsKey("t") ? variables["t"] : null,
+                        body = variables.ContainsKey("b") ? variables["b"] : null
+                    }
+                };
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] PEG: Created except_handler");
+#endif
+                return new PegAstResult(handler, _position);
             }
             else if (action.Contains("_PyAST_Assign"))
             {

@@ -385,6 +385,66 @@ namespace SharpPy
                     }
                     return new ContinueStatement();
 
+                case "annassign":
+                    // Annotated assignment statement (name: type = value or name: type)
+                    if (stmt.Value != null)
+                    {
+                        try
+                        {
+                            // Expected structure: { target: expr, annotation: expr, value: expr? }
+                            var target = stmt.Value.GetType().GetProperty("target")?.GetValue(stmt.Value);
+                            var annotation = stmt.Value.GetType().GetProperty("annotation")?.GetValue(stmt.Value);
+                            var value = stmt.Value.GetType().GetProperty("value")?.GetValue(stmt.Value);
+
+#if DEBUG_LOG
+                            Console.WriteLine($"[DEBUG] ConvertStatement AnnAssign: target={target}, annotation={annotation}, value={value}");
+#endif
+
+                            // Convert target (should be a name)
+                            string targetName = null;
+                            if (target is GeneratedExpr targetExpr && targetExpr.ExpressionType == "Name")
+                            {
+                                targetName = targetExpr.GetType().GetProperty("id")?.GetValue(targetExpr) as string;
+                            }
+
+                            if (targetName == null)
+                            {
+#if DEBUG_LOG
+                                Console.WriteLine($"[DEBUG] ConvertStatement AnnAssign: Failed to extract target name from {target}");
+#endif
+                                return null;
+                            }
+
+                            // Convert annotation
+                            Expression annotationExpr = null;
+                            if (annotation is GeneratedExpr annotationGeneratedExpr)
+                            {
+                                annotationExpr = ConvertAnyExpression(annotationGeneratedExpr);
+                            }
+
+                            // Convert value (optional)
+                            Expression valueExpr = null;
+                            if (value != null && value is GeneratedExpr valueGeneratedExpr)
+                            {
+                                valueExpr = ConvertAnyExpression(valueGeneratedExpr);
+                            }
+
+#if DEBUG_LOG
+                            Console.WriteLine($"[DEBUG] ConvertStatement AnnAssign: Creating AnnAssignStatement with name='{targetName}', annotation={annotationExpr}, value={valueExpr}");
+#endif
+
+                            return new AnnAssignStatement(targetName, annotationExpr, valueExpr);
+                        }
+                        catch (Exception ex)
+                        {
+#if DEBUG_LOG
+                            Console.WriteLine($"[DEBUG] ConvertStatement AnnAssign error: {ex.Message}");
+#endif
+                            return null;
+                        }
+                    }
+                    return null;
+
                 case "assignment":
                     // Assignment statement (name = value)
                     if (stmt.Value != null)
@@ -506,6 +566,59 @@ namespace SharpPy
                                 // Convert the value expression using ConvertAnyExpression
                                 Expression convertedValueExpr = ConvertAnyExpression(valueExpr);
                                 return new AssignStatement(targetName, convertedValueExpr);
+                            }
+                        }
+                    }
+                    return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
+
+                case "ann_assign":
+                    // Annotated assignment statement (name: type = value)
+                    if (stmt.Value != null)
+                    {
+                        var annAssignData = stmt.Value as dynamic;
+                        var target = annAssignData?.Target;
+                        var annotation = annAssignData?.Annotation;
+                        var valueExpr = annAssignData?.Value;
+
+#if DEBUG_LOG
+                        Console.WriteLine($"[DEBUG] ConvertStatement AnnAssign: Target='{target}', Annotation='{annotation}', Value='{valueExpr}'");
+#endif
+
+                        if (target != null && annotation != null)
+                        {
+                            // Extract variable name from target object (similar to assignment case)
+                            string? targetName = null;
+
+                            if (target is GeneratedExpr genExpr)
+                            {
+                                if (genExpr.ExpressionType == "Name")
+                                {
+                                    if (genExpr.Value is object valueObj)
+                                    {
+                                        var valueProperty = valueObj.GetType().GetProperty("value");
+                                        targetName = valueProperty?.GetValue(valueObj)?.ToString();
+                                    }
+                                }
+                            }
+
+                            if (!string.IsNullOrEmpty(targetName))
+                            {
+                                // Convert annotation expression
+                                Expression annotationExpression = ConvertAnyExpression(annotation);
+
+                                // Convert value expression if present
+                                Expression? valueExpression = null;
+                                if (valueExpr != null)
+                                {
+                                    valueExpression = ConvertAnyExpression(valueExpr);
+                                }
+
+#if DEBUG_LOG
+                                Console.WriteLine($"[DEBUG] ConvertStatement AnnAssign Final: Target='{targetName}', HasValue={valueExpression != null}");
+#endif
+
+                                // Create annotated assignment statement
+                                return new AnnAssignStatement(targetName, annotationExpression, valueExpression);
                             }
                         }
                     }
@@ -782,29 +895,30 @@ namespace SharpPy
 
                 case "try":
                     // Try statement (try: body except: handler)
-                    if (stmt.Value != null)
+                    // Use GeneratedStmt specific properties instead of Value
+#if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] try case: stmt.TryBody = {stmt.TryBody}, stmt.ExceptClauses = {stmt.ExceptClauses}");
+#endif
+
+                    // Convert try body statements
+                    var tryBodyStatements = new List<Statement>();
+                    if (stmt.TryBody != null)
                     {
-                        var tryData = stmt.Value as dynamic;
-
-                        // Convert try body statements
-                        var tryBodyStmts = new List<Statement>();
-                        if (tryData.body != null)
+                        foreach (var bodyStmt in stmt.TryBody)
                         {
-                            foreach (var bodyStmt in tryData.body)
-                            {
-                                var convertedStmt = ConvertStatement(bodyStmt, insideLoop, insideFunction);
-                                if (convertedStmt != null)
-                                    tryBodyStmts.Add(convertedStmt);
-                            }
+                            var convertedStmt = ConvertStatement(bodyStmt as GeneratedStmt, insideLoop, insideFunction);
+                            if (convertedStmt != null)
+                                tryBodyStatements.Add(convertedStmt);
                         }
+                    }
 
-                        // Convert except blocks
-                        var exceptHandlers = new List<ExceptHandler>();
-                        if (tryData.exceptBlocks != null)
+                    // Convert except blocks
+                    var exceptHandlersList = new List<ExceptHandler>();
+                    if (stmt.ExceptClauses != null)
+                    {
+                        foreach (var exceptBlock in stmt.ExceptClauses)
                         {
-                            foreach (var exceptBlock in tryData.exceptBlocks)
-                            {
-                                var exceptData = exceptBlock as dynamic;
+                            var exceptData = exceptBlock as dynamic;
 
                                 // Convert except body statements
                                 var exceptBodyStmts = new List<Statement>();
@@ -822,17 +936,24 @@ namespace SharpPy
                                 // TODO: Implement proper exception type parsing
                                 Expression? exceptionTypeExpr = null;
                                 string? variableName = null;
-                                exceptHandlers.Add(new ExceptHandler(exceptionTypeExpr, variableName, exceptBodyStmts));
+                                exceptHandlersList.Add(new ExceptHandler(exceptionTypeExpr, variableName, exceptBodyStmts));
                             }
                         }
 
-                        // For now, no else or finally blocks (TODO: implement later)
-                        var elseStmts = new List<Statement>();
-                        var finallyStmts = new List<Statement>();
+                        // Convert finally block if present
+                        var elseStatements = new List<Statement>();
+                        var finallyStatements = new List<Statement>();
+                        if (stmt.FinallyBody != null)
+                        {
+                            foreach (var finallyStmt in stmt.FinallyBody)
+                            {
+                                var convertedStmt = ConvertStatement(finallyStmt as GeneratedStmt, insideLoop, insideFunction);
+                                if (convertedStmt != null)
+                                    finallyStatements.Add(convertedStmt);
+                            }
+                        }
 
-                        return new TryStatement(tryBodyStmts, exceptHandlers, elseStmts, finallyStmts);
-                    }
-                    return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
+                        return new TryStatement(tryBodyStatements, exceptHandlersList, elseStatements, finallyStatements);
 
                 case "try_star":
                     // Try statement with except* handlers (PEP 654: Exception Groups)
@@ -1133,7 +1254,34 @@ namespace SharpPy
                                 bodyStmts.Add(new ExpressionStatement(new ConstantExpression(PyNone.Instance)));
                             }
 
-                            return new FunctionDefStatement(name, parameters, bodyStmts);
+                            // Process decorators if present
+                            var decoratorExpressions = new List<DecoratorExpression>();
+                            if (stmt.Decorators != null && stmt.Decorators.Count > 0)
+                            {
+#if DEBUG_LOG
+                                Console.WriteLine($"[DEBUG] Function '{name}' has {stmt.Decorators.Count} decorators");
+#endif
+                                // Convert decorators to expressions
+                                foreach (var decorator in stmt.Decorators)
+                                {
+                                    if (decorator is GeneratedExpr decoratorExpr)
+                                    {
+                                        var convertedDecorator = ConvertAnyExpression(decoratorExpr);
+                                        if (convertedDecorator != null)
+                                        {
+                                            // Wrap the expression in a DecoratorExpression
+                                            decoratorExpressions.Add(new DecoratorExpression(convertedDecorator));
+#if DEBUG_LOG
+                                            Console.WriteLine($"[DEBUG] Added decorator: {convertedDecorator}");
+#endif
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Create function with decorators
+                            var functionDef = new FunctionDefStatement(name, parameters, bodyStmts, null, decoratorExpressions);
+                            return functionDef;
                         }
                     }
                     return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
@@ -1224,6 +1372,19 @@ namespace SharpPy
                                     var convertedStmt = ConvertStatement(generatedStmt, insideLoop, insideFunction);
                                     if (convertedStmt != null)
                                         classBodyStmts.Add(convertedStmt);
+                                }
+                                else if (bodyStmt is IEnumerable<object> innerList && !(bodyStmt is string))
+                                {
+                                    // The body statements are wrapped in a List, unwrap them
+                                    foreach (var innerStmt in innerList)
+                                    {
+                                        if (innerStmt is GeneratedStmt innerGeneratedStmt)
+                                        {
+                                            var convertedStmt = ConvertStatement(innerGeneratedStmt, insideLoop, insideFunction);
+                                            if (convertedStmt != null)
+                                                classBodyStmts.Add(convertedStmt);
+                                        }
+                                    }
                                 }
                             }
                             catch (Exception ex)

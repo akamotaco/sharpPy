@@ -27,24 +27,24 @@ namespace SharpPy
             }
         }
 
-        private readonly Dictionary<PyObject, PyObject> _items;
-        
+        protected readonly Dictionary<PyObject, PyObject> _dict;
+
         // 내부 딕셔너리 접근용 (타입 생성 등에서 사용)
-        internal Dictionary<PyObject, PyObject> InternalDict => _items;
+        internal Dictionary<PyObject, PyObject> InternalDict => _dict;
         
-        public PyDict() => _items = new Dictionary<PyObject, PyObject>(new PyObjectEqualityComparer());
-        
-        public PyDict(Dictionary<string, PyObject> items) 
+        public PyDict() => _dict = new Dictionary<PyObject, PyObject>(new PyObjectEqualityComparer());
+
+        public PyDict(Dictionary<string, PyObject> items)
         {
-            _items = new Dictionary<PyObject, PyObject>(new PyObjectEqualityComparer());
+            _dict = new Dictionary<PyObject, PyObject>(new PyObjectEqualityComparer());
             foreach (var kv in items)
             {
-                _items[new PyString(kv.Key)] = kv.Value;
+                _dict[new PyString(kv.Key)] = kv.Value;
             }
         }
 
-        public PyDict(Dictionary<PyObject, PyObject> items) => 
-            _items = new Dictionary<PyObject, PyObject>(items, new PyObjectEqualityComparer());
+        public PyDict(Dictionary<PyObject, PyObject> items) =>
+            _dict = new Dictionary<PyObject, PyObject>(items, new PyObjectEqualityComparer());
 
         public override PyType GetPyType() => PyType.DictType;
         public override string GetTypeName() => "dict";
@@ -57,9 +57,9 @@ namespace SharpPy
         
         public override string ToRepr()
         {
-            if (_items.Count == 0) return "{}";
-            
-            var pairs = _items.Select(kv => $"{kv.Key.ToRepr()}: {kv.Value.ToRepr()}");
+            if (_dict.Count == 0) return "{}";
+
+            var pairs = _dict.Select(kv => $"{kv.Key.ToRepr()}: {kv.Value.ToRepr()}");
             return $"{{{string.Join(", ", pairs)}}}";
         }
 
@@ -71,9 +71,9 @@ namespace SharpPy
         {
             return other switch
             {
-                PyDict otherDict => PyBool.FromBool(_items.Count == otherDict._items.Count &&
-                    _items.All(kv => otherDict._items.ContainsKey(kv.Key) && 
-                        ((PyBool)otherDict._items[kv.Key].RichCompare(kv.Value, CompareOp.EQ)).Value)),
+                PyDict otherDict => PyBool.FromBool(_dict.Count == otherDict._dict.Count &&
+                    _dict.All(kv => otherDict._dict.ContainsKey(kv.Key) &&
+                        ((PyBool)otherDict._dict[kv.Key].RichCompare(kv.Value, CompareOp.EQ)).Value)),
                 _ => PyBool.False
             };
         }
@@ -87,9 +87,9 @@ namespace SharpPy
         /// </summary>
         public override PyObject GetItem(PyObject key)
         {
-            if (_items.TryGetValue(key, out PyObject value))
+            if (_dict.TryGetValue(key, out PyObject value))
                 return value;
-            
+
             throw PyKeyError.Create(key.ToRepr());
         }
 
@@ -98,16 +98,17 @@ namespace SharpPy
         /// </summary>
         public override void SetItem(PyObject key, PyObject value)
         {
-            _items[key] = value;
+            _dict[key] = value;
         }
 
         /// <summary>
         /// 키 삭제 del dict[key]
         /// </summary>
-        public void DelItem(PyObject key)
+        public virtual PyObject DelItem(PyObject key)
         {
-            if (!_items.Remove(key))
+            if (!_dict.Remove(key))
                 throw PyKeyError.Create(key.ToRepr());
+            return PyNone.Instance;
         }
 
         /// <summary>
@@ -115,7 +116,7 @@ namespace SharpPy
         /// </summary>
         public override PyBool Contains(PyObject key)
         {
-            return PyBool.FromBool(_items.ContainsKey(key));
+            return PyBool.FromBool(_dict.ContainsKey(key));
         }
 
         /// <summary>
@@ -123,8 +124,8 @@ namespace SharpPy
         /// </summary>
         public PyObject Get(PyObject key, PyObject defaultValue = null)
         {
-            return _items.TryGetValue(key, out PyObject value) 
-                ? value 
+            return _dict.TryGetValue(key, out PyObject value)
+                ? value
                 : defaultValue ?? PyNone.Instance;
         }
 
@@ -133,15 +134,15 @@ namespace SharpPy
         /// </summary>
         public PyObject Pop(PyObject key, PyObject defaultValue = null)
         {
-            if (_items.TryGetValue(key, out PyObject value))
+            if (_dict.TryGetValue(key, out PyObject value))
             {
-                _items.Remove(key);
+                _dict.Remove(key);
                 return value;
             }
-            
+
             if (defaultValue != null)
                 return defaultValue;
-                
+
             throw PyKeyError.Create(key.ToRepr());
         }
 
@@ -150,11 +151,11 @@ namespace SharpPy
         /// </summary>
         public PyTuple PopItem()
         {
-            if (_items.Count == 0)
+            if (_dict.Count == 0)
                 throw PyKeyError.Create("popitem(): dictionary is empty");
-            
-            var first = _items.First();
-            _items.Remove(first.Key);
+
+            var first = _dict.First();
+            _dict.Remove(first.Key);
             return new PyTuple(first.Key, first.Value);
         }
 
@@ -163,7 +164,7 @@ namespace SharpPy
         /// </summary>
         public PyNone Clear()
         {
-            _items.Clear();
+            _dict.Clear();
             return PyNone.Instance;
         }
 
@@ -172,9 +173,9 @@ namespace SharpPy
         /// </summary>
         public PyNone Update(PyDict other)
         {
-            foreach (var kv in other._items)
+            foreach (var kv in other._dict)
             {
-                _items[kv.Key] = kv.Value;
+                _dict[kv.Key] = kv.Value;
             }
             return PyNone.Instance;
         }
@@ -184,11 +185,11 @@ namespace SharpPy
         /// </summary>
         public PyObject SetDefault(PyObject key, PyObject defaultValue = null)
         {
-            if (_items.TryGetValue(key, out PyObject value))
+            if (_dict.TryGetValue(key, out PyObject value))
                 return value;
-            
+
             var newValue = defaultValue ?? PyNone.Instance;
-            _items[key] = newValue;
+            _dict[key] = newValue;
             return newValue;
         }
 
@@ -201,7 +202,7 @@ namespace SharpPy
         /// </summary>
         public PyList Keys()
         {
-            return new PyList(_items.Keys.ToArray());
+            return new PyList(_dict.Keys.ToArray());
         }
 
         /// <summary>
@@ -209,7 +210,7 @@ namespace SharpPy
         /// </summary>
         public PyList Values()
         {
-            return new PyList(_items.Values.ToArray());
+            return new PyList(_dict.Values.ToArray());
         }
 
         /// <summary>
@@ -217,7 +218,7 @@ namespace SharpPy
         /// </summary>
         public PyList Items()
         {
-            var items = _items.Select(kv => new PyTuple(kv.Key, kv.Value)).Cast<PyObject>().ToArray();
+            var items = _dict.Select(kv => new PyTuple(kv.Key, kv.Value)).Cast<PyObject>().ToArray();
             return new PyList(items);
         }
 
@@ -225,8 +226,8 @@ namespace SharpPy
 
         #region Length and Type Checking
 
-        public override int Length() => _items.Count;
-        public override bool PyBoolValue() => _items.Count > 0;
+        public override int Length() => _dict.Count;
+        public override bool PyBoolValue() => _dict.Count > 0;
 
         #endregion
 
@@ -278,7 +279,7 @@ namespace SharpPy
         /// </summary>
         public PyDict Copy()
         {
-            return new PyDict(new Dictionary<PyObject, PyObject>(_items));
+            return new PyDict(new Dictionary<PyObject, PyObject>(_dict));
         }
 
         #endregion
@@ -440,7 +441,7 @@ namespace SharpPy
         public override PyTuple AsTuple()
         {
             // CPython tuple(dict) 동작: 딕셔너리의 키들을 튜플로 변환
-            return new PyTuple(_items.Keys.ToArray());
+            return new PyTuple(_dict.Keys.ToArray());
         }
         
         /// <summary>
@@ -448,7 +449,7 @@ namespace SharpPy
         /// </summary>
         public override PyBool AsBool()
         {
-            return PyBool.FromBool(_items.Count > 0);
+            return PyBool.FromBool(_dict.Count > 0);
         }
         
         /// <summary>

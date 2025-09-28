@@ -252,14 +252,20 @@ namespace SharpPy.Generated
             while (_position < _source.Length)
             {
                 var startPosition = _position; // Track position for infinite loop detection
+                #if DEBUG_LOG
                 Console.WriteLine($"[DEBUG] Loop iteration: position={_position}, char='{CurrentChar}'");
+                #endif
 
                 // Process indentation at start of line before any other tokens
                 if (_atLineStart)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine("[DEBUG] Calling HandleIndentation");
+                    #endif
                     HandleIndentation();
+                    #if DEBUG_LOG
                     Console.WriteLine("[DEBUG] HandleIndentation completed");
+                    #endif
                     ProcessPendingTokens();
                 }
 
@@ -980,12 +986,16 @@ namespace SharpPy.Generated
 
         private void HandleIndentation()
         {
+            #if DEBUG_LOG
             Console.WriteLine($"[DEBUG] HandleIndentation: _atLineStart={_atLineStart}, position={_position}");
+            #endif
             if (!_atLineStart) return;
             // Skip indentation processing inside parentheses
             if (IsInsideParentheses)
             {
+                #if DEBUG_LOG
                 Console.WriteLine("[DEBUG] Inside parentheses, setting _atLineStart=false");
+                #endif
                 _atLineStart = false; // CRITICAL: Must set this to avoid infinite loop
                 return;
             }
@@ -1034,11 +1044,15 @@ namespace SharpPy.Generated
                 }
             }
 
+            #if DEBUG_LOG
             Console.WriteLine("[DEBUG] Setting _atLineStart=false at end of HandleIndentation");
+            #endif
             _atLineStart = false;
             // Now that we're starting to process this line, reset the line state for real token tracking
             _currentLineHasRealTokens = false;
+            #if DEBUG_LOG
             Console.WriteLine("[DEBUG] HandleIndentation method ending normally");
+            #endif
         }
 
         private bool IsStringPrefix()

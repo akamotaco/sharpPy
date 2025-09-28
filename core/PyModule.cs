@@ -247,8 +247,9 @@ public class PyModule : PyObject
             ["time"] = () => new TimeModule(),
             ["itertools"] = () => ItertoolsModule.Instance,
             ["random"] = () => SharpPy.Modules.RandomModule.CreateRandomModule(),
-            ["typing"] = () => SharpPy.Modules.TypingModule.CreateTypingModule(),
             ["types"] = () => SharpPy.Modules.TypesModule.CreateTypesModule(),
+            ["_collections"] = () => SharpPy.Modules._CollectionsModule.CreateCollectionsModule(),
+            ["_functools"] = () => SharpPy.Modules._FunctoolsModule.CreateFunctoolsModule(),
 
             // 시스템 인터페이스 모듈
             ["sys"] = () => SharpPy.Modules.SysModule.CreateSysModule(),
