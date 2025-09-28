@@ -237,18 +237,24 @@ namespace SharpPy.Generated
         /// </summary>
         public List<GeneratedTokenInfo> Tokenize()
         {
+            #if DEBUG_LOG
             Console.WriteLine("[DEBUG] Tokenize() method started");
+            #endif
             _tokens.Clear();
             _position = 0;
             _line = 1;
             _column = 0; // CPython uses 0-based column indexing
             _currentLineHasRealTokens = false; // Reset line state tracking
+            #if DEBUG_LOG
             Console.WriteLine($"[DEBUG] Source length: {_source.Length}, Source: '{_source}'");
+            #endif
 
             // Skip ENCODING token for compatibility with CPython generate_tokens()
             // AddToken(GeneratedTokenType.ENCODING, "utf-8", 0, 0);
 
+            #if DEBUG_LOG
             Console.WriteLine("[DEBUG] Starting main tokenization loop");
+            #endif
             while (_position < _source.Length)
             {
                 var startPosition = _position; // Track position for infinite loop detection
@@ -1010,10 +1016,14 @@ namespace SharpPy.Generated
             }
 
             // Skip empty lines and comment-only lines for indentation
+            #if DEBUG_LOG
             Console.WriteLine($"[DEBUG] Checking empty line: position={_position}, length={_source.Length}, char='{CurrentChar}'");
+            #endif
             if (_position >= _source.Length || CurrentChar == '\n' || CurrentChar == '#')
             {
+                #if DEBUG_LOG
                 Console.WriteLine("[DEBUG] Empty line detected, setting _atLineStart=false");
+                #endif
                 _atLineStart = false; // CRITICAL: Must set this to avoid infinite loop
                 return;
             }

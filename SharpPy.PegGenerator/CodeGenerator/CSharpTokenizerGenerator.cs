@@ -240,20 +240,26 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
 
+            WriteLine("#if DEBUG_LOG");
             WriteLine("Console.WriteLine(\"[DEBUG] Tokenize() method started\");");
+            WriteLine("#endif");
             WriteLine("_tokens.Clear();");
             WriteLine("_position = 0;");
             WriteLine("_line = 1;");
             WriteLine("_column = 0; // CPython uses 0-based column indexing");
             WriteLine("_currentLineHasRealTokens = false; // Reset line state tracking");
+            WriteLine("#if DEBUG_LOG");
             WriteLine("Console.WriteLine($\"[DEBUG] Source length: {_source.Length}, Source: '{_source}'\");");
+            WriteLine("#endif");
             WriteLine();
 
             WriteLine("// Skip ENCODING token for compatibility with CPython generate_tokens()");
             WriteLine("// AddToken(GeneratedTokenType.ENCODING, \"utf-8\", 0, 0);");
             WriteLine();
 
+            WriteLine("#if DEBUG_LOG");
             WriteLine("Console.WriteLine(\"[DEBUG] Starting main tokenization loop\");");
+            WriteLine("#endif");
             WriteLine("while (_position < _source.Length)");
             WriteLine("{");
             Indent();
@@ -1292,11 +1298,15 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Skip empty lines and comment-only lines for indentation");
+            WriteLine("#if DEBUG_LOG");
             WriteLine("Console.WriteLine($\"[DEBUG] Checking empty line: position={_position}, length={_source.Length}, char='{CurrentChar}'\");");
+            WriteLine("#endif");
             WriteLine("if (_position >= _source.Length || CurrentChar == '\\n' || CurrentChar == '#')");
             WriteLine("{");
             Indent();
+            WriteLine("#if DEBUG_LOG");
             WriteLine("Console.WriteLine(\"[DEBUG] Empty line detected, setting _atLineStart=false\");");
+            WriteLine("#endif");
             WriteLine("_atLineStart = false; // CRITICAL: Must set this to avoid infinite loop");
             WriteLine("return;");
             Dedent();

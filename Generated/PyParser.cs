@@ -2958,6 +2958,7 @@ namespace SharpPy.Generated
             Console.WriteLine($"[DEBUG] ParseParameters called at position {_position}");
 
             var args = new List<object>();
+            var defaults = new List<object>();
             var startPos = _position;
 
             // Simple parameter parsing for "NAME" patterns like "x", "y", etc.
@@ -2971,6 +2972,28 @@ namespace SharpPy.Generated
                 args.Add(argNode);
 
                 Advance(); // Move past the NAME token
+
+                // Check for default value assignment (e.g., "y=10")
+                Console.WriteLine($"[DEBUG] ParseParameters: After NAME '{nameToken.Value}', current token: {CurrentToken?.Type}('{CurrentToken?.Value}') at position {_position}");
+                if (CurrentToken != null && CurrentToken.Type == GeneratedTokenType.OP && CurrentToken.Value == "=")
+                {
+                    Console.WriteLine($"[DEBUG] ParseParameters: found '=' for default value at position {_position}");
+                    Advance(); // Move past '='
+
+                    // Parse the default value expression
+                    var defaultExpr = ParseExpression();
+                    if (defaultExpr != null)
+                    {
+                        defaults.Add(defaultExpr);
+                        Console.WriteLine($"[DEBUG] ParseParameters: parsed default value for '{nameToken.Value}'");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[DEBUG] ParseParameters: failed to parse default value for '{nameToken.Value}'");
+                        _position = startPos;
+                        return null;
+                    }
+                }
 
                 // Check for comma (if there are more parameters)
                 if (CurrentToken != null && CurrentToken.Type == GeneratedTokenType.OP && CurrentToken.Value == ",")
@@ -2987,9 +3010,9 @@ namespace SharpPy.Generated
 
             if (args.Count > 0)
             {
-                Console.WriteLine($"[DEBUG] ParseParameters: parsed {args.Count} arguments");
+                Console.WriteLine($"[DEBUG] ParseParameters: parsed {args.Count} arguments with {defaults.Count} defaults");
                 // Call _PyPegen_make_arguments(p, posonlyargs, posonly_defaults, args, defaults, star_etc)
-                var result = _PyPegen_make_arguments(this, null, null, args, null, null);
+                var result = _PyPegen_make_arguments(this, null, null, args, defaults.Count > 0 ? defaults : null, null);
                 Console.WriteLine($"[DEBUG] ParseParameters: _PyPegen_make_arguments called successfully");
                 return result;
             }

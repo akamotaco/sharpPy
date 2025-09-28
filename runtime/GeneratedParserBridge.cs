@@ -1045,6 +1045,7 @@ namespace SharpPy
                         {
                             // Extract parameters from Arguments field
                             var parameters = new List<string>();
+                            var defaultValues = new Dictionary<string, object>(); // Store defaults by parameter name
                             if (funcData.Arguments != null)
                             {
                                 // Debug Arguments structure
@@ -1180,6 +1181,22 @@ namespace SharpPy
                                                 Console.WriteLine($"[DEBUG] Parameter value is not a list: {kvp.Value}");
                                             }
                                         }
+
+                                        // Look for defaults
+                                        if (kvp.Key == "defaults")
+                                        {
+                                            if (kvp.Value is List<object> defaultsList)
+                                            {
+                                                Console.WriteLine($"[DEBUG] Found defaults list with {defaultsList.Count} items");
+                                                // Store defaults by index - we'll match them to parameters later
+                                                for (int i = 0; i < defaultsList.Count; i++)
+                                                {
+                                                    var defaultValue = defaultsList[i];
+                                                    Console.WriteLine($"[DEBUG] Processing default {i}: {defaultValue} (Type: {defaultValue?.GetType().Name})");
+                                                    defaultValues[i.ToString()] = defaultValue;
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                                 else
@@ -1279,7 +1296,28 @@ namespace SharpPy
                                 }
                             }
 
+                            // Apply defaults to parameters (CPython style: defaults apply to last N parameters)
+                            if (defaultValues.Count > 0)
+                            {
+                                Console.WriteLine($"[DEBUG] Applying {defaultValues.Count} defaults to {parameters.Count} parameters");
+                                for (int i = 0; i < defaultValues.Count; i++)
+                                {
+                                    int paramIndex = parameters.Count - defaultValues.Count + i;
+                                    if (paramIndex >= 0 && paramIndex < parameters.Count)
+                                    {
+                                        var defaultValueObj = defaultValues[i.ToString()];
+                                        // Convert default value to string representation
+                                        string defaultStr = ConvertDefaultToString(defaultValueObj);
+                                        string originalParam = parameters[paramIndex];
+                                        string paramWithDefault = $"{originalParam}={defaultStr}";
+                                        parameters[paramIndex] = paramWithDefault;
+                                        Console.WriteLine($"[DEBUG] Updated parameter: {originalParam} -> {paramWithDefault}");
+                                    }
+                                }
+                            }
+
                             // Create function with decorators
+                            Console.WriteLine($"[DEBUG] Creating FunctionDefStatement with {parameters.Count} parameters");
                             var functionDef = new FunctionDefStatement(name, parameters, bodyStmts, null, decoratorExpressions);
                             return functionDef;
                         }
@@ -1958,6 +1996,26 @@ namespace SharpPy
                 var exprType = expr.GetType().GetProperty("ExpressionType")?.GetValue(expr)?.ToString();
                 Console.WriteLine($"[DEBUG] ConvertAnyExpression: ExpressionType = {exprType}");
                 return ConvertGeneratedExpression(expr);
+            }
+
+            // TEMPORARY FIX: Handle legacy anonymous objects until parser consistency is achieved
+            if (expr != null)
+            {
+                var type = expr.GetType();
+                var typeProperty = type.GetProperty("type");
+                var valueProperty = type.GetProperty("value");
+
+                if (typeProperty != null && valueProperty != null)
+                {
+                    var typeValue = typeProperty.GetValue(expr)?.ToString();
+                    var nameValue = valueProperty.GetValue(expr)?.ToString();
+
+                    if (typeValue == "name" && !string.IsNullOrEmpty(nameValue))
+                    {
+                        Console.WriteLine($"[DEBUG] ConvertAnyExpression: Converting legacy anonymous name object: {nameValue}");
+                        return new NameExpression(nameValue);
+                    }
+                }
             }
 
             // This should not happen - all parsers should return GeneratedExpr objects
@@ -3344,6 +3402,95 @@ namespace SharpPy
                 }
                 return new ConstantExpression(new PyString(content));
             }
+        }
+
+        /// <summary>
+        /// Helper method to convert default values to string representation
+        /// </summary>
+        private static string ConvertDefaultToString(object defaultValue)
+        {
+            if (defaultValue == null) return "None";
+
+            Console.WriteLine($"[DEBUG] ConvertDefaultToString: {defaultValue} (Type: {defaultValue.GetType().Name})");
+
+            // Handle GeneratedExpr
+            if (defaultValue is GeneratedExpr genExpr)
+            {
+                Console.WriteLine($"[DEBUG] GeneratedExpr: Type='{genExpr.ExpressionType}', Value={genExpr.Value} (ValueType: {genExpr.Value?.GetType().Name})");
+
+                // Handle nested GeneratedExpr (Expression wrapping Constant)
+                if (genExpr.ExpressionType == "Expression" && genExpr.Value is GeneratedExpr nestedExpr)
+                {
+                    Console.WriteLine($"[DEBUG] Nested GeneratedExpr: Type='{nestedExpr.ExpressionType}', Value={nestedExpr.Value}");
+                    return ConvertDefaultToString(nestedExpr); // Recursive call
+                }
+
+                if (genExpr.ExpressionType == "Constant" && genExpr.Value != null)
+                {
+                    var value = genExpr.Value;
+                    Console.WriteLine($"[DEBUG] Constant value: {value} (Type: {value.GetType().Name})");
+
+                    // Try Dictionary first
+                    if (value is Dictionary<string, object> constDict && constDict.ContainsKey("value"))
+                    {
+                        var actualValue = constDict["value"];
+                        Console.WriteLine($"[DEBUG] Dict value: {actualValue}");
+                        return actualValue?.ToString() ?? "None";
+                    }
+
+                    // Handle anonymous object with 'value' property (common in generated code)
+                    try
+                    {
+                        var valueProperty = value.GetType().GetProperty("value");
+                        if (valueProperty != null)
+                        {
+                            var actualValue = valueProperty.GetValue(value);
+                            Console.WriteLine($"[DEBUG] Anonymous object value: {actualValue} (Type: {actualValue?.GetType().Name})");
+
+                            // Handle different types appropriately
+                            if (actualValue is string str3)
+                            {
+                                Console.WriteLine($"[DEBUG] Returning string: \"{str3}\"");
+                                return $"\"{str3}\"";
+                            }
+                            if (actualValue is int || actualValue is long || actualValue is double || actualValue is float)
+                            {
+                                Console.WriteLine($"[DEBUG] Returning number: {actualValue}");
+                                return actualValue.ToString();
+                            }
+                            if (actualValue is bool boolean3)
+                            {
+                                Console.WriteLine($"[DEBUG] Returning boolean: {(boolean3 ? "True" : "False")}");
+                                return boolean3 ? "True" : "False";
+                            }
+
+                            Console.WriteLine($"[DEBUG] Returning default: {actualValue}");
+                            return actualValue?.ToString() ?? "None";
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[DEBUG] Error accessing 'value' property: {ex.Message}");
+                    }
+
+                    // Handle direct constant values
+                    if (value is int || value is long || value is double || value is float)
+                        return value.ToString();
+                    if (value is string str2) return $"\"{str2}\"";
+                    if (value is bool boolean2) return boolean2 ? "True" : "False";
+
+                    return value.ToString() ?? "None";
+                }
+                return genExpr.Value?.ToString() ?? "None";
+            }
+
+            // Handle direct values
+            if (defaultValue is string str) return $"\"{str}\"";
+            if (defaultValue is int || defaultValue is long || defaultValue is double || defaultValue is float)
+                return defaultValue.ToString();
+            if (defaultValue is bool boolean) return boolean ? "True" : "False";
+
+            return defaultValue.ToString() ?? "None";
         }
     }
 
