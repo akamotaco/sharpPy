@@ -834,6 +834,36 @@ namespace SharpPy
 
                     return new ReturnStatement(returnValue);
 
+                case "raise":
+                    // Raise statement (raise [expression] [from expression])
+                    Expression? exceptionExpr = null;
+                    Expression? fromExpr = null;
+
+                    if (stmt.Value != null)
+                    {
+                        var raiseData = stmt.Value as dynamic;
+
+                        // Handle ExceptionExpr
+                        if (raiseData.ExceptionExpr != null)
+                        {
+                            if (raiseData.ExceptionExpr is GeneratedExpr genExpr)
+                            {
+                                exceptionExpr = ConvertAnyExpression(genExpr);
+                            }
+                        }
+
+                        // Handle FromExpr (for "raise ... from ..." syntax)
+                        if (raiseData.FromExpr != null)
+                        {
+                            if (raiseData.FromExpr is GeneratedExpr fromGenExpr)
+                            {
+                                fromExpr = ConvertAnyExpression(fromGenExpr);
+                            }
+                        }
+                    }
+
+                    return new RaiseStatement(exceptionExpr, fromExpr);
+
                 case "if":
                     // If statement (if condition: body)
                     if (stmt.Value != null)

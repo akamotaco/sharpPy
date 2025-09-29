@@ -3044,6 +3044,12 @@ namespace SharpPy.Generated
                 return ParseFromImportStatement();
             }
 
+            // Check for 'raise' statement
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "raise")
+            {
+                return ParseRaiseStatement();
+            }
+
             // PRIORITY: Check for 'break' and 'continue' FIRST (before assignment/expression parsing)
             // This prevents continue/break from being parsed as variable names
             if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "break")

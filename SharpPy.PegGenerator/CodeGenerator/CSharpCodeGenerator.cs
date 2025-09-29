@@ -6089,6 +6089,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    return ParseFromImportStatement();");
             WriteLine("}");
             WriteLine();
+            WriteLine("// Check for 'raise' statement");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"raise\")");
+            WriteLine("{");
+            WriteLine("    return ParseRaiseStatement();");
+            WriteLine("}");
+            WriteLine();
             WriteLine("// PRIORITY: Check for 'break' and 'continue' FIRST (before assignment/expression parsing)");
             WriteLine("// This prevents continue/break from being parsed as variable names");
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"break\")");
