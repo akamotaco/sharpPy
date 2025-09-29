@@ -191,7 +191,7 @@ namespace SharpPy.Generated
             return false;
         }
 
-        private object? ExpectTokenType(string tokenType)
+        private string? ExpectTokenType(string tokenType)
         {
             if (CurrentToken?.Type.ToString() == tokenType)
             {
@@ -388,7 +388,7 @@ namespace SharpPy.Generated
         // === PEG Expression Hierarchy with Left Recursion Support ===
 
         // atom: NAME | NUMBER | STRING | '(' expression ')'
-        protected object? ParseAtom()
+        protected GeneratedExpr? ParseAtom()
         {
 
             if (CurrentToken == null) return null;
@@ -459,7 +459,7 @@ namespace SharpPy.Generated
             {
                 var mark = Mark();
                 Advance(); // consume '('
-                var elements = new List<object>();
+                var elements = new List<GeneratedExpr>();
                 bool hasComma = false;
 
                 // Handle empty tuple
@@ -544,7 +544,7 @@ namespace SharpPy.Generated
 
         // primary: primary '.' NAME | primary '[' slices ']' | primary '(' [arguments] ')' | atom
         // Implemented with left recursion support
-        protected object? ParsePrimary()
+        protected GeneratedExpr? ParsePrimary()
         {
 
             // Check for tokens that should stop parsing
@@ -554,7 +554,7 @@ namespace SharpPy.Generated
 
             // Check memoization for left recursion
             var memoKey = "primary";
-            var memoResult = GetMemo<object>(memoKey);
+            var memoResult = GetMemo<GeneratedExpr>(memoKey);
             if (memoResult != null)
             {
                 return memoResult;
@@ -665,7 +665,7 @@ namespace SharpPy.Generated
         }
 
         // power[expr_ty]: a=await_primary '**' b=factor | await_primary
-        protected object? ParsePower()
+        protected GeneratedExpr? ParsePower()
         {
 
             // Check for tokens that should stop parsing
@@ -704,7 +704,7 @@ namespace SharpPy.Generated
         }
 
         // term: term '*' power | term '/' power | power
-        protected object? ParseTerm()
+        protected GeneratedExpr? ParseTerm()
         {
 
             // Check for tokens that should stop parsing
@@ -808,7 +808,7 @@ namespace SharpPy.Generated
         }
 
         // sum: sum '+' term | sum '-' term | term
-        protected object? ParseSum()
+        protected GeneratedExpr? ParseSum()
         {
 
             // Check for tokens that should stop parsing
@@ -871,7 +871,7 @@ namespace SharpPy.Generated
         }
 
         // star_expressions: expression (',' expression)* [',']
-        private object? ParseStarExpressions()
+        private GeneratedExpr? ParseStarExpressions()
         {
 
             var expr = ParseExpression();
@@ -883,7 +883,7 @@ namespace SharpPy.Generated
         }
 
         // Parse expression statement following PEG grammar
-        public object? ParseExpressionStmt()
+        public GeneratedStmt? ParseExpressionStmt()
         {
 
             var expr = ParseStarExpressions();
@@ -898,7 +898,7 @@ namespace SharpPy.Generated
         }
 
         // if_stmt: 'if' expression ':' block ('elif' expression ':' block)* ['else' ':' block]
-        public object? ParseIfStatement()
+        public GeneratedStmt? ParseIfStatement()
         {
 
             if (CurrentToken?.Type.ToString() != "NAME" || CurrentToken?.Value != "if")
@@ -1008,7 +1008,7 @@ namespace SharpPy.Generated
         }
 
         // while_stmt: 'while' named_expression ':' block [else_block]
-        public object? ParseWhileStatement()
+        public GeneratedStmt? ParseWhileStatement()
         {
             Console.WriteLine($"[DEBUG] ParseWhileStatement: Starting at pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}");
 
@@ -1114,7 +1114,7 @@ namespace SharpPy.Generated
         }
 
         // for_stmt: 'for' target 'in' iter ':' block [else_block]
-        public object? ParseForStatement()
+        public GeneratedStmt? ParseForStatement()
         {
             Console.WriteLine($"[DEBUG] ParseForStatement: Starting at pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}");
 
@@ -1225,7 +1225,7 @@ namespace SharpPy.Generated
         /// <summary>
         /// lambdef[expr_ty]: 'lambda' a=[lambda_params] ':' b=expression
         /// </summary>
-        public object ParseLambda()
+        public GeneratedExpr? ParseLambda()
         {
             Console.WriteLine($"[DEBUG] ParseLambda: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
 
@@ -1279,7 +1279,7 @@ namespace SharpPy.Generated
         /// list: '[' a=[star_named_expressions] ']'
         /// listcomp: '[' a=named_expression b=for_if_clauses ']'
         /// </summary>
-        public object ParseListOrListComp()
+        public GeneratedExpr? ParseListOrListComp()
         {
             Advance(); // consume '['
             SkipNL(); // skip newlines after opening bracket
@@ -1446,7 +1446,7 @@ namespace SharpPy.Generated
         /// dictcomp: '{' a=kvpair b=for_if_clauses '}'
         /// setcomp: '{' a=named_expression b=for_if_clauses '}'
         /// </summary>
-        public object ParseDictSetOrComp()
+        public GeneratedExpr? ParseDictSetOrComp()
         {
             Advance(); // consume '{'
             SkipNL(); // skip newlines after opening brace
@@ -2386,7 +2386,7 @@ namespace SharpPy.Generated
         /// </summary>
         public GeneratedExpr? Strings()
         {
-            var stringParts = new List<object>();
+            var stringParts = new List<GeneratedExpr>();
 
             // Parse first string/fstring
             var first = Fstring() ?? ParseStringLiteral();
@@ -2410,7 +2410,7 @@ namespace SharpPy.Generated
             // If only one string, return it directly
             if (stringParts.Count == 1)
             {
-                return stringParts[0] as GeneratedExpr;
+                return stringParts[0];
             }
 
             // Multiple strings - concatenate
@@ -2451,7 +2451,7 @@ namespace SharpPy.Generated
             if (CurrentToken?.Type == GeneratedTokenType.AWAIT && CurrentToken?.Value == "await")
             {
                 Advance(); // consume 'await'
-                var primary = ParsePrimary() as GeneratedExpr;
+                var primary = ParsePrimary();
                 if (primary != null)
                 {
                     return _PyAST_Await(primary);
@@ -2464,7 +2464,7 @@ namespace SharpPy.Generated
             else
             {
                 // Not an await expression, delegate to primary
-                return ParsePrimary() as GeneratedExpr;
+                return ParsePrimary();
             }
         }
 
@@ -4119,7 +4119,7 @@ namespace SharpPy.Generated
             if (CurrentToken != null && CurrentToken.Type != GeneratedTokenType.NEWLINE)
             {
                 var exprResult = ParseExpression();
-                exceptionExpr = exprResult as GeneratedExpr;
+                exceptionExpr = (GeneratedExpr?)exprResult;
                 if (exceptionExpr == null)
                 {
                     Console.WriteLine($"[DEBUG] ParseRaiseStatement: Failed to parse exception expression");
@@ -4131,7 +4131,7 @@ namespace SharpPy.Generated
                 {
                     Advance(); // consume 'from'
                     var fromResult = ParseExpression();
-                    fromExpr = fromResult as GeneratedExpr;
+                    fromExpr = (GeneratedExpr?)fromResult;
                     if (fromExpr == null)
                     {
                         Console.WriteLine($"[DEBUG] ParseRaiseStatement: Failed to parse 'from' expression");

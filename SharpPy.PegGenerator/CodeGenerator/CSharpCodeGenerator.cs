@@ -693,7 +693,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
 
             // Add ExpectTokenType method
-            WriteLine("private object? ExpectTokenType(string tokenType)");
+            WriteLine("private string? ExpectTokenType(string tokenType)");
             WriteLine("{");
             Indent();
             WriteLine("if (CurrentToken?.Type.ToString() == tokenType)");
@@ -2146,7 +2146,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume 'await'");
-            WriteLine("var primary = ParsePrimary() as GeneratedExpr;");
+            WriteLine("var primary = ParsePrimary();");
             WriteLine("if (primary != null)");
             WriteLine("{");
             Indent();
@@ -2165,7 +2165,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("// Not an await expression, delegate to primary");
-            WriteLine("return ParsePrimary() as GeneratedExpr;");
+            WriteLine("return ParsePrimary();");
             Dedent();
             WriteLine("}");
             Dedent();
@@ -3322,7 +3322,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         {
             Console.WriteLine("[DEBUG] GenerateAtomParser called");
             WriteLine("// atom: NAME | NUMBER | STRING | '(' expression ')'");
-            WriteLine("protected object? ParseAtom()");
+            WriteLine("protected GeneratedExpr? ParseAtom()");
             WriteLine("{");
             Indent();
             // Debug logging removed for performance
@@ -3426,7 +3426,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
             WriteLine("var mark = Mark();");
             WriteLine("Advance(); // consume '('");
-            WriteLine("var elements = new List<object>();");
+            WriteLine("var elements = new List<GeneratedExpr>();");
             WriteLine("bool hasComma = false;");
             WriteLine();
             WriteLine("// Handle empty tuple");
@@ -3550,7 +3550,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         {
             WriteLine("// primary: primary '.' NAME | primary '[' slices ']' | primary '(' [arguments] ')' | atom");
             WriteLine("// Implemented with left recursion support");
-            WriteLine("protected object? ParsePrimary()");
+            WriteLine("protected GeneratedExpr? ParsePrimary()");
             WriteLine("{");
             Indent();
             // WriteLine("Console.WriteLine($\"[DEBUG] ParsePrimary at position {_position}\");");
@@ -3563,7 +3563,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             WriteLine("// Check memoization for left recursion");
             WriteLine("var memoKey = \"primary\";");
-            WriteLine("var memoResult = GetMemo<object>(memoKey);");
+            WriteLine("var memoResult = GetMemo<GeneratedExpr>(memoKey);");
             WriteLine("if (memoResult != null)");
             WriteLine("{");
             Indent();
@@ -3724,7 +3724,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private void GenerateStarExpressionsParser()
         {
             WriteLine("// star_expressions: expression (',' expression)* [',']");
-            WriteLine("private object? ParseStarExpressions()");
+            WriteLine("private GeneratedExpr? ParseStarExpressions()");
             WriteLine("{");
             Indent();
             // WriteLine("Console.WriteLine($\"[DEBUG] ParseStarExpressions at position {_position}\");");
@@ -3747,7 +3747,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private void GenerateComparisonParser()
         {
             WriteLine("// comparison: comparison ('=='|'!='|'<'|'<='|'>'|'>=') sum | sum");
-            WriteLine("private object? ParseComparison()");
+            WriteLine("private GeneratedExpr? ParseComparison()");
             WriteLine("{");
             Indent();
             WriteLine("return ParseComparisonTemplate();");
@@ -3898,7 +3898,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private void GeneratePowerParser()
         {
             WriteLine("// power[expr_ty]: a=await_primary '**' b=factor | await_primary");
-            WriteLine("protected object? ParsePower()");
+            WriteLine("protected GeneratedExpr? ParsePower()");
             WriteLine("{");
             Indent();
             WriteLine();
@@ -3959,7 +3959,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private void GenerateTermParser()
         {
             WriteLine("// term: term '*' power | term '/' power | power");
-            WriteLine("protected object? ParseTerm()");
+            WriteLine("protected GeneratedExpr? ParseTerm()");
             WriteLine("{");
             Indent();
             // WriteLine("Console.WriteLine($\"[DEBUG] ParseTerm at position {_position}\");");
@@ -4115,7 +4115,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private void GenerateSumParser()
         {
             WriteLine("// sum: sum '+' term | sum '-' term | term");
-            WriteLine("protected object? ParseSum()");
+            WriteLine("protected GeneratedExpr? ParseSum()");
             WriteLine("{");
             Indent();
             // WriteLine("Console.WriteLine($\"[DEBUG] ParseSum at position {_position}\");");
@@ -4205,7 +4205,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private void GenerateExpressionStmtParser()
         {
             WriteLine("// Parse expression statement following PEG grammar");
-            WriteLine("public object? ParseExpressionStmt()");
+            WriteLine("public GeneratedStmt? ParseExpressionStmt()");
             WriteLine("{");
             Indent();
             // WriteLine("Console.WriteLine($\"[DEBUG] ParseExpressionStmt at position {_position}\");");
@@ -4233,7 +4233,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private void GenerateIfStatementParser()
         {
             WriteLine("// if_stmt: 'if' expression ':' block ('elif' expression ':' block)* ['else' ':' block]");
-            WriteLine("public object? ParseIfStatement()");
+            WriteLine("public GeneratedStmt? ParseIfStatement()");
             WriteLine("{");
             Indent();
             // WriteLine("Console.WriteLine($\"[DEBUG] ParseIfStatement at position {_position}\");");
@@ -4420,7 +4420,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private void GenerateWhileStatementParser()
         {
             WriteLine("// while_stmt: 'while' named_expression ':' block [else_block]");
-            WriteLine("public object? ParseWhileStatement()");
+            WriteLine("public GeneratedStmt? ParseWhileStatement()");
             WriteLine("{");
             Indent();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseWhileStatement: Starting at pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}\");");
@@ -4579,7 +4579,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private void GenerateForStatementParser()
         {
             WriteLine("// for_stmt: 'for' target 'in' iter ':' block [else_block]");
-            WriteLine("public object? ParseForStatement()");
+            WriteLine("public GeneratedStmt? ParseForStatement()");
             WriteLine("{");
             Indent();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseForStatement: Starting at pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}\");");
@@ -5441,7 +5441,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
 
-            WriteLine("var stringParts = new List<object>();");
+            WriteLine("var stringParts = new List<GeneratedExpr>();");
             WriteLine();
 
             WriteLine("// Parse first string/fstring");
@@ -5475,7 +5475,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (stringParts.Count == 1)");
             WriteLine("{");
             Indent();
-            WriteLine("return stringParts[0] as GeneratedExpr;");
+            WriteLine("return stringParts[0];");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -5537,7 +5537,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume 'await'");
-            WriteLine("var primary = ParsePrimary() as GeneratedExpr;");
+            WriteLine("var primary = ParsePrimary();");
             WriteLine("if (primary != null)");
             WriteLine("{");
             Indent();
@@ -5556,7 +5556,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("// Not an await expression, delegate to primary");
-            WriteLine("return ParsePrimary() as GeneratedExpr;");
+            WriteLine("return ParsePrimary();");
             Dedent();
             WriteLine("}");
 
@@ -7228,7 +7228,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (CurrentToken != null && CurrentToken.Type != GeneratedTokenType.NEWLINE)");
             WriteLine("{");
             WriteLine("    var exprResult = ParseExpression();");
-            WriteLine("    exceptionExpr = exprResult as GeneratedExpr;");
+            WriteLine("    exceptionExpr = (GeneratedExpr?)exprResult;");
             WriteLine("    if (exceptionExpr == null)");
             WriteLine("    {");
             WriteLine("        Console.WriteLine($\"[DEBUG] ParseRaiseStatement: Failed to parse exception expression\");");
@@ -7240,7 +7240,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    {");
             WriteLine("        Advance(); // consume 'from'");
             WriteLine("        var fromResult = ParseExpression();");
-            WriteLine("        fromExpr = fromResult as GeneratedExpr;");
+            WriteLine("        fromExpr = (GeneratedExpr?)fromResult;");
             WriteLine("        if (fromExpr == null)");
             WriteLine("        {");
             WriteLine("            Console.WriteLine($\"[DEBUG] ParseRaiseStatement: Failed to parse 'from' expression\");");
@@ -7368,7 +7368,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("/// <summary>");
             WriteLine("/// lambdef[expr_ty]: 'lambda' a=[lambda_params] ':' b=expression");
             WriteLine("/// </summary>");
-            WriteLine("public object ParseLambda()");
+            WriteLine("public GeneratedExpr? ParseLambda()");
             WriteLine("{");
             Indent();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseLambda: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'\");");
@@ -7438,7 +7438,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("/// list: '[' a=[star_named_expressions] ']'");
             WriteLine("/// listcomp: '[' a=named_expression b=for_if_clauses ']'");
             WriteLine("/// </summary>");
-            WriteLine("public object ParseListOrListComp()");
+            WriteLine("public GeneratedExpr? ParseListOrListComp()");
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume '['");
@@ -7642,7 +7642,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("/// dictcomp: '{' a=kvpair b=for_if_clauses '}'");
             WriteLine("/// setcomp: '{' a=named_expression b=for_if_clauses '}'");
             WriteLine("/// </summary>");
-            WriteLine("public object ParseDictSetOrComp()");
+            WriteLine("public GeneratedExpr? ParseDictSetOrComp()");
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume '{'");
