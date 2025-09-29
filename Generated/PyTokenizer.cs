@@ -132,6 +132,10 @@ namespace SharpPy.Generated
         private readonly Stack<char> _parenStack = new();
         private bool IsInsideParentheses => _parenStack.Count > 0;
 
+        // CPython 3.12: Colon context tracking for compound statement NEWLINE tokens
+        // Rule: colon-followed-by-newline always generates NEWLINE token (not NL)
+        private bool _lastTokenWasColon = false;
+
         private static readonly Dictionary<string, GeneratedTokenType> Keywords = new()
         {
             { "False", GeneratedTokenType.NAME }, // False
@@ -259,7 +263,7 @@ namespace SharpPy.Generated
             {
                 var startPosition = _position; // Track position for infinite loop detection
                 #if DEBUG_LOG
-                Console.WriteLine($"[DEBUG] Loop iteration: position={_position}, char='{CurrentChar}'");
+                Console.WriteLine($"[DEBUG] Loop iteration: position={_position}, char='{CurrentChar}', ASCII={(int)CurrentChar}");
                 #endif
 
                 // Process indentation at start of line before any other tokens
@@ -275,8 +279,11 @@ namespace SharpPy.Generated
                     ProcessPendingTokens();
                 }
 
-                if (char.IsWhiteSpace(CurrentChar))
+                if (char.IsWhiteSpace(CurrentChar) || CurrentChar == '\r')
                 {
+                    #if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] Calling HandleWhitespace at position {_position}, char='{CurrentChar}', ASCII={(int)CurrentChar}");
+                    #endif
                     HandleWhitespace();
                 }
                 else if (CurrentChar == '#')
@@ -351,6 +358,29 @@ namespace SharpPy.Generated
                     _atLineStart = true; // Next position will be start of new line
                     // NOTE: Do not reset _currentLineHasRealTokens here - it should be reset AFTER we decide NL vs NEWLINE
                 }
+                else if (_source[_position] == '\r')
+                {
+                    // Handle \r character for line tracking
+                    _line++;
+                    _column = 0; // CPython uses 0-based column indexing
+                    _atLineStart = true; // Next position will be start of new line
+                    // Check if this is followed by \n (Windows CRLF)
+                    if (_position + 1 < _source.Length && _source[_position + 1] == '\n')
+                    {
+                        // This is \r\n, advance past \r but don't double-increment line
+                        _position++;
+                        // The \n will be processed next and should not increment line again
+                        // So we temporarily reset line tracking for the \n
+                        _line--; // Compensate because \n handler will increment again
+                        _atLineStart = false; // Let \n handler set this
+                    }
+                    else
+                    {
+                        // Standalone \r - advance normally
+                        _position++;
+                    }
+                    return; // Early return to avoid double increment
+                }
                 else
                 {
                     _column++;
@@ -373,8 +403,78 @@ namespace SharpPy.Generated
         {
             while (_position < _source.Length && char.IsWhiteSpace(CurrentChar))
             {
-                if (CurrentChar == '\n')
+                #if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] HandleWhitespace loop: position={_position}, char='{CurrentChar}', ASCII={(int)CurrentChar}");
+                #endif
+                if (CurrentChar == '\r')
                 {
+                    // Handle \r character - could be part of \r\n sequence
+                    #if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] Found \r at position {_position}, checking next char...");
+                    #endif
+                    // Check if next character is \n for Windows line ending
+                    if (_position + 1 < _source.Length && _source[_position + 1] == '\n')
+                    {
+                        #if DEBUG_LOG
+                        Console.WriteLine($"[DEBUG] Found \r\n sequence: skipping \r, will process \n next");
+                        #endif
+                        // This is a \r\n sequence, advance past \r and let \n handler process it
+                        Advance(); // Skip \r, \n will be processed in next iteration
+                        continue; // Continue loop to process \n character
+                    }
+                    else
+                    {
+                        // Standalone \r (Mac-style line ending) - treat as newline
+                        var newlineColumn = _column;
+                        var newlineValue = "\r";
+
+                        // CPython 3.12: Colon-followed-by-newline always generates NEWLINE token
+                        #if DEBUG_LOG
+                        Console.WriteLine($"[DEBUG] Standalone \r: checking _lastTokenWasColon: {_lastTokenWasColon}");
+                        #endif
+                        if (_lastTokenWasColon)
+                        {
+                            #if DEBUG_LOG
+                            Console.WriteLine($"[DEBUG] Generating NEWLINE token after colon (standalone \r): value='{newlineValue}', line={_line}, col={newlineColumn}");
+                            #endif
+                            AddToken(GeneratedTokenType.NEWLINE, newlineValue, _line, newlineColumn);
+                            _lastTokenWasColon = false; // Reset after processing
+                        }
+                        // Inside parentheses: always NL; Outside: check if blank line
+                        else if (IsInsideParentheses)
+                        {
+                            AddToken(GeneratedTokenType.NL, newlineValue, _line, newlineColumn);
+                            // Process pending DEDENT tokens after NL
+                            ProcessPendingTokens();
+                        }
+                        else
+                        {
+                            bool isBlankLine = IsBlankLine();
+                            if (isBlankLine)
+                            {
+                                AddToken(GeneratedTokenType.NL, newlineValue, _line, newlineColumn);
+                                // Process pending DEDENT tokens after NL
+                                ProcessPendingTokens();
+                            }
+                            else
+                            {
+                                AddToken(GeneratedTokenType.NEWLINE, newlineValue, _line, newlineColumn);
+                            }
+                        }
+                        _atLineStart = true;
+                        // Process pending DEDENT tokens after NEWLINE
+                        ProcessPendingTokens();
+                        _currentLineHasRealTokens = false; // Reset for new line
+                        Advance();
+                        // Indentation will be handled at the start of the main loop
+                        break; // Stop processing whitespace after handling newline
+                    }
+                }
+                else if (CurrentChar == '\n')
+                {
+                    #if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] Found \n at position {_position}, processing newline...");
+                    #endif
                     // Store newline position before advancing - CPython uses start position
                     var newlineColumn = _column;
                     // Check for \r\n sequence (Windows line ending)
@@ -385,8 +485,20 @@ namespace SharpPy.Generated
                         newlineColumn = _column - 1; // Start from \r position
                     }
 
+                    // CPython 3.12: Colon-followed-by-newline always generates NEWLINE token
+                    #if DEBUG_LOG
+                    Console.WriteLine($"[DEBUG] \n processing: checking _lastTokenWasColon: {_lastTokenWasColon}, newlineValue='{newlineValue}'");
+                    #endif
+                    if (_lastTokenWasColon)
+                    {
+                        #if DEBUG_LOG
+                        Console.WriteLine($"[DEBUG] Generating NEWLINE token after colon (\n processing): value='{newlineValue}', line={_line}, col={newlineColumn}");
+                        #endif
+                        AddToken(GeneratedTokenType.NEWLINE, newlineValue, _line, newlineColumn);
+                        _lastTokenWasColon = false; // Reset after processing
+                    }
                     // Inside parentheses: always NL; Outside: check if blank line
-                    if (IsInsideParentheses)
+                    else if (IsInsideParentheses)
                     {
                         AddToken(GeneratedTokenType.NL, newlineValue, _line, newlineColumn);
                         // Process pending DEDENT tokens after NL
@@ -416,6 +528,9 @@ namespace SharpPy.Generated
                 }
                 Advance();
             }
+            #if DEBUG_LOG
+            Console.WriteLine($"[DEBUG] HandleWhitespace method ended: position={_position}, char='{CurrentChar}', ASCII={(int)CurrentChar}");
+            #endif
         }
 
         private bool IsBlankLine()
@@ -982,6 +1097,19 @@ namespace SharpPy.Generated
                     else if (op == ")" || op == "]" || op == "}")
                     {
                         if (_parenStack.Count > 0) _parenStack.Pop();
+                    }
+                    // CPython 3.12: Track colon tokens for compound statement NEWLINE generation
+                    if (op == ":")
+                    {
+                        #if DEBUG_LOG
+                        Console.WriteLine($"[DEBUG] Colon token detected: setting _lastTokenWasColon = true");
+                        #endif
+                        _lastTokenWasColon = true;
+                    }
+                    // Reset colon context for non-colon operators
+                    else if (op != ":")
+                    {
+                        _lastTokenWasColon = false;
                     }
                     for (int i = 0; i < op.Length; i++) Advance();
                     return true;

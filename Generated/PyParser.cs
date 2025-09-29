@@ -476,7 +476,13 @@ namespace SharpPy.Generated
                 // Parse tuple elements or single parenthesized expression
                 while (CurrentToken != null && !(CurrentToken.Type.ToString() == "OP" && CurrentToken.Value == ")"))
                 {
-                    var element = ParseExpression();
+                    // Try named_expression (assignment_expression | expression !':=')
+                    GeneratedExpr? element = AssignmentExpression();
+                    if (element == null)
+                    {
+                        // Fallback to regular expression if not assignment expression
+                        element = ParseExpression();
+                    }
                     if (element != null)
                     {
                         elements.Add(element);
@@ -857,12 +863,11 @@ namespace SharpPy.Generated
             return result;
         }
 
-        // expression: assignment_expression - delegate to top level of expression hierarchy
-        public object? ParseExpression()
+        // expression: disjunction | a=disjunction 'if' b=disjunction 'else' c=expression
+        public GeneratedExpr? ParseExpression()
         {
-            // In Python 3.12, expression is the top-level rule that includes assignment expressions (walrus operator)
-            // Delegate to assignment_expression which handles := operator
-            return AssignmentExpression();
+            // Delegate to existing disjunction parser
+            return Disjunction();
         }
 
         // star_expressions: expression (',' expression)* [',']

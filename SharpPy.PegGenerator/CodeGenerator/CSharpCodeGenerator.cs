@@ -3448,7 +3448,15 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("while (CurrentToken != null && !(CurrentToken.Type.ToString() == \"OP\" && CurrentToken.Value == \")\"))");
             WriteLine("{");
             Indent();
-            WriteLine("var element = ParseExpression();");
+            WriteLine("// Try named_expression (assignment_expression | expression !':=')");
+            WriteLine("GeneratedExpr? element = AssignmentExpression();");
+            WriteLine("if (element == null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Fallback to regular expression if not assignment expression");
+            WriteLine("element = ParseExpression();");
+            Dedent();
+            WriteLine("}");
             WriteLine("if (element != null)");
             WriteLine("{");
             Indent();
@@ -3867,18 +3875,17 @@ namespace SharpPy.PegGenerator.CodeGenerator
         }
 
         /// <summary>
-        /// Generate expression parser that delegates to comparison for operations
+        /// Generate expression parser following CPython 3.12 hierarchy
+        /// expression: disjunction | lambdef | conditional expression
         /// </summary>
         private void GenerateExpressionParser()
         {
-            Console.WriteLine("[DEBUG] GenerateExpressionParser called");
-            WriteLine("// expression: assignment_expression - delegate to top level of expression hierarchy");
-            WriteLine("public object? ParseExpression()");
+            WriteLine("// expression: disjunction | a=disjunction 'if' b=disjunction 'else' c=expression");
+            WriteLine("public GeneratedExpr? ParseExpression()");
             WriteLine("{");
             Indent();
-            WriteLine("// In Python 3.12, expression is the top-level rule that includes assignment expressions (walrus operator)");
-            WriteLine("// Delegate to assignment_expression which handles := operator");
-            WriteLine("return AssignmentExpression();");
+            WriteLine("// Delegate to existing disjunction parser");
+            WriteLine("return Disjunction();");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -8389,6 +8396,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
         }
+
+
 
     }
 }
