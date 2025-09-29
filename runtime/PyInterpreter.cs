@@ -213,38 +213,51 @@ namespace SharpPy
             }
             
             // Show the exception type and message (Python-style)
-            var exceptionTypeName = e.GetType().Name;
+            // CPython 3.12 호환: PythonException에서 실제 Python 예외 타입 가져오기
+            string pythonExceptionType;
+            string exceptionMessage;
 
-            // Convert C# exception types to Python exception types
-            var pythonExceptionType = exceptionTypeName switch
+            if (e is PythonException pyEx && pyEx.PyException != null)
             {
-                "PyNameError" => "NameError",
-                "PyTypeError" => "TypeError",
-                "PyValueError" => "ValueError",
-                "PyAttributeError" => "AttributeError",
-                "PyKeyError" => "KeyError",
-                "PyIndexError" => "IndexError",
-                "PyRuntimeError" => "RuntimeError",
-                "PyNotImplementedError" => "NotImplementedError",
-                "PySyntaxError" => "SyntaxError",
-                "PyIndentationError" => "IndentationError",
-                "PyTabError" => "TabError",
-                "PySystemError" => "SystemError",
-                "PyImportError" => "ImportError",
-                "PyModuleNotFoundError" => "ModuleNotFoundError",
-                "PyOSError" => "OSError",
-                "PyFileNotFoundError" => "FileNotFoundError",
-                "PyPermissionError" => "PermissionError",
-                _ when e.Message.Contains("not defined") => "NameError",
-                _ when e.Message.Contains("not found") => "NameError",
-                _ when e.Message.Contains("has no attribute") => "AttributeError",
-                _ when e.Message.Contains("required argument") => "TypeError",
-                _ when e.Message.Contains("Complex target patterns") => "RuntimeError",
-                _ when e.Message.Contains("not implemented") => "NotImplementedError",
-                _ => "RuntimeError"
-            };
+                // PythonException인 경우: 내부 PyException의 GetTypeName() 사용
+                pythonExceptionType = pyEx.PyException.GetTypeName();
+                exceptionMessage = pyEx.PyException.ToStr();
+            }
+            else
+            {
+                // 다른 C# 예외인 경우: 기존 로직 사용
+                var exceptionTypeName = e.GetType().Name;
+                pythonExceptionType = exceptionTypeName switch
+                {
+                    "PyNameError" => "NameError",
+                    "PyTypeError" => "TypeError",
+                    "PyValueError" => "ValueError",
+                    "PyAttributeError" => "AttributeError",
+                    "PyKeyError" => "KeyError",
+                    "PyIndexError" => "IndexError",
+                    "PyRuntimeError" => "RuntimeError",
+                    "PyNotImplementedError" => "NotImplementedError",
+                    "PySyntaxError" => "SyntaxError",
+                    "PyIndentationError" => "IndentationError",
+                    "PyTabError" => "TabError",
+                    "PySystemError" => "SystemError",
+                    "PyImportError" => "ImportError",
+                    "PyModuleNotFoundError" => "ModuleNotFoundError",
+                    "PyOSError" => "OSError",
+                    "PyFileNotFoundError" => "FileNotFoundError",
+                    "PyPermissionError" => "PermissionError",
+                    _ when e.Message.Contains("not defined") => "NameError",
+                    _ when e.Message.Contains("not found") => "NameError",
+                    _ when e.Message.Contains("has no attribute") => "AttributeError",
+                    _ when e.Message.Contains("required argument") => "TypeError",
+                    _ when e.Message.Contains("Complex target patterns") => "RuntimeError",
+                    _ when e.Message.Contains("not implemented") => "NotImplementedError",
+                    _ => "RuntimeError"
+                };
+                exceptionMessage = e.Message;
+            }
 
-            Console.WriteLine($"{pythonExceptionType}: {e.Message}");
+            Console.WriteLine($"{pythonExceptionType}: {exceptionMessage}");
         }
         
         /// <summary>

@@ -589,7 +589,52 @@ namespace SharpPy
                 return new PyDict(InstanceDict);
             }
 
-            // 1. 인스턴스 딕셔너리에서 먼저 검색
+            // CPython 3.12 descriptor protocol:
+            // 1. 클래스 MRO에서 data descriptor 찾기 → Get() 호출
+            // 2. 인스턴스 __dict__ 검색
+            // 3. 클래스 MRO에서 non-data descriptor 또는 일반 attribute 찾기
+            // 4. __getattr__ 시도
+            // 5. AttributeError
+
+            // 1. 클래스 MRO에서 data descriptor 찾기
+            #if DEBUG_LOG
+            Console.WriteLine($"   → checking for data descriptors in class MRO");
+            #endif
+
+            PyObject classAttribute = null;
+            PyClass foundInClass = null;
+
+            foreach (var mroType in InstanceType.MRO)
+            {
+                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject classValue))
+                {
+                    // Data descriptor인 경우 즉시 Get() 호출
+                    if (classValue is IDescriptor desc && desc.IsDataDescriptor())
+                    {
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   ✅ found data descriptor '{name}' in {mroType.Name}, calling Get()");
+                        #endif
+                        var result = desc.Get(this, InstanceType);
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   → descriptor returned: {result?.GetType().Name}");
+                        #endif
+                        return result;
+                    }
+
+                    // Data descriptor가 아니면 일단 저장해두고 계속 진행
+                    if (classAttribute == null)
+                    {
+                        classAttribute = classValue;
+                        foundInClass = pyClass;
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   → found non-data attribute '{name}' in {mroType.Name}, checking instance dict first");
+                        #endif
+                    }
+                    break;
+                }
+            }
+
+            // 2. 인스턴스 __dict__ 검색
             #if DEBUG_LOG
             Console.WriteLine($"   → checking instance dict (count: {InstanceDict.Count})");
             #endif
@@ -601,54 +646,53 @@ namespace SharpPy
                 return instanceValue;
             }
 
-            // 2. 클래스의 MRO에서 검색 (Python의 표준 attribute resolution order)
+            // 3. 클래스 attribute 처리 (non-data descriptor 포함)
+            if (classAttribute != null)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"   → processing class attribute '{name}' from {foundInClass.Name}");
+                #endif
+
+                // Non-data descriptor 처리
+                if (classAttribute is IDescriptor desc)
+                {
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   🔧 calling non-data descriptor.Get()");
+                    #endif
+                    var result = desc.Get(this, InstanceType);
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   → descriptor returned: {result?.GetType().Name}");
+                    #endif
+                    return result;
+                }
+                // 함수를 bound method로 변환
+                else if (classAttribute is PyFunction func)
+                {
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   🔧 converting function to bound method");
+                    #endif
+                    return new PyMethod(this, func);
+                }
+
+                #if DEBUG_LOG
+                Console.WriteLine($"   ✅ returning class attribute: {classAttribute?.GetType().Name}");
+                #endif
+                return classAttribute;
+            }
+
+            // PyType의 내장 속성들도 확인 (예: object 클래스의 메서드들)
             #if DEBUG_LOG
-            Console.WriteLine($"   → searching class MRO (count: {InstanceType.MRO.Count})");
+            Console.WriteLine($"   → checking builtin attributes in MRO");
             #endif
             foreach (var mroType in InstanceType.MRO)
             {
-                #if DEBUG_LOG
-                Console.WriteLine($"     - checking {mroType.Name}");
-                #endif
-
-                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject classValue))
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   ✅ found '{name}' in {mroType.Name}: {classValue?.GetType().Name}");
-                    #endif
-
-                    // Descriptor 처리
-                    if (classValue is IDescriptor desc)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   🔧 calling descriptor.Get(this, {InstanceType.Name}) for '{name}'");
-                        #endif
-                        var result = desc.Get(this, InstanceType);
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   🔧 descriptor returned: {result?.GetType().Name}");
-                        #endif
-                        return result;
-                    }
-                    // 함수를 bound method로 변환
-                    else if (classValue is PyFunction func)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   🔧 converting function to bound method for '{name}'");
-                        #endif
-                        return new PyMethod(this, func);
-                    }
-
-                    return classValue;
-                }
-
-                // PyType의 내장 속성들도 확인 (예: object 클래스의 메서드들)
                 try
                 {
                     var builtinAttr = mroType.GetAttribute(name);
                     if (builtinAttr != null)
                     {
                         #if DEBUG_LOG
-                        Console.WriteLine($"   ✅ found builtin attribute '{name}' in {mroType.Name}: {builtinAttr?.GetType().Name}");
+                        Console.WriteLine($"   ✅ found builtin attribute '{name}' in {mroType.Name}");
                         #endif
                         if (builtinAttr is PyFunction builtinFunc)
                         {
@@ -664,14 +708,14 @@ namespace SharpPy
             }
 
             #if DEBUG_LOG
-            Console.WriteLine($"   ❌ attribute '{name}' not found in MRO");
+            Console.WriteLine($"   ❌ attribute '{name}' not found");
             #endif
 
-            // 3. __getattr__ 커스텀 핸들러 호출 (있다면)
+            // 4. __getattr__ 커스텀 핸들러 호출 (있다면)
             if (HasCustomGetAttr())
             {
                 #if DEBUG_LOG
-                Console.WriteLine($"   → trying custom __getattr__ for '{name}'");
+                Console.WriteLine($"   → trying custom __getattr__");
                 #endif
                 var customResult = CallGetAttr(name);
                 if (customResult != null)
@@ -683,9 +727,9 @@ namespace SharpPy
                 }
             }
 
-            // 4. 기본 처리 (PyObject의 기본 구현)
+            // 5. 기본 처리 (AttributeError)
             #if DEBUG_LOG
-            Console.WriteLine($"   → falling back to base.GetAttribute for '{name}'");
+            Console.WriteLine($"   → falling back to base.GetAttribute");
             #endif
             return base.GetAttribute(name);
         }
@@ -696,7 +740,34 @@ namespace SharpPy
             Console.WriteLine($"🔧 PyClassInstance.SetAttribute: {InstanceType.Name} instance.{name} = {value}");
             #endif
 
-            // CPython 3.12 호환: 인스턴스 __dict__에 속성 저장
+            // CPython 3.12 descriptor protocol:
+            // 1. 클래스 MRO에서 attribute 찾기
+            // 2. data descriptor라면 descriptor.Set() 호출
+            // 3. 아니라면 instance.__dict__[name] = value
+
+            // 1. 클래스 MRO에서 descriptor 찾기
+            foreach (var mroType in InstanceType.MRO)
+            {
+                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject classValue))
+                {
+                    // 2. data descriptor 확인 및 Set 호출
+                    if (classValue is IDescriptor desc && desc.IsDataDescriptor())
+                    {
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   → found data descriptor in {mroType.Name}, calling Set()");
+                        #endif
+                        desc.Set(this, value);
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   ✅ descriptor Set() completed");
+                        #endif
+                        return;
+                    }
+                    // descriptor가 아니거나 non-data descriptor라면 계속 진행
+                    break;
+                }
+            }
+
+            // 3. 인스턴스 __dict__에 저장
             InstanceDict[name] = value;
 
             #if DEBUG_LOG
