@@ -916,19 +916,11 @@ namespace SharpPy.Generated
             }
             Advance(); // consume ':'
 
-            // Parse if body
-            // Skip NEWLINE and INDENT if present
-            while (CurrentToken != null && (CurrentToken.Type.ToString() == "NEWLINE" || CurrentToken.Type.ToString() == "INDENT"))
+            var ifBody = ParseBlock();
+            if (ifBody == null || ifBody.Count == 0)
             {
-                Advance();
-            }
-
-            var ifBody = new List<object>();
-            // Parse if body - simplified to single statement
-            var bodyStmt = ParseStatement();
-            if (bodyStmt != null)
-            {
-                ifBody.Add(bodyStmt);
+                Console.WriteLine($"[DEBUG] ParseIfStatement: Failed to parse if body block");
+                return null;
             }
 
             // Skip DEDENT if present
@@ -957,17 +949,11 @@ namespace SharpPy.Generated
                 }
                 Advance(); // consume ':'
 
-                // Skip NEWLINE and INDENT
-                while (CurrentToken != null && (CurrentToken.Type.ToString() == "NEWLINE" || CurrentToken.Type.ToString() == "INDENT"))
+                var elifBody = ParseBlock();
+                if (elifBody == null || elifBody.Count == 0)
                 {
-                    Advance();
-                }
-
-                var elifBody = new List<object>();
-                var elifStmt = ParseStatement();
-                if (elifStmt != null)
-                {
-                    elifBody.Add(elifStmt);
+                    Console.WriteLine($"[DEBUG] ParseIfStatement: Failed to parse elif body block");
+                    break;
                 }
 
                 // Skip DEDENT and any following NEWLINE/DEDENT tokens before next elif
@@ -995,17 +981,11 @@ namespace SharpPy.Generated
                 {
                     Advance(); // consume ':'
 
-                    // Skip NEWLINE and INDENT if present
-                    while (CurrentToken != null && (CurrentToken.Type.ToString() == "NEWLINE" || CurrentToken.Type.ToString() == "INDENT"))
+                    elseBody = ParseBlock();
+                    if (elseBody == null || elseBody.Count == 0)
                     {
-                        Advance();
-                    }
-
-                    elseBody = new List<object>();
-                    var elseStmt = ParseStatement();
-                    if (elseStmt != null)
-                    {
-                        elseBody.Add(elseStmt);
+                        Console.WriteLine($"[DEBUG] ParseIfStatement: Failed to parse else body block");
+                        elseBody = null;
                     }
 
                     // Skip DEDENT
@@ -1054,12 +1034,6 @@ namespace SharpPy.Generated
             Advance(); // consume ':'
 
             // Parse while body
-            // Skip NEWLINE and INDENT if present
-            while (CurrentToken != null && (CurrentToken.Type.ToString() == "NEWLINE" || CurrentToken.Type.ToString() == "INDENT"))
-            {
-                Advance();
-            }
-
             var whileBody = new List<object>();
             // Parse while body - handle multiple statements in indented block
             // Continue parsing statements until DEDENT
@@ -1113,17 +1087,11 @@ namespace SharpPy.Generated
                 {
                     Advance(); // consume ':'
 
-                    // Skip NEWLINE and INDENT if present
-                    while (CurrentToken != null && (CurrentToken.Type.ToString() == "NEWLINE" || CurrentToken.Type.ToString() == "INDENT"))
+                    elseBody = ParseBlock();
+                    if (elseBody == null || elseBody.Count == 0)
                     {
-                        Advance();
-                    }
-
-                    elseBody = new List<object>();
-                    var elseStmt = ParseStatement();
-                    if (elseStmt != null)
-                    {
-                        elseBody.Add(elseStmt);
+                        Console.WriteLine($"[DEBUG] ParseIfStatement: Failed to parse else body block");
+                        elseBody = null;
                     }
 
                     // Skip DEDENT
@@ -1203,12 +1171,6 @@ namespace SharpPy.Generated
             Advance(); // consume ':'
 
             // Parse for body
-            // Skip NEWLINE and INDENT if present
-            while (CurrentToken != null && (CurrentToken.Type.ToString() == "NEWLINE" || CurrentToken.Type.ToString() == "INDENT"))
-            {
-                Advance();
-            }
-
             var forBody = new List<object>();
             // Parse for body - handle multiple statements in indented block
             // Continue parsing statements until DEDENT
@@ -2856,24 +2818,25 @@ namespace SharpPy.Generated
         public List<object> ParseStatements()
         {
             var statements = new List<object>();
+            int iterationCount = 0;
             while (_position < _tokens.Count && CurrentToken?.Type != GeneratedTokenType.ENDMARKER)
             {
-                // Handle different token types appropriately
-                if (CurrentToken?.Type == GeneratedTokenType.DEDENT)
-                {
-                    // CPython 3.12 PEG: Stop parsing at DEDENT boundary
-                    break;
-                }
+                iterationCount++;
+                Console.WriteLine($"[DEBUG] ParseStatements: Loop iteration " + iterationCount);
 
-                // Skip NEWLINE, NL, COMMENT tokens
+                // Skip NEWLINE, NL, COMMENT tokens at module level
                 if (CurrentToken?.Type == GeneratedTokenType.NEWLINE || CurrentToken?.Type == GeneratedTokenType.NL || CurrentToken?.Type == GeneratedTokenType.COMMENT)
                 {
                     Advance();
                     continue;
                 }
 
+                // CPython 3.12: At module level, DEDENT tokens complete indented blocks
+                // We should continue parsing the next statement after DEDENT
+
                 var startPos = _position; // Track starting position
                 var stmt = ParseStatement();
+                Console.WriteLine($"[DEBUG] ParseStatements: ParseStatement returned: " + (stmt != null ? "SUCCESS" : "NULL"));
                 if (stmt != null)
                 {
                     if (_position == startPos)
@@ -2893,7 +2856,57 @@ namespace SharpPy.Generated
                     break;
                 }
             }
+            Console.WriteLine($"[DEBUG] ParseStatements: Loop terminated. Position: " + _position + ", TokenCount: " + _tokens.Count + ", CurrentToken: " + (CurrentToken?.Type.ToString() ?? "null"));
             return _PyPegen_seq_flatten(statements);
+        }
+
+        /// <summary>
+        /// Parse statements until we encounter a DEDENT that closes the current indentation level
+        /// </summary>
+        public List<object> ParseStatementsUntilDedent()
+        {
+            var statements = new List<object>();
+
+            while (_position < _tokens.Count && CurrentToken?.Type != GeneratedTokenType.ENDMARKER)
+            {
+                // Skip NEWLINE, NL, COMMENT tokens
+                if (CurrentToken?.Type == GeneratedTokenType.NEWLINE || CurrentToken?.Type == GeneratedTokenType.NL || CurrentToken?.Type == GeneratedTokenType.COMMENT)
+                {
+                    Advance();
+                    continue;
+                }
+
+                // CPython 3.12: DEDENT token marks the end of current indentation level
+                // block: NEWLINE INDENT statements DEDENT - DEDENT closes the block immediately
+                if (CurrentToken?.Type == GeneratedTokenType.DEDENT)
+                {
+                    Advance(); // consume DEDENT
+                    Console.WriteLine($"[DEBUG] ParseStatementsUntilDedent: Found DEDENT, block parsing complete with {statements.Count} statements");
+                    return statements;
+                }
+
+                var startPos = _position;
+                var stmt = ParseStatement();
+                if (stmt != null)
+                {
+                    if (_position == startPos)
+                    {
+                        Console.WriteLine($"[WARNING] ParseStatementsUntilDedent: Position didn't advance, breaking to prevent infinite loop");
+                        break;
+                    }
+                    if (stmt is List<object> stmtList)
+                        statements.AddRange(stmtList);
+                    else
+                        statements.Add(stmt);
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            Console.WriteLine($"[DEBUG] ParseStatementsUntilDedent: Finished parsing, returning {statements.Count} statements");
+            return statements;
         }
 
         /// <summary>
@@ -2917,6 +2930,14 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ParseStatement: Found compound statement");
                 return _PyPegen_singleton_seq(compound);
+            }
+
+            // Handle unexpected INDENT tokens at module level
+            // INDENT tokens should not appear at module level - they indicate tokenizer/parser sync issues
+            while (CurrentToken?.Type == GeneratedTokenType.INDENT)
+            {
+                Console.WriteLine($"[DEBUG] ParseStatement: Skipping unexpected INDENT token at module level: position {_position}");
+                Advance();
             }
 
             // Try simple statements
@@ -3449,31 +3470,39 @@ namespace SharpPy.Generated
             {
                 var statements = new List<object>();
 
-            // Check if we have a NEWLINE indicating an indented block
+            // CPython 3.12 block grammar: NEWLINE INDENT statements DEDENT | simple_stmts
+            // First alternative: NEWLINE INDENT statements DEDENT
             if (CurrentToken?.Type == GeneratedTokenType.NEWLINE)
             {
+                var savedPos = _position;
                 Advance(); // consume NEWLINE
 
-                if (!ExpectToken(GeneratedTokenType.INDENT))
-                    return statements;
-
-                // Parse statements in the indented block - CPython 3.12: return statements directly, no flattening
-                var blockStatements = ParseStatements();
-                if (blockStatements != null)
+                if (CurrentToken?.Type == GeneratedTokenType.INDENT)
                 {
-                    // CPython 3.12: Return block statements as-is, do not flatten
-                    return blockStatements;
+                    Advance(); // consume INDENT
+
+                    var blockStatements = ParseStatementsUntilDedent();
+                    if (blockStatements != null)
+                    {
+                        Console.WriteLine($"[DEBUG] ParseBlock: Successfully parsed indented block with {blockStatements.Count} statements");
+                        return blockStatements;
+                    }
                 }
 
-                ExpectToken(GeneratedTokenType.DEDENT);
+                // Failed to parse indented block, restore position and try simple_stmts
+                _position = savedPos;
             }
-            else
+
+            // Second alternative: simple_stmts
+            var stmt = ParseSimpleStmts();
+            if (stmt != null)
             {
-                // Single line block - parse one simple statement
-                var stmt = ParseSimpleStmt();
-                if (stmt != null)
+                if (stmt is List<object> stmtList)
+                    return stmtList;
+                else
                 {
                     statements.Add(stmt);
+                    return statements;
                 }
             }
 
@@ -3490,18 +3519,111 @@ namespace SharpPy.Generated
             Console.WriteLine($"[DEBUG] ParseClassBody: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
             var statements = new List<object>();
 
+            // CPython 3.12: Track class body indentation level for accurate parsing
+            int? classBodyIndentLevel = null;
+
             if (CurrentToken?.Type == GeneratedTokenType.NEWLINE)
             {
                 Advance(); // consume NEWLINE
+                
+                // Record the class body indentation level before consuming INDENT token
+                if (CurrentToken?.Type == GeneratedTokenType.INDENT && CurrentToken?.Value != null)
+                {
+                    classBodyIndentLevel = CurrentToken.Value.Length;
+                    Console.WriteLine($"[DEBUG] ParseClassBody: Recorded class body indent level: {classBodyIndentLevel}");
+                }
+                
                 if (!ExpectToken(GeneratedTokenType.INDENT))
                 {
                     Console.WriteLine($"[DEBUG] ParseClassBody: Expected INDENT after class declaration");
                     return statements;
                 }
 
-                // Parse statements until DEDENT
-                while (CurrentToken != null && CurrentToken.Type != GeneratedTokenType.DEDENT)
+                // Parse statements until class body ends
+                // A class body ends when we see a final DEDENT at the class level
+                while (CurrentToken != null)
                 {
+                    // Check for end of class body - DEDENT followed by non-INDENT token
+                    if (CurrentToken.Type == GeneratedTokenType.DEDENT)
+                    {
+                        // CPython 3.12: Check if this DEDENT ends the class body
+                        // Calculate current indentation level after DEDENT
+                        int currentIndentLevel = 0;
+                        int nextPos = _position + 1;
+                        
+                        // Look ahead to find the next significant token and its indentation
+                        while (nextPos < _tokens.Count)
+                        {
+                            var nextToken = _tokens[nextPos];
+                            if (nextToken.Type == GeneratedTokenType.NL)
+                            {
+                                nextPos++;
+                                continue;
+                            }
+                            else if (nextToken.Type == GeneratedTokenType.INDENT)
+                            {
+                                // Get indentation level from INDENT token
+                                if (nextToken.Value != null)
+                                {
+                                    currentIndentLevel = nextToken.Value.Length;
+                                }
+                                nextPos++;
+                            }
+                            else
+                            {
+                                // Found the next significant token
+                                break;
+                            }
+                        }
+
+                        bool hasMoreClassContent = false;
+                        if (nextPos < _tokens.Count)
+                        {
+                            var nextToken = _tokens[nextPos];
+                            // Check if we're still at class body level and have class-level statements
+                            if (classBodyIndentLevel.HasValue && currentIndentLevel == classBodyIndentLevel.Value &&
+                                nextToken.Type == GeneratedTokenType.NAME && 
+                                (nextToken.Value == "def" || nextToken.Value == "class" || nextToken.Value == "async"))
+                            {
+                                hasMoreClassContent = true;
+                            }
+                            else if (classBodyIndentLevel.HasValue && currentIndentLevel == classBodyIndentLevel.Value &&
+                                     nextToken.Type == GeneratedTokenType.OP && nextToken.Value == "@")
+                            {
+                                hasMoreClassContent = true;
+                            }
+                        }
+                        if (hasMoreClassContent)
+                        {
+                            Console.WriteLine($"[DEBUG] ParseClassBody: Found DEDENT at indent level {currentIndentLevel}, same as class level {classBodyIndentLevel}, continuing class body");
+                            Advance(); // Skip the DEDENT
+                            continue;  // Continue parsing the next statement
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[DEBUG] ParseClassBody: Found DEDENT at indent level {currentIndentLevel}, different from class level {classBodyIndentLevel}, ending class body");
+                            break; // End of class body
+                        }
+                    }
+
+                    // Skip blank lines (NL tokens) in class body
+                    if (CurrentToken?.Type == GeneratedTokenType.NL)
+                    {
+                        Console.WriteLine($"[DEBUG] ParseClassBody: Skipping NL token at position {_position}");
+                        Advance();
+                        continue;
+                    }
+
+                    // Handle INDENT tokens within class body (for method definitions after blank lines)
+                    if (CurrentToken?.Type == GeneratedTokenType.INDENT)
+                    {
+                        Console.WriteLine($"[DEBUG] ParseClassBody: Found INDENT token, checking if it matches class level");
+                        // In a class body, INDENT tokens can appear before method definitions
+                        // Skip the INDENT and continue parsing the method
+                        Advance();
+                        continue;
+                    }
+
                     var stmt = ParseStatement();
                     if (stmt != null)
                     {
@@ -3510,10 +3632,21 @@ namespace SharpPy.Generated
                     }
                     else
                     {
-                        // Skip problematic tokens to avoid infinite loop
-                        Console.WriteLine($"[DEBUG] ParseClassBody: Failed to parse statement at {_position}, advancing");
-                        if (CurrentToken?.Type != GeneratedTokenType.DEDENT)
+                        // Handle parse failures more carefully
+                        Console.WriteLine($"[DEBUG] ParseClassBody: Failed to parse statement at {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+                        if (CurrentToken?.Type == GeneratedTokenType.DEDENT)
+                        {
+                            break; // End of class body
+                        }
+                        else if (CurrentToken != null)
+                        {
+                            Console.WriteLine($"[DEBUG] ParseClassBody: Skipping unparseable token to prevent infinite loop");
                             Advance();
+                        }
+                        else
+                        {
+                            break; // End of input
+                        }
                     }
                 }
 
@@ -3560,19 +3693,63 @@ namespace SharpPy.Generated
             var className = CurrentToken.Value;
             Advance(); // consume class name
 
-            // Parse optional base classes '(' [arguments] ')'
+            // Parse optional base classes and keyword arguments '(' [arguments] ')'
             var baseClasses = new List<object>();
             if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "(")
             {
                 Advance(); // consume '('
-                // Parse base class names
+                
+                // Parse class arguments (base classes and keyword arguments like metaclass=...)
                 while (CurrentToken != null && !(CurrentToken.Type == GeneratedTokenType.OP && CurrentToken.Value == ")"))
                 {
                     if (CurrentToken.Type == GeneratedTokenType.NAME)
                     {
-                        baseClasses.Add(new { type = "name", value = CurrentToken.Value });
+                        var startPos = _position;
+                        var firstToken = CurrentToken.Value;
                         Advance();
+                        
+                        // Check if this is a keyword argument (name=value)
+                        if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "=")
+                        {
+                            Advance(); // consume '='
+                            
+                            // Parse the value (expect a NAME for simple cases like metaclass=ABCMeta)
+                            if (CurrentToken?.Type == GeneratedTokenType.NAME)
+                            {
+                                var value = CurrentToken.Value;
+                                Advance();
+                                
+                                // CPython 3.12: Store as GeneratedExpr for consistent AST conversion
+                                var keywordArg = new GeneratedExpr
+                                {
+                                    ExpressionType = "keyword",
+                                    Value = new { 
+                                        arg = firstToken, 
+                                        value = new GeneratedExpr { ExpressionType = "Name", Value = new { value = value } }
+                                    }
+                                };
+                                baseClasses.Add(keywordArg);
+                                Console.WriteLine($"[DEBUG] ParseClassDef: Added keyword argument {firstToken}={value}");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"[DEBUG] ParseClassDef: Expected value after '=' but found {CurrentToken?.Type}:{CurrentToken?.Value}");
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            // Regular base class
+                            baseClasses.Add(new { type = "name", value = firstToken });
+                            Console.WriteLine($"[DEBUG] ParseClassDef: Added base class {firstToken}");
+                        }
                     }
+                    else
+                    {
+                        Console.WriteLine($"[DEBUG] ParseClassDef: Unexpected token in class arguments: {CurrentToken?.Type}:{CurrentToken?.Value}");
+                        break;
+                    }
+                    
                     // Handle comma separator
                     if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ",")
                     {
@@ -3580,13 +3757,20 @@ namespace SharpPy.Generated
                     }
                     else if (!(CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ")"))
                     {
-                        Console.WriteLine($"[DEBUG] ParseClassDef: Unexpected token in base classes: {CurrentToken?.Type}:{CurrentToken?.Value}");
+                        Console.WriteLine($"[DEBUG] ParseClassDef: Expected ',' or ')' but found {CurrentToken?.Type}:{CurrentToken?.Value}");
                         break;
                     }
                 }
+                
+                // Expect closing ')'
                 if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ")")
                 {
                     Advance(); // consume ')'
+                }
+                else
+                {
+                    Console.WriteLine($"[DEBUG] ParseClassDef: Expected ')' but found {CurrentToken?.Type}:{CurrentToken?.Value}");
+                    return null;
                 }
             }
 
@@ -3904,6 +4088,58 @@ namespace SharpPy.Generated
                 FromModule = fromModule,
                 ImportLevel = level,
                 ImportNames = importNames
+            };
+        }
+
+        /// <summary>
+        /// CPython 3.12 raise_stmt: 'raise' [expression ['from' expression]] | 'raise'
+        /// </summary>
+        public GeneratedStmt ParseRaiseStatement()
+        {
+            Console.WriteLine($"[DEBUG] ParseRaiseStatement: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+
+            // Expect 'raise' keyword
+            if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != "raise")
+            {
+                Console.WriteLine($"[DEBUG] ParseRaiseStatement: Expected 'raise' but found {CurrentToken?.Type}:{CurrentToken?.Value}");
+                return null;
+            }
+            Advance(); // consume 'raise'
+
+            // Check for expression after 'raise'
+            GeneratedExpr exceptionExpr = null;
+            GeneratedExpr fromExpr = null;
+
+            // Parse optional exception expression
+            if (CurrentToken != null && CurrentToken.Type != GeneratedTokenType.NEWLINE)
+            {
+                var exprResult = ParseExpression();
+                exceptionExpr = exprResult as GeneratedExpr;
+                if (exceptionExpr == null)
+                {
+                    Console.WriteLine($"[DEBUG] ParseRaiseStatement: Failed to parse exception expression");
+                    return null;
+                }
+
+                // Check for optional 'from' clause
+                if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == "from")
+                {
+                    Advance(); // consume 'from'
+                    var fromResult = ParseExpression();
+                    fromExpr = fromResult as GeneratedExpr;
+                    if (fromExpr == null)
+                    {
+                        Console.WriteLine($"[DEBUG] ParseRaiseStatement: Failed to parse 'from' expression");
+                        return null;
+                    }
+                }
+            }
+
+            Console.WriteLine($"[DEBUG] ParseRaiseStatement: Successfully parsed raise statement");
+            return new GeneratedStmt
+            {
+                StatementType = "raise",
+                Value = new { ExceptionExpr = exceptionExpr, FromExpr = fromExpr }
             };
         }
 

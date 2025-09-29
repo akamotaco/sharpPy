@@ -1297,7 +1297,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Dedent();
             WriteLine("}");
             WriteLine();
-            WriteLine("// Skip empty lines and comment-only lines for indentation");
+            WriteLine("// CPython 3.12: Handle empty lines and comments for indentation");
             WriteLine("#if DEBUG_LOG");
             WriteLine("Console.WriteLine($\"[DEBUG] Checking empty line: position={_position}, length={_source.Length}, char='{CurrentChar}'\");");
             WriteLine("#endif");
@@ -1308,6 +1308,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Console.WriteLine(\"[DEBUG] Empty line detected, setting _atLineStart=false\");");
             WriteLine("#endif");
             WriteLine("_atLineStart = false; // CRITICAL: Must set this to avoid infinite loop");
+            WriteLine("// CPython 3.12: Don't process indentation for empty/comment lines");
+            WriteLine("// DEDENT tokens will be generated when we encounter the next non-empty line");
             WriteLine("return;");
             Dedent();
             WriteLine("}");
@@ -1318,9 +1320,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("// Increased indentation - INDENT");
+            WriteLine("// CPython 3.12: Only generate INDENT if we're actually increasing indentation");
             WriteLine("_indentStack.Push(indent);");
             WriteLine("var indentText = new string(' ', indent);");
             WriteLine("AddToken(GeneratedTokenType.INDENT, indentText, _line, indentStartColumn);");
+            WriteLine("#if DEBUG_LOG");
+            WriteLine("Console.WriteLine($\"[DEBUG] Generated INDENT token: level {currentLevel} -> {indent}\");");
+            WriteLine("#endif");
             Dedent();
             WriteLine("}");
             WriteLine("else if (indent < currentLevel)");
@@ -1331,9 +1337,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("_indentStack.Pop();");
-            WriteLine("// CPython 3.12: DEDENT column position reflects the target indentation level");
-            WriteLine("int dedentColumn = _indentStack.Count > 0 ? _indentStack.Peek() : 0;");
-            WriteLine("_pendingTokens.Enqueue(new GeneratedTokenInfo(GeneratedTokenType.DEDENT, \"\", _line, dedentColumn));");
+            WriteLine("// CPython 3.12: DEDENT position should point to current indentation level");
+            WriteLine("// Use current position (start of current token) not previous position");
+            WriteLine("_pendingTokens.Enqueue(new GeneratedTokenInfo(GeneratedTokenType.DEDENT, \"\", _line, indent));");
             Dedent();
             WriteLine("}");
             WriteLine();
