@@ -5064,13 +5064,23 @@ namespace SharpPy
             var bodyStart = _instructions.Count; // 바디 첫 번째 명령어 위치
             #if DEBUG_LOG
             Console.WriteLine($"  Phase 2: 바디 시작점 = {bodyStart} (JUMP_BACKWARD 타겟)");
+            Console.WriteLine($"  Phase 2: 바디 statement 개수 = {whileStmt.Body.Count}");
             #endif
-            
+
             // Compile loop body
+            int stmtIndex = 0;
             foreach (var stmt in whileStmt.Body)
             {
+                #if DEBUG_LOG
+                Console.WriteLine($"    바디 statement [{stmtIndex}]: {stmt.GetType().Name} at instruction {_instructions.Count}");
+                #endif
                 CompileStatement(stmt);
+                stmtIndex++;
             }
+
+            #if DEBUG_LOG
+            Console.WriteLine($"  Phase 2 완료: 현재 instruction count = {_instructions.Count}");
+            #endif
             
             // Phase 3: 루프 끝 조건 체크 (CPython pattern)
             #if DEBUG_LOG

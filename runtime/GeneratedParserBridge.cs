@@ -914,6 +914,24 @@ namespace SharpPy
                     {
                         var whileData = stmt.Value as dynamic;
 
+                        #if DEBUG_LOG
+                        Console.WriteLine($"[DEBUG] While statement - condition: {whileData.condition != null}, body: {whileData.body != null}");
+                        if (whileData.body != null)
+                        {
+                            var bodyType = whileData.body.GetType();
+                            Console.WriteLine($"[DEBUG] Body type: {bodyType.Name}");
+                            if (whileData.body is System.Collections.IEnumerable bodyEnum)
+                            {
+                                int count = 0;
+                                foreach (var item in bodyEnum)
+                                {
+                                    count++;
+                                }
+                                Console.WriteLine($"[DEBUG] Body count: {count}");
+                            }
+                        }
+                        #endif
+
                         // Convert condition expression
                         Expression conditionExpr = ConvertAnyExpression(whileData.condition);
 

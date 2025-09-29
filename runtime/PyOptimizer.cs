@@ -1059,6 +1059,8 @@ namespace SharpPy
                         {
                             // 첫 번째 POP_JUMP_IF_FALSE 다음이 loop body 시작점
                             loopBodyStartPos = k + 1;
+                            // ALWAYS print for debugging
+                            Console.WriteLine($"[PyOptimizer] Found POP_JUMP_IF_FALSE at {k}, loop body starts at {loopBodyStartPos}");
                             #if DEBUG_LOG
                             Console.WriteLine($"  🔍 CPython 패턴 분석: POP_JUMP_IF_FALSE at {k}, loop body starts at {loopBodyStartPos}");
                             #endif
@@ -1109,23 +1111,37 @@ namespace SharpPy
                     else
                     {
                         // 루프 끝: 루프 바디 시작으로 점프
-                        // WHILE 루프에서는 루프 조건 확인 후 첫 번째 LOAD_NAME (루프 바디 첫 명령어)으로 점프
-                        bool foundFirstCompare = false;
-                        for (int k = 0; k < jumpBackwardPos; k++)
+                        // 우선순위 1: 이미 계산된 loopBodyStartPos 사용 (CPython 3.12 호환)
+                        if (loopBodyStartPos >= 0)
                         {
-                            if (_instructions[k].OpCode == ByteCodeOp.COMPARE_OP && !foundFirstCompare)
+                            jumpBackwardTarget = loopBodyStartPos;
+                            #if DEBUG_LOG
+                            Console.WriteLine($"  🔍 Using loopBodyStartPos as jumpBackwardTarget: {jumpBackwardTarget}");
+                            #endif
+                        }
+                        // 우선순위 2: COMPARE_OP 패턴으로 찾기 (fallback)
+                        else
+                        {
+                            bool foundFirstCompare = false;
+                            for (int k = 0; k < jumpBackwardPos; k++)
                             {
-                                foundFirstCompare = true;
-                                // COMPARE_OP 다음의 POP_JUMP_IF_FALSE 다음을 찾기
-                                for (int m = k + 1; m < jumpBackwardPos; m++)
+                                if (_instructions[k].OpCode == ByteCodeOp.COMPARE_OP && !foundFirstCompare)
                                 {
-                                    if (_instructions[m].OpCode == ByteCodeOp.POP_JUMP_IF_FALSE)
+                                    foundFirstCompare = true;
+                                    // COMPARE_OP 다음의 POP_JUMP_IF_FALSE 다음을 찾기
+                                    for (int m = k + 1; m < jumpBackwardPos; m++)
                                     {
-                                        jumpBackwardTarget = m + 1; // POP_JUMP_IF_FALSE 다음이 루프 바디 시작
-                                        break;
+                                        if (_instructions[m].OpCode == ByteCodeOp.POP_JUMP_IF_FALSE)
+                                        {
+                                            jumpBackwardTarget = m + 1; // POP_JUMP_IF_FALSE 다음이 루프 바디 시작
+                                            #if DEBUG_LOG
+                                            Console.WriteLine($"  🔍 Found jumpBackwardTarget via COMPARE_OP pattern: {jumpBackwardTarget}");
+                                            #endif
+                                            break;
+                                        }
                                     }
+                                    break;
                                 }
-                                break;
                             }
                         }
                     }
@@ -1144,6 +1160,9 @@ namespace SharpPy
                         if (correctOpArg != jumpInst.Argument)
                         {
                             _instructions[jumpBackwardPos] = new ByteCodeInstruction(ByteCodeOp.JUMP_BACKWARD, correctOpArg);
+
+                            // ALWAYS print this to debug while loop issue
+                            Console.WriteLine($"[PyOptimizer] WHILE JUMP_BACKWARD[{jumpBackwardPos}]: oparg {jumpInst.Argument} → {correctOpArg} (target: {jumpBackwardTarget})");
 
                             if (!SharpPyConfig.DisassemblyOnlyMode)
                             {
@@ -1164,12 +1183,13 @@ namespace SharpPy
                     }
                     else
                     {
-                        if (!SharpPyConfig.DisassemblyOnlyMode)
-                        {
-                #if DEBUG_LOG
-        Console.WriteLine($"  ❌ WHILE JUMP_BACKWARD[{jumpBackwardPos}]: 타겟을 찾을 수 없음");
-#endif
-                        }
+                        // jumpBackwardTarget을 찾지 못함 - oparg가 바이트 단위로 계산된 상태로 남음
+                        // 이 경우 VM에서 instruction 단위로 해석하면 잘못된 위치로 점프할 수 있음
+                        #if DEBUG_LOG
+                        Console.WriteLine($"  ❌ WHILE JUMP_BACKWARD[{jumpBackwardPos}]: 타겟을 찾을 수 없음");
+                        Console.WriteLine($"     loopBodyStartPos={loopBodyStartPos}, isContinueStatement={isContinueStatement}");
+                        Console.WriteLine($"     ⚠️ WARNING: oparg가 재계산되지 않아 무한 루프가 발생할 수 있음!");
+                        #endif
                     }
 
                     // 이 JUMP_BACKWARD 이전의 POP_JUMP_IF_FALSE들을 찾아서 루프 종료점으로 수정

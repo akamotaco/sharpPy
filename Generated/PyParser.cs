@@ -1038,36 +1038,14 @@ namespace SharpPy.Generated
             Console.WriteLine($"[DEBUG] ParseWhileStatement: Colon found, advancing");
             Advance(); // consume ':'
 
-            // Parse while body
-            var whileBody = new List<object>();
-            // Parse while body - handle multiple statements in indented block
-            // Continue parsing statements until DEDENT
-            while (CurrentToken != null && CurrentToken.Type.ToString() != "DEDENT" && CurrentToken.Type.ToString() != "ENDMARKER")
+            // Parse while body using ParseBlock (CPython 3.12 grammar: block = NEWLINE INDENT statements DEDENT | simple_stmts)
+            Console.WriteLine($"[DEBUG] ParseWhileStatement: Calling ParseBlock at pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}");
+            var whileBody = ParseBlock();
+            Console.WriteLine($"[DEBUG] ParseWhileStatement: ParseBlock returned {whileBody?.Count ?? 0} statements");
+            if (whileBody == null || whileBody.Count == 0)
             {
-                // Skip any NEWLINE tokens between statements
-                while (CurrentToken?.Type.ToString() == "NEWLINE")
-                {
-                    Advance();
-                }
-
-                if (CurrentToken == null || CurrentToken.Type.ToString() == "DEDENT") break;
-
-                // Try to parse a simple statement (including assignments)
-                var stmt = ParseSimpleStmt();
-                if (stmt != null)
-                {
-                    whileBody.Add(stmt);
-                    // Consume NEWLINE after statement if present
-                    if (CurrentToken?.Type.ToString() == "NEWLINE")
-                    {
-                        Advance();
-                    }
-                }
-                else
-                {
-                    // If no statement could be parsed, break to avoid infinite loop
-                    break;
-                }
+                Console.WriteLine($"[DEBUG] ParseWhileStatement: Failed to parse while body");
+                return null;
             }
 
             // Skip DEDENT if present
@@ -1175,36 +1153,14 @@ namespace SharpPy.Generated
             Console.WriteLine($"[DEBUG] ParseForStatement: Colon found, advancing");
             Advance(); // consume ':'
 
-            // Parse for body
-            var forBody = new List<object>();
-            // Parse for body - handle multiple statements in indented block
-            // Continue parsing statements until DEDENT
-            while (CurrentToken != null && CurrentToken.Type.ToString() != "DEDENT" && CurrentToken.Type.ToString() != "ENDMARKER")
+            // Parse for body using ParseBlock (CPython 3.12 grammar: block = NEWLINE INDENT statements DEDENT | simple_stmts)
+            Console.WriteLine($"[DEBUG] ParseForStatement: Calling ParseBlock at pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}");
+            var forBody = ParseBlock();
+            Console.WriteLine($"[DEBUG] ParseForStatement: ParseBlock returned {forBody?.Count ?? 0} statements");
+            if (forBody == null || forBody.Count == 0)
             {
-                // Skip any NEWLINE tokens between statements
-                while (CurrentToken?.Type.ToString() == "NEWLINE")
-                {
-                    Advance();
-                }
-
-                if (CurrentToken == null || CurrentToken.Type.ToString() == "DEDENT") break;
-
-                // Try to parse any statement (simple or compound like if, while, etc.)
-                var stmt = ParseStatement();
-                if (stmt != null)
-                {
-                    forBody.Add(stmt);
-                    // Consume NEWLINE after statement if present
-                    if (CurrentToken?.Type.ToString() == "NEWLINE")
-                    {
-                        Advance();
-                    }
-                }
-                else
-                {
-                    // If no statement could be parsed, break to avoid infinite loop
-                    break;
-                }
+                Console.WriteLine($"[DEBUG] ParseForStatement: Failed to parse for body");
+                return null;
             }
 
             // Skip DEDENT if present
