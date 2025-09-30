@@ -486,6 +486,26 @@ namespace SharpPy.Generated
                     if (element != null)
                     {
                         elements.Add(element);
+
+                        // CPython 3.12: Check for 'for' keyword → Generator Expression
+                        if (CurrentToken?.Type.ToString() == "NAME" && CurrentToken?.Value == "for")
+                        {
+                            // This is a generator expression: (element for ...)
+                            var generators = ParseForIfClauses();
+                            if (generators != null)
+                            {
+                                // Consume closing ')'
+                                if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == ")")
+                                {
+                                    Advance();
+                                    return new GeneratedExpr
+                                    {
+                                        ExpressionType = "GeneratorExp",
+                                        Value = new { elt = element, generators = generators }
+                                    };
+                                }
+                            }
+                        }
                     }
 
                     // Check for comma separator
@@ -1038,14 +1058,36 @@ namespace SharpPy.Generated
             Console.WriteLine($"[DEBUG] ParseWhileStatement: Colon found, advancing");
             Advance(); // consume ':'
 
-            // Parse while body using ParseBlock (CPython 3.12 grammar: block = NEWLINE INDENT statements DEDENT | simple_stmts)
-            Console.WriteLine($"[DEBUG] ParseWhileStatement: Calling ParseBlock at pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}");
-            var whileBody = ParseBlock();
-            Console.WriteLine($"[DEBUG] ParseWhileStatement: ParseBlock returned {whileBody?.Count ?? 0} statements");
-            if (whileBody == null || whileBody.Count == 0)
+            // Parse while body
+            var whileBody = new List<object>();
+            // Parse while body - handle multiple statements in indented block
+            // Continue parsing statements until DEDENT
+            while (CurrentToken != null && CurrentToken.Type.ToString() != "DEDENT" && CurrentToken.Type.ToString() != "ENDMARKER")
             {
-                Console.WriteLine($"[DEBUG] ParseWhileStatement: Failed to parse while body");
-                return null;
+                // Skip any NEWLINE tokens between statements
+                while (CurrentToken?.Type.ToString() == "NEWLINE")
+                {
+                    Advance();
+                }
+
+                if (CurrentToken == null || CurrentToken.Type.ToString() == "DEDENT") break;
+
+                // Try to parse a simple statement (including assignments)
+                var stmt = ParseSimpleStmt();
+                if (stmt != null)
+                {
+                    whileBody.Add(stmt);
+                    // Consume NEWLINE after statement if present
+                    if (CurrentToken?.Type.ToString() == "NEWLINE")
+                    {
+                        Advance();
+                    }
+                }
+                else
+                {
+                    // If no statement could be parsed, break to avoid infinite loop
+                    break;
+                }
             }
 
             // Skip DEDENT if present
@@ -1153,14 +1195,36 @@ namespace SharpPy.Generated
             Console.WriteLine($"[DEBUG] ParseForStatement: Colon found, advancing");
             Advance(); // consume ':'
 
-            // Parse for body using ParseBlock (CPython 3.12 grammar: block = NEWLINE INDENT statements DEDENT | simple_stmts)
-            Console.WriteLine($"[DEBUG] ParseForStatement: Calling ParseBlock at pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}");
-            var forBody = ParseBlock();
-            Console.WriteLine($"[DEBUG] ParseForStatement: ParseBlock returned {forBody?.Count ?? 0} statements");
-            if (forBody == null || forBody.Count == 0)
+            // Parse for body
+            var forBody = new List<object>();
+            // Parse for body - handle multiple statements in indented block
+            // Continue parsing statements until DEDENT
+            while (CurrentToken != null && CurrentToken.Type.ToString() != "DEDENT" && CurrentToken.Type.ToString() != "ENDMARKER")
             {
-                Console.WriteLine($"[DEBUG] ParseForStatement: Failed to parse for body");
-                return null;
+                // Skip any NEWLINE tokens between statements
+                while (CurrentToken?.Type.ToString() == "NEWLINE")
+                {
+                    Advance();
+                }
+
+                if (CurrentToken == null || CurrentToken.Type.ToString() == "DEDENT") break;
+
+                // Try to parse any statement (simple or compound like if, while, etc.)
+                var stmt = ParseStatement();
+                if (stmt != null)
+                {
+                    forBody.Add(stmt);
+                    // Consume NEWLINE after statement if present
+                    if (CurrentToken?.Type.ToString() == "NEWLINE")
+                    {
+                        Advance();
+                    }
+                }
+                else
+                {
+                    // If no statement could be parsed, break to avoid infinite loop
+                    break;
+                }
             }
 
             // Skip DEDENT if present
@@ -2482,10 +2546,10 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
-        /// Enhanced ParseAssignment method with augmented assignment support
-        /// Handles both regular assignment (=) and augmented assignment (+=, -=, etc.)
+        /// ParseAssignment method - CPython 3.12 compatible
+        /// Handles: annotated assignment, augmented assignment, chained assignment, single assignment
         /// </summary>
-        public GeneratedStmt ParseAssignmentEnhanced()
+        public GeneratedStmt ParseAssignment()
         {
             // Try to parse: target '=' value OR target augassign value
             var mark = Mark();
@@ -2503,11 +2567,11 @@ namespace SharpPy.Generated
                     var augOp = Augassign();
                     if (augOp != null)
                     {
-                        var value = ParseExpression();
-                        if (value != null)
+                        var augValue = ParseExpression();
+                        if (augValue != null)
                         {
                             var augTarget = new { kind = "Name", id = targetName };
-                            return _PyAST_AugAssign(augTarget, augOp, value);
+                            return _PyAST_AugAssign(augTarget, augOp, augValue);
                         }
                     }
                 }
@@ -2517,16 +2581,62 @@ namespace SharpPy.Generated
             }
 
             // Try regular assignment with full expression parsing
-            var target = ParseExpression();
-            if (target != null && CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == "=")
+            // CPython 3.12 grammar: a[asdl_expr_seq*]=(z=star_targets '=' { z })+ b=(yield_expr | star_expressions) !'='
+            // This means: collect one or more (target '=') sequences, then parse the final value
+            var targets = new List<object>();
+
+            // Parse one or more 'target =' patterns
+            while (true)
             {
-                Advance(); // consume '='
-                var value = ParseExpression();
-                if (value != null)
+                var targetMark = Mark();
+                var target = ParseExpression();
+
+                if (target == null)
                 {
-                    return _PyAST_Assign(target, value);
+                    Reset(targetMark);
+                    break;
+                }
+
+                // Check for '=' after target
+                if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "=")
+                {
+                    targets.Add(target);
+                    Advance(); // consume '='
+
+                    // Check if next token is NOT '=' (to avoid matching == comparison)
+                    if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "=")
+                    {
+                        // This is '==' comparison, not assignment - rollback
+                        Reset(targetMark);
+                        targets.RemoveAt(targets.Count - 1);
+                        break;
+                    }
+                }
+                else
+                {
+                    Reset(targetMark);
+                    break;
                 }
             }
+
+            // Must have at least one target
+            if (targets.Count == 0)
+            {
+                Reset(mark);
+                return null;
+            }
+
+            // Parse the value (right side of assignment)
+            var value = ParseExpression();
+            if (value == null)
+            {
+                Reset(mark);
+                return null;
+            }
+
+            // CPython 3.12: Always use List for targets (even single assignment)
+            // This ensures consistent AST structure: Assign(targets=[...], value=...)
+            return _PyAST_Assign(targets, value);
 
             Reset(mark);
             return null;
@@ -2957,28 +3067,6 @@ namespace SharpPy.Generated
 
         /// <summary>
         /// simple_stmt[stmt_ty]: assignment | star_expressions | 'pass' | 'return' | ...
-        /// CRITICAL: assignment MUST precede expression per CPython grammar!
-        /// </summary>
-        public GeneratedStmt ParseAssignment()
-        {
-            // Try to parse: target '=' value
-            var mark = Mark();
-            var target = ParseExpression();
-            if (target != null && CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == "=")
-            {
-                Advance(); // consume '='
-                var value = ParseExpression();
-                if (value != null)
-                {
-                    return _PyAST_Assign(target, value);
-                }
-            }
-            Reset(mark);
-            return null;
-        }
-
-        /// <summary>
-        /// simple_stmt[stmt_ty]: assignment | star_expressions | 'pass' | 'return' | ...
         /// </summary>
         public GeneratedStmt ParseSimpleStmt()
         {
@@ -3032,7 +3120,7 @@ namespace SharpPy.Generated
             }
 
             // CRITICAL: Try assignment NEXT (per python.gram comment)
-            var assignment = ParseAssignmentEnhanced();
+            var assignment = ParseAssignment();
             if (assignment != null)
             {
                 return assignment;

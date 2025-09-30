@@ -239,6 +239,9 @@ namespace SharpPy
 
         private void AnalyzeStatement(Statement statement)
         {
+#if DEBUG_LOG
+            Console.WriteLine($"  AnalyzeStatement: Type={statement.GetType().Name} in scope '{_currentTable?.GetName()}'");
+#endif
             switch (statement)
             {
                 case FunctionDefStatement func:
@@ -255,6 +258,10 @@ namespace SharpPy
 
                 case AssignStatement assign:
                     AnalyzeAssignment(assign);
+                    break;
+
+                case ChainedAssignStatement chainedAssign:
+                    AnalyzeChainedAssignment(chainedAssign);
                     break;
 
                 case AssignTargetStatement assignTarget:
@@ -1123,6 +1130,28 @@ namespace SharpPy
             if (assign.Value != null)
             {
                 AnalyzeExpression(assign.Value);
+            }
+        }
+
+        private void AnalyzeChainedAssignment(ChainedAssignStatement chainedAssign)
+        {
+#if DEBUG_LOG
+            Console.WriteLine($"  AnalyzeChainedAssignment: Processing {chainedAssign.Targets.Count} targets in scope '{_currentTable?.GetName()}'");
+#endif
+            // For chained assignments like "a = b = c = value" or "gen = (x for x in [1, 2, 3])"
+            // First analyze the right-hand side expression
+            if (chainedAssign.Value != null)
+            {
+                AnalyzeExpression(chainedAssign.Value);
+            }
+
+            // Then mark all targets as assigned (left-to-right)
+            foreach (var target in chainedAssign.Targets)
+            {
+#if DEBUG_LOG
+                Console.WriteLine($"    → Analyzing target: {target.GetType().Name}");
+#endif
+                AnalyzeAssignmentTarget(target);
             }
         }
 

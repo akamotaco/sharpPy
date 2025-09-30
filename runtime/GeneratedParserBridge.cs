@@ -121,17 +121,35 @@ namespace SharpPy
 
                     if (stmt.StatementType == "assignment")
                     {
-                        // Look for chain assignment pattern
+                        // CPython 3.12: New parser already handles chained assignments with Targets field
+                        // Old-style chain detection (Target field) is no longer needed
+                        // Just check if this uses the new format
+                        var assignmentData = stmt.Value as dynamic;
+                        try
+                        {
+                            var hasTargets = assignmentData?.Targets != null;
+                            if (hasTargets)
+                            {
+#if DEBUG_LOG
+                                Console.WriteLine($"[DEBUG] New-style assignment with Targets field detected, skipping old chain detection");
+#endif
+                                // This is already a properly formatted assignment, no chain detection needed
+                                var convertedStmt = ConvertStatement(stmt, false, false);
+                                if (convertedStmt != null)
+                                    statements.Add(convertedStmt);
+                                continue;
+                            }
+                        }
+                        catch
+                        {
+                            // Targets field doesn't exist, fall through to old-style chain detection
+                        }
+
+                        // Look for old-style chain assignment pattern (for backward compatibility)
                         var chainGroup = DetectChainAssignment(moduleStmts, i);
 
 #if DEBUG_LOG
-                        Console.WriteLine($"[DEBUG] Chain assignment detection: Index {i}, ChainGroup.Count = {chainGroup.Count}");
-                        for (int j = 0; j < chainGroup.Count; j++)
-                        {
-                            var chainStmt = chainGroup[j];
-                            var data = chainStmt.Value as dynamic;
-                            Console.WriteLine($"[DEBUG]   Chain[{j}]: Target='{data?.Target}', Value='{data?.Value}'");
-                        }
+                        Console.WriteLine($"[DEBUG] Old-style chain assignment detection: Index {i}, ChainGroup.Count = {chainGroup.Count}");
 #endif
 
                         if (chainGroup.Count > 1)
@@ -447,12 +465,74 @@ namespace SharpPy
                     return null;
 
                 case "assignment":
-                    // Assignment statement (name = value)
+                    // Assignment statement (name = value OR a = b = c = value)
                     if (stmt.Value != null)
                     {
                         var assignmentData = stmt.Value as dynamic;
-                        var target = assignmentData?.Target;
-                        var valueExpr = assignmentData?.Value;
+
+                        // Check if this is chained assignment (Targets list) or single assignment (Target)
+                        object targets = null;
+                        object target = null;
+                        object valueExpr = null;
+
+                        try
+                        {
+                            targets = assignmentData?.Targets;  // List<object> for chained
+                        }
+                        catch { }
+
+                        try
+                        {
+                            target = assignmentData?.Target;     // object for single
+                        }
+                        catch { }
+
+                        try
+                        {
+                            valueExpr = assignmentData?.Value;
+                        }
+                        catch { }
+
+#if DEBUG_LOG
+                        Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Targets={targets != null}, Target={target != null}, Value={valueExpr != null}");
+#endif
+
+                        // Handle chained assignment (a = b = c = value)
+                        if (targets != null)
+                        {
+                            try
+                            {
+                                var targetList = targets as System.Collections.IList;
+#if DEBUG_LOG
+                                Console.WriteLine($"[DEBUG] ConvertStatement: Chained assignment with {targetList?.Count ?? 0} targets");
+#endif
+                                if (targetList != null && targetList.Count > 0)
+                                {
+                                    // Convert all targets to expressions
+                                    var targetExprs = new List<Expression>();
+                                    foreach (var t in targetList)
+                                    {
+                                        var convertedTarget = ConvertAnyExpression(t);
+                                        if (convertedTarget != null)
+                                        {
+                                            targetExprs.Add(convertedTarget);
+                                        }
+                                    }
+
+                                    // Convert value
+                                    Expression convertedValueExpr = ConvertAnyExpression(valueExpr);
+
+                                    // Return ChainedAssignStatement
+                                    return new ChainedAssignStatement(targetExprs, convertedValueExpr);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+#if DEBUG_LOG
+                                Console.WriteLine($"[DEBUG] ConvertStatement: Chained assignment error: {ex.Message}");
+#endif
+                            }
+                        }
 
 #if DEBUG_LOG
                         Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Target='{target}', Value='{valueExpr}', ValueType={valueExpr?.GetType()}");
@@ -1131,7 +1211,11 @@ namespace SharpPy
                         foreach (var exceptBlock in stmt.ExceptClauses)
                         {
                             var exceptData = exceptBlock as dynamic;
-
+#if DEBUG_LOG
+                            Console.WriteLine($"[DEBUG] exceptData type: {exceptData?.GetType()?.Name}");
+                            Console.WriteLine($"[DEBUG] exceptData.type: {exceptData?.type?.GetType()?.Name} = {exceptData?.type}");
+                            Console.WriteLine($"[DEBUG] exceptData.name: {exceptData?.name?.GetType()?.Name} = {exceptData?.name}");
+#endif
                                 // Convert except body statements
                                 var exceptBodyStmts = new List<Statement>();
                                 if (exceptData.body != null)
@@ -1144,10 +1228,33 @@ namespace SharpPy
                                     }
                                 }
 
-                                // For now, create a catch-all exception handler (no specific type)
-                                // TODO: Implement proper exception type parsing
+                                // CPython 3.12: Parse exception type and variable name
                                 Expression? exceptionTypeExpr = null;
+                                if (exceptData.type != null)
+                                {
+                                    // Parser returns type as string (e.g. "ValueError")
+                                    // Convert to NameExpression
+                                    if (exceptData.type is string typeStr)
+                                    {
+                                        exceptionTypeExpr = new NameExpression(typeStr);
+                                    }
+                                    else if (exceptData.type is GeneratedExpr)
+                                    {
+                                        exceptionTypeExpr = ConvertAnyExpression(exceptData.type);
+                                    }
+                                }
+
+                                // exceptData.name is already a string (not GeneratedExpr)
                                 string? variableName = null;
+                                try
+                                {
+                                    variableName = exceptData.name != null ? exceptData.name.ToString() : null;
+                                }
+                                catch
+                                {
+                                    // If name field doesn't exist or can't be converted, leave as null
+                                }
+
                                 exceptHandlersList.Add(new ExceptHandler(exceptionTypeExpr, variableName, exceptBodyStmts));
                             }
                         }
@@ -3234,8 +3341,8 @@ namespace SharpPy
         /// </summary>
         private static Expression ConvertGeneratorExpression(dynamic expr)
         {
-            // Extract element and generators
-            var element = ConvertDynamicToExpression(expr.element);
+            // Extract element and generators (CPython uses 'elt' in AST)
+            var element = ConvertDynamicToExpression(expr.elt);
             var generators = ConvertComprehensionGenerators(expr.generators);
 
             // Create proper generator expression AST node
