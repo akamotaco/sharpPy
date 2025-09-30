@@ -2385,8 +2385,6 @@ namespace SharpPy
         /// </summary>
         private static Expression ConvertAnyExpression(dynamic expr)
         {
-            Console.WriteLine($"[DEBUG] ConvertAnyExpression: Input object type: {expr?.GetType()?.Name}, Value: {expr}");
-
             if (expr == null)
             {
                 throw new ArgumentNullException(nameof(expr), "Expression cannot be null");
@@ -2395,16 +2393,13 @@ namespace SharpPy
             // Primary path: Handle GeneratedExpr objects (modern parser output)
             if (expr is GeneratedExpr genExpr)
             {
-                Console.WriteLine($"[DEBUG] ConvertAnyExpression: Converting GeneratedExpr with type '{genExpr.ExpressionType}'");
                 return ConvertGeneratedExpression(genExpr);
             }
 
             // Also check by type name in case dynamic binding interferes
             if (expr?.GetType()?.Name == "GeneratedExpr")
             {
-                Console.WriteLine($"[DEBUG] ConvertAnyExpression: Found GeneratedExpr by type name");
                 var exprType = expr.GetType().GetProperty("ExpressionType")?.GetValue(expr)?.ToString();
-                Console.WriteLine($"[DEBUG] ConvertAnyExpression: ExpressionType = {exprType}");
                 return ConvertGeneratedExpression(expr);
             }
 

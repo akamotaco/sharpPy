@@ -400,9 +400,18 @@ namespace SharpPy.Generated
             }
 
             // NAME
+            // CPython 3.12: NAME tokens cannot be keywords
             if (CurrentToken.Type.ToString() == "NAME")
             {
                 var name = CurrentToken.Value;
+
+                // CPython 3.12: Keywords cannot be used as identifiers
+                if (IsKeyword(name))
+                {
+                    // Keyword found - not a valid identifier in this context
+                    return null;
+                }
+
                 Advance();
                 return new GeneratedExpr
                 {
@@ -2327,26 +2336,61 @@ namespace SharpPy.Generated
                 {
                     switch (CurrentToken.Value)
                     {
-                        case "==": op = "Eq"; break;
-                        case "!=": op = "NotEq"; break;
-                        case "<": op = "Lt"; break;
-                        case "<=": op = "LtE"; break;
-                        case ">": op = "Gt"; break;
-                        case ">=": op = "GtE"; break;
+                        case "==": op = "Eq"; Advance(); goto operator_found;
+                        case "!=": op = "NotEq"; Advance(); goto operator_found;
+                        case "<": op = "Lt"; Advance(); goto operator_found;
+                        case "<=": op = "LtE"; Advance(); goto operator_found;
+                        case ">": op = "Gt"; Advance(); goto operator_found;
+                        case ">=": op = "GtE"; Advance(); goto operator_found;
                     }
                 }
                 else if (CurrentToken.Type == GeneratedTokenType.NAME)
                 {
-                    switch (CurrentToken.Value)
+                    // CPython 3.12: Handle 'not in' and 'is not' as 2-token sequences
+                    if (CurrentToken.Value == "not")
                     {
-                        case "in": op = "In"; break;
-                        case "is": op = "Is"; break;
+                        var nextPos = _position + 1;
+                        if (nextPos < _tokens.Count && _tokens[nextPos].Type == GeneratedTokenType.NAME)
+                        {
+                            if (_tokens[nextPos].Value == "in")
+                            {
+                                op = "NotIn";
+                                Advance(); // consume 'not'
+                                Advance(); // consume 'in'
+                                goto operator_found;
+                            }
+                        }
+                    }
+                    else if (CurrentToken.Value == "is")
+                    {
+                        var nextPos = _position + 1;
+                        if (nextPos < _tokens.Count && _tokens[nextPos].Type == GeneratedTokenType.NAME && _tokens[nextPos].Value == "not")
+                        {
+                            op = "IsNot";
+                            Advance(); // consume 'is'
+                            Advance(); // consume 'not'
+                            goto operator_found;
+                        }
+                        else
+                        {
+                            op = "Is";
+                            Advance(); // consume 'is'
+                            goto operator_found;
+                        }
+                    }
+                    else if (CurrentToken.Value == "in")
+                    {
+                        op = "In";
+                        Advance(); // consume 'in'
+                        goto operator_found;
                     }
                 }
 
+                operator_found:
+
                 if (op == null) break; // No more comparison operators
 
-                Advance(); // consume operator
+                // Note: operator already consumed by specific handlers above
                 var right = ParseSum();
                 if (right == null)
                 {

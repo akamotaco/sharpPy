@@ -1188,6 +1188,7 @@ namespace SharpPy.PegGenerator.Interpreter
 
         /// <summary>
         /// Parse a token type by matching current token against expected type
+        /// CPython 3.12: NAME tokens cannot be keywords
         /// </summary>
         private IPegParseResult ParseTokenType(string tokenType)
         {
@@ -1198,6 +1199,13 @@ namespace SharpPy.PegGenerator.Interpreter
 
             if (current.Type.ToString() == tokenType)
             {
+                // CPython 3.12: NAME tokens cannot be keywords (in, not, for, etc.)
+                if (tokenType == "NAME" && IsKeyword(current.Value))
+                {
+                    Console.WriteLine($"[DEBUG] Rejecting keyword '{current.Value}' as NAME token");
+                    return PegFailure.Instance;
+                }
+
                 Advance();
                 return new PegTokenResult(current, _position);
             }

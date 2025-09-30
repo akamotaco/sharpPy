@@ -570,6 +570,23 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
+        /// Check if a value is a Python keyword
+        /// CPython 3.12: Keywords cannot be used as identifiers
+        /// </summary>
+        protected bool IsKeyword(string value)
+        {
+            // CPython 3.12 keyword list
+            var keywords = new System.Collections.Generic.HashSet<string>
+            {
+                "and", "as", "assert", "async", "await", "break", "case", "class", "continue",
+                "def", "del", "elif", "else", "except", "False", "finally", "for", "from",
+                "global", "if", "import", "in", "is", "lambda", "match", "None", "nonlocal",
+                "not", "or", "pass", "raise", "return", "True", "try", "type", "while", "with", "yield"
+            };
+            return keywords.Contains(value);
+        }
+
+        /// <summary>
         /// Expect a specific token type and value
         /// </summary>
         protected bool ExpectToken(GeneratedTokenType tokenType, string value = null)
