@@ -671,35 +671,8 @@ namespace SharpPy
                             }
                             else
                             {
-                                // Handle legacy target object with { type = "name", value = "variable_name" } structure
-                                if (target is object targetObj)
-                                {
-                                    var targetType = targetObj.GetType();
-                                    try
-                                    {
-                                        var typeProperty = targetType.GetProperty("type");
-                                        var valueProperty = targetType.GetProperty("value");
-
-                                        if (typeProperty != null && valueProperty != null)
-                                        {
-                                            var typeValue = typeProperty.GetValue(targetObj)?.ToString();
-                                            if (typeValue == "name")
-                                            {
-                                                targetName = valueProperty.GetValue(targetObj)?.ToString();
-                                            }
-                                        }
-                                    }
-                                    catch (Exception)
-                                    {
-                                        // Ignore property access errors for legacy objects
-                                    }
-                                }
-                            }
-
-                            // Fallback to toString() if property extraction fails
-                            if (string.IsNullOrEmpty(targetName))
-                            {
-                                targetName = target.ToString();
+                                // CPython 3.12: All targets must be GeneratedExpr
+                                throw new InvalidOperationException($"Assignment target is not GeneratedExpr: {target?.GetType()?.Name}. Parser should generate GeneratedExpr objects.");
                             }
 
 #if DEBUG_LOG
@@ -2435,28 +2408,7 @@ namespace SharpPy
                 return ConvertGeneratedExpression(expr);
             }
 
-            // TEMPORARY FIX: Handle legacy anonymous objects until parser consistency is achieved
-            if (expr != null)
-            {
-                var type = expr.GetType();
-                var typeProperty = type.GetProperty("type");
-                var valueProperty = type.GetProperty("value");
-
-                if (typeProperty != null && valueProperty != null)
-                {
-                    var typeValue = typeProperty.GetValue(expr)?.ToString();
-                    var nameValue = valueProperty.GetValue(expr)?.ToString();
-
-                    if (typeValue == "name" && !string.IsNullOrEmpty(nameValue))
-                    {
-                        Console.WriteLine($"[DEBUG] ConvertAnyExpression: Converting legacy anonymous name object: {nameValue}");
-                        // Note: Legacy objects don't have context info, default to Load
-                        return new NameExpression(nameValue, Load.Instance);
-                    }
-                }
-            }
-
-            // This should not happen - all parsers should return GeneratedExpr objects
+            // CPython 3.12: All parsers must return GeneratedExpr objects for consistency
             throw new InvalidOperationException($"ConvertAnyExpression received non-GeneratedExpr object: {expr?.GetType()?.Name}. Object: {expr}. All parsers should return GeneratedExpr objects. This indicates a parser inconsistency that needs to be fixed.");
         }
 
@@ -3300,55 +3252,14 @@ namespace SharpPy
         {
             if (expr == null) return new ConstantExpression(PyNone.Instance);
 
-            // If this is a GeneratedExpr, delegate to ConvertAnyExpression
+            // CPython 3.12: All expressions should be GeneratedExpr
             if (expr is GeneratedExpr)
             {
                 return ConvertAnyExpression(expr);
             }
 
-            // Handle legacy dynamic objects with .type property
-            string type;
-            try
-            {
-                type = expr.type as string;
-                if (string.IsNullOrEmpty(type))
-                {
-                    return new ConstantExpression(PyNone.Instance);
-                }
-            }
-            catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
-            {
-                // Object doesn't have .type property, might be a GeneratedExpr that wasn't caught above
-                return ConvertAnyExpression(expr);
-            }
-
-            return type switch
-            {
-                "name" => new NameExpression(expr.value as string ?? ""),
-                "number" => new ConstantExpression(new PyInt((int)Convert.ToInt64(expr.value ?? 0))),
-                "string" => ConvertStringLiteral(expr.value as string ?? ""),
-                "binop" => ConvertBinaryOperation(expr),
-                "list" => ConvertListLiteral(expr),
-                "call" => ConvertCallOperation(expr),
-                "slice" => ConvertSliceExpression(expr),
-                "starred" => ConvertStarredExpression(expr),
-                "namedexpr" => ConvertNamedExpression(expr),
-                "subscript" => ConvertSubscriptExpression(expr),
-                "tuple" => ConvertTupleExpression(expr),
-                "dict" => ConvertDictLiteral(expr),
-                "set" => ConvertSetExpression(expr),
-                "await" => ConvertAwaitExpression(expr),
-                // Pattern matching patterns
-                "literal_pattern" => ConvertLiteralPattern(expr),
-                "capture_pattern" => ConvertCapturePattern(expr),
-                "wildcard_pattern" => ConvertWildcardPattern(expr),
-                "value_pattern" => ConvertValuePattern(expr),
-                "group_pattern" => ConvertGroupPattern(expr),
-                "sequence_pattern" => ConvertSequencePattern(expr),
-                "mapping_pattern" => ConvertMappingPattern(expr),
-                "class_pattern" => ConvertClassPattern(expr),
-                _ => new ConstantExpression(PyNone.Instance)
-            };
+            // All parsers should return GeneratedExpr objects
+            throw new InvalidOperationException($"ConvertDynamicToExpression received non-GeneratedExpr object: {expr?.GetType()?.Name}. Parser should generate GeneratedExpr objects.");
         }
 
 
