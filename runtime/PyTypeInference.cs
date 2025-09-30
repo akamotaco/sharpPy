@@ -224,12 +224,12 @@ namespace SharpPy
         private PyTypeInfo InferUnaryOpType(UnaryOpExpression unaryOp)
         {
             var operandType = AnalyzeExpression(unaryOp.Operand);
-            
-            return unaryOp.Op switch
+
+            return unaryOp.OpNode switch
             {
-                "+" or "-" => operandType.IsNumeric ? operandType : PyTypeInfo.Unknown,
-                "~" => operandType.IsInt ? PyTypeInfo.Int : PyTypeInfo.Unknown,
-                "not" => PyTypeInfo.Bool,
+                UAdd or USub => operandType.IsNumeric ? operandType : PyTypeInfo.Unknown,
+                Invert => operandType.IsInt ? PyTypeInfo.Int : PyTypeInfo.Unknown,
+                Not => PyTypeInfo.Bool,
                 _ => PyTypeInfo.Unknown
             };
         }

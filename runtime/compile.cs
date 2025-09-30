@@ -264,7 +264,7 @@ namespace SharpPy
                     }
                     break;
                     
-                case BinaryOpExpression binary:
+                case BinOpExpression binary:
                     AnalyzeExpression(binary.Left);
                     AnalyzeExpression(binary.Right);
                     break;
@@ -398,7 +398,7 @@ namespace SharpPy
                     }
                     break;
                     
-                case BinaryOpExpression binary:
+                case BinOpExpression binary:
                     FindCellNeededVarsRecursive(binary.Left, cellNeeded);
                     FindCellNeededVarsRecursive(binary.Right, cellNeeded);
                     break;
@@ -1775,15 +1775,15 @@ namespace SharpPy
                     // Value remains on stack as return value
                     break;
                     
-                case BinaryOpExpression binOp:
+                case BinOpExpression binOp:
                     CompileExpression(binOp.Left);
                     CompileExpression(binOp.Right);
-                    EmitBinaryOp(binOp.Operator);
+                    EmitBinaryOp(binOp.OpNode);
                     break;
-                    
+
                 case UnaryOpExpression unaryOp:
                     CompileExpression(unaryOp.Operand);
-                    EmitUnaryOp(unaryOp.Op);
+                    EmitUnaryOp(unaryOp.OpNode);
                     break;
                     
                 case CompareExpression compare:
@@ -3338,41 +3338,11 @@ namespace SharpPy
             return builtins.Contains(name);
         }
         
-        private void EmitBinaryOp(string op)
+        private void EmitBinaryOp(BinaryOperator op)
         {
-            // CPython 3.12 정확한 BINARY_OP 구조 - 새로운 순서로 업데이트됨
-            var operation = op switch
-            {
-                "+" => BinaryOpType.ADD,                  // 0 ✅ 변경 없음
-                "Add" => BinaryOpType.ADD,                // Parser uses Add for +
-                "-" => BinaryOpType.SUBTRACT,             // 1 (was 9)
-                "Sub" => BinaryOpType.SUBTRACT,           // Parser uses Sub for -
-                "*" => BinaryOpType.MULTIPLY,             // 2 (was 5)
-                "Mult" => BinaryOpType.MULTIPLY,          // Parser uses Mult for *
-                "/" => BinaryOpType.TRUE_DIVIDE,          // 3 (was 11)
-                "Div" => BinaryOpType.TRUE_DIVIDE,        // Parser uses Div for /
-                "//" => BinaryOpType.FLOOR_DIVIDE,        // 4 (was 2)
-                "FloorDiv" => BinaryOpType.FLOOR_DIVIDE,  // Parser uses FloorDiv for //
-                "%" => BinaryOpType.MODULO,               // 5 (was 4)
-                "Mod" => BinaryOpType.MODULO,             // Parser uses Mod for %
-                "**" => BinaryOpType.POWER,               // 6 (was 8)
-                "Pow" => BinaryOpType.POWER,              // 6 (backward compatibility)
-                "<<" => BinaryOpType.LSHIFT,              // 7 (was 3)
-                "LShift" => BinaryOpType.LSHIFT,         // Parser uses LShift for <<
-                ">>" => BinaryOpType.RSHIFT,              // 8 (was 7)
-                "RShift" => BinaryOpType.RSHIFT,         // Parser uses RShift for >>
-                "|" => BinaryOpType.OR,                   // 9 (was 6)
-                "BitOr" => BinaryOpType.OR,              // Parser uses BitOr for |
-                "^" => BinaryOpType.XOR,                  // 10 (was 10)
-                "BitXor" => BinaryOpType.XOR,            // Parser uses BitXor for ^
-                "&" => BinaryOpType.AND,                  // 11 (was 1)
-                "BitAnd" => BinaryOpType.AND,            // Parser uses BitAnd for &
-                // "@" => BinaryOpType.MATRIX_MULTIPLY,      // Not implemented yet
-                // "MatMult" => BinaryOpType.MATRIX_MULTIPLY, // Not implemented yet
-                // Note: "and" and "or" are now handled as BoolOpExpression, not BinaryOpExpression
-                _ => throw new NotImplementedException($"Binary operator '{op}' not implemented")
-            };
-            
+            // CPython 3.12: Use operator's GetOpType() method directly
+            var operation = op.GetOpType();
+
             // BINARY_OP OpCode와 operation 타입을 argument로 전달
             EmitInstruction(ByteCodeOp.BINARY_OP, (int)operation);
         }
@@ -3426,18 +3396,16 @@ namespace SharpPy
         
         // 추가 컴파일 메서드들
         
-        private void EmitUnaryOp(string op)
+        private void EmitUnaryOp(UnaryOperator op)
         {
+            // CPython 3.12: Use type-based switch on operator
             var opCode = op switch
             {
-                "+" => ByteCodeOp.UNARY_POSITIVE,
-                "UAdd" => ByteCodeOp.UNARY_POSITIVE,    // Parser generates UAdd
-                "-" => ByteCodeOp.UNARY_NEGATIVE,
-                "USub" => ByteCodeOp.UNARY_NEGATIVE,    // Parser generates USub
-                "not" => ByteCodeOp.UNARY_NOT,
-                "~" => ByteCodeOp.UNARY_INVERT,
-                "Invert" => ByteCodeOp.UNARY_INVERT,    // Parser generates Invert
-                _ => throw new NotImplementedException($"Unary operator '{op}' not implemented")
+                UAdd => ByteCodeOp.UNARY_POSITIVE,
+                USub => ByteCodeOp.UNARY_NEGATIVE,
+                Not => ByteCodeOp.UNARY_NOT,
+                Invert => ByteCodeOp.UNARY_INVERT,
+                _ => throw new NotImplementedException($"Unary operator '{op.OperatorType}' not implemented")
             };
             EmitInstruction(opCode);
         }
@@ -4653,7 +4621,7 @@ namespace SharpPy
 #endif
                     return result;
 
-                case BinaryOpExpression binary:
+                case BinOpExpression binary:
                     return ContainsSuperCallsInExpression(binary.Left) ||
                            ContainsSuperCallsInExpression(binary.Right);
 
@@ -6329,10 +6297,10 @@ namespace SharpPy
                     
                     return true;
                 
-                case BinaryOpExpression binaryOp when binaryOp.Operator == "|":
-                    // Handle BinaryOpExpression with OR operator as OrPattern
+                case BinOpExpression binaryOp when binaryOp.OpNode is BitOr:
+                    // Handle BinOpExpression with OR operator as OrPattern
                     #if DEBUG_LOG
-                    Console.WriteLine($"🔍 BinaryOpExpression OR converted to OrPattern: {binaryOp.Left} | {binaryOp.Right}");
+                    Console.WriteLine($"🔍 BinOpExpression OR converted to OrPattern: {binaryOp.Left} | {binaryOp.Right}");
                     #endif
                     var binaryPatterns = new List<Expression> { binaryOp.Left, binaryOp.Right };
                     return CompileOrPatternLogic(binaryPatterns, failLabel);
@@ -6930,7 +6898,7 @@ namespace SharpPy
         {
             foreach (var pattern in patterns)
             {
-                if (pattern is BinaryOpExpression binaryExpr && binaryExpr.Operator == "|")
+                if (pattern is BinOpExpression binaryExpr && binaryExpr.OpNode is BitOr)
                 {
                     // Recursively flatten nested OR patterns
                     var nestedPatterns = new List<Expression> { binaryExpr.Left, binaryExpr.Right };
@@ -6953,7 +6921,7 @@ namespace SharpPy
                 case MappingPattern _:
                     return false; // These patterns leave unpacked values on stack
                     
-                case BinaryOpExpression binaryExpr when binaryExpr.Operator == "|":
+                case BinOpExpression binaryExpr when binaryExpr.OpNode is BitOr:
                     return true; // OR patterns should cleanup subject
                     
                 case ConstantExpression _:
@@ -7209,13 +7177,13 @@ namespace SharpPy
                 
                 // CPython 3.12: DUP_TOP (similar to COPY 1)
                 EmitInstruction(ByteCodeOp.COPY, 1);
-                
-                if (boolOp.Op == "and")
+
+                if (boolOp.OpNode is And)
                 {
                     // For 'and': if current value is falsy, jump to end (short-circuit)
                     EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, endLabel);
                 }
-                else if (boolOp.Op == "or")
+                else if (boolOp.OpNode is Or)
                 {
                     // For 'or': if current value is truthy, jump to end (short-circuit)
                     EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_TRUE, endLabel);
@@ -9048,7 +9016,7 @@ namespace SharpPy
                 for (int j = 1; j < allConditions.Count; j++)
                 {
                     combinedCondition = new BoolOpExpression(
-                        "and",
+                        And.Instance,
                         new List<Expression> { combinedCondition, allConditions[j] }
                     );
                 }

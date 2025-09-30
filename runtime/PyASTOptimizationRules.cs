@@ -93,18 +93,18 @@ namespace SharpPy
         {
             var unaryOp = (UnaryOpExpression)node;
             var literal = (ConstantExpression)unaryOp.Operand;
-            
+
             try
             {
-                var result = unaryOp.Op switch
+                var result = unaryOp.OpNode switch
                 {
-                    "-" => literal.Value.Negative(),
-                    "+" => literal.Value.Positive(),
-                    "~" => literal.Value.BitwiseNot(),
-                    "not" => literal.Value.ToBool() ? PyBool.False : PyBool.True,
-                    _ => throw new NotSupportedException($"Unary operator {unaryOp.Op} not supported")
+                    USub => literal.Value.Negative(),
+                    UAdd => literal.Value.Positive(),
+                    Invert => literal.Value.BitwiseNot(),
+                    Not => literal.Value.ToBool() ? PyBool.False : PyBool.True,
+                    _ => throw new NotSupportedException($"Unary operator {unaryOp.OpNode.OperatorType} not supported")
                 };
-                
+
                 return new ConstantExpression(result);
             }
             catch (Exception)
@@ -217,14 +217,16 @@ namespace SharpPy
 
         public ASTNode Optimize(ASTNode node)
         {
-            if (node is BinaryOpExpression binOp)
+            if (node is BinOpExpression binOp)
             {
-                return OptimizeBinaryBoolOp(binOp, binOp.Left, binOp.Right, binOp.Operator);
+                // For now, BinOp optimization not implemented for non-bool operators
+                return node;
             }
 
             if (node is BoolOpExpression boolOp && boolOp.Values.Count == 2)
             {
-                return OptimizeBinaryBoolOp(boolOp, boolOp.Values[0], boolOp.Values[1], boolOp.Op);
+                var opString = boolOp.OpNode is And ? "and" : "or";
+                return OptimizeBinaryBoolOp(boolOp, boolOp.Values[0], boolOp.Values[1], opString);
             }
 
             return node;

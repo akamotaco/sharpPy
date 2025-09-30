@@ -231,16 +231,16 @@ namespace SharpPy
         {
             switch (expr)
             {
-                case BinaryOpExpression binOp:
-                    return new BinaryOpExpression(
+                case BinOpExpression binOp:
+                    return new BinOpExpression(
                         OptimizeExpression(binOp.Left, ref optimizationCount, depth),
-                        binOp.Operator,
+                        binOp.OpNode,
                         OptimizeExpression(binOp.Right, ref optimizationCount, depth)
                     );
 
                 case UnaryOpExpression unaryOp:
                     return new UnaryOpExpression(
-                        unaryOp.Op,
+                        unaryOp.OpNode,
                         OptimizeExpression(unaryOp.Operand, ref optimizationCount, depth)
                     );
 

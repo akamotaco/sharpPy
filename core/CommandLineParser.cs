@@ -47,6 +47,10 @@ namespace SharpPy.Core
                         options["--tokens"] = "true";
                         break;
 
+                    case "--ast":
+                        options["--ast"] = "true";
+                        break;
+
                     case "--compare-parsers":
                         options["--compare-parsers"] = "true";
                         break;

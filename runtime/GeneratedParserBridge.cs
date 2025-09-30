@@ -363,8 +363,8 @@ namespace SharpPy
                 {
                     Expression convertedValueExpr = ConvertAnyExpression(valueExpr);
 
-                    // Convert target names to NameExpression objects
-                    var targetExpressions = targetNames.Select(name => (Expression)new NameExpression(name)).ToList();
+                    // Convert target names to NameExpression objects with Store context (CPython 3.12)
+                    var targetExpressions = targetNames.Select(name => (Expression)new NameExpression(name, Store.Instance)).ToList();
 
                     return new ChainedAssignStatement(targetExpressions, convertedValueExpr);
                 }
@@ -2232,8 +2232,33 @@ namespace SharpPy
             // Convert right operand
             Expression rightExpr = ConvertAnyExpression(right);
 
-            // BinaryOpExpression takes string operator directly
-            return new BinaryOpExpression(leftExpr, op, rightExpr);
+            // CPython 3.12: Convert string operator to BinaryOperator node
+            var opNode = ConvertToBinaryOperator(op);
+            return new BinOpExpression(leftExpr, opNode, rightExpr);
+        }
+
+        /// <summary>
+        /// Convert string operator to CPython 3.12 compatible BinaryOperator node
+        /// </summary>
+        private static BinaryOperator ConvertToBinaryOperator(string op)
+        {
+            return op switch
+            {
+                "+" => Add.Instance,
+                "-" => Sub.Instance,
+                "*" => Mult.Instance,
+                "/" => Div.Instance,
+                "//" => FloorDiv.Instance,
+                "%" => Mod.Instance,
+                "**" => Pow.Instance,
+                "<<" => LShift.Instance,
+                ">>" => RShift.Instance,
+                "|" => BitOr.Instance,
+                "^" => BitXor.Instance,
+                "&" => BitAnd.Instance,
+                "@" => MatMult.Instance,
+                _ => throw new NotImplementedException($"Unknown binary operator: {op}")
+            };
         }
 
         /// <summary>
@@ -2576,7 +2601,8 @@ namespace SharpPy
                 _ => throw new NotSupportedException($"Unsupported BoolOp: {opValue}")
             };
 
-            return new BoolOpExpression(boolOpString, expressions);
+            var boolOpNode = ConvertToBoolOperator(boolOpString);
+            return new BoolOpExpression(boolOpNode, expressions);
         }
 
         /// <summary>
@@ -2610,17 +2636,37 @@ namespace SharpPy
             // Convert operand to expression
             var operandExpr = ConvertAnyExpression(operand);
 
-            // Create UnaryOpExpression based on operator
-            var unaryOpString = opValue switch
-            {
-                "Not" => "not",
-                "UAdd" => "+",
-                "USub" => "-",
-                "Invert" => "~",
-                _ => throw new NotSupportedException($"Unsupported UnaryOp: {opValue}")
-            };
+            // CPython 3.12: Convert string operator to UnaryOperator node
+            var opNode = ConvertToUnaryOperator(opValue);
+            return new UnaryOpExpression(opNode, operandExpr);
+        }
 
-            return new UnaryOpExpression(unaryOpString, operandExpr);
+        /// <summary>
+        /// Convert operator string to CPython 3.12 UnaryOperator node
+        /// </summary>
+        private static UnaryOperator ConvertToUnaryOperator(string op)
+        {
+            return op switch
+            {
+                "Not" => Not.Instance,
+                "UAdd" => UAdd.Instance,
+                "USub" => USub.Instance,
+                "Invert" => Invert.Instance,
+                _ => throw new NotImplementedException($"Unknown unary operator: {op}")
+            };
+        }
+
+        /// <summary>
+        /// Convert operator string to CPython 3.12 BoolOperator node
+        /// </summary>
+        private static BoolOperator ConvertToBoolOperator(string op)
+        {
+            return op switch
+            {
+                "and" => And.Instance,
+                "or" => Or.Instance,
+                _ => throw new NotImplementedException($"Unknown boolean operator: {op}")
+            };
         }
 
         /// <summary>
@@ -2869,7 +2915,9 @@ namespace SharpPy
             var leftExpr = ConvertAnyExpression(left);
             var rightExpr = ConvertAnyExpression(right);
 
-            return new BinaryOpExpression(leftExpr, op, rightExpr);
+            // CPython 3.12: Convert string operator to BinaryOperator node
+            var opNode = ConvertToBinaryOperator(op);
+            return new BinOpExpression(leftExpr, opNode, rightExpr);
         }
 
         /// <summary>
@@ -3592,15 +3640,20 @@ namespace SharpPy
             {
                 foreach (var generator in generators)
                 {
-                    // Convert target (the variable being iterated)
+                    // Convert target (the variable being iterated) with Store context (CPython 3.12)
                     Expression target;
                     if (generator.target is string targetName)
                     {
-                        target = new NameExpression(targetName);
+                        target = new NameExpression(targetName, Store.Instance);
                     }
                     else
                     {
                         target = ConvertDynamicToExpression(generator.target);
+                        // If it's a NameExpression, ensure Store context
+                        if (target is NameExpression nameExpr && nameExpr.Ctx?.ContextType != "Store")
+                        {
+                            target = new NameExpression(nameExpr.Name, Store.Instance);
+                        }
                     }
 
                     // Convert iterable (what we're iterating over)

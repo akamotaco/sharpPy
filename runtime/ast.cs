@@ -52,6 +52,252 @@ namespace SharpPy
             return AsName != null ? $"{Name} as {AsName}" : Name;
         }
     }
+
+    #region CPython 3.12 Compatible AST Context and Operators
+
+    /// <summary>
+    /// CPython 3.12: Expression context (Store, Load, Del)
+    /// </summary>
+    public abstract class ExprContext
+    {
+        public abstract string ContextType { get; }
+        public override string ToString() => $"{ContextType}()";
+    }
+
+    public class Store : ExprContext
+    {
+        public override string ContextType => "Store";
+        public static Store Instance { get; } = new Store();
+    }
+
+    public class Load : ExprContext
+    {
+        public override string ContextType => "Load";
+        public static Load Instance { get; } = new Load();
+    }
+
+    public class Del : ExprContext
+    {
+        public override string ContextType => "Del";
+        public static Del Instance { get; } = new Del();
+    }
+
+    /// <summary>
+    /// CPython 3.12: Binary operators
+    /// </summary>
+    public abstract class BinaryOperator
+    {
+        public abstract string OperatorType { get; }
+        public abstract PyObject Apply(PyObject left, PyObject right);
+        public abstract BinaryOpType GetOpType();
+        public override string ToString() => $"{OperatorType}()";
+    }
+
+    public class Add : BinaryOperator
+    {
+        public override string OperatorType => "Add";
+        public override PyObject Apply(PyObject left, PyObject right) => left.Add(right);
+        public override BinaryOpType GetOpType() => BinaryOpType.ADD;
+        public static Add Instance { get; } = new Add();
+    }
+
+    public class Sub : BinaryOperator
+    {
+        public override string OperatorType => "Sub";
+        public override PyObject Apply(PyObject left, PyObject right) => left.Subtract(right);
+        public override BinaryOpType GetOpType() => BinaryOpType.SUBTRACT;
+        public static Sub Instance { get; } = new Sub();
+    }
+
+    public class Mult : BinaryOperator
+    {
+        public override string OperatorType => "Mult";
+        public override PyObject Apply(PyObject left, PyObject right) => left.Multiply(right);
+        public override BinaryOpType GetOpType() => BinaryOpType.MULTIPLY;
+        public static Mult Instance { get; } = new Mult();
+    }
+
+    public class Div : BinaryOperator
+    {
+        public override string OperatorType => "Div";
+        public override PyObject Apply(PyObject left, PyObject right) => left.Divide(right);
+        public override BinaryOpType GetOpType() => BinaryOpType.TRUE_DIVIDE;
+        public static Div Instance { get; } = new Div();
+    }
+
+    public class FloorDiv : BinaryOperator
+    {
+        public override string OperatorType => "FloorDiv";
+        public override PyObject Apply(PyObject left, PyObject right) => left.FloorDivide(right);
+        public override BinaryOpType GetOpType() => BinaryOpType.FLOOR_DIVIDE;
+        public static FloorDiv Instance { get; } = new FloorDiv();
+    }
+
+    public class Mod : BinaryOperator
+    {
+        public override string OperatorType => "Mod";
+        public override PyObject Apply(PyObject left, PyObject right) => left.Modulo(right);
+        public override BinaryOpType GetOpType() => BinaryOpType.MODULO;
+        public static Mod Instance { get; } = new Mod();
+    }
+
+    public class Pow : BinaryOperator
+    {
+        public override string OperatorType => "Pow";
+        public override PyObject Apply(PyObject left, PyObject right) => left.Power(right);
+        public override BinaryOpType GetOpType() => BinaryOpType.POWER;
+        public static Pow Instance { get; } = new Pow();
+    }
+
+    public class LShift : BinaryOperator
+    {
+        public override string OperatorType => "LShift";
+        public override PyObject Apply(PyObject left, PyObject right) => left.LeftShift(right);
+        public override BinaryOpType GetOpType() => BinaryOpType.LSHIFT;
+        public static LShift Instance { get; } = new LShift();
+    }
+
+    public class RShift : BinaryOperator
+    {
+        public override string OperatorType => "RShift";
+        public override PyObject Apply(PyObject left, PyObject right) => left.RightShift(right);
+        public override BinaryOpType GetOpType() => BinaryOpType.RSHIFT;
+        public static RShift Instance { get; } = new RShift();
+    }
+
+    public class BitOr : BinaryOperator
+    {
+        public override string OperatorType => "BitOr";
+        public override PyObject Apply(PyObject left, PyObject right) => left.BitwiseOr(right);
+        public override BinaryOpType GetOpType() => BinaryOpType.OR;
+        public static BitOr Instance { get; } = new BitOr();
+    }
+
+    public class BitXor : BinaryOperator
+    {
+        public override string OperatorType => "BitXor";
+        public override PyObject Apply(PyObject left, PyObject right) => left.BitwiseXor(right);
+        public override BinaryOpType GetOpType() => BinaryOpType.XOR;
+        public static BitXor Instance { get; } = new BitXor();
+    }
+
+    public class BitAnd : BinaryOperator
+    {
+        public override string OperatorType => "BitAnd";
+        public override PyObject Apply(PyObject left, PyObject right) => left.BitwiseAnd(right);
+        public override BinaryOpType GetOpType() => BinaryOpType.AND;
+        public static BitAnd Instance { get; } = new BitAnd();
+    }
+
+    public class MatMult : BinaryOperator
+    {
+        public override string OperatorType => "MatMult";
+        public override PyObject Apply(PyObject left, PyObject right) => throw new NotImplementedException("Matrix multiply (@) not yet implemented");
+        public override BinaryOpType GetOpType() => BinaryOpType.MATRIX_MULTIPLY;
+        public static MatMult Instance { get; } = new MatMult();
+    }
+
+    /// <summary>
+    /// CPython 3.12: Unary operators
+    /// </summary>
+    public abstract class UnaryOperator
+    {
+        public abstract string OperatorType { get; }
+        public abstract PyObject Apply(PyObject operand);
+        public override string ToString() => $"{OperatorType}()";
+    }
+
+    public class UAdd : UnaryOperator
+    {
+        public override string OperatorType => "UAdd";
+        public override PyObject Apply(PyObject operand) => operand.Positive();
+        public static UAdd Instance { get; } = new UAdd();
+    }
+
+    public class USub : UnaryOperator
+    {
+        public override string OperatorType => "USub";
+        public override PyObject Apply(PyObject operand) => operand.Negative();
+        public static USub Instance { get; } = new USub();
+    }
+
+    public class Not : UnaryOperator
+    {
+        public override string OperatorType => "Not";
+        public override PyObject Apply(PyObject operand) => PyBool.FromBool(!operand.ToBool());
+        public static Not Instance { get; } = new Not();
+    }
+
+    public class Invert : UnaryOperator
+    {
+        public override string OperatorType => "Invert";
+        public override PyObject Apply(PyObject operand) => operand.BitwiseNot();
+        public static Invert Instance { get; } = new Invert();
+    }
+
+    /// <summary>
+    /// CPython 3.12: Comparison operators
+    /// </summary>
+    public abstract class ComparisonOperator
+    {
+        public abstract string OperatorType { get; }
+        public override string ToString() => $"{OperatorType}()";
+    }
+
+    public class Eq : ComparisonOperator { public override string OperatorType => "Eq"; public static Eq Instance { get; } = new Eq(); }
+    public class NotEq : ComparisonOperator { public override string OperatorType => "NotEq"; public static NotEq Instance { get; } = new NotEq(); }
+    public class Lt : ComparisonOperator { public override string OperatorType => "Lt"; public static Lt Instance { get; } = new Lt(); }
+    public class LtE : ComparisonOperator { public override string OperatorType => "LtE"; public static LtE Instance { get; } = new LtE(); }
+    public class Gt : ComparisonOperator { public override string OperatorType => "Gt"; public static Gt Instance { get; } = new Gt(); }
+    public class GtE : ComparisonOperator { public override string OperatorType => "GtE"; public static GtE Instance { get; } = new GtE(); }
+    public class Is : ComparisonOperator { public override string OperatorType => "Is"; public static Is Instance { get; } = new Is(); }
+    public class IsNot : ComparisonOperator { public override string OperatorType => "IsNot"; public static IsNot Instance { get; } = new IsNot(); }
+    public class In : ComparisonOperator { public override string OperatorType => "In"; public static In Instance { get; } = new In(); }
+    public class NotIn : ComparisonOperator { public override string OperatorType => "NotIn"; public static NotIn Instance { get; } = new NotIn(); }
+
+    /// <summary>
+    /// CPython 3.12: Boolean operators
+    /// </summary>
+    public abstract class BoolOperator
+    {
+        public abstract string OperatorType { get; }
+        public abstract PyObject Apply(List<PyObject> values);
+        public override string ToString() => $"{OperatorType}()";
+    }
+
+    public class And : BoolOperator
+    {
+        public override string OperatorType => "And";
+        public override PyObject Apply(List<PyObject> values)
+        {
+            // Short-circuit evaluation: return first falsy value or last value
+            foreach (var value in values)
+            {
+                if (!value.ToBool())
+                    return value;
+            }
+            return values[values.Count - 1];
+        }
+        public static And Instance { get; } = new And();
+    }
+
+    public class Or : BoolOperator
+    {
+        public override string OperatorType => "Or";
+        public override PyObject Apply(List<PyObject> values)
+        {
+            // Short-circuit evaluation: return first truthy value or last value
+            foreach (var value in values)
+            {
+                if (value.ToBool())
+                    return value;
+            }
+            return values[values.Count - 1];
+        }
+        public static Or Instance { get; } = new Or();
+    }
+
+    #endregion
 }
 
 namespace SharpPy
@@ -2401,48 +2647,70 @@ namespace SharpPy
     {
         public override string NodeType => "Name";
         public string Name { get; }
-        
-        public NameExpression(string name)
+        public ExprContext? Ctx { get; set; }  // CPython 3.12: Store, Load, Del
+
+        public NameExpression(string name, ExprContext? ctx = null)
         {
             Name = name;
+            Ctx = ctx ?? Load.Instance;  // 기본값: Load context
         }
-        
+
         public override PyObject Evaluate(PyScope scope)
         {
             return scope.GetVariable(Name);
         }
-        
-        public override string ToString() => Name;
+
+        public override string ToString() => Ctx != null ? $"Name(id='{Name}', ctx={Ctx})" : Name;
     }
 
 
     public class UnaryOpExpression : Expression
     {
         public override string NodeType => "UnaryOp";
-        public string Op { get; }
+        public UnaryOperator OpNode { get; }  // CPython 3.12: UAdd, USub, Not, Invert
         public Expression Operand { get; }
-        
-        public UnaryOpExpression(string op, Expression operand)
+
+        public UnaryOpExpression(UnaryOperator op, Expression operand)
         {
-            Op = op;
+            OpNode = op ?? throw new ArgumentNullException(nameof(op));
             Operand = operand;
         }
-        
+
         public override PyObject Evaluate(PyScope scope)
         {
             var operand = Operand.Evaluate(scope);
-            
-            return Op switch
-            {
-                "+"   => operand.Positive(),
-                "-"   => operand.Negative(),
-                "~"   => operand.BitwiseNot(),
-                "not" => PyBool.False, // 간단한 구현
-                _ => throw new NotImplementedException($"Unary operator {Op} not implemented")
-            };
+            return OpNode.Apply(operand);
         }
-        
-        public override string ToString() => $"{Op}{Operand}";
+
+        public override string ToString() => $"UnaryOp(op={OpNode}, operand={Operand})";
+    }
+
+    /// <summary>
+    /// CPython 3.12: Binary Operation Expression
+    /// BinOp(left=..., op=Add(), right=...)
+    /// </summary>
+    public class BinOpExpression : Expression
+    {
+        public override string NodeType => "BinOp";
+        public Expression Left { get; }
+        public BinaryOperator OpNode { get; }  // CPython 3.12: Add, Sub, Mult, etc.
+        public Expression Right { get; }
+
+        public BinOpExpression(Expression left, BinaryOperator op, Expression right)
+        {
+            Left = left;
+            OpNode = op ?? throw new ArgumentNullException(nameof(op));
+            Right = right;
+        }
+
+        public override PyObject Evaluate(PyScope scope)
+        {
+            var left = Left.Evaluate(scope);
+            var right = Right.Evaluate(scope);
+            return OpNode.Apply(left, right);
+        }
+
+        public override string ToString() => $"BinOp(left={Left}, op={OpNode}, right={Right})";
     }
 
     // CompareExpression moved to CompareExpressions.cs
@@ -2450,44 +2718,23 @@ namespace SharpPy
     public class BoolOpExpression : Expression
     {
         public override string NodeType => "BoolOp";
-        public string Op { get; }
+        public BoolOperator OpNode { get; }
         public List<Expression> Values { get; }
-        
-        public BoolOpExpression(string op, List<Expression> values)
+
+        public BoolOpExpression(BoolOperator op, List<Expression> values)
         {
-            Op = op;
+            OpNode = op ?? throw new ArgumentNullException(nameof(op));
             Values = values;
         }
-        
+
         public override PyObject Evaluate(PyScope scope)
         {
-            if (Op == "and")
-            {
-                foreach (var value in Values)
-                {
-                    var result = value.Evaluate(scope);
-                    if (!result.ToBool())
-                        return result;
-                }
-                return Values.Last().Evaluate(scope);
-            }
-            else if (Op == "or")
-            {
-                foreach (var value in Values)
-                {
-                    var result = value.Evaluate(scope);
-                    if (result.ToBool())
-                        return result;
-                }
-                return Values.Last().Evaluate(scope);
-            }
-            else
-            {
-                throw new NotImplementedException($"Boolean operator {Op} not implemented");
-            }
+            // Evaluate all values first
+            var evaluatedValues = Values.Select(v => v.Evaluate(scope)).ToList();
+            return OpNode.Apply(evaluatedValues);
         }
-        
-        public override string ToString() => $"({string.Join($" {Op} ", Values)})";
+
+        public override string ToString() => $"BoolOp(op={OpNode}, values=[{string.Join(", ", Values)}])";
     }
 
     public class JoinedStrExpression : Expression
