@@ -3289,6 +3289,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             GenerateAtomParser();
             GeneratePrimaryParser();
             GeneratePowerParser();
+            GenerateFactorParser();  // CPython 3.12: factor handles unary operators
             GenerateTermParser();
             GenerateSumParser();
             GenerateExpressionParser();
@@ -4043,16 +4044,101 @@ namespace SharpPy.PegGenerator.CodeGenerator
         }
 
         /// <summary>
-        /// Generate term parser: term '*' power | term '/' power | power
+        /// Generate factor parser: '+' factor | '-' factor | '~' factor | power
+        /// CPython 3.12: Handles unary operators
+        /// </summary>
+        private void GenerateFactorParser()
+        {
+            WriteLine("// factor: '+' factor | '-' factor | '~' factor | power");
+            WriteLine("protected GeneratedExpr? ParseFactor()");
+            WriteLine("{");
+            Indent();
+            WriteLine();
+            WriteLine("// Check for tokens that should stop parsing");
+            WriteLine("if (CurrentToken == null) return null;");
+            WriteLine("if (CurrentToken.Type == GeneratedTokenType.DEDENT) return null;");
+            WriteLine("if (CurrentToken.Type == GeneratedTokenType.ENDMARKER) return null;");
+            WriteLine();
+            WriteLine("// Check for unary operators");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP)");
+            WriteLine("{");
+            Indent();
+            WriteLine("if (CurrentToken.Value == \"+\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume '+'");
+            WriteLine("var operand = ParseFactor();");
+            WriteLine("if (operand != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("return new GeneratedExpr");
+            WriteLine("{");
+            WriteLine("    ExpressionType = \"UnaryOp\",");
+            WriteLine("    Value = new { op = \"UAdd\", operand = operand }");
+            WriteLine("};");
+            Dedent();
+            WriteLine("}");
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("if (CurrentToken.Value == \"-\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume '-'");
+            WriteLine("var operand = ParseFactor();");
+            WriteLine("if (operand != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("return new GeneratedExpr");
+            WriteLine("{");
+            WriteLine("    ExpressionType = \"UnaryOp\",");
+            WriteLine("    Value = new { op = \"USub\", operand = operand }");
+            WriteLine("};");
+            Dedent();
+            WriteLine("}");
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("if (CurrentToken.Value == \"~\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("Advance(); // consume '~'");
+            WriteLine("var operand = ParseFactor();");
+            WriteLine("if (operand != null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("return new GeneratedExpr");
+            WriteLine("{");
+            WriteLine("    ExpressionType = \"UnaryOp\",");
+            WriteLine("    Value = new { op = \"Invert\", operand = operand }");
+            WriteLine("};");
+            Dedent();
+            WriteLine("}");
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// No unary operator, parse power");
+            WriteLine("return ParsePower();");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
+        /// <summary>
+        /// Generate term parser: term '*' factor | term '/' factor | factor
         /// Handles multiplication and division with left recursion
         /// </summary>
         private void GenerateTermParser()
         {
-            WriteLine("// term: term '*' power | term '/' power | power");
+            WriteLine("// term: term '*' factor | term '/' factor | factor  (CPython 3.12)");
             WriteLine("protected GeneratedExpr? ParseTerm()");
             WriteLine("{");
             Indent();
-            // WriteLine("Console.WriteLine($\"[DEBUG] ParseTerm at position {_position}\");");
             WriteLine();
             WriteLine("// Check for tokens that should stop parsing");
             WriteLine("if (CurrentToken == null) return null;");
@@ -4060,8 +4146,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (CurrentToken.Type == GeneratedTokenType.ENDMARKER) return null;");
             WriteLine();
 
-            // Start with power (base case)
-            WriteLine("var result = ParsePower();");
+            // Start with factor (base case) - CPython 3.12
+            WriteLine("var result = ParseFactor();");
             WriteLine("if (result == null) return null;");
             WriteLine();
 
@@ -4073,12 +4159,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("var mark = Mark();");
             WriteLine();
 
-            // Try: term '*' primary
+            // Try: term '*' factor (CPython 3.12)
             WriteLine("if (CurrentToken?.Type.ToString() == \"OP\" && CurrentToken?.Value == \"*\")");
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume '*'");
-            WriteLine("var right = ParsePower();");
+            WriteLine("var right = ParseFactor();");
             WriteLine("if (right != null)");
             WriteLine("{");
             Indent();
@@ -4096,12 +4182,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
 
-            // Try: term '/' primary
+            // Try: term '/' factor (CPython 3.12)
             WriteLine("if (CurrentToken?.Type.ToString() == \"OP\" && CurrentToken?.Value == \"/\")");
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume '/'");
-            WriteLine("var right = ParsePower();");
+            WriteLine("var right = ParseFactor();");
             WriteLine("if (right != null)");
             WriteLine("{");
             Indent();
@@ -4119,12 +4205,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
 
-            // Try: term '//' primary (floor division)
+            // Try: term '//' factor (floor division, CPython 3.12)
             WriteLine("if (CurrentToken?.Type.ToString() == \"OP\" && CurrentToken?.Value == \"//\")");
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume '//'");
-            WriteLine("var right = ParsePower();");
+            WriteLine("var right = ParseFactor();");
             WriteLine("if (right != null)");
             WriteLine("{");
             Indent();
@@ -4141,12 +4227,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
 
-            // Try: term '%' primary (modulo)
+            // Try: term '%' factor (modulo, CPython 3.12)
             WriteLine("if (CurrentToken?.Type.ToString() == \"OP\" && CurrentToken?.Value == \"%\")");
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume '%'");
-            WriteLine("var right = ParsePower();");
+            WriteLine("var right = ParseFactor();");
             WriteLine("if (right != null)");
             WriteLine("{");
             Indent();
@@ -4163,12 +4249,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
 
-            // Try: term '@' primary (matrix multiplication)
+            // Try: term '@' factor (matrix multiplication, CPython 3.12)
             WriteLine("if (CurrentToken?.Type.ToString() == \"OP\" && CurrentToken?.Value == \"@\")");
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume '@'");
-            WriteLine("var right = ParsePower();");
+            WriteLine("var right = ParseFactor();");
             WriteLine("if (right != null)");
             WriteLine("{");
             Indent();
@@ -4948,9 +5034,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Console.WriteLine("[CODEGEN] Generating augassign method for augmented assignment operators");
             GenerateAugAssignMethod("object?");
 
-            // Generate improved ParseAssignment method with augmented assignment support
-            Console.WriteLine("[CODEGEN] Generating improved ParseAssignment method with augmented assignment support");
-            GenerateImprovedParseAssignmentMethod();
+            // Note: ParseAssignment is implemented in PyParserBase.cs (CPython 3.12 compatible)
+            // Not generated here to avoid confusion and ensure proper context handling
 
             WriteLine("// === End Specific Grammar Rules ===");
             WriteLine();
@@ -6132,37 +6217,81 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
 
             WriteLine("/// <summary>");
-            WriteLine("/// simple_stmt[stmt_ty]: assignment | star_expressions | 'pass' | 'return' | ...");
+            WriteLine("/// simple_stmt[stmt_ty]: CPython 3.12 order - assignment | star_expressions | 'pass' | 'return' | ...");
             WriteLine("/// </summary>");
             WriteLine("public GeneratedStmt ParseSimpleStmt()");
             WriteLine("{");
             Indent();
-            WriteLine("// Check for 'return' FIRST to avoid memoization conflicts with assignment");
+            WriteLine("// CPython 3.12: assignment FIRST");
+            WriteLine("var assignment = ParseAssignment();");
+            WriteLine("if (assignment != null)");
+            WriteLine("{");
+            WriteLine("    return assignment;");
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// CPython 3.12: star_expressions (expression statement) SECOND");
+            WriteLine("// CRITICAL: Do not parse compound statement keywords as expressions");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("{");
+            WriteLine("    var tokenValue = CurrentToken.Value;");
+            WriteLine("    // Reject compound statement keywords and simple statement keywords");
+            WriteLine("    if (tokenValue == \"if\" || tokenValue == \"while\" || tokenValue == \"for\" ||");
+            WriteLine("        tokenValue == \"def\" || tokenValue == \"class\" || tokenValue == \"try\" ||");
+            WriteLine("        tokenValue == \"with\" || tokenValue == \"async\" || tokenValue == \"match\" ||");
+            WriteLine("        tokenValue == \"return\" || tokenValue == \"import\" || tokenValue == \"from\" ||");
+            WriteLine("        tokenValue == \"raise\" || tokenValue == \"pass\" || tokenValue == \"break\" ||");
+            WriteLine("        tokenValue == \"continue\" || tokenValue == \"global\" || tokenValue == \"nonlocal\" ||");
+            WriteLine("        tokenValue == \"del\" || tokenValue == \"yield\" || tokenValue == \"assert\")");
+            WriteLine("    {");
+            WriteLine("        // These are handled by their specific parsers below");
+            WriteLine("    }");
+            WriteLine("    else");
+            WriteLine("    {");
+            WriteLine("        // Try expression statement");
+            WriteLine("        var expr = ParseExpression();");
+            WriteLine("        if (expr != null)");
+            WriteLine("            return _PyAST_Expr(expr);");
+            WriteLine("    }");
+            WriteLine("}");
+            WriteLine("else");
+            WriteLine("{");
+            WriteLine("    // Not a NAME token, try expression");
+            WriteLine("    var expr = ParseExpression();");
+            WriteLine("    if (expr != null)");
+            WriteLine("        return _PyAST_Expr(expr);");
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// CPython 3.12: &'return' return_stmt");
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"return\")");
             WriteLine("{");
             WriteLine("    return ParseReturnStmt();");
             WriteLine("}");
             WriteLine();
-            WriteLine("// Check for 'import' statement");
+            WriteLine("// CPython 3.12: &('import' | 'from') import_stmt");
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"import\")");
             WriteLine("{");
             WriteLine("    return ParseImportStatement();");
             WriteLine("}");
             WriteLine();
-            WriteLine("// Check for 'from' statement (from ... import ...)");
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"from\")");
             WriteLine("{");
             WriteLine("    return ParseFromImportStatement();");
             WriteLine("}");
             WriteLine();
-            WriteLine("// Check for 'raise' statement");
+            WriteLine("// CPython 3.12: &'raise' raise_stmt");
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"raise\")");
             WriteLine("{");
             WriteLine("    return ParseRaiseStatement();");
             WriteLine("}");
             WriteLine();
-            WriteLine("// PRIORITY: Check for 'break' and 'continue' FIRST (before assignment/expression parsing)");
-            WriteLine("// This prevents continue/break from being parsed as variable names");
+            WriteLine("// CPython 3.12: 'pass'");
+            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"pass\")");
+            WriteLine("{");
+            WriteLine("    Advance();");
+            WriteLine("    return _PyAST_Pass();");
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// CPython 3.12: 'break'");
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"break\")");
             WriteLine("{");
             WriteLine("    Advance();");
@@ -6171,6 +6300,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    return breakStmt;");
             WriteLine("}");
             WriteLine();
+            WriteLine("// CPython 3.12: 'continue'");
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"continue\")");
             WriteLine("{");
             WriteLine("    Advance();");
@@ -6179,39 +6309,6 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    return continueStmt;");
             WriteLine("}");
             WriteLine();
-            WriteLine("// Check for 'pass'");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"pass\")");
-            WriteLine("{");
-            WriteLine("    Advance();");
-            WriteLine("    return _PyAST_Pass();");
-            WriteLine("}");
-            WriteLine();
-            WriteLine("// CRITICAL: Try assignment NEXT (per python.gram comment)");
-            WriteLine("var assignment = ParseAssignment();");
-            WriteLine("if (assignment != null)");
-            WriteLine("{");
-            WriteLine("    return assignment;");
-            WriteLine("}");
-            WriteLine();
-            WriteLine("// CRITICAL: Do not parse compound statement keywords as expressions");
-            WriteLine("// This prevents match/case, if/while/for, def/class, etc. from being consumed as expressions");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME)");
-            WriteLine("{");
-            WriteLine("    var tokenValue = CurrentToken.Value;");
-            WriteLine("    // List of compound statement keywords that should NOT be parsed as expressions");
-            WriteLine("    if (tokenValue == \"match\" || tokenValue == \"if\" || tokenValue == \"while\" || tokenValue == \"for\" ||");
-            WriteLine("        tokenValue == \"def\" || tokenValue == \"class\" || tokenValue == \"try\" || tokenValue == \"with\" ||");
-            WriteLine("        tokenValue == \"async\")");
-            WriteLine("    {");
-            WriteLine("        Console.WriteLine($\"[DEBUG] ParseSimpleStmt: Rejecting compound keyword '{tokenValue}' as expression\");");
-            WriteLine("        return null; // Let ParseCompoundStmt handle this");
-            WriteLine("    }");
-            WriteLine("}");
-            WriteLine();
-            WriteLine("// Try expression statement (fallback)");
-            WriteLine("var expr = ParseExpression();");
-            WriteLine("if (expr != null)");
-            WriteLine("    return _PyAST_Expr(expr);");
             WriteLine();
             WriteLine("return null;");
             Dedent();
@@ -8390,140 +8487,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
         }
 
-        private void GenerateImprovedParseAssignmentMethod()
-        {
-            WriteLine();
-            WriteLine("/// <summary>");
-            WriteLine("/// ParseAssignment method - CPython 3.12 compatible");
-            WriteLine("/// Handles: annotated assignment, augmented assignment, chained assignment, single assignment");
-            WriteLine("/// </summary>");
-            WriteLine("public GeneratedStmt ParseAssignment()");
-            WriteLine("{");
-            Indent();
-            WriteLine("// Try to parse: target '=' value OR target augassign value");
-            WriteLine("var mark = Mark();");
-            WriteLine();
-            WriteLine("// For augmented assignment, check NAME token first");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME)");
-            WriteLine("{");
-            Indent();
-            WriteLine("var targetName = CurrentToken.Value;");
-            WriteLine("var namePos = Mark();");
-            WriteLine("Advance(); // consume NAME");
-            WriteLine();
-            WriteLine("// Check if this is augmented assignment");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && IsAugmentedAssignmentOp(CurrentToken.Value))");
-            WriteLine("{");
-            Indent();
-            WriteLine("var augOp = Augassign();");
-            WriteLine("if (augOp != null)");
-            WriteLine("{");
-            Indent();
-            WriteLine("var augValue = ParseExpression();");
-            WriteLine("if (augValue != null)");
-            WriteLine("{");
-            Indent();
-            WriteLine("var augTarget = new { kind = \"Name\", id = targetName };");
-            WriteLine("return _PyAST_AugAssign(augTarget, augOp, augValue);");
-            Dedent();
-            WriteLine("}");
-            Dedent();
-            WriteLine("}");
-            Dedent();
-            WriteLine("}");
-            WriteLine();
-            WriteLine("// If not augmented assignment, reset and try full assignment parsing");
-            WriteLine("Reset(namePos);");
-            Dedent();
-            WriteLine("}");
-            WriteLine();
-            WriteLine("// Try regular assignment with full expression parsing");
-            WriteLine("// CPython 3.12 grammar: a[asdl_expr_seq*]=(z=star_targets '=' { z })+ b=(yield_expr | star_expressions) !'='");
-            WriteLine("// This means: collect one or more (target '=') sequences, then parse the final value");
-            WriteLine("var targets = new List<object>();");
-            WriteLine();
-            WriteLine("// Parse one or more 'target =' patterns");
-            WriteLine("while (true)");
-            WriteLine("{");
-            Indent();
-            WriteLine("var targetMark = Mark();");
-            WriteLine("var target = ParseExpression();");
-            WriteLine();
-            WriteLine("if (target == null)");
-            WriteLine("{");
-            Indent();
-            WriteLine("Reset(targetMark);");
-            WriteLine("break;");
-            Dedent();
-            WriteLine("}");
-            WriteLine();
-            WriteLine("// Check for '=' after target");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"=\")");
-            WriteLine("{");
-            Indent();
-            WriteLine("targets.Add(target);");
-            WriteLine("Advance(); // consume '='");
-            WriteLine();
-            WriteLine("// Check if next token is NOT '=' (to avoid matching == comparison)");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"=\")");
-            WriteLine("{");
-            Indent();
-            WriteLine("// This is '==' comparison, not assignment - rollback");
-            WriteLine("Reset(targetMark);");
-            WriteLine("targets.RemoveAt(targets.Count - 1);");
-            WriteLine("break;");
-            Dedent();
-            WriteLine("}");
-            Dedent();
-            WriteLine("}");
-            WriteLine("else");
-            WriteLine("{");
-            Indent();
-            WriteLine("Reset(targetMark);");
-            WriteLine("break;");
-            Dedent();
-            WriteLine("}");
-            Dedent();
-            WriteLine("}");
-            WriteLine();
-            WriteLine("// Must have at least one target");
-            WriteLine("if (targets.Count == 0)");
-            WriteLine("{");
-            Indent();
-            WriteLine("Reset(mark);");
-            WriteLine("return null;");
-            Dedent();
-            WriteLine("}");
-            WriteLine();
-            WriteLine("// Parse the value (right side of assignment)");
-            WriteLine("var value = ParseExpression();");
-            WriteLine("if (value == null)");
-            WriteLine("{");
-            Indent();
-            WriteLine("Reset(mark);");
-            WriteLine("return null;");
-            Dedent();
-            WriteLine("}");
-            WriteLine();
-            WriteLine("// CPython 3.12: Always use List for targets (even single assignment)");
-            WriteLine("// This ensures consistent AST structure: Assign(targets=[...], value=...)");
-            WriteLine("return _PyAST_Assign(targets, value);");
-            WriteLine();
-            WriteLine("Reset(mark);");
-            WriteLine("return null;");
-            Dedent();
-            WriteLine("}");
-            WriteLine();
-            WriteLine("private bool IsAugmentedAssignmentOp(string op)");
-            WriteLine("{");
-            Indent();
-            WriteLine("return op == \"+=\" || op == \"-=\" || op == \"*=\" || op == \"/=\" || op == \"%=\" ||");
-            WriteLine("       op == \"**=\" || op == \"//=\" || op == \"&=\" || op == \"|=\" || op == \"^=\" ||");
-            WriteLine("       op == \"<<=\" || op == \">>=\"|| op == \"@=\";");
-            Dedent();
-            WriteLine("}");
-            WriteLine();
-        }
+        // GenerateImprovedParseAssignmentMethod() removed
+        // ParseAssignment is now implemented in PyParserBase.cs (CPython 3.12 compatible)
+        // This avoids code generation confusion and ensures proper context handling
 
 
 

@@ -366,7 +366,8 @@ namespace SharpPy
                     // Convert target names to NameExpression objects with Store context (CPython 3.12)
                     var targetExpressions = targetNames.Select(name => (Expression)new NameExpression(name, Store.Instance)).ToList();
 
-                    return new ChainedAssignStatement(targetExpressions, convertedValueExpr);
+                    // CPython 3.12: Use AssignStatement for both single and chained assignments
+                    return new AssignStatement(targetExpressions, convertedValueExpr);
                 }
             }
 
@@ -522,8 +523,8 @@ namespace SharpPy
                                     // Convert value
                                     Expression convertedValueExpr = ConvertAnyExpression(valueExpr);
 
-                                    // Return ChainedAssignStatement
-                                    return new ChainedAssignStatement(targetExprs, convertedValueExpr);
+                                    // CPython 3.12: Return AssignStatement (handles both single and chained)
+                                    return new AssignStatement(targetExprs, convertedValueExpr);
                                 }
                             }
                             catch (Exception ex)
@@ -709,7 +710,10 @@ namespace SharpPy
                             {
                                 // Convert the value expression using ConvertAnyExpression
                                 Expression convertedValueExpr = ConvertAnyExpression(valueExpr);
-                                return new AssignStatement(targetName, convertedValueExpr);
+
+                                // CPython 3.12: Use Expression target with Store context
+                                var targetExpr = new NameExpression(targetName, Store.Instance);
+                                return new AssignStatement(targetExpr, convertedValueExpr);
                             }
                         }
                     }
@@ -2446,7 +2450,8 @@ namespace SharpPy
                     if (typeValue == "name" && !string.IsNullOrEmpty(nameValue))
                     {
                         Console.WriteLine($"[DEBUG] ConvertAnyExpression: Converting legacy anonymous name object: {nameValue}");
-                        return new NameExpression(nameValue);
+                        // Note: Legacy objects don't have context info, default to Load
+                        return new NameExpression(nameValue, Load.Instance);
                     }
                 }
             }
@@ -2850,6 +2855,7 @@ namespace SharpPy
 
         /// <summary>
         /// Convert Name from GeneratedExpr to SharpPy NameExpression
+        /// CPython 3.12: Respects expression context (Store, Load, Del)
         /// </summary>
         private static Expression ConvertNameFromGenerated(GeneratedExpr genExpr)
         {
@@ -2880,7 +2886,20 @@ namespace SharpPy
                 throw new InvalidOperationException("Name value is null or empty");
             }
 
-            return new NameExpression(name);
+            // CPython 3.12: Extract and convert context from GeneratedExpr
+            ExprContext context = Load.Instance; // Default context
+            if (!string.IsNullOrEmpty(genExpr.Context))
+            {
+                context = genExpr.Context switch
+                {
+                    "Store" => Store.Instance,
+                    "Load" => Load.Instance,
+                    "Del" => Del.Instance,
+                    _ => Load.Instance // Default fallback
+                };
+            }
+
+            return new NameExpression(name, context);
         }
 
         /// <summary>

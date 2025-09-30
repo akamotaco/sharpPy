@@ -770,7 +770,69 @@ namespace SharpPy.Generated
             return left;
         }
 
-        // term: term '*' power | term '/' power | power
+        // factor: '+' factor | '-' factor | '~' factor | power
+        protected GeneratedExpr? ParseFactor()
+        {
+
+            // Check for tokens that should stop parsing
+            if (CurrentToken == null) return null;
+            if (CurrentToken.Type == GeneratedTokenType.DEDENT) return null;
+            if (CurrentToken.Type == GeneratedTokenType.ENDMARKER) return null;
+
+            // Check for unary operators
+            if (CurrentToken?.Type == GeneratedTokenType.OP)
+            {
+                if (CurrentToken.Value == "+")
+                {
+                    Advance(); // consume '+'
+                    var operand = ParseFactor();
+                    if (operand != null)
+                    {
+                        return new GeneratedExpr
+                        {
+                            ExpressionType = "UnaryOp",
+                            Value = new { op = "UAdd", operand = operand }
+                        };
+                    }
+                    return null;
+                }
+
+                if (CurrentToken.Value == "-")
+                {
+                    Advance(); // consume '-'
+                    var operand = ParseFactor();
+                    if (operand != null)
+                    {
+                        return new GeneratedExpr
+                        {
+                            ExpressionType = "UnaryOp",
+                            Value = new { op = "USub", operand = operand }
+                        };
+                    }
+                    return null;
+                }
+
+                if (CurrentToken.Value == "~")
+                {
+                    Advance(); // consume '~'
+                    var operand = ParseFactor();
+                    if (operand != null)
+                    {
+                        return new GeneratedExpr
+                        {
+                            ExpressionType = "UnaryOp",
+                            Value = new { op = "Invert", operand = operand }
+                        };
+                    }
+                    return null;
+                }
+            }
+
+            // No unary operator, parse power
+            return ParsePower();
+        }
+
+        // term: term '*' factor | term '/' factor | factor  (CPython 3.12)
         protected GeneratedExpr? ParseTerm()
         {
 
@@ -779,7 +841,7 @@ namespace SharpPy.Generated
             if (CurrentToken.Type == GeneratedTokenType.DEDENT) return null;
             if (CurrentToken.Type == GeneratedTokenType.ENDMARKER) return null;
 
-            var result = ParsePower();
+            var result = ParseFactor();
             if (result == null) return null;
 
             // Handle left recursion iteratively
@@ -790,7 +852,7 @@ namespace SharpPy.Generated
                 if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "*")
                 {
                     Advance(); // consume '*'
-                    var right = ParsePower();
+                    var right = ParseFactor();
                     if (right != null)
                     {
                         result = new GeneratedExpr
@@ -806,7 +868,7 @@ namespace SharpPy.Generated
                 if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "/")
                 {
                     Advance(); // consume '/'
-                    var right = ParsePower();
+                    var right = ParseFactor();
                     if (right != null)
                     {
                         result = new GeneratedExpr
@@ -822,7 +884,7 @@ namespace SharpPy.Generated
                 if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "//")
                 {
                     Advance(); // consume '//'
-                    var right = ParsePower();
+                    var right = ParseFactor();
                     if (right != null)
                     {
                         result = new GeneratedExpr
@@ -838,7 +900,7 @@ namespace SharpPy.Generated
                 if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "%")
                 {
                     Advance(); // consume '%'
-                    var right = ParsePower();
+                    var right = ParseFactor();
                     if (right != null)
                     {
                         result = new GeneratedExpr
@@ -854,7 +916,7 @@ namespace SharpPy.Generated
                 if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "@")
                 {
                     Advance(); // consume '@'
-                    var right = ParsePower();
+                    var right = ParseFactor();
                     if (right != null)
                     {
                         result = new GeneratedExpr
@@ -2591,111 +2653,6 @@ namespace SharpPy.Generated
 
             return null;
         }
-
-        /// <summary>
-        /// ParseAssignment method - CPython 3.12 compatible
-        /// Handles: annotated assignment, augmented assignment, chained assignment, single assignment
-        /// </summary>
-        public GeneratedStmt ParseAssignment()
-        {
-            // Try to parse: target '=' value OR target augassign value
-            var mark = Mark();
-
-            // For augmented assignment, check NAME token first
-            if (CurrentToken?.Type == GeneratedTokenType.NAME)
-            {
-                var targetName = CurrentToken.Value;
-                var namePos = Mark();
-                Advance(); // consume NAME
-
-                // Check if this is augmented assignment
-                if (CurrentToken?.Type == GeneratedTokenType.OP && IsAugmentedAssignmentOp(CurrentToken.Value))
-                {
-                    var augOp = Augassign();
-                    if (augOp != null)
-                    {
-                        var augValue = ParseExpression();
-                        if (augValue != null)
-                        {
-                            var augTarget = new { kind = "Name", id = targetName };
-                            return _PyAST_AugAssign(augTarget, augOp, augValue);
-                        }
-                    }
-                }
-
-                // If not augmented assignment, reset and try full assignment parsing
-                Reset(namePos);
-            }
-
-            // Try regular assignment with full expression parsing
-            // CPython 3.12 grammar: a[asdl_expr_seq*]=(z=star_targets '=' { z })+ b=(yield_expr | star_expressions) !'='
-            // This means: collect one or more (target '=') sequences, then parse the final value
-            var targets = new List<object>();
-
-            // Parse one or more 'target =' patterns
-            while (true)
-            {
-                var targetMark = Mark();
-                var target = ParseExpression();
-
-                if (target == null)
-                {
-                    Reset(targetMark);
-                    break;
-                }
-
-                // Check for '=' after target
-                if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "=")
-                {
-                    targets.Add(target);
-                    Advance(); // consume '='
-
-                    // Check if next token is NOT '=' (to avoid matching == comparison)
-                    if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "=")
-                    {
-                        // This is '==' comparison, not assignment - rollback
-                        Reset(targetMark);
-                        targets.RemoveAt(targets.Count - 1);
-                        break;
-                    }
-                }
-                else
-                {
-                    Reset(targetMark);
-                    break;
-                }
-            }
-
-            // Must have at least one target
-            if (targets.Count == 0)
-            {
-                Reset(mark);
-                return null;
-            }
-
-            // Parse the value (right side of assignment)
-            var value = ParseExpression();
-            if (value == null)
-            {
-                Reset(mark);
-                return null;
-            }
-
-            // CPython 3.12: Always use List for targets (even single assignment)
-            // This ensures consistent AST structure: Assign(targets=[...], value=...)
-            return _PyAST_Assign(targets, value);
-
-            Reset(mark);
-            return null;
-        }
-
-        private bool IsAugmentedAssignmentOp(string op)
-        {
-            return op == "+=" || op == "-=" || op == "*=" || op == "/=" || op == "%=" ||
-                   op == "**=" || op == "//=" || op == "&=" || op == "|=" || op == "^=" ||
-                   op == "<<=" || op == ">>="|| op == "@=";
-        }
-
         // === End Specific Grammar Rules ===
 
         /// <summary>
@@ -3113,36 +3070,80 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
-        /// simple_stmt[stmt_ty]: assignment | star_expressions | 'pass' | 'return' | ...
+        /// simple_stmt[stmt_ty]: CPython 3.12 order - assignment | star_expressions | 'pass' | 'return' | ...
         /// </summary>
         public GeneratedStmt ParseSimpleStmt()
         {
-            // Check for 'return' FIRST to avoid memoization conflicts with assignment
+            // CPython 3.12: assignment FIRST
+            var assignment = ParseAssignment();
+            if (assignment != null)
+            {
+                return assignment;
+            }
+
+            // CPython 3.12: star_expressions (expression statement) SECOND
+            // CRITICAL: Do not parse compound statement keywords as expressions
+            if (CurrentToken?.Type == GeneratedTokenType.NAME)
+            {
+                var tokenValue = CurrentToken.Value;
+                // Reject compound statement keywords and simple statement keywords
+                if (tokenValue == "if" || tokenValue == "while" || tokenValue == "for" ||
+                    tokenValue == "def" || tokenValue == "class" || tokenValue == "try" ||
+                    tokenValue == "with" || tokenValue == "async" || tokenValue == "match" ||
+                    tokenValue == "return" || tokenValue == "import" || tokenValue == "from" ||
+                    tokenValue == "raise" || tokenValue == "pass" || tokenValue == "break" ||
+                    tokenValue == "continue" || tokenValue == "global" || tokenValue == "nonlocal" ||
+                    tokenValue == "del" || tokenValue == "yield" || tokenValue == "assert")
+                {
+                    // These are handled by their specific parsers below
+                }
+                else
+                {
+                    // Try expression statement
+                    var expr = ParseExpression();
+                    if (expr != null)
+                        return _PyAST_Expr(expr);
+                }
+            }
+            else
+            {
+                // Not a NAME token, try expression
+                var expr = ParseExpression();
+                if (expr != null)
+                    return _PyAST_Expr(expr);
+            }
+
+            // CPython 3.12: &'return' return_stmt
             if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "return")
             {
                 return ParseReturnStmt();
             }
 
-            // Check for 'import' statement
+            // CPython 3.12: &('import' | 'from') import_stmt
             if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "import")
             {
                 return ParseImportStatement();
             }
 
-            // Check for 'from' statement (from ... import ...)
             if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "from")
             {
                 return ParseFromImportStatement();
             }
 
-            // Check for 'raise' statement
+            // CPython 3.12: &'raise' raise_stmt
             if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "raise")
             {
                 return ParseRaiseStatement();
             }
 
-            // PRIORITY: Check for 'break' and 'continue' FIRST (before assignment/expression parsing)
-            // This prevents continue/break from being parsed as variable names
+            // CPython 3.12: 'pass'
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "pass")
+            {
+                Advance();
+                return _PyAST_Pass();
+            }
+
+            // CPython 3.12: 'break'
             if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "break")
             {
                 Advance();
@@ -3151,6 +3152,7 @@ namespace SharpPy.Generated
                 return breakStmt;
             }
 
+            // CPython 3.12: 'continue'
             if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "continue")
             {
                 Advance();
@@ -3159,39 +3161,6 @@ namespace SharpPy.Generated
                 return continueStmt;
             }
 
-            // Check for 'pass'
-            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "pass")
-            {
-                Advance();
-                return _PyAST_Pass();
-            }
-
-            // CRITICAL: Try assignment NEXT (per python.gram comment)
-            var assignment = ParseAssignment();
-            if (assignment != null)
-            {
-                return assignment;
-            }
-
-            // CRITICAL: Do not parse compound statement keywords as expressions
-            // This prevents match/case, if/while/for, def/class, etc. from being consumed as expressions
-            if (CurrentToken?.Type == GeneratedTokenType.NAME)
-            {
-                var tokenValue = CurrentToken.Value;
-                // List of compound statement keywords that should NOT be parsed as expressions
-                if (tokenValue == "match" || tokenValue == "if" || tokenValue == "while" || tokenValue == "for" ||
-                    tokenValue == "def" || tokenValue == "class" || tokenValue == "try" || tokenValue == "with" ||
-                    tokenValue == "async")
-                {
-                    Console.WriteLine($"[DEBUG] ParseSimpleStmt: Rejecting compound keyword '{tokenValue}' as expression");
-                    return null; // Let ParseCompoundStmt handle this
-                }
-            }
-
-            // Try expression statement (fallback)
-            var expr = ParseExpression();
-            if (expr != null)
-                return _PyAST_Expr(expr);
 
             return null;
         }

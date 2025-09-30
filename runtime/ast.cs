@@ -449,26 +449,81 @@ namespace SharpPy
         }
     }
 
+    /// <summary>
+    /// CPython 3.12 compatible Assign statement
+    /// Supports both single and chained assignments through targets list
+    /// </summary>
     public class AssignStatement : Statement
     {
         public override string NodeType => "Assign";
-        public string VariableName { get; }
+        public List<Expression> Targets { get; }
         public Expression Value { get; }
 
-        public AssignStatement(string variableName, Expression value)
+        // CPython 3.12 compatible constructor: targets can be multiple
+        public AssignStatement(List<Expression> targets, Expression value)
         {
-            VariableName = variableName;
-            Value = value;
+            Targets = targets ?? throw new ArgumentNullException(nameof(targets));
+            Value = value ?? throw new ArgumentNullException(nameof(value));
+
+            if (Targets.Count == 0)
+                throw new ArgumentException("At least one target required", nameof(targets));
+        }
+
+        // Convenience constructor for single target
+        public AssignStatement(Expression target, Expression value)
+            : this(new List<Expression> { target }, value)
+        {
         }
 
         public override PyObject Evaluate(PyScope scope)
         {
             var value = Value.Evaluate(scope);
-            scope.SetVariable(VariableName, value);
+
+            // Assign to all targets (CPython evaluates right-to-left)
+            foreach (var target in Targets)
+            {
+                switch (target)
+                {
+                    case NameExpression name:
+                        scope.SetVariable(name.Name, value);
+                        break;
+                    case AttributeExpression attr:
+                        var obj = attr.Value.Evaluate(scope);
+                        obj.SetAttribute(attr.Attr, value);
+                        break;
+                    case SubscriptExpression subscript:
+                        var container = subscript.Value.Evaluate(scope);
+                        var index = subscript.Slice.Evaluate(scope);
+                        container.SetItem(index, value);
+                        break;
+                    case TupleExpression tuple:
+                        // Tuple unpacking: a, b = value
+                        var iterator = value.GetIterator();
+                        var items = new List<PyObject>();
+                        PyObject item;
+                        while ((item = iterator.Next()) != null)
+                            items.Add(item);
+
+                        if (items.Count != tuple.Elements.Count)
+                            throw new Exception($"Unpacking: expected {tuple.Elements.Count} values, got {items.Count}");
+
+                        for (int i = 0; i < tuple.Elements.Count; i++)
+                        {
+                            if (tuple.Elements[i] is NameExpression tupleTarget)
+                                scope.SetVariable(tupleTarget.Name, items[i]);
+                            else
+                                throw new Exception($"Invalid unpacking target: {tuple.Elements[i].GetType().Name}");
+                        }
+                        break;
+                    default:
+                        throw new Exception($"Unsupported assignment target: {target.GetType().Name}");
+                }
+            }
+
             return value;
         }
 
-        public override string ToString() => $"{VariableName} = {Value}";
+        public override string ToString() => $"{string.Join(" = ", Targets)} = {Value}";
     }
 
     // CPython 3.12: Attribute assignment (self.x = value)

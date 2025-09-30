@@ -1124,7 +1124,12 @@ namespace SharpPy
         private void AnalyzeAssignment(AssignStatement assign)
         {
             // For simple assignments like "x = value"
-            _currentTable?.DefineSymbol(assign.VariableName, SymbolFlags.Assigned);
+            // CPython 3.12: Extract names from targets
+            foreach (var target in assign.Targets)
+            {
+                if (target is NameExpression nameExpr)
+                    _currentTable?.DefineSymbol(nameExpr.Name, SymbolFlags.Assigned);
+            }
 
             // Also analyze the right-hand side expression
             if (assign.Value != null)

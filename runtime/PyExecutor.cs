@@ -642,7 +642,12 @@ namespace SharpPy
                 {
                     // 클래스 변수 할당 처리
                     var value = assignStmt.Value.Evaluate(classScope);
-                    classNamespace[assignStmt.VariableName] = value;
+                    // CPython 3.12: Extract names from targets
+                    foreach (var target in assignStmt.Targets)
+                    {
+                        if (target is NameExpression nameExpr)
+                            classNamespace[nameExpr.Name] = value;
+                    }
                 }
             }
             

@@ -226,7 +226,12 @@ namespace SharpPy
                     
                 case AssignStatement assignStmt:
                     AnalyzeExpression(assignStmt.Value);
-                    _definedVars.Add(assignStmt.VariableName); // 새로 정의된 변수
+                    // CPython 3.12: Extract names from targets
+                    foreach (var target in assignStmt.Targets)
+                    {
+                        if (target is NameExpression nameExpr)
+                            _definedVars.Add(nameExpr.Name); // 새로 정의된 변수
+                    }
                     break;
                     
                 case NonlocalStatement nonlocalStmt:
@@ -1528,8 +1533,43 @@ namespace SharpPy
             switch (statement)
             {
                 case AssignStatement assign:
+                    // CPython 3.12: Assign with targets list
                     CompileExpression(assign.Value);
-                    EmitStoreName(assign.VariableName);
+
+                    // Assign to all targets (for chained assignment or unpacking)
+                    foreach (var target in assign.Targets)
+                    {
+                        if (target is NameExpression name)
+                        {
+                            // For multiple targets, duplicate the value on stack first
+                            if (assign.Targets.Count > 1 && target != assign.Targets[assign.Targets.Count - 1])
+                            {
+                                EmitInstruction(ByteCodeOp.COPY, 1);  // CPython 3.12 uses COPY instead of DUP_TOP
+                            }
+                            EmitStoreName(name.Name);
+                        }
+                        else if (target is AttributeExpression attr)
+                        {
+                            CompileExpression(attr.Value);
+                            EmitInstruction(ByteCodeOp.STORE_ATTR, GetOrAddName(attr.Attr));
+                        }
+                        else if (target is SubscriptExpression subscript)
+                        {
+                            CompileExpression(subscript.Value);
+                            CompileExpression(subscript.Slice);
+                            EmitInstruction(ByteCodeOp.STORE_SUBSCR);
+                        }
+                        else if (target is TupleExpression tuple)
+                        {
+                            // Tuple unpacking: handled at the AST level
+                            EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, tuple.Elements.Count);
+                            foreach (var elem in tuple.Elements)
+                            {
+                                if (elem is NameExpression tupleTarget)
+                                    EmitStoreName(tupleTarget.Name);
+                            }
+                        }
+                    }
                     break;
 
                 case AttributeStatement attrAssign:
@@ -2499,7 +2539,12 @@ namespace SharpPy
                 foreach (var stmt in func.Body)
                 {
                     if (stmt is AssignStatement assign)
-                        localVars.Add(assign.VariableName);
+                        // CPython 3.12: Extract names from targets
+                        foreach (var target in assign.Targets)
+                        {
+                            if (target is NameExpression nameExpr && !localVars.Contains(nameExpr.Name))
+                                localVars.Add(nameExpr.Name);
+                        }
                 }
                 #if DEBUG_LOG
                 Console.WriteLine($"   Local variables: [{string.Join(", ", localVars)}]");
@@ -2887,11 +2932,18 @@ namespace SharpPy
                 {
                     case AssignStatement assign:
                         #if DEBUG_LOG
-                        Console.WriteLine($"    → Found AssignStatement: {assign.VariableName}");
+                        Console.WriteLine($"    → Found AssignStatement with {assign.Targets.Count} targets");
                         #endif
-                        if (!localVars.Contains(assign.VariableName))
+                        // CPython 3.12: Extract all target names from the targets list
+                        foreach (var target in assign.Targets)
                         {
-                            localVars.Add(assign.VariableName);
+                            if (target is NameExpression nameExpr)
+                            {
+                                if (!localVars.Contains(nameExpr.Name))
+                                {
+                                    localVars.Add(nameExpr.Name);
+                                }
+                            }
                         }
                         break;
 
@@ -4142,7 +4194,12 @@ namespace SharpPy
                 if (statement is AssignStatement assignStmt)
                 {
                     // AssignStatement has VariableName property, not Targets
-                    variables.Add(assignStmt.VariableName);
+                    // CPython 3.12: Extract names from targets
+                    foreach (var target in assignStmt.Targets)
+                    {
+                        if (target is NameExpression nameExpr)
+                            variables.Add(nameExpr.Name);
+                    }
                 }
             }
             return variables;
@@ -4696,8 +4753,12 @@ namespace SharpPy
                         definedNames.Add(func.Name);
                         break;
                     case AssignStatement assign:
-                        // AssignStatement uses VariableName, not Target
-                        definedNames.Add(assign.VariableName);
+                        // CPython 3.12: Extract names from targets list
+                        foreach (var target in assign.Targets)
+                        {
+                            if (target is NameExpression nameExpr)
+                                definedNames.Add(nameExpr.Name);
+                        }
                         break;
                     case AssignTargetStatement assignTarget:
                         if (assignTarget.Target is NameExpression nameExpr2)

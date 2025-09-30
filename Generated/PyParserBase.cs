@@ -336,7 +336,7 @@ namespace SharpPy.Generated
 
         // Assignment parsing template - CPython 3.12 chained assignment support
         // Grammar: a[asdl_expr_seq*]=(z=star_targets '=' { z })+ b=(yield_expr | star_expressions) !'='
-        protected object? ParseAssignment()
+        protected GeneratedStmt? ParseAssignment()
         {
             var mark = Mark();
             var targets = new List<object>();
@@ -400,8 +400,80 @@ namespace SharpPy.Generated
                 // If we're here, it means there's a syntax error or the loop logic needs review
             }
 
+            // CPython 3.12: Set Store context on all assignment targets
+            SetExprContextRecursive(targets, "Store");
+
             // Create chained assignment statement
             return _PyAST_Assign(targets, value);
+        }
+
+        /// <summary>
+        /// CPython 3.12: Set expression context recursively (Store, Load, Del)
+        /// Equivalent to _PyPegen_set_expr_context in CPython's pegen
+        /// </summary>
+        protected void SetExprContextRecursive(List<object> exprs, string context)
+        {
+            foreach (var expr in exprs)
+            {
+                SetExprContext(expr, context);
+            }
+        }
+
+        /// <summary>
+        /// CPython 3.12: Set expression context on a single expression
+        /// </summary>
+        protected void SetExprContext(object expr, string context)
+        {
+            if (expr is GeneratedExpr genExpr)
+            {
+                genExpr.Context = context;
+
+                // Handle Expression wrapper - unwrap and set context on inner expression
+                if (genExpr.ExpressionType == "Expression" && genExpr.Value is object innerExpr)
+                {
+                    SetExprContext(innerExpr, context);
+                    return;
+                }
+
+                // Recursively set context for nested expressions
+                if (genExpr.Value is object valueObj)
+                {
+                    // Handle Name expression - this is the actual target
+                    if (genExpr.ExpressionType == "Name")
+                    {
+                        // Name expression itself already has context set above
+                        return;
+                    }
+
+                    // Handle List/Tuple elements
+                    var elemsProperty = valueObj.GetType().GetProperty("elts");
+                    if (elemsProperty != null)
+                    {
+                        var elements = elemsProperty.GetValue(valueObj);
+                        if (elements is System.Collections.IEnumerable enumerable)
+                        {
+                            foreach (var elem in enumerable)
+                            {
+                                if (elem != null)
+                                {
+                                    SetExprContext(elem, context);
+                                }
+                            }
+                        }
+                    }
+
+                    // Handle Starred value
+                    var valueProperty = valueObj.GetType().GetProperty("value");
+                    if (valueProperty != null && genExpr.ExpressionType == "Starred")
+                    {
+                        var starredValue = valueProperty.GetValue(valueObj);
+                        if (starredValue != null)
+                        {
+                            SetExprContext(starredValue, context);
+                        }
+                    }
+                }
+            }
         }
 
         // If statement parsing template

@@ -155,8 +155,14 @@ namespace SharpPy
                     return new ExpressionStatement(OptimizeExpression(exprStmt.Expression, ref optimizationCount));
 
                 case AssignStatement assignStmt:
+                    // CPython 3.12: Optimize targets and value
+                    var optimizedTargets = new List<Expression>();
+                    foreach (var target in assignStmt.Targets)
+                    {
+                        optimizedTargets.Add(OptimizeExpression(target, ref optimizationCount));
+                    }
                     return new AssignStatement(
-                        assignStmt.VariableName,
+                        optimizedTargets,
                         OptimizeExpression(assignStmt.Value, ref optimizationCount)
                     );
 

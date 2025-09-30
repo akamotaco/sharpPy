@@ -211,7 +211,7 @@ namespace SharpPy.Tools
                     break;
 
                 case AssignStatement assign:
-                    fields.Add(("target", assign.VariableName));
+                    fields.Add(("targets", assign.Targets));
                     fields.Add(("value", assign.Value));
                     break;
 
