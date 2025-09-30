@@ -594,6 +594,53 @@ namespace SharpPy.Generated
             {
                 expanded = false;
 
+                // Try: primary genexp (Grammar line 819: primary genexp → Call)
+                // Distinguish from function call: after '(', check if 'for' follows first expression
+                if (!expanded && CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "(")
+                {
+                    var mark = Mark();
+                    Advance(); // consume '('
+
+                    // Parse first expression
+                    var firstExpr = ParseExpression();
+
+                    // Check if this is genexp pattern: expr 'for' ...
+                    if (firstExpr != null && CurrentToken?.Type.ToString() == "NAME" && CurrentToken?.Value == "for")
+                    {
+                        // This is genexp: (expr for ...)
+                        var generators = ParseForIfClauses();
+
+                        if (generators != null && CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == ")")
+                        {
+                            Advance(); // consume ')'
+
+                            // Create GeneratorExp node
+                            var genexp = new GeneratedExpr
+                            {
+                                ExpressionType = "GeneratorExp",
+                                Value = new { elt = firstExpr, generators = generators }
+                            };
+
+                            // Create Call(primary, [genexp]) - Grammar line 819
+                            result = new GeneratedExpr
+                            {
+                                ExpressionType = "Call",
+                                Value = new { func = result, args = new List<object> { genexp } }
+                            };
+
+                            expanded = true;
+                        }
+                        else
+                        {
+                            Reset(mark); // parse error, backtrack
+                        }
+                    }
+                    else
+                    {
+                        Reset(mark); // not genexp, try function call next
+                    }
+                }
+
                 // Try: primary '(' [arguments] ')' (function call)
                 if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "(")
                 {
