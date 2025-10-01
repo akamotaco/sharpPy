@@ -12,7 +12,7 @@ namespace SharpPy
     /// CPython 3.12 compatible generated parser bridge
     /// Uses auto-generated tokenizer and parser from Grammar/python.gram
     /// </summary>
-    public static class GeneratedParserBridge
+    public static partial class GeneratedParserBridge
     {
         /// <summary>
         /// Main parsing entry point - uses auto-generated CPython 3.12 compatible tokenizer and parser
@@ -1349,14 +1349,14 @@ namespace SharpPy
 
                         if (!string.IsNullOrEmpty(name))
                         {
-                            // Extract parameters from Arguments field
-                            var parameters = new List<string>();
-                            var defaultValues = new Dictionary<string, object>(); // Store defaults by parameter name
-                            if (funcData.Arguments != null)
-                            {
-                                // Debug Arguments structure
-                                Console.WriteLine($"[DEBUG] Arguments type: {funcData.Arguments.GetType().Name}");
-                                Console.WriteLine($"[DEBUG] Arguments value: {funcData.Arguments}");
+                            // CPython 3.12: Convert arguments to FunctionArguments
+                            var functionArgs = ConvertFunctionArguments(funcData.Arguments);
+
+                            // OLD CODE BELOW - will be removed after testing
+                            /*
+                            // Debug Arguments structure
+                            Console.WriteLine($"[DEBUG] Arguments type: {funcData.Arguments.GetType().Name}");
+                            Console.WriteLine($"[DEBUG] Arguments value: {funcData.Arguments}");
 
                                 // Arguments structure parsing - try Dictionary first
                                 if (funcData.Arguments is Dictionary<string, object> argsDict)
@@ -1590,6 +1590,8 @@ namespace SharpPy
                             {
                                 Console.WriteLine("[DEBUG] funcData.Arguments is null");
                             }
+                            */
+                            // END OF OLD CODE
 
                             // Convert function body with insideFunction=true
                             var bodyStmts = new List<Statement>();
@@ -1639,29 +1641,9 @@ namespace SharpPy
                                 }
                             }
 
-                            // Apply defaults to parameters (CPython style: defaults apply to last N parameters)
-                            if (defaultValues.Count > 0)
-                            {
-                                Console.WriteLine($"[DEBUG] Applying {defaultValues.Count} defaults to {parameters.Count} parameters");
-                                for (int i = 0; i < defaultValues.Count; i++)
-                                {
-                                    int paramIndex = parameters.Count - defaultValues.Count + i;
-                                    if (paramIndex >= 0 && paramIndex < parameters.Count)
-                                    {
-                                        var defaultValueObj = defaultValues[i.ToString()];
-                                        // Convert default value to string representation
-                                        string defaultStr = ConvertDefaultToString(defaultValueObj);
-                                        string originalParam = parameters[paramIndex];
-                                        string paramWithDefault = $"{originalParam}={defaultStr}";
-                                        parameters[paramIndex] = paramWithDefault;
-                                        Console.WriteLine($"[DEBUG] Updated parameter: {originalParam} -> {paramWithDefault}");
-                                    }
-                                }
-                            }
-
-                            // Create function with decorators
-                            Console.WriteLine($"[DEBUG] Creating FunctionDefStatement with {parameters.Count} parameters");
-                            var functionDef = new FunctionDefStatement(name, parameters, bodyStmts, null, decoratorExpressions);
+                            // CPython 3.12: Create function with FunctionArguments
+                            Console.WriteLine($"[DEBUG] Creating FunctionDefStatement with FunctionArguments: {functionArgs}");
+                            var functionDef = new FunctionDefStatement(name, functionArgs, bodyStmts, null, decoratorExpressions);
                             return functionDef;
                         }
                     }

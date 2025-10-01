@@ -986,39 +986,85 @@ namespace SharpPy
     {
         public override string NodeType => "FunctionDef";
         public string Name { get; }
-        public List<string> Parameters { get; }
+
+        // CPython 3.12: Use FunctionArguments instead of List<string>
+        public FunctionArguments Arguments { get; }
+
+        // Legacy support: keep Parameters for backwards compatibility
+        [Obsolete("Use Arguments instead - this is for backwards compatibility only")]
+        public List<string> Parameters => Arguments.GetAllParameterNames();
+
         public List<Statement> Body { get; }
         public List<string> TypeParams { get; } // Python 3.12
         public List<DecoratorExpression> Decorators { get; } // Decorator support
         public Expression? ReturnTypeAnnotation { get; } // Python 3.12 Type Hints
-        
-        public FunctionDefStatement(string name, List<string> parameters, List<Statement> body, List<string>? typeParams = null, List<DecoratorExpression>? decorators = null, Expression? returnTypeAnnotation = null)
+
+        // New constructor using FunctionArguments (CPython 3.12 compatible)
+        public FunctionDefStatement(string name, FunctionArguments arguments, List<Statement> body, List<string>? typeParams = null, List<DecoratorExpression>? decorators = null, Expression? returnTypeAnnotation = null)
         {
             Name = name;
-            Parameters = parameters;
+            Arguments = arguments;
             Body = body;
             TypeParams = typeParams ?? new List<string>();
             Decorators = decorators ?? new List<DecoratorExpression>();
             ReturnTypeAnnotation = returnTypeAnnotation;
         }
+
+        // Legacy constructor for backwards compatibility
+        [Obsolete("Use FunctionArguments constructor instead")]
+        public FunctionDefStatement(string name, List<string> parameters, List<Statement> body, List<string>? typeParams = null, List<DecoratorExpression>? decorators = null, Expression? returnTypeAnnotation = null)
+        {
+            Name = name;
+            // Convert old-style parameters to FunctionArguments
+            Arguments = ConvertLegacyParameters(parameters);
+            Body = body;
+            TypeParams = typeParams ?? new List<string>();
+            Decorators = decorators ?? new List<DecoratorExpression>();
+            ReturnTypeAnnotation = returnTypeAnnotation;
+        }
+
+        private static FunctionArguments ConvertLegacyParameters(List<string> parameters)
+        {
+            var args = new FunctionArguments();
+
+            foreach (var param in parameters)
+            {
+                if (param.StartsWith("**"))
+                {
+                    args.KwArg = new Arg(param.Substring(2));
+                }
+                else if (param.StartsWith("*"))
+                {
+                    args.VarArg = new Arg(param.Substring(1));
+                }
+                else
+                {
+                    // Regular parameter - strip any default value notation
+                    var paramName = param.Split('=')[0].Trim();
+                    args.Args.Add(new Arg(paramName));
+                }
+            }
+
+            return args;
+        }
         
         public override PyObject Evaluate(PyScope scope)
         {
             Console.WriteLine($"📋 FunctionDefStatement.Evaluate 실행: {Name}");
-            
+
             // 제네릭 함수도 일반 함수처럼 실행 (임시 해결책)
             // TODO: 적절한 제네릭 타입 시스템 구현
             if (TypeParams.Any())
             {
                 return PyExecutor.ExecuteGenericFunction(this, scope);
             }
-            
-            // CPython 호환: 매개변수와 기본값 분리
-            var (paramNames, defaults) = ParseParametersAndDefaults(Parameters, scope);
+
+            // CPython 3.12: Use FunctionArguments to get parameters and defaults
+            var (paramNames, defaults) = Arguments.GetParametersAndDefaults(scope);
 
             // Check if function has *args or **kwargs - if so, use VM execution
-            bool hasStarArgs = Parameters.Any(p => p.StartsWith("*") && !p.StartsWith("**"));
-            bool hasKwArgs = Parameters.Any(p => p.StartsWith("**"));
+            bool hasStarArgs = Arguments.VarArg != null;
+            bool hasKwArgs = Arguments.KwArg != null;
 
             PyFunction function;
 
@@ -1033,18 +1079,7 @@ namespace SharpPy
                 if (hasKwArgs) flags |= PyCodeObject.CO_VARKEYWORDS;
 
                 // Count positional-only parameters (CPython 3.12)
-                int posonlyArgCount = 0;
-                foreach (var param in Parameters)
-                {
-                    if (param.Contains("[posonly]"))
-                    {
-                        posonlyArgCount++;
-                    }
-                    else
-                    {
-                        break; // positional-only parameters must come first
-                    }
-                }
+                int posonlyArgCount = Arguments.PosOnlyArgs.Count;
 
                 Console.WriteLine($"[DEBUG] Function '{Name}': {posonlyArgCount} positional-only parameters");
 
