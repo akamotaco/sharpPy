@@ -399,13 +399,42 @@ namespace SharpPy.Generated
                 return ParseLambda();
             }
 
-            // NAME
-            // CPython 3.12: NAME tokens cannot be keywords
+            // NAME or special constants (True, False, None)
+            // CPython 3.12: True/False/None are keywords but also constant expressions
             if (CurrentToken.Type.ToString() == "NAME")
             {
                 var name = CurrentToken.Value;
 
-                // CPython 3.12: Keywords cannot be used as identifiers
+                // CPython 3.12: True, False, None are special constant keywords
+                if (name == "True")
+                {
+                    Advance();
+                    return new GeneratedExpr
+                    {
+                        ExpressionType = "Constant",
+                        Value = new { value = true, kind = (string)null }
+                    };
+                }
+                if (name == "False")
+                {
+                    Advance();
+                    return new GeneratedExpr
+                    {
+                        ExpressionType = "Constant",
+                        Value = new { value = false, kind = (string)null }
+                    };
+                }
+                if (name == "None")
+                {
+                    Advance();
+                    return new GeneratedExpr
+                    {
+                        ExpressionType = "Constant",
+                        Value = new { value = (object)null, kind = (string)null }
+                    };
+                }
+
+                // CPython 3.12: Other keywords cannot be used as identifiers
                 if (IsKeyword(name))
                 {
                     // Keyword found - not a valid identifier in this context
