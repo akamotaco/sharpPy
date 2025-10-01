@@ -26,6 +26,10 @@ namespace SharpPy
                 {
                     new BytecodeDisassembler().RunDirectDisassembly(pythonFile);
                 }
+                else if (parsedArgs.ContainsKey("--ast"))
+                {
+                    new ASTDumper().DumpAST(pythonFile);
+                }
                 else if (parsedArgs.ContainsKey("--tokens"))
                 {
                     new TokenDebugger().OutputTokens(pythonFile);

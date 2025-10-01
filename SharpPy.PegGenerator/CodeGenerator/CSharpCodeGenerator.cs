@@ -3373,7 +3373,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("ExpressionType = \"Name\",");
-            WriteLine("Value = new { value = name }");
+            WriteLine("Value = new { id = name }  // CPython 3.12: use 'id' field");
             Dedent();
             WriteLine("};");
             Dedent();
@@ -4710,57 +4710,14 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
 
             // Parse while body
-            WriteLine("// Parse while body");
-            // CPython 3.12: Let ParseBlock handle NEWLINE/INDENT tokens
-
-            WriteLine("var whileBody = new List<object>();");
-            WriteLine("// Parse while body - handle multiple statements in indented block");
-            WriteLine("// Continue parsing statements until DEDENT");
-            WriteLine("while (CurrentToken != null && CurrentToken.Type.ToString() != \"DEDENT\" && CurrentToken.Type.ToString() != \"ENDMARKER\")");
+            WriteLine("// CPython 3.12: while_stmt: 'while' named_expression ':' block [else_block]");
+            WriteLine("// block: NEWLINE INDENT statements DEDENT | simple_stmts");
+            WriteLine("var whileBody = ParseBlock();");
+            WriteLine("if (whileBody == null || whileBody.Count == 0)");
             WriteLine("{");
             Indent();
-            WriteLine("// Skip any NEWLINE tokens between statements");
-            WriteLine("while (CurrentToken?.Type.ToString() == \"NEWLINE\")");
-            WriteLine("{");
-            Indent();
-            WriteLine("Advance();");
-            Dedent();
-            WriteLine("}");
-            WriteLine();
-            WriteLine("if (CurrentToken == null || CurrentToken.Type.ToString() == \"DEDENT\") break;");
-            WriteLine();
-            WriteLine("// Try to parse a simple statement (including assignments)");
-            WriteLine("var stmt = ParseSimpleStmt();");
-            WriteLine("if (stmt != null)");
-            WriteLine("{");
-            Indent();
-            WriteLine("whileBody.Add(stmt);");
-            WriteLine("// Consume NEWLINE after statement if present");
-            WriteLine("if (CurrentToken?.Type.ToString() == \"NEWLINE\")");
-            WriteLine("{");
-            Indent();
-            WriteLine("Advance();");
-            Dedent();
-            WriteLine("}");
-            Dedent();
-            WriteLine("}");
-            WriteLine("else");
-            WriteLine("{");
-            Indent();
-            WriteLine("// If no statement could be parsed, break to avoid infinite loop");
-            WriteLine("break;");
-            Dedent();
-            WriteLine("}");
-            Dedent();
-            WriteLine("}");
-            WriteLine();
-
-            // Skip DEDENT if present
-            WriteLine("// Skip DEDENT if present");
-            WriteLine("if (CurrentToken?.Type.ToString() == \"DEDENT\")");
-            WriteLine("{");
-            Indent();
-            WriteLine("Advance();");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseWhileStatement: Failed to parse while body\");");
+            WriteLine("return null;");
             Dedent();
             WriteLine("}");
             WriteLine();

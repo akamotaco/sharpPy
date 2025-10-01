@@ -7,7 +7,7 @@
 - 문제 해결 시에는 cPython 3.12의 호환성을 고려하여 문제를 해결할 것.
 
 ### 🎯 **올바른 문제 해결 순서**
-1. 문제 발생 → CPython 바이트코드 분석
+1. 문제 발생 → CPython tokenize/AST/bytecode 분석
 2. 차이점 정확히 파악 → 원인 이해  
 3. 최적화를 비활성화하고 문제 해결
 4. 최적화를 활성화하고 문제 해결 (단계적 해결)
@@ -25,6 +25,7 @@
 - **SharpPy 실행**: `dotnet run [filename]`
 - **CPython 3.12 바이트코드 비교**: `export PYTHONUTF8=1 && "C:\Users\m11\miniforge3\envs\py312\python.exe" -m dis [filename]`
 - **SharpPy 바이트코드 비교**: `dotnet run --dis [filename]`
+- **SharpPy 바이트코드 비교**: `dotnet run --ast [filename]`
 - **utf-8 인코딩 설정** : `set PYTHONUTF8=1` 또는 `export PYTHONUTF8=1`
 - **최적화 비사용** : `--no-optimize`
 - **토큰 시각화** : ` --tokens`

@@ -65,19 +65,31 @@ namespace SharpPy.Tools
             var names = codeObject.Names;
             var varNames = codeObject.VarNames;
 
-            // CPython 3.12 정확한 바이트 오프셋 누적 계산
-            int currentByteOffset = 0;
+            // CPython 3.12: 최적화 여부에 따라 offset 계산 방식 변경
+            // - 최적화 On (QuickenedCode): instruction offset (0, 1, 2, ...)
+            // - 최적화 Off: byte offset (0, 2, 4, 6, ...)
+            bool isQuickened = codeObject is PyQuickenedCodeObject;
+            int currentOffset = 0;
 
             for (int i = 0; i < instructions.Count; i++)
             {
                 var instruction = instructions[i];
 
                 // CPython 호환 형식 출력
-                string line = FormatActualInstruction(i, currentByteOffset, instruction, constants, names, varNames);
+                string line = FormatActualInstruction(i, currentOffset, instruction, constants, names, varNames, isQuickened);
                 Console.WriteLine(line);
 
-                // 다음 명령어를 위한 바이트 오프셋 누적 계산
-                currentByteOffset += PyJumpBackwardUtil.GetCPythonInstructionSize(instruction.OpCode, instruction.Argument);
+                // 다음 명령어를 위한 offset 누적 계산
+                if (isQuickened)
+                {
+                    // 최적화 On: instruction offset (단순 증가)
+                    currentOffset++;
+                }
+                else
+                {
+                    // 최적화 Off: byte offset
+                    currentOffset += PyJumpBackwardUtil.GetCPythonInstructionSize(instruction.OpCode, instruction.Argument);
+                }
             }
 
             // Display Exception Table if present (CPython 3.12 compatible format)
@@ -115,11 +127,12 @@ namespace SharpPy.Tools
         /// <summary>
         /// 단일 명령어를 CPython 호환 형식으로 포맷팅
         /// </summary>
-        private string FormatActualInstruction(int instructionIndex, int byteOffset, 
+        private string FormatActualInstruction(int instructionIndex, int currentOffset,
                                             ByteCodeInstruction instruction,
-                                            List<PyObject> constants, 
-                                            List<string> names, 
-                                            List<string> varNames)
+                                            List<PyObject> constants,
+                                            List<string> names,
+                                            List<string> varNames,
+                                            bool isQuickened)
         {
             var sb = new StringBuilder();
             
@@ -137,20 +150,20 @@ namespace SharpPy.Tools
                 sb.Append("   ");
             }
             
-            // 바이트 오프셋
-            sb.AppendFormat("{0,12}", byteOffset);
-            
+            // Offset 출력
+            sb.AppendFormat("{0,12}", currentOffset);
+
             // 점프 타겟 표시 (간단 구현)
             if (instruction.OpCode == ByteCodeOp.FOR_ITER || instruction.OpCode == ByteCodeOp.END_FOR)
                 sb.Append(" >> ");
             else
                 sb.Append("    ");
-                
+
             // 명령어 이름
             sb.AppendFormat("{0,-20}", instruction.OpCode.ToString());
-            
+
             // 인수 정보
-            string argInfo = GetActualArgumentInfo(instruction, byteOffset, constants, names, varNames);
+            string argInfo = GetActualArgumentInfo(instruction, currentOffset, constants, names, varNames, isQuickened);
             if (!string.IsNullOrEmpty(argInfo))
                 sb.Append(argInfo);
                 
@@ -201,12 +214,13 @@ namespace SharpPy.Tools
         /// <summary>
         /// 명령어 인수 정보를 형식에 맞게 생성
         /// </summary>
-        private string GetActualArgumentInfo(ByteCodeInstruction instruction, int currentByteOffset,
-                                          List<PyObject> constants, List<string> names, List<string> varNames)
+        private string GetActualArgumentInfo(ByteCodeInstruction instruction, int currentOffset,
+                                          List<PyObject> constants, List<string> names, List<string> varNames,
+                                          bool isQuickened)
         {
             var op = instruction.OpCode;
             var arg = instruction.Argument;
-            
+
             switch (op)
             {
                 case ByteCodeOp.LOAD_CONST:
@@ -268,24 +282,63 @@ namespace SharpPy.Tools
                     return $"{arg,15} ({isOp})";
 
                 case ByteCodeOp.FOR_ITER:
-                    var forIterTarget = currentByteOffset + 2 + (arg * 2);
+                    int forIterTarget;
+                    if (isQuickened)
+                    {
+                        // 최적화 On: instruction offset 기반
+                        forIterTarget = currentOffset + 1 + arg;
+                    }
+                    else
+                    {
+                        // 최적화 Off: byte offset 기반
+                        forIterTarget = currentOffset + 2 + (arg * 2);
+                    }
                     return $"{arg,15} (to {forIterTarget})";
-                    
+
                 case ByteCodeOp.JUMP_BACKWARD:
-                    // CPython 3.12 exact formula from dis.py:
-                    // argval = offset + 2 + (-arg * 2)
-                    var jumpBackwardTarget = currentByteOffset + 2 + (-arg * 2);
+                    int jumpBackwardTarget;
+                    if (isQuickened)
+                    {
+                        // 최적화 On: instruction offset 기반
+                        // PyQuickenedCodeObject.CalculateJumpTarget과 동일한 계산식
+                        // target_position = current_position - oparg
+                        jumpBackwardTarget = currentOffset - arg;
+                    }
+                    else
+                    {
+                        // 최적화 Off: byte offset 기반
+                        // CPython 3.12: target = offset + 2 + (-arg * 2)
+                        jumpBackwardTarget = currentOffset + 2 + (-arg * 2);
+                    }
                     return $"{arg,15} (to {jumpBackwardTarget})";
-                    
+
                 case ByteCodeOp.JUMP_FORWARD:
-                    // CPython 3.12: Jump target = offset + 2 + arg*2
-                    var jumpForwardTarget = currentByteOffset + 2 + arg * 2;
+                    int jumpForwardTarget;
+                    if (isQuickened)
+                    {
+                        // 최적화 On: instruction offset 기반
+                        jumpForwardTarget = currentOffset + 1 + arg;
+                    }
+                    else
+                    {
+                        // 최적화 Off: byte offset 기반
+                        jumpForwardTarget = currentOffset + 2 + arg * 2;
+                    }
                     return $"{arg,15} (to {jumpForwardTarget})";
-                    
+
                 case ByteCodeOp.POP_JUMP_IF_FALSE:
                 case ByteCodeOp.POP_JUMP_IF_TRUE:
-                    // CPython 3.12: Jump target = offset + 2 + arg*2 
-                    var jumpTarget = currentByteOffset + 2 + arg * 2;
+                    int jumpTarget;
+                    if (isQuickened)
+                    {
+                        // 최적화 On: instruction offset 기반
+                        jumpTarget = currentOffset + 1 + arg;
+                    }
+                    else
+                    {
+                        // 최적화 Off: byte offset 기반
+                        jumpTarget = currentOffset + 2 + arg * 2;
+                    }
                     return $"{arg,15} (to {jumpTarget})";
                     
                 case ByteCodeOp.RETURN_CONST:

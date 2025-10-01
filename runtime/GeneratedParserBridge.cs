@@ -709,6 +709,9 @@ namespace SharpPy
                         string targetName = null;
                         if (target is GeneratedExpr genExpr)
                         {
+#if DEBUG_LOG
+                            Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: target is GeneratedExpr, ExpressionType='{genExpr.ExpressionType}', Value type='{genExpr.Value?.GetType().Name}'");
+#endif
                             if (genExpr.ExpressionType == "Name" && genExpr.Value is { } nameValue)
                             {
                                 dynamic dynNameValue = nameValue;
@@ -717,13 +720,20 @@ namespace SharpPy
                                 Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Extracted targetName='{targetName}' from Name expression");
 #endif
                             }
-                            else if (genExpr.ExpressionType == "Expression" && genExpr.Value is { } exprValue)
+                            else if (genExpr.ExpressionType == "Expression" && genExpr.Value is GeneratedExpr innerExpr)
                             {
-                                dynamic dynExprValue = exprValue;
-                                targetName = dynExprValue.name?.ToString();
+                                // Expression wrapper - unwrap and check inner expression
 #if DEBUG_LOG
-                                Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Extracted targetName='{targetName}' from Expression");
+                                Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Unwrapping Expression, inner ExpressionType='{innerExpr.ExpressionType}'");
 #endif
+                                if (innerExpr.ExpressionType == "Name" && innerExpr.Value is { } innerNameValue)
+                                {
+                                    dynamic dynInnerName = innerNameValue;
+                                    targetName = dynInnerName.id?.ToString();
+#if DEBUG_LOG
+                                    Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Extracted targetName='{targetName}' from wrapped Name");
+#endif
+                                }
                             }
                         }
                         else if (target is string strTarget)

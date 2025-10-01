@@ -334,13 +334,45 @@ namespace SharpPy.Generated
             return null;
         }
 
-        // Assignment parsing template - CPython 3.12 chained assignment support
-        // Grammar: a[asdl_expr_seq*]=(z=star_targets '=' { z })+ b=(yield_expr | star_expressions) !'='
+        // Assignment parsing template - CPython 3.12 chained assignment and augmented assignment support
+        // Grammar:
+        //   | a[asdl_expr_seq*]=(z=star_targets '=' { z })+ b=(yield_expr | star_expressions) !'='
+        //   | a=single_target b=augassign ~ c=(yield_expr | star_expressions)
         protected GeneratedStmt? ParseAssignment()
         {
             var mark = Mark();
-            var targets = new List<object>();
             var parser = this as GeneratedPyParser;
+
+            // CPython 3.12: Try augmented assignment FIRST (single_target augassign value)
+            // This matches: i += 1, x *= 2, etc.
+            var augassignMark = Mark();
+            var augTarget = parser?.ParseExpression();
+
+            if (augTarget != null)
+            {
+                // Check for augmented assignment operators: +=, -=, *=, /=, etc.
+                string? augOp = TryMatchAugAssignOp();
+                if (augOp != null)
+                {
+                    // Matched augmented assignment operator
+                    Advance(); // consume the operator
+
+                    // Parse the value (right side)
+                    var augValue = parser?.ParseExpression();
+                    if (augValue != null)
+                    {
+                        // CPython 3.12: Set Store context on target
+                        SetExprContext(augTarget, "Store");
+
+                        // Create AugAssign statement
+                        return _PyAST_AugAssign(augTarget, augOp, augValue);
+                    }
+                }
+            }
+
+            // Augmented assignment failed, try regular assignment
+            Reset(mark);
+            var targets = new List<object>();
 
             // Parse one or more "target =" patterns
             while (true)
@@ -354,7 +386,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Check for '=' after target
+                // Check for '=' after target (exact match, not augmented)
                 if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "=")
                 {
                     targets.Add(target);
@@ -405,6 +437,59 @@ namespace SharpPy.Generated
 
             // Create chained assignment statement
             return _PyAST_Assign(targets, value);
+        }
+
+        /// <summary>
+        /// CPython 3.12: Check if current token is an augmented assignment operator
+        /// Returns the operator name if matched, null otherwise
+        /// Grammar: augassign: '+=' | '-=' | '*=' | '@=' | '/=' | '%=' | '&=' | '|=' | '^=' | '<<=' | '>>=' | '**=' | '//='
+        /// </summary>
+        private string? TryMatchAugAssignOp()
+        {
+            if (CurrentToken?.Type != GeneratedTokenType.OP)
+                return null;
+
+            var op = CurrentToken.Value;
+
+            // CPython 3.12: All augmented assignment operators
+            switch (op)
+            {
+                case "+=": return "Add";
+                case "-=": return "Sub";
+                case "*=": return "Mult";
+                case "@=": return "MatMult";
+                case "/=": return "Div";
+                case "%=": return "Mod";
+                case "&=": return "BitAnd";
+                case "|=": return "BitOr";
+                case "^=": return "BitXor";
+                case "<<=": return "LShift";
+                case ">>=": return "RShift";
+                case "**=": return "Pow";
+                case "//=": return "FloorDiv";
+                default: return null;
+            }
+        }
+
+        /// <summary>
+        /// CPython 3.12: Create AugAssign statement
+        /// _PyAST_AugAssign(target, op, value, EXTRA)
+        /// </summary>
+        protected GeneratedStmt _PyAST_AugAssign(object target, string op, object value)
+        {
+            var stmt = new GeneratedStmt();
+            stmt.StatementType = "aug_assign";  // Match existing converter code
+
+            // Create augassign data structure matching existing format
+            var augAssignData = new
+            {
+                Target = target,
+                Op = new { kind = op },  // Wrap operator in anonymous object with 'kind' field
+                Value = value
+            };
+            stmt.Value = augAssignData;
+
+            return stmt;
         }
 
         /// <summary>
@@ -958,13 +1043,14 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
-        /// _PyAST_Name - Create name expression
+        /// _PyAST_Name - Create name expression (CPython 3.12 compatible)
+        /// CPython: Name(id='x', ctx=Load())
         /// </summary>
         protected GeneratedExpr _PyAST_Name(string id, object context = null)
         {
             var expr = new GeneratedExpr();
-            expr.ExpressionType = "name";
-            expr.Value = id;
+            expr.ExpressionType = "Name";  // CPython 3.12: Capital 'N'
+            expr.Value = new { id = id };  // CPython 3.12: anonymous object with 'id' field
             expr.Context = context?.ToString() ?? "Load";
             return expr;
         }

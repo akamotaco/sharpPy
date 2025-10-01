@@ -416,7 +416,7 @@ namespace SharpPy.Generated
                 return new GeneratedExpr
                 {
                     ExpressionType = "Name",
-                    Value = new { value = name }
+                    Value = new { id = name }  // CPython 3.12: use 'id' field
                 };
             }
 
@@ -1176,42 +1176,13 @@ namespace SharpPy.Generated
             Console.WriteLine($"[DEBUG] ParseWhileStatement: Colon found, advancing");
             Advance(); // consume ':'
 
-            // Parse while body
-            var whileBody = new List<object>();
-            // Parse while body - handle multiple statements in indented block
-            // Continue parsing statements until DEDENT
-            while (CurrentToken != null && CurrentToken.Type.ToString() != "DEDENT" && CurrentToken.Type.ToString() != "ENDMARKER")
+            // CPython 3.12: while_stmt: 'while' named_expression ':' block [else_block]
+            // block: NEWLINE INDENT statements DEDENT | simple_stmts
+            var whileBody = ParseBlock();
+            if (whileBody == null || whileBody.Count == 0)
             {
-                // Skip any NEWLINE tokens between statements
-                while (CurrentToken?.Type.ToString() == "NEWLINE")
-                {
-                    Advance();
-                }
-
-                if (CurrentToken == null || CurrentToken.Type.ToString() == "DEDENT") break;
-
-                // Try to parse a simple statement (including assignments)
-                var stmt = ParseSimpleStmt();
-                if (stmt != null)
-                {
-                    whileBody.Add(stmt);
-                    // Consume NEWLINE after statement if present
-                    if (CurrentToken?.Type.ToString() == "NEWLINE")
-                    {
-                        Advance();
-                    }
-                }
-                else
-                {
-                    // If no statement could be parsed, break to avoid infinite loop
-                    break;
-                }
-            }
-
-            // Skip DEDENT if present
-            if (CurrentToken?.Type.ToString() == "DEDENT")
-            {
-                Advance();
+                Console.WriteLine($"[DEBUG] ParseWhileStatement: Failed to parse while body");
+                return null;
             }
 
             // Parse optional else clause
