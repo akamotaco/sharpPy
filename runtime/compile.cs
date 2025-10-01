@@ -4909,7 +4909,16 @@ namespace SharpPy
             var endJumps = new List<int>(); // 각 블록 끝에서 전체 if-elif-else 끝으로의 점프들
             var conditionJumps = new List<int>(); // 각 조건의 False 점프들 (나중에 패치)
             var conditionStarts = new List<int>(); // 각 조건 시작 위치 저장
-            
+
+            // CPython 3.12: else 블록 존재 여부 먼저 확인
+            var finalElse = ifStmt;
+            while (finalElse.OrElse != null && finalElse.OrElse.Count == 1 &&
+                   finalElse.OrElse[0] is IfStatement)
+            {
+                finalElse = (IfStatement)finalElse.OrElse[0];
+            }
+            bool hasElseBlock = finalElse.OrElse != null && finalElse.OrElse.Count > 0;
+
             // 모든 if/elif 조건들을 미리 수집
             var conditions = new List<(Expression Test, List<Statement> Body)>();
             var currentIf = ifStmt;
@@ -4952,10 +4961,12 @@ namespace SharpPy
                 {
                     CompileStatement(stmt);
                 }
-                
-                // 바디 실행 후 전체 if-elif-else 끝으로 점프 (return이 없는 경우)
+
+                // CPython 3.12: else 블록이 있을 때만 JUMP_FORWARD 발생
+                // else 블록이 없으면 자연스럽게 다음 문장으로 진행
+                // 바디 실행 후 전체 if-elif-else 끝으로 점프 (return이 없고 else 블록이 있는 경우)
                 var hasReturn = body.Any(stmt => stmt is ReturnStatement);
-                if (!hasReturn)
+                if (!hasReturn && hasElseBlock)
                 {
                     var jumpToEnd = _instructions.Count;
                     EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
@@ -4972,13 +4983,7 @@ namespace SharpPy
                 }
             }
             
-            // else 블록 처리
-            var finalElse = ifStmt;
-            while (finalElse.OrElse != null && finalElse.OrElse.Count == 1 && 
-                   finalElse.OrElse[0] is IfStatement)
-            {
-                finalElse = (IfStatement)finalElse.OrElse[0];
-            }
+            // else 블록 처리 (finalElse는 이미 정의됨)
             
             // 마지막 조건의 False 점프를 else 블록으로 패치
             if (conditionJumps.Count > 0)
@@ -5205,10 +5210,19 @@ namespace SharpPy
             // 2. Loop start - FOR_ITER will handle next() and StopIteration
             var forIterInstruction = _instructions.Count;
             EmitInstruction(ByteCodeOp.FOR_ITER, 0); // Jump target will be patched later
-            
+
             // 3. FOR_ITER pushes the next value on stack, store it in loop variable
-            // CPython 3.12에서 FOR_ITER는 4바이트 명령어이므로 자동으로 올바른 오프셋 생성
-            EmitStoreName(forStmt.Target);
+            // CPython 3.12: Extract target variable name
+            string targetName;
+            if (forStmt.Target is NameExpression targetNameExpr)
+            {
+                targetName = targetNameExpr.Name;
+            }
+            else
+            {
+                throw new NotImplementedException($"For loop target type {forStmt.Target?.GetType()} not yet supported");
+            }
+            EmitStoreName(targetName);
             
             // 4. Set up loop context for break/continue with FOR_ITER tracking
             var breakLabel = CreateLabel("for_break");
@@ -9101,7 +9115,9 @@ namespace SharpPy
                 // 첫 번째 generator는 .0을 사용, 나머지는 각자의 iterable 사용
                 Expression iterableExpr = (i == 0) ? iteratorExpr : generator.Iter;
 
-                innerMostStatement = new ForStatement(targetName, iterableExpr, forBody);
+                // CPython 3.12: target must be an Expression
+                Expression targetExpr = new NameExpression(targetName);
+                innerMostStatement = new ForStatement(targetExpr, iterableExpr, forBody);
             }
 
             // CPython 3.12: 최종 generator statement

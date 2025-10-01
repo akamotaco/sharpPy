@@ -82,8 +82,14 @@ namespace SharpPy
                 case ForStatement forStmt:
                     var iterType = AnalyzeExpression(forStmt.Iter);
                     var elementType = InferIterableElementType(iterType);
-                    SetVariableType(forStmt.Target, elementType);
-                    
+
+                    // CPython 3.12: Extract target variable name
+                    if (forStmt.Target is NameExpression targetNameExpr)
+                    {
+                        SetVariableType(targetNameExpr.Name, elementType);
+                    }
+                    // TODO: Handle tuple unpacking targets
+
                     foreach (var s in forStmt.Body)
                         AnalyzeStatement(s);
                     break;

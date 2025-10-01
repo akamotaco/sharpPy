@@ -352,7 +352,12 @@ namespace SharpPy
                     AnalyzeExpression(forStmt.Iter);
 
                     // 2. Define loop variable as assigned
-                    _currentTable?.DefineSymbol(forStmt.Target, SymbolFlags.Assigned);
+                    // CPython 3.12: Extract target variable name
+                    if (forStmt.Target is NameExpression nameExpr)
+                    {
+                        _currentTable?.DefineSymbol(nameExpr.Name, SymbolFlags.Assigned);
+                    }
+                    // TODO: Handle tuple unpacking targets
 
                     // 3. Analyze loop body
                     foreach (var stmt in forStmt.Body)

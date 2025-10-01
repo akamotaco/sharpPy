@@ -1031,31 +1031,14 @@ namespace SharpPy
                     return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
                 case "for":
-                    // For statement (for target in iterable: body [else: elseBody])
+                    // CPython 3.12: For statement (for target in iterable: body [else: elseBody])
+                    // target is an Expression (Name, Tuple, etc.)
                     if (stmt.Value != null)
                     {
                         var forData = stmt.Value as dynamic;
 
-                        // Extract target variable name from GeneratedExpr
-                        string targetVar = "i"; // default
-                        if (forData.target is GeneratedExpr targetExpr && targetExpr.ExpressionType == "Name")
-                        {
-                            if (targetExpr.Value is object targetValue)
-                            {
-                                var valueType = targetValue.GetType();
-                                var idProperty = valueType.GetProperty("id");
-                                var valueProperty = valueType.GetProperty("value");
-
-                                if (idProperty != null)
-                                {
-                                    targetVar = idProperty.GetValue(targetValue)?.ToString() ?? "i";
-                                }
-                                else if (valueProperty != null)
-                                {
-                                    targetVar = valueProperty.GetValue(targetValue)?.ToString() ?? "i";
-                                }
-                            }
-                        }
+                        // CPython 3.12: Convert target as Expression
+                        Expression targetExpr = ConvertAnyExpression(forData.target);
 
                         // Convert iterable expression
                         Expression iterableExpr = ConvertAnyExpression(forData.iter);
@@ -1110,7 +1093,8 @@ namespace SharpPy
                             }
                         }
 
-                        return new ForStatement(targetVar, iterableExpr, bodyStmts, elseStmts);
+                        // CPython 3.12: target is an Expression
+                        return new ForStatement(targetExpr, iterableExpr, bodyStmts, elseStmts);
                     }
                     return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 

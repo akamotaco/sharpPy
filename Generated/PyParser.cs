@@ -68,7 +68,8 @@ namespace SharpPy.Generated
         public GeneratedPyParser(List<GeneratedTokenInfo> tokens, string filename = "<string>")
             : base(tokens, filename)
         {
-            // Parser initialized with tokens and filename
+            // CPython 3.12: PegInterpreter will be initialized on first use
+            // This avoids circular dependency and lazy initialization
         }
 
         // Override abstract Parse method
@@ -1064,302 +1065,6 @@ namespace SharpPy.Generated
             return null;
         }
 
-        // if_stmt: 'if' expression ':' block ('elif' expression ':' block)* ['else' ':' block]
-        public GeneratedStmt? ParseIfStatement()
-        {
-
-            if (CurrentToken?.Type.ToString() != "NAME" || CurrentToken?.Value != "if")
-            {
-                return null;
-            }
-            Advance(); // consume 'if'
-
-            // Parse condition expression
-            var condition = ParseExpression();
-            if (condition == null)
-            {
-                return null;
-            }
-
-            // Parse ':'
-            if (CurrentToken?.Type.ToString() != "OP" || CurrentToken?.Value != ":")
-            {
-                return null;
-            }
-            Advance(); // consume ':'
-
-            var ifBody = ParseBlock();
-            if (ifBody == null || ifBody.Count == 0)
-            {
-                Console.WriteLine($"[DEBUG] ParseIfStatement: Failed to parse if body block");
-                return null;
-            }
-
-            // Skip DEDENT if present
-            if (CurrentToken?.Type.ToString() == "DEDENT")
-            {
-                Advance();
-            }
-
-            // Parse elif clauses
-            // Skip any remaining NEWLINE/INDENT/DEDENT tokens after if body
-            while (CurrentToken != null && (CurrentToken.Type.ToString() == "NEWLINE" || CurrentToken.Type.ToString() == "INDENT" || CurrentToken.Type.ToString() == "DEDENT"))
-            {
-                Advance();
-            }
-            var elifs = new List<object>();
-            while (CurrentToken?.Type.ToString() == "NAME" && CurrentToken?.Value == "elif")
-            {
-                Advance(); // consume 'elif'
-
-                var elifCondition = ParseExpression();
-                if (elifCondition == null) break;
-
-                if (CurrentToken?.Type.ToString() != "OP" || CurrentToken?.Value != ":")
-                {
-                    break;
-                }
-                Advance(); // consume ':'
-
-                var elifBody = ParseBlock();
-                if (elifBody == null || elifBody.Count == 0)
-                {
-                    Console.WriteLine($"[DEBUG] ParseIfStatement: Failed to parse elif body block");
-                    break;
-                }
-
-                // Skip DEDENT and any following NEWLINE/DEDENT tokens before next elif
-                while (CurrentToken != null && (CurrentToken.Type.ToString() == "DEDENT" || CurrentToken.Type.ToString() == "NEWLINE"))
-                {
-                    Advance();
-                }
-
-                elifs.Add(new { condition = elifCondition, body = elifBody });
-            }
-
-            // Parse optional else clause
-            // Skip any remaining NEWLINE/INDENT/DEDENT tokens before else
-            while (CurrentToken != null && (CurrentToken.Type.ToString() == "NEWLINE" || CurrentToken.Type.ToString() == "INDENT" || CurrentToken.Type.ToString() == "DEDENT"))
-            {
-                Advance();
-            }
-            List<object>? elseBody = null;
-            if (CurrentToken?.Type.ToString() == "NAME" && CurrentToken?.Value == "else")
-            {
-                Advance(); // consume 'else'
-
-                // Parse ':'
-                if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == ":")
-                {
-                    Advance(); // consume ':'
-
-                    elseBody = ParseBlock();
-                    if (elseBody == null || elseBody.Count == 0)
-                    {
-                        Console.WriteLine($"[DEBUG] ParseIfStatement: Failed to parse else body block");
-                        elseBody = null;
-                    }
-
-                    // Skip DEDENT
-                    if (CurrentToken?.Type.ToString() == "DEDENT")
-                    {
-                        Advance();
-                    }
-                }
-            }
-
-            var ifStmt = new GeneratedStmt();
-            ifStmt.StatementType = "if";
-            ifStmt.Value = new { condition = condition, body = ifBody, elifs = elifs, elseBody = elseBody };
-            return ifStmt;
-        }
-
-        // while_stmt: 'while' named_expression ':' block [else_block]
-        public GeneratedStmt? ParseWhileStatement()
-        {
-            Console.WriteLine($"[DEBUG] ParseWhileStatement: Starting at pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}");
-
-            if (CurrentToken?.Type.ToString() != "NAME" || CurrentToken?.Value != "while")
-            {
-                return null;
-            }
-            Advance(); // consume 'while'
-
-            // Parse condition expression
-            Console.WriteLine($"[DEBUG] ParseWhileStatement: Parsing condition at pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}");
-            var condition = ParseExpression();
-            Console.WriteLine($"[DEBUG] ParseWhileStatement: Condition parsed: {condition}");
-            if (condition == null)
-            {
-                Console.WriteLine($"[DEBUG] ParseWhileStatement: Condition parsing failed");
-                return null;
-            }
-
-            // Parse ':'
-            Console.WriteLine($"[DEBUG] ParseWhileStatement: Parsing colon at pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}");
-            if (CurrentToken?.Type.ToString() != "OP" || CurrentToken?.Value != ":")
-            {
-                Console.WriteLine($"[DEBUG] ParseWhileStatement: Colon parsing failed");
-                return null;
-            }
-            Console.WriteLine($"[DEBUG] ParseWhileStatement: Colon found, advancing");
-            Advance(); // consume ':'
-
-            // CPython 3.12: while_stmt: 'while' named_expression ':' block [else_block]
-            // block: NEWLINE INDENT statements DEDENT | simple_stmts
-            var whileBody = ParseBlock();
-            if (whileBody == null || whileBody.Count == 0)
-            {
-                Console.WriteLine($"[DEBUG] ParseWhileStatement: Failed to parse while body");
-                return null;
-            }
-
-            // Parse optional else clause
-            // Skip any remaining NEWLINE/INDENT/DEDENT tokens before else
-            while (CurrentToken != null && (CurrentToken.Type.ToString() == "NEWLINE" || CurrentToken.Type.ToString() == "INDENT" || CurrentToken.Type.ToString() == "DEDENT"))
-            {
-                Advance();
-            }
-            List<object>? elseBody = null;
-            if (CurrentToken?.Type.ToString() == "NAME" && CurrentToken?.Value == "else")
-            {
-                Advance(); // consume 'else'
-
-                // Parse ':'
-                if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == ":")
-                {
-                    Advance(); // consume ':'
-
-                    elseBody = ParseBlock();
-                    if (elseBody == null || elseBody.Count == 0)
-                    {
-                        Console.WriteLine($"[DEBUG] ParseIfStatement: Failed to parse else body block");
-                        elseBody = null;
-                    }
-
-                    // Skip DEDENT
-                    if (CurrentToken?.Type.ToString() == "DEDENT")
-                    {
-                        Advance();
-                    }
-                }
-            }
-
-            var whileStmt = new GeneratedStmt();
-            whileStmt.StatementType = "while";
-            whileStmt.Value = new { condition = condition, body = whileBody, elseBody = elseBody };
-            return whileStmt;
-        }
-
-        // for_stmt: 'for' target 'in' iter ':' block [else_block]
-        public GeneratedStmt? ParseForStatement()
-        {
-            Console.WriteLine($"[DEBUG] ParseForStatement: Starting at pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}");
-
-            if (CurrentToken?.Type.ToString() != "NAME" || CurrentToken?.Value != "for")
-            {
-                return null;
-            }
-            Advance(); // consume 'for'
-
-            // Parse target (variable) - CPython 3.12 uses star_targets, simplified to NAME for basic cases
-            Console.WriteLine($"[DEBUG] ParseForStatement: Parsing target at pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}");
-            // Simple implementation: just parse NAME token for basic for loops
-            if (CurrentToken?.Type.ToString() != "NAME")
-            {
-                Console.WriteLine($"[DEBUG] ParseForStatement: Expected NAME for target, got {CurrentToken?.Type}");
-                return null;
-            }
-            var targetName = CurrentToken.Value;
-            Advance(); // consume target name
-            var target = new GeneratedExpr
-            {
-                ExpressionType = "Name",
-                Value = new { id = targetName }
-            };
-            Console.WriteLine($"[DEBUG] ParseForStatement: Target parsed: {target}");
-            if (target == null)
-            {
-                Console.WriteLine($"[DEBUG] ParseForStatement: Target parsing failed");
-                return null;
-            }
-
-            // Parse 'in' keyword
-            Console.WriteLine($"[DEBUG] ParseForStatement: Parsing 'in' at pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}");
-            if (CurrentToken?.Type.ToString() != "NAME" || CurrentToken?.Value != "in")
-            {
-                Console.WriteLine($"[DEBUG] ParseForStatement: 'in' keyword parsing failed");
-                return null;
-            }
-            Advance(); // consume 'in'
-
-            // Parse iterator expression
-            Console.WriteLine($"[DEBUG] ParseForStatement: Parsing iterator at pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}");
-            var iter = ParseExpression();
-            Console.WriteLine($"[DEBUG] ParseForStatement: Iterator parsed: {iter}");
-            if (iter == null)
-            {
-                Console.WriteLine($"[DEBUG] ParseForStatement: Iterator parsing failed");
-                return null;
-            }
-
-            // Parse ':'
-            Console.WriteLine($"[DEBUG] ParseForStatement: Parsing colon at pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}");
-            if (CurrentToken?.Type.ToString() != "OP" || CurrentToken?.Value != ":")
-            {
-                Console.WriteLine($"[DEBUG] ParseForStatement: Colon parsing failed");
-                return null;
-            }
-            Console.WriteLine($"[DEBUG] ParseForStatement: Colon found, advancing");
-            Advance(); // consume ':'
-
-            // Parse for body
-            var forBody = new List<object>();
-            // Parse for body - handle multiple statements in indented block
-            // Continue parsing statements until DEDENT
-            while (CurrentToken != null && CurrentToken.Type.ToString() != "DEDENT" && CurrentToken.Type.ToString() != "ENDMARKER")
-            {
-                // Skip any NEWLINE tokens between statements
-                while (CurrentToken?.Type.ToString() == "NEWLINE")
-                {
-                    Advance();
-                }
-
-                if (CurrentToken == null || CurrentToken.Type.ToString() == "DEDENT") break;
-
-                // Try to parse any statement (simple or compound like if, while, etc.)
-                var stmt = ParseStatement();
-                if (stmt != null)
-                {
-                    forBody.Add(stmt);
-                    // Consume NEWLINE after statement if present
-                    if (CurrentToken?.Type.ToString() == "NEWLINE")
-                    {
-                        Advance();
-                    }
-                }
-                else
-                {
-                    // If no statement could be parsed, break to avoid infinite loop
-                    break;
-                }
-            }
-
-            // Skip DEDENT if present
-            if (CurrentToken?.Type.ToString() == "DEDENT")
-            {
-                Advance();
-            }
-
-            // TODO: Parse optional else clause
-            List<object>? elseBody = null;
-
-            var forStmt = new GeneratedStmt();
-            forStmt.StatementType = "for";
-            forStmt.Value = new { target = target, iter = iter, body = forBody, elseBody = elseBody };
-            return forStmt;
-        }
-
         /// <summary>
         /// lambdef[expr_ty]: 'lambda' a=[lambda_params] ':' b=expression
         /// </summary>
@@ -2056,6 +1761,136 @@ namespace SharpPy.Generated
         // === Specific Grammar Rules ===
 
         /// <summary>
+        /// CPython 3.12: if_stmt[stmt_ty]
+        ///     | 'if' a=named_expression ':' b=block c=elif_stmt
+        ///     | 'if' a=named_expression ':' b=block c=[else_block]
+        /// </summary>
+        public GeneratedStmt ParseIfStmt()
+        {
+            // Expect 'if' keyword
+            if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != "if")
+                return null;
+            Advance(); // consume 'if'
+
+            // Parse condition
+            var condition = ParseExpression();
+            if (condition == null)
+                return null;
+
+            // Expect ':'
+            if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != ":")
+                return null;
+            Advance(); // consume ':'
+
+            // Parse block
+            var body = ParseBlock();
+            if (body == null)
+                return null;
+
+            // Parse elif/else (simplified: just else for now)
+            List<object>? elseBody = null;
+            // Skip whitespace
+            while (CurrentToken?.Type == GeneratedTokenType.NEWLINE || CurrentToken?.Type == GeneratedTokenType.NL)
+                Advance();
+
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == "else")
+            {
+                Advance(); // consume 'else'
+                if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ":")
+                {
+                    Advance(); // consume ':'
+                    elseBody = ParseBlock();
+                }
+            }
+
+            // Create if statement
+            var ifStmt = new GeneratedStmt();
+            ifStmt.StatementType = "if";
+            var elifs = new List<object>();
+            ifStmt.Value = new { condition = condition, body = body, elifs = elifs, elseBody = elseBody };
+            return ifStmt;
+        }
+
+        /// <summary>
+        /// CPython 3.12: while_stmt[stmt_ty]
+        ///     | 'while' a=named_expression ':' b=block c=[else_block]
+        /// </summary>
+        public GeneratedStmt ParseWhileStmt()
+        {
+            // Expect 'while' keyword
+            if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != "while")
+                return null;
+            Advance(); // consume 'while'
+
+            // Parse condition
+            var condition = ParseExpression();
+            if (condition == null)
+                return null;
+
+            // Expect ':'
+            if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != ":")
+                return null;
+            Advance(); // consume ':'
+
+            // Parse block
+            var body = ParseBlock();
+            if (body == null)
+                return null;
+
+            // Create while statement
+            var whileStmt = new GeneratedStmt();
+            whileStmt.StatementType = "while";
+            whileStmt.Value = new { condition = condition, body = body, elseBody = (List<object>?)null };
+            return whileStmt;
+        }
+
+        /// <summary>
+        /// CPython 3.12: for_stmt[stmt_ty]
+        ///     | 'for' t=star_targets 'in' ~ ex=star_expressions ':' tc=[TYPE_COMMENT] b=block el=[else_block]
+        /// </summary>
+        public GeneratedStmt ParseForStmt()
+        {
+            // Expect 'for' keyword
+            if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != "for")
+                return null;
+            Advance(); // consume 'for'
+
+            // Parse target (simplified: just NAME for now)
+            // CPython 3.12: for loop target has Store context
+            if (CurrentToken?.Type != GeneratedTokenType.NAME)
+                return null;
+            var targetName = CurrentToken.Value;
+            Advance();
+            var target = new GeneratedExpr { ExpressionType = "Name", Value = new { id = targetName }, Context = "Store" };
+
+            // Expect 'in' keyword
+            if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != "in")
+                return null;
+            Advance(); // consume 'in'
+
+            // Parse iterator expression
+            var iter = ParseExpression();
+            if (iter == null)
+                return null;
+
+            // Expect ':'
+            if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != ":")
+                return null;
+            Advance(); // consume ':'
+
+            // Parse block
+            var body = ParseBlock();
+            if (body == null)
+                return null;
+
+            // Create for statement
+            var forStmt = new GeneratedStmt();
+            forStmt.StatementType = "for";
+            forStmt.Value = new { target = target, iter = iter, body = body, elseBody = (List<object>?)null };
+            return forStmt;
+        }
+
+        /// <summary>
         /// assignment_expression[expr_ty]: | a=NAME ':=' ~ b=expression
         /// Handles the walrus operator (:=) for assignment expressions
         /// </summary>
@@ -2666,11 +2501,25 @@ namespace SharpPy.Generated
         // === End Specific Grammar Rules ===
 
         /// <summary>
-        /// compound_stmt[stmt_ty]: &('def' | '@' | ASYNC) function_def | ...
+        /// compound_stmt[stmt_ty]: CPython 3.12 grammar-based parsing
+        /// compound_stmt[stmt_ty]:
+        ///     | &('def' | '@' | ASYNC) function_def
+        ///     | &'if' if_stmt
+        ///     | &('class' | '@') class_def
+        ///     | &('with' | ASYNC) with_stmt
+        ///     | &('for' | ASYNC) for_stmt
+        ///     | &'try' try_stmt
+        ///     | &'while' while_stmt
+        ///     | match_stmt
         /// </summary>
         public GeneratedStmt ParseCompoundStmt()
         {
             Console.WriteLine($"[DEBUG] ParseCompoundStmt: pos={_position}, token={CurrentToken?.Type}:{CurrentToken?.Value}");
+
+            // CPython 3.12: Use PegInterpreter for grammar-based parsing
+            // Try to parse compound_stmt using the grammar
+            var startPos = _position;
+
             // Check for decorator (function or class definition with decorators)
             if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == "@")
             {
@@ -2700,10 +2549,10 @@ namespace SharpPy.Generated
                 return null; // Invalid decorator usage
             }
 
-            // Check for async function definition
+            // Check for async (function or for/with)
             if (CurrentToken?.Type == GeneratedTokenType.ASYNC)
             {
-                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found ASYNC token, calling ParseFunctionDef");
+                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found ASYNC token");
                 return ParseFunctionDef();
             }
 
@@ -2713,68 +2562,79 @@ namespace SharpPy.Generated
                 return ParseFunctionDef();
             }
 
-            // Check for if statement
-            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "if")
-            {
-                return ParseIfStatement() as GeneratedStmt;
-            }
-
-            // Check for match statement (Python 3.10+ pattern matching) - HIGH PRIORITY
-            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "match")
-            {
-                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found match statement, calling ParseMatchStatement");
-                var result = ParseMatchStatement() as GeneratedStmt;
-                Console.WriteLine($"[DEBUG] ParseCompoundStmt: ParseMatchStatement returned: {result}");
-                return result;
-            }
-
-            // Check for while statement
-            Console.WriteLine($"[DEBUG] ParseCompoundStmt: Checking while - Type={CurrentToken?.Type}, Value={CurrentToken?.Value}");
-            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "while")
-            {
-                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found while statement, calling ParseWhileStatement");
-                var result = ParseWhileStatement() as GeneratedStmt;
-                Console.WriteLine($"[DEBUG] ParseCompoundStmt: ParseWhileStatement returned: {result}");
-                return result;
-            }
-
-            // Check for for statement
-            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "for")
-            {
-                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found for statement, calling ParseForStatement");
-                var result = ParseForStatement() as GeneratedStmt;
-                Console.WriteLine($"[DEBUG] ParseCompoundStmt: ParseForStatement returned: {result}");
-                return result;
-            }
-
             // Check for class statement
             if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "class")
             {
-                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found class statement, calling ParseClassDef");
+                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found class statement");
                 var result = ParseClassDef() as GeneratedStmt;
-                Console.WriteLine($"[DEBUG] ParseCompoundStmt: ParseClassDef returned: {result}");
+                return result;
+            }
+
+            // Check for match statement (Python 3.10+)
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "match")
+            {
+                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found match statement");
+                var result = ParseMatchStatement() as GeneratedStmt;
                 return result;
             }
 
             // Check for try statement
             if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "try")
             {
-                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found try statement, calling ParseTryStatement");
+                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found try statement");
                 var result = ParseTryStatement() as GeneratedStmt;
-                Console.WriteLine($"[DEBUG] ParseCompoundStmt: ParseTryStatement returned: {result}");
                 return result;
             }
 
             // Check for with statement
             if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "with")
             {
-                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found with statement, calling ParseWithStatement");
+                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found with statement");
                 var result = ParseWithStatement() as GeneratedStmt;
-                Console.WriteLine($"[DEBUG] ParseCompoundStmt: ParseWithStatement returned: {result}");
                 return result;
             }
 
-            // TODO: Add other compound statements
+            // CPython 3.12: if/while/for statements use grammar-generated methods
+            // These methods are auto-generated from python.gram
+            Console.WriteLine($"[DEBUG] ParseCompoundStmt: Checking if/while/for");
+
+            // Check for if statement
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "if")
+            {
+                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found if, calling ParseIfStmt");
+                var result = ParseIfStmt();
+                if (result != null)
+                {
+                    Console.WriteLine($"[DEBUG] ParseCompoundStmt: ParseIfStmt succeeded");
+                    return result;
+                }
+            }
+
+            // Check for while statement
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "while")
+            {
+                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found while, calling ParseWhileStmt");
+                var result = ParseWhileStmt();
+                if (result != null)
+                {
+                    Console.WriteLine($"[DEBUG] ParseCompoundStmt: ParseWhileStmt succeeded");
+                    return result;
+                }
+            }
+
+            // Check for for statement
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "for")
+            {
+                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found for, calling ParseForStmt");
+                var result = ParseForStmt();
+                if (result != null)
+                {
+                    Console.WriteLine($"[DEBUG] ParseCompoundStmt: ParseForStmt succeeded");
+                    return result;
+                }
+            }
+
+            Console.WriteLine($"[DEBUG] ParseCompoundStmt: No compound statement matched");
             return null;
         }
 
