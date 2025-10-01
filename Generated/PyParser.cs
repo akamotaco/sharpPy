@@ -1855,8 +1855,9 @@ namespace SharpPy.Generated
             }
             Advance(); // consume ':'
 
-            // Parse class body
-            var body = ParseClassBody();
+            // CPython 3.12: class_def_raw: 'class' NAME ... ':' block
+            // block: NEWLINE INDENT statements DEDENT | simple_stmts
+            var body = ParseBlock();
             if (body == null || body.Count == 0)
             {
                 Console.WriteLine($"[DEBUG] ParseClassDefRaw: Failed to parse class body");
@@ -2031,53 +2032,18 @@ namespace SharpPy.Generated
                 return null;
             }
 
-            // Parse case body according to grammar: block = NEWLINE INDENT statements DEDENT
-            if (CurrentToken?.Type == GeneratedTokenType.NEWLINE)
+            // CPython 3.12: case_block: 'case' pattern guard? ':' block
+            // block: NEWLINE INDENT statements DEDENT | simple_stmts
+            var body = ParseBlock();
+            if (body == null || body.Count == 0)
             {
-                // Consume NEWLINE
-                Advance();
-                
-                // Consume INDENT
-                if (!ExpectToken(GeneratedTokenType.INDENT))
-                {
-                    Console.WriteLine($"[DEBUG] ParseCaseBlock: Failed to match INDENT after NEWLINE at position {_position}");
-                    _position = startPos;
-                    return null;
-                }
-                
-                // Parse statements within the case body
-                var statements = new List<object>();
-                while (CurrentToken?.Type != GeneratedTokenType.DEDENT && CurrentToken?.Type != GeneratedTokenType.ENDMARKER)
-                {
-                    var stmt = ParseStatement();
-                    if (stmt != null)
-                    {
-                        statements.Add(stmt);
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-                
-                // Consume DEDENT (end of case body)
-                if (!ExpectToken(GeneratedTokenType.DEDENT))
-                {
-                    Console.WriteLine($"[DEBUG] ParseCaseBlock: Failed to match DEDENT at end of case body at position {_position}");
-                    _position = startPos;
-                    return null;
-                }
-                
-                Console.WriteLine($"[DEBUG] ParseCaseBlock: Successfully parsed case block with {statements.Count} statements");
-                return new { pattern = pattern, guard = (object)null, body = statements };
+                Console.WriteLine($"[DEBUG] ParseCaseBlock: Failed to parse case body at position {_position}");
+                _position = startPos;
+                return null;
             }
-            else if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "pass")
-            {
-                // Simple pass statement
-                Advance(); // consume 'pass'
-                Console.WriteLine($"[DEBUG] ParseCaseBlock: Successfully parsed simple pass statement");
-                return new { pattern = pattern, guard = (object)null, body = "pass" };
-            }
+
+            Console.WriteLine($"[DEBUG] ParseCaseBlock: Successfully parsed case block with {body.Count} statements");
+            return new { pattern = pattern, guard = (object)null, body = body };
 
             Console.WriteLine($"[DEBUG] ParseCaseBlock: Failed to parse case body at position {_position}, token: {CurrentToken?.Type}:{CurrentToken?.Value}");
             _position = startPos;
@@ -3547,29 +3513,82 @@ namespace SharpPy.Generated
         /// <summary>
         /// star_etc[StarEtc*]: '*' param_no_default param_maybe_default* [kwds] | '*' ',' param_maybe_default+ [kwds] | kwds
         /// </summary>
+        /// <summary>
+        /// star_etc[StarEtc*]: '*' a=param_no_default b=param_maybe_default* c=[kwds]
+        ///                  | '*' ',' b=param_maybe_default+ c=[kwds]
+        ///                  | a=kwds
+        /// CPython 3.12: Must parse actual parameter name after * or **
+        /// </summary>
         public object ParseStarEtc()
         {
+            Console.WriteLine($"[DEBUG] ParseStarEtc: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+            var savedPos = _position;
+
+            // Alternative 1: '*' param_no_default ...
             if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == "*")
             {
                 Advance(); // consume '*'
-                // Simplified star_etc parsing
+                Console.WriteLine($"[DEBUG] ParseStarEtc: Consumed '*', now at: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+                
                 var result = new Dictionary<string, object>();
-                result["vararg"] = "*args"; // Placeholder
                 result["kwonlyargs"] = new List<object>();
                 result["kwarg"] = null;
-                return result;
-            }
-            else if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == "**")
-            {
-                Advance(); // consume '**'
-                var kwarg = ParseParam();
-                var result = new Dictionary<string, object>();
-                result["vararg"] = null;
-                result["kwonlyargs"] = new List<object>();
-                result["kwarg"] = kwarg;
+                
+                // CPython 3.12: Parse NAME token for vararg parameter
+                if (CurrentToken?.Type == GeneratedTokenType.NAME)
+                {
+                    var paramName = CurrentToken.Value;
+                    Console.WriteLine($"[DEBUG] ParseStarEtc: Found vararg NAME: {paramName}");
+                    Advance(); // consume NAME
+                    result["vararg"] = paramName;
+                }
+                else if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == ",")
+                {
+                    // '*' ',' case - bare star for keyword-only args
+                    Console.WriteLine($"[DEBUG] ParseStarEtc: Bare '*' (keyword-only marker)");
+                    result["vararg"] = null;
+                }
+                else
+                {
+                    Console.WriteLine($"[ERROR] ParseStarEtc: Expected NAME or ',' after '*', got: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+                    _position = savedPos;
+                    return null;
+                }
+                
+                Console.WriteLine($"[DEBUG] ParseStarEtc: Successfully parsed '*' alternative");
                 return result;
             }
 
+            // Alternative 2: '**' param_no_default
+            if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == "**")
+            {
+                Advance(); // consume '**'
+                Console.WriteLine($"[DEBUG] ParseStarEtc: Consumed '**', now at: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+                
+                // CPython 3.12: Parse NAME token for kwarg parameter
+                if (CurrentToken?.Type == GeneratedTokenType.NAME)
+                {
+                    var paramName = CurrentToken.Value;
+                    Console.WriteLine($"[DEBUG] ParseStarEtc: Found kwarg NAME: {paramName}");
+                    Advance(); // consume NAME
+                    
+                    var result = new Dictionary<string, object>();
+                    result["vararg"] = null;
+                    result["kwonlyargs"] = new List<object>();
+                    result["kwarg"] = paramName;
+                    
+                    Console.WriteLine($"[DEBUG] ParseStarEtc: Successfully parsed '**' alternative");
+                    return result;
+                }
+                else
+                {
+                    Console.WriteLine($"[ERROR] ParseStarEtc: Expected NAME after '**', got: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+                    _position = savedPos;
+                    return null;
+                }
+            }
+
+            Console.WriteLine($"[DEBUG] ParseStarEtc: No match found");
             return null;
         }
 
