@@ -968,8 +968,32 @@ namespace SharpPy
                             }
                         }
 
-                        // For now, create empty else clause (TODO: handle elif/else)
+                        // CPython 3.12: Convert elseBody (elif/else)
                         var elseStmts = new List<Statement>();
+                        if (ifData.elseBody != null)
+                        {
+                            foreach (var elseStmt in ifData.elseBody)
+                            {
+                                if (elseStmt is GeneratedStmt generatedElseStmt)
+                                {
+                                    var convertedStmt = ConvertStatement(generatedElseStmt, insideLoop, insideFunction);
+                                    if (convertedStmt != null)
+                                        elseStmts.Add(convertedStmt);
+                                }
+                                else if (elseStmt is System.Collections.IEnumerable enumerable && !(elseStmt is string))
+                                {
+                                    foreach (var nestedStmt in enumerable)
+                                    {
+                                        if (nestedStmt is GeneratedStmt nestedGeneratedStmt)
+                                        {
+                                            var convertedStmt = ConvertStatement(nestedGeneratedStmt, insideLoop, insideFunction);
+                                            if (convertedStmt != null)
+                                                elseStmts.Add(convertedStmt);
+                                        }
+                                    }
+                                }
+                            }
+                        }
 
                         return new IfStatement(conditionExpr, bodyStmts, elseStmts);
                     }

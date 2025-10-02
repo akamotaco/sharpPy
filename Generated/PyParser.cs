@@ -1787,13 +1787,50 @@ namespace SharpPy.Generated
             if (body == null)
                 return null;
 
-            // Parse elif/else (simplified: just else for now)
+            // CPython 3.12: Parse elif_stmt or else_block
             List<object>? elseBody = null;
-            // Skip whitespace
-            while (CurrentToken?.Type == GeneratedTokenType.NEWLINE || CurrentToken?.Type == GeneratedTokenType.NL)
-                Advance();
 
-            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == "else")
+            // Check for elif - treated as nested if statement
+            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == "elif")
+            {
+                Advance(); // consume 'elif'
+
+                // Parse elif as if statement (condition + body + elif/else)
+                var elifCondition = ParseExpression();
+                if (elifCondition != null && CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ":")
+                {
+                    Advance(); // consume ':'
+                    var elifBody = ParseBlock();
+                    if (elifBody != null)
+                    {
+                        // Recursively parse more elif/else
+                        List<object>? elifElseBody = null;
+                        if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == "elif")
+                        {
+                            // Recursive elif
+                            var nestedElifStmt = ParseIfStmt(); // Will consume 'elif' and parse as if
+                            if (nestedElifStmt != null)
+                                elifElseBody = new List<object> { nestedElifStmt };
+                        }
+                        else if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == "else")
+                        {
+                            Advance(); // consume 'else'
+                            if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ":")
+                            {
+                                Advance(); // consume ':'
+                                elifElseBody = ParseBlock();
+                            }
+                        }
+
+                        // Create nested if statement for elif
+                        var elifStmt = new GeneratedStmt();
+                        elifStmt.StatementType = "if";
+                        elifStmt.Value = new { condition = elifCondition, body = elifBody, elifs = new List<object>(), elseBody = elifElseBody };
+                        elseBody = new List<object> { elifStmt };
+                    }
+                }
+            }
+            else if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == "else")
             {
                 Advance(); // consume 'else'
                 if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ":")

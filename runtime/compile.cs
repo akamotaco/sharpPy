@@ -1407,15 +1407,20 @@ namespace SharpPy
                 Console.WriteLine($"🔧 Handler 생성 완료: handlerStart={handlerStart}, 현재 _instructions.Count={_instructions.Count}");
                 #endif
 
-                // Exception table entry 생성 - handlerStart는 실제 첫 번째 handler 명령어 위치
+                // CPython 3.12: Exception table은 byte offset 사용 (instruction index 아님)
+                int startByteOffset = PyJumpBackwardUtil.CalculateByteOffset(handler.StartOffset, _instructions);
+                int endByteOffset = PyJumpBackwardUtil.CalculateByteOffset(handler.EndOffset, _instructions);
+                int handlerByteOffset = PyJumpBackwardUtil.CalculateByteOffset(handlerStart, _instructions);
+
+                // Exception table entry 생성 - byte offsets 사용
                 var exceptionEntry = new ExceptionTableEntry(
-                    start: handler.StartOffset,
-                    end: handler.EndOffset,
-                    handler: handlerStart,
+                    start: startByteOffset,
+                    end: endByteOffset,
+                    handler: handlerByteOffset,
                     depth: handler.Depth
                 );
                 #if DEBUG_LOG
-                Console.WriteLine($"🔧 Exception table entry 생성: {handler.StartOffset} to {handler.EndOffset} -> {handlerStart} [depth={handler.Depth}]");
+                Console.WriteLine($"🔧 Exception table entry 생성 (byte offsets): {startByteOffset} to {endByteOffset} -> {handlerByteOffset} [depth={handler.Depth}]");
                 #endif
                 _exceptionTable.Add(exceptionEntry);
             }
@@ -8213,7 +8218,10 @@ namespace SharpPy
                     forIterJump
                 );
             }
-            
+
+            // CPython 3.12: Exception table end는 END_FOR 직후 (변수 복원 전)
+            var exceptionTableEnd = _instructions.Count;
+
             // 조건 점프들 패치 - CPython 3.12 패턴
             for (int i = 0; i < conditionJumps.Count; i++)
             {
@@ -8260,10 +8268,8 @@ namespace SharpPy
                 }
             }
 
-            // Exception table end는 변수 복원 완료 후에 설정 (CPython 3.12 호환)
-            var exceptionTableEnd = _instructions.Count;
-
             // CPython 3.12: Exception handler를 지연 생성으로 등록
+            // exceptionTableEnd는 이미 END_FOR 직후에 설정됨 (line 8218)
             var pendingHandler = new PendingExceptionHandler
             {
                 StartOffset = exceptionTableStart,         // 명령어 인덱스 사용
