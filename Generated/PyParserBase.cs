@@ -476,9 +476,9 @@ namespace SharpPy.Generated
 
         /// <summary>
         /// CPython 3.12: Create AugAssign statement
-        /// _PyAST_AugAssign(target, op, value, EXTRA)
+        /// _PyAST_AugAssign(target, op, value, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_AugAssign(object target, string op, object value)
+        protected GeneratedStmt _PyAST_AugAssign(object target, string op, object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var stmt = new GeneratedStmt();
             stmt.StatementType = "aug_assign";  // Match existing converter code
@@ -491,7 +491,11 @@ namespace SharpPy.Generated
                 Value = value
             };
             stmt.Value = augAssignData;
-
+            // CPython 3.12 EXTRA: Store position information
+            stmt.LineNo = lineno;
+            stmt.ColOffset = col_offset;
+            stmt.EndLineNo = end_lineno;
+            stmt.EndColOffset = end_col_offset;
             return stmt;
         }
 
@@ -791,10 +795,11 @@ namespace SharpPy.Generated
 
         /// <summary>
         /// _PyAST_FunctionDef - Create function definition AST node
+        /// CPython 3.12: _PyAST_FunctionDef(name, arguments, body, decorator_list, returns, type_comment, type_params, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
         protected GeneratedStmt _PyAST_FunctionDef(string name, object arguments, object body,
             object decorator_list = null, object returns = null, string type_comment = null,
-            object type_params = null)
+            object type_params = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: Creating function '{name}' with body type: {body?.GetType().Name}");
             Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: arguments parameter is null: {arguments == null}");
@@ -822,16 +827,22 @@ namespace SharpPy.Generated
             };
 
             funcDef.Value = funcInfo;
+            // CPython 3.12 EXTRA: Store position information
+            funcDef.LineNo = lineno;
+            funcDef.ColOffset = col_offset;
+            funcDef.EndLineNo = end_lineno;
+            funcDef.EndColOffset = end_col_offset;
             Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: Function definition created successfully");
             return funcDef;
         }
 
         /// <summary>
         /// _PyAST_AsyncFunctionDef - Create async function definition AST node
+        /// CPython 3.12: _PyAST_AsyncFunctionDef(name, arguments, body, decorator_list, returns, type_comment, type_params, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
         protected GeneratedStmt _PyAST_AsyncFunctionDef(string name, object arguments, object body,
             object decorator_list = null, object returns = null, string type_comment = null,
-            object type_params = null)
+            object type_params = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             Console.WriteLine($"[DEBUG] _PyAST_AsyncFunctionDef: Creating async function '{name}' with body type: {body?.GetType().Name}");
 
@@ -850,6 +861,11 @@ namespace SharpPy.Generated
             };
 
             funcDef.Value = funcInfo;
+            // CPython 3.12 EXTRA: Store position information
+            funcDef.LineNo = lineno;
+            funcDef.ColOffset = col_offset;
+            funcDef.EndLineNo = end_lineno;
+            funcDef.EndColOffset = end_col_offset;
             Console.WriteLine($"[DEBUG] _PyAST_AsyncFunctionDef: Async function definition created successfully");
             return funcDef;
         }
@@ -930,55 +946,82 @@ namespace SharpPy.Generated
         /// <summary>
         /// _PyAST_Pass - Create pass statement
         /// </summary>
-        protected GeneratedStmt _PyAST_Pass()
+        protected GeneratedStmt _PyAST_Pass(int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var stmt = new GeneratedStmt();
             stmt.StatementType = "pass";
             stmt.Value = null;
+            // CPython 3.12 EXTRA: Store position information
+            stmt.LineNo = lineno;
+            stmt.ColOffset = col_offset;
+            stmt.EndLineNo = end_lineno;
+            stmt.EndColOffset = end_col_offset;
             return stmt;
         }
 
         /// <summary>
         /// _PyAST_Return - Create return statement
         /// </summary>
-        protected GeneratedStmt _PyAST_Return(object value)
+        protected GeneratedStmt _PyAST_Return(object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var stmt = new GeneratedStmt();
             stmt.StatementType = "return";
             stmt.Value = value;
+            // CPython 3.12 EXTRA: Store position information
+            stmt.LineNo = lineno;
+            stmt.ColOffset = col_offset;
+            stmt.EndLineNo = end_lineno;
+            stmt.EndColOffset = end_col_offset;
             return stmt;
         }
 
         /// <summary>
         /// _PyAST_Expr - Create expression statement
         /// </summary>
-        protected GeneratedStmt _PyAST_Expr(object value)
+        protected GeneratedStmt _PyAST_Expr(object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var stmt = new GeneratedStmt();
             stmt.StatementType = "expression";
             stmt.Value = value;
+            // CPython 3.12 EXTRA: Store position information
+            stmt.LineNo = lineno;
+            stmt.ColOffset = col_offset;
+            stmt.EndLineNo = end_lineno;
+            stmt.EndColOffset = end_col_offset;
             return stmt;
         }
 
         /// <summary>
         /// _PyAST_Constant - Create constant expression
+        /// CPython 3.12: _PyAST_Constant(value, kind, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedExpr _PyAST_Constant(object value)
+        protected GeneratedExpr _PyAST_Constant(object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var expr = new GeneratedExpr();
             expr.ExpressionType = "constant";
             expr.Value = value;
+            // CPython 3.12 EXTRA: Store position information
+            expr.LineNo = lineno;
+            expr.ColOffset = col_offset;
+            expr.EndLineNo = end_lineno;
+            expr.EndColOffset = end_col_offset;
             return expr;
         }
 
         /// <summary>
         /// _PyAST_Assign - Create assignment statement (single target)
+        /// CPython 3.12: _PyAST_Assign(targets, value, type_comment, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_Assign(object target, object value)
+        protected GeneratedStmt _PyAST_Assign(object target, object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var stmt = new GeneratedStmt();
             stmt.StatementType = "assignment";
             stmt.Value = new { Target = target, Value = value };
+            // CPython 3.12 EXTRA: Store position information
+            stmt.LineNo = lineno;
+            stmt.ColOffset = col_offset;
+            stmt.EndLineNo = end_lineno;
+            stmt.EndColOffset = end_col_offset;
             return stmt;
         }
 
@@ -986,41 +1029,67 @@ namespace SharpPy.Generated
         /// _PyAST_Assign - Create assignment statement (multiple targets for chained assignment)
         /// CPython 3.12: a = b = c = value
         /// </summary>
-        protected GeneratedStmt _PyAST_Assign(List<object> targets, object value)
+        protected GeneratedStmt _PyAST_Assign(List<object> targets, object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var stmt = new GeneratedStmt();
             stmt.StatementType = "assignment";
             stmt.Value = new { Targets = targets, Value = value };
-            return stmt;
-        }
-
-        protected GeneratedStmt _PyAST_AnnAssign(object target, object annotation, object value = null)
-        {
-            var stmt = new GeneratedStmt();
-            stmt.StatementType = "annassign";
-            stmt.Value = new { target = target, annotation = annotation, value = value };
+            // CPython 3.12 EXTRA: Store position information
+            stmt.LineNo = lineno;
+            stmt.ColOffset = col_offset;
+            stmt.EndLineNo = end_lineno;
+            stmt.EndColOffset = end_col_offset;
             return stmt;
         }
 
         /// <summary>
-        /// _PyAST_AnnAssign - Create annotated assignment statement
+        /// _PyAST_AnnAssign - Create annotated assignment statement (simple version)
+        /// CPython 3.12: _PyAST_AnnAssign(target, annotation, value, simple, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_AnnAssign(object target, object annotation, object value = null, int simple = 1)
+        protected GeneratedStmt _PyAST_AnnAssign(object target, object annotation, object value = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            var stmt = new GeneratedStmt();
+            stmt.StatementType = "annassign";
+            stmt.Value = new { target = target, annotation = annotation, value = value };
+            // CPython 3.12 EXTRA: Store position information
+            stmt.LineNo = lineno;
+            stmt.ColOffset = col_offset;
+            stmt.EndLineNo = end_lineno;
+            stmt.EndColOffset = end_col_offset;
+            return stmt;
+        }
+
+        /// <summary>
+        /// _PyAST_AnnAssign - Create annotated assignment statement (with simple flag)
+        /// CPython 3.12: _PyAST_AnnAssign(target, annotation, value, simple, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedStmt _PyAST_AnnAssign(object target, object annotation, object value = null, int simple = 1, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var stmt = new GeneratedStmt();
             stmt.StatementType = "ann_assign";
             stmt.Value = new { Target = target, Annotation = annotation, Value = value, Simple = simple };
+            // CPython 3.12 EXTRA: Store position information
+            stmt.LineNo = lineno;
+            stmt.ColOffset = col_offset;
+            stmt.EndLineNo = end_lineno;
+            stmt.EndColOffset = end_col_offset;
             return stmt;
         }
 
         /// <summary>
         /// _PyAST_AugAssign - Create augmented assignment statement (+=, -=, etc.)
+        /// CPython 3.12: _PyAST_AugAssign(target, op, value, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_AugAssign(object target, object op, object value)
+        protected GeneratedStmt _PyAST_AugAssign(object target, object op, object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var stmt = new GeneratedStmt();
             stmt.StatementType = "aug_assign";
             stmt.Value = new { Target = target, Op = op, Value = value };
+            // CPython 3.12 EXTRA: Store position information
+            stmt.LineNo = lineno;
+            stmt.ColOffset = col_offset;
+            stmt.EndLineNo = end_lineno;
+            stmt.EndColOffset = end_col_offset;
             return stmt;
         }
 
@@ -1048,35 +1117,53 @@ namespace SharpPy.Generated
         /// <summary>
         /// _PyAST_Name - Create name expression (CPython 3.12 compatible)
         /// CPython: Name(id='x', ctx=Load())
+        /// CPython 3.12: _PyAST_Name(id, ctx, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedExpr _PyAST_Name(string id, object context = null)
+        protected GeneratedExpr _PyAST_Name(string id, object context = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var expr = new GeneratedExpr();
             expr.ExpressionType = "Name";  // CPython 3.12: Capital 'N'
             expr.Value = new { id = id };  // CPython 3.12: anonymous object with 'id' field
             expr.Context = context?.ToString() ?? "Load";
+            // CPython 3.12 EXTRA: Store position information
+            expr.LineNo = lineno;
+            expr.ColOffset = col_offset;
+            expr.EndLineNo = end_lineno;
+            expr.EndColOffset = end_col_offset;
             return expr;
         }
 
         /// <summary>
         /// _PyAST_If - Create if statement
+        /// CPython 3.12: _PyAST_If(test, body, orelse, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_If(object test, object body, object orelse = null)
+        protected GeneratedStmt _PyAST_If(object test, object body, object orelse = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var stmt = new GeneratedStmt();
             stmt.StatementType = "if";
             stmt.Value = new { Test = test, Body = body, Orelse = orelse ?? new List<object>() };
+            // CPython 3.12 EXTRA: Store position information
+            stmt.LineNo = lineno;
+            stmt.ColOffset = col_offset;
+            stmt.EndLineNo = end_lineno;
+            stmt.EndColOffset = end_col_offset;
             return stmt;
         }
 
         /// <summary>
         /// _PyAST_While - Create while statement
+        /// CPython 3.12: _PyAST_While(test, body, orelse, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_While(object test, object body, object orelse = null)
+        protected GeneratedStmt _PyAST_While(object test, object body, object orelse = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var stmt = new GeneratedStmt();
             stmt.StatementType = "while";
             stmt.Value = new { Test = test, Body = body, Orelse = orelse ?? new List<object>() };
+            // CPython 3.12 EXTRA: Store position information
+            stmt.LineNo = lineno;
+            stmt.ColOffset = col_offset;
+            stmt.EndLineNo = end_lineno;
+            stmt.EndColOffset = end_col_offset;
             return stmt;
         }
 
@@ -1085,109 +1172,159 @@ namespace SharpPy.Generated
         /// </summary>
         /// <summary>
         /// CPython 3.12: _PyAST_For(target, iter, body, orelse, type_comment, lineno, col_offset, end_lineno, end_col_offset, arena)
-        /// SharpPy: simplified version (lineno/col_offset/arena handled separately)
         /// </summary>
-        protected GeneratedStmt _PyAST_For(object target, object iter, object body, object orelse = null, object type_comment = null)
+        protected GeneratedStmt _PyAST_For(object target, object iter, object body, object orelse = null, object type_comment = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var stmt = new GeneratedStmt();
             stmt.StatementType = "for";
             stmt.Value = new { Target = target, Iter = iter, Body = body, Orelse = orelse ?? new List<object>(), TypeComment = type_comment };
+            // CPython 3.12 EXTRA: Store position information
+            stmt.LineNo = lineno;
+            stmt.ColOffset = col_offset;
+            stmt.EndLineNo = end_lineno;
+            stmt.EndColOffset = end_col_offset;
             return stmt;
         }
 
         /// <summary>
         /// CPython 3.12: _PyAST_AsyncFor - async for statement
         /// </summary>
-        protected GeneratedStmt _PyAST_AsyncFor(object target, object iter, object body, object orelse = null, object type_comment = null)
+        protected GeneratedStmt _PyAST_AsyncFor(object target, object iter, object body, object orelse = null, object type_comment = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var stmt = new GeneratedStmt();
             stmt.StatementType = "asyncfor";
             stmt.Value = new { Target = target, Iter = iter, Body = body, Orelse = orelse ?? new List<object>(), TypeComment = type_comment };
+            // CPython 3.12 EXTRA: Store position information
+            stmt.LineNo = lineno;
+            stmt.ColOffset = col_offset;
+            stmt.EndLineNo = end_lineno;
+            stmt.EndColOffset = end_col_offset;
             return stmt;
         }
 
         /// <summary>
         /// _PyAST_Break - Create break statement
         /// </summary>
-        protected GeneratedStmt _PyAST_Break()
+        protected GeneratedStmt _PyAST_Break(int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var stmt = new GeneratedStmt();
             stmt.StatementType = "break";
             stmt.Value = null;
+            // CPython 3.12 EXTRA: Store position information
+            stmt.LineNo = lineno;
+            stmt.ColOffset = col_offset;
+            stmt.EndLineNo = end_lineno;
+            stmt.EndColOffset = end_col_offset;
             return stmt;
         }
 
         /// <summary>
         /// _PyAST_Continue - Create continue statement
         /// </summary>
-        protected GeneratedStmt _PyAST_Continue()
+        protected GeneratedStmt _PyAST_Continue(int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var stmt = new GeneratedStmt();
             stmt.StatementType = "continue";
             stmt.Value = null;
+            // CPython 3.12 EXTRA: Store position information
+            stmt.LineNo = lineno;
+            stmt.ColOffset = col_offset;
+            stmt.EndLineNo = end_lineno;
+            stmt.EndColOffset = end_col_offset;
             return stmt;
         }
 
         /// <summary>
         /// _PyAST_Match - Create match statement (Python 3.10+)
+        /// CPython 3.12: _PyAST_Match(subject, cases, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_Match(object subject, object cases)
+        protected GeneratedStmt _PyAST_Match(object subject, object cases, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var stmt = new GeneratedStmt();
             stmt.StatementType = "match";
             stmt.Value = new { Subject = subject, Cases = cases };
+            // CPython 3.12 EXTRA: Store position information
+            stmt.LineNo = lineno;
+            stmt.ColOffset = col_offset;
+            stmt.EndLineNo = end_lineno;
+            stmt.EndColOffset = end_col_offset;
             return stmt;
         }
 
         /// <summary>
         /// _PyAST_Global - Create global statement
+        /// CPython 3.12: _PyAST_Global(names, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_Global(object names)
+        protected GeneratedStmt _PyAST_Global(object names, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var stmt = new GeneratedStmt();
             stmt.StatementType = "global";
             stmt.Value = new { Names = names };
+            // CPython 3.12 EXTRA: Store position information
+            stmt.LineNo = lineno;
+            stmt.ColOffset = col_offset;
+            stmt.EndLineNo = end_lineno;
+            stmt.EndColOffset = end_col_offset;
             return stmt;
         }
 
         /// <summary>
         /// _PyAST_Nonlocal - Create nonlocal statement
+        /// CPython 3.12: _PyAST_Nonlocal(names, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_Nonlocal(object names)
+        protected GeneratedStmt _PyAST_Nonlocal(object names, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var stmt = new GeneratedStmt();
             stmt.StatementType = "nonlocal";
             stmt.Value = new { Names = names };
+            // CPython 3.12 EXTRA: Store position information
+            stmt.LineNo = lineno;
+            stmt.ColOffset = col_offset;
+            stmt.EndLineNo = end_lineno;
+            stmt.EndColOffset = end_col_offset;
             return stmt;
         }
 
         /// <summary>
         /// _PyAST_Import - Create import statement
+        /// CPython 3.12: _PyAST_Import(names, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_Import(object names)
+        protected GeneratedStmt _PyAST_Import(object names, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var stmt = new GeneratedStmt();
             stmt.StatementType = "import";
             stmt.Value = new { Names = names };
+            // CPython 3.12 EXTRA: Store position information
+            stmt.LineNo = lineno;
+            stmt.ColOffset = col_offset;
+            stmt.EndLineNo = end_lineno;
+            stmt.EndColOffset = end_col_offset;
             return stmt;
         }
 
         /// <summary>
         /// _PyAST_ImportFrom - Create from import statement
+        /// CPython 3.12: _PyAST_ImportFrom(module, names, level, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_ImportFrom(object module, object names, object level = null)
+        protected GeneratedStmt _PyAST_ImportFrom(object module, object names, object level = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var stmt = new GeneratedStmt();
             stmt.StatementType = "import_from";
             stmt.Value = new { Module = module, Names = names, Level = level ?? 0 };
+            // CPython 3.12 EXTRA: Store position information
+            stmt.LineNo = lineno;
+            stmt.ColOffset = col_offset;
+            stmt.EndLineNo = end_lineno;
+            stmt.EndColOffset = end_col_offset;
             return stmt;
         }
 
         /// <summary>
         /// _PyAST_ClassDef - Create class definition
+        /// CPython 3.12: _PyAST_ClassDef(name, bases, keywords, body, decorator_list, type_params, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
         protected GeneratedStmt _PyAST_ClassDef(string name, object bases, object keywords, object body,
-            object decorator_list = null, object type_params = null)
+            object decorator_list = null, object type_params = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var stmt = new GeneratedStmt();
             stmt.StatementType = "class_def";
@@ -1203,6 +1340,11 @@ namespace SharpPy.Generated
             };
 
             stmt.Value = classDef;
+            // CPython 3.12 EXTRA: Store position information
+            stmt.LineNo = lineno;
+            stmt.ColOffset = col_offset;
+            stmt.EndLineNo = end_lineno;
+            stmt.EndColOffset = end_col_offset;
             return stmt;
         }
 
@@ -1654,8 +1796,9 @@ namespace SharpPy.Generated
 
         /// <summary>
         /// _PyAST_FormattedValue - Create formatted value AST node for f-strings
+        /// CPython 3.12: _PyAST_FormattedValue(value, conversion, format_spec, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedExpr _PyAST_FormattedValue(object value, object conversion = null, object formatSpec = null)
+        protected GeneratedExpr _PyAST_FormattedValue(object value, object conversion = null, object formatSpec = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var expr = new GeneratedExpr();
             expr.ExpressionType = "formatted_value";
@@ -1664,68 +1807,104 @@ namespace SharpPy.Generated
                 Conversion = conversion,
                 FormatSpec = formatSpec
             };
+            // CPython 3.12 EXTRA: Store position information
+            expr.LineNo = lineno;
+            expr.ColOffset = col_offset;
+            expr.EndLineNo = end_lineno;
+            expr.EndColOffset = end_col_offset;
             return expr;
         }
 
         /// <summary>
         /// _PyAST_JoinedStr - Create joined string AST node for f-strings
+        /// CPython 3.12: _PyAST_JoinedStr(values, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedExpr _PyAST_JoinedStr(List<object> values)
+        protected GeneratedExpr _PyAST_JoinedStr(List<object> values, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var expr = new GeneratedExpr();
             expr.ExpressionType = "joined_str";
             expr.Value = values ?? new List<object>();
+            // CPython 3.12 EXTRA: Store position information
+            expr.LineNo = lineno;
+            expr.ColOffset = col_offset;
+            expr.EndLineNo = end_lineno;
+            expr.EndColOffset = end_col_offset;
             return expr;
         }
 
         /// <summary>
         /// _PyAST_Await - Create await expression AST node
+        /// CPython 3.12: _PyAST_Await(value, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedExpr _PyAST_Await(object value)
+        protected GeneratedExpr _PyAST_Await(object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var expr = new GeneratedExpr();
             expr.ExpressionType = "await";
             expr.Value = value;
+            // CPython 3.12 EXTRA: Store position information
+            expr.LineNo = lineno;
+            expr.ColOffset = col_offset;
+            expr.EndLineNo = end_lineno;
+            expr.EndColOffset = end_col_offset;
             return expr;
         }
 
         /// <summary>
         /// _PyAST_TypeVar - Create TypeVar expression AST node for PEP 695
+        /// CPython 3.12: _PyAST_TypeVar(name, bound, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedExpr _PyAST_TypeVar(string name, object bound = null)
+        protected GeneratedExpr _PyAST_TypeVar(string name, object bound = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var expr = new GeneratedExpr();
             expr.ExpressionType = "type_var";
             expr.Value = new { name = name, bound = bound };
+            // CPython 3.12 EXTRA: Store position information
+            expr.LineNo = lineno;
+            expr.ColOffset = col_offset;
+            expr.EndLineNo = end_lineno;
+            expr.EndColOffset = end_col_offset;
             return expr;
         }
 
         /// <summary>
         /// _PyAST_TypeVarTuple - Create TypeVarTuple expression AST node for PEP 695
+        /// CPython 3.12: _PyAST_TypeVarTuple(name, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedExpr _PyAST_TypeVarTuple(string name)
+        protected GeneratedExpr _PyAST_TypeVarTuple(string name, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var expr = new GeneratedExpr();
             expr.ExpressionType = "type_var_tuple";
             expr.Value = new { name = name };
+            // CPython 3.12 EXTRA: Store position information
+            expr.LineNo = lineno;
+            expr.ColOffset = col_offset;
+            expr.EndLineNo = end_lineno;
+            expr.EndColOffset = end_col_offset;
             return expr;
         }
 
         /// <summary>
         /// _PyAST_ParamSpec - Create ParamSpec expression AST node for PEP 695
+        /// CPython 3.12: _PyAST_ParamSpec(name, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedExpr _PyAST_ParamSpec(string name)
+        protected GeneratedExpr _PyAST_ParamSpec(string name, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var expr = new GeneratedExpr();
             expr.ExpressionType = "param_spec";
             expr.Value = new { name = name };
+            // CPython 3.12 EXTRA: Store position information
+            expr.LineNo = lineno;
+            expr.ColOffset = col_offset;
+            expr.EndLineNo = end_lineno;
+            expr.EndColOffset = end_col_offset;
             return expr;
         }
 
         /// <summary>
         /// _PyAST_Try - Create try statement AST node
+        /// CPython 3.12: _PyAST_Try(body, handlers, orelse, finalbody, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_Try(object body, object handlers = null, object orelse = null, object finalbody = null)
+        protected GeneratedStmt _PyAST_Try(object body, object handlers = null, object orelse = null, object finalbody = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var stmt = new GeneratedStmt();
             stmt.StatementType = "try";
@@ -1735,13 +1914,19 @@ namespace SharpPy.Generated
                 orelse = orelse,
                 finalbody = finalbody
             };
+            // CPython 3.12 EXTRA: Store position information
+            stmt.LineNo = lineno;
+            stmt.ColOffset = col_offset;
+            stmt.EndLineNo = end_lineno;
+            stmt.EndColOffset = end_col_offset;
             return stmt;
         }
 
         /// <summary>
         /// _PyAST_TryStar - Create try statement AST node with except* handlers (PEP 654)
+        /// CPython 3.12: _PyAST_TryStar(body, handlers, orelse, finalbody, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_TryStar(object body, object handlers = null, object orelse = null, object finalbody = null)
+        protected GeneratedStmt _PyAST_TryStar(object body, object handlers = null, object orelse = null, object finalbody = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var stmt = new GeneratedStmt();
             stmt.StatementType = "try_star";  // Different type to distinguish except* handling
@@ -1751,6 +1936,11 @@ namespace SharpPy.Generated
                 orelse = orelse,
                 finalbody = finalbody
             };
+            // CPython 3.12 EXTRA: Store position information
+            stmt.LineNo = lineno;
+            stmt.ColOffset = col_offset;
+            stmt.EndLineNo = end_lineno;
+            stmt.EndColOffset = end_col_offset;
             return stmt;
         }
 
@@ -2002,8 +2192,9 @@ namespace SharpPy.Generated
 
         /// <summary>
         /// Create an argument AST node from name and optional annotation
+        /// CPython 3.12: _PyAST_arg(arg, annotation, type_comment, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedExpr _PyAST_arg(string name, object? annotation = null, string? type_comment = null)
+        protected GeneratedExpr _PyAST_arg(string name, object? annotation = null, string? type_comment = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var expr = new GeneratedExpr();
             expr.ExpressionType = "arg";
@@ -2012,6 +2203,11 @@ namespace SharpPy.Generated
                 annotation = annotation,
                 type_comment = type_comment
             };
+            // CPython 3.12 EXTRA: Store position information
+            expr.LineNo = lineno;
+            expr.ColOffset = col_offset;
+            expr.EndLineNo = end_lineno;
+            expr.EndColOffset = end_col_offset;
             return expr;
         }
 

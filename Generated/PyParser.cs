@@ -15,6 +15,12 @@ namespace SharpPy.Generated
         public string? StatementType { get; set; }
         public object? Value { get; set; }
 
+        // CPython 3.12: Position information (EXTRA fields)
+        public int LineNo { get; set; }
+        public int ColOffset { get; set; }
+        public int EndLineNo { get; set; }
+        public int EndColOffset { get; set; }
+
         // Class definition properties
         public string? Type { get; set; }
         public string? ClassName { get; set; }
@@ -47,6 +53,12 @@ namespace SharpPy.Generated
         public string? ExpressionType { get; set; }
         public object? Value { get; set; }
         public string? Context { get; set; } = "Load"; // Load, Store, Del context
+
+        // CPython 3.12: Position information (EXTRA fields)
+        public int LineNo { get; set; }
+        public int ColOffset { get; set; }
+        public int EndLineNo { get; set; }
+        public int EndColOffset { get; set; }
     }
     public class GeneratedModule : GeneratedAstNode
     {
@@ -1775,6 +1787,13 @@ namespace SharpPy.Generated
             int _mark = _position;
             GeneratedStmt _res = null;
 
+            // Position tracking for EXTRA parameters
+            var _start_token = CurrentToken;
+            int _start_lineno = _start_token?.Line ?? 0;
+            int _start_col_offset = _start_token?.Column ?? 0;
+            int _end_lineno = 0;
+            int _end_col_offset = 0;
+
             // Alternative 1
             {
                 _position = _mark;
@@ -1837,7 +1856,7 @@ namespace SharpPy.Generated
                     goto alternative_failed;
                 }
                 // Action: _PyAST_If(a, b, CHECK(asdl_stmt_seq*, _PyPegen_singleton_seq(p, c)), EXTRA)
-                _res = _PyAST_If(a, b, c);
+                _res = _PyAST_If(a, b, c, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             }
@@ -1880,7 +1899,7 @@ namespace SharpPy.Generated
                 // TODO: Implement optional parsing for Group
                 object? c = null; // Optional always succeeds
                 // Action: _PyAST_If(a, b, c, EXTRA)
-                _res = _PyAST_If(a, b, c);
+                _res = _PyAST_If(a, b, c, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             }
@@ -1889,6 +1908,10 @@ namespace SharpPy.Generated
             _res = null;
 
             done:
+            // Update end position before returning
+            var _end_token = CurrentToken ?? _start_token;
+            _end_lineno = _end_token?.Line ?? _start_lineno;
+            _end_col_offset = _end_token?.Column ?? _start_col_offset;
             return _res;
         }
 
@@ -1898,6 +1921,13 @@ namespace SharpPy.Generated
             // CPython 3.12 PEG: while_stmt
             int _mark = _position;
             GeneratedStmt _res = null;
+
+            // Position tracking for EXTRA parameters
+            var _start_token = CurrentToken;
+            int _start_lineno = _start_token?.Line ?? 0;
+            int _start_col_offset = _start_token?.Column ?? 0;
+            int _end_lineno = 0;
+            int _end_col_offset = 0;
 
             // Alternative 1
             {
@@ -1956,7 +1986,7 @@ namespace SharpPy.Generated
                 // TODO: Implement optional parsing for Group
                 object? c = null; // Optional always succeeds
                 // Action: _PyAST_While(a, b, c, EXTRA)
-                _res = _PyAST_While(a, b, c);
+                _res = _PyAST_While(a, b, c, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             }
@@ -1965,6 +1995,10 @@ namespace SharpPy.Generated
             _res = null;
 
             done:
+            // Update end position before returning
+            var _end_token = CurrentToken ?? _start_token;
+            _end_lineno = _end_token?.Line ?? _start_lineno;
+            _end_col_offset = _end_token?.Column ?? _start_col_offset;
             return _res;
         }
 
@@ -1974,6 +2008,13 @@ namespace SharpPy.Generated
             // CPython 3.12 PEG: for_stmt
             int _mark = _position;
             GeneratedStmt _res = null;
+
+            // Position tracking for EXTRA parameters
+            var _start_token = CurrentToken;
+            int _start_lineno = _start_token?.Line ?? 0;
+            int _start_col_offset = _start_token?.Column ?? 0;
+            int _end_lineno = 0;
+            int _end_col_offset = 0;
 
             // Alternative 1
             {
@@ -2052,7 +2093,7 @@ namespace SharpPy.Generated
                 // TODO: Implement optional parsing for Group
                 object? el = null; // Optional always succeeds
                 // Action: _PyAST_For(t, ex, b, el, NEW_TYPE_COMMENT(p, tc), EXTRA)
-                _res = _PyAST_For(t, ex, b, el, tc);
+                _res = _PyAST_For(t, ex, b, el, tc, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             }
@@ -2149,6 +2190,10 @@ namespace SharpPy.Generated
             _res = null;
 
             done:
+            // Update end position before returning
+            var _end_token = CurrentToken ?? _start_token;
+            _end_lineno = _end_token?.Line ?? _start_lineno;
+            _end_col_offset = _end_token?.Column ?? _start_col_offset;
             return _res;
         }
 

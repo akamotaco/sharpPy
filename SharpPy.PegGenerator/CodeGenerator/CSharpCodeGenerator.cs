@@ -408,6 +408,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("public string? StatementType { get; set; }");
             WriteLine("public object? Value { get; set; }");
             WriteLine();
+            WriteLine("// CPython 3.12: Position information (EXTRA fields)");
+            WriteLine("public int LineNo { get; set; }");
+            WriteLine("public int ColOffset { get; set; }");
+            WriteLine("public int EndLineNo { get; set; }");
+            WriteLine("public int EndColOffset { get; set; }");
+            WriteLine();
             WriteLine("// Class definition properties");
             WriteLine("public string? Type { get; set; }");
             WriteLine("public string? ClassName { get; set; }");
@@ -442,6 +448,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("public string? ExpressionType { get; set; }");
             WriteLine("public object? Value { get; set; }");
             WriteLine("public string? Context { get; set; } = \"Load\"; // Load, Store, Del context");
+            WriteLine();
+            WriteLine("// CPython 3.12: Position information (EXTRA fields)");
+            WriteLine("public int LineNo { get; set; }");
+            WriteLine("public int ColOffset { get; set; }");
+            WriteLine("public int EndLineNo { get; set; }");
+            WriteLine("public int EndColOffset { get; set; }");
             Dedent();
             WriteLine("}");
             WriteLine("public class GeneratedModule : GeneratedAstNode");
@@ -1774,6 +1786,15 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine($"{returnType} _res = null;");
             WriteLine();
 
+            // CPython 3.12 EXTRA: Track position information for AST nodes
+            WriteLine($"// Position tracking for EXTRA parameters");
+            WriteLine($"var _start_token = CurrentToken;");
+            WriteLine($"int _start_lineno = _start_token?.Line ?? 0;");
+            WriteLine($"int _start_col_offset = _start_token?.Column ?? 0;");
+            WriteLine($"int _end_lineno = 0;");
+            WriteLine($"int _end_col_offset = 0;");
+            WriteLine();
+
             // Generate code for each alternative
             for (int i = 0; i < rule.Alternatives.Count; i++)
             {
@@ -1796,6 +1817,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             // Done label
             WriteLine("done:");
+            WriteLine("// Update end position before returning");
+            WriteLine("var _end_token = CurrentToken ?? _start_token;");
+            WriteLine("_end_lineno = _end_token?.Line ?? _start_lineno;");
+            WriteLine("_end_col_offset = _end_token?.Column ?? _start_col_offset;");
             WriteLine("return _res;");
 
             Dedent();

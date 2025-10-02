@@ -87,24 +87,35 @@ namespace SharpPy.PegGenerator.CodeGenerator
         /// <returns>C# code string to construct the AST node</returns>
         public string? MapAction(string funcName, List<string> args, Dictionary<string, string> variables, Rule rule)
         {
-            // Remove EXTRA, lineno, col_offset, arena arguments (CPython specific)
-            var cleanArgs = args.Where(arg =>
-                arg != "EXTRA" &&
-                !arg.Contains("lineno") &&
-                !arg.Contains("col_offset") &&
-                !arg.Contains("arena") &&
-                !arg.Contains("end_lineno") &&
-                !arg.Contains("end_col_offset")
-            ).ToList();
+            // CPython 3.12: Expand EXTRA into actual position parameters
+            // EXTRA = _start_lineno, _start_col_offset, _end_lineno, _end_col_offset, p->arena
+            var expandedArgs = new List<string>();
+            foreach (var arg in args)
+            {
+                if (arg == "EXTRA")
+                {
+                    // Expand EXTRA macro to position parameters
+                    expandedArgs.Add("_start_lineno");
+                    expandedArgs.Add("_start_col_offset");
+                    expandedArgs.Add("_end_lineno");
+                    expandedArgs.Add("_end_col_offset");
+                    // Note: arena is C-specific memory management, not needed in C#
+                }
+                else if (!arg.Contains("arena"))
+                {
+                    // Skip arena parameter (C-specific)
+                    expandedArgs.Add(arg);
+                }
+            }
 
             // Determine if this is a statement or expression
             if (StmtTypeMap.TryGetValue(funcName, out var stmtType))
             {
-                return GenerateStmtConstruction(stmtType, cleanArgs, variables);
+                return GenerateStmtConstruction(stmtType, expandedArgs, variables);
             }
             else if (ExprTypeMap.TryGetValue(funcName, out var exprType))
             {
-                return GenerateExprConstruction(exprType, cleanArgs, variables);
+                return GenerateExprConstruction(exprType, expandedArgs, variables);
             }
 
             return null;
@@ -118,9 +129,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // These methods are already implemented in PyParserBase
             var pyastFuncName = $"_PyAST_{stmtType}";
 
-            // Build argument list, filtering out NULL/EXTRA
+            // Build argument list, filtering out only NULL
+            // Position parameters (_start_lineno, etc.) are now included
             var actualArgs = args.Where(a =>
-                a != "EXTRA" &&
                 a != "NULL" &&
                 !string.IsNullOrWhiteSpace(a)
             ).Select(a => {
@@ -149,9 +160,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // CPython 3.12 pattern: Call _PyAST_* helper method directly
             var pyastFuncName = $"_PyAST_{exprType}";
 
-            // Build argument list, filtering out NULL/EXTRA
+            // Build argument list, filtering out only NULL
+            // Position parameters (_start_lineno, etc.) are now included
             var actualArgs = args.Where(a =>
-                a != "EXTRA" &&
                 a != "NULL" &&
                 !string.IsNullOrWhiteSpace(a)
             ).Select(a => GetVarOrNull(a, variables)).ToList();
@@ -188,6 +199,14 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             // Handle string literals
             if (argName.StartsWith("\"") && argName.EndsWith("\""))
+            {
+                return argName;
+            }
+
+            // Handle position parameter names (from EXTRA expansion)
+            // These are passed as-is since they're defined in the generated method
+            if (argName == "_start_lineno" || argName == "_start_col_offset" ||
+                argName == "_end_lineno" || argName == "_end_col_offset")
             {
                 return argName;
             }
