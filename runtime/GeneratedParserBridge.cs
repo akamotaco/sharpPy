@@ -108,69 +108,13 @@ namespace SharpPy
 
             if (module.Body != null)
             {
-
-                // Detect and merge chain assignments
-                var moduleStmts = module.Body.ToList();
-                for (int i = 0; i < moduleStmts.Count; i++)
+                // Convert each statement in the module body
+                foreach (var stmt in module.Body)
                 {
-                    var stmt = moduleStmts[i];
-
 #if DEBUG_LOG
-                    Console.WriteLine($"[DEBUG] Module statement {i}: Type='{stmt.StatementType}', Value={stmt.Value}");
+                    Console.WriteLine($"[DEBUG] Module statement: Type={stmt.GetType().Name}");
 #endif
-
-                    if (stmt.StatementType == "assignment")
-                    {
-                        // CPython 3.12: New parser already handles chained assignments with Targets field
-                        // Old-style chain detection (Target field) is no longer needed
-                        // Just check if this uses the new format
-                        var assignmentData = stmt.Value as dynamic;
-                        try
-                        {
-                            var hasTargets = assignmentData?.Targets != null;
-                            if (hasTargets)
-                            {
-#if DEBUG_LOG
-                                Console.WriteLine($"[DEBUG] New-style assignment with Targets field detected, skipping old chain detection");
-#endif
-                                // This is already a properly formatted assignment, no chain detection needed
-                                var convertedStmt = ConvertStatement(stmt, false, false);
-                                if (convertedStmt != null)
-                                    statements.Add(convertedStmt);
-                                continue;
-                            }
-                        }
-                        catch
-                        {
-                            // Targets field doesn't exist, fall through to old-style chain detection
-                        }
-
-                        // Look for old-style chain assignment pattern (for backward compatibility)
-                        var chainGroup = DetectChainAssignment(moduleStmts, i);
-
-#if DEBUG_LOG
-                        Console.WriteLine($"[DEBUG] Old-style chain assignment detection: Index {i}, ChainGroup.Count = {chainGroup.Count}");
-#endif
-
-                        if (chainGroup.Count > 1)
-                        {
-                            // Convert chain assignment
-                            var chainStmt = ConvertChainAssignment(chainGroup);
-                            if (chainStmt != null)
-                            {
-#if DEBUG_LOG
-                                Console.WriteLine($"[DEBUG] Created ChainedAssignStatement with {((ChainedAssignStatement)chainStmt).Targets.Count} targets");
-#endif
-                                statements.Add(chainStmt);
-                            }
-
-                            // Skip the statements we just processed
-                            i += chainGroup.Count - 1;
-                            continue;
-                        }
-                    }
-
-                    // Regular statement conversion
+                    // Regular statement conversion - all assignments are already properly structured
                     var converted = ConvertStatement(stmt, false, false);
                     if (converted != null)
                         statements.Add(converted);
@@ -180,199 +124,6 @@ namespace SharpPy
             return statements;
         }
 
-        /// <summary>
-        /// Detect chain assignment pattern (a = b = c = value)
-        /// </summary>
-        private static List<GeneratedStmt> DetectChainAssignment(List<GeneratedStmt> statements, int startIndex)
-        {
-            var chainGroup = new List<GeneratedStmt>();
-            var currentIndex = startIndex;
-
-            // Find the end of the chain by looking for assignments where value is not a name
-            while (currentIndex < statements.Count && statements[currentIndex].StatementType == "assignment")
-            {
-                var stmt = statements[currentIndex];
-                var assignmentData = stmt.Value as dynamic;
-                var valueExpr = assignmentData?.Value;
-
-                chainGroup.Add(stmt);
-
-                // If value is not a name reference, this is the end of the chain
-                if (valueExpr != null)
-                {
-                    bool isNameReference = false;
-
-                    if (valueExpr is GeneratedExpr genExpr)
-                    {
-                        isNameReference = genExpr.ExpressionType == "Name";
-                    }
-                    else
-                    {
-                        // Legacy dynamic object handling
-                        dynamic valueDynamic = valueExpr;
-                        try
-                        {
-                            isNameReference = valueDynamic.type?.ToString() == "name";
-                        }
-                        catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
-                        {
-                            isNameReference = false;
-                        }
-                    }
-
-                    if (!isNameReference)
-                    {
-                        break; // Found the actual value, end of chain
-                    }
-                }
-
-                currentIndex++;
-            }
-
-            return chainGroup;
-        }
-
-        /// <summary>
-        /// Convert chain assignment to a single statement
-        /// </summary>
-        private static Statement? ConvertChainAssignment(List<GeneratedStmt> chainGroup)
-        {
-            if (chainGroup.Count == 0) return null;
-
-            // Find the statement with the actual value (not a name reference)
-            GeneratedStmt? valueStmt = null;
-            var targetNames = new List<string>();
-
-            // First pass: collect all target names
-            for (int i = 0; i < chainGroup.Count; i++)
-            {
-                var stmt = chainGroup[i];
-                var assignmentData = stmt.Value as dynamic;
-                var target = assignmentData?.Target;
-
-                if (target != null)
-                {
-                    string? targetName = null;
-
-                    if (target is GeneratedExpr genExpr && genExpr.ExpressionType == "Name")
-                    {
-                        if (genExpr.Value is object valueObj)
-                        {
-                            var valueProperty = valueObj.GetType().GetProperty("value");
-                            targetName = valueProperty?.GetValue(valueObj)?.ToString();
-                        }
-                    }
-                    else
-                    {
-                        // Legacy dynamic object handling
-                        dynamic targetDynamic = target;
-                        try
-                        {
-                            if (targetDynamic.type?.ToString() == "name")
-                            {
-                                targetName = targetDynamic.value?.ToString();
-                            }
-                        }
-                        catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
-                        {
-                            // Ignore and continue
-                        }
-                    }
-
-                    if (!string.IsNullOrEmpty(targetName))
-                    {
-                        targetNames.Add(targetName);
-#if DEBUG_LOG
-                        Console.WriteLine($"[DEBUG] Added target name: '{targetName}', Total targets: {targetNames.Count}");
-#endif
-                    }
-                }
-            }
-
-            // Second pass: find the actual value (in the last statement)
-            var lastStmt = chainGroup[chainGroup.Count - 1];
-            var lastAssignmentData = lastStmt.Value as dynamic;
-            var lastValue = lastAssignmentData?.Value;
-
-#if DEBUG_LOG
-            string lastValueType = "null";
-            if (lastValue != null)
-            {
-                if (lastValue is GeneratedExpr genExpr)
-                {
-                    lastValueType = genExpr.ExpressionType;
-                }
-                else
-                {
-                    try
-                    {
-                        lastValueType = (lastValue as dynamic).type?.ToString() ?? "unknown";
-                    }
-                    catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
-                    {
-                        lastValueType = "no-type-property";
-                    }
-                }
-            }
-            Console.WriteLine($"[DEBUG] Last statement value: '{lastValue}', ValueType='{lastValueType}'");
-#endif
-
-            if (lastValue != null)
-            {
-                bool isNameValue = false;
-
-                if (lastValue is GeneratedExpr genExpr)
-                {
-                    isNameValue = genExpr.ExpressionType == "Name";
-                }
-                else
-                {
-                    // Legacy dynamic object handling
-                    dynamic lastValueDynamic = lastValue;
-                    try
-                    {
-                        isNameValue = lastValueDynamic.type?.ToString() == "name";
-                    }
-                    catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
-                    {
-                        isNameValue = false;
-                    }
-                }
-
-                if (!isNameValue)
-                {
-                    valueStmt = lastStmt;
-#if DEBUG_LOG
-                    Console.WriteLine($"[DEBUG] Found value statement at last position");
-#endif
-                }
-            }
-
-#if DEBUG_LOG
-            Console.WriteLine($"[DEBUG] ConvertChainAssignment: ValueStmt={valueStmt != null}, TargetNames.Count={targetNames.Count}");
-            Console.WriteLine($"[DEBUG] Target names: [{string.Join(", ", targetNames)}]");
-#endif
-
-            if (valueStmt != null && targetNames.Count > 1)
-            {
-                // Create a chain assignment statement
-                var assignmentData = valueStmt.Value as dynamic;
-                var valueExpr = assignmentData?.Value;
-
-                if (valueExpr != null)
-                {
-                    Expression convertedValueExpr = ConvertAnyExpression(valueExpr);
-
-                    // Convert target names to NameExpression objects with Store context (CPython 3.12)
-                    var targetExpressions = targetNames.Select(name => (Expression)new NameExpression(name, Store.Instance)).ToList();
-
-                    // CPython 3.12: Use AssignStatement for both single and chained assignments
-                    return new AssignStatement(targetExpressions, convertedValueExpr);
-                }
-            }
-
-            return null;
-        }
 
         /// <summary>
         /// Convert Generated statement to SharpPy statement
@@ -380,16 +131,17 @@ namespace SharpPy
         private static Statement? ConvertStatement(GeneratedStmt stmt, bool insideLoop = false, bool insideFunction = false)
         {
 #if DEBUG_LOG
-            Console.WriteLine($"[DEBUG] ConvertStatement: Converting statement type '{stmt.StatementType}' (insideLoop: {insideLoop})");
+            Console.WriteLine($"[DEBUG] ConvertStatement: Converting statement type '{stmt.GetType().Name}' (insideLoop: {insideLoop})");
 #endif
 
-            switch (stmt.StatementType)
+            // Use pattern matching with concrete types instead of string-based type checks
+            switch (stmt)
             {
-                case "pass":
+                case GeneratedPassStmt:
                     // Pass statement - represented as expression statement with None
                     return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
-                case "break":
+                case GeneratedBreakStmt:
                     // Break statement - only valid inside loops
                     if (!insideLoop)
                     {
@@ -397,7 +149,7 @@ namespace SharpPy
                     }
                     return new BreakStatement();
 
-                case "continue":
+                case GeneratedContinueStmt:
                     // Continue statement - only valid inside loops
                     if (!insideLoop)
                     {
@@ -405,52 +157,34 @@ namespace SharpPy
                     }
                     return new ContinueStatement();
 
-                case "annassign":
+                case GeneratedAnnAssignStmt annAssign:
                     // Annotated assignment statement (name: type = value or name: type)
-                    if (stmt.Value != null)
                     {
                         try
                         {
-                            // Expected structure: { target: expr, annotation: expr, value: expr? }
-                            var target = stmt.Value.GetType().GetProperty("target")?.GetValue(stmt.Value);
-                            var annotation = stmt.Value.GetType().GetProperty("annotation")?.GetValue(stmt.Value);
-                            var value = stmt.Value.GetType().GetProperty("value")?.GetValue(stmt.Value);
-
-#if DEBUG_LOG
-                            Console.WriteLine($"[DEBUG] ConvertStatement AnnAssign: target={target}, annotation={annotation}, value={value}");
-#endif
-
                             // Convert target (should be a name)
-                            string targetName = null;
-                            if (target is GeneratedExpr targetExpr && targetExpr.ExpressionType == "Name")
+                            string? targetName = null;
+                            if (annAssign.Target is GeneratedNameExpr nameExpr)
                             {
-                                targetName = targetExpr.GetType().GetProperty("id")?.GetValue(targetExpr) as string;
+                                targetName = nameExpr.Id;
                             }
 
                             if (targetName == null)
                             {
 #if DEBUG_LOG
-                                Console.WriteLine($"[DEBUG] ConvertStatement AnnAssign: Failed to extract target name from {target}");
+                                Console.WriteLine($"[DEBUG] ConvertStatement AnnAssign: Failed to extract target name");
 #endif
                                 return null;
                             }
 
                             // Convert annotation
-                            Expression annotationExpr = null;
-                            if (annotation is GeneratedExpr annotationGeneratedExpr)
-                            {
-                                annotationExpr = ConvertAnyExpression(annotationGeneratedExpr);
-                            }
+                            Expression annotationExpr = ConvertAnyExpression(annAssign.Annotation);
 
                             // Convert value (optional)
-                            Expression valueExpr = null;
-                            if (value != null && value is GeneratedExpr valueGeneratedExpr)
-                            {
-                                valueExpr = ConvertAnyExpression(valueGeneratedExpr);
-                            }
+                            Expression? valueExpr = annAssign.Value != null ? ConvertAnyExpression(annAssign.Value) : null;
 
 #if DEBUG_LOG
-                            Console.WriteLine($"[DEBUG] ConvertStatement AnnAssign: Creating AnnAssignStatement with name='{targetName}', annotation={annotationExpr}, value={valueExpr}");
+                            Console.WriteLine($"[DEBUG] ConvertStatement AnnAssign: Creating AnnAssignStatement with name='{targetName}'");
 #endif
 
                             return new AnnAssignStatement(targetName, annotationExpr, valueExpr);
@@ -463,815 +197,336 @@ namespace SharpPy
                             return null;
                         }
                     }
-                    return null;
 
-                case "assignment":
+                case GeneratedAssignStmt assignStmt:
                     // Assignment statement (name = value OR a = b = c = value)
-                    if (stmt.Value != null)
                     {
-                        var assignmentData = stmt.Value as dynamic;
-
-                        // Check if this is chained assignment (Targets list) or single assignment (Target)
-                        object targets = null;
-                        object target = null;
-                        object valueExpr = null;
-
-                        try
-                        {
-                            targets = assignmentData?.Targets;  // List<object> for chained
-                        }
-                        catch { }
-
-                        try
-                        {
-                            target = assignmentData?.Target;     // object for single
-                        }
-                        catch { }
-
-                        try
-                        {
-                            valueExpr = assignmentData?.Value;
-                        }
-                        catch { }
+                        var targets = assignStmt.Targets;  // Already GeneratedExprSeq (List<GeneratedExpr>)
+                        var valueExpr = assignStmt.Value;   // Already GeneratedExpr
 
 #if DEBUG_LOG
-                        Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Targets={targets != null}, Target={target != null}, Value={valueExpr != null}");
+                        Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Targets.Count={targets?.Count ?? 0}, Value={valueExpr != null}");
 #endif
 
-                        // Handle chained assignment (a = b = c = value)
-                        if (targets != null)
+                        if (targets != null && targets.Count > 0 && valueExpr != null)
                         {
-                            try
+                            // CPython 3.12: Convert all targets with Store context
+                            var targetExprs = new List<Expression>();
+                            foreach (var target in targets)
                             {
-                                var targetList = targets as System.Collections.IList;
-#if DEBUG_LOG
-                                Console.WriteLine($"[DEBUG] ConvertStatement: Chained assignment with {targetList?.Count ?? 0} targets");
-#endif
-                                if (targetList != null && targetList.Count > 0)
+                                var convertedTarget = ConvertAnyExpression(target);
+                                if (convertedTarget != null)
                                 {
-                                    // Convert all targets to expressions
-                                    var targetExprs = new List<Expression>();
-                                    foreach (var t in targetList)
-                                    {
-                                        var convertedTarget = ConvertAnyExpression(t);
-                                        if (convertedTarget != null)
-                                        {
-                                            targetExprs.Add(convertedTarget);
-                                        }
-                                    }
-
-                                    // Convert value
-                                    Expression convertedValueExpr = ConvertAnyExpression(valueExpr);
-
-                                    // CPython 3.12: Return AssignStatement (handles both single and chained)
-                                    return new AssignStatement(targetExprs, convertedValueExpr);
+                                    // CPython 3.12: Assignment targets have Store context
+                                    SetExprContext(convertedTarget, Store.Instance);
+                                    targetExprs.Add(convertedTarget);
                                 }
                             }
-                            catch (Exception ex)
-                            {
-#if DEBUG_LOG
-                                Console.WriteLine($"[DEBUG] ConvertStatement: Chained assignment error: {ex.Message}");
-#endif
-                            }
-                        }
 
-#if DEBUG_LOG
-                        Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Target='{target}', Value='{valueExpr}', ValueType={valueExpr?.GetType()}");
-                        Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Target Type='{target?.GetType()}', is GeneratedExpr: {target is GeneratedExpr}");
-                        if (target is GeneratedExpr genExprDebug)
-                        {
-                            Console.WriteLine($"[DEBUG] ConvertStatement Assignment: GeneratedExpr.ExpressionType='{genExprDebug.ExpressionType}'");
-                        }
-#endif
+                            // CPython 3.12: Convert value with Load context (default)
+                            Expression convertedValueExpr = ConvertAnyExpression(valueExpr);
 
-                        if (target != null && valueExpr != null)
-                        {
-                            // Extract variable name from target object
-                            string? targetName = null;
-
-                            // Handle GeneratedExpr target
-                            if (target is GeneratedExpr genExpr)
-                            {
-                                if (genExpr.ExpressionType == "Name")
-                                {
-#if DEBUG_LOG
-                                    Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Found GeneratedExpr target with ExpressionType='Name'");
-#endif
-                                    if (genExpr.Value is object valueObj)
-                                    {
-                                        var valueProperty = valueObj.GetType().GetProperty("value");
-                                        targetName = valueProperty?.GetValue(valueObj)?.ToString();
-#if DEBUG_LOG
-                                        Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Extracted targetName='{targetName}' from GeneratedExpr");
-#endif
-                                    }
-                                }
-                                else if (genExpr.ExpressionType == "Attribute")
-                                {
-#if DEBUG_LOG
-                                    Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Found GeneratedExpr target with ExpressionType='Attribute' (CPython 3.12 compatible)");
-#endif
-                                    // Handle attribute assignment: self.x = value
-                                    // Convert to AttributeStatement instead of AssignStatement
-                                    try
-                                    {
-                                        var attrExpr = ConvertAnyExpression(genExpr);
-                                        if (attrExpr is AttributeExpression attributeExpr)
-                                        {
-#if DEBUG_LOG
-                                            Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Converting attribute assignment {attributeExpr.Value}.{attributeExpr.Attr}");
-#endif
-                                            Expression convertedValueExpr = ConvertAnyExpression(valueExpr);
-                                            return new AttributeStatement(attributeExpr.Value, attributeExpr.Attr, convertedValueExpr);
-                                        }
-                                    }
-                                    catch (Exception ex)
-                                    {
-#if DEBUG_LOG
-                                        Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Failed to convert attribute assignment: {ex.Message}");
-#endif
-                                    }
-                                }
-                                else if (genExpr.ExpressionType == "Expression")
-                                {
-#if DEBUG_LOG
-                                    Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Found GeneratedExpr target with ExpressionType='Expression', unwrapping...");
-#endif
-
-                                    // Check if this Expression wrapper contains an Attribute
-                                    if (genExpr.Value is GeneratedExpr innerExpr)
-                                    {
-                                        if (innerExpr.ExpressionType == "Attribute")
-                                        {
-#if DEBUG_LOG
-                                            Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Found wrapped Attribute in Expression (CPython 3.12 compatible)");
-#endif
-                                            // Handle wrapped attribute assignment: self.x = value
-                                            try
-                                            {
-                                                var attrExpr = ConvertAnyExpression(innerExpr);
-                                                if (attrExpr is AttributeExpression attributeExpr)
-                                                {
-#if DEBUG_LOG
-                                                    Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Converting wrapped attribute assignment {attributeExpr.Value}.{attributeExpr.Attr}");
-#endif
-                                                    Expression convertedValueExpr = ConvertAnyExpression(valueExpr);
-                                                    return new AttributeStatement(attributeExpr.Value, attributeExpr.Attr, convertedValueExpr);
-                                                }
-                                            }
-                                            catch (Exception ex)
-                                            {
-#if DEBUG_LOG
-                                                Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Failed to convert wrapped attribute assignment: {ex.Message}");
-#endif
-                                            }
-                                        }
-                                        else if (innerExpr.ExpressionType == "Name")
-                                        {
-                                            if (innerExpr.Value is object valueObj)
-                                            {
-                                                var valueProperty = valueObj.GetType().GetProperty("value");
-                                                targetName = valueProperty?.GetValue(valueObj)?.ToString();
-#if DEBUG_LOG
-                                                Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Extracted targetName='{targetName}' from wrapped GeneratedExpr");
-#endif
-                                            }
-                                        }
-                                    }
-                                    else
-                                    {
-                                        // Try to extract from the wrapper's Value using ConvertAnyExpression
-                                        try
-                                        {
-                                            var unwrappedExpr = ConvertAnyExpression(genExpr.Value);
-                                            if (unwrappedExpr is NameExpression nameExpr)
-                                            {
-                                                targetName = nameExpr.Name;
-#if DEBUG_LOG
-                                                Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Extracted targetName='{targetName}' from converted NameExpression");
-#endif
-                                            }
-                                            else if (unwrappedExpr is AttributeExpression attrExpr)
-                                            {
-#if DEBUG_LOG
-                                                Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Found AttributeExpression via unwrapping");
-#endif
-                                                Expression convertedValueExpr = ConvertAnyExpression(valueExpr);
-                                                return new AttributeStatement(attrExpr.Value, attrExpr.Attr, convertedValueExpr);
-                                            }
-                                        }
-                                        catch (Exception ex)
-                                        {
-#if DEBUG_LOG
-                                            Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Failed to unwrap Expression: {ex.Message}");
-#endif
-                                        }
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                // CPython 3.12: All targets must be GeneratedExpr
-                                throw new InvalidOperationException($"Assignment target is not GeneratedExpr: {target?.GetType()?.Name}. Parser should generate GeneratedExpr objects.");
-                            }
-
-#if DEBUG_LOG
-                            Console.WriteLine($"[DEBUG] ConvertStatement Assignment Final: Target='{targetName}', Value='{valueExpr}', ValueType={valueExpr?.GetType()}");
-#endif
-
-                            if (!string.IsNullOrEmpty(targetName))
-                            {
-                                // Convert the value expression using ConvertAnyExpression
-                                Expression convertedValueExpr = ConvertAnyExpression(valueExpr);
-
-                                // CPython 3.12: Use Expression target with Store context
-                                var targetExpr = new NameExpression(targetName, Store.Instance);
-                                return new AssignStatement(targetExpr, convertedValueExpr);
-                            }
+                            // CPython 3.12: Return AssignStatement (handles both single and chained)
+                            return new AssignStatement(targetExprs, convertedValueExpr);
                         }
                     }
                     return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
-                case "aug_assign":
+                case GeneratedAugAssignStmt augAssign:
                     // Augmented assignment statement (name += value)
-                    if (stmt.Value != null)
                     {
-                        var augAssignData = stmt.Value as dynamic;
-                        var target = augAssignData?.Target;
-                        var op = augAssignData?.Op;
-                        var value = augAssignData?.Value;
+                        var target = augAssign.Target;  // Already GeneratedExpr
+                        var op = augAssign.Op;          // Already string (operator)
+                        var value = augAssign.Value;    // Already GeneratedExpr
 
 #if DEBUG_LOG
-                        Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Target='{target}', Op='{op}', Value='{value}'");
+                        Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Target={target != null}, Op='{op}', Value={value != null}");
 #endif
 
-                        // Extract target name
-                        string targetName = null;
-                        if (target is GeneratedExpr genExpr)
+                        if (target != null && !string.IsNullOrEmpty(op) && value != null)
                         {
-#if DEBUG_LOG
-                            Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: target is GeneratedExpr, ExpressionType='{genExpr.ExpressionType}', Value type='{genExpr.Value?.GetType().Name}'");
-#endif
-                            if (genExpr.ExpressionType == "Name" && genExpr.Value is { } nameValue)
-                            {
-                                dynamic dynNameValue = nameValue;
-                                targetName = dynNameValue.id?.ToString();
-#if DEBUG_LOG
-                                Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Extracted targetName='{targetName}' from Name expression");
-#endif
-                            }
-                            else if (genExpr.ExpressionType == "Expression" && genExpr.Value is GeneratedExpr innerExpr)
-                            {
-                                // Expression wrapper - unwrap and check inner expression
-#if DEBUG_LOG
-                                Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Unwrapping Expression, inner ExpressionType='{innerExpr.ExpressionType}'");
-#endif
-                                if (innerExpr.ExpressionType == "Name" && innerExpr.Value is { } innerNameValue)
-                                {
-                                    dynamic dynInnerName = innerNameValue;
-                                    targetName = dynInnerName.id?.ToString();
-#if DEBUG_LOG
-                                    Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Extracted targetName='{targetName}' from wrapped Name");
-#endif
-                                }
-                            }
-                        }
-                        else if (target is string strTarget)
-                        {
-                            targetName = strTarget;
-#if DEBUG_LOG
-                            Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Using string target='{targetName}'");
-#endif
-                        }
-                        else
-                        {
-                            // Handle anonymous object case: { kind = "Name", id = "x" }
-                            dynamic dynTarget = target;
-                            if (dynTarget?.kind == "Name" && dynTarget?.id != null)
-                            {
-                                targetName = dynTarget.id.ToString();
-#if DEBUG_LOG
-                                Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Extracted targetName='{targetName}' from anonymous object");
-#endif
-                            }
-                        }
+                            // Convert target expression
+                            var targetExpr = ConvertAnyExpression(target);
 
-                        // Extract operator
-                        string operatorType = null;
-                        if (op is { } opValue)
-                        {
-                            dynamic dynOp = opValue;
-                            var opKind = dynOp.kind?.ToString();
+                            // Convert value expression
+                            var valueExpr = ConvertAnyExpression(value);
 
-                            // Map from operator kind to operator symbol
-                            operatorType = opKind switch
-                            {
-                                "Add" => "+=",
-                                "Sub" => "-=",
-                                "Mult" => "*=",
-                                "Div" => "/=",
-                                "Mod" => "%=",
-                                "Pow" => "**=",
-                                "FloorDiv" => "//=",
-                                "LShift" => "<<=",
-                                "RShift" => ">>=",
-                                "BitOr" => "|=",
-                                "BitXor" => "^=",
-                                "BitAnd" => "&=",
-                                "MatMult" => "@=",
-                                _ => opKind // fallback to original
-                            };
-
-#if DEBUG_LOG
-                            Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Mapped operator '{opKind}' to '{operatorType}'");
-#endif
-                        }
-
-                        // Convert value expression
-                        if (targetName != null && operatorType != null && value != null)
-                        {
-                            var convertedValueExpr = ConvertAnyExpression(value);
-                            if (convertedValueExpr != null)
+                            if (targetExpr is NameExpression nameExpr)
                             {
 #if DEBUG_LOG
-                                Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Creating AugAssignStatement with target='{targetName}', op='{operatorType}'");
+                                Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Creating AugAssignStatement with target='{nameExpr.Name}', op='{op}'");
 #endif
-                                return new AugAssignStatement(targetName, operatorType, convertedValueExpr);
+                                return new AugAssignStatement(nameExpr.Name, op, valueExpr);
                             }
                         }
                     }
                     return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
-                case "ann_assign":
-                    // Annotated assignment statement (name: type = value)
-                    if (stmt.Value != null)
-                    {
-                        var annAssignData = stmt.Value as dynamic;
-                        var target = annAssignData?.Target;
-                        var annotation = annAssignData?.Annotation;
-                        var valueExpr = annAssignData?.Value;
-
-#if DEBUG_LOG
-                        Console.WriteLine($"[DEBUG] ConvertStatement AnnAssign: Target='{target}', Annotation='{annotation}', Value='{valueExpr}'");
-#endif
-
-                        if (target != null && annotation != null)
-                        {
-                            // Extract variable name from target object (similar to assignment case)
-                            string? targetName = null;
-
-                            if (target is GeneratedExpr genExpr)
-                            {
-                                if (genExpr.ExpressionType == "Name")
-                                {
-                                    if (genExpr.Value is object valueObj)
-                                    {
-                                        var valueProperty = valueObj.GetType().GetProperty("value");
-                                        targetName = valueProperty?.GetValue(valueObj)?.ToString();
-                                    }
-                                }
-                            }
-
-                            if (!string.IsNullOrEmpty(targetName))
-                            {
-                                // Convert annotation expression
-                                Expression annotationExpression = ConvertAnyExpression(annotation);
-
-                                // Convert value expression if present
-                                Expression? valueExpression = null;
-                                if (valueExpr != null)
-                                {
-                                    valueExpression = ConvertAnyExpression(valueExpr);
-                                }
-
-#if DEBUG_LOG
-                                Console.WriteLine($"[DEBUG] ConvertStatement AnnAssign Final: Target='{targetName}', HasValue={valueExpression != null}");
-#endif
-
-                                // Create annotated assignment statement
-                                return new AnnAssignStatement(targetName, annotationExpression, valueExpression);
-                            }
-                        }
-                    }
-                    return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
-
-                case "expression":
+                case GeneratedExprStmt exprStmt:
                     // Expression statement (standalone expression)
-                    if (stmt.Value != null)
                     {
-                        Console.WriteLine($"[DEBUG] ConvertStatement Expression: stmt.Value type = {stmt.Value.GetType().Name}, value = {stmt.Value}");
-                        // Convert any expression using ConvertAnyExpression
-                        var expression = ConvertAnyExpression(stmt.Value);
-                        return new ExpressionStatement(expression);
-
+                        var valueExpr = exprStmt.Value;  // Already GeneratedExpr
+                        if (valueExpr != null)
+                        {
+                            var expression = ConvertAnyExpression(valueExpr);
+                            return new ExpressionStatement(expression);
+                        }
+                        return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
-                    return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
-                case "return":
+                case GeneratedReturnStmt returnStmt:
                     // Return statement (return [expression]) - only valid inside functions
                     if (!insideFunction)
                     {
                         throw new PythonException(new PySyntaxError("'return' outside function"));
                     }
-
-                    Expression? returnValue = null;
-
-                    if (stmt.Value != null)
                     {
-                        var returnData = stmt.Value;
+                        var valueExpr = returnStmt.Value;  // Already GeneratedExpr?
+                        Expression returnValue;
 
-                        // Handle GeneratedExpr directly
-                        if (returnData is GeneratedExpr genExpr && genExpr.Value != null)
+                        if (valueExpr != null)
                         {
-                            returnValue = ConvertAnyExpression(genExpr.Value);
+                            returnValue = ConvertAnyExpression(valueExpr);
                         }
-                        // Handle dynamic objects with .value property
-                        else if (returnData is not GeneratedExpr)
+                        else
                         {
-                            var dynamicData = returnData as dynamic;
-                            if (dynamicData?.value != null)
-                            {
-                                returnValue = ConvertAnyExpression(dynamicData.value);
-                            }
+                            returnValue = new ConstantExpression(PyNone.Instance);
                         }
+
+                        return new ReturnStatement(returnValue);
                     }
 
-                    // If no value provided, return None
-                    returnValue ??= new ConstantExpression(PyNone.Instance);
-
-                    return new ReturnStatement(returnValue);
-
-                case "raise":
+                case GeneratedRaiseStmt raiseStmt:
                     // Raise statement (raise [expression] [from expression])
-                    Expression? exceptionExpr = null;
-                    Expression? fromExpr = null;
-
-                    if (stmt.Value != null)
                     {
-                        var raiseData = stmt.Value as dynamic;
+                        Expression? exceptionExpr = null;
+                        Expression? fromExpr = null;
 
-                        // Handle ExceptionExpr
-                        if (raiseData.ExceptionExpr != null)
+                        if (raiseStmt.Exc != null)
                         {
-                            if (raiseData.ExceptionExpr is GeneratedExpr genExpr)
-                            {
-                                exceptionExpr = ConvertAnyExpression(genExpr);
-                            }
+                            exceptionExpr = ConvertAnyExpression(raiseStmt.Exc);
                         }
 
-                        // Handle FromExpr (for "raise ... from ..." syntax)
-                        if (raiseData.FromExpr != null)
+                        if (raiseStmt.Cause != null)
                         {
-                            if (raiseData.FromExpr is GeneratedExpr fromGenExpr)
-                            {
-                                fromExpr = ConvertAnyExpression(fromGenExpr);
-                            }
+                            fromExpr = ConvertAnyExpression(raiseStmt.Cause);
                         }
+
+                        return new RaiseStatement(exceptionExpr, fromExpr);
                     }
 
-                    return new RaiseStatement(exceptionExpr, fromExpr);
-
-                case "if":
+                case GeneratedIfStmt ifStmt:
                     // If statement (if condition: body)
-                    if (stmt.Value != null)
                     {
-                        var ifData = stmt.Value as dynamic;
-
                         // Convert condition expression
-                        Expression conditionExpr = ConvertAnyExpression(ifData.condition);
+                        Expression conditionExpr = ConvertAnyExpression(ifStmt.Test);
 
                         // Convert body statements
                         var bodyStmts = new List<Statement>();
-                        if (ifData.body != null)
+                        foreach (var bodyStmt in ifStmt.Body)
                         {
-                            foreach (var bodyStmt in ifData.body)
-                            {
-                                if (bodyStmt is GeneratedStmt generatedStmt)
-                                {
-                                    var convertedStmt = ConvertStatement(generatedStmt, insideLoop, insideFunction);
-                                    if (convertedStmt != null)
-                                        bodyStmts.Add(convertedStmt);
-                                }
-                                else if (bodyStmt is System.Collections.IEnumerable enumerable && !(bodyStmt is string))
-                                {
-                                    // Handle nested list of statements
-                                    foreach (var nestedStmt in enumerable)
-                                    {
-                                        if (nestedStmt is GeneratedStmt nestedGeneratedStmt)
-                                        {
-                                            var convertedStmt = ConvertStatement(nestedGeneratedStmt, insideLoop, insideFunction);
-                                            if (convertedStmt != null)
-                                                bodyStmts.Add(convertedStmt);
-                                        }
-                                    }
-                                }
-                            }
+                            var convertedStmt = ConvertStatement(bodyStmt, insideLoop, insideFunction);
+                            if (convertedStmt != null)
+                                bodyStmts.Add(convertedStmt);
                         }
 
-                        // For now, create empty else clause (TODO: handle elif/else)
+                        // Convert else clause (orelse)
                         var elseStmts = new List<Statement>();
+                        foreach (var elseStmt in ifStmt.OrElse)
+                        {
+                            var convertedStmt = ConvertStatement(elseStmt, insideLoop, insideFunction);
+                            if (convertedStmt != null)
+                                elseStmts.Add(convertedStmt);
+                        }
 
                         return new IfStatement(conditionExpr, bodyStmts, elseStmts);
                     }
-                    return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
-                case "while":
+                case GeneratedWhileStmt whileStmt:
                     // While statement (while condition: body [else: elseBody])
-                    if (stmt.Value != null)
                     {
-                        var whileData = stmt.Value as dynamic;
-
-                        #if DEBUG_LOG
-                        Console.WriteLine($"[DEBUG] While statement - condition: {whileData.condition != null}, body: {whileData.body != null}");
-                        if (whileData.body != null)
-                        {
-                            var bodyType = whileData.body.GetType();
-                            Console.WriteLine($"[DEBUG] Body type: {bodyType.Name}");
-                            if (whileData.body is System.Collections.IEnumerable bodyEnum)
-                            {
-                                int count = 0;
-                                foreach (var item in bodyEnum)
-                                {
-                                    count++;
-                                }
-                                Console.WriteLine($"[DEBUG] Body count: {count}");
-                            }
-                        }
-                        #endif
-
                         // Convert condition expression
-                        Expression conditionExpr = ConvertAnyExpression(whileData.condition);
+                        Expression conditionExpr = ConvertAnyExpression(whileStmt.Test);
 
                         // Convert body statements
                         var bodyStmts = new List<Statement>();
-                        if (whileData.body != null)
+                        foreach (var bodyStmt in whileStmt.Body)
                         {
-                            foreach (var bodyStmt in whileData.body)
-                            {
-                                var convertedStmt = ConvertStatement(bodyStmt, true, insideFunction); // insideLoop = true
-                                if (convertedStmt != null)
-                                    bodyStmts.Add(convertedStmt);
-                            }
+                            var convertedStmt = ConvertStatement(bodyStmt, true, insideFunction); // insideLoop = true
+                            if (convertedStmt != null)
+                                bodyStmts.Add(convertedStmt);
                         }
 
                         // Convert optional else statements (Python while-else construct)
                         var elseStmts = new List<Statement>();
-                        if (whileData.elseBody != null)
+                        foreach (var elseStmt in whileStmt.OrElse)
                         {
-                            foreach (var elseStmt in whileData.elseBody)
-                            {
-                                var convertedStmt = ConvertStatement(elseStmt, insideLoop, insideFunction);
-                                if (convertedStmt != null)
-                                    elseStmts.Add(convertedStmt);
-                            }
+                            var convertedStmt = ConvertStatement(elseStmt, insideLoop, insideFunction);
+                            if (convertedStmt != null)
+                                elseStmts.Add(convertedStmt);
                         }
 
                         return new WhileStatement(conditionExpr, bodyStmts, elseStmts);
                     }
-                    return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
-                case "for":
+                case GeneratedForStmt forStmt:
                     // For statement (for target in iterable: body [else: elseBody])
-                    if (stmt.Value != null)
                     {
-                        var forData = stmt.Value as dynamic;
-
-                        // Extract target variable name from GeneratedExpr
+                        // Convert target to get variable name
+                        var targetExpr = ConvertAnyExpression(forStmt.Target);
                         string targetVar = "i"; // default
-                        if (forData.target is GeneratedExpr targetExpr && targetExpr.ExpressionType == "Name")
+                        if (targetExpr is NameExpression nameExpr)
                         {
-                            if (targetExpr.Value is object targetValue)
-                            {
-                                var valueType = targetValue.GetType();
-                                var idProperty = valueType.GetProperty("id");
-                                var valueProperty = valueType.GetProperty("value");
-
-                                if (idProperty != null)
-                                {
-                                    targetVar = idProperty.GetValue(targetValue)?.ToString() ?? "i";
-                                }
-                                else if (valueProperty != null)
-                                {
-                                    targetVar = valueProperty.GetValue(targetValue)?.ToString() ?? "i";
-                                }
-                            }
+                            targetVar = nameExpr.Name;
                         }
 
                         // Convert iterable expression
-                        Expression iterableExpr = ConvertAnyExpression(forData.iter);
+                        Expression iterableExpr = ConvertAnyExpression(forStmt.Iter);
 
                         // Convert body statements
                         var bodyStmts = new List<Statement>();
-                        if (forData.body != null)
+                        foreach (var bodyStmt in forStmt.Body)
                         {
-                            foreach (var bodyStmt in forData.body)
-                            {
-                                // bodyStmt might be a GeneratedStmt or a List<Object> containing statements
-                                if (bodyStmt is GeneratedStmt generatedStmt)
-                                {
-                                    var convertedStmt = ConvertStatement(generatedStmt, true, insideFunction); // insideLoop = true
-                                    if (convertedStmt != null)
-                                        bodyStmts.Add(convertedStmt);
-                                }
-                                else if (bodyStmt is System.Collections.IEnumerable enumerable && !(bodyStmt is string))
-                                {
-                                    // Handle nested list of statements
-                                    foreach (var nestedStmt in enumerable)
-                                    {
-                                        if (nestedStmt is GeneratedStmt nestedGeneratedStmt)
-                                        {
-                                            var convertedStmt = ConvertStatement(nestedGeneratedStmt, true, insideFunction);
-                                            if (convertedStmt != null)
-                                                bodyStmts.Add(convertedStmt);
-                                        }
-                                        else
-                                        {
-                                            Console.WriteLine($"[DEBUG] Unexpected nested statement type: {nestedStmt?.GetType()}");
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    // Handle other types if needed
-                                    Console.WriteLine($"[DEBUG] Unexpected body statement type: {bodyStmt?.GetType()}");
-                                }
-                            }
+                            var convertedStmt = ConvertStatement(bodyStmt, true, insideFunction); // insideLoop = true
+                            if (convertedStmt != null)
+                                bodyStmts.Add(convertedStmt);
                         }
 
                         // Convert optional else statements (Python for-else construct)
                         var elseStmts = new List<Statement>();
-                        if (forData.elseBody != null)
+                        foreach (var elseStmt in forStmt.OrElse)
                         {
-                            foreach (var elseStmt in forData.elseBody)
-                            {
-                                var convertedStmt = ConvertStatement(elseStmt, insideLoop, insideFunction);
-                                if (convertedStmt != null)
-                                    elseStmts.Add(convertedStmt);
-                            }
+                            var convertedStmt = ConvertStatement(elseStmt, insideLoop, insideFunction);
+                            if (convertedStmt != null)
+                                elseStmts.Add(convertedStmt);
                         }
 
                         return new ForStatement(targetVar, iterableExpr, bodyStmts, elseStmts);
                     }
-                    return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
-                case "async_for":
+                case GeneratedAsyncForStmt asyncForStmt:
                     // Async for statement (async for target in iterable: body [else: elseBody])
-                    if (stmt.Value != null)
                     {
-                        var asyncForData = stmt.Value as dynamic;
-
-                        // Extract target variable name from GeneratedExpr
+                        // Convert target to get variable name
+                        var targetExpr = ConvertAnyExpression(asyncForStmt.Target);
                         string targetVar = "i"; // default
-                        if (asyncForData.target is GeneratedExpr targetExpr && targetExpr.ExpressionType == "Name")
+                        if (targetExpr is NameExpression nameExpr)
                         {
-                            if (targetExpr.Value is object targetValue)
-                            {
-                                var valueType = targetValue.GetType();
-                                var idProperty = valueType.GetProperty("id");
-                                var valueProperty = valueType.GetProperty("value");
-
-                                if (idProperty != null)
-                                {
-                                    targetVar = idProperty.GetValue(targetValue)?.ToString() ?? "i";
-                                }
-                                else if (valueProperty != null)
-                                {
-                                    targetVar = valueProperty.GetValue(targetValue)?.ToString() ?? "i";
-                                }
-                            }
+                            targetVar = nameExpr.Name;
                         }
 
                         // Convert iterable expression
-                        Expression iterableExpr = ConvertAnyExpression(asyncForData.iter);
+                        Expression iterableExpr = ConvertAnyExpression(asyncForStmt.Iter);
 
                         // Convert body statements
                         var bodyStmts = new List<Statement>();
-                        if (asyncForData.body != null)
+                        foreach (var bodyStmt in asyncForStmt.Body)
                         {
-                            foreach (var bodyStmt in asyncForData.body)
-                            {
-                                var convertedStmt = ConvertStatement(bodyStmt, true, insideFunction); // insideLoop = true
-                                if (convertedStmt != null)
-                                    bodyStmts.Add(convertedStmt);
-                            }
+                            var convertedStmt = ConvertStatement(bodyStmt, true, insideFunction); // insideLoop = true
+                            if (convertedStmt != null)
+                                bodyStmts.Add(convertedStmt);
                         }
 
                         // Convert optional else statements
                         var elseStmts = new List<Statement>();
-                        if (asyncForData.elseBody != null)
+                        foreach (var elseStmt in asyncForStmt.OrElse)
                         {
-                            foreach (var elseStmt in asyncForData.elseBody)
-                            {
-                                var convertedStmt = ConvertStatement(elseStmt, insideLoop, insideFunction);
-                                if (convertedStmt != null)
-                                    elseStmts.Add(convertedStmt);
-                            }
+                            var convertedStmt = ConvertStatement(elseStmt, insideLoop, insideFunction);
+                            if (convertedStmt != null)
+                                elseStmts.Add(convertedStmt);
                         }
 
                         return new AsyncForStatement(targetVar, iterableExpr, bodyStmts, elseStmts);
                     }
-                    return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
-                case "try":
+                case GeneratedTryStmt tryStmt:
                     // Try statement (try: body except: handler)
-                    // Use GeneratedStmt specific properties instead of Value
+                    {
 #if DEBUG_LOG
-                    Console.WriteLine($"[DEBUG] try case: stmt.TryBody = {stmt.TryBody}, stmt.ExceptClauses = {stmt.ExceptClauses}");
+                        Console.WriteLine($"[DEBUG] try case: tryStmt.Body count = {tryStmt.Body?.Count}, Handlers count = {tryStmt.Handlers?.Count}");
 #endif
 
-                    // Convert try body statements
-                    var tryBodyStatements = new List<Statement>();
-                    if (stmt.TryBody != null)
-                    {
-                        foreach (var bodyStmt in stmt.TryBody)
+                        // Convert try body statements
+                        var tryBodyStatements = new List<Statement>();
+                        foreach (var bodyStmt in tryStmt.Body)
                         {
-                            var convertedStmt = ConvertStatement(bodyStmt as GeneratedStmt, insideLoop, insideFunction);
+                            var convertedStmt = ConvertStatement(bodyStmt, insideLoop, insideFunction);
                             if (convertedStmt != null)
                                 tryBodyStatements.Add(convertedStmt);
                         }
-                    }
 
-                    // Convert except blocks
-                    var exceptHandlersList = new List<ExceptHandler>();
-                    if (stmt.ExceptClauses != null)
-                    {
-                        foreach (var exceptBlock in stmt.ExceptClauses)
+                        // Convert except blocks
+                        var exceptHandlersList = new List<ExceptHandler>();
+                        foreach (var exceptBlock in tryStmt.Handlers)
                         {
                             var exceptData = exceptBlock as dynamic;
 #if DEBUG_LOG
                             Console.WriteLine($"[DEBUG] exceptData type: {exceptData?.GetType()?.Name}");
-                            Console.WriteLine($"[DEBUG] exceptData.type: {exceptData?.type?.GetType()?.Name} = {exceptData?.type}");
-                            Console.WriteLine($"[DEBUG] exceptData.name: {exceptData?.name?.GetType()?.Name} = {exceptData?.name}");
 #endif
-                                // Convert except body statements
-                                var exceptBodyStmts = new List<Statement>();
-                                if (exceptData.body != null)
+                            // Convert except body statements
+                            var exceptBodyStmts = new List<Statement>();
+                            if (exceptData.body != null)
+                            {
+                                foreach (var exceptStmt in exceptData.body)
                                 {
-                                    foreach (var exceptStmt in exceptData.body)
-                                    {
-                                        var convertedStmt = ConvertStatement(exceptStmt, insideLoop, insideFunction);
-                                        if (convertedStmt != null)
-                                            exceptBodyStmts.Add(convertedStmt);
-                                    }
+                                    var convertedStmt = ConvertStatement(exceptStmt, insideLoop, insideFunction);
+                                    if (convertedStmt != null)
+                                        exceptBodyStmts.Add(convertedStmt);
                                 }
-
-                                // CPython 3.12: Parse exception type and variable name
-                                Expression? exceptionTypeExpr = null;
-                                if (exceptData.type != null)
-                                {
-                                    // Parser returns type as string (e.g. "ValueError")
-                                    // Convert to NameExpression
-                                    if (exceptData.type is string typeStr)
-                                    {
-                                        exceptionTypeExpr = new NameExpression(typeStr);
-                                    }
-                                    else if (exceptData.type is GeneratedExpr)
-                                    {
-                                        exceptionTypeExpr = ConvertAnyExpression(exceptData.type);
-                                    }
-                                }
-
-                                // exceptData.name is already a string (not GeneratedExpr)
-                                string? variableName = null;
-                                try
-                                {
-                                    variableName = exceptData.name != null ? exceptData.name.ToString() : null;
-                                }
-                                catch
-                                {
-                                    // If name field doesn't exist or can't be converted, leave as null
-                                }
-
-                                exceptHandlersList.Add(new ExceptHandler(exceptionTypeExpr, variableName, exceptBodyStmts));
                             }
+
+                            // CPython 3.12: Parse exception type and variable name
+                            Expression? exceptionTypeExpr = null;
+                            if (exceptData.type != null)
+                            {
+                                if (exceptData.type is string typeStr)
+                                {
+                                    exceptionTypeExpr = new NameExpression(typeStr);
+                                }
+                                else if (exceptData.type is GeneratedExpr)
+                                {
+                                    exceptionTypeExpr = ConvertAnyExpression(exceptData.type);
+                                }
+                            }
+
+                            string? variableName = null;
+                            try
+                            {
+                                variableName = exceptData.name != null ? exceptData.name.ToString() : null;
+                            }
+                            catch { }
+
+                            exceptHandlersList.Add(new ExceptHandler(exceptionTypeExpr, variableName, exceptBodyStmts));
                         }
 
-                        // Convert finally block if present
+                        // Convert else and finally blocks
                         var elseStatements = new List<Statement>();
-                        var finallyStatements = new List<Statement>();
-                        if (stmt.FinallyBody != null)
+                        foreach (var elseStmt in tryStmt.OrElse)
                         {
-                            foreach (var finallyStmt in stmt.FinallyBody)
-                            {
-                                var convertedStmt = ConvertStatement(finallyStmt as GeneratedStmt, insideLoop, insideFunction);
-                                if (convertedStmt != null)
-                                    finallyStatements.Add(convertedStmt);
-                            }
+                            var convertedStmt = ConvertStatement(elseStmt, insideLoop, insideFunction);
+                            if (convertedStmt != null)
+                                elseStatements.Add(convertedStmt);
+                        }
+
+                        var finallyStatements = new List<Statement>();
+                        foreach (var finallyStmt in tryStmt.FinallyBody)
+                        {
+                            var convertedStmt = ConvertStatement(finallyStmt, insideLoop, insideFunction);
+                            if (convertedStmt != null)
+                                finallyStatements.Add(convertedStmt);
                         }
 
                         return new TryStatement(tryBodyStatements, exceptHandlersList, elseStatements, finallyStatements);
+                    }
 
-                case "try_star":
+                case GeneratedTryStarStmt tryStarStmt:
                     // Try statement with except* handlers (PEP 654: Exception Groups)
-                    if (stmt.Value != null)
                     {
-                        var tryData = stmt.Value as dynamic;
-
                         // Convert try body statements
                         var tryBodyStmts = new List<Statement>();
-                        if (tryData.body != null)
+                        if (tryStarStmt.Body != null)
                         {
-                            foreach (var bodyStmt in tryData.body)
+                            foreach (var bodyStmt in tryStarStmt.Body)
                             {
                                 var convertedStmt = ConvertStatement(bodyStmt, insideLoop, insideFunction);
                                 if (convertedStmt != null)
@@ -1281,9 +536,9 @@ namespace SharpPy
 
                         // Convert except* handlers
                         var exceptHandlers = new List<ExceptHandler>();
-                        if (tryData.handlers != null)
+                        if (tryStarStmt.Handlers != null)
                         {
-                            foreach (var handlerData in tryData.handlers)
+                            foreach (var handlerData in tryStarStmt.Handlers)
                             {
                                 var handler = handlerData as dynamic;
 
@@ -1316,9 +571,9 @@ namespace SharpPy
 
                         // Handle else and finally blocks
                         var elseStmts = new List<Statement>();
-                        if (tryData.orelse != null)
+                        if (tryStarStmt.OrElse != null)
                         {
-                            foreach (var elseStmt in tryData.orelse)
+                            foreach (var elseStmt in tryStarStmt.OrElse)
                             {
                                 var convertedStmt = ConvertStatement(elseStmt, insideLoop, insideFunction);
                                 if (convertedStmt != null)
@@ -1327,9 +582,9 @@ namespace SharpPy
                         }
 
                         var finallyStmts = new List<Statement>();
-                        if (tryData.finalbody != null)
+                        if (tryStarStmt.FinallyBody != null)
                         {
-                            foreach (var finallyStmt in tryData.finalbody)
+                            foreach (var finallyStmt in tryStarStmt.FinallyBody)
                             {
                                 var convertedStmt = ConvertStatement(finallyStmt, insideLoop, insideFunction);
                                 if (convertedStmt != null)
@@ -1339,13 +594,12 @@ namespace SharpPy
 
                         return new TryStatement(tryBodyStmts, exceptHandlers, elseStmts, finallyStmts);
                     }
-                    return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
-                case "function_def":
+                case GeneratedFunctionDefStmt funcDef:
                     // Function definition (def name(): body)
-                    if (stmt.Value is GeneratedFunctionDef funcData)
                     {
-                        var name = funcData.Name;
+                        var funcData = funcDef; // Use funcDef directly
+                        var name = funcDef.Name;
 
                         if (!string.IsNullOrEmpty(name))
                         {
@@ -1595,17 +849,14 @@ namespace SharpPy
 
                             // Convert function body with insideFunction=true
                             var bodyStmts = new List<Statement>();
-                            if (funcData.Body is List<object> bodyList)
+                            if (funcDef.Body != null)
                             {
-                                foreach (var bodyItem in bodyList)
+                                foreach (var bodyItem in funcDef.Body)
                                 {
-                                    if (bodyItem is GeneratedStmt bodyStmt)
+                                    var convertedStmt = ConvertStatement(bodyItem, insideLoop, true); // insideFunction=true
+                                    if (convertedStmt != null)
                                     {
-                                        var convertedStmt = ConvertStatement(bodyStmt, insideLoop, true); // insideFunction=true
-                                        if (convertedStmt != null)
-                                        {
-                                            bodyStmts.Add(convertedStmt);
-                                        }
+                                        bodyStmts.Add(convertedStmt);
                                     }
                                 }
                             }
@@ -1618,25 +869,22 @@ namespace SharpPy
 
                             // Process decorators if present
                             var decoratorExpressions = new List<DecoratorExpression>();
-                            if (stmt.Decorators != null && stmt.Decorators.Count > 0)
+                            if (funcDef.DecoratorList != null && funcDef.DecoratorList.Count > 0)
                             {
 #if DEBUG_LOG
-                                Console.WriteLine($"[DEBUG] Function '{name}' has {stmt.Decorators.Count} decorators");
+                                Console.WriteLine($"[DEBUG] Function '{name}' has {funcDef.DecoratorList.Count} decorators");
 #endif
                                 // Convert decorators to expressions
-                                foreach (var decorator in stmt.Decorators)
+                                foreach (var decorator in funcDef.DecoratorList)
                                 {
-                                    if (decorator is GeneratedExpr decoratorExpr)
+                                    var convertedDecorator = ConvertAnyExpression(decorator);
+                                    if (convertedDecorator != null)
                                     {
-                                        var convertedDecorator = ConvertAnyExpression(decoratorExpr);
-                                        if (convertedDecorator != null)
-                                        {
-                                            // Wrap the expression in a DecoratorExpression
-                                            decoratorExpressions.Add(new DecoratorExpression(convertedDecorator));
+                                        // Wrap the expression in a DecoratorExpression
+                                        decoratorExpressions.Add(new DecoratorExpression(convertedDecorator));
 #if DEBUG_LOG
-                                            Console.WriteLine($"[DEBUG] Added decorator: {convertedDecorator}");
+                                        Console.WriteLine($"[DEBUG] Added decorator: {convertedDecorator}");
 #endif
-                                        }
                                     }
                                 }
                             }
@@ -1646,14 +894,13 @@ namespace SharpPy
                             var functionDef = new FunctionDefStatement(name, functionArgs, bodyStmts, null, decoratorExpressions);
                             return functionDef;
                         }
+                        return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
-                    return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
-                case "async_function_def":
+                case GeneratedAsyncFunctionDefStmt asyncFuncDef:
                     // Async function definition (async def name(): body)
-                    if (stmt.Value is GeneratedFunctionDef asyncFuncData)
                     {
-                        var name = asyncFuncData.Name;
+                        var name = asyncFuncDef.Name;
 
                         if (!string.IsNullOrEmpty(name))
                         {
@@ -1668,43 +915,26 @@ namespace SharpPy
 
                             return new AsyncFunctionDefStatement(name, parameters, bodyStmts);
                         }
+                        return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
-                    return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
-                case "class":
+                case GeneratedClassDefStmt classDef:
                     // Class definition from parser (class name: body)
+                    {
 #if DEBUG_LOG
-                    Console.WriteLine($"[DEBUG] ConvertStatement: Processing class statement");
-                    Console.WriteLine($"[DEBUG] stmt.Value: {stmt.Value}");
-                    Console.WriteLine($"[DEBUG] stmt.Value type: {stmt.Value?.GetType()?.Name}");
-                    Console.WriteLine($"[DEBUG] stmt properties:");
-                    foreach (var prop in stmt.GetType().GetProperties())
-                    {
-                        try
-                        {
-                            var value = prop.GetValue(stmt);
-                            Console.WriteLine($"[DEBUG]   {prop.Name}: {value} (type: {value?.GetType()?.Name})");
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"[DEBUG]   {prop.Name}: Error - {ex.Message}");
-                        }
-                    }
+                        Console.WriteLine($"[DEBUG] ConvertStatement: Processing class statement");
+                        Console.WriteLine($"[DEBUG] classDef.Name: {classDef.Name}");
+                        Console.WriteLine($"[DEBUG] classDef.Bases count: {classDef.Bases.Count}");
+                        Console.WriteLine($"[DEBUG] classDef.Body count: {classDef.Body.Count}");
 #endif
-                    // Get class name directly from stmt
-                    var className = stmt.ClassName ?? "";
+                        // Get class name
+                        var className = classDef.Name ?? "";
 
-                    // Get base classes directly from stmt
-                    var baseClassExprs = new List<Expression>();
-                    if (stmt.BaseClasses != null)
-                    {
-                        foreach (var baseClass in stmt.BaseClasses)
+                        // Get base classes
+                        var baseClassExprs = new List<Expression>();
+                        if (classDef.Bases != null)
                         {
-                            if (baseClass is string baseName)
-                            {
-                                baseClassExprs.Add(new NameExpression(baseName));
-                            }
-                            else
+                            foreach (var baseClass in classDef.Bases)
                             {
                                 try
                                 {
@@ -1720,192 +950,134 @@ namespace SharpPy
                                 }
                             }
                         }
-                    }
 
-                    // Get body statements directly from stmt
-                    var classBodyStmts = new List<Statement>();
-                    if (stmt.Body != null)
-                    {
-                        foreach (var bodyStmt in stmt.Body)
+                        // Get body statements
+                        var classBodyStmts = new List<Statement>();
+                        if (classDef.Body != null)
                         {
-                            try
-                            {
-                                if (bodyStmt is GeneratedStmt generatedStmt)
-                                {
-                                    var convertedStmt = ConvertStatement(generatedStmt, insideLoop, insideFunction);
-                                    if (convertedStmt != null)
-                                        classBodyStmts.Add(convertedStmt);
-                                }
-                                else if (bodyStmt is IEnumerable<object> innerList && !(bodyStmt is string))
-                                {
-                                    // The body statements are wrapped in a List, unwrap them
-                                    foreach (var innerStmt in innerList)
-                                    {
-                                        if (innerStmt is GeneratedStmt innerGeneratedStmt)
-                                        {
-                                            var convertedStmt = ConvertStatement(innerGeneratedStmt, insideLoop, insideFunction);
-                                            if (convertedStmt != null)
-                                                classBodyStmts.Add(convertedStmt);
-                                        }
-                                    }
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-#if DEBUG_LOG
-                                Console.WriteLine($"[DEBUG] Class body statement conversion error: {ex.Message}");
-#endif
-                            }
-                        }
-                    }
-
-#if DEBUG_LOG
-                    Console.WriteLine($"[DEBUG] ConvertStatement: Creating ClassDefStatement with name='{className}', bases={baseClassExprs.Count}, body={classBodyStmts.Count}");
-#endif
-                    return new ClassDefStatement(className, baseClassExprs, classBodyStmts);
-
-                case "class_def":
-                    // Class definition (class name: body)
-                    if (stmt.Value != null)
-                    {
-                        var classData = stmt.Value as dynamic;
-                        Console.WriteLine($"[DEBUG] Class definition data: {classData}");
-                        Console.WriteLine($"[DEBUG] Class data type: {classData?.GetType()?.Name}");
-
-                        // Try to get properties through reflection
-                        var type = classData?.GetType();
-                        if (type != null)
-                        {
-                            foreach (var prop in type.GetProperties())
+                            foreach (var bodyStmt in classDef.Body)
                             {
                                 try
                                 {
-                                    var value = prop.GetValue(classData);
-                                    Console.WriteLine($"[DEBUG] Class property {prop.Name}: {value} (type: {value?.GetType()?.Name})");
+                                    var convertedStmt = ConvertStatement(bodyStmt, insideLoop, insideFunction);
+                                    if (convertedStmt != null)
+                                        classBodyStmts.Add(convertedStmt);
                                 }
                                 catch (Exception ex)
                                 {
-                                    Console.WriteLine($"[DEBUG] Class property {prop.Name}: Error - {ex.Message}");
+#if DEBUG_LOG
+                                    Console.WriteLine($"[DEBUG] Class body statement conversion error: {ex.Message}");
+#endif
                                 }
                             }
                         }
 
-                        // For now, return a placeholder
+#if DEBUG_LOG
+                        Console.WriteLine($"[DEBUG] ConvertStatement: Creating ClassDefStatement with name='{className}', bases={baseClassExprs.Count}, body={classBodyStmts.Count}");
+#endif
+                        return new ClassDefStatement(className, baseClassExprs, classBodyStmts);
+                    }
+
+                case GeneratedGlobalStmt globalStmt:
+                    // Global statement (global var1, var2, ...)
+                    {
+                        if (globalStmt.Names != null && globalStmt.Names.Count > 0)
+                        {
+                            return new GlobalStatement(globalStmt.Names);
+                        }
                         return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
-                    return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
-
-                case "global":
-                    // Global statement (global var1, var2, ...)
-                    if (stmt.Value != null)
-                    {
-                        var names = stmt.Value as string[];
-                        if (names != null && names.Length > 0)
-                        {
-                            return new GlobalStatement(names.ToList());
-                        }
-                    }
-                    return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
-
-                case "nonlocal":
+                case GeneratedNonlocalStmt nonlocalStmt:
                     // Nonlocal statement (nonlocal var1, var2, ...)
-                    if (stmt.Value != null)
                     {
-                        var names = stmt.Value as string[];
-                        if (names != null && names.Length > 0)
+                        if (nonlocalStmt.Names != null && nonlocalStmt.Names.Count > 0)
                         {
-                            return new NonlocalStatement(names.ToList());
+                            return new NonlocalStatement(nonlocalStmt.Names);
                         }
+                        return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
-                    return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
-                case "del":
+                case GeneratedDeleteStmt delStmt:
                     // Delete statement (del var)
-                    if (stmt.Value != null)
                     {
-                        var targetName = stmt.Value as string;
-                        if (!string.IsNullOrEmpty(targetName))
+                        var targets = new List<Expression>();
+                        foreach (var target in delStmt.Targets)
                         {
-                            var targets = new List<Expression>
-                            {
-                                new NameExpression(targetName)
-                            };
+                            var targetExpr = ConvertAnyExpression(target);
+                            targets.Add(targetExpr);
+                        }
+                        if (targets.Count > 0)
+                        {
                             return new DeleteStatement(targets);
                         }
+                        return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
-                    return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
-                case "import":
+                case GeneratedImportStmt importStmt:
                     // Import statement (import module)
+                    {
 #if DEBUG_LOG
-                    Console.WriteLine($"[DEBUG] Import case triggered");
-                    Console.WriteLine($"  stmt.ImportModules: {stmt.ImportModules}");
-                    Console.WriteLine($"  stmt.ImportModules type: {stmt.ImportModules?.GetType()}");
-                    if (stmt.ImportModules != null)
-                    {
-                        Console.WriteLine($"  ImportModules count: {((List<object>)stmt.ImportModules).Count}");
-                        foreach (var moduleItem in (List<object>)stmt.ImportModules)
-                        {
-                            Console.WriteLine($"  Module: {moduleItem}");
-                        }
-                    }
+                        Console.WriteLine($"[DEBUG] Import case triggered");
+                        Console.WriteLine($"  importStmt.Names count: {importStmt.Names?.Count ?? 0}");
 #endif
-                    if (stmt.ImportModules != null && stmt.ImportModules is List<object> modules && modules.Count > 0)
-                    {
-                        var names = new List<string>();
-                        foreach (var moduleObj in modules)
+                        if (importStmt.Names != null && importStmt.Names.Count > 0)
                         {
-                            string moduleName = "";
-
-                            // Try to extract module name from dynamic object
-                            try
+                            var names = new List<string>();
+                            foreach (var moduleObj in importStmt.Names)
                             {
-                                var moduleObjDyn = moduleObj as dynamic;
-                                if (moduleObjDyn?.name != null)
+                                string moduleName = "";
+
+                                // Try to extract module name from dynamic object
+                                try
                                 {
-                                    moduleName = moduleObjDyn.name.ToString();
+                                    var moduleObjDyn = moduleObj as dynamic;
+                                    if (moduleObjDyn?.name != null)
+                                    {
+                                        moduleName = moduleObjDyn.name.ToString();
+                                    }
+                                    else
+                                    {
+                                        moduleName = moduleObj.ToString();
+                                    }
                                 }
-                                else
+                                catch
                                 {
                                     moduleName = moduleObj.ToString();
                                 }
-                            }
-                            catch
-                            {
-                                moduleName = moduleObj.ToString();
+
+                                if (!string.IsNullOrEmpty(moduleName) && moduleName != "{ name = , asname =  }")
+                                {
+                                    names.Add(moduleName);
+                                }
                             }
 
-                            if (!string.IsNullOrEmpty(moduleName) && moduleName != "{ name = , asname =  }")
+                            if (names.Count > 0)
                             {
-                                names.Add(moduleName);
-                            }
-                        }
-
-                        if (names.Count > 0)
-                        {
 #if DEBUG_LOG
-                            Console.WriteLine($"[DEBUG] Import: Creating ImportStatement with {names.Count} modules: {string.Join(", ", names)}");
+                                Console.WriteLine($"[DEBUG] Import: Creating ImportStatement with {names.Count} modules: {string.Join(", ", names)}");
 #endif
-                            return new ImportStatement(names);
+                                return new ImportStatement(names);
+                            }
                         }
+#if DEBUG_LOG
+                        Console.WriteLine($"[DEBUG] Import: No valid modules found - returning fallback");
+#endif
+                        return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
-#if DEBUG_LOG
-                    Console.WriteLine($"[DEBUG] Import: No valid modules found - returning fallback");
-#endif
-                    return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
-                case "from_import":
+                case GeneratedImportFromStmt importFromStmt:
                     // From import statement (from module import name) - CPython 3.12 compatible
-                    Console.WriteLine($"[DEBUG] Processing from_import: module={stmt.FromModule}, level={stmt.ImportLevel}, names={stmt.ImportNames?.Count ?? 0}");
-
-                    var module = stmt.FromModule;
-                    var level = stmt.ImportLevel;
-                    var importAliases = new List<ImportAlias>();
-
-                    if (stmt.ImportNames != null)
                     {
-                        foreach (var nameItem in stmt.ImportNames)
+                        Console.WriteLine($"[DEBUG] Processing from_import: module={importFromStmt.Module}, level={importFromStmt.Level}, names={importFromStmt.Names?.Count ?? 0}");
+
+                        var module = importFromStmt.Module;
+                        var level = importFromStmt.Level;
+                        var importAliases = new List<ImportAlias>();
+
+                        if (importFromStmt.Names != null)
+                        {
+                            foreach (var nameItem in importFromStmt.Names)
                         {
                             if (nameItem is Dictionary<string, object> nameDict)
                             {
@@ -1952,28 +1124,26 @@ namespace SharpPy
                                 }
                             }
                         }
+                        }
+
+                        if (importAliases.Count > 0)
+                        {
+                            Console.WriteLine($"[DEBUG] Creating ImportFromStatement: module={module}, level={level}, aliases={importAliases.Count}");
+                            return new ImportFromStatement(module, importAliases, level);
+                        }
+
+                        Console.WriteLine("[DEBUG] Failed to parse from_import, returning placeholder");
+                        return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
 
-                    if (importAliases.Count > 0)
-                    {
-                        Console.WriteLine($"[DEBUG] Creating ImportFromStatement: module={module}, level={level}, aliases={importAliases.Count}");
-                        return new ImportFromStatement(module, importAliases, level);
-                    }
-
-                    Console.WriteLine("[DEBUG] Failed to parse from_import, returning placeholder");
-                    return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
-
-                case "with":
+                case GeneratedWithStmt withStmt:
                     // With statement (with context_expr [as target]: body)
-                    if (stmt.Value != null)
                     {
-                        var withData = stmt.Value as dynamic;
-
                         // Create with items
                         var items = new List<WithItem>();
-                        if (withData.items != null)
+                        if (withStmt.Items != null)
                         {
-                            foreach (var item in withData.items)
+                            foreach (var item in withStmt.Items)
                             {
                                 var itemData = item as dynamic;
                                 var contextExpr = ConvertAnyExpression(itemData.context_expr);
@@ -1983,18 +1153,12 @@ namespace SharpPy
                                 items.Add(new WithItem(contextExpr, optionalVars));
                             }
                         }
-                        else
-                        {
-                            // Single context expression
-                            var contextExpr = ConvertAnyExpression(withData.context_expr ?? withData);
-                            items.Add(new WithItem(contextExpr, null));
-                        }
 
                         // Convert body statements
                         var bodyStmts = new List<Statement>();
-                        if (withData.body != null)
+                        if (withStmt.Body != null)
                         {
-                            foreach (var bodyStmt in withData.body)
+                            foreach (var bodyStmt in withStmt.Body)
                             {
                                 var convertedStmt = ConvertStatement(bodyStmt, insideLoop, insideFunction);
                                 if (convertedStmt != null)
@@ -2004,19 +1168,15 @@ namespace SharpPy
 
                         return new WithStatement(items, bodyStmts);
                     }
-                    return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
-                case "async_with":
+                case GeneratedAsyncWithStmt asyncWithStmt:
                     // Async with statement (async with context_expr [as target]: body)
-                    if (stmt.Value != null)
                     {
-                        var asyncWithData = stmt.Value as dynamic;
-
                         // Create with items
                         var items = new List<WithItem>();
-                        if (asyncWithData.items != null)
+                        if (asyncWithStmt.Items != null)
                         {
-                            foreach (var item in asyncWithData.items)
+                            foreach (var item in asyncWithStmt.Items)
                             {
                                 var itemData = item as dynamic;
                                 var contextExpr = ConvertAnyExpression(itemData.context_expr);
@@ -2026,18 +1186,12 @@ namespace SharpPy
                                 items.Add(new WithItem(contextExpr, optionalVars));
                             }
                         }
-                        else
-                        {
-                            // Single context expression
-                            var contextExpr = ConvertAnyExpression(asyncWithData.context_expr ?? asyncWithData);
-                            items.Add(new WithItem(contextExpr, null));
-                        }
 
                         // Convert body statements
                         var bodyStmts = new List<Statement>();
-                        if (asyncWithData.body != null)
+                        if (asyncWithStmt.Body != null)
                         {
-                            foreach (var bodyStmt in asyncWithData.body)
+                            foreach (var bodyStmt in asyncWithStmt.Body)
                             {
                                 var convertedStmt = ConvertStatement(bodyStmt, insideLoop, insideFunction);
                                 if (convertedStmt != null)
@@ -2047,22 +1201,18 @@ namespace SharpPy
 
                         return new AsyncWithStatement(items, bodyStmts);
                     }
-                    return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
-                case "match_stmt":
+                case GeneratedMatchStmt matchStmt:
                     // Match statement (match subject: case pattern: body)
-                    if (stmt.Value != null)
                     {
-                        var matchData = stmt.Value as dynamic;
-
                         // Convert subject expression
-                        var subject = ConvertAnyExpression(matchData.subject);
+                        var subject = ConvertAnyExpression(matchStmt.Subject);
 
                         // Convert match cases
                         var cases = new List<MatchCase>();
-                        if (matchData.cases != null)
+                        if (matchStmt.Cases != null)
                         {
-                            foreach (var caseItem in matchData.cases)
+                            foreach (var caseItem in matchStmt.Cases)
                             {
                                 var caseData = caseItem as dynamic;
 
@@ -2129,54 +1279,14 @@ namespace SharpPy
 
                         return new MatchStatement(subject, cases);
                     }
-                    return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
-                case "type_alias":
-                    // Type alias statement (PEP 695: type Point = tuple[float, float])
-                    if (stmt.Value != null)
-                    {
-                        var aliasData = stmt.Value as dynamic;
-                        var name = aliasData?.Name;
-                        var value = aliasData?.Value;
-                        var typeParams = aliasData?.TypeParams;
-
-#if DEBUG_LOG
-                        Console.WriteLine($"[DEBUG] ConvertStatement TypeAlias: Name='{name}', Value='{value}', TypeParams='{typeParams}'");
-#endif
-
-                        if (name != null && value != null)
-                        {
-                            // Convert type parameters if any
-                            List<string> paramList = new List<string>();
-                            if (typeParams != null)
-                            {
-                                // Handle type parameters conversion
-                                if (typeParams is IEnumerable<dynamic> paramEnumerable)
-                                {
-                                    foreach (var param in paramEnumerable)
-                                    {
-                                        if (param?.ToString() != null)
-                                        {
-                                            paramList.Add(param.ToString());
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Convert value expression
-                            var valueExpression = ConvertExpression(value);
-                            if (valueExpression != null)
-                            {
-                                return new TypeAliasStatement(name.ToString(), valueExpression, paramList.Any() ? paramList : null);
-                            }
-                        }
-                    }
-                    return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
+                // TODO: Add GeneratedTypeAliasStmt case when type is available
+                // case "type_alias": - removed as no GeneratedTypeAliasStmt exists yet
 
                 default:
                     // Fallback for unhandled statement types
 #if DEBUG_LOG
-                    Console.WriteLine($"[DEBUG] ConvertStatement: Unhandled statement type '{stmt.StatementType}'");
+                    Console.WriteLine($"[DEBUG] ConvertStatement: Unhandled statement type '{stmt.GetType().Name}'");
 #endif
                     return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
             }
@@ -2400,189 +1510,160 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Convert GeneratedExpr to SharpPy Expression
+        /// Convert GeneratedExpr to SharpPy Expression using pattern matching
+        /// CPython 3.12: All expression types have concrete Generated classes
         /// </summary>
         private static Expression ConvertGeneratedExpression(GeneratedExpr genExpr)
         {
-            return genExpr.ExpressionType switch
+            return genExpr switch
             {
                 // Assignment expressions (walrus operator)
-                "NamedExpr" => ConvertNamedExpressionFromGenerated(genExpr),
+                GeneratedNamedExprExpr namedExpr => new NamedExpression(
+                    ConvertAnyExpression(namedExpr.Target),
+                    ConvertAnyExpression(namedExpr.Value)
+                ),
 
                 // Boolean operations
-                "BoolOp" => ConvertBoolOpFromGenerated(genExpr),
-                "UnaryOp" => ConvertUnaryOpFromGenerated(genExpr),
+                GeneratedBoolOpExpr boolOp => new BoolOpExpression(
+                    ConvertToBoolOperator(boolOp.Op),
+                    boolOp.Values.Select(v => ConvertAnyExpression(v)).ToList()
+                ),
+
+                GeneratedUnaryOpExpr unaryOp => new UnaryOpExpression(
+                    ConvertToUnaryOperator(unaryOp.Op),
+                    ConvertAnyExpression(unaryOp.Operand)
+                ),
 
                 // F-strings
-                "JoinedStr" => ConvertJoinedStrFromGenerated(genExpr),
-                "FormattedValue" => ConvertFormattedValueFromGenerated(genExpr),
+                GeneratedJoinedStrExpr joinedStr => new JoinedStrExpression(
+                    joinedStr.Values.Select(v => ConvertAnyExpression(v)).ToList()
+                ),
 
-                // Basic expressions
-                "Constant" => ConvertConstantFromGenerated(genExpr),
-                "Name" => ConvertNameFromGenerated(genExpr),
+                GeneratedFormattedValueExpr formattedValue => new FormattedValueExpression(
+                    ConvertAnyExpression(formattedValue.Value),
+                    formattedValue.Conversion,
+                    formattedValue.FormatSpec != null ? ConvertAnyExpression(formattedValue.FormatSpec) : null
+                ),
+
+                // Basic expressions - CPython 3.12: Convert value to PyObject if needed
+                GeneratedConstantExpr constant => new ConstantExpression(
+                    constant.Value is PyObject pyObj ? pyObj : ParseConstantValue(constant.Value, constant.Kind)
+                ),
+
+                GeneratedNameExpr name => new NameExpression(name.Id),
 
                 // Binary and comparison operations
-                "BinOp" => ConvertBinOpFromGenerated(genExpr),
-                "Compare" => ConvertCompareFromGenerated(genExpr),
+                GeneratedBinOpExpr binOp => new BinOpExpression(
+                    ConvertAnyExpression(binOp.Left),
+                    ConvertBinaryOp(binOp.Op),
+                    ConvertAnyExpression(binOp.Right)
+                ),
+
+                GeneratedCompareExpr compare => new CompareExpression(
+                    ConvertAnyExpression(compare.Left),
+                    string.Join(" ", compare.Ops),
+                    ConvertAnyExpression(compare.Comparators.First())
+                ),
 
                 // Function calls and attribute access
-                "Call" => ConvertCallFromGenerated(genExpr),
-                "Attribute" => ConvertAttributeFromGenerated(genExpr),
-                "Subscript" => ConvertSubscriptFromGenerated(genExpr),
+                GeneratedCallExpr call => new CallExpression(
+                    ConvertAnyExpression(call.Func),
+                    call.Args.Select(a => ConvertAnyExpression(a)).ToList(),
+                    call.Keywords.Select(k => ConvertKeyword(k)).ToList()
+                ),
+
+                GeneratedAttributeExpr attr => new AttributeExpression(
+                    ConvertAnyExpression(attr.Value),
+                    attr.Attr
+                ),
+
+                GeneratedSubscriptExpr subscript => new SubscriptExpression(
+                    ConvertAnyExpression(subscript.Value),
+                    ConvertAnyExpression(subscript.Slice)
+                ),
 
                 // Collections
-                "List" => ConvertListFromGenerated(genExpr),
-                "Tuple" => ConvertTupleFromGenerated(genExpr),
-                "Dict" => ConvertDictFromGenerated(genExpr),
-                "Set" => ConvertSetFromGenerated(genExpr),
+                GeneratedListExpr list => new ListExpression(
+                    list.Elements.Select(e => ConvertAnyExpression(e)).ToList()
+                ),
+
+                GeneratedTupleExpr tuple => new TupleExpression(
+                    tuple.Elements.Select(e => ConvertAnyExpression(e)).ToList()
+                ),
+
+                GeneratedDictExpr dict => new DictExpression(
+                    dict.Keys.Zip(dict.Values, (k, v) => (
+                        Key: ConvertAnyExpression(k),
+                        Value: ConvertAnyExpression(v))
+                    ).ToList()
+                ),
+
+                GeneratedSetExpr set => new SetExpression(
+                    set.Elements.Select(e => ConvertAnyExpression(e)).ToList()
+                ),
 
                 // Comprehensions
-                "ListComp" => ConvertListCompFromGenerated(genExpr),
-                "DictComp" => ConvertDictCompFromGenerated(genExpr),
-                "SetComp" => ConvertSetCompFromGenerated(genExpr),
-                "GeneratorExp" => ConvertGeneratorExpFromGenerated(genExpr),
+                GeneratedListCompExpr listComp => new ListComprehension(
+                    ConvertAnyExpression(listComp.Element),
+                    listComp.Generators.Select(g => ConvertComprehension(g)).ToList()
+                ),
+
+                GeneratedSetCompExpr setComp => new SetComprehension(
+                    ConvertAnyExpression(setComp.Element),
+                    setComp.Generators.Select(g => ConvertComprehension(g)).ToList()
+                ),
+
+                GeneratedDictCompExpr dictComp => new DictComprehension(
+                    ConvertAnyExpression(dictComp.Key),
+                    ConvertAnyExpression(dictComp.Value),
+                    dictComp.Generators.Select(g => ConvertComprehension(g)).ToList()
+                ),
+
+                GeneratedGeneratorExpExpr genExp => new GeneratorExpression(
+                    ConvertAnyExpression(genExp.Element),
+                    genExp.Generators.Select(g => ConvertComprehension(g)).ToList()
+                ),
 
                 // Lambda expressions
-                "Lambda" => ConvertLambdaFromGenerated(genExpr),
+                GeneratedLambdaExpr lambda => new LambdaExpression(
+                    ConvertFunctionArgumentsToNames(lambda.Arguments),
+                    ConvertAnyExpression(lambda.Body)
+                ),
+
+                // Ternary (if expression)
+                GeneratedIfExpExpr ifExp => new ConditionalExpression(
+                    ConvertAnyExpression(ifExp.Test),
+                    ConvertAnyExpression(ifExp.Body),
+                    ConvertAnyExpression(ifExp.OrElse)
+                ),
 
                 // Async/await expressions
-                "await" => ConvertAwaitFromGenerated(genExpr),
+                GeneratedAwaitExpr awaitExpr => new AwaitExpression(
+                    ConvertAnyExpression(awaitExpr.Value)
+                ),
 
-                // PEP 695 Type Parameters
-                "type_var" => ConvertTypeVarFromGenerated(genExpr),
-                "type_var_tuple" => ConvertTypeVarTupleFromGenerated(genExpr),
-                "param_spec" => ConvertParamSpecFromGenerated(genExpr),
+                GeneratedYieldExpr yieldExpr => new YieldExpression(
+                    yieldExpr.Value != null ? ConvertAnyExpression(yieldExpr.Value) : null
+                ),
 
-                "Expression" => ConvertAnyExpression(genExpr.Value), // Fallback for wrapped expressions
-                _ => throw new NotSupportedException($"Unsupported GeneratedExpr type: {genExpr.ExpressionType}")
+                GeneratedYieldFromExpr yieldFrom => new YieldFromExpression(
+                    ConvertAnyExpression(yieldFrom.Value)
+                ),
+
+                // Starred expression (unpacking)
+                GeneratedStarredExpr starred => new StarredExpression(
+                    ConvertAnyExpression(starred.Value)
+                ),
+
+                // Slice expression
+                GeneratedSliceExpr slice => new SliceExpression(
+                    slice.Lower != null ? ConvertAnyExpression(slice.Lower) : null,
+                    slice.Upper != null ? ConvertAnyExpression(slice.Upper) : null,
+                    slice.Step != null ? ConvertAnyExpression(slice.Step) : null
+                ),
+
+                _ => throw new NotSupportedException($"Unsupported GeneratedExpr type: {genExpr.GetType().Name}")
             };
-        }
-
-        /// <summary>
-        /// Convert NamedExpr (walrus operator) from GeneratedExpr to SharpPy NamedExpression
-        /// </summary>
-        private static Expression ConvertNamedExpressionFromGenerated(GeneratedExpr genExpr)
-        {
-            if (genExpr.Value is not object valueObj)
-            {
-                throw new InvalidOperationException("NamedExpr value is null");
-            }
-
-            // Extract target and value from the anonymous object created by the parser
-            var valueType = valueObj.GetType();
-            var targetProperty = valueType.GetProperty("target");
-            var valueProperty = valueType.GetProperty("value");
-
-            if (targetProperty == null || valueProperty == null)
-            {
-                throw new InvalidOperationException("NamedExpr value object missing target or value property");
-            }
-
-            var targetName = targetProperty.GetValue(valueObj)?.ToString();
-            var value = valueProperty.GetValue(valueObj);
-
-            if (string.IsNullOrEmpty(targetName))
-            {
-                throw new InvalidOperationException("NamedExpr target name is null or empty");
-            }
-
-            // Convert the value expression
-            var valueExpr = ConvertAnyExpression(value);
-
-            // Create target expression (simple name)
-            var targetExpr = new NameExpression(targetName);
-
-            return new NamedExpression(targetExpr, valueExpr);
-        }
-
-        /// <summary>
-        /// Convert BoolOp (and/or expressions) from GeneratedExpr to SharpPy BoolOpExpression
-        /// </summary>
-        private static Expression ConvertBoolOpFromGenerated(GeneratedExpr genExpr)
-        {
-            if (genExpr.Value is not object valueObj)
-            {
-                throw new InvalidOperationException("BoolOp value is null");
-            }
-
-            // Extract op and values from the anonymous object created by the parser
-            var valueType = valueObj.GetType();
-            var opProperty = valueType.GetProperty("op");
-            var valuesProperty = valueType.GetProperty("values");
-
-            if (opProperty == null || valuesProperty == null)
-            {
-                throw new InvalidOperationException("BoolOp value object missing op or values property");
-            }
-
-            var opValue = opProperty.GetValue(valueObj)?.ToString();
-            var values = valuesProperty.GetValue(valueObj);
-
-            if (opValue == null || values == null)
-            {
-                throw new InvalidOperationException("BoolOp op or values is null");
-            }
-
-            // Convert values list to expressions
-            var expressions = new List<Expression>();
-            if (values is System.Collections.IEnumerable valuesEnum)
-            {
-                foreach (var value in valuesEnum)
-                {
-                    expressions.Add(ConvertAnyExpression(value));
-                }
-            }
-            else
-            {
-                throw new InvalidOperationException("BoolOp values is not enumerable");
-            }
-
-            // Create BoolOpExpression based on operator
-            var boolOpString = opValue switch
-            {
-                "And" => "and",
-                "Or" => "or",
-                _ => throw new NotSupportedException($"Unsupported BoolOp: {opValue}")
-            };
-
-            var boolOpNode = ConvertToBoolOperator(boolOpString);
-            return new BoolOpExpression(boolOpNode, expressions);
-        }
-
-        /// <summary>
-        /// Convert UnaryOp (not expressions) from GeneratedExpr to SharpPy UnaryOpExpression
-        /// </summary>
-        private static Expression ConvertUnaryOpFromGenerated(GeneratedExpr genExpr)
-        {
-            if (genExpr.Value is not object valueObj)
-            {
-                throw new InvalidOperationException("UnaryOp value is null");
-            }
-
-            // Extract op and operand from the anonymous object created by the parser
-            var valueType = valueObj.GetType();
-            var opProperty = valueType.GetProperty("op");
-            var operandProperty = valueType.GetProperty("operand");
-
-            if (opProperty == null || operandProperty == null)
-            {
-                throw new InvalidOperationException("UnaryOp value object missing op or operand property");
-            }
-
-            var opValue = opProperty.GetValue(valueObj)?.ToString();
-            var operand = operandProperty.GetValue(valueObj);
-
-            if (opValue == null || operand == null)
-            {
-                throw new InvalidOperationException("UnaryOp op or operand is null");
-            }
-
-            // Convert operand to expression
-            var operandExpr = ConvertAnyExpression(operand);
-
-            // CPython 3.12: Convert string operator to UnaryOperator node
-            var opNode = ConvertToUnaryOperator(opValue);
-            return new UnaryOpExpression(opNode, operandExpr);
         }
 
         /// <summary>
@@ -2607,6 +1688,8 @@ namespace SharpPy
         {
             return op switch
             {
+                "And" => And.Instance,
+                "Or" => Or.Instance,
                 "and" => And.Instance,
                 "or" => Or.Instance,
                 _ => throw new NotImplementedException($"Unknown boolean operator: {op}")
@@ -2614,607 +1697,201 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Convert JoinedStr (f-string) from GeneratedExpr to SharpPy JoinedStrExpression
+        /// Convert binary operator string to CPython 3.12 BinaryOperator node
         /// </summary>
-        private static Expression ConvertJoinedStrFromGenerated(GeneratedExpr genExpr)
+        private static BinaryOperator ConvertBinaryOp(string op)
         {
-            if (genExpr.Value is not object valueObj)
+            return op switch
             {
-                throw new InvalidOperationException("JoinedStr value is null");
-            }
-
-            // Extract values from the anonymous object created by the parser
-            var valueType = valueObj.GetType();
-            var valuesProperty = valueType.GetProperty("values");
-
-            if (valuesProperty == null)
-            {
-                throw new InvalidOperationException("JoinedStr value object missing values property");
-            }
-
-            var values = valuesProperty.GetValue(valueObj);
-
-            if (values == null)
-            {
-                throw new InvalidOperationException("JoinedStr values is null");
-            }
-
-            // Convert values list to expressions
-            var expressions = new List<Expression>();
-            if (values is System.Collections.IEnumerable valuesEnum)
-            {
-                foreach (var value in valuesEnum)
-                {
-                    expressions.Add(ConvertAnyExpression(value));
-                }
-            }
-            else
-            {
-                throw new InvalidOperationException("JoinedStr values is not enumerable");
-            }
-
-            return new JoinedStrExpression(expressions);
-        }
-
-        /// <summary>
-        /// Convert FormattedValue from GeneratedExpr to SharpPy FormattedValueExpression
-        /// </summary>
-        private static Expression ConvertFormattedValueFromGenerated(GeneratedExpr genExpr)
-        {
-            if (genExpr.Value is not object valueObj)
-            {
-                throw new InvalidOperationException("FormattedValue value is null");
-            }
-
-            // Extract value, conversion, and format_spec from the anonymous object
-            var valueType = valueObj.GetType();
-            var valueProperty = valueType.GetProperty("value");
-            var conversionProperty = valueType.GetProperty("conversion");
-            var formatSpecProperty = valueType.GetProperty("format_spec");
-
-            if (valueProperty == null)
-            {
-                throw new InvalidOperationException("FormattedValue value object missing value property");
-            }
-
-            var value = valueProperty.GetValue(valueObj);
-            var conversion = conversionProperty?.GetValue(valueObj) ?? -1;
-            var formatSpec = formatSpecProperty?.GetValue(valueObj);
-
-            if (value == null)
-            {
-                throw new InvalidOperationException("FormattedValue value is null");
-            }
-
-            // Convert the expression
-            var valueExpr = ConvertAnyExpression(value);
-
-            // Convert format spec if present
-            Expression? formatSpecExpr = null;
-            if (formatSpec != null)
-            {
-                formatSpecExpr = ConvertAnyExpression(formatSpec);
-            }
-
-            return new FormattedValueExpression(valueExpr, (int)conversion, formatSpecExpr);
-        }
-
-        /// <summary>
-        /// Convert Constant from GeneratedExpr to SharpPy ConstantExpression
-        /// </summary>
-        private static Expression ConvertConstantFromGenerated(GeneratedExpr genExpr)
-        {
-            if (genExpr.Value is not object valueObj)
-            {
-                throw new InvalidOperationException("Constant value is null");
-            }
-
-            // Extract value and kind from the anonymous object
-            var valueType = valueObj.GetType();
-            var valueProperty = valueType.GetProperty("value");
-            var kindProperty = valueType.GetProperty("kind");
-
-            if (valueProperty == null)
-            {
-                throw new InvalidOperationException("Constant value object missing value property");
-            }
-
-            var value = valueProperty.GetValue(valueObj);
-            var kind = kindProperty?.GetValue(valueObj)?.ToString();
-
-            if (value == null)
-            {
-                throw new InvalidOperationException("Constant value is null");
-            }
-
-            // Convert based on kind with robust parsing
-            return kind switch
-            {
-                "string" => new ConstantExpression(new PyString(value.ToString() ?? "")),
-                "int" => new ConstantExpression(new PyInt(ParseInt(value))),
-                "float" => new ConstantExpression(new PyFloat(ParseFloat(value))),
-                "number" => new ConstantExpression(new PyInt(ParseInt(value))),
-                _ => new ConstantExpression(new PyString(value.ToString() ?? ""))
+                "Add" => Add.Instance,
+                "Sub" => Sub.Instance,
+                "Mult" => Mult.Instance,
+                "Div" => Div.Instance,
+                "FloorDiv" => FloorDiv.Instance,
+                "Mod" => Mod.Instance,
+                "Pow" => Pow.Instance,
+                "LShift" => LShift.Instance,
+                "RShift" => RShift.Instance,
+                "BitOr" => BitOr.Instance,
+                "BitXor" => BitXor.Instance,
+                "BitAnd" => BitAnd.Instance,
+                "MatMult" => MatMult.Instance,
+                _ => throw new NotImplementedException($"Unknown binary operator: {op}")
             };
         }
 
         /// <summary>
-        /// Safely parse integer values from various formats
+        /// CPython 3.12: Set expression context recursively
+        /// Handles Name, Tuple, List, Attribute, Subscript
         /// </summary>
-        private static int ParseInt(object value)
+        private static void SetExprContext(Expression expr, ExprContext ctx)
         {
-            if (value is int intVal)
-                return intVal;
-            if (value is long longVal)
-                return (int)longVal;
-            if (value is float floatVal)
-                return (int)floatVal;
-            if (value is double doubleVal)
-                return (int)doubleVal;
-
-            // Handle string conversion
-            var strVal = value.ToString() ?? "";
-
-            // Try parsing as integer first
-            if (int.TryParse(strVal, System.Globalization.NumberStyles.Integer,
-                System.Globalization.CultureInfo.InvariantCulture, out var result))
-                return result;
-
-            // If that fails, try parsing as double and convert to int
-            if (double.TryParse(strVal, System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out var doubleResult))
-                return (int)doubleResult;
-
-            throw new InvalidOperationException($"Cannot convert '{strVal}' to integer");
-        }
-
-        /// <summary>
-        /// Safely parse float values from various formats
-        /// </summary>
-        private static double ParseFloat(object value)
-        {
-            if (value is double doubleVal)
-                return doubleVal;
-            if (value is float floatVal)
-                return floatVal;
-            if (value is int intVal)
-                return intVal;
-            if (value is long longVal)
-                return longVal;
-
-            // Handle string conversion with culture-invariant parsing
-            var strVal = value.ToString() ?? "";
-
-            if (double.TryParse(strVal, System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out var result))
-                return result;
-
-            throw new InvalidOperationException($"Cannot convert '{strVal}' to float");
-        }
-
-        /// <summary>
-        /// Convert Name from GeneratedExpr to SharpPy NameExpression
-        /// CPython 3.12: Respects expression context (Store, Load, Del)
-        /// </summary>
-        private static Expression ConvertNameFromGenerated(GeneratedExpr genExpr)
-        {
-            if (genExpr.Value is not object valueObj)
+            switch (expr)
             {
-                throw new InvalidOperationException("Name value is null");
-            }
-
-            // Try both "id" and "value" properties for backward compatibility
-            var idProperty = valueObj.GetType().GetProperty("id");
-            var valueProperty = valueObj.GetType().GetProperty("value");
-
-            string? name = null;
-            if (idProperty != null)
-            {
-                name = idProperty.GetValue(valueObj)?.ToString();
-            }
-            else if (valueProperty != null)
-            {
-                name = valueProperty.GetValue(valueObj)?.ToString();
-            }
-            else
-            {
-                throw new InvalidOperationException("Name value object missing both id and value properties");
-            }
-            if (string.IsNullOrEmpty(name))
-            {
-                throw new InvalidOperationException("Name value is null or empty");
-            }
-
-            // CPython 3.12: Extract and convert context from GeneratedExpr
-            ExprContext context = Load.Instance; // Default context
-            if (!string.IsNullOrEmpty(genExpr.Context))
-            {
-                context = genExpr.Context switch
-                {
-                    "Store" => Store.Instance,
-                    "Load" => Load.Instance,
-                    "Del" => Del.Instance,
-                    _ => Load.Instance // Default fallback
-                };
-            }
-
-            return new NameExpression(name, context);
-        }
-
-        /// <summary>
-        /// Convert BinOp from GeneratedExpr to SharpPy BinaryOpExpression
-        /// </summary>
-        private static Expression ConvertBinOpFromGenerated(GeneratedExpr genExpr)
-        {
-            if (genExpr.Value is not object valueObj)
-            {
-                throw new InvalidOperationException("BinOp value is null");
-            }
-
-            var valueType = valueObj.GetType();
-            var leftProperty = valueType.GetProperty("left");
-            var opProperty = valueType.GetProperty("op");
-            var rightProperty = valueType.GetProperty("right");
-
-            if (leftProperty == null || opProperty == null || rightProperty == null)
-            {
-                throw new InvalidOperationException("BinOp value object missing required properties");
-            }
-
-            var left = leftProperty.GetValue(valueObj);
-            var op = opProperty.GetValue(valueObj)?.ToString();
-            var right = rightProperty.GetValue(valueObj);
-
-            if (left == null || op == null || right == null)
-            {
-                throw new InvalidOperationException("BinOp properties cannot be null");
-            }
-
-            var leftExpr = ConvertAnyExpression(left);
-            var rightExpr = ConvertAnyExpression(right);
-
-            // CPython 3.12: Convert string operator to BinaryOperator node
-            var opNode = ConvertToBinaryOperator(op);
-            return new BinOpExpression(leftExpr, opNode, rightExpr);
-        }
-
-        /// <summary>
-        /// Convert Compare from GeneratedExpr to SharpPy CompareExpression
-        /// </summary>
-        private static Expression ConvertCompareFromGenerated(GeneratedExpr genExpr)
-        {
-            if (genExpr.Value is not object valueObj)
-            {
-                throw new InvalidOperationException("Compare value is null");
-            }
-
-            var valueType = valueObj.GetType();
-            var leftProperty = valueType.GetProperty("left");
-            var opsProperty = valueType.GetProperty("ops");
-            var comparatorsProperty = valueType.GetProperty("comparators");
-
-            if (leftProperty == null || opsProperty == null || comparatorsProperty == null)
-            {
-                throw new InvalidOperationException("Compare value object missing required properties");
-            }
-
-            var left = leftProperty.GetValue(valueObj);
-            var ops = opsProperty.GetValue(valueObj) as IEnumerable<object>;
-            var comparators = comparatorsProperty.GetValue(valueObj) as IEnumerable<object>;
-
-            if (left == null || ops == null || comparators == null)
-            {
-                throw new InvalidOperationException("Compare properties cannot be null");
-            }
-
-            var leftExpr = ConvertAnyExpression(left);
-            var opList = ops.Select(op => op.ToString()).ToList();
-            var comparatorList = comparators.Select(comp => ConvertAnyExpression(comp)).ToList();
-
-            // Use ChainedCompareExpression for multiple comparisons, CompareExpression for single
-            if (opList.Count == 1 && comparatorList.Count == 1)
-            {
-                return new CompareExpression(leftExpr, opList[0], comparatorList[0]);
-            }
-            else
-            {
-                return new ChainedCompareExpression(leftExpr, opList, comparatorList);
+                case NameExpression name:
+                    name.Ctx = ctx;
+                    break;
+                case TupleExpression tuple:
+                    tuple.Elements.ForEach(e => SetExprContext(e, ctx));
+                    break;
+                case ListExpression list:
+                    list.Elements.ForEach(e => SetExprContext(e, ctx));
+                    break;
+                case AttributeExpression attr:
+                    // Only the final attribute has the context
+                    // The value part is always Load
+                    break;
+                case SubscriptExpression subscript:
+                    // Only the subscript target has context
+                    // The slice is always Load
+                    break;
             }
         }
 
         /// <summary>
-        /// Convert Call from GeneratedExpr to SharpPy CallExpression
+        /// Convert operator string to CPython 3.12 ComparisonOperator node
         /// </summary>
-        private static Expression ConvertCallFromGenerated(GeneratedExpr genExpr)
+        private static ComparisonOperator ConvertToComparisonOperator(string op)
         {
-            if (genExpr.Value is not object valueObj)
+            return op switch
             {
-                throw new InvalidOperationException("Call value is null");
-            }
-
-            var valueType = valueObj.GetType();
-            var funcProperty = valueType.GetProperty("func");
-            var argsProperty = valueType.GetProperty("args");
-
-            if (funcProperty == null || argsProperty == null)
-            {
-                throw new InvalidOperationException("Call value object missing required properties");
-            }
-
-            var func = funcProperty.GetValue(valueObj);
-            var args = argsProperty.GetValue(valueObj) as IEnumerable<object>;
-
-            if (func == null)
-            {
-                throw new InvalidOperationException("Call function cannot be null");
-            }
-
-            var functionExpr = ConvertAnyExpression(func);
-            var argList = new List<Expression>();
-
-            if (args != null)
-            {
-                foreach (var arg in args)
-                {
-                    var argExpr = ConvertAnyExpression(arg);
-                    argList.Add(argExpr);
-                }
-            }
-
-            return new CallExpression(functionExpr, argList);
+                "==" => Eq.Instance,
+                "!=" => NotEq.Instance,
+                "<" => Lt.Instance,
+                "<=" => LtE.Instance,
+                ">" => Gt.Instance,
+                ">=" => GtE.Instance,
+                "is" => Is.Instance,
+                "is not" => IsNot.Instance,
+                "in" => In.Instance,
+                "not in" => NotIn.Instance,
+                _ => throw new NotImplementedException($"Unknown comparison operator: {op}")
+            };
         }
 
         /// <summary>
-        /// Convert Attribute from GeneratedExpr to SharpPy AttributeExpression
+        /// Convert keyword argument from anonymous object to KeywordExpression
         /// </summary>
-        private static Expression ConvertAttributeFromGenerated(GeneratedExpr genExpr)
+        private static KeywordExpression ConvertKeyword(object kwObj)
         {
-            if (genExpr.Value is not object valueObj)
+            var kwType = kwObj.GetType();
+            var argProperty = kwType.GetProperty("arg");
+            var valueProperty = kwType.GetProperty("value");
+
+            if (argProperty == null || valueProperty == null)
             {
-                throw new InvalidOperationException("Attribute value is null");
+                throw new InvalidOperationException("Keyword object missing required properties");
             }
 
-            var valueType = valueObj.GetType();
-            var valueProperty = valueType.GetProperty("value");
-            var attrProperty = valueType.GetProperty("attr");
+            var arg = argProperty.GetValue(kwObj)?.ToString();
+            var value = valueProperty.GetValue(kwObj);
 
-            if (valueProperty == null || attrProperty == null)
+            if (value == null)
             {
-                throw new InvalidOperationException("Attribute value object missing required properties");
+                throw new InvalidOperationException("Keyword value cannot be null");
             }
 
-            var value = valueProperty.GetValue(valueObj);
-            var attr = attrProperty.GetValue(valueObj)?.ToString();
-
-            if (value == null || string.IsNullOrEmpty(attr))
-            {
-                throw new InvalidOperationException("Attribute properties cannot be null");
-            }
-
-            var valueExpr = ConvertAnyExpression(value);
-            return new AttributeExpression(valueExpr, attr);
+            return new KeywordExpression(arg, ConvertAnyExpression(value));
         }
 
         /// <summary>
-        /// Convert Subscript from GeneratedExpr to SharpPy SubscriptExpression
+        /// Convert comprehension from anonymous object to Comprehension
         /// </summary>
-        private static Expression ConvertSubscriptFromGenerated(GeneratedExpr genExpr)
+        private static Comprehension ConvertComprehension(object compObj)
         {
-            if (genExpr.Value is not object valueObj)
+            var compType = compObj.GetType();
+            var targetProperty = compType.GetProperty("target");
+            var iterProperty = compType.GetProperty("iter");
+            var ifsProperty = compType.GetProperty("ifs");
+            var isAsyncProperty = compType.GetProperty("is_async");
+
+            if (targetProperty == null || iterProperty == null)
             {
-                throw new InvalidOperationException("Subscript value is null");
+                throw new InvalidOperationException("Comprehension object missing required properties");
             }
 
-            var valueType = valueObj.GetType();
-            var valueProperty = valueType.GetProperty("value");
-            var sliceProperty = valueType.GetProperty("slice");
+            var target = targetProperty.GetValue(compObj);
+            var iter = iterProperty.GetValue(compObj);
+            var ifs = ifsProperty?.GetValue(compObj) as IEnumerable<object>;
+            var isAsync = isAsyncProperty?.GetValue(compObj) as int? ?? 0;
 
-            if (valueProperty == null || sliceProperty == null)
+            if (target == null || iter == null)
             {
-                throw new InvalidOperationException("Subscript value object missing required properties");
+                throw new InvalidOperationException("Comprehension target or iter cannot be null");
             }
 
-            var value = valueProperty.GetValue(valueObj);
-            var slice = sliceProperty.GetValue(valueObj);
+            var targetExpr = ConvertAnyExpression(target);
+            var iterExpr = ConvertAnyExpression(iter);
+            var ifsList = ifs?.Select(i => ConvertAnyExpression(i)).ToList() ?? new List<Expression>();
 
-            if (value == null || slice == null)
-            {
-                throw new InvalidOperationException("Subscript properties cannot be null");
-            }
-
-            var valueExpr = ConvertAnyExpression(value);
-            var sliceExpr = ConvertAnyExpression(slice);
-
-            return new SubscriptExpression(valueExpr, sliceExpr);
+            // Note: isAsync is tracked separately in GeneratedAsyncForStmt, not in Comprehension itself
+            return new Comprehension(targetExpr, iterExpr, ifsList);
         }
 
         /// <summary>
-        /// Convert List from GeneratedExpr to SharpPy ListExpression
+        /// Convert arguments from anonymous object to FunctionArguments
         /// </summary>
-        private static Expression ConvertListFromGenerated(GeneratedExpr genExpr)
+        private static FunctionArguments ConvertArguments(object argsObj)
         {
-            if (genExpr.Value is not object valueObj)
+            var argsType = argsObj.GetType();
+
+            // Extract all argument components
+            var posonlyargsProperty = argsType.GetProperty("posonlyargs");
+            var argsProperty = argsType.GetProperty("args");
+            var varargannotationProperty = argsType.GetProperty("vararg");
+            var kwonlyargsProperty = argsType.GetProperty("kwonlyargs");
+            var kwargannotationProperty = argsType.GetProperty("kwarg");
+            var defaultsProperty = argsType.GetProperty("defaults");
+            var kw_defaultsProperty = argsType.GetProperty("kw_defaults");
+
+            var posonlyargs = posonlyargsProperty?.GetValue(argsObj) as IEnumerable<object> ?? new List<object>();
+            var args = argsProperty?.GetValue(argsObj) as IEnumerable<object> ?? new List<object>();
+            var vararg = varargannotationProperty?.GetValue(argsObj);
+            var kwonlyargs = kwonlyargsProperty?.GetValue(argsObj) as IEnumerable<object> ?? new List<object>();
+            var kwarg = kwargannotationProperty?.GetValue(argsObj);
+            var defaults = defaultsProperty?.GetValue(argsObj) as IEnumerable<object> ?? new List<object>();
+            var kw_defaults = kw_defaultsProperty?.GetValue(argsObj) as IEnumerable<object> ?? new List<object>();
+
+            return new FunctionArguments
             {
-                throw new InvalidOperationException("List value is null");
-            }
-
-            var valueType = valueObj.GetType();
-            var elementsProperty = valueType.GetProperty("elements");
-
-            if (elementsProperty == null)
-            {
-                throw new InvalidOperationException("List value object missing elements property");
-            }
-
-            var elements = elementsProperty.GetValue(valueObj) as IEnumerable<object>;
-            var convertedElements = new List<Expression>();
-
-            if (elements != null)
-            {
-                foreach (var element in elements)
-                {
-                    convertedElements.Add(ConvertAnyExpression(element));
-                }
-            }
-
-            return new ListExpression(convertedElements);
+                PosOnlyArgs = posonlyargs.Select(a => ConvertArg(a)).ToList(),
+                Args = args.Select(a => ConvertArg(a)).ToList(),
+                VarArg = vararg != null ? ConvertArg(vararg) : null,
+                KwOnlyArgs = kwonlyargs.Select(a => ConvertArg(a)).ToList(),
+                KwArg = kwarg != null ? ConvertArg(kwarg) : null,
+                Defaults = defaults.Select(d => ConvertAnyExpression(d)).ToList(),
+                KwDefaults = kw_defaults.Select(d => d != null ? ConvertAnyExpression(d) : null).ToList()
+            };
         }
 
         /// <summary>
-        /// Convert Tuple from GeneratedExpr to SharpPy TupleExpression
+        /// Convert argument from anonymous object to Arg
         /// </summary>
-        private static Expression ConvertTupleFromGenerated(GeneratedExpr genExpr)
+        private static Arg ConvertArg(object argObj)
         {
-            if (genExpr.Value is not object valueObj)
+            var argType = argObj.GetType();
+            var argProperty = argType.GetProperty("arg");
+            var annotationProperty = argType.GetProperty("annotation");
+
+            if (argProperty == null)
             {
-                throw new InvalidOperationException("Tuple value is null");
+                throw new InvalidOperationException("Arg object missing arg property");
             }
 
-            var valueType = valueObj.GetType();
-            var elementsProperty = valueType.GetProperty("elements");
+            var arg = argProperty.GetValue(argObj)?.ToString();
+            var annotation = annotationProperty?.GetValue(argObj);
 
-            if (elementsProperty == null)
+            if (string.IsNullOrEmpty(arg))
             {
-                throw new InvalidOperationException("Tuple value object missing elements property");
+                throw new InvalidOperationException("Arg name cannot be null or empty");
             }
 
-            var elements = elementsProperty.GetValue(valueObj) as IEnumerable<object>;
-            var convertedElements = new List<Expression>();
-
-            if (elements != null)
-            {
-                foreach (var element in elements)
-                {
-                    convertedElements.Add(ConvertAnyExpression(element));
-                }
-            }
-
-            return new TupleExpression(convertedElements);
+            return new Arg(arg!, annotation != null ? ConvertAnyExpression(annotation) : null);
         }
 
-        /// <summary>
-        /// Convert Dict from GeneratedExpr to SharpPy DictExpression
-        /// </summary>
-        private static Expression ConvertDictFromGenerated(GeneratedExpr genExpr)
-        {
-            if (genExpr.Value is not object valueObj)
-            {
-                throw new InvalidOperationException("Dict value is null");
-            }
-
-            var valueType = valueObj.GetType();
-            var pairsProperty = valueType.GetProperty("pairs");
-
-            if (pairsProperty == null)
-            {
-                throw new InvalidOperationException("Dict value object missing pairs property");
-            }
-
-            var pairs = pairsProperty.GetValue(valueObj) as IEnumerable<object>;
-            var items = new List<(Expression Key, Expression Value)>();
-
-            if (pairs != null)
-            {
-                foreach (var pair in pairs)
-                {
-                    var pairType = pair.GetType();
-                    var keyProperty = pairType.GetProperty("key");
-                    var valueProperty = pairType.GetProperty("value");
-
-                    if (keyProperty != null && valueProperty != null)
-                    {
-                        var key = keyProperty.GetValue(pair);
-                        var value = valueProperty.GetValue(pair);
-
-                        if (key != null && value != null)
-                        {
-                            var convertedKey = ConvertAnyExpression(key);
-                            var convertedValue = ConvertAnyExpression(value);
-                            items.Add((convertedKey, convertedValue));
-                        }
-                    }
-                }
-            }
-
-            return new DictExpression(items);
-        }
-
-        /// <summary>
-        /// Convert Set from GeneratedExpr to SharpPy SetExpression
-        /// </summary>
-        private static Expression ConvertSetFromGenerated(GeneratedExpr genExpr)
-        {
-            if (genExpr.Value is not object valueObj)
-            {
-                throw new InvalidOperationException("Set value is null");
-            }
-
-            var valueType = valueObj.GetType();
-            var elementsProperty = valueType.GetProperty("elements");
-
-            if (elementsProperty == null)
-            {
-                throw new InvalidOperationException("Set value object missing elements property");
-            }
-
-            var elements = elementsProperty.GetValue(valueObj) as IEnumerable<object>;
-            var convertedElements = new List<Expression>();
-
-            if (elements != null)
-            {
-                foreach (var element in elements)
-                {
-                    convertedElements.Add(ConvertAnyExpression(element));
-                }
-            }
-
-            return new SetExpression(convertedElements);
-        }
-
-        /// <summary>
-        /// Convert ListComp from GeneratedExpr to SharpPy ListComprehension
-        /// </summary>
-        private static Expression ConvertListCompFromGenerated(GeneratedExpr genExpr)
-        {
-            // Delegate to existing method
-            return ConvertListComprehension(genExpr.Value);
-        }
-
-        /// <summary>
-        /// Convert DictComp from GeneratedExpr to SharpPy DictComprehension
-        /// </summary>
-        private static Expression ConvertDictCompFromGenerated(GeneratedExpr genExpr)
-        {
-            // Delegate to existing method
-            return ConvertDictComprehension(genExpr.Value);
-        }
-
-        /// <summary>
-        /// Convert SetComp from GeneratedExpr to SharpPy SetComprehension
-        /// </summary>
-        private static Expression ConvertSetCompFromGenerated(GeneratedExpr genExpr)
-        {
-            // Delegate to existing method
-            return ConvertSetComprehension(genExpr.Value);
-        }
-
-        /// <summary>
-        /// Convert GeneratorExp from GeneratedExpr to SharpPy GeneratorExpression
-        /// </summary>
-        private static Expression ConvertGeneratorExpFromGenerated(GeneratedExpr genExpr)
-        {
-            // Delegate to existing method
-            return ConvertGeneratorExpression(genExpr.Value);
-        }
-
-        /// <summary>
-        /// Convert Lambda from GeneratedExpr to SharpPy LambdaExpression
-        /// </summary>
-        private static Expression ConvertLambdaFromGenerated(GeneratedExpr genExpr)
-        {
-            // Delegate to existing method
-            return ConvertLambdaExpression(genExpr.Value);
-        }
+        // OBSOLETE METHODS REMOVED - These used .Value property which no longer exists
+        // List, Tuple, Dict, Set conversions now handled directly in ConvertAnyExpression
+        // via concrete typed expressions (GeneratedListExpr, GeneratedTupleExpr, etc.)
 
         /// <summary>
         /// Convert lambda expression to SharpPy lambda expression
@@ -3323,93 +2000,10 @@ namespace SharpPy
             return new AwaitExpression(value);
         }
 
-        /// <summary>
-        /// Convert Await from GeneratedExpr to SharpPy AwaitExpression
-        /// </summary>
-        private static Expression ConvertAwaitFromGenerated(GeneratedExpr genExpr)
-        {
-            if (genExpr.Value == null)
-            {
-                throw new InvalidOperationException("Await expression value is null");
-            }
-
-            var awaitedExpr = ConvertAnyExpression(genExpr.Value);
-            return new AwaitExpression(awaitedExpr);
-        }
-
-        /// <summary>
-        /// Convert TypeVar from GeneratedExpr to SharpPy TypeVarExpression
-        /// </summary>
-        private static Expression ConvertTypeVarFromGenerated(GeneratedExpr genExpr)
-        {
-            if (genExpr.Value == null)
-            {
-                throw new InvalidOperationException("TypeVar expression value is null");
-            }
-
-            var typeVarData = genExpr.Value;
-            string name = "";
-            Expression? bound = null;
-
-            // Extract name and bound from anonymous object
-            if (typeVarData.GetType().GetProperty("name")?.GetValue(typeVarData) is string nameValue)
-            {
-                name = nameValue;
-            }
-
-            if (typeVarData.GetType().GetProperty("bound")?.GetValue(typeVarData) is object boundValue && boundValue != null)
-            {
-                bound = ConvertAnyExpression(boundValue);
-            }
-
-            return new TypeVarExpression(name, bound);
-        }
-
-        /// <summary>
-        /// Convert TypeVarTuple from GeneratedExpr to SharpPy TypeVarTupleExpression
-        /// </summary>
-        private static Expression ConvertTypeVarTupleFromGenerated(GeneratedExpr genExpr)
-        {
-            if (genExpr.Value == null)
-            {
-                throw new InvalidOperationException("TypeVarTuple expression value is null");
-            }
-
-            var typeVarTupleData = genExpr.Value;
-            string name = "";
-
-            // Extract name from anonymous object
-            if (typeVarTupleData.GetType().GetProperty("name")?.GetValue(typeVarTupleData) is string nameValue)
-            {
-                name = nameValue;
-            }
-
-            return new TypeVarTupleExpression(name);
-        }
-
-        /// <summary>
-        /// Convert ParamSpec from GeneratedExpr to SharpPy ParamSpecExpression
-        /// </summary>
-        private static Expression ConvertParamSpecFromGenerated(GeneratedExpr genExpr)
-        {
-            if (genExpr.Value == null)
-            {
-                throw new InvalidOperationException("ParamSpec expression value is null");
-            }
-
-            var paramSpecData = genExpr.Value;
-            string name = "";
-
-            // Extract name from anonymous object
-            if (paramSpecData.GetType().GetProperty("name")?.GetValue(paramSpecData) is string nameValue)
-            {
-                name = nameValue;
-            }
-
-            return new ParamSpecExpression(name);
-        }
-
-
+        // OBSOLETE: ConvertAwaitFromGenerated, ConvertTypeVarFromGenerated,
+        // ConvertTypeVarTupleFromGenerated, ConvertParamSpecFromGenerated removed
+        // These used .Value property which no longer exists - conversions now
+        // handled directly via concrete typed expressions
 
         /// <summary>
         /// Convert slice expression to SharpPy slice expression
@@ -3791,84 +2385,143 @@ namespace SharpPy
 
             Console.WriteLine($"[DEBUG] ConvertDefaultToString: {defaultValue} (Type: {defaultValue.GetType().Name})");
 
-            // Handle GeneratedExpr
+            // Handle GeneratedConstantExpr directly
+            if (defaultValue is GeneratedConstantExpr constantExpr)
+            {
+                var value = constantExpr.Value;
+                Console.WriteLine($"[DEBUG] GeneratedConstantExpr value: {value} (Type: {value?.GetType().Name})");
+
+                // CPython 3.12: Value is now PyObject
+                if (value == null || value is PyNone) return "None";
+                if (value is PyString pyStr) return $"\"{pyStr.Value}\"";
+                if (value is PyInt pyInt) return pyInt.Value.ToString();
+                if (value is PyFloat pyFloat) return pyFloat.Value.ToString();
+                if (value is PyBool pyBool) return pyBool.Value ? "True" : "False";
+
+                return value.ToString() ?? "None";
+            }
+
+            // Handle other GeneratedExpr types (recurse through conversion)
             if (defaultValue is GeneratedExpr genExpr)
             {
-                Console.WriteLine($"[DEBUG] GeneratedExpr: Type='{genExpr.ExpressionType}', Value={genExpr.Value} (ValueType: {genExpr.Value?.GetType().Name})");
+                Console.WriteLine($"[DEBUG] GeneratedExpr type: {genExpr.GetType().Name}");
 
-                // Handle nested GeneratedExpr (Expression wrapping Constant)
-                if (genExpr.ExpressionType == "Expression" && genExpr.Value is GeneratedExpr nestedExpr)
+                // Try to convert to Expression and extract value
+                try
                 {
-                    Console.WriteLine($"[DEBUG] Nested GeneratedExpr: Type='{nestedExpr.ExpressionType}', Value={nestedExpr.Value}");
-                    return ConvertDefaultToString(nestedExpr); // Recursive call
-                }
-
-                if (genExpr.ExpressionType == "Constant" && genExpr.Value != null)
-                {
-                    var value = genExpr.Value;
-                    Console.WriteLine($"[DEBUG] Constant value: {value} (Type: {value.GetType().Name})");
-
-                    // Try Dictionary first
-                    if (value is Dictionary<string, object> constDict && constDict.ContainsKey("value"))
+                    var expr = ConvertAnyExpression(genExpr);
+                    if (expr is ConstantExpression constExpr)
                     {
-                        var actualValue = constDict["value"];
-                        Console.WriteLine($"[DEBUG] Dict value: {actualValue}");
-                        return actualValue?.ToString() ?? "None";
-                    }
+                        var value = constExpr.Value;
+                        if (value == null) return "None";
 
-                    // Handle anonymous object with 'value' property (common in generated code)
-                    try
-                    {
-                        var valueProperty = value.GetType().GetProperty("value");
-                        if (valueProperty != null)
+                        // Handle PyObject wrappers
+                        object? rawValue = value;
+                        if (value is PyObject pyObj)
                         {
-                            var actualValue = valueProperty.GetValue(value);
-                            Console.WriteLine($"[DEBUG] Anonymous object value: {actualValue} (Type: {actualValue?.GetType().Name})");
-
-                            // Handle different types appropriately
-                            if (actualValue is string str3)
-                            {
-                                Console.WriteLine($"[DEBUG] Returning string: \"{str3}\"");
-                                return $"\"{str3}\"";
-                            }
-                            if (actualValue is int || actualValue is long || actualValue is double || actualValue is float)
-                            {
-                                Console.WriteLine($"[DEBUG] Returning number: {actualValue}");
-                                return actualValue.ToString();
-                            }
-                            if (actualValue is bool boolean3)
-                            {
-                                Console.WriteLine($"[DEBUG] Returning boolean: {(boolean3 ? "True" : "False")}");
-                                return boolean3 ? "True" : "False";
-                            }
-
-                            Console.WriteLine($"[DEBUG] Returning default: {actualValue}");
-                            return actualValue?.ToString() ?? "None";
+                            // Extract the actual C# value from PyObject
+                            if (pyObj is PyInt pyInt) rawValue = pyInt.Value;
+                            else if (pyObj is PyFloat pyFloat) rawValue = pyFloat.Value;
+                            else if (pyObj is PyString pyStr) rawValue = pyStr.Value;
+                            else if (pyObj is PyBool pyBool) rawValue = pyBool.Value;
+                            else rawValue = pyObj.ToString();
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"[DEBUG] Error accessing 'value' property: {ex.Message}");
-                    }
 
-                    // Handle direct constant values
-                    if (value is int || value is long || value is double || value is float)
-                        return value.ToString();
-                    if (value is string str2) return $"\"{str2}\"";
-                    if (value is bool boolean2) return boolean2 ? "True" : "False";
-
-                    return value.ToString() ?? "None";
+                        if (rawValue == null) return "None";
+                        if (rawValue is string s) return $"\"{s}\"";
+                        if (rawValue is bool b) return b ? "True" : "False";
+                        return rawValue.ToString() ?? "None";
+                    }
                 }
-                return genExpr.Value?.ToString() ?? "None";
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[DEBUG] Error converting GeneratedExpr: {ex.Message}");
+                }
+
+                return genExpr.ToString() ?? "None";
             }
 
             // Handle direct values
-            if (defaultValue is string str) return $"\"{str}\"";
+            if (defaultValue is string str2) return $"\"{str2}\"";
             if (defaultValue is int || defaultValue is long || defaultValue is double || defaultValue is float)
-                return defaultValue.ToString();
-            if (defaultValue is bool boolean) return boolean ? "True" : "False";
+                return defaultValue.ToString()!;
+            if (defaultValue is bool boolean2) return boolean2 ? "True" : "False";
 
             return defaultValue.ToString() ?? "None";
+        }
+
+        /// <summary>
+        /// Convert FunctionArguments to a simple list of parameter names for lambda expressions
+        /// </summary>
+        private static List<string> ConvertFunctionArgumentsToNames(object argumentsData)
+        {
+            var funcArgs = ConvertFunctionArguments(argumentsData);
+            var names = new List<string>();
+
+            // Collect all parameter names in order: posonly, regular, vararg, kwonly, kwarg
+            names.AddRange(funcArgs.PosOnlyArgs.Select(a => a.Name));
+            names.AddRange(funcArgs.Args.Select(a => a.Name));
+            if (funcArgs.VarArg != null)
+                names.Add("*" + funcArgs.VarArg.Name);
+            names.AddRange(funcArgs.KwOnlyArgs.Select(a => a.Name));
+            if (funcArgs.KwArg != null)
+                names.Add("**" + funcArgs.KwArg.Name);
+
+            return names;
+        }
+
+        /// <summary>
+        /// CPython 3.12: Parse constant value from PEG parser output
+        /// Converts string representations to proper PyObject types
+        /// </summary>
+        private static PyObject ParseConstantValue(PyObject value, string? kind)
+        {
+            // If already a PyObject (not string), return as-is
+            if (value is not PyString strValue)
+                return value;
+
+            string str = strValue.Value;
+
+            // CPython 3.12: Parse based on kind hint
+            if (kind == "number")
+            {
+                // Try int first
+                if (int.TryParse(str, out int intVal))
+                    return new PyInt(intVal);
+
+                // Try float
+                if (double.TryParse(str, out double floatVal))
+                    return new PyFloat(floatVal);
+            }
+            else if (kind == "string")
+            {
+                return new PyString(str);
+            }
+
+            // Fallback: keep as string
+            return value;
+        }
+
+        /// <summary>
+        /// Convert a .NET object value to a PyObject instance
+        /// </summary>
+        private static PyObject ObjectToPyObject(object? value)
+        {
+            if (value == null)
+                return PyNone.Instance;
+
+            return value switch
+            {
+                PyObject pyObj => pyObj,
+                string str => new PyString(str),
+                int i => new PyInt(i),
+                long l => new PyInt((int)l), // Cast long to int (may overflow for large values)
+                double d => new PyFloat(d),
+                float f => new PyFloat(f),
+                bool b => b ? PyBool.True : PyBool.False,
+                byte[] bytes => new PyBytesObject(bytes),
+                _ => new PyString(value.ToString() ?? "")
+            };
         }
     }
 

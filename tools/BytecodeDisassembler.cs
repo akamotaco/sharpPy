@@ -188,7 +188,12 @@ namespace SharpPy.Tools
                     return pyInt.Value.ToString();
 
                 case PyFloat pyFloat:
-                    return pyFloat.Value.ToString();
+                    // CPython 3.12: Always show decimal point for floats
+                    var floatStr = pyFloat.Value.ToString();
+                    // Ensure decimal point is present (5.0 not 5)
+                    if (!floatStr.Contains('.') && !floatStr.Contains('e') && !floatStr.Contains('E'))
+                        return floatStr + ".0";
+                    return floatStr;
 
                 case PyBool pyBool:
                     return pyBool.Value ? "True" : "False";

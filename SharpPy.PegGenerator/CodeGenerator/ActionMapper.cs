@@ -87,7 +87,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         /// <returns>C# code string to construct the AST node</returns>
         public string? MapAction(string funcName, List<string> args, Dictionary<string, string> variables, Rule rule)
         {
-            // CPython 3.12: Expand EXTRA into actual position parameters
+            // CPython 3.12: Expand EXTRA and simplify C expressions
             // EXTRA = _start_lineno, _start_col_offset, _end_lineno, _end_col_offset, p->arena
             var expandedArgs = new List<string>();
             foreach (var arg in args)
@@ -103,8 +103,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 }
                 else if (!arg.Contains("arena"))
                 {
-                    // Skip arena parameter (C-specific)
-                    expandedArgs.Add(arg);
+                    // Simplify C expression to extract variable name
+                    var simplified = SimplifyCExpression(arg);
+                    expandedArgs.Add(simplified);
                 }
             }
 
@@ -140,10 +141,17 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 return result;
             }).ToList();
 
+            // Filter out null arguments that resulted from missing variables
+            // If all arguments are missing, use empty list to call with defaults
+            var validArgs = actualArgs.Where(a =>
+                !a.Contains("/* Missing variable:") &&
+                a != "null"
+            ).ToList();
+
             // Generate the call
-            if (actualArgs.Count > 0)
+            if (validArgs.Count > 0)
             {
-                sb.AppendLine($"_res = {pyastFuncName}({string.Join(", ", actualArgs)});");
+                sb.AppendLine($"_res = {pyastFuncName}({string.Join(", ", validArgs)});");
             }
             else
             {
@@ -167,14 +175,122 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 !string.IsNullOrWhiteSpace(a)
             ).Select(a => GetVarOrNull(a, variables)).ToList();
 
+            // Filter out null arguments that resulted from missing variables
+            // If all arguments are missing, use empty list to call with defaults
+            var validArgs = actualArgs.Where(a =>
+                !a.Contains("/* Missing variable:") &&
+                a != "null"
+            ).ToList();
+
             // Generate the call
-            if (actualArgs.Count > 0)
+            if (validArgs.Count > 0)
             {
-                sb.AppendLine($"_res = {pyastFuncName}({string.Join(", ", actualArgs)});");
+                sb.AppendLine($"_res = {pyastFuncName}({string.Join(", ", validArgs)});");
             }
             else
             {
                 sb.AppendLine($"_res = {pyastFuncName}();");
+            }
+
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Simplify C expression to extract the core variable name
+        /// Examples:
+        ///   a->v.Name.id → a
+        ///   (b) ? ((expr_ty) b)->v.Call.args : NULL → b
+        ///   c → c
+        ///   NULL → NULL
+        /// </summary>
+        private string SimplifyCExpression(string expr)
+        {
+            expr = expr.Trim();
+
+            // Handle NULL
+            if (expr == "NULL")
+                return "NULL";
+
+            // Handle ternary operator: (var) ? ... : ...
+            // Extract the variable from the condition
+            if (expr.StartsWith("(") && expr.Contains("?"))
+            {
+                var questionPos = expr.IndexOf('?');
+                var condition = expr.Substring(1, questionPos - 1).Trim(); // Remove outer parens
+                // Extract first identifier from condition
+                var varName = ExtractFirstIdentifier(condition);
+                if (!string.IsNullOrEmpty(varName))
+                    return varName;
+            }
+
+            // Handle field access: a->v.Name.id
+            // Extract the root variable (before ->)
+            if (expr.Contains("->"))
+            {
+                var arrowPos = expr.IndexOf("->");
+                var root = expr.Substring(0, arrowPos).Trim();
+                // Remove any leading parentheses or casts
+                root = ExtractFirstIdentifier(root);
+                if (!string.IsNullOrEmpty(root))
+                    return root;
+            }
+
+            // Handle type casts: ((expr_ty) b)
+            if (expr.StartsWith("((") && expr.Contains(")"))
+            {
+                // Find the closing paren of the cast
+                int depth = 0;
+                int castEnd = -1;
+                for (int i = 0; i < expr.Length; i++)
+                {
+                    if (expr[i] == '(') depth++;
+                    else if (expr[i] == ')')
+                    {
+                        depth--;
+                        if (depth == 0)
+                        {
+                            castEnd = i;
+                            break;
+                        }
+                    }
+                }
+                if (castEnd > 0 && castEnd < expr.Length - 1)
+                {
+                    // Extract the variable after the cast
+                    var afterCast = expr.Substring(castEnd + 1).Trim();
+                    return SimplifyCExpression(afterCast);
+                }
+            }
+
+            // Default: extract first identifier
+            return ExtractFirstIdentifier(expr);
+        }
+
+        /// <summary>
+        /// Extract the first C identifier from a string
+        /// </summary>
+        private string ExtractFirstIdentifier(string str)
+        {
+            str = str.Trim();
+            var sb = new StringBuilder();
+            bool started = false;
+
+            foreach (char c in str)
+            {
+                if (char.IsLetter(c) || c == '_')
+                {
+                    sb.Append(c);
+                    started = true;
+                }
+                else if (started && char.IsDigit(c))
+                {
+                    sb.Append(c);
+                }
+                else if (started)
+                {
+                    // End of identifier
+                    break;
+                }
             }
 
             return sb.ToString();

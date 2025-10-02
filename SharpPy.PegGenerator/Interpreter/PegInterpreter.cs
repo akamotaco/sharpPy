@@ -46,6 +46,21 @@ namespace SharpPy.PegGenerator.Interpreter
     }
 
     /// <summary>
+    /// Legacy AST node types for backward compatibility
+    /// </summary>
+    public class LegacySimpleStmt
+    {
+        public string? Type { get; set; }
+        public object? Data { get; set; }
+    }
+
+    public class LegacySimpleExpr
+    {
+        public string? Type { get; set; }
+        public object? Data { get; set; }
+    }
+
+    /// <summary>
     /// Simple AST node types for temporary parsing results
     /// </summary>
     public class SimpleModule
@@ -994,7 +1009,7 @@ namespace SharpPy.PegGenerator.Interpreter
                 if (action.Contains("_PyAST_AnnAssign"))
                 {
                     // Annotated Assignment: a=NAME ':' b=expression c=['=' d=annotated_rhs { d }]
-                    var stmt = new SimpleStmt
+                    var stmt = new LegacySimpleStmt
                     {
                         Type = "ann_assign",
                         Data = new {
@@ -1016,7 +1031,7 @@ namespace SharpPy.PegGenerator.Interpreter
             else if (action.Contains("_PyAST_AnnAssign"))
             {
                 // Annotated Assignment: a=NAME ':' b=expression c=['=' d=annotated_rhs { d }]
-                var stmt = new SimpleStmt
+                var stmt = new LegacySimpleStmt
                 {
                     Type = "ann_assign",
                     Data = new {
@@ -1031,7 +1046,7 @@ namespace SharpPy.PegGenerator.Interpreter
             else if (action.Contains("_PyAST_TryStar"))
             {
                 // Try statement with except* handlers (Python 3.11+ Exception Groups)
-                var stmt = new SimpleStmt
+                var stmt = new LegacySimpleStmt
                 {
                     Type = "try_star",
                     Data = new {
@@ -1049,7 +1064,7 @@ namespace SharpPy.PegGenerator.Interpreter
             else if (action.Contains("_PyAST_Try"))
             {
                 // Regular try statement
-                var stmt = new SimpleStmt
+                var stmt = new LegacySimpleStmt
                 {
                     Type = "try",
                     Data = new {
@@ -1067,7 +1082,7 @@ namespace SharpPy.PegGenerator.Interpreter
             else if (action.Contains("_PyAST_ExceptHandler"))
             {
                 // Exception handler: 'except' [expression ['as' NAME]] ':' block
-                var handler = new SimpleStmt
+                var handler = new LegacySimpleStmt
                 {
                     Type = "except_handler",
                     Data = new {
@@ -1084,7 +1099,7 @@ namespace SharpPy.PegGenerator.Interpreter
             else if (action.Contains("_PyAST_Assign"))
             {
                 // Assignment: a[asdl_expr_seq*]=(z=star_targets '=' { z })+ b=(yield_expr | star_expressions)
-                var stmt = new SimpleStmt
+                var stmt = new LegacySimpleStmt
                 {
                     Type = "assignment",
                     Data = new {
@@ -1106,7 +1121,7 @@ namespace SharpPy.PegGenerator.Interpreter
             else if (action.Contains("_PyAST_Name"))
             {
                 // Name expression: NAME
-                var expr = new SimpleExpr
+                var expr = new LegacySimpleExpr
                 {
                     Type = "name",
                     Data = variables.ContainsKey("id") ? variables["id"] : null
@@ -1116,7 +1131,7 @@ namespace SharpPy.PegGenerator.Interpreter
             else if (action.Contains("_PyAST_Constant") || action.Contains("_PyAST_Num"))
             {
                 // Constant/Number expression
-                var expr = new SimpleExpr
+                var expr = new LegacySimpleExpr
                 {
                     Type = "constant",
                     Data = variables.ContainsKey("value") ? variables["value"] : null
@@ -1126,7 +1141,7 @@ namespace SharpPy.PegGenerator.Interpreter
             else if (action.Contains("_PyAST_BinOp"))
             {
                 // Binary operation: left op right
-                var expr = new SimpleExpr
+                var expr = new LegacySimpleExpr
                 {
                     Type = "binop",
                     Data = new {
@@ -1140,7 +1155,7 @@ namespace SharpPy.PegGenerator.Interpreter
             else if (action.Contains("_PyAST_TypeAlias"))
             {
                 // Type alias: "type" n=NAME t=[type_params] '=' b=expression
-                var stmt = new SimpleStmt
+                var stmt = new LegacySimpleStmt
                 {
                     Type = "type_alias",
                     Data = new {
@@ -1154,7 +1169,7 @@ namespace SharpPy.PegGenerator.Interpreter
             else if (action.Contains("_PyAST_AsyncFunctionDef"))
             {
                 // Async function definition: ASYNC 'def' n=NAME params=[params] b=block
-                var stmt = new SimpleStmt
+                var stmt = new LegacySimpleStmt
                 {
                     Type = "async_function_def",
                     Data = new {
@@ -1170,7 +1185,7 @@ namespace SharpPy.PegGenerator.Interpreter
             else if (action.Contains("_PyAST_Break"))
             {
                 // Break statement: 'break' { _PyAST_Break(EXTRA) }
-                var stmt = new SimpleStmt
+                var stmt = new LegacySimpleStmt
                 {
                     Type = "break",
                     Data = null
@@ -1180,7 +1195,7 @@ namespace SharpPy.PegGenerator.Interpreter
             else if (action.Contains("_PyAST_Continue"))
             {
                 // Continue statement: 'continue' { _PyAST_Continue(EXTRA) }
-                var stmt = new SimpleStmt
+                var stmt = new LegacySimpleStmt
                 {
                     Type = "continue",
                     Data = null

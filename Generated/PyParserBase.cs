@@ -262,17 +262,11 @@ namespace SharpPy.Generated
                     break;
 
                 var parser = this as GeneratedPyParser;
-                var stmtSeq = parser?.ParseStatement(); // Use generated parser's method
+                var stmtSeq = parser?.ParseStatement(); // Use generated parser's method - returns GeneratedStmtSeq
                 if (stmtSeq != null)
                 {
-                    if (stmtSeq is GeneratedStmt singleStmt)
-                    {
-                        statementList.Add(singleStmt);
-                    }
-                    else if (stmtSeq is GeneratedStmtSeq stmtList)
-                    {
-                        statementList.AddRange(stmtList);
-                    }
+                    // ParseStatement always returns GeneratedStmtSeq
+                    statementList.AddRange(stmtSeq);
                 }
                 else
                 {
@@ -325,13 +319,10 @@ namespace SharpPy.Generated
 
             // Try expression statement
             var expr = (object?)null; // ParseExpression(); // Will use generated method
-            if (expr != null)
+            if (expr != null && expr is GeneratedExpr genExpr)
             {
-                // Return GeneratedStmt for compatibility with interpreter
-                var stmt = new GeneratedStmt();
-                stmt.StatementType = "expression";
-                stmt.Value = expr;
-                return stmt;
+                // Return expression statement
+                return new GeneratedExprStmt { Value = genExpr };
             }
 
             return null;
@@ -478,25 +469,18 @@ namespace SharpPy.Generated
         /// CPython 3.12: Create AugAssign statement
         /// _PyAST_AugAssign(target, op, value, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_AugAssign(object target, string op, object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedAugAssignStmt _PyAST_AugAssign(object target, string op, object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var stmt = new GeneratedStmt();
-            stmt.StatementType = "aug_assign";  // Match existing converter code
-
-            // Create augassign data structure matching existing format
-            var augAssignData = new
+            return new GeneratedAugAssignStmt
             {
-                Target = target,
-                Op = new { kind = op },  // Wrap operator in anonymous object with 'kind' field
-                Value = value
+                Target = ASTHelpers.ExtractExpr(target),
+                Op = op,
+                Value = ASTHelpers.ExtractExpr(value),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
             };
-            stmt.Value = augAssignData;
-            // CPython 3.12 EXTRA: Store position information
-            stmt.LineNo = lineno;
-            stmt.ColOffset = col_offset;
-            stmt.EndLineNo = end_lineno;
-            stmt.EndColOffset = end_col_offset;
-            return stmt;
         }
 
         /// <summary>
@@ -520,50 +504,51 @@ namespace SharpPy.Generated
             {
                 genExpr.Context = context;
 
-                // Handle Expression wrapper - unwrap and set context on inner expression
-                if (genExpr.ExpressionType == "Expression" && genExpr.Value is object innerExpr)
+                // Handle Name expression - leaf node, no recursion needed
+                if (genExpr is GeneratedNameExpr)
                 {
-                    SetExprContext(innerExpr, context);
                     return;
                 }
 
-                // Recursively set context for nested expressions
-                if (genExpr.Value is object valueObj)
+                // Handle List elements
+                if (genExpr is GeneratedListExpr listExpr)
                 {
-                    // Handle Name expression - this is the actual target
-                    if (genExpr.ExpressionType == "Name")
+                    foreach (var elem in listExpr.Elements)
                     {
-                        // Name expression itself already has context set above
-                        return;
+                        SetExprContext(elem, context);
                     }
+                    return;
+                }
 
-                    // Handle List/Tuple elements
-                    var elemsProperty = valueObj.GetType().GetProperty("elts");
-                    if (elemsProperty != null)
+                // Handle Tuple elements
+                if (genExpr is GeneratedTupleExpr tupleExpr)
+                {
+                    foreach (var elem in tupleExpr.Elements)
                     {
-                        var elements = elemsProperty.GetValue(valueObj);
-                        if (elements is System.Collections.IEnumerable enumerable)
-                        {
-                            foreach (var elem in enumerable)
-                            {
-                                if (elem != null)
-                                {
-                                    SetExprContext(elem, context);
-                                }
-                            }
-                        }
+                        SetExprContext(elem, context);
                     }
+                    return;
+                }
 
-                    // Handle Starred value
-                    var valueProperty = valueObj.GetType().GetProperty("value");
-                    if (valueProperty != null && genExpr.ExpressionType == "Starred")
-                    {
-                        var starredValue = valueProperty.GetValue(valueObj);
-                        if (starredValue != null)
-                        {
-                            SetExprContext(starredValue, context);
-                        }
-                    }
+                // Handle Starred value
+                if (genExpr is GeneratedStarredExpr starredExpr)
+                {
+                    SetExprContext(starredExpr.Value, context);
+                    return;
+                }
+
+                // Handle Attribute
+                if (genExpr is GeneratedAttributeExpr attrExpr)
+                {
+                    SetExprContext(attrExpr.Value, context);
+                    return;
+                }
+
+                // Handle Subscript
+                if (genExpr is GeneratedSubscriptExpr subscriptExpr)
+                {
+                    SetExprContext(subscriptExpr.Value, context);
+                    return;
                 }
             }
         }
@@ -731,10 +716,8 @@ namespace SharpPy.Generated
 
                 if (stmt != null)
                 {
-                    if (stmt is List<object> stmtList)
-                        statements.AddRange(stmtList);
-                    else
-                        statements.Add(stmt);
+                    // ParseStatement returns GeneratedStmtSeq
+                    statements.AddRange(stmt);
                 }
                 else
                 {
@@ -797,11 +780,14 @@ namespace SharpPy.Generated
         /// _PyAST_FunctionDef - Create function definition AST node
         /// CPython 3.12: _PyAST_FunctionDef(name, arguments, body, decorator_list, returns, type_comment, type_params, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_FunctionDef(string name, object arguments, object body,
-            object decorator_list = null, object returns = null, string type_comment = null,
+        protected GeneratedStmt _PyAST_FunctionDef(object name = null, object arguments = null, object body = null,
+            object decorator_list = null, object returns = null, object type_comment = null,
             object type_params = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: Creating function '{name}' with body type: {body?.GetType().Name}");
+            // Extract string from name (could be GeneratedToken with Name.id)
+            string nameStr = ASTHelpers.ExtractStringValue(name);
+
+            Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: Creating function '{nameStr}' with body type: {body?.GetType().Name}");
             Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: arguments parameter is null: {arguments == null}");
             if (arguments != null)
             {
@@ -809,29 +795,24 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: arguments value: {arguments}");
             }
 
-            var funcDef = new GeneratedStmt();
-            funcDef.StatementType = "function_def";
-
             var finalArguments = arguments ?? _PyPegen_empty_arguments();
             Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: Using {(arguments == null ? "empty" : "provided")} arguments");
 
-            var funcInfo = new GeneratedFunctionDef
+            var funcDef = new GeneratedFunctionDefStmt
             {
-                Name = name,
+                Name = nameStr,
                 Arguments = finalArguments,
-                Body = body,
-                DecoratorList = decorator_list ?? new List<object>(),
-                Returns = returns,
-                TypeComment = type_comment,
-                TypeParams = type_params
+                Body = ASTHelpers.ExtractStmtSeq(body),
+                DecoratorList = ASTHelpers.ExtractExprSeq(decorator_list),
+                Returns = returns as GeneratedExpr,
+                TypeComment = ASTHelpers.ExtractStringValue(type_comment),
+                TypeParams = type_params,
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
             };
 
-            funcDef.Value = funcInfo;
-            // CPython 3.12 EXTRA: Store position information
-            funcDef.LineNo = lineno;
-            funcDef.ColOffset = col_offset;
-            funcDef.EndLineNo = end_lineno;
-            funcDef.EndColOffset = end_col_offset;
             Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: Function definition created successfully");
             return funcDef;
         }
@@ -840,32 +821,27 @@ namespace SharpPy.Generated
         /// _PyAST_AsyncFunctionDef - Create async function definition AST node
         /// CPython 3.12: _PyAST_AsyncFunctionDef(name, arguments, body, decorator_list, returns, type_comment, type_params, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_AsyncFunctionDef(string name, object arguments, object body,
+        protected GeneratedAsyncFunctionDefStmt _PyAST_AsyncFunctionDef(string name, object arguments, object body,
             object decorator_list = null, object returns = null, string type_comment = null,
             object type_params = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             Console.WriteLine($"[DEBUG] _PyAST_AsyncFunctionDef: Creating async function '{name}' with body type: {body?.GetType().Name}");
 
-            var funcDef = new GeneratedStmt();
-            funcDef.StatementType = "async_function_def";
-
-            var funcInfo = new GeneratedFunctionDef
+            var funcDef = new GeneratedAsyncFunctionDefStmt
             {
                 Name = name,
                 Arguments = arguments ?? _PyPegen_empty_arguments(),
-                Body = body,
-                DecoratorList = decorator_list ?? new List<object>(),
-                Returns = returns,
+                Body = ASTHelpers.ExtractStmtSeq(body),
+                DecoratorList = ASTHelpers.ExtractExprSeq(decorator_list),
+                Returns = returns as GeneratedExpr,
                 TypeComment = type_comment,
-                TypeParams = type_params
+                TypeParams = type_params,
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
             };
 
-            funcDef.Value = funcInfo;
-            // CPython 3.12 EXTRA: Store position information
-            funcDef.LineNo = lineno;
-            funcDef.ColOffset = col_offset;
-            funcDef.EndLineNo = end_lineno;
-            funcDef.EndColOffset = end_col_offset;
             Console.WriteLine($"[DEBUG] _PyAST_AsyncFunctionDef: Async function definition created successfully");
             return funcDef;
         }
@@ -873,24 +849,17 @@ namespace SharpPy.Generated
         /// <summary>
         /// _PyPegen_make_module - Create module from statements
         /// </summary>
-        protected GeneratedModule _PyPegen_make_module(object statements)
+        protected GeneratedModule _PyPegen_make_module(GeneratedStmtSeq statements)
         {
             var module = new GeneratedModule();
-            module.Body = new GeneratedStmtSeq();
 
-            if (statements is List<object> stmtList)
+            if (statements != null)
             {
-                foreach (var stmt in stmtList)
-                {
-                    if (stmt is GeneratedStmt genStmt)
-                    {
-                        module.Body.Add(genStmt);
-                    }
-                }
+                module.Body = statements;
             }
-            else if (statements is GeneratedStmt singleStmt)
+            else
             {
-                module.Body.Add(singleStmt);
+                module.Body = new GeneratedStmtSeq();
             }
 
             return module;
@@ -899,10 +868,10 @@ namespace SharpPy.Generated
         /// <summary>
         /// _PyPegen_singleton_seq - Create sequence with single item
         /// </summary>
-        protected List<object> _PyPegen_singleton_seq(object item)
+        protected GeneratedStmtSeq _PyPegen_singleton_seq(GeneratedStmt item)
         {
-            if (item == null) return new List<object>();
-            return new List<object> { item };
+            if (item == null) return new GeneratedStmtSeq();
+            return new GeneratedStmtSeq { item };
         }
 
         /// <summary>
@@ -910,19 +879,11 @@ namespace SharpPy.Generated
         /// CPython 3.12: NEVER flatten - preserve nested structure exactly as parsed
         /// Only used for simple_stmts sequences (semicolon-separated statements)
         /// </summary>
-        protected List<object> _PyPegen_seq_flatten(List<object> sequences)
+        protected GeneratedStmtSeq _PyPegen_seq_flatten(GeneratedStmtSeq sequences)
         {
             // CRITICAL: CPython 3.12 does NOT flatten compound statement bodies
             // Return sequences as-is to preserve nested structure
-            var result = new List<object>();
-            foreach (var seq in sequences)
-            {
-                if (seq != null)
-                {
-                    result.Add(seq);
-                }
-            }
-            return result;
+            return sequences;
         }
 
 
@@ -946,151 +907,180 @@ namespace SharpPy.Generated
         /// <summary>
         /// _PyAST_Pass - Create pass statement
         /// </summary>
-        protected GeneratedStmt _PyAST_Pass(int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedPassStmt _PyAST_Pass(int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var stmt = new GeneratedStmt();
-            stmt.StatementType = "pass";
-            stmt.Value = null;
-            // CPython 3.12 EXTRA: Store position information
-            stmt.LineNo = lineno;
-            stmt.ColOffset = col_offset;
-            stmt.EndLineNo = end_lineno;
-            stmt.EndColOffset = end_col_offset;
-            return stmt;
+            return new GeneratedPassStmt
+            {
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
         /// _PyAST_Return - Create return statement
         /// </summary>
-        protected GeneratedStmt _PyAST_Return(object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedReturnStmt _PyAST_Return(object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var stmt = new GeneratedStmt();
-            stmt.StatementType = "return";
-            stmt.Value = value;
-            // CPython 3.12 EXTRA: Store position information
-            stmt.LineNo = lineno;
-            stmt.ColOffset = col_offset;
-            stmt.EndLineNo = end_lineno;
-            stmt.EndColOffset = end_col_offset;
-            return stmt;
+            return new GeneratedReturnStmt
+            {
+                Value = value as GeneratedExpr,
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
         /// _PyAST_Expr - Create expression statement
         /// </summary>
-        protected GeneratedStmt _PyAST_Expr(object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedExprStmt _PyAST_Expr(object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var stmt = new GeneratedStmt();
-            stmt.StatementType = "expression";
-            stmt.Value = value;
-            // CPython 3.12 EXTRA: Store position information
-            stmt.LineNo = lineno;
-            stmt.ColOffset = col_offset;
-            stmt.EndLineNo = end_lineno;
-            stmt.EndColOffset = end_col_offset;
-            return stmt;
+            return new GeneratedExprStmt
+            {
+                Value = ASTHelpers.ExtractExpr(value),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
         /// _PyAST_Constant - Create constant expression
         /// CPython 3.12: _PyAST_Constant(value, kind, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedExpr _PyAST_Constant(object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedConstantExpr _PyAST_Constant(object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var expr = new GeneratedExpr();
-            expr.ExpressionType = "constant";
-            expr.Value = value;
-            // CPython 3.12 EXTRA: Store position information
-            expr.LineNo = lineno;
-            expr.ColOffset = col_offset;
-            expr.EndLineNo = end_lineno;
-            expr.EndColOffset = end_col_offset;
-            return expr;
+            // CPython 3.12: Convert value to PyObject
+            PyObject pyValue = value switch
+            {
+                PyObject pyObj => pyObj,
+                string str => new PyString(str),
+                int i => new PyInt(i),
+                long l => new PyInt((int)l),
+                double d => new PyFloat(d),
+                float f => new PyFloat(f),
+                bool b => b ? PyBool.True : PyBool.False,
+                null => PyNone.Instance,
+                _ => new PyString(value.ToString() ?? "")
+            };
+
+            return new GeneratedConstantExpr
+            {
+                Value = pyValue,
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
         /// _PyAST_Assign - Create assignment statement (single target)
         /// CPython 3.12: _PyAST_Assign(targets, value, type_comment, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_Assign(object target, object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedAssignStmt _PyAST_Assign(object target, object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var stmt = new GeneratedStmt();
-            stmt.StatementType = "assignment";
-            stmt.Value = new { Target = target, Value = value };
-            // CPython 3.12 EXTRA: Store position information
-            stmt.LineNo = lineno;
-            stmt.ColOffset = col_offset;
-            stmt.EndLineNo = end_lineno;
-            stmt.EndColOffset = end_col_offset;
-            return stmt;
+            // CPython expects targets (plural), so wrap single target in a list
+            var targets = new GeneratedExprSeq();
+            if (target is GeneratedExpr expr)
+                targets.Add(expr);
+
+            return new GeneratedAssignStmt
+            {
+                Targets = targets,
+                Value = ASTHelpers.ExtractExpr(value),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
         /// _PyAST_Assign - Create assignment statement (multiple targets for chained assignment)
         /// CPython 3.12: a = b = c = value
         /// </summary>
-        protected GeneratedStmt _PyAST_Assign(List<object> targets, object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedAssignStmt _PyAST_Assign(List<object> targets, object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var stmt = new GeneratedStmt();
-            stmt.StatementType = "assignment";
-            stmt.Value = new { Targets = targets, Value = value };
-            // CPython 3.12 EXTRA: Store position information
-            stmt.LineNo = lineno;
-            stmt.ColOffset = col_offset;
-            stmt.EndLineNo = end_lineno;
-            stmt.EndColOffset = end_col_offset;
-            return stmt;
+            var targetSeq = new GeneratedExprSeq();
+            foreach (var target in targets)
+            {
+                if (target is GeneratedExpr expr)
+                    targetSeq.Add(expr);
+            }
+
+            return new GeneratedAssignStmt
+            {
+                Targets = targetSeq,
+                Value = ASTHelpers.ExtractExpr(value),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
         /// _PyAST_AnnAssign - Create annotated assignment statement (simple version)
         /// CPython 3.12: _PyAST_AnnAssign(target, annotation, value, simple, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_AnnAssign(object target, object annotation, object value = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedAnnAssignStmt _PyAST_AnnAssign(object target, object annotation, object value = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var stmt = new GeneratedStmt();
-            stmt.StatementType = "annassign";
-            stmt.Value = new { target = target, annotation = annotation, value = value };
-            // CPython 3.12 EXTRA: Store position information
-            stmt.LineNo = lineno;
-            stmt.ColOffset = col_offset;
-            stmt.EndLineNo = end_lineno;
-            stmt.EndColOffset = end_col_offset;
-            return stmt;
+            return new GeneratedAnnAssignStmt
+            {
+                Target = ASTHelpers.ExtractExpr(target),
+                Annotation = ASTHelpers.ExtractExpr(annotation),
+                Value = value != null ? ASTHelpers.ExtractExpr(value) : null,
+                Simple = true,  // Default to simple=1
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
         /// _PyAST_AnnAssign - Create annotated assignment statement (with simple flag)
         /// CPython 3.12: _PyAST_AnnAssign(target, annotation, value, simple, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_AnnAssign(object target, object annotation, object value = null, int simple = 1, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedAnnAssignStmt _PyAST_AnnAssign(object target, object annotation, object value = null, int simple = 1, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var stmt = new GeneratedStmt();
-            stmt.StatementType = "ann_assign";
-            stmt.Value = new { Target = target, Annotation = annotation, Value = value, Simple = simple };
-            // CPython 3.12 EXTRA: Store position information
-            stmt.LineNo = lineno;
-            stmt.ColOffset = col_offset;
-            stmt.EndLineNo = end_lineno;
-            stmt.EndColOffset = end_col_offset;
-            return stmt;
+            return new GeneratedAnnAssignStmt
+            {
+                Target = ASTHelpers.ExtractExpr(target),
+                Annotation = ASTHelpers.ExtractExpr(annotation),
+                Value = value != null ? ASTHelpers.ExtractExpr(value) : null,
+                Simple = simple != 0,
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
         /// _PyAST_AugAssign - Create augmented assignment statement (+=, -=, etc.)
         /// CPython 3.12: _PyAST_AugAssign(target, op, value, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_AugAssign(object target, object op, object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedAugAssignStmt _PyAST_AugAssign(object target, object op, object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var stmt = new GeneratedStmt();
-            stmt.StatementType = "aug_assign";
-            stmt.Value = new { Target = target, Op = op, Value = value };
-            // CPython 3.12 EXTRA: Store position information
-            stmt.LineNo = lineno;
-            stmt.ColOffset = col_offset;
-            stmt.EndLineNo = end_lineno;
-            stmt.EndColOffset = end_col_offset;
-            return stmt;
+            // Extract operator string from object
+            string opStr = op?.ToString() ?? "";
+
+            return new GeneratedAugAssignStmt
+            {
+                Target = ASTHelpers.ExtractExpr(target),
+                Op = opStr,
+                Value = ASTHelpers.ExtractExpr(value),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
@@ -1119,232 +1109,266 @@ namespace SharpPy.Generated
         /// CPython: Name(id='x', ctx=Load())
         /// CPython 3.12: _PyAST_Name(id, ctx, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedExpr _PyAST_Name(string id, object context = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedNameExpr _PyAST_Name(string id, object context = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var expr = new GeneratedExpr();
-            expr.ExpressionType = "Name";  // CPython 3.12: Capital 'N'
-            expr.Value = new { id = id };  // CPython 3.12: anonymous object with 'id' field
-            expr.Context = context?.ToString() ?? "Load";
-            // CPython 3.12 EXTRA: Store position information
-            expr.LineNo = lineno;
-            expr.ColOffset = col_offset;
-            expr.EndLineNo = end_lineno;
-            expr.EndColOffset = end_col_offset;
-            return expr;
+            return new GeneratedNameExpr
+            {
+                Id = id,
+                Context = context?.ToString() ?? "Load",
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
         /// _PyAST_If - Create if statement
         /// CPython 3.12: _PyAST_If(test, body, orelse, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_If(object test, object body, object orelse = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedIfStmt _PyAST_If(object test, object body, object orelse = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var stmt = new GeneratedStmt();
-            stmt.StatementType = "if";
-            stmt.Value = new { Test = test, Body = body, Orelse = orelse ?? new List<object>() };
-            // CPython 3.12 EXTRA: Store position information
-            stmt.LineNo = lineno;
-            stmt.ColOffset = col_offset;
-            stmt.EndLineNo = end_lineno;
-            stmt.EndColOffset = end_col_offset;
-            return stmt;
+            return new GeneratedIfStmt
+            {
+                Test = ASTHelpers.ExtractExpr(test),
+                Body = ASTHelpers.ExtractStmtSeq(body),
+                OrElse = ASTHelpers.ExtractStmtSeq(orelse),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
         /// _PyAST_While - Create while statement
         /// CPython 3.12: _PyAST_While(test, body, orelse, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_While(object test, object body, object orelse = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedWhileStmt _PyAST_While(object test, object body, object orelse = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var stmt = new GeneratedStmt();
-            stmt.StatementType = "while";
-            stmt.Value = new { Test = test, Body = body, Orelse = orelse ?? new List<object>() };
-            // CPython 3.12 EXTRA: Store position information
-            stmt.LineNo = lineno;
-            stmt.ColOffset = col_offset;
-            stmt.EndLineNo = end_lineno;
-            stmt.EndColOffset = end_col_offset;
-            return stmt;
+            return new GeneratedWhileStmt
+            {
+                Test = ASTHelpers.ExtractExpr(test),
+                Body = ASTHelpers.ExtractStmtSeq(body),
+                OrElse = ASTHelpers.ExtractStmtSeq(orelse),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
         /// _PyAST_For - Create for statement
-        /// </summary>
-        /// <summary>
         /// CPython 3.12: _PyAST_For(target, iter, body, orelse, type_comment, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_For(object target, object iter, object body, object orelse = null, object type_comment = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedForStmt _PyAST_For(object target, object iter, object body, object orelse = null, object type_comment = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var stmt = new GeneratedStmt();
-            stmt.StatementType = "for";
-            stmt.Value = new { Target = target, Iter = iter, Body = body, Orelse = orelse ?? new List<object>(), TypeComment = type_comment };
-            // CPython 3.12 EXTRA: Store position information
-            stmt.LineNo = lineno;
-            stmt.ColOffset = col_offset;
-            stmt.EndLineNo = end_lineno;
-            stmt.EndColOffset = end_col_offset;
-            return stmt;
+            return new GeneratedForStmt
+            {
+                Target = ASTHelpers.ExtractExpr(target),
+                Iter = ASTHelpers.ExtractExpr(iter),
+                Body = ASTHelpers.ExtractStmtSeq(body),
+                OrElse = ASTHelpers.ExtractStmtSeq(orelse),
+                TypeComment = type_comment?.ToString(),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
         /// CPython 3.12: _PyAST_AsyncFor - async for statement
         /// </summary>
-        protected GeneratedStmt _PyAST_AsyncFor(object target, object iter, object body, object orelse = null, object type_comment = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedAsyncForStmt _PyAST_AsyncFor(object target, object iter, object body, object orelse = null, object type_comment = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var stmt = new GeneratedStmt();
-            stmt.StatementType = "asyncfor";
-            stmt.Value = new { Target = target, Iter = iter, Body = body, Orelse = orelse ?? new List<object>(), TypeComment = type_comment };
-            // CPython 3.12 EXTRA: Store position information
-            stmt.LineNo = lineno;
-            stmt.ColOffset = col_offset;
-            stmt.EndLineNo = end_lineno;
-            stmt.EndColOffset = end_col_offset;
-            return stmt;
+            return new GeneratedAsyncForStmt
+            {
+                Target = ASTHelpers.ExtractExpr(target),
+                Iter = ASTHelpers.ExtractExpr(iter),
+                Body = ASTHelpers.ExtractStmtSeq(body),
+                OrElse = ASTHelpers.ExtractStmtSeq(orelse),
+                TypeComment = type_comment?.ToString(),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
         /// _PyAST_Break - Create break statement
         /// </summary>
-        protected GeneratedStmt _PyAST_Break(int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedBreakStmt _PyAST_Break(int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var stmt = new GeneratedStmt();
-            stmt.StatementType = "break";
-            stmt.Value = null;
-            // CPython 3.12 EXTRA: Store position information
-            stmt.LineNo = lineno;
-            stmt.ColOffset = col_offset;
-            stmt.EndLineNo = end_lineno;
-            stmt.EndColOffset = end_col_offset;
-            return stmt;
+            return new GeneratedBreakStmt
+            {
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
         /// _PyAST_Continue - Create continue statement
         /// </summary>
-        protected GeneratedStmt _PyAST_Continue(int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedContinueStmt _PyAST_Continue(int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var stmt = new GeneratedStmt();
-            stmt.StatementType = "continue";
-            stmt.Value = null;
-            // CPython 3.12 EXTRA: Store position information
-            stmt.LineNo = lineno;
-            stmt.ColOffset = col_offset;
-            stmt.EndLineNo = end_lineno;
-            stmt.EndColOffset = end_col_offset;
-            return stmt;
+            return new GeneratedContinueStmt
+            {
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
         /// _PyAST_Match - Create match statement (Python 3.10+)
         /// CPython 3.12: _PyAST_Match(subject, cases, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_Match(object subject, object cases, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedMatchStmt _PyAST_Match(object subject, object cases, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var stmt = new GeneratedStmt();
-            stmt.StatementType = "match";
-            stmt.Value = new { Subject = subject, Cases = cases };
-            // CPython 3.12 EXTRA: Store position information
-            stmt.LineNo = lineno;
-            stmt.ColOffset = col_offset;
-            stmt.EndLineNo = end_lineno;
-            stmt.EndColOffset = end_col_offset;
-            return stmt;
+            var casesList = new List<object>();
+            if (cases is List<object> list)
+                casesList = list;
+
+            return new GeneratedMatchStmt
+            {
+                Subject = ASTHelpers.ExtractExpr(subject),
+                Cases = casesList,
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
         /// _PyAST_Global - Create global statement
         /// CPython 3.12: _PyAST_Global(names, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_Global(object names, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedGlobalStmt _PyAST_Global(object names = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var stmt = new GeneratedStmt();
-            stmt.StatementType = "global";
-            stmt.Value = new { Names = names };
-            // CPython 3.12 EXTRA: Store position information
-            stmt.LineNo = lineno;
-            stmt.ColOffset = col_offset;
-            stmt.EndLineNo = end_lineno;
-            stmt.EndColOffset = end_col_offset;
-            return stmt;
+            var namesList = new List<string>();
+            if (names is List<object> list)
+            {
+                foreach (var name in list)
+                    namesList.Add(name?.ToString() ?? "");
+            }
+            else if (names is List<string> strList)
+            {
+                namesList = strList;
+            }
+
+            return new GeneratedGlobalStmt
+            {
+                Names = namesList,
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
         /// _PyAST_Nonlocal - Create nonlocal statement
         /// CPython 3.12: _PyAST_Nonlocal(names, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_Nonlocal(object names, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedNonlocalStmt _PyAST_Nonlocal(object names = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var stmt = new GeneratedStmt();
-            stmt.StatementType = "nonlocal";
-            stmt.Value = new { Names = names };
-            // CPython 3.12 EXTRA: Store position information
-            stmt.LineNo = lineno;
-            stmt.ColOffset = col_offset;
-            stmt.EndLineNo = end_lineno;
-            stmt.EndColOffset = end_col_offset;
-            return stmt;
+            var namesList = new List<string>();
+            if (names is List<object> list)
+            {
+                foreach (var name in list)
+                    namesList.Add(name?.ToString() ?? "");
+            }
+            else if (names is List<string> strList)
+            {
+                namesList = strList;
+            }
+
+            return new GeneratedNonlocalStmt
+            {
+                Names = namesList,
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
         /// _PyAST_Import - Create import statement
         /// CPython 3.12: _PyAST_Import(names, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_Import(object names, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedImportStmt _PyAST_Import(object names, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var stmt = new GeneratedStmt();
-            stmt.StatementType = "import";
-            stmt.Value = new { Names = names };
-            // CPython 3.12 EXTRA: Store position information
-            stmt.LineNo = lineno;
-            stmt.ColOffset = col_offset;
-            stmt.EndLineNo = end_lineno;
-            stmt.EndColOffset = end_col_offset;
-            return stmt;
+            var namesList = new List<object>();
+            if (names is List<object> list)
+                namesList = list;
+
+            return new GeneratedImportStmt
+            {
+                Names = namesList,
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
         /// _PyAST_ImportFrom - Create from import statement
         /// CPython 3.12: _PyAST_ImportFrom(module, names, level, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_ImportFrom(object module, object names, object level = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedImportFromStmt _PyAST_ImportFrom(object module = null, object names = null, object level = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var stmt = new GeneratedStmt();
-            stmt.StatementType = "import_from";
-            stmt.Value = new { Module = module, Names = names, Level = level ?? 0 };
-            // CPython 3.12 EXTRA: Store position information
-            stmt.LineNo = lineno;
-            stmt.ColOffset = col_offset;
-            stmt.EndLineNo = end_lineno;
-            stmt.EndColOffset = end_col_offset;
-            return stmt;
+            var namesList = new List<object>();
+            if (names is List<object> list)
+                namesList = list;
+
+            int levelInt = 0;
+            if (level is int i)
+                levelInt = i;
+            else if (level != null)
+                int.TryParse(level.ToString(), out levelInt);
+
+            return new GeneratedImportFromStmt
+            {
+                Module = module?.ToString(),
+                Names = namesList,
+                Level = levelInt,
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
         /// _PyAST_ClassDef - Create class definition
         /// CPython 3.12: _PyAST_ClassDef(name, bases, keywords, body, decorator_list, type_params, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_ClassDef(string name, object bases, object keywords, object body,
-            object decorator_list = null, object type_params = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedClassDefStmt _PyAST_ClassDef(object name, object? bases, object? keywords, object body,
+            object? decorator_list = null, object? type_params = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var stmt = new GeneratedStmt();
-            stmt.StatementType = "class_def";
-
-            var classDef = new GeneratedClassDef
+            var stmt = new GeneratedClassDefStmt
             {
-                Name = name,
-                Body = body,
-                Bases = bases ?? new List<object>(),
-                Keywords = keywords ?? new List<object>(),
-                DecoratorList = decorator_list ?? new List<object>(),
-                TypeParams = type_params
+                Name = ASTHelpers.ExtractStringValue(name),
+                Body = ASTHelpers.ExtractStmtSeq(body),
+                Bases = ASTHelpers.ExtractExprSeq(bases),
+                Keywords = ASTHelpers.ExtractExprSeq(keywords),
+                DecoratorList = ASTHelpers.ExtractExprSeq(decorator_list),
+                TypeParams = type_params,
+                // CPython 3.12 EXTRA: Store position information
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
             };
-
-            stmt.Value = classDef;
-            // CPython 3.12 EXTRA: Store position information
-            stmt.LineNo = lineno;
-            stmt.ColOffset = col_offset;
-            stmt.EndLineNo = end_lineno;
-            stmt.EndColOffset = end_col_offset;
             return stmt;
         }
 
@@ -1534,10 +1558,11 @@ namespace SharpPy.Generated
                 _ => throw new InvalidOperationException($"Unknown augmented assignment operator: {augOp}")
             };
 
-            return new GeneratedStmt
+            return new GeneratedAugAssignStmt
             {
-                StatementType = "augassign",
-                Value = new { Target = target, Op = binaryOp, Value = value }
+                Target = (GeneratedExpr)target,
+                Op = binaryOp,
+                Value = (GeneratedExpr)value
             };
         }
 
@@ -1568,11 +1593,7 @@ namespace SharpPy.Generated
             {
                 foreach (var item in sequence)
                 {
-                    if (item is GeneratedExpr expr && expr.ExpressionType == "starred")
-                    {
-                        result.Add(item);
-                    }
-                    else if (item?.ToString()?.Contains("starred") == true)
+                    if (item is GeneratedStarredExpr)
                     {
                         result.Add(item);
                     }
@@ -1591,7 +1612,7 @@ namespace SharpPy.Generated
             {
                 foreach (var item in sequence)
                 {
-                    if (item is GeneratedExpr expr && expr.ExpressionType == "starred")
+                    if (item is GeneratedStarredExpr)
                     {
                         continue; // Skip starred expressions
                     }
@@ -1672,16 +1693,23 @@ namespace SharpPy.Generated
         /// <summary>
         /// _PyPegen_joined_str - Create joined string for f-strings
         /// </summary>
-        protected GeneratedExpr _PyPegen_joined_str(object start, List<object> middle, object end)
+        protected GeneratedJoinedStrExpr _PyPegen_joined_str(object start, List<object> middle, object end)
         {
-            var expr = new GeneratedExpr();
-            expr.ExpressionType = "joined_str";
-            expr.Value = new {
-                Start = start,
-                Middle = middle ?? new List<object>(),
-                End = end
-            };
-            return expr;
+            var values = new GeneratedExprSeq();
+            if (start != null && start is GeneratedExpr startExpr)
+                values.Add(startExpr);
+            if (middle != null)
+            {
+                foreach (var item in middle)
+                {
+                    if (item is GeneratedExpr expr)
+                        values.Add(expr);
+                }
+            }
+            if (end != null && end is GeneratedExpr endExpr)
+                values.Add(endExpr);
+
+            return new GeneratedJoinedStrExpr { Values = values };
         }
 
         /// <summary>
@@ -1691,10 +1719,7 @@ namespace SharpPy.Generated
         {
             if (strings == null || strings.Count == 0)
             {
-                var emptyExpr = new GeneratedExpr();
-                emptyExpr.ExpressionType = "constant";
-                emptyExpr.Value = "";
-                return emptyExpr;
+                return new GeneratedConstantExpr { Value = new PyString("") };
             }
 
             if (strings.Count == 1)
@@ -1704,43 +1729,61 @@ namespace SharpPy.Generated
                 {
                     return expr;
                 }
+                // Single non-expression item, wrap as constant - CPython 3.12
+                var pyVal = single switch
+                {
+                    PyObject py => py,
+                    string s => new PyString(s),
+                    _ => new PyString(single?.ToString() ?? "")
+                };
+                return new GeneratedConstantExpr { Value = pyVal };
             }
 
-            // Multiple strings - create concatenated expression
-            var concatExpr = new GeneratedExpr();
-            concatExpr.ExpressionType = "concatenated_str";
-            concatExpr.Value = strings;
-            return concatExpr;
+            // Multiple strings - create JoinedStr for concatenation
+            var values = new GeneratedExprSeq();
+            foreach (var item in strings)
+            {
+                if (item is GeneratedExpr expr)
+                    values.Add(expr);
+                else
+                    values.Add(new GeneratedConstantExpr { Value = new PyString(item?.ToString() ?? "") });
+            }
+            return new GeneratedJoinedStrExpr { Values = values };
         }
 
         /// <summary>
         /// _PyPegen_constant_from_token - Create constant from token
+        /// CPython 3.12: Convert token value to PyObject
         /// </summary>
-        protected GeneratedExpr _PyPegen_constant_from_token(object token)
+        protected GeneratedConstantExpr _PyPegen_constant_from_token(object token)
         {
-            var expr = new GeneratedExpr();
-            expr.ExpressionType = "constant";
-
             if (token is GeneratedTokenInfo genToken)
             {
-                expr.Value = genToken.Value;
+                // CPython 3.12: Parse string to appropriate PyObject type
+                var strValue = genToken.Value;
+                PyObject pyValue;
+
+                if (int.TryParse(strValue, out int intVal))
+                    pyValue = new PyInt(intVal);
+                else if (double.TryParse(strValue, out double floatVal))
+                    pyValue = new PyFloat(floatVal);
+                else
+                    pyValue = new PyString(strValue);
+
+                return new GeneratedConstantExpr { Value = pyValue };
             }
             else
             {
-                expr.Value = token?.ToString() ?? "";
+                return new GeneratedConstantExpr { Value = new PyString(token?.ToString() ?? "") };
             }
-
-            return expr;
         }
 
         /// <summary>
         /// _PyPegen_decoded_constant_from_token - Create decoded constant from token
+        /// CPython 3.12: Convert token value to PyObject with decoding
         /// </summary>
-        protected GeneratedExpr _PyPegen_decoded_constant_from_token(object token)
+        protected GeneratedConstantExpr _PyPegen_decoded_constant_from_token(object token)
         {
-            var expr = new GeneratedExpr();
-            expr.ExpressionType = "constant";
-
             if (token is GeneratedTokenInfo genToken)
             {
                 // Decode escaped sequences in f-string format specs
@@ -1753,14 +1796,12 @@ namespace SharpPy.Generated
                                  .Replace("\\r", "\r")
                                  .Replace("\\\\", "\\");
                 }
-                expr.Value = value;
+                return new GeneratedConstantExpr { Value = new PyString(value) };
             }
             else
             {
-                expr.Value = token?.ToString() ?? "";
+                return new GeneratedConstantExpr { Value = new PyString(token?.ToString() ?? "") };
             }
-
-            return expr;
         }
 
         /// <summary>
@@ -1798,150 +1839,157 @@ namespace SharpPy.Generated
         /// _PyAST_FormattedValue - Create formatted value AST node for f-strings
         /// CPython 3.12: _PyAST_FormattedValue(value, conversion, format_spec, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedExpr _PyAST_FormattedValue(object value, object conversion = null, object formatSpec = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedFormattedValueExpr _PyAST_FormattedValue(object value, object conversion = null, object formatSpec = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var expr = new GeneratedExpr();
-            expr.ExpressionType = "formatted_value";
-            expr.Value = new {
-                Value = value,
-                Conversion = conversion,
-                FormatSpec = formatSpec
+            int conversionInt = -1;
+            if (conversion != null)
+            {
+                if (conversion is int i) conversionInt = i;
+                else if (int.TryParse(conversion.ToString(), out var parsed)) conversionInt = parsed;
+            }
+
+            return new GeneratedFormattedValueExpr
+            {
+                Value = ASTHelpers.ExtractExpr(value),
+                Conversion = conversionInt,
+                FormatSpec = formatSpec != null ? ASTHelpers.ExtractExpr(formatSpec) : null,
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
             };
-            // CPython 3.12 EXTRA: Store position information
-            expr.LineNo = lineno;
-            expr.ColOffset = col_offset;
-            expr.EndLineNo = end_lineno;
-            expr.EndColOffset = end_col_offset;
-            return expr;
         }
 
         /// <summary>
         /// _PyAST_JoinedStr - Create joined string AST node for f-strings
         /// CPython 3.12: _PyAST_JoinedStr(values, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedExpr _PyAST_JoinedStr(List<object> values, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedJoinedStrExpr _PyAST_JoinedStr(List<object> values, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var expr = new GeneratedExpr();
-            expr.ExpressionType = "joined_str";
-            expr.Value = values ?? new List<object>();
-            // CPython 3.12 EXTRA: Store position information
-            expr.LineNo = lineno;
-            expr.ColOffset = col_offset;
-            expr.EndLineNo = end_lineno;
-            expr.EndColOffset = end_col_offset;
-            return expr;
+            return new GeneratedJoinedStrExpr
+            {
+                Values = ASTHelpers.ExtractExprSeq(values),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
         /// _PyAST_Await - Create await expression AST node
         /// CPython 3.12: _PyAST_Await(value, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedExpr _PyAST_Await(object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedAwaitExpr _PyAST_Await(object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var expr = new GeneratedExpr();
-            expr.ExpressionType = "await";
-            expr.Value = value;
-            // CPython 3.12 EXTRA: Store position information
-            expr.LineNo = lineno;
-            expr.ColOffset = col_offset;
-            expr.EndLineNo = end_lineno;
-            expr.EndColOffset = end_col_offset;
-            return expr;
+            return new GeneratedAwaitExpr
+            {
+                Value = ASTHelpers.ExtractExpr(value),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
         /// _PyAST_TypeVar - Create TypeVar expression AST node for PEP 695
         /// CPython 3.12: _PyAST_TypeVar(name, bound, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// TODO: Create GeneratedTypeVarExpr in GeneratedAstTypes.cs
         /// </summary>
         protected GeneratedExpr _PyAST_TypeVar(string name, object bound = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var expr = new GeneratedExpr();
-            expr.ExpressionType = "type_var";
-            expr.Value = new { name = name, bound = bound };
-            // CPython 3.12 EXTRA: Store position information
-            expr.LineNo = lineno;
-            expr.ColOffset = col_offset;
-            expr.EndLineNo = end_lineno;
-            expr.EndColOffset = end_col_offset;
-            return expr;
+            // Temporary: Use NameExpr until we have GeneratedTypeVarExpr
+            return new GeneratedNameExpr
+            {
+                Id = name,
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
         /// _PyAST_TypeVarTuple - Create TypeVarTuple expression AST node for PEP 695
         /// CPython 3.12: _PyAST_TypeVarTuple(name, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// TODO: Create GeneratedTypeVarTupleExpr in GeneratedAstTypes.cs
         /// </summary>
         protected GeneratedExpr _PyAST_TypeVarTuple(string name, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var expr = new GeneratedExpr();
-            expr.ExpressionType = "type_var_tuple";
-            expr.Value = new { name = name };
-            // CPython 3.12 EXTRA: Store position information
-            expr.LineNo = lineno;
-            expr.ColOffset = col_offset;
-            expr.EndLineNo = end_lineno;
-            expr.EndColOffset = end_col_offset;
-            return expr;
+            // Temporary: Use NameExpr until we have GeneratedTypeVarTupleExpr
+            return new GeneratedNameExpr
+            {
+                Id = name,
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
         /// _PyAST_ParamSpec - Create ParamSpec expression AST node for PEP 695
         /// CPython 3.12: _PyAST_ParamSpec(name, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// TODO: Create GeneratedParamSpecExpr in GeneratedAstTypes.cs
         /// </summary>
         protected GeneratedExpr _PyAST_ParamSpec(string name, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var expr = new GeneratedExpr();
-            expr.ExpressionType = "param_spec";
-            expr.Value = new { name = name };
-            // CPython 3.12 EXTRA: Store position information
-            expr.LineNo = lineno;
-            expr.ColOffset = col_offset;
-            expr.EndLineNo = end_lineno;
-            expr.EndColOffset = end_col_offset;
-            return expr;
+            // Temporary: Use NameExpr until we have GeneratedParamSpecExpr
+            return new GeneratedNameExpr
+            {
+                Id = name,
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
         /// _PyAST_Try - Create try statement AST node
         /// CPython 3.12: _PyAST_Try(body, handlers, orelse, finalbody, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_Try(object body, object handlers = null, object orelse = null, object finalbody = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedTryStmt _PyAST_Try(object body, object handlers = null, object orelse = null, object finalbody = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var stmt = new GeneratedStmt();
-            stmt.StatementType = "try";
-            stmt.Value = new {
-                body = body,
-                handlers = handlers,
-                orelse = orelse,
-                finalbody = finalbody
+            var handlersList = new List<object>();
+            if (handlers is List<object> list)
+                handlersList = list;
+
+            return new GeneratedTryStmt
+            {
+                Body = ASTHelpers.ExtractStmtSeq(body),
+                Handlers = handlersList,
+                OrElse = ASTHelpers.ExtractStmtSeq(orelse),
+                FinallyBody = ASTHelpers.ExtractStmtSeq(finalbody),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
             };
-            // CPython 3.12 EXTRA: Store position information
-            stmt.LineNo = lineno;
-            stmt.ColOffset = col_offset;
-            stmt.EndLineNo = end_lineno;
-            stmt.EndColOffset = end_col_offset;
-            return stmt;
         }
 
         /// <summary>
         /// _PyAST_TryStar - Create try statement AST node with except* handlers (PEP 654)
         /// CPython 3.12: _PyAST_TryStar(body, handlers, orelse, finalbody, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_TryStar(object body, object handlers = null, object orelse = null, object finalbody = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedTryStarStmt _PyAST_TryStar(object body, object handlers = null, object orelse = null, object finalbody = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var stmt = new GeneratedStmt();
-            stmt.StatementType = "try_star";  // Different type to distinguish except* handling
-            stmt.Value = new {
-                body = body,
-                handlers = handlers,
-                orelse = orelse,
-                finalbody = finalbody
+            var handlersList = new List<object>();
+            if (handlers is List<object> list)
+                handlersList = list;
+
+            return new GeneratedTryStarStmt
+            {
+                Body = ASTHelpers.ExtractStmtSeq(body),
+                Handlers = handlersList,
+                OrElse = ASTHelpers.ExtractStmtSeq(orelse),
+                FinallyBody = ASTHelpers.ExtractStmtSeq(finalbody),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
             };
-            // CPython 3.12 EXTRA: Store position information
-            stmt.LineNo = lineno;
-            stmt.ColOffset = col_offset;
-            stmt.EndLineNo = end_lineno;
-            stmt.EndColOffset = end_col_offset;
-            return stmt;
         }
 
         /// <summary>
@@ -1965,15 +2013,17 @@ namespace SharpPy.Generated
             // For now, allow all future imports
             Console.WriteLine($"[DEBUG] _PyPegen_checked_future_import: {featureName} (level: {level})");
 
-            var stmt = new GeneratedStmt();
-            stmt.StatementType = "import_from";
-            stmt.Value = new {
+            // Create proper import from statement for __future__ imports
+            var names = new List<object>();
+            names.Add(new { name = featureName, asname = alias });
+
+            var importFrom = new GeneratedImportFromStmt
+            {
                 Module = "__future__",
-                Name = featureName,
-                Alias = alias,
+                Names = names,
                 Level = level
             };
-            return stmt;
+            return importFrom;
         }
 
         /// <summary>
@@ -2193,22 +2243,428 @@ namespace SharpPy.Generated
         /// <summary>
         /// Create an argument AST node from name and optional annotation
         /// CPython 3.12: _PyAST_arg(arg, annotation, type_comment, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// TODO: Create GeneratedArgExpr or use a proper argument type
         /// </summary>
         protected GeneratedExpr _PyAST_arg(string name, object? annotation = null, string? type_comment = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var expr = new GeneratedExpr();
-            expr.ExpressionType = "arg";
-            expr.Value = new {
-                arg = name,
-                annotation = annotation,
-                type_comment = type_comment
+            // Temporary: Use NameExpr with annotation stored separately
+            // In the future, create a proper GeneratedArgExpr type
+            var nameExpr = new GeneratedNameExpr
+            {
+                Id = name,
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
             };
-            // CPython 3.12 EXTRA: Store position information
-            expr.LineNo = lineno;
-            expr.ColOffset = col_offset;
-            expr.EndLineNo = end_lineno;
-            expr.EndColOffset = end_col_offset;
-            return expr;
+            return nameExpr;
+        }
+
+        // ===== Missing _PyAST_* Expression Methods =====
+
+        /// <summary>
+        /// _PyAST_Attribute - Create attribute access expression
+        /// CPython 3.12: _PyAST_Attribute(value, attr, ctx, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedAttributeExpr _PyAST_Attribute(object value = null, object attr = null, object context = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            return new GeneratedAttributeExpr
+            {
+                Value = ASTHelpers.ExtractExpr(value),
+                Attr = ASTHelpers.ExtractStringValue(attr),
+                Context = context?.ToString() ?? "Load",
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
+        }
+
+        /// <summary>
+        /// _PyAST_BinOp - Create binary operation expression
+        /// CPython 3.12: _PyAST_BinOp(left, op, right, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedBinOpExpr _PyAST_BinOp(object left, object op, object right, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            return new GeneratedBinOpExpr
+            {
+                Left = ASTHelpers.ExtractExpr(left),
+                Op = op?.ToString() ?? "",
+                Right = ASTHelpers.ExtractExpr(right),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
+        }
+
+        /// <summary>
+        /// _PyAST_UnaryOp - Create unary operation expression
+        /// CPython 3.12: _PyAST_UnaryOp(op, operand, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedUnaryOpExpr _PyAST_UnaryOp(object op, object operand, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            return new GeneratedUnaryOpExpr
+            {
+                Op = op?.ToString() ?? "",
+                Operand = ASTHelpers.ExtractExpr(operand),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
+        }
+
+        /// <summary>
+        /// _PyAST_IfExp - Create conditional expression (ternary operator)
+        /// CPython 3.12: _PyAST_IfExp(test, body, orelse, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedIfExpExpr _PyAST_IfExp(object test, object body, object orelse, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            return new GeneratedIfExpExpr
+            {
+                Test = ASTHelpers.ExtractExpr(test),
+                Body = ASTHelpers.ExtractExpr(body),
+                OrElse = ASTHelpers.ExtractExpr(orelse),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
+        }
+
+        /// <summary>
+        /// _PyAST_Lambda - Create lambda expression
+        /// CPython 3.12: _PyAST_Lambda(args, body, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedLambdaExpr _PyAST_Lambda(object args = null, object body = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            return new GeneratedLambdaExpr
+            {
+                Arguments = args,
+                Body = ASTHelpers.ExtractExpr(body),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
+        }
+
+        /// <summary>
+        /// _PyAST_Call - Create function call expression
+        /// CPython 3.12: _PyAST_Call(func, args, keywords, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedCallExpr _PyAST_Call(object func = null, object args = null, object keywords = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            return new GeneratedCallExpr
+            {
+                Func = ASTHelpers.ExtractExpr(func),
+                Args = ASTHelpers.ExtractExprSeq(args),
+                Keywords = keywords as List<object> ?? new List<object>(),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
+        }
+
+        /// <summary>
+        /// _PyAST_Subscript - Create subscript expression (indexing)
+        /// CPython 3.12: _PyAST_Subscript(value, slice, ctx, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedSubscriptExpr _PyAST_Subscript(object value, object slice, object context = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            return new GeneratedSubscriptExpr
+            {
+                Value = ASTHelpers.ExtractExpr(value),
+                Slice = ASTHelpers.ExtractExpr(slice),
+                Context = context?.ToString() ?? "Load",
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
+        }
+
+        /// <summary>
+        /// _PyAST_Slice - Create slice expression
+        /// CPython 3.12: _PyAST_Slice(lower, upper, step, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedSliceExpr _PyAST_Slice(object lower = null, object upper = null, object step = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            return new GeneratedSliceExpr
+            {
+                Lower = lower != null ? ASTHelpers.ExtractExpr(lower) : null,
+                Upper = upper != null ? ASTHelpers.ExtractExpr(upper) : null,
+                Step = step != null ? ASTHelpers.ExtractExpr(step) : null,
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
+        }
+
+        /// <summary>
+        /// _PyAST_Starred - Create starred expression (*x)
+        /// CPython 3.12: _PyAST_Starred(value, ctx, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedStarredExpr _PyAST_Starred(object value = null, object context = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            return new GeneratedStarredExpr
+            {
+                Value = ASTHelpers.ExtractExpr(value),
+                Context = context?.ToString() ?? "Load",
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
+        }
+
+        /// <summary>
+        /// _PyAST_Yield - Create yield expression
+        /// CPython 3.12: _PyAST_Yield(value, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedYieldExpr _PyAST_Yield(object value = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            return new GeneratedYieldExpr
+            {
+                Value = value != null ? ASTHelpers.ExtractExpr(value) : null,
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
+        }
+
+        /// <summary>
+        /// _PyAST_YieldFrom - Create yield from expression
+        /// CPython 3.12: _PyAST_YieldFrom(value, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedYieldFromExpr _PyAST_YieldFrom(object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            return new GeneratedYieldFromExpr
+            {
+                Value = ASTHelpers.ExtractExpr(value),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
+        }
+
+        // ===== Container Expression Constructors =====
+
+        /// <summary>
+        /// _PyAST_List - Create list expression
+        /// CPython 3.12: _PyAST_List(elts, ctx, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedListExpr _PyAST_List(object elts, object context = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            return new GeneratedListExpr
+            {
+                Elements = ASTHelpers.ExtractExprSeq(elts),
+                Context = context?.ToString() ?? "Load",
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
+        }
+
+        /// <summary>
+        /// _PyAST_Tuple - Create tuple expression
+        /// CPython 3.12: _PyAST_Tuple(elts, ctx, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedTupleExpr _PyAST_Tuple(object elts = null, object context = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            return new GeneratedTupleExpr
+            {
+                Elements = ASTHelpers.ExtractExprSeq(elts),
+                Context = context?.ToString() ?? "Load",
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
+        }
+
+        /// <summary>
+        /// _PyAST_Set - Create set expression
+        /// CPython 3.12: _PyAST_Set(elts, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedSetExpr _PyAST_Set(object elts, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            return new GeneratedSetExpr
+            {
+                Elements = ASTHelpers.ExtractExprSeq(elts),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
+        }
+
+        /// <summary>
+        /// _PyAST_Dict - Create dictionary expression
+        /// CPython 3.12: _PyAST_Dict(keys, values, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedDictExpr _PyAST_Dict(object keys = null, object values = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            return new GeneratedDictExpr
+            {
+                Keys = ASTHelpers.ExtractExprSeq(keys),
+                Values = ASTHelpers.ExtractExprSeq(values),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
+        }
+
+        // ===== Comprehension Constructors =====
+
+        /// <summary>
+        /// _PyAST_ListComp - Create list comprehension
+        /// CPython 3.12: _PyAST_ListComp(elt, generators, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedListCompExpr _PyAST_ListComp(object elt, object generators, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            return new GeneratedListCompExpr
+            {
+                Element = ASTHelpers.ExtractExpr(elt),
+                Generators = generators as List<object> ?? new List<object>(),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
+        }
+
+        /// <summary>
+        /// _PyAST_SetComp - Create set comprehension
+        /// CPython 3.12: _PyAST_SetComp(elt, generators, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedSetCompExpr _PyAST_SetComp(object elt, object generators, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            return new GeneratedSetCompExpr
+            {
+                Element = ASTHelpers.ExtractExpr(elt),
+                Generators = generators as List<object> ?? new List<object>(),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
+        }
+
+        /// <summary>
+        /// _PyAST_DictComp - Create dictionary comprehension
+        /// CPython 3.12: _PyAST_DictComp(key, value, generators, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedDictCompExpr _PyAST_DictComp(object key, object value, object generators, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            return new GeneratedDictCompExpr
+            {
+                Key = ASTHelpers.ExtractExpr(key),
+                Value = ASTHelpers.ExtractExpr(value),
+                Generators = generators as List<object> ?? new List<object>(),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
+        }
+
+        /// <summary>
+        /// _PyAST_GeneratorExp - Create generator expression
+        /// CPython 3.12: _PyAST_GeneratorExp(elt, generators, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedGeneratorExpExpr _PyAST_GeneratorExp(object elt, object generators, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            return new GeneratedGeneratorExpExpr
+            {
+                Element = ASTHelpers.ExtractExpr(elt),
+                Generators = generators as List<object> ?? new List<object>(),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
+        }
+
+        // ===== Statement Constructors =====
+
+        /// <summary>
+        /// _PyAST_Raise - Create raise statement
+        /// CPython 3.12: _PyAST_Raise(exc, cause, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedRaiseStmt _PyAST_Raise(object exc = null, object cause = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            return new GeneratedRaiseStmt
+            {
+                Exc = exc != null ? ASTHelpers.ExtractExpr(exc) : null,
+                Cause = cause != null ? ASTHelpers.ExtractExpr(cause) : null,
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
+        }
+
+        /// <summary>
+        /// _PyAST_Assert - Create assert statement
+        /// CPython 3.12: _PyAST_Assert(test, msg, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedAssertStmt _PyAST_Assert(object test, object msg = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            return new GeneratedAssertStmt
+            {
+                Test = ASTHelpers.ExtractExpr(test),
+                Msg = msg != null ? ASTHelpers.ExtractExpr(msg) : null,
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
+        }
+
+        /// <summary>
+        /// _PyAST_Delete - Create delete statement
+        /// CPython 3.12: _PyAST_Delete(targets, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedDeleteStmt _PyAST_Delete(object targets, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            return new GeneratedDeleteStmt
+            {
+                Targets = ASTHelpers.ExtractExprSeq(targets),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
+        }
+
+        /// <summary>
+        /// _PyAST_With - Create with statement
+        /// CPython 3.12: _PyAST_With(items, body, type_comment, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedWithStmt _PyAST_With(object items, object body, object type_comment = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            var itemsList = new List<object>();
+            if (items is List<object> list)
+                itemsList = list;
+
+            return new GeneratedWithStmt
+            {
+                Items = itemsList,
+                Body = ASTHelpers.ExtractStmtSeq(body),
+                TypeComment = type_comment?.ToString(),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
@@ -2216,20 +2672,8 @@ namespace SharpPy.Generated
         /// </summary>
         protected GeneratedExpr _PyPegen_add_type_comment_to_arg(object p, GeneratedExpr arg, object? type_comment)
         {
-            if (type_comment != null && arg.Value is object argValue)
-            {
-                // Create new arg with type comment
-                var newArg = new GeneratedExpr();
-                newArg.ExpressionType = "arg";
-
-                dynamic dynArgValue = argValue;
-                newArg.Value = new {
-                    arg = dynArgValue.arg,
-                    annotation = dynArgValue.annotation,
-                    type_comment = type_comment
-                };
-                return newArg;
-            }
+            // For now, just return the arg as-is since we're using NameExpr for args
+            // In the future, when we have GeneratedArgExpr, we can store type_comment there
             return arg;
         }
 
@@ -2461,6 +2905,102 @@ namespace SharpPy.Generated
         public override string ToString()
         {
             return $"IndentationError: {Message} ({Filename}:{Line}:{Column})";
+        }
+    }
+
+    // Helper methods for AST construction
+    public static class ASTHelpers
+    {
+        /// <summary>
+        /// Extract string value from various types (GeneratedToken, string, object)
+        /// Handles CPython pattern: a->v.Name.id where 'a' is a NAME token
+        /// </summary>
+        public static string ExtractStringValue(object? obj)
+        {
+            if (obj == null)
+                return "";
+
+            // Already a string
+            if (obj is string str)
+                return str;
+
+            // GeneratedToken with StringValue
+            var type = obj.GetType();
+            var stringValueProp = type.GetProperty("StringValue");
+            if (stringValueProp != null)
+            {
+                var value = stringValueProp.GetValue(obj);
+                if (value is string sv)
+                    return sv;
+            }
+
+            // Try ToString
+            return obj.ToString() ?? "";
+        }
+
+        /// <summary>
+        /// Extract GeneratedStmtSeq from parser result
+        /// </summary>
+        public static GeneratedStmtSeq ExtractStmtSeq(object? obj)
+        {
+            if (obj == null)
+                return new GeneratedStmtSeq();
+
+            if (obj is GeneratedStmtSeq seq)
+                return seq;
+
+            if (obj is List<GeneratedStmt> list)
+            {
+                var result = new GeneratedStmtSeq();
+                result.AddRange(list);
+                return result;
+            }
+
+            // Single statement - wrap in sequence
+            if (obj is GeneratedStmt stmt)
+                return new GeneratedStmtSeq { stmt };
+
+            return new GeneratedStmtSeq();
+        }
+
+        /// <summary>
+        /// Extract GeneratedExprSeq from parser result
+        /// </summary>
+        public static GeneratedExprSeq ExtractExprSeq(object? obj)
+        {
+            if (obj == null)
+                return new GeneratedExprSeq();
+
+            if (obj is GeneratedExprSeq seq)
+                return seq;
+
+            if (obj is List<GeneratedExpr> list)
+            {
+                var result = new GeneratedExprSeq();
+                result.AddRange(list);
+                return result;
+            }
+
+            // Single expression - wrap in sequence
+            if (obj is GeneratedExpr expr)
+                return new GeneratedExprSeq { expr };
+
+            return new GeneratedExprSeq();
+        }
+
+        /// <summary>
+        /// Extract single GeneratedExpr from parser result
+        /// </summary>
+        public static GeneratedExpr ExtractExpr(object? obj)
+        {
+            if (obj == null)
+                return null!;
+
+            if (obj is GeneratedExpr expr)
+                return expr;
+
+            // If it's a wrapped expression, try to unwrap
+            return obj as GeneratedExpr ?? null!;
         }
     }
 }

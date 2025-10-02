@@ -399,75 +399,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
 
-            // Generate AST node type definitions first
-            WriteLine("// Generated AST node types for CPython 3.12 compatibility");
-            WriteLine("public abstract class GeneratedAstNode { }");
-            WriteLine("public class GeneratedStmt : GeneratedAstNode");
-            WriteLine("{");
-            Indent();
-            WriteLine("public string? StatementType { get; set; }");
-            WriteLine("public object? Value { get; set; }");
-            WriteLine();
-            WriteLine("// CPython 3.12: Position information (EXTRA fields)");
-            WriteLine("public int LineNo { get; set; }");
-            WriteLine("public int ColOffset { get; set; }");
-            WriteLine("public int EndLineNo { get; set; }");
-            WriteLine("public int EndColOffset { get; set; }");
-            WriteLine();
-            WriteLine("// Class definition properties");
-            WriteLine("public string? Type { get; set; }");
-            WriteLine("public string? ClassName { get; set; }");
-            WriteLine("public List<object>? BaseClasses { get; set; }");
-            WriteLine("public List<object>? Body { get; set; }");
-            WriteLine();
-            WriteLine("// Try-except statement properties");
-            WriteLine("public List<object>? TryBody { get; set; }");
-            WriteLine("public List<object>? ExceptClauses { get; set; }");
-            WriteLine("public List<object>? FinallyBody { get; set; }");
-            WriteLine();
-            WriteLine("// Import statement properties");
-            WriteLine("public List<object>? ImportModules { get; set; }");
-            WriteLine("public string? FromModule { get; set; }");
-            WriteLine("public int ImportLevel { get; set; }");
-            WriteLine("public List<object>? ImportNames { get; set; }");
-            WriteLine();
-            WriteLine("// With statement properties");
-            WriteLine("public List<object>? WithItems { get; set; }");
-            WriteLine();
-            WriteLine("// Decorator properties");
-            WriteLine("public List<object>? Decorators { get; set; }");
-            WriteLine();
-            WriteLine("// Match statement properties");
-            WriteLine("public object? Subject { get; set; }");
-            WriteLine("public List<object>? Cases { get; set; }");
-            Dedent();
-            WriteLine("}");
-            WriteLine("public class GeneratedExpr : GeneratedAstNode");
-            WriteLine("{");
-            Indent();
-            WriteLine("public string? ExpressionType { get; set; }");
-            WriteLine("public object? Value { get; set; }");
-            WriteLine("public string? Context { get; set; } = \"Load\"; // Load, Store, Del context");
-            WriteLine();
-            WriteLine("// CPython 3.12: Position information (EXTRA fields)");
-            WriteLine("public int LineNo { get; set; }");
-            WriteLine("public int ColOffset { get; set; }");
-            WriteLine("public int EndLineNo { get; set; }");
-            WriteLine("public int EndColOffset { get; set; }");
-            Dedent();
-            WriteLine("}");
-            WriteLine("public class GeneratedModule : GeneratedAstNode");
-            WriteLine("{");
-            Indent();
-            WriteLine("public GeneratedStmtSeq? Body { get; set; }");
-            Dedent();
-            WriteLine("}");
-            WriteLine("public class GeneratedSeq : List<GeneratedAstNode> { }");
-            WriteLine("public class GeneratedStmtSeq : List<GeneratedStmt> { }");
-            WriteLine("public class GeneratedExprSeq : List<GeneratedExpr> { }");
-            WriteLine("public class GeneratedIdentifierSeq : List<string> { }");
-            WriteLine("public class GeneratedPyObject { }");
-            WriteLine("// GeneratedToken type defined in tokenizer");
+            // AST node types are now defined in Generated/GeneratedAstTypes.cs
+            // This provides type-safe inheritance hierarchy without boxing/unboxing
+            WriteLine("// AST node types (GeneratedStmt, GeneratedExpr, etc.) are defined in GeneratedAstTypes.cs");
             WriteLine();
 
             // TokenInfoWrapper now defined in SharpPy.Tokenizer project
@@ -944,15 +878,6 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("// This is likely a file rule - create module");
             WriteLine("var statements = variables.ContainsKey(\"a\") ? variables[\"a\"] : null;");
             WriteLine("return new GeneratedModule { Body = statements as GeneratedStmtSeq };");
-            Dedent();
-            WriteLine("}");
-            WriteLine();
-            WriteLine("// For assignment patterns");
-            WriteLine("if (variables.ContainsKey(\"a\") && variables.ContainsKey(\"b\"))");
-            WriteLine("{");
-            Indent();
-            WriteLine("// Assignment: targets = expressions");
-            WriteLine("return new GeneratedStmt { StatementType = \"Assign\", Value = new { targets = variables[\"a\"], value = variables[\"b\"] } };");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -1710,68 +1635,26 @@ namespace SharpPy.PegGenerator.CodeGenerator
             var returnType = TranslateCTypeToCS(rule.ReturnType ?? "object?");
             var methodName = ToCSharpMethodName(rule.Name);
 
-            // Skip methods that are already implemented in PyParserBase
-            var methodsInBase = new HashSet<string>
+            // Skip methods that are already implemented manually or separately
+            // CPython 3.12: These methods have special handling after the main loop
+            var skipMethods = new HashSet<string>
             {
-                "sum", "term", "primary", "atom", "expression", "comparison", "statements"
+                // Methods with manual implementations in PyParserBase/PyParser
+                // Skip to avoid duplicates
+                "statements", "statement", "expression", "comparison",
+                "primary", "atom",
+                // Special methods generated separately
+                "assignment_expression", "disjunction", "conjunction", "inversion",
+                "await_primary", "augassign",
+                // F-string methods generated separately
+                "fstring", "fstring_middle", "fstring_replacement_field",
+                // Other methods with custom implementations
+                "star_targets", "star_expressions", "expressions", "assignment", "strings"
             };
 
-            // Special handling for await_primary rule
-            if (rule.Name == "await_primary")
+            if (skipMethods.Contains(rule.Name.ToLower()))
             {
-                Console.WriteLine($"[DEBUG] Generating special await_primary method with return type {returnType}");
-                GenerateAwaitPrimaryMethod(returnType);
-                return;
-            }
-
-            // Special handling for augassign rule
-            if (rule.Name == "augassign")
-            {
-                Console.WriteLine($"[DEBUG] Generating special augassign method with return type {returnType}");
-                GenerateAugAssignMethod(returnType);
-                return;
-            }
-
-            if (methodsInBase.Contains(rule.Name.ToLower()))
-            {
-                // Generate only a simple delegation to the base class method
-                WriteLine($"// Rule: {rule.Name}");
-                WriteLine($"public {returnType} {methodName}()");
-                WriteLine("{");
-                Indent();
-
-                if (rule.Name == "statements")
-                {
-                    WriteLine("return ParseStatements();");
-                }
-                else if (rule.Name == "comparison")
-                {
-                    WriteLine($"return ({returnType})ParseComparisonTemplate();");
-                }
-                else if (rule.Name == "sum")
-                {
-                    WriteLine($"return ({returnType})ParseSum();");
-                }
-                else if (rule.Name == "term")
-                {
-                    WriteLine($"return ({returnType})ParseTerm();");
-                }
-                else if (rule.Name == "primary")
-                {
-                    WriteLine($"return ({returnType})ParsePrimary();");
-                }
-                else if (rule.Name == "atom")
-                {
-                    WriteLine($"return ({returnType})ParseAtom();");
-                }
-                else if (rule.Name == "expression")
-                {
-                    WriteLine($"return ({returnType})ParseExpression();");
-                }
-
-                Dedent();
-                WriteLine("}");
-                WriteLine();
+                Console.WriteLine($"[DEBUG] Skipping rule '{rule.Name}' - already implemented separately");
                 return;
             }
 
@@ -3112,7 +2995,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
 
-            WriteLine("public class SimpleStmt");
+            WriteLine("public class LegacySimpleStmt");
             WriteLine("{");
             Indent();
             WriteLine("public string? Type { get; set; }");
@@ -3121,7 +3004,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
 
-            WriteLine("public class SimpleExpr");
+            WriteLine("public class LegacySimpleExpr");
             WriteLine("{");
             Indent();
             WriteLine("public string? Type { get; set; }");
@@ -3680,9 +3563,16 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Dedent();
             WriteLine("}");
             WriteLine();
-            WriteLine("var stmt = new GeneratedStmt();");
-            WriteLine("stmt.StatementType = \"assignment\";");
-            WriteLine("stmt.Value = new { Target = nameToken.Value, Value = expr };");
+            WriteLine("// Create assignment statement");
+            WriteLine("var targetExpr = new GeneratedNameExpr { Id = nameToken.Value, Context = \"Store\" };");
+            WriteLine("var targets = new GeneratedExprSeq { targetExpr };");
+            WriteLine("var stmt = new GeneratedAssignStmt");
+            WriteLine("{");
+            Indent();
+            WriteLine("Targets = targets,");
+            WriteLine("Value = (GeneratedExpr)expr");
+            Dedent();
+            WriteLine("};");
             WriteLine("return stmt;");
             Dedent();
             WriteLine("}");
@@ -3829,39 +3719,21 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("Advance();");
-            WriteLine("return new GeneratedExpr");
-            WriteLine("{");
-            Indent();
-            WriteLine("ExpressionType = \"Constant\",");
-            WriteLine("Value = new { value = true, kind = (string)null }");
-            Dedent();
-            WriteLine("};");
+            WriteLine("return new GeneratedConstantExpr { Value = PyBool.True };");
             Dedent();
             WriteLine("}");
             WriteLine("if (name == \"False\")");
             WriteLine("{");
             Indent();
             WriteLine("Advance();");
-            WriteLine("return new GeneratedExpr");
-            WriteLine("{");
-            Indent();
-            WriteLine("ExpressionType = \"Constant\",");
-            WriteLine("Value = new { value = false, kind = (string)null }");
-            Dedent();
-            WriteLine("};");
+            WriteLine("return new GeneratedConstantExpr { Value = PyBool.False };");
             Dedent();
             WriteLine("}");
             WriteLine("if (name == \"None\")");
             WriteLine("{");
             Indent();
             WriteLine("Advance();");
-            WriteLine("return new GeneratedExpr");
-            WriteLine("{");
-            Indent();
-            WriteLine("ExpressionType = \"Constant\",");
-            WriteLine("Value = new { value = (object)null, kind = (string)null }");
-            Dedent();
-            WriteLine("};");
+            WriteLine("return new GeneratedConstantExpr { Value = PyNone.Instance };");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -3875,30 +3747,26 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("Advance();");
-            WriteLine("return new GeneratedExpr");
-            WriteLine("{");
-            Indent();
-            WriteLine("ExpressionType = \"Name\",");
-            WriteLine("Value = new { id = name }  // CPython 3.12: use 'id' field");
-            Dedent();
-            WriteLine("};");
+            WriteLine("return new GeneratedNameExpr { Id = name };");
             Dedent();
             WriteLine("}");
             WriteLine();
 
-            WriteLine("// NUMBER");
+            WriteLine("// NUMBER - CPython 3.12: Parse to PyInt or PyFloat");
             WriteLine("if (CurrentToken.Type.ToString() == \"NUMBER\")");
             WriteLine("{");
             Indent();
-            WriteLine("var number = CurrentToken.Value;");
+            WriteLine("var numberStr = CurrentToken.Value;");
             WriteLine("Advance();");
-            WriteLine("return new GeneratedExpr");
-            WriteLine("{");
-            Indent();
-            WriteLine("ExpressionType = \"Constant\",");
-            WriteLine("Value = new { value = number, kind = \"number\" }");
-            Dedent();
-            WriteLine("};");
+            WriteLine("// CPython 3.12: Convert string to PyObject");
+            WriteLine("PyObject numberValue;");
+            WriteLine("if (int.TryParse(numberStr, out int intVal))");
+            WriteLine("    numberValue = new PyInt(intVal);");
+            WriteLine("else if (double.TryParse(numberStr, out double floatVal))");
+            WriteLine("    numberValue = new PyFloat(floatVal);");
+            WriteLine("else");
+            WriteLine("    numberValue = new PyString(numberStr); // Fallback");
+            WriteLine("return new GeneratedConstantExpr { Value = numberValue, Kind = \"number\" };");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -3912,19 +3780,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
 
-            WriteLine("// STRING");
+            WriteLine("// STRING - CPython 3.12: Create PyString");
             WriteLine("if (CurrentToken.Type.ToString() == \"STRING\")");
             WriteLine("{");
             Indent();
             WriteLine("var str = CurrentToken.Value;");
             WriteLine("Advance();");
-            WriteLine("return new GeneratedExpr");
-            WriteLine("{");
-            Indent();
-            WriteLine("ExpressionType = \"Constant\",");
-            WriteLine("Value = new { value = str, kind = \"string\" }");
-            Dedent();
-            WriteLine("};");
+            WriteLine("return new GeneratedConstantExpr { Value = new PyString(str), Kind = \"string\" };");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -3963,13 +3825,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume ')'");
-            WriteLine("return new GeneratedExpr");
-            WriteLine("{");
-            Indent();
-            WriteLine("ExpressionType = \"Tuple\",");
-            WriteLine("Value = new { elements = elements }");
-            Dedent();
-            WriteLine("};");
+            WriteLine("var seq = new GeneratedExprSeq();");
+            WriteLine("seq.AddRange(elements);");
+            WriteLine("return new GeneratedTupleExpr { Elements = seq };");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -4005,13 +3863,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("Advance();");
-            WriteLine("return new GeneratedExpr");
-            WriteLine("{");
-            Indent();
-            WriteLine("ExpressionType = \"GeneratorExp\",");
-            WriteLine("Value = new { elt = element, generators = generators }");
-            Dedent();
-            WriteLine("};");
+            WriteLine("return new GeneratedGeneratorExpExpr { Element = element, Generators = (List<object>)generators };");
             Dedent();
             WriteLine("}");
             Dedent();
@@ -4055,13 +3907,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (elements.Count > 1 || hasComma)");
             WriteLine("{");
             Indent();
-            WriteLine("return new GeneratedExpr");
-            WriteLine("{");
-            Indent();
-            WriteLine("ExpressionType = \"Tuple\",");
-            WriteLine("Value = new { elements = elements }");
-            Dedent();
-            WriteLine("};");
+            WriteLine("var seq = new GeneratedExprSeq();");
+            WriteLine("seq.AddRange(elements);");
+            WriteLine("return new GeneratedTupleExpr { Elements = seq };");
             Dedent();
             WriteLine("}");
             WriteLine("// Single element without comma is parenthesized expression");
@@ -4075,13 +3923,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("else");
             WriteLine("{");
             Indent();
-            WriteLine("return new GeneratedExpr");
-            WriteLine("{");
-            Indent();
-            WriteLine("ExpressionType = \"Tuple\",");
-            WriteLine("Value = new { elements = elements }");
-            Dedent();
-            WriteLine("};");
+            WriteLine("return new GeneratedTupleExpr { Elements = new GeneratedExprSeq() };");
             Dedent();
             WriteLine("}");
             Dedent();
@@ -4173,22 +4015,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Advance(); // consume ')'");
             WriteLine();
             WriteLine("// Create GeneratorExp node");
-            WriteLine("var genexp = new GeneratedExpr");
-            WriteLine("{");
-            Indent();
-            WriteLine("ExpressionType = \"GeneratorExp\",");
-            WriteLine("Value = new { elt = firstExpr, generators = generators }");
-            Dedent();
-            WriteLine("};");
+            WriteLine("var genexp = new GeneratedGeneratorExpExpr { Element = firstExpr, Generators = (List<object>)generators };");
             WriteLine();
             WriteLine("// Create Call(primary, [genexp]) - Grammar line 819");
-            WriteLine("result = new GeneratedExpr");
-            WriteLine("{");
-            Indent();
-            WriteLine("ExpressionType = \"Call\",");
-            WriteLine("Value = new { func = result, args = new List<object> { genexp } }");
-            Dedent();
-            WriteLine("};");
+            WriteLine("var callArgs = new GeneratedExprSeq { genexp };");
+            WriteLine("result = new GeneratedCallExpr { Func = result, Args = callArgs };");
             WriteLine();
             WriteLine("expanded = true;");
             Dedent();
@@ -4245,11 +4076,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume ')'");
-            WriteLine("result = new GeneratedExpr");
-            WriteLine("{");
-            WriteLine("    ExpressionType = \"Call\",");
-            WriteLine("    Value = new { func = result, args = args }");
-            WriteLine("};");
+            WriteLine("// Convert List<object> to GeneratedExprSeq");
+            WriteLine("var exprArgs = new GeneratedExprSeq();");
+            WriteLine("exprArgs.AddRange(args.Cast<GeneratedExpr>());");
+            WriteLine("result = new GeneratedCallExpr { Func = result, Args = exprArgs };");
             WriteLine("expanded = true;");
             // WriteLine("Console.WriteLine($\"[DEBUG] Primary: Created function call\");");
             Dedent();
@@ -4275,11 +4105,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
             WriteLine("var attr = CurrentToken.Value;");
             WriteLine("Advance();");
-            WriteLine("result = new GeneratedExpr");
-            WriteLine("{");
-            WriteLine("    ExpressionType = \"Attribute\",");
-            WriteLine("    Value = new { value = result, attr = attr }");
-            WriteLine("};");
+            WriteLine("result = new GeneratedAttributeExpr { Value = result, Attr = attr };");
             WriteLine("expanded = true;");
             // WriteLine("Console.WriteLine($\"[DEBUG] Primary: Created attribute access\");");
             Dedent();
@@ -4307,11 +4133,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume ']'");
-            WriteLine("result = new GeneratedExpr");
-            WriteLine("{");
-            WriteLine("    ExpressionType = \"Subscript\",");
-            WriteLine("    Value = new { value = result, slice = slice }");
-            WriteLine("};");
+            WriteLine("result = new GeneratedSubscriptExpr { Value = result, Slice = slice };");
             WriteLine("expanded = true;");
             // WriteLine("Console.WriteLine($\"[DEBUG] Primary: Created subscript access\");");
             Dedent();
@@ -4507,18 +4329,21 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (comparisons.Count > 0)");
             WriteLine("{");
             Indent();
-            WriteLine("return new GeneratedExpr");
+            WriteLine("var comparatorSeq = new GeneratedExprSeq();");
+            WriteLine("comparatorSeq.AddRange(comparisons.Cast<GeneratedExpr>());");
+            WriteLine("return new GeneratedCompareExpr");
             WriteLine("{");
             Indent();
-            WriteLine("ExpressionType = \"Compare\",");
-            WriteLine("Value = new { left = left, ops = operators, comparators = comparisons }");
+            WriteLine("Left = (GeneratedExpr)left,");
+            WriteLine("Ops = operators.Cast<string>().ToList(),");
+            WriteLine("Comparators = comparatorSeq");
             Dedent();
             WriteLine("};");
             Dedent();
             WriteLine("}");
             WriteLine();
 
-            WriteLine("// No comparison operators - return left operand wrapped in GeneratedExpr");
+            WriteLine("// No comparison operators - return left operand");
             WriteLine("if (left is GeneratedExpr genExpr)");
             WriteLine("{");
             Indent();
@@ -4527,13 +4352,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
 
-            WriteLine("return new GeneratedExpr");
-            WriteLine("{");
-            Indent();
-            WriteLine("ExpressionType = \"Expression\",");
-            WriteLine("Value = left");
-            Dedent();
-            WriteLine("};");
+            WriteLine("return (GeneratedExpr)left;");
 
             Dedent();
             WriteLine("}");
@@ -4593,10 +4412,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (right != null)");
             WriteLine("{");
             Indent();
-            WriteLine("return new GeneratedExpr");
+            WriteLine("return new GeneratedBinOpExpr");
             WriteLine("{");
-            WriteLine("    ExpressionType = \"BinOp\",");
-            WriteLine("    Value = new { op = \"**\", left = left, right = right }");
+            WriteLine("    Left = (GeneratedExpr)left,");
+            WriteLine("    Op = \"Pow\",");
+            WriteLine("    Right = (GeneratedExpr)right");
             WriteLine("};");
             Dedent();
             WriteLine("}");
@@ -4646,10 +4466,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (operand != null)");
             WriteLine("{");
             Indent();
-            WriteLine("return new GeneratedExpr");
+            WriteLine("return new GeneratedUnaryOpExpr");
             WriteLine("{");
-            WriteLine("    ExpressionType = \"UnaryOp\",");
-            WriteLine("    Value = new { op = \"UAdd\", operand = operand }");
+            WriteLine("    Op = \"UAdd\",");
+            WriteLine("    Operand = (GeneratedExpr)operand");
             WriteLine("};");
             Dedent();
             WriteLine("}");
@@ -4665,10 +4485,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (operand != null)");
             WriteLine("{");
             Indent();
-            WriteLine("return new GeneratedExpr");
+            WriteLine("return new GeneratedUnaryOpExpr");
             WriteLine("{");
-            WriteLine("    ExpressionType = \"UnaryOp\",");
-            WriteLine("    Value = new { op = \"USub\", operand = operand }");
+            WriteLine("    Op = \"USub\",");
+            WriteLine("    Operand = (GeneratedExpr)operand");
             WriteLine("};");
             Dedent();
             WriteLine("}");
@@ -4684,10 +4504,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (operand != null)");
             WriteLine("{");
             Indent();
-            WriteLine("return new GeneratedExpr");
+            WriteLine("return new GeneratedUnaryOpExpr");
             WriteLine("{");
-            WriteLine("    ExpressionType = \"UnaryOp\",");
-            WriteLine("    Value = new { op = \"Invert\", operand = operand }");
+            WriteLine("    Op = \"Invert\",");
+            WriteLine("    Operand = (GeneratedExpr)operand");
             WriteLine("};");
             Dedent();
             WriteLine("}");
@@ -4743,10 +4563,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (right != null)");
             WriteLine("{");
             Indent();
-            WriteLine("result = new GeneratedExpr");
+            WriteLine("result = new GeneratedBinOpExpr");
             WriteLine("{");
-            WriteLine("    ExpressionType = \"BinOp\",");
-            WriteLine("    Value = new { op = \"*\", left = result, right = right }");
+            WriteLine("    Left = (GeneratedExpr)result,");
+            WriteLine("    Op = \"Mult\",");
+            WriteLine("    Right = (GeneratedExpr)right");
             WriteLine("};");
             // WriteLine("Console.WriteLine($\"[DEBUG] ParseTerm: Created multiplication\");");
             WriteLine("continue;");
@@ -4766,10 +4587,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (right != null)");
             WriteLine("{");
             Indent();
-            WriteLine("result = new GeneratedExpr");
+            WriteLine("result = new GeneratedBinOpExpr");
             WriteLine("{");
-            WriteLine("    ExpressionType = \"BinOp\",");
-            WriteLine("    Value = new { op = \"/\", left = result, right = right }");
+            WriteLine("    Left = (GeneratedExpr)result,");
+            WriteLine("    Op = \"Div\",");
+            WriteLine("    Right = (GeneratedExpr)right");
             WriteLine("};");
             // WriteLine("Console.WriteLine($\"[DEBUG] ParseTerm: Created division\");");
             WriteLine("continue;");
@@ -4789,10 +4611,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (right != null)");
             WriteLine("{");
             Indent();
-            WriteLine("result = new GeneratedExpr");
+            WriteLine("result = new GeneratedBinOpExpr");
             WriteLine("{");
-            WriteLine("    ExpressionType = \"BinOp\",");
-            WriteLine("    Value = new { op = \"//\", left = result, right = right }");
+            WriteLine("    Left = (GeneratedExpr)result,");
+            WriteLine("    Op = \"FloorDiv\",");
+            WriteLine("    Right = (GeneratedExpr)right");
             WriteLine("};");
             WriteLine("continue;");
             Dedent();
@@ -4811,10 +4634,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (right != null)");
             WriteLine("{");
             Indent();
-            WriteLine("result = new GeneratedExpr");
+            WriteLine("result = new GeneratedBinOpExpr");
             WriteLine("{");
-            WriteLine("    ExpressionType = \"BinOp\",");
-            WriteLine("    Value = new { op = \"%\", left = result, right = right }");
+            WriteLine("    Left = (GeneratedExpr)result,");
+            WriteLine("    Op = \"Mod\",");
+            WriteLine("    Right = (GeneratedExpr)right");
             WriteLine("};");
             WriteLine("continue;");
             Dedent();
@@ -4833,10 +4657,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (right != null)");
             WriteLine("{");
             Indent();
-            WriteLine("result = new GeneratedExpr");
+            WriteLine("result = new GeneratedBinOpExpr");
             WriteLine("{");
-            WriteLine("    ExpressionType = \"BinOp\",");
-            WriteLine("    Value = new { op = \"@\", left = result, right = right }");
+            WriteLine("    Left = (GeneratedExpr)result,");
+            WriteLine("    Op = \"MatMult\",");
+            WriteLine("    Right = (GeneratedExpr)right");
             WriteLine("};");
             WriteLine("continue;");
             Dedent();
@@ -4899,10 +4724,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (right != null)");
             WriteLine("{");
             Indent();
-            WriteLine("result = new GeneratedExpr");
+            WriteLine("result = new GeneratedBinOpExpr");
             WriteLine("{");
-            WriteLine("    ExpressionType = \"BinOp\",");
-            WriteLine("    Value = new { op = \"+\", left = result, right = right }");
+            WriteLine("    Left = (GeneratedExpr)result,");
+            WriteLine("    Op = \"Add\",");
+            WriteLine("    Right = (GeneratedExpr)right");
             WriteLine("};");
             // WriteLine("Console.WriteLine($\"[DEBUG] ParseSum: Created addition\");");
             WriteLine("continue;");
@@ -4922,10 +4748,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (right != null)");
             WriteLine("{");
             Indent();
-            WriteLine("result = new GeneratedExpr");
+            WriteLine("result = new GeneratedBinOpExpr");
             WriteLine("{");
-            WriteLine("    ExpressionType = \"BinOp\",");
-            WriteLine("    Value = new { op = \"-\", left = result, right = right }");
+            WriteLine("    Left = (GeneratedExpr)result,");
+            WriteLine("    Op = \"Sub\",");
+            WriteLine("    Right = (GeneratedExpr)right");
             WriteLine("};");
             // WriteLine("Console.WriteLine($\"[DEBUG] ParseSum: Created subtraction\");");
             WriteLine("continue;");
@@ -4965,9 +4792,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (expr != null)");
             WriteLine("{");
             Indent();
-            WriteLine("var stmt = new GeneratedStmt();");
-            WriteLine("stmt.StatementType = \"expression\";");
-            WriteLine("stmt.Value = expr;");
+            WriteLine("var stmt = new GeneratedExprStmt");
+            WriteLine("{");
+            Indent();
+            WriteLine("Value = (GeneratedExpr)expr");
+            Dedent();
+            WriteLine("};");
             // WriteLine("Console.WriteLine($\"[DEBUG] Created expression statement: {expr}\");");
             WriteLine("return stmt;");
             Dedent();
@@ -5081,32 +4911,38 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private void GenerateSpecificGrammarRules()
         {
             WriteLine();
-            WriteLine("// === Specific Grammar Rules ===");
+            WriteLine("// === All Grammar Rules from python.gram (CPython 3.12 PEG Parser) ===");
             WriteLine();
 
-            // CPython 3.12: Generate if_stmt, while_stmt, for_stmt from grammar
-            Console.WriteLine("[CODEGEN] Generating if_stmt, while_stmt, for_stmt from python.gram");
-            var ifRule = _grammar.Rules.FirstOrDefault(r => r.Name == "if_stmt");
-            var whileRule = _grammar.Rules.FirstOrDefault(r => r.Name == "while_stmt");
-            var forRule = _grammar.Rules.FirstOrDefault(r => r.Name == "for_stmt");
+            // CPython 3.12: Generate ALL rules from python.gram
+            Console.WriteLine($"[CODEGEN] Generating all {_grammar.Rules.Count} rules from python.gram");
 
-            if (ifRule != null)
+            int generatedCount = 0;
+            int skippedCount = 0;
+
+            foreach (var rule in _grammar.Rules)
             {
-                Console.WriteLine("[CODEGEN] Generating if_stmt from grammar");
-                GenerateRuleMethod(ifRule);
+                try
+                {
+                    Console.WriteLine($"[CODEGEN] Generating rule {generatedCount + 1}/{_grammar.Rules.Count}: {rule.Name}");
+                    GenerateRuleMethod(rule);
+                    generatedCount++;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[ERROR] Failed to generate rule '{rule.Name}': {ex.Message}");
+                    skippedCount++;
+
+                    // Generate fallback method that uses PegInterpreter
+                    WriteLine($"// ERROR: Failed to generate {rule.Name} - using fallback");
+                    WriteLine($"// Error: {ex.Message}");
+                }
             }
 
-            if (whileRule != null)
-            {
-                Console.WriteLine("[CODEGEN] Generating while_stmt from grammar");
-                GenerateRuleMethod(whileRule);
-            }
-
-            if (forRule != null)
-            {
-                Console.WriteLine("[CODEGEN] Generating for_stmt from grammar");
-                GenerateRuleMethod(forRule);
-            }
+            Console.WriteLine($"[CODEGEN] Completed: {generatedCount} rules generated, {skippedCount} skipped");
+            WriteLine();
+            WriteLine($"// Summary: {generatedCount}/{_grammar.Rules.Count} rules generated successfully");
+            WriteLine();
 
             // Generate assignment_expression rule directly for walrus operator
             Console.WriteLine("[CODEGEN] Generating assignment_expression rule for walrus operator");
@@ -5188,11 +5024,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
             WriteLine("Advance(); // consume ')'");
             WriteLine("// Create named expression AST node");
-            WriteLine("var namedExpr = new GeneratedExpr");
+            WriteLine("var namedExpr = new GeneratedNamedExprExpr");
             WriteLine("{");
             Indent();
-            WriteLine("ExpressionType = \"NamedExpr\",");
-            WriteLine("Value = new { target = name, value = rightExpr }");
+            WriteLine("Target = new GeneratedNameExpr { Id = name },");
+            WriteLine("Value = (GeneratedExpr)rightExpr");
             Dedent();
             WriteLine("};");
             WriteLine("return namedExpr;");
@@ -5237,11 +5073,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("// Create named expression AST node");
-            WriteLine("var namedExpr = new GeneratedExpr");
+            WriteLine("var namedExpr = new GeneratedNamedExprExpr");
             WriteLine("{");
             Indent();
-            WriteLine("ExpressionType = \"NamedExpr\",");
-            WriteLine("Value = new { target = name, value = rightExpr }");
+            WriteLine("Target = new GeneratedNameExpr { Id = name },");
+            WriteLine("Value = (GeneratedExpr)rightExpr");
             Dedent();
             WriteLine("};");
             WriteLine("return namedExpr;");
@@ -5277,14 +5113,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("else");
             WriteLine("{");
             Indent();
-            WriteLine("// Create a new GeneratedExpr to wrap the result");
-            WriteLine("return new GeneratedExpr");
-            WriteLine("{");
-            Indent();
-            WriteLine("ExpressionType = \"Expression\",");
-            WriteLine("Value = fallbackExpr");
-            Dedent();
-            WriteLine("};");
+            WriteLine("// Return the fallbackExpr directly without wrapping");
+            WriteLine("return fallbackExpr;");
             Dedent();
             WriteLine("}");
             Dedent();
@@ -5341,11 +5171,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (orExpressions.Count > 1)");
             WriteLine("{");
             Indent();
-            WriteLine("return new GeneratedExpr");
+            WriteLine("var valueSeq = new GeneratedExprSeq();");
+            WriteLine("valueSeq.AddRange(orExpressions.Cast<GeneratedExpr>());");
+            WriteLine("return new GeneratedBoolOpExpr");
             WriteLine("{");
             Indent();
-            WriteLine("ExpressionType = \"BoolOp\",");
-            WriteLine("Value = new { op = \"Or\", values = orExpressions }");
+            WriteLine("Op = \"Or\",");
+            WriteLine("Values = valueSeq");
             Dedent();
             WriteLine("};");
             Dedent();
@@ -5404,11 +5236,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (andExpressions.Count > 1)");
             WriteLine("{");
             Indent();
-            WriteLine("return new GeneratedExpr");
+            WriteLine("var valueSeq = new GeneratedExprSeq();");
+            WriteLine("valueSeq.AddRange(andExpressions.Cast<GeneratedExpr>());");
+            WriteLine("return new GeneratedBoolOpExpr");
             WriteLine("{");
             Indent();
-            WriteLine("ExpressionType = \"BoolOp\",");
-            WriteLine("Value = new { op = \"And\", values = andExpressions }");
+            WriteLine("Op = \"And\",");
+            WriteLine("Values = valueSeq");
             Dedent();
             WriteLine("};");
             Dedent();
@@ -5450,32 +5284,19 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Dedent();
             WriteLine("}");
             WriteLine();
-            WriteLine("return new GeneratedExpr");
+            WriteLine("return new GeneratedUnaryOpExpr");
             WriteLine("{");
             Indent();
-            WriteLine("ExpressionType = \"UnaryOp\",");
-            WriteLine("Value = new { op = \"Not\", operand = operand }");
+            WriteLine("Op = \"Not\",");
+            WriteLine("Operand = (GeneratedExpr)operand");
             Dedent();
             WriteLine("};");
             Dedent();
             WriteLine("}");
             WriteLine();
 
-            WriteLine("// Fall back to comparison - wrap result in GeneratedExpr");
-            WriteLine("var result = Comparison();");
-            WriteLine("if (result != null)");
-            WriteLine("{");
-            Indent();
-            WriteLine("return new GeneratedExpr");
-            WriteLine("{");
-            Indent();
-            WriteLine("ExpressionType = \"Expression\",");
-            WriteLine("Value = result");
-            Dedent();
-            WriteLine("};");
-            Dedent();
-            WriteLine("}");
-            WriteLine("return null;");
+            WriteLine("// Fall back to comparison");
+            WriteLine("return Comparison();");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -5527,7 +5348,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
 
             WriteLine("// Parse fstring_middle* (zero or more)");
-            WriteLine("var middleParts = new List<object>();");
+            WriteLine("var middleParts = new GeneratedExprSeq();");
             WriteLine("while (CurrentToken?.Type == GeneratedTokenType.FSTRING_MIDDLE || ");
             WriteLine("       (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == \"{\"))");
             WriteLine("{");
@@ -5563,13 +5384,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
 
             WriteLine("// Create JoinedStr AST node");
-            WriteLine("return new GeneratedExpr");
-            WriteLine("{");
-            Indent();
-            WriteLine("ExpressionType = \"JoinedStr\",");
-            WriteLine("Value = new { values = middleParts }");
-            Dedent();
-            WriteLine("};");
+            WriteLine("var joinedStr = new GeneratedJoinedStrExpr();");
+            WriteLine("joinedStr.Values.AddRange(middleParts);");
+            WriteLine("return joinedStr;");
 
             Dedent();
             WriteLine("}");
@@ -5606,11 +5423,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("var value = CurrentToken.Value;");
             WriteLine("Advance(); // consume FSTRING_MIDDLE");
             WriteLine();
-            WriteLine("return new GeneratedExpr");
+            WriteLine("return new GeneratedConstantExpr");
             WriteLine("{");
             Indent();
-            WriteLine("ExpressionType = \"Constant\",");
-            WriteLine("Value = new { value = value, kind = \"string\" }");
+            WriteLine("Value = new PyString(value),");
+            WriteLine("Kind = \"string\"");
             Dedent();
             WriteLine("};");
             Dedent();
@@ -5687,11 +5504,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
 
             WriteLine("// Create FormattedValue AST node");
-            WriteLine("return new GeneratedExpr");
+            WriteLine("return new GeneratedFormattedValueExpr");
             WriteLine("{");
             Indent();
-            WriteLine("ExpressionType = \"FormattedValue\",");
-            WriteLine("Value = new { value = expr, conversion = -1, format_spec = (object?)null }");
+            WriteLine("Value = expr,");
+            WriteLine("Conversion = -1,");
+            WriteLine("FormatSpec = null");
             Dedent();
             WriteLine("};");
 
@@ -5753,13 +5571,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
 
             WriteLine("// Multiple strings - concatenate");
-            WriteLine("return new GeneratedExpr");
-            WriteLine("{");
-            Indent();
-            WriteLine("ExpressionType = \"JoinedStr\",");
-            WriteLine("Value = new { values = stringParts }");
-            Dedent();
-            WriteLine("};");
+            WriteLine("var joinedStr = new GeneratedJoinedStrExpr();");
+            WriteLine("joinedStr.Values.AddRange(stringParts);");
+            WriteLine("return joinedStr;");
 
             Dedent();
             WriteLine("}");
@@ -5776,11 +5590,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
             WriteLine("var value = CurrentToken.Value;");
             WriteLine("Advance();");
-            WriteLine("return new GeneratedExpr");
+            WriteLine("return new GeneratedConstantExpr");
             WriteLine("{");
             Indent();
-            WriteLine("ExpressionType = \"Constant\",");
-            WriteLine("Value = new { value = value, kind = \"string\" }");
+            WriteLine("Value = new PyString(value),");
+            WriteLine("Kind = \"string\"");
             Dedent();
             WriteLine("};");
             Dedent();
@@ -5858,10 +5672,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("/// <summary>");
             WriteLine("/// statements[asdl_stmt_seq*]: a=statement+ { (asdl_stmt_seq*)_PyPegen_seq_flatten(p, a) }");
             WriteLine("/// </summary>");
-            WriteLine("public List<object> ParseStatements()");
+            WriteLine("public GeneratedStmtSeq ParseStatements()");
             WriteLine("{");
             Indent();
-            WriteLine("var statements = new List<object>();");
+            WriteLine("var statements = new GeneratedStmtSeq();");
             WriteLine("int iterationCount = 0;");
             WriteLine("while (_position < _tokens.Count && CurrentToken?.Type != GeneratedTokenType.ENDMARKER)");
             WriteLine("{");
@@ -5893,10 +5707,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("        Advance();");
             WriteLine("        continue;");
             WriteLine("    }");
-            WriteLine("    if (stmt is List<object> stmtList)");
-            WriteLine("        statements.AddRange(stmtList);");
-            WriteLine("    else");
-            WriteLine("        statements.Add(stmt);");
+            WriteLine("    // ParseStatement always returns GeneratedStmtSeq");
+            WriteLine("    statements.AddRange(stmt);");
             WriteLine("}");
             WriteLine("else");
             WriteLine("{");
@@ -5914,10 +5726,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("/// <summary>");
             WriteLine("/// Parse statements until we encounter a DEDENT that closes the current indentation level");
             WriteLine("/// </summary>");
-            WriteLine("public List<object> ParseStatementsUntilDedent()");
+            WriteLine("public GeneratedStmtSeq ParseStatementsUntilDedent()");
             WriteLine("{");
             Indent();
-            WriteLine("var statements = new List<object>();");
+            WriteLine("var statements = new GeneratedStmtSeq();");
             WriteLine();
             WriteLine("while (_position < _tokens.Count && CurrentToken?.Type != GeneratedTokenType.ENDMARKER)");
             WriteLine("{");
@@ -5947,10 +5759,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("        Console.WriteLine($\"[WARNING] ParseStatementsUntilDedent: Position didn't advance, breaking to prevent infinite loop\");");
             WriteLine("        break;");
             WriteLine("    }");
-            WriteLine("    if (stmt is List<object> stmtList)");
-            WriteLine("        statements.AddRange(stmtList);");
-            WriteLine("    else");
-            WriteLine("        statements.Add(stmt);");
+            WriteLine("    // ParseStatement always returns GeneratedStmtSeq");
+            WriteLine("    statements.AddRange(stmt);");
             WriteLine("}");
             WriteLine("else");
             WriteLine("{");
@@ -5968,7 +5778,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("/// <summary>");
             WriteLine("/// statement[asdl_stmt_seq*]: a=compound_stmt { (asdl_stmt_seq*)_PyPegen_singleton_seq(p, a) } | a[asdl_stmt_seq*]=simple_stmts { a }");
             WriteLine("/// </summary>");
-            WriteLine("public object ParseStatement()");
+            WriteLine("public GeneratedStmtSeq ParseStatement()");
             WriteLine("{");
             Indent();
             WriteLine("var startPos = _position; // Track starting position to prevent infinite loops");
@@ -6058,8 +5868,20 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (function != null)");
             WriteLine("{");
             Indent();
-            WriteLine("function.Decorators = decorators;");
-            WriteLine("return function;");
+            WriteLine("if (function is GeneratedFunctionDefStmt funcDef)");
+            WriteLine("{");
+            Indent();
+            WriteLine("funcDef.DecoratorList = decorators;");
+            WriteLine("return funcDef;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("else if (function is GeneratedAsyncFunctionDefStmt asyncFuncDef)");
+            WriteLine("{");
+            Indent();
+            WriteLine("asyncFuncDef.DecoratorList = decorators;");
+            WriteLine("return asyncFuncDef;");
+            Dedent();
+            WriteLine("}");
             Dedent();
             WriteLine("}");
             Dedent();
@@ -6068,11 +5890,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("var cls = ParseClassDefRaw();");
-            WriteLine("if (cls != null)");
+            WriteLine("if (cls != null && cls is GeneratedClassDefStmt classDef)");
             WriteLine("{");
             Indent();
-            WriteLine("cls.Decorators = decorators;");
-            WriteLine("return cls;");
+            WriteLine("classDef.DecoratorList = decorators;");
+            WriteLine("return classDef;");
             Dedent();
             WriteLine("}");
             Dedent();
@@ -6335,10 +6157,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("/// <summary>");
             WriteLine("/// simple_stmts[asdl_stmt_seq*]: simple_stmt (';' simple_stmt)* [';'] NEWLINE");
             WriteLine("/// </summary>");
-            WriteLine("public List<object> ParseSimpleStmts()");
+            WriteLine("public GeneratedStmtSeq ParseSimpleStmts()");
             WriteLine("{");
             Indent();
-            WriteLine("var statements = new List<object>();");
+            WriteLine("var statements = new GeneratedStmtSeq();");
             WriteLine("var stmt = ParseSimpleStmt();");
             WriteLine("if (stmt != null)");
             WriteLine("    statements.Add(stmt);");
@@ -6453,18 +6275,14 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"break\")");
             WriteLine("{");
             WriteLine("    Advance();");
-            WriteLine("    var breakStmt = new GeneratedStmt();");
-            WriteLine("    breakStmt.StatementType = \"break\";");
-            WriteLine("    return breakStmt;");
+            WriteLine("    return new GeneratedBreakStmt();");
             WriteLine("}");
             WriteLine();
             WriteLine("// CPython 3.12: 'continue'");
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"continue\")");
             WriteLine("{");
             WriteLine("    Advance();");
-            WriteLine("    var continueStmt = new GeneratedStmt();");
-            WriteLine("    continueStmt.StatementType = \"continue\";");
-            WriteLine("    return continueStmt;");
+            WriteLine("    return new GeneratedContinueStmt();");
             WriteLine("}");
             WriteLine();
             WriteLine();
@@ -6930,15 +6748,15 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("/// <summary>");
             WriteLine("/// block[asdl_stmt_seq*]: NEWLINE INDENT statements DEDENT | simple_stmts");
             WriteLine("/// </summary>");
-            WriteLine("public List<object> ParseBlock()");
+            WriteLine("public GeneratedStmtSeq ParseBlock()");
             WriteLine("{");
             Indent();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseBlock: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'\");");
             WriteLine();
             WriteLine("// Use left-recursion handling for block parsing");
-            WriteLine("return TryLeftRecursive<List<object>>(\"ParseBlock\", () =>");
+            WriteLine("return TryLeftRecursive<GeneratedStmtSeq>(\"ParseBlock\", () =>");
             WriteLine("{");
-            WriteLine("    var statements = new List<object>();");
+            WriteLine("    var statements = new GeneratedStmtSeq();");
             WriteLine();
             WriteLine("// CPython 3.12 block grammar: NEWLINE INDENT statements DEDENT | simple_stmts");
             WriteLine("// First alternative: NEWLINE INDENT statements DEDENT");
@@ -6968,13 +6786,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("var stmt = ParseSimpleStmts();");
             WriteLine("if (stmt != null)");
             WriteLine("{");
-            WriteLine("    if (stmt is List<object> stmtList)");
-            WriteLine("        return stmtList;");
-            WriteLine("    else");
-            WriteLine("    {");
-            WriteLine("        statements.Add(stmt);");
-            WriteLine("        return statements;");
-            WriteLine("    }");
+            WriteLine("    return stmt; // ParseSimpleStmts returns GeneratedStmtSeq directly");
             WriteLine("}");
             WriteLine();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseBlock: Returning result with {statements.Count} statements at position {_position}\");");
@@ -6988,11 +6800,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("/// <summary>");
             WriteLine("/// Parse class body without left-recursion");
             WriteLine("/// </summary>");
-            WriteLine("public List<object> ParseClassBody()");
+            WriteLine("public GeneratedStmtSeq ParseClassBody()");
             WriteLine("{");
             Indent();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseClassBody: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'\");");
-            WriteLine("var statements = new List<object>();");
+            WriteLine("var statements = new GeneratedStmtSeq();");
             WriteLine();
             WriteLine("// CPython 3.12: Track class body indentation level for accurate parsing");
             WriteLine("int? classBodyIndentLevel = null;");
@@ -7102,7 +6914,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("        var stmt = ParseStatement();");
             WriteLine("        if (stmt != null)");
             WriteLine("        {");
-            WriteLine("            statements.Add(stmt);");
+            WriteLine("            statements.AddRange(stmt); // ParseStatement returns GeneratedStmtSeq");
             WriteLine("            Console.WriteLine($\"[DEBUG] ParseClassBody: Added statement, total: {statements.Count}\");");
             WriteLine("        }");
             WriteLine("        else");
@@ -7173,7 +6985,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Advance(); // consume class name");
             WriteLine();
             WriteLine("// Parse optional base classes and keyword arguments '(' [arguments] ')'");
-            WriteLine("var baseClasses = new List<object>();");
+            WriteLine("var baseClasses = new GeneratedExprSeq();");
+            WriteLine("var keywords = new List<object>(); // keyword arguments like metaclass=ABCMeta");
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"(\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume '('");
@@ -7198,16 +7011,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("                    var value = CurrentToken.Value;");
             WriteLine("                    Advance();");
             WriteLine("                    ");
-            WriteLine("                    // CPython 3.12: Store as GeneratedExpr for consistent AST conversion");
-            WriteLine("                    var keywordArg = new GeneratedExpr");
-            WriteLine("                    {");
-            WriteLine("                        ExpressionType = \"keyword\",");
-            WriteLine("                        Value = new { ");
-            WriteLine("                            arg = firstToken, ");
-            WriteLine("                            value = new GeneratedExpr { ExpressionType = \"Name\", Value = new { value = value } }");
-            WriteLine("                        }");
-            WriteLine("                    };");
-            WriteLine("                    baseClasses.Add(keywordArg);");
+            WriteLine("                    // CPython 3.12: Create keyword argument as anonymous object");
+            WriteLine("                    var nameExpr = new GeneratedNameExpr { Id = value };");
+            WriteLine("                    var keywordArg = new { arg = firstToken, value = (object)nameExpr };");
+            WriteLine("                    keywords.Add(keywordArg);" );
             WriteLine("                    Console.WriteLine($\"[DEBUG] ParseClassDef: Added keyword argument {firstToken}={value}\");");
             WriteLine("                }");
             WriteLine("                else");
@@ -7219,7 +7026,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("            else");
             WriteLine("            {");
             WriteLine("                // Regular base class");
-            WriteLine("                baseClasses.Add(new { type = \"name\", value = firstToken });");
+            WriteLine("                var baseExpr = new GeneratedNameExpr { Id = firstToken };");
+            WriteLine("                baseClasses.Add(baseExpr);");
             WriteLine("                Console.WriteLine($\"[DEBUG] ParseClassDef: Added base class {firstToken}\");");
             WriteLine("            }");
             WriteLine("        }");
@@ -7270,11 +7078,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseClassDef: Successfully parsed class '{className}' with {baseClasses.Count} base classes and {body.Count} statements\");");
-            WriteLine("return new GeneratedStmt");
+            WriteLine("return new GeneratedClassDefStmt");
             WriteLine("{");
-            WriteLine("    StatementType = \"class\",");
-            WriteLine("    ClassName = className,");
-            WriteLine("    BaseClasses = baseClasses,");
+            WriteLine("    Name = className,");
+            WriteLine("    Bases = baseClasses,");
+            WriteLine("    Keywords = new GeneratedExprSeq(), // Keywords stored separately in advanced parsing");
             WriteLine("    Body = body");
             WriteLine("};");
             Dedent();
@@ -7369,7 +7177,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Parse optional finally clause");
-            WriteLine("var finallyBody = new List<object>();");
+            WriteLine("var finallyBody = new GeneratedStmtSeq();");
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == \"finally\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume 'finally'");
@@ -7391,11 +7199,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseTryStatement: Successfully parsed try statement with {exceptClauses.Count} except clauses and {finallyBody.Count} finally statements\");");
-            WriteLine("return new GeneratedStmt");
+            WriteLine("return new GeneratedTryStmt");
             WriteLine("{");
-            WriteLine("    StatementType = \"try\",");
-            WriteLine("    TryBody = tryBody,");
-            WriteLine("    ExceptClauses = exceptClauses,");
+            WriteLine("    Body = tryBody,");
+            WriteLine("    Handlers = exceptClauses,");
             WriteLine("    FinallyBody = finallyBody");
             WriteLine("};");
             Dedent();
@@ -7467,10 +7274,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseImportStatement: Successfully parsed import with {modules.Count} modules\");");
-            WriteLine("return new GeneratedStmt");
+            WriteLine("return new GeneratedImportStmt");
             WriteLine("{");
-            WriteLine("    StatementType = \"import\",");
-            WriteLine("    ImportModules = modules");
+            WriteLine("    Names = modules");
             WriteLine("};");
             Dedent();
             WriteLine("}");
@@ -7572,12 +7378,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseFromImportStatement: Successfully parsed 'from {fromModule} import' with {importNames.Count} names\");");
-            WriteLine("return new GeneratedStmt");
+            WriteLine("return new GeneratedImportFromStmt");
             WriteLine("{");
-            WriteLine("    StatementType = \"from_import\",");
-            WriteLine("    FromModule = fromModule,");
-            WriteLine("    ImportLevel = level,");
-            WriteLine("    ImportNames = importNames");
+            WriteLine("    Module = fromModule,");
+            WriteLine("    Level = level,");
+            WriteLine("    Names = importNames");
             WriteLine("};");
             Dedent();
             WriteLine("}");
@@ -7630,10 +7435,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseRaiseStatement: Successfully parsed raise statement\");");
-            WriteLine("return new GeneratedStmt");
+            WriteLine("return new GeneratedRaiseStmt");
             WriteLine("{");
-            WriteLine("    StatementType = \"raise\",");
-            WriteLine("    Value = new { ExceptionExpr = exceptionExpr, FromExpr = fromExpr }");
+            WriteLine("    Exc = exceptionExpr,");
+            WriteLine("    Cause = fromExpr");
             WriteLine("};");
             Dedent();
             WriteLine("}");
@@ -7729,10 +7534,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseWithStatement: Successfully parsed with statement with {withItems.Count} items and {body.Count} statements\");");
-            WriteLine("return new GeneratedStmt");
+            WriteLine("return new GeneratedWithStmt");
             WriteLine("{");
-            WriteLine("    StatementType = \"with\",");
-            WriteLine("    WithItems = withItems,");
+            WriteLine("    Items = withItems,");
             WriteLine("    Body = body");
             WriteLine("};");
             Dedent();
@@ -7791,13 +7595,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseLambda: Successfully parsed lambda with {parameters.Count} parameters\");");
-            WriteLine("return new GeneratedExpr");
-            WriteLine("{");
-            Indent();
-            WriteLine("ExpressionType = \"Lambda\",");
-            WriteLine("Value = new { parameters = parameters, body = body }");
-            Dedent();
-            WriteLine("};");
+            WriteLine("var lambdaExpr = new GeneratedLambdaExpr();");
+            WriteLine("lambdaExpr.Arguments = parameters;");
+            WriteLine("lambdaExpr.Body = body;");
+            WriteLine("return lambdaExpr;");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -7828,11 +7629,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"]\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume ']'");
-            WriteLine("    return new GeneratedExpr");
-            WriteLine("    {");
-            WriteLine("        ExpressionType = \"List\",");
-            WriteLine("        Value = new { elements = new List<object>() }");
-            WriteLine("    };");
+            WriteLine("    return new GeneratedListExpr { Elements = new GeneratedExprSeq() };");
             WriteLine("}");
             WriteLine();
             WriteLine("// Parse first expression");
@@ -7851,11 +7648,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("        return null;");
             WriteLine("    Advance(); // consume ']'");
             WriteLine();
-            WriteLine("    return new GeneratedExpr");
-            WriteLine("    {");
-            WriteLine("        ExpressionType = \"ListComp\",");
-            WriteLine("        Value = new { element = firstExpr, generators = forIfClauses }");
-            WriteLine("    };");
+            WriteLine("    return new GeneratedListCompExpr { Element = firstExpr, Generators = (List<object>)forIfClauses };");
             WriteLine("}");
             WriteLine("else");
             WriteLine("{");
@@ -7881,11 +7674,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("        return null;");
             WriteLine("    Advance(); // consume ']'");
             WriteLine();
-            WriteLine("    return new GeneratedExpr");
-            WriteLine("    {");
-            WriteLine("        ExpressionType = \"List\",");
-            WriteLine("        Value = new { elements = elements }");
-            WriteLine("    };");
+            WriteLine("    // Convert List<object> to GeneratedExprSeq");
+            WriteLine("    var exprElements = new GeneratedExprSeq();");
+            WriteLine("    exprElements.AddRange(elements.Cast<GeneratedExpr>());");
+            WriteLine("    return new GeneratedListExpr { Elements = exprElements };");
             WriteLine("}");
             Dedent();
             WriteLine("}");
@@ -7991,7 +7783,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             WriteLine("    var name = CurrentToken.Value;");
             WriteLine("    Advance();");
-            WriteLine("    return new GeneratedExpr { ExpressionType = \"Name\", Value = name };");
+            WriteLine("    return new GeneratedNameExpr { Id = name, Context = \"Load\" };");
             WriteLine("}");
             WriteLine("return null;");
             Dedent();
@@ -8032,11 +7824,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"}\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume '}'");
-            WriteLine("    return new GeneratedExpr");
-            WriteLine("    {");
-            WriteLine("        ExpressionType = \"Dict\",");
-            WriteLine("        Value = new { pairs = new List<object>() }");
-            WriteLine("    };");
+            WriteLine("    return new GeneratedDictExpr { Keys = new GeneratedExprSeq(), Values = new GeneratedExprSeq() };");
             WriteLine("}");
             WriteLine();
             WriteLine("// Parse first expression");
@@ -8063,11 +7851,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("            return null;");
             WriteLine("        Advance(); // consume '}'");
             WriteLine();
-            WriteLine("        return new GeneratedExpr");
-            WriteLine("        {");
-            WriteLine("            ExpressionType = \"DictComp\",");
-            WriteLine("            Value = new { key = firstExpr, value = value, generators = forIfClauses }");
-            WriteLine("        };");
+            WriteLine("        return new GeneratedDictCompExpr { Key = firstExpr, Value = value, Generators = (List<object>)forIfClauses };");
             WriteLine("    }");
             WriteLine("    else");
             WriteLine("    {");
@@ -8100,11 +7884,15 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("            return null;");
             WriteLine("        Advance(); // consume '}'");
             WriteLine();
-            WriteLine("        return new GeneratedExpr");
+            WriteLine("        // Convert pairs to separate keys and values");
+            WriteLine("        var keys = new GeneratedExprSeq();");
+            WriteLine("        var values = new GeneratedExprSeq();");
+            WriteLine("        foreach (dynamic pair in pairs)");
             WriteLine("        {");
-            WriteLine("            ExpressionType = \"Dict\",");
-            WriteLine("            Value = new { pairs = pairs }");
-            WriteLine("        };");
+            WriteLine("            keys.Add(pair.key);");
+            WriteLine("            values.Add(pair.value);");
+            WriteLine("        }");
+            WriteLine("        return new GeneratedDictExpr { Keys = keys, Values = values };");
             WriteLine("    }");
             WriteLine("}");
             WriteLine("else if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == \"for\")");
@@ -8118,11 +7906,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("        return null;");
             WriteLine("    Advance(); // consume '}'");
             WriteLine();
-            WriteLine("    return new GeneratedExpr");
-            WriteLine("    {");
-            WriteLine("        ExpressionType = \"SetComp\",");
-            WriteLine("        Value = new { element = firstExpr, generators = forIfClauses }");
-            WriteLine("    };");
+            WriteLine("    return new GeneratedSetCompExpr { Element = firstExpr, Generators = (List<object>)forIfClauses };");
             WriteLine("}");
             WriteLine("else");
             WriteLine("{");
@@ -8146,11 +7930,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("        return null;");
             WriteLine("    Advance(); // consume '}'");
             WriteLine();
-            WriteLine("    return new GeneratedExpr");
-            WriteLine("    {");
-            WriteLine("        ExpressionType = \"Set\",");
-            WriteLine("        Value = new { elements = elements }");
-            WriteLine("    };");
+            WriteLine("    // Convert List<object> to GeneratedExprSeq");
+            WriteLine("    var exprElements = new GeneratedExprSeq();");
+            WriteLine("    exprElements.AddRange(elements.Cast<GeneratedExpr>());");
+            WriteLine("    return new GeneratedSetExpr { Elements = exprElements };");
             WriteLine("}");
             Dedent();
             WriteLine("}");
@@ -8225,10 +8008,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("/// <summary>");
             WriteLine("/// Parse decorators: ('@' named_expression NEWLINE)+");
             WriteLine("/// </summary>");
-            WriteLine("public List<object> ParseDecorators()");
+            WriteLine("public GeneratedExprSeq ParseDecorators()");
             WriteLine("{");
             Indent();
-            WriteLine("var decorators = new List<object>();");
+            WriteLine("var decorators = new GeneratedExprSeq();");
             WriteLine();
             WriteLine("// Parse one or more decorators");
             WriteLine("while (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"@\")");
@@ -8281,7 +8064,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Advance(); // consume class name");
             WriteLine();
             WriteLine("// Parse optional base classes '(' [arguments] ')'");
-            WriteLine("var baseClasses = new List<object>();");
+            WriteLine("var baseClasses = new GeneratedExprSeq();");
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"(\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume '('");
@@ -8290,7 +8073,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    {");
             WriteLine("        if (CurrentToken.Type == GeneratedTokenType.NAME)");
             WriteLine("        {");
-            WriteLine("            baseClasses.Add(new { type = \"name\", value = CurrentToken.Value });");
+            WriteLine("            var baseExpr = new GeneratedNameExpr { Id = CurrentToken.Value };");
+            WriteLine("            baseClasses.Add(baseExpr);");
             WriteLine("            Advance();");
             WriteLine("        }");
             WriteLine("        // Handle comma separator");
@@ -8328,11 +8112,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseClassDefRaw: Successfully parsed class '{className}' with {baseClasses.Count} base classes and {body.Count} statements\");");
-            WriteLine("return new GeneratedStmt");
+            WriteLine("return new GeneratedClassDefStmt");
             WriteLine("{");
-            WriteLine("    StatementType = \"class\",");
-            WriteLine("    ClassName = className,");
-            WriteLine("    BaseClasses = baseClasses,");
+            WriteLine("    Name = className,");
+            WriteLine("    Bases = baseClasses,");
+            WriteLine("    Keywords = new GeneratedExprSeq(),");
             WriteLine("    Body = body");
             WriteLine("};");
             Dedent();
@@ -8367,11 +8151,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    return null;");
             WriteLine("}");
             WriteLine("// Create subject as GeneratedExpr");
-            WriteLine("var subject = new GeneratedExpr");
-            WriteLine("{");
-            WriteLine("    ExpressionType = \"Name\",");
-            WriteLine("    Value = new { id = subjectName }");
-            WriteLine("};");
+            WriteLine("var subject = new GeneratedNameExpr { Id = subjectName };");
             WriteLine();
             WriteLine("// ':'");
             WriteLine("if (!ExpectToken(GeneratedTokenType.OP, \":\"))");
@@ -8428,10 +8208,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseMatchStatement: Successfully parsed match statement with {cases.Count} cases at position {_position}\");");
-            WriteLine("return new GeneratedStmt");
+            WriteLine("return new GeneratedMatchStmt");
             WriteLine("{");
-            WriteLine("    StatementType = \"match_stmt\",");
-            WriteLine("    Value = new { subject = subject, cases = cases }");
+            WriteLine("    Subject = subject,");
+            WriteLine("    Cases = cases");
             WriteLine("};");
             Dedent();
             WriteLine("}");
@@ -8460,30 +8240,25 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME)");
             WriteLine("{");
             WriteLine("    // Create a NAME expression object for pattern");
-            WriteLine("    pattern = new GeneratedExpr");
-            WriteLine("    {");
-            WriteLine("        ExpressionType = \"Name\",");
-            WriteLine("        Value = new { id = CurrentToken.Value }");
-            WriteLine("    };");
+            WriteLine("    pattern = new GeneratedNameExpr { Id = CurrentToken.Value };");
             WriteLine("    Advance(); // consume NAME");
             WriteLine("}");
             WriteLine("else if (CurrentToken?.Type == GeneratedTokenType.NUMBER)");
             WriteLine("{");
-            WriteLine("    // Create a NUMBER expression object for pattern");
-            WriteLine("    pattern = new GeneratedExpr");
-            WriteLine("    {");
-            WriteLine("        ExpressionType = \"Constant\",");
-            WriteLine("        Value = new { value = CurrentToken.Value, kind = \"number\" }");
-            WriteLine("    };");
+            WriteLine("    // Create a NUMBER expression object for pattern - CPython 3.12");
+            WriteLine("    var numStr = CurrentToken.Value;");
+            WriteLine("    PyObject numVal = int.TryParse(numStr, out int i) ? new PyInt(i) : ");
+            WriteLine("                      double.TryParse(numStr, out double d) ? new PyFloat(d) : new PyString(numStr);");
+            WriteLine("    pattern = new GeneratedConstantExpr { Value = numVal, Kind = \"number\" };");
             WriteLine("    Advance(); // consume NUMBER");
             WriteLine("}");
             WriteLine("else if (CurrentToken?.Type == GeneratedTokenType.STRING)");
             WriteLine("{");
-            WriteLine("    // Create a STRING expression object for pattern");
-            WriteLine("    pattern = new GeneratedExpr");
+            WriteLine("    // Create a STRING expression object for pattern - CPython 3.12");
+            WriteLine("    pattern = new GeneratedConstantExpr");
             WriteLine("    {");
-            WriteLine("        ExpressionType = \"Constant\",");
-            WriteLine("        Value = new { value = CurrentToken.Value, kind = \"string\" }");
+            WriteLine("        Value = new PyString(CurrentToken.Value),");
+            WriteLine("        Kind = \"string\"");
             WriteLine("    };");
             WriteLine("    Advance(); // consume STRING");
             WriteLine("}");

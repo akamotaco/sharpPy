@@ -13,6 +13,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private readonly Item _item;
         private readonly string _varName;
         private readonly string _labelPrefix;
+        private static int _lookaheadCounter = 0;
 
         public ItemCodeGenerator(
             CSharpCodeGenerator parent,
@@ -79,9 +80,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
         {
             var escaped = _parent.EscapeString(lit.Value);
 
-            // CPython 3.12 pattern: Expect exact token match
+            // CPython 3.12 pattern: Expect exact token match and store result
             _parent.WriteLine($"// Expect '{escaped}'");
-            _parent.WriteLine($"if (!Expect(\"{escaped}\"))");
+            _parent.WriteLine($"var {_varName} = Expect(\"{escaped}\");");
+            _parent.WriteLine($"if ({_varName} == null)");
             _parent.WriteLine("{");
             _parent.Indent();
             _parent.WriteLine("_position = _mark;");
@@ -93,70 +95,222 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
         private void GenerateRuleRef(RuleRef ruleRef)
         {
-            var methodName = _parent.ToCSharpMethodName(ruleRef.Name);
+            // CPython 3.12: Check if this is a token (uppercase) or a rule (lowercase)
+            var isToken = char.IsUpper(ruleRef.Name[0]);
 
-            // CPython 3.12 pattern: Call rule method and check result
-            _parent.WriteLine($"// Call rule: {ruleRef.Name}");
-            _parent.WriteLine($"var {_varName} = {methodName}();");
-            _parent.WriteLine($"if ({_varName} == null)");
-            _parent.WriteLine("{");
-            _parent.Indent();
-            _parent.WriteLine("_position = _mark;");
-            _parent.WriteLine("_res = null;");
-            _parent.WriteLine("goto alternative_failed;");
-            _parent.Dedent();
-            _parent.WriteLine("}");
+            if (isToken)
+            {
+                // Token reference - use Expect()
+                _parent.WriteLine($"// Expect token: {ruleRef.Name}");
+                _parent.WriteLine($"var {_varName} = ExpectToken(GeneratedTokenType.{ruleRef.Name.ToUpper()});");
+                _parent.WriteLine($"if ({_varName} == null)");
+                _parent.WriteLine("{");
+                _parent.Indent();
+                _parent.WriteLine("_position = _mark;");
+                _parent.WriteLine("_res = null;");
+                _parent.WriteLine("goto alternative_failed;");
+                _parent.Dedent();
+                _parent.WriteLine("}");
+            }
+            else
+            {
+                // Rule reference - call method
+                var methodName = _parent.ToCSharpMethodName(ruleRef.Name);
+                _parent.WriteLine($"// Call rule: {ruleRef.Name}");
+                _parent.WriteLine($"var {_varName} = {methodName}();");
+                _parent.WriteLine($"if ({_varName} == null)");
+                _parent.WriteLine("{");
+                _parent.Indent();
+                _parent.WriteLine("_position = _mark;");
+                _parent.WriteLine("_res = null;");
+                _parent.WriteLine("goto alternative_failed;");
+                _parent.Dedent();
+                _parent.WriteLine("}");
+            }
         }
 
         private void GenerateOptional(Optional opt)
         {
             // CPython 3.12 pattern: Optional always succeeds, result may be null
-            _parent.WriteLine($"// Optional");
-            _parent.WriteLine($"// TODO: Implement optional parsing for {opt.Expression?.GetType().Name}");
-            _parent.WriteLine($"object? {_varName} = null; // Optional always succeeds");
+            _parent.WriteLine($"// Optional: [{opt.Expression}]");
+            _parent.WriteLine($"int _opt_mark_{_varName} = _position;");
+
+            // Generate code for the inner expression - it will declare its own variable
+            var innerVarName = $"_opt_{_varName}";
+            var innerItem = new Item { Atom = opt.Expression, Name = null };
+            var innerGen = new ItemCodeGenerator(_parent, innerItem, innerVarName, _labelPrefix);
+            innerGen.Generate();
+
+            // If parsing failed, reset and set to null (optional always succeeds)
+            _parent.WriteLine($"object? {_varName} = {innerVarName};");
+            _parent.WriteLine($"if ({_varName} == null)");
+            _parent.WriteLine("{");
+            _parent.Indent();
+            _parent.WriteLine($"_position = _opt_mark_{_varName}; // Reset position");
+            _parent.WriteLine($"{_varName} = null; // Optional not present");
+            _parent.Dedent();
+            _parent.WriteLine("}");
         }
 
         private void GenerateZeroOrMore(ZeroOrMore zm)
         {
-            // CPython 3.12 pattern: Loop until parsing fails
-            _parent.WriteLine($"// Zero or more - always succeeds");
-            _parent.WriteLine($"// TODO: Implement zero or more loop for {zm.Expression?.GetType().Name}");
-            _parent.WriteLine($"var {_varName} = new System.Collections.Generic.List<object?>(); // ZeroOrMore");
+            // CPython 3.12 pattern: Loop until parsing fails (always succeeds, may return empty list)
+            _parent.WriteLine($"// Zero or more: {zm.Expression}*");
+            _parent.WriteLine($"var {_varName} = new System.Collections.Generic.List<object?>();");
+            _parent.WriteLine($"while (true)");
+            _parent.WriteLine("{");
+            _parent.Indent();
+            _parent.WriteLine($"int _loop_mark = _position;");
+
+            // Generate code for the inner expression
+            var innerItem = new Item { Atom = zm.Expression, Name = null };
+            var innerVarName = $"_loop_elem_{_varName}";
+            var innerGen = new ItemCodeGenerator(_parent, innerItem, innerVarName, _labelPrefix);
+            innerGen.Generate();
+
+            // If parsing failed, break the loop
+            _parent.WriteLine($"if ({innerVarName} == null)");
+            _parent.WriteLine("{");
+            _parent.Indent();
+            _parent.WriteLine($"_position = _loop_mark; // Reset to before failed attempt");
+            _parent.WriteLine("break;");
+            _parent.Dedent();
+            _parent.WriteLine("}");
+
+            // Add successful result to list
+            _parent.WriteLine($"{_varName}.Add({innerVarName});");
+
+            _parent.Dedent();
+            _parent.WriteLine("}");
+            _parent.WriteLine($"// Collected {_varName}.Count items (may be 0)");
         }
 
         private void GenerateOneOrMore(OneOrMore om)
         {
-            // CPython 3.12 pattern: Must match at least once
-            _parent.WriteLine($"// One or more - must match at least once");
-            _parent.WriteLine($"// TODO: Implement one or more loop for {om.Expression?.GetType().Name}");
-            _parent.WriteLine($"var {_varName} = new System.Collections.Generic.List<object?>(); // OneOrMore");
-            _parent.WriteLine($"// NOTE: Must fail if list is empty after parsing");
+            // CPython 3.12 pattern: Must match at least once (fails if zero matches)
+            _parent.WriteLine($"// One or more: {om.Expression}+");
+            _parent.WriteLine($"var {_varName} = new System.Collections.Generic.List<object?>();");
+            _parent.WriteLine($"while (true)");
+            _parent.WriteLine("{");
+            _parent.Indent();
+            _parent.WriteLine($"int _loop_mark = _position;");
+
+            // Generate code for the inner expression
+            var innerItem = new Item { Atom = om.Expression, Name = null };
+            var innerVarName = $"_loop_elem_{_varName}";
+            var innerGen = new ItemCodeGenerator(_parent, innerItem, innerVarName, _labelPrefix);
+            innerGen.Generate();
+
+            // If parsing failed, break the loop
+            _parent.WriteLine($"if ({innerVarName} == null)");
+            _parent.WriteLine("{");
+            _parent.Indent();
+            _parent.WriteLine($"_position = _loop_mark; // Reset to before failed attempt");
+            _parent.WriteLine("break;");
+            _parent.Dedent();
+            _parent.WriteLine("}");
+
+            // Add successful result to list
+            _parent.WriteLine($"{_varName}.Add({innerVarName});");
+
+            _parent.Dedent();
+            _parent.WriteLine("}");
+
+            // CPython 3.12: OneOrMore must have at least one element
+            _parent.WriteLine($"if ({_varName}.Count == 0)");
+            _parent.WriteLine("{");
+            _parent.Indent();
+            _parent.WriteLine($"// One or more requires at least one match");
+            _parent.WriteLine($"_position = _mark;");
+            _parent.WriteLine($"_res = null;");
+            _parent.WriteLine($"goto alternative_failed;");
+            _parent.Dedent();
+            _parent.WriteLine("}");
         }
 
         private void GenerateGroup(Group grp)
         {
-            // CPython 3.12 pattern: Group is just for precedence
-            _parent.WriteLine($"// Group (precedence)");
-            _parent.WriteLine($"// TODO: Implement group alternatives");
-            _parent.WriteLine($"object? {_varName} = null; // Group");
+            // CPython 3.12 pattern: Group tries each alternative until one succeeds
+            // Unlike rule alternatives, group must handle goto alternative_failed internally
+            _parent.WriteLine($"// Group: ({string.Join(" | ", grp.Alternatives.Select(a => a.ToString()))})");
+            _parent.WriteLine($"object? {_varName} = null;");
+            _parent.WriteLine($"int _group_mark_{_varName} = _position;");
+
+            for (int i = 0; i < grp.Alternatives.Count; i++)
+            {
+                var alt = grp.Alternatives[i];
+                var altVarName = $"_group_alt{i}_{_varName}";
+
+                _parent.WriteLine($"// Try group alternative {i + 1}: {alt}");
+                _parent.WriteLine("{");
+                _parent.Indent();
+                _parent.WriteLine($"_position = _group_mark_{_varName};");
+
+                // Generate code for all items in this alternative - each item may use "goto alternative_failed"
+                // which will jump to the end of current rule alternative, so we need to catch that
+                // For now, we'll generate items and check if the last item succeeded
+                bool hasItems = alt.Items.Count > 0;
+                string lastItemVarName = null;
+
+                for (int j = 0; j < alt.Items.Count; j++)
+                {
+                    var item = alt.Items[j];
+                    var itemVarName = $"{altVarName}_item{j}";
+
+                    // Track the last item that actually generates a variable
+                    // (lookaheads don't generate variables but still count as items)
+                    if (!(item.Atom is PositiveLookahead) && !(item.Atom is NegativeLookahead))
+                    {
+                        lastItemVarName = itemVarName;
+                    }
+
+                    // Items use goto alternative_failed which exits the entire rule alternative
+                    // In a group context, we need to catch this and try next group alternative
+                    // Solution: Each generated item code already does: if (item == null) goto alternative_failed
+                    // So if we reach here, the item succeeded
+                    var itemGen = new ItemCodeGenerator(_parent, item, itemVarName, _labelPrefix);
+                    itemGen.Generate();
+                }
+
+                // If we reach here, all items succeeded
+                if (hasItems && lastItemVarName != null)
+                {
+                    _parent.WriteLine($"// Group alternative {i + 1} succeeded");
+                    _parent.WriteLine($"{_varName} = {lastItemVarName};");
+                    _parent.WriteLine($"goto group_success_{_varName};");
+                }
+
+                _parent.Dedent();
+                _parent.WriteLine("}");
+            }
+
+            // All alternatives tried, none succeeded
+            _parent.WriteLine($"// All group alternatives failed");
+            _parent.WriteLine($"_position = _mark;");
+            _parent.WriteLine($"_res = null;");
+            _parent.WriteLine($"goto alternative_failed;");
+
+            _parent.WriteLine($"group_success_{_varName}: ; // Group succeeded");
         }
 
         private void GeneratePositiveLookahead(PositiveLookahead pla)
         {
             // CPython 3.12 pattern: Check without consuming
+            var markVar = $"_lookahead_mark_{_lookaheadCounter++}";
             _parent.WriteLine($"// Positive lookahead - check without consuming");
-            _parent.WriteLine($"int _lookahead_mark = _position;");
+            _parent.WriteLine($"int {markVar} = _position;");
             _parent.WriteLine($"// TODO: Parse lookahead content for {pla.Expression?.GetType().Name}");
-            _parent.WriteLine($"_position = _lookahead_mark; // Restore position");
+            _parent.WriteLine($"_position = {markVar}; // Restore position");
         }
 
         private void GenerateNegativeLookahead(NegativeLookahead nla)
         {
             // CPython 3.12 pattern: Fail if matches
+            var markVar = $"_lookahead_mark_{_lookaheadCounter++}";
             _parent.WriteLine($"// Negative lookahead - fail if matches");
-            _parent.WriteLine($"int _lookahead_mark = _position;");
+            _parent.WriteLine($"int {markVar} = _position;");
             _parent.WriteLine($"// TODO: Parse lookahead content for {nla.Expression?.GetType().Name}, fail if succeeds");
-            _parent.WriteLine($"_position = _lookahead_mark; // Restore position");
+            _parent.WriteLine($"_position = {markVar}; // Restore position");
         }
 
         private void GenerateCut(Cut cut)

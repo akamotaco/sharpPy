@@ -66,14 +66,38 @@ namespace SharpPy.PegGenerator.CodeGenerator
         /// </summary>
         private bool GenerateItemSequence()
         {
+            var usedVarNames = new HashSet<string>();
+
             foreach (var item in _alternative.Items)
             {
                 // Determine variable name
                 string varName;
                 if (!string.IsNullOrEmpty(item.Name))
                 {
-                    varName = item.Name;
-                    _variables[item.Name] = varName;
+                    // CPython 3.12: Check for C# reserved keywords
+                    var baseName = EscapeCSharpKeyword(item.Name);
+
+                    // Handle duplicate names in same alternative (e.g., 'a' used twice)
+                    if (usedVarNames.Contains(baseName))
+                    {
+                        // Add suffix to make unique
+                        int counter = 2;
+                        string uniqueName = $"{baseName}_{counter}";
+                        while (usedVarNames.Contains(uniqueName))
+                        {
+                            counter++;
+                            uniqueName = $"{baseName}_{counter}";
+                        }
+                        varName = uniqueName;
+                        usedVarNames.Add(uniqueName);
+                        _variables[item.Name] = varName;
+                    }
+                    else
+                    {
+                        varName = baseName;
+                        usedVarNames.Add(baseName);
+                        _variables[item.Name] = varName;
+                    }
                 }
                 else
                 {
@@ -86,6 +110,35 @@ namespace SharpPy.PegGenerator.CodeGenerator
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Escape C# reserved keywords by adding suffix underscore
+        /// CPython 3.12: Use suffix instead of @ prefix for compatibility with generated var names
+        /// </summary>
+        private string EscapeCSharpKeyword(string name)
+        {
+            // CPython 3.12: Common variable names that conflict with C# keywords
+            var keywords = new HashSet<string>
+            {
+                "params", "object", "string", "int", "bool", "class", "struct",
+                "interface", "enum", "namespace", "using", "void", "byte", "sbyte",
+                "short", "ushort", "uint", "long", "ulong", "float", "double",
+                "decimal", "char", "true", "false", "null", "if", "else", "while",
+                "for", "foreach", "do", "switch", "case", "default", "break",
+                "continue", "return", "goto", "try", "catch", "finally", "throw",
+                "public", "private", "protected", "internal", "static", "readonly",
+                "const", "virtual", "override", "abstract", "sealed", "new",
+                "is", "as", "typeof", "sizeof", "checked", "unchecked", "lock",
+                "out", "ref", "in", "event", "delegate", "operator", "explicit",
+                "implicit", "base", "this"
+            };
+
+            if (keywords.Contains(name))
+            {
+                return name + "_"; // e.g., params_ instead of @params
+            }
+            return name;
         }
 
         /// <summary>
@@ -111,7 +164,20 @@ namespace SharpPy.PegGenerator.CodeGenerator
             }
 
             // Parse and convert action code
-            _parent.WriteLine($"// Action: {_alternative.Action}");
+            // Handle multi-line actions properly in comments
+            var actionLines = _alternative.Action.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            if (actionLines.Length == 1)
+            {
+                _parent.WriteLine($"// Action: {_alternative.Action}");
+            }
+            else
+            {
+                _parent.WriteLine($"// Action (multiline):");
+                foreach (var line in actionLines)
+                {
+                    _parent.WriteLine($"//   {line.Trim()}");
+                }
+            }
 
             // Check if this is a _PyAST_* function call
             if (_alternative.Action.Contains("_PyAST_"))
@@ -129,7 +195,20 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 else
                 {
                     // Complex expression - try to evaluate
-                    _parent.WriteLine($"// TODO: Complex action expression: {cleanAction}");
+                    // Handle multi-line expressions properly in comments
+                    var exprLines = cleanAction.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (exprLines.Length == 1)
+                    {
+                        _parent.WriteLine($"// TODO: Complex action expression: {cleanAction}");
+                    }
+                    else
+                    {
+                        _parent.WriteLine($"// TODO: Complex action expression (multiline):");
+                        foreach (var line in exprLines)
+                        {
+                            _parent.WriteLine($"//   {line.Trim()}");
+                        }
+                    }
                     _parent.WriteLine($"_res = default({_parent.GetRuleReturnType(_rule)});");
                 }
             }
@@ -141,6 +220,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private void GeneratePyASTAction()
         {
             var action = _alternative.Action;
+
+            // Check if the action indicates a sequence result (asdl_stmt_seq* or asdl_expr_seq*)
+            bool needsSequenceWrap = action.Contains("asdl_stmt_seq*") || action.Contains("asdl_expr_seq*") || action.Contains("_PyPegen_singleton_seq");
 
             // Remove CHECK_VERSION wrapper first
             // CHECK_VERSION(type, version, "message", actual_call)
@@ -186,7 +268,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // Clean CPython macros from arguments
             argsStr = CleanCPythonMacros(argsStr);
 
-            var args = argsStr.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
+            // Split arguments respecting parentheses depth
+            var args = SplitArgumentsRespectingParens(argsStr);
 
             // Use ActionMapper to convert to C# AST construction
             var mapper = new ActionMapper();
@@ -194,7 +277,18 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             if (astCode != null)
             {
-                _parent.WriteLine(astCode);
+                // If the action needs a sequence wrap (singleton_seq), modify the generated code
+                if (needsSequenceWrap && _parent.GetRuleReturnType(_rule).Contains("Seq"))
+                {
+                    // Replace "_res = _PyAST_..." with wrapping in singleton_seq
+                    astCode = astCode.Replace("_res = _PyAST_", "var _stmt_tmp = _PyAST_");
+                    _parent.WriteLine(astCode);
+                    _parent.WriteLine("_res = (_stmt_tmp != null) ? new GeneratedStmtSeq { _stmt_tmp } : null;");
+                }
+                else
+                {
+                    _parent.WriteLine(astCode);
+                }
             }
             else
             {
@@ -332,6 +426,56 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 }
             }
             return -1;
+        }
+
+        /// <summary>
+        /// Split arguments by comma, but respect parentheses depth
+        /// Example: "a, (b ? x : y), c" → ["a", "(b ? x : y)", "c"]
+        /// </summary>
+        private List<string> SplitArgumentsRespectingParens(string argsStr)
+        {
+            var result = new List<string>();
+            var current = new StringBuilder();
+            int depth = 0;
+
+            for (int i = 0; i < argsStr.Length; i++)
+            {
+                char c = argsStr[i];
+
+                if (c == '(' || c == '[' || c == '{')
+                {
+                    depth++;
+                    current.Append(c);
+                }
+                else if (c == ')' || c == ']' || c == '}')
+                {
+                    depth--;
+                    current.Append(c);
+                }
+                else if (c == ',' && depth == 0)
+                {
+                    // Top-level comma - split here
+                    var arg = current.ToString().Trim();
+                    if (!string.IsNullOrEmpty(arg))
+                    {
+                        result.Add(arg);
+                    }
+                    current.Clear();
+                }
+                else
+                {
+                    current.Append(c);
+                }
+            }
+
+            // Add the last argument
+            var lastArg = current.ToString().Trim();
+            if (!string.IsNullOrEmpty(lastArg))
+            {
+                result.Add(lastArg);
+            }
+
+            return result;
         }
     }
 }

@@ -160,7 +160,7 @@ namespace SharpPy
 
                     if (actualDefault is GeneratedExpr defaultExpr)
                     {
-                        Console.WriteLine($"[DEBUG] Default is GeneratedExpr: {defaultExpr.ExpressionType}");
+                        Console.WriteLine($"[DEBUG] Default is GeneratedExpr: {defaultExpr.GetType().Name}");
                         var convertedDefault = ConvertAnyExpression(defaultExpr);
                         Console.WriteLine($"[DEBUG] ConvertedDefault result: {convertedDefault} (null: {convertedDefault == null})");
                         if (convertedDefault != null)
@@ -170,7 +170,7 @@ namespace SharpPy
                         }
                         else
                         {
-                            Console.WriteLine($"[DEBUG] ConvertAnyExpression returned null for {defaultExpr.ExpressionType}");
+                            Console.WriteLine($"[DEBUG] ConvertAnyExpression returned null for {defaultExpr.GetType().Name}");
                         }
                     }
                     else
@@ -214,15 +214,22 @@ namespace SharpPy
             if (argItem is string strName && !string.IsNullOrEmpty(strName))
                 return strName;
 
-            // Check if it's a GeneratedExpr with an 'arg' property
-            if (argItem is GeneratedExpr genExpr && genExpr.Value != null)
+            // Check if it's a GeneratedNameExpr (most common case)
+            if (argItem is GeneratedNameExpr nameExpr)
             {
-                var valueType = genExpr.Value.GetType();
-                var argProperty = valueType.GetProperty("arg");
+                return nameExpr.Id;
+            }
+
+            // Check if it's any GeneratedExpr with reflection fallback
+            if (argItem is GeneratedExpr genExpr)
+            {
+                // Try to get 'arg' property via reflection
+                var genType = genExpr.GetType();
+                var argProperty = genType.GetProperty("arg") ?? genType.GetProperty("Arg");
 
                 if (argProperty != null)
                 {
-                    var argValue = argProperty.GetValue(genExpr.Value);
+                    var argValue = argProperty.GetValue(genExpr);
                     if (argValue is string paramName)
                     {
                         return paramName;
