@@ -272,6 +272,10 @@ namespace SharpPy.PegGenerator.Grammar
                    !IsRuleStart())
             {
                 var oldPosition = _position;
+                if (CurrentToken.Type == GrammarTokenType.TILDE)
+                {
+                    Console.WriteLine($"[ParseAlternative] About to parse cut at position {_position}, next: {PeekToken()?.Value}");
+                }
                 var item = ParseItem();
 
                 if (item != null)
@@ -313,6 +317,7 @@ namespace SharpPy.PegGenerator.Grammar
             if (CurrentToken?.Type == GrammarTokenType.TILDE)
             {
                 hasCut = true;
+                Console.WriteLine($"[GrammarParser] Found cut operator, next token: {PeekToken()?.Type} '{PeekToken()?.Value}'");
                 Advance(); // Skip ~
             }
 
@@ -324,6 +329,7 @@ namespace SharpPy.PegGenerator.Grammar
                 {
                     // Simple named item: name=atom
                     item.Name = CurrentToken.Value;
+                    Console.WriteLine($"[GrammarParser] Found named item: '{item.Name}' (after cut: {hasCut})");
                     Advance(); // Skip name
                     Advance(); // Skip =
                 }
@@ -358,7 +364,13 @@ namespace SharpPy.PegGenerator.Grammar
             // If we had a cut operator, wrap the atom in a Cut node
             if (hasCut && item.Atom != null)
             {
+                Console.WriteLine($"[GrammarParser] Wrapping atom in Cut node, item.Name={item.Name}");
                 item.Atom = new Cut { Expression = item.Atom };
+            }
+
+            if (item.Atom != null && !string.IsNullOrEmpty(item.Name))
+            {
+                Console.WriteLine($"[GrammarParser] Created item with Name='{item.Name}', Atom={item.Atom.GetType().Name}");
             }
 
             return item.Atom != null ? item : null;

@@ -118,6 +118,23 @@ namespace SharpPy.PegGenerator.Interpreter
         private bool IsAtEnd => _position >= _tokens.Count;
 
         /// <summary>
+        /// Set the current position (for synchronization with external parser)
+        /// </summary>
+        public void SetPosition(int position)
+        {
+            _position = position;
+            _positionAttempts.Clear();
+        }
+
+        /// <summary>
+        /// Get the current position
+        /// </summary>
+        public int GetPosition()
+        {
+            return _position;
+        }
+
+        /// <summary>
         /// Advance to next token
         /// </summary>
         private void Advance()

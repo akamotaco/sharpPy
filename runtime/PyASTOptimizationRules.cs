@@ -469,26 +469,14 @@ namespace SharpPy
             if (rangeSize > 0 && rangeSize <= MAX_UNROLL_SIZE)
             {
                 var unrolledStatements = new List<Statement>();
-
-                // CPython 3.12: Extract target variable name
-                string targetName = "";
-                if (forStmt.Target is NameExpression nameExpr)
-                {
-                    targetName = nameExpr.Name;
-                }
-                else
-                {
-                    // Complex target (tuple unpacking, etc.) - skip optimization
-                    return node;
-                }
-
+                
                 for (int i = 0; i < rangeSize; i++)
                 {
                     // 각 반복에서 루프 변수를 상수로 치환
-                    var iterationStatements = ReplaceLoopVariable(forStmt.Body, targetName, i);
+                    var iterationStatements = ReplaceLoopVariable(forStmt.Body, forStmt.Target, i);
                     unrolledStatements.AddRange(iterationStatements);
                 }
-
+                
                 return new BlockStatement(unrolledStatements);
             }
             

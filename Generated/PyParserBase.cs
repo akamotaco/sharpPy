@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using SharpPy.PegGenerator.Interpreter;
 
 namespace SharpPy.Generated
 {
@@ -16,6 +15,10 @@ namespace SharpPy.Generated
         protected internal int _position;
         protected readonly Dictionary<(int, string), object?> _memoCache = new();
         protected readonly string _filename;
+
+        // CPython 3.12: PegInterpreter for grammar-based parsing
+        // Concrete type is defined in GeneratedPyParser via property
+        protected abstract object? InterpreterObject { get; }
 
         // Context management for CPython 3.12 compatibility
         protected readonly Stack<ParserContext> _contextStack = new();
@@ -1080,11 +1083,26 @@ namespace SharpPy.Generated
         /// <summary>
         /// _PyAST_For - Create for statement
         /// </summary>
-        protected GeneratedStmt _PyAST_For(object target, object iter, object body, object orelse = null)
+        /// <summary>
+        /// CPython 3.12: _PyAST_For(target, iter, body, orelse, type_comment, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// SharpPy: simplified version (lineno/col_offset/arena handled separately)
+        /// </summary>
+        protected GeneratedStmt _PyAST_For(object target, object iter, object body, object orelse = null, object type_comment = null)
         {
             var stmt = new GeneratedStmt();
             stmt.StatementType = "for";
-            stmt.Value = new { Target = target, Iter = iter, Body = body, Orelse = orelse ?? new List<object>() };
+            stmt.Value = new { Target = target, Iter = iter, Body = body, Orelse = orelse ?? new List<object>(), TypeComment = type_comment };
+            return stmt;
+        }
+
+        /// <summary>
+        /// CPython 3.12: _PyAST_AsyncFor - async for statement
+        /// </summary>
+        protected GeneratedStmt _PyAST_AsyncFor(object target, object iter, object body, object orelse = null, object type_comment = null)
+        {
+            var stmt = new GeneratedStmt();
+            stmt.StatementType = "asyncfor";
+            stmt.Value = new { Target = target, Iter = iter, Body = body, Orelse = orelse ?? new List<object>(), TypeComment = type_comment };
             return stmt;
         }
 
@@ -2143,6 +2161,22 @@ namespace SharpPy.Generated
         {
             return new { kind = operatorType };
         }
+
+        // ========================================
+        // Dummy methods for missing grammar rules
+        // TODO: Generate these from grammar or implement properly
+        // ========================================
+
+        protected object? InvalidIfStmt() => null;
+        protected object? InvalidWhileStmt() => null;
+        protected object? InvalidForStmt() => null;
+        protected object? InvalidForTarget() => null;
+        protected object? Block() => null;
+        protected object? ElifStmt() => null;
+        protected object? Async() => null;
+        protected object? NamedExpression() => null;
+        protected object? StarExpressions() => null;
+        protected object? StarTargets() => null;
 
     }
 

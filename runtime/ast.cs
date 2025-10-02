@@ -1606,12 +1606,12 @@ namespace SharpPy
     public class ForStatement : Statement
     {
         public override string NodeType => "For";
-        public Expression Target { get; }  // CPython 3.12: target is an Expression (Name, Tuple, etc.)
+        public string Target { get; }
         public Expression Iter { get; }
         public List<Statement> Body { get; }
         public List<Statement>? ElseClause { get; }
-
-        public ForStatement(Expression target, Expression iter, List<Statement> body, List<Statement>? elseClause = null)
+        
+        public ForStatement(string target, Expression iter, List<Statement> body, List<Statement>? elseClause = null)
         {
             Target = target;
             Iter = iter;
@@ -1623,18 +1623,7 @@ namespace SharpPy
         {
             var iterable = Iter.Evaluate(scope);
             PyObject result = PyNone.Instance;
-
-            // CPython 3.12: Extract target variable name from Expression
-            string targetVar;
-            if (Target is NameExpression nameExpr)
-            {
-                targetVar = nameExpr.Name;
-            }
-            else
-            {
-                throw new NotImplementedException($"For loop target type {Target?.GetType()} not yet supported (tuple unpacking, etc.)");
-            }
-
+            
             try
             {
                 // 반복 가능 객체에 따른 처리
@@ -1642,7 +1631,7 @@ namespace SharpPy
                 {
                     foreach (var item in list.Items)
                     {
-                        scope.SetVariable(targetVar, item);
+                        scope.SetVariable(Target, item);
                         try
                         {
                             foreach (var stmt in Body)
@@ -1660,7 +1649,7 @@ namespace SharpPy
                 {
                     for (int i = range.Start; i < range.Stop; i += range.Step)
                     {
-                        scope.SetVariable(targetVar, new PyInt(i));
+                        scope.SetVariable(Target, new PyInt(i));
                         try
                         {
                             foreach (var stmt in Body)
@@ -1678,7 +1667,7 @@ namespace SharpPy
                 {
                     for (int i = 0; i < str.Value.Length; i++)
                     {
-                        scope.SetVariable(targetVar, new PyString(str.Value[i].ToString()));
+                        scope.SetVariable(Target, new PyString(str.Value[i].ToString()));
                         try
                         {
                             foreach (var stmt in Body)
@@ -1697,7 +1686,7 @@ namespace SharpPy
             {
                 // break로 루프 탈출
             }
-
+            
             return result;
         }
         

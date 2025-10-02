@@ -83,10 +83,26 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
         private void GenerateTokenInfoClass()
         {
+            // Generate ITokenInfo interface first (for PegInterpreter compatibility)
+            WriteLine("/// <summary>");
+            WriteLine("/// Token information interface for PegInterpreter compatibility");
+            WriteLine("/// </summary>");
+            WriteLine("public interface ITokenInfo");
+            WriteLine("{");
+            Indent();
+            WriteLine("object Type { get; }");
+            WriteLine("string Value { get; }");
+            WriteLine("int Line { get; }");
+            WriteLine("int Column { get; }");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            // Generate GeneratedTokenInfo implementing ITokenInfo
             WriteLine("/// <summary>");
             WriteLine("/// CPython 3.12 compatible token info");
             WriteLine("/// </summary>");
-            WriteLine("public class GeneratedTokenInfo");
+            WriteLine("public class GeneratedTokenInfo : ITokenInfo");
             WriteLine("{");
             Indent();
 
@@ -96,6 +112,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("public int Column { get; set; }");
             WriteLine("public int Start { get; set; }");
             WriteLine("public int End { get; set; }");
+            WriteLine();
+
+            // ITokenInfo explicit implementation
+            WriteLine("// ITokenInfo interface implementation");
+            WriteLine("object ITokenInfo.Type => Type;");
             WriteLine();
 
             WriteLine("public GeneratedTokenInfo(GeneratedTokenType type, string value, int line, int column, int start = 0, int end = 0)");
@@ -110,6 +131,56 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Dedent();
             WriteLine("}");
 
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            // Generate ContextType and ParserContext for PegInterpreter
+            WriteLine("/// <summary>");
+            WriteLine("/// Parser context types for tracking parsing state - CPython 3.12 compatible");
+            WriteLine("/// </summary>");
+            WriteLine("public enum ContextType");
+            WriteLine("{");
+            Indent();
+            WriteLine("Module,");
+            WriteLine("Function,");
+            WriteLine("Class,");
+            WriteLine("Loop,");
+            WriteLine("Async,");
+            WriteLine("Lambda,");
+            WriteLine("Comprehension");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("/// <summary>");
+            WriteLine("/// Parser context information for validation");
+            WriteLine("/// </summary>");
+            WriteLine("public class ParserContext");
+            WriteLine("{");
+            Indent();
+            WriteLine("public ContextType Type { get; set; }");
+            WriteLine("public int NestingLevel { get; set; }");
+            WriteLine("public int StartPosition { get; set; }");
+            WriteLine("public string? Name { get; set; } // Function/class name for debugging");
+            WriteLine();
+            WriteLine("public ParserContext(ContextType type, int nestingLevel = 0, int startPosition = 0, string? name = null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("Type = type;");
+            WriteLine("NestingLevel = nestingLevel;");
+            WriteLine("StartPosition = startPosition;");
+            WriteLine("Name = name;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("public override string ToString()");
+            WriteLine("{");
+            Indent();
+            _output.AppendLine($"{new string(' ', _indentLevel * 4)}var name = Name ?? \"anonymous\";");
+            _output.AppendLine($"{new string(' ', _indentLevel * 4)}return $\"{{Type}}({{name}}) at level {{NestingLevel}}, pos {{StartPosition}}\";");
+            Dedent();
+            WriteLine("}");
             Dedent();
             WriteLine("}");
             WriteLine();

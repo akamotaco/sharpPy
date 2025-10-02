@@ -1,0 +1,3 @@
+for_stmt[stmt_ty]:
+    | invalid_for_stmt
+    | 'for' t=star_targets 'in' ~ ex=star_expressions ':' tc=[TYPE_COMMENT] b=block el=[else_block] {

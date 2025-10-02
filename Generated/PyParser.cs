@@ -65,11 +65,19 @@ namespace SharpPy.Generated
     /// </summary>
     public partial class GeneratedPyParser : PyParserBase<GeneratedModule>
     {
+        // CPython 3.12: PegInterpreter for grammar-based parsing
+        private readonly PegInterpreter _interpreter;
+
+        // Override base class abstract property
+        protected override object? InterpreterObject => _interpreter;
+
         public GeneratedPyParser(List<GeneratedTokenInfo> tokens, string filename = "<string>")
             : base(tokens, filename)
         {
-            // CPython 3.12: PegInterpreter will be initialized on first use
-            // This avoids circular dependency and lazy initialization
+            // CPython 3.12: Initialize PegInterpreter with embedded grammar
+            var embeddedGrammar = EmbeddedGrammar.GetGrammar();
+            var tokenInfoList = tokens.Cast<ITokenInfo>().ToList();
+            _interpreter = new PegInterpreter(embeddedGrammar, tokenInfoList);
         }
 
         // Override abstract Parse method
@@ -1760,171 +1768,388 @@ namespace SharpPy.Generated
 
         // === Specific Grammar Rules ===
 
-        /// <summary>
-        /// CPython 3.12: if_stmt[stmt_ty]
-        ///     | 'if' a=named_expression ':' b=block c=elif_stmt
-        ///     | 'if' a=named_expression ':' b=block c=[else_block]
-        /// </summary>
-        public GeneratedStmt ParseIfStmt()
+        // Rule: if_stmt from python.gram
+        public GeneratedStmt IfStmt()
         {
-            // Expect 'if' keyword
-            if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != "if")
-                return null;
-            Advance(); // consume 'if'
+            // CPython 3.12 PEG: if_stmt
+            int _mark = _position;
+            GeneratedStmt _res = null;
 
-            // Parse condition
-            var condition = ParseExpression();
-            if (condition == null)
-                return null;
-
-            // Expect ':'
-            if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != ":")
-                return null;
-            Advance(); // consume ':'
-
-            // Parse block
-            var body = ParseBlock();
-            if (body == null)
-                return null;
-
-            // CPython 3.12: Parse elif_stmt or else_block
-            List<object>? elseBody = null;
-
-            // Check for elif - treated as nested if statement
-            if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == "elif")
+            // Alternative 1
             {
-                Advance(); // consume 'elif'
+                _position = _mark;
 
-                // Parse elif as if statement (condition + body + elif/else)
-                var elifCondition = ParseExpression();
-                if (elifCondition != null && CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ":")
+                // Call rule: invalid_if_stmt
+                var _tmp0 = InvalidIfStmt();
+                if (_tmp0 == null)
                 {
-                    Advance(); // consume ':'
-                    var elifBody = ParseBlock();
-                    if (elifBody != null)
-                    {
-                        // Recursively parse more elif/else
-                        List<object>? elifElseBody = null;
-                        if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == "elif")
-                        {
-                            // Recursive elif
-                            var nestedElifStmt = ParseIfStmt(); // Will consume 'elif' and parse as if
-                            if (nestedElifStmt != null)
-                                elifElseBody = new List<object> { nestedElifStmt };
-                        }
-                        else if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == "else")
-                        {
-                            Advance(); // consume 'else'
-                            if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ":")
-                            {
-                                Advance(); // consume ':'
-                                elifElseBody = ParseBlock();
-                            }
-                        }
-
-                        // Create nested if statement for elif
-                        var elifStmt = new GeneratedStmt();
-                        elifStmt.StatementType = "if";
-                        elifStmt.Value = new { condition = elifCondition, body = elifBody, elifs = new List<object>(), elseBody = elifElseBody };
-                        elseBody = new List<object> { elifStmt };
-                    }
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
                 }
-            }
-            else if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == "else")
-            {
-                Advance(); // consume 'else'
-                if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ":")
-                {
-                    Advance(); // consume ':'
-                    elseBody = ParseBlock();
-                }
+                // No action specified - using default result
+                _res = default(GeneratedStmt);
+                if (_res != null) goto done;
             }
 
-            // Create if statement
-            var ifStmt = new GeneratedStmt();
-            ifStmt.StatementType = "if";
-            var elifs = new List<object>();
-            ifStmt.Value = new { condition = condition, body = body, elifs = elifs, elseBody = elseBody };
-            return ifStmt;
+            alternative_failed:
+            ;
+            // Alternative 2
+            {
+                _position = _mark;
+
+                // Expect 'if'
+                if (!Expect("if"))
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Call rule: named_expression
+                var a = NamedExpression();
+                if (a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Expect ':'
+                if (!Expect(":"))
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Call rule: block
+                var b = Block();
+                if (b == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Call rule: elif_stmt
+                var c = ElifStmt();
+                if (c == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Action: _PyAST_If(a, b, CHECK(asdl_stmt_seq*, _PyPegen_singleton_seq(p, c)), EXTRA)
+                _res = _PyAST_If(a, b, c);
+
+                if (_res != null) goto done;
+            }
+
+            // Alternative 3
+            {
+                _position = _mark;
+
+                // Expect 'if'
+                if (!Expect("if"))
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Call rule: named_expression
+                var a = NamedExpression();
+                if (a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Expect ':'
+                if (!Expect(":"))
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Call rule: block
+                var b = Block();
+                if (b == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Optional
+                // TODO: Implement optional parsing for Group
+                object? c = null; // Optional always succeeds
+                // Action: _PyAST_If(a, b, c, EXTRA)
+                _res = _PyAST_If(a, b, c);
+
+                if (_res != null) goto done;
+            }
+
+            _position = _mark;
+            _res = null;
+
+            done:
+            return _res;
         }
 
-        /// <summary>
-        /// CPython 3.12: while_stmt[stmt_ty]
-        ///     | 'while' a=named_expression ':' b=block c=[else_block]
-        /// </summary>
-        public GeneratedStmt ParseWhileStmt()
+        // Rule: while_stmt from python.gram
+        public GeneratedStmt WhileStmt()
         {
-            // Expect 'while' keyword
-            if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != "while")
-                return null;
-            Advance(); // consume 'while'
+            // CPython 3.12 PEG: while_stmt
+            int _mark = _position;
+            GeneratedStmt _res = null;
 
-            // Parse condition
-            var condition = ParseExpression();
-            if (condition == null)
-                return null;
+            // Alternative 1
+            {
+                _position = _mark;
 
-            // Expect ':'
-            if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != ":")
-                return null;
-            Advance(); // consume ':'
+                // Call rule: invalid_while_stmt
+                var _tmp0 = InvalidWhileStmt();
+                if (_tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // No action specified - using default result
+                _res = default(GeneratedStmt);
+                if (_res != null) goto done;
+            }
 
-            // Parse block
-            var body = ParseBlock();
-            if (body == null)
-                return null;
+            alternative_failed:
+            ;
+            // Alternative 2
+            {
+                _position = _mark;
 
-            // Create while statement
-            var whileStmt = new GeneratedStmt();
-            whileStmt.StatementType = "while";
-            whileStmt.Value = new { condition = condition, body = body, elseBody = (List<object>?)null };
-            return whileStmt;
+                // Expect 'while'
+                if (!Expect("while"))
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Call rule: named_expression
+                var a = NamedExpression();
+                if (a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Expect ':'
+                if (!Expect(":"))
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Call rule: block
+                var b = Block();
+                if (b == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Optional
+                // TODO: Implement optional parsing for Group
+                object? c = null; // Optional always succeeds
+                // Action: _PyAST_While(a, b, c, EXTRA)
+                _res = _PyAST_While(a, b, c);
+
+                if (_res != null) goto done;
+            }
+
+            _position = _mark;
+            _res = null;
+
+            done:
+            return _res;
         }
 
-        /// <summary>
-        /// CPython 3.12: for_stmt[stmt_ty]
-        ///     | 'for' t=star_targets 'in' ~ ex=star_expressions ':' tc=[TYPE_COMMENT] b=block el=[else_block]
-        /// </summary>
-        public GeneratedStmt ParseForStmt()
+        // Rule: for_stmt from python.gram
+        public GeneratedStmt ForStmt()
         {
-            // Expect 'for' keyword
-            if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != "for")
-                return null;
-            Advance(); // consume 'for'
+            // CPython 3.12 PEG: for_stmt
+            int _mark = _position;
+            GeneratedStmt _res = null;
 
-            // Parse target (simplified: just NAME for now)
-            // CPython 3.12: for loop target has Store context
-            if (CurrentToken?.Type != GeneratedTokenType.NAME)
-                return null;
-            var targetName = CurrentToken.Value;
-            Advance();
-            var target = new GeneratedExpr { ExpressionType = "Name", Value = new { id = targetName }, Context = "Store" };
+            // Alternative 1
+            {
+                _position = _mark;
 
-            // Expect 'in' keyword
-            if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != "in")
-                return null;
-            Advance(); // consume 'in'
+                // Call rule: invalid_for_stmt
+                var _tmp0 = InvalidForStmt();
+                if (_tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // No action specified - using default result
+                _res = default(GeneratedStmt);
+                if (_res != null) goto done;
+            }
 
-            // Parse iterator expression
-            var iter = ParseExpression();
-            if (iter == null)
-                return null;
+            alternative_failed:
+            ;
+            // Alternative 2
+            {
+                _position = _mark;
 
-            // Expect ':'
-            if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != ":")
-                return null;
-            Advance(); // consume ':'
+                // Expect 'for'
+                if (!Expect("for"))
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Call rule: star_targets
+                var t = StarTargets();
+                if (t == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Expect 'in'
+                if (!Expect("in"))
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Cut operator - commit to this alternative
+                // TODO: Implement cut semantics (prevent backtracking)
+                // Call rule: star_expressions
+                var ex = StarExpressions();
+                if (ex == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Expect ':'
+                if (!Expect(":"))
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Optional
+                // TODO: Implement optional parsing for Group
+                object? tc = null; // Optional always succeeds
+                // Call rule: block
+                var b = Block();
+                if (b == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Optional
+                // TODO: Implement optional parsing for Group
+                object? el = null; // Optional always succeeds
+                // Action: _PyAST_For(t, ex, b, el, NEW_TYPE_COMMENT(p, tc), EXTRA)
+                _res = _PyAST_For(t, ex, b, el, tc);
 
-            // Parse block
-            var body = ParseBlock();
-            if (body == null)
-                return null;
+                if (_res != null) goto done;
+            }
 
-            // Create for statement
-            var forStmt = new GeneratedStmt();
-            forStmt.StatementType = "for";
-            forStmt.Value = new { target = target, iter = iter, body = body, elseBody = (List<object>?)null };
-            return forStmt;
+            // Alternative 3
+            {
+                _position = _mark;
+
+                // Call rule: ASYNC
+                var _tmp0 = Async();
+                if (_tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Expect 'for'
+                if (!Expect("for"))
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Call rule: star_targets
+                var t = StarTargets();
+                if (t == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Expect 'in'
+                if (!Expect("in"))
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Cut operator - commit to this alternative
+                // TODO: Implement cut semantics (prevent backtracking)
+                // Call rule: star_expressions
+                var ex = StarExpressions();
+                if (ex == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Expect ':'
+                if (!Expect(":"))
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Optional
+                // TODO: Implement optional parsing for Group
+                object? tc = null; // Optional always succeeds
+                // Call rule: block
+                var b = Block();
+                if (b == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // Optional
+                // TODO: Implement optional parsing for Group
+                object? el = null; // Optional always succeeds
+                // Action: CHECK_VERSION(stmt_ty, 5, "Async for loops are", _PyAST_AsyncFor(t, ex, b, el, NEW_TYPE_COMMENT(p, tc), EXTRA))
+                // No _PyAST_ function in action: EXTRA)
+                _res = default(GeneratedStmt);
+                if (_res != null) goto done;
+            }
+
+            // Alternative 4
+            {
+                _position = _mark;
+
+                // Call rule: invalid_for_target
+                var _tmp0 = InvalidForTarget();
+                if (_tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    goto alternative_failed;
+                }
+                // No action specified - using default result
+                _res = default(GeneratedStmt);
+                if (_res != null) goto done;
+            }
+
+            _position = _mark;
+            _res = null;
+
+            done:
+            return _res;
         }
 
         /// <summary>
@@ -2638,11 +2863,11 @@ namespace SharpPy.Generated
             // Check for if statement
             if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "if")
             {
-                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found if, calling ParseIfStmt");
-                var result = ParseIfStmt();
+                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found if, calling IfStmt");
+                var result = IfStmt();
                 if (result != null)
                 {
-                    Console.WriteLine($"[DEBUG] ParseCompoundStmt: ParseIfStmt succeeded");
+                    Console.WriteLine($"[DEBUG] ParseCompoundStmt: IfStmt succeeded");
                     return result;
                 }
             }
@@ -2650,11 +2875,11 @@ namespace SharpPy.Generated
             // Check for while statement
             if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "while")
             {
-                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found while, calling ParseWhileStmt");
-                var result = ParseWhileStmt();
+                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found while, calling WhileStmt");
+                var result = WhileStmt();
                 if (result != null)
                 {
-                    Console.WriteLine($"[DEBUG] ParseCompoundStmt: ParseWhileStmt succeeded");
+                    Console.WriteLine($"[DEBUG] ParseCompoundStmt: WhileStmt succeeded");
                     return result;
                 }
             }
@@ -2662,11 +2887,11 @@ namespace SharpPy.Generated
             // Check for for statement
             if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == "for")
             {
-                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found for, calling ParseForStmt");
-                var result = ParseForStmt();
+                Console.WriteLine($"[DEBUG] ParseCompoundStmt: Found for, calling ForStmt");
+                var result = ForStmt();
                 if (result != null)
                 {
-                    Console.WriteLine($"[DEBUG] ParseCompoundStmt: ParseForStmt succeeded");
+                    Console.WriteLine($"[DEBUG] ParseCompoundStmt: ForStmt succeeded");
                     return result;
                 }
             }
@@ -4268,6 +4493,10193 @@ namespace SharpPy.Generated
                 WithItems = withItems,
                 Body = body
             };
+        }
+
+        // ========================================
+        // Embedded PEG Interpreter - Complete Copy
+        // This makes PyParser.cs independent from SharpPy.PegGenerator
+        // ========================================
+
+        // ========================================
+        // PegParseResult Types - from IPegParseResult.cs
+        // Note: ITokenInfo is defined in PyTokenizer.cs
+        // ========================================
+
+        /// <summary>
+            /// Base interface for all PEG parse results to replace object? usage
+            /// Provides type safety and better performance by avoiding boxing/unboxing
+            /// </summary>
+            public interface IPegParseResult
+            {
+                /// <summary>
+                /// Whether the parsing was successful
+                /// </summary>
+                bool IsSuccess { get; }
+
+                /// <summary>
+                /// The position where parsing ended (for successful results)
+                /// </summary>
+                int EndPosition { get; }
+            }
+
+            /// <summary>
+            /// Abstract base class for all parse results
+            /// </summary>
+            public abstract class PegParseResult : IPegParseResult
+            {
+                public bool IsSuccess { get; protected set; }
+                public int EndPosition { get; protected set; }
+
+                protected PegParseResult(bool isSuccess, int endPosition)
+                {
+                    IsSuccess = isSuccess;
+                    EndPosition = endPosition;
+                }
+            }
+
+            /// <summary>
+            /// Represents a parsing failure - singleton pattern for efficiency
+            /// </summary>
+            public sealed class PegFailure : PegParseResult
+            {
+                public static readonly PegFailure Instance = new PegFailure();
+
+                private PegFailure() : base(false, -1) { }
+
+                public override string ToString() => "PegFailure";
+            }
+
+            /// <summary>
+            /// Represents successful parsing of a token
+            /// </summary>
+            public sealed class PegTokenResult : PegParseResult
+            {
+                public ITokenInfo Token { get; }
+
+                public PegTokenResult(ITokenInfo token, int endPosition)
+                    : base(true, endPosition)
+                {
+                    Token = token ?? throw new ArgumentNullException(nameof(token));
+                }
+
+                public override string ToString() => $"PegTokenResult({Token.Type}:{Token.Value})";
+            }
+
+            /// <summary>
+            /// Represents successful parsing of multiple items
+            /// </summary>
+            public sealed class PegListResult : PegParseResult
+            {
+                public IReadOnlyList<IPegParseResult> Items { get; }
+
+                public PegListResult(IReadOnlyList<IPegParseResult> items, int endPosition)
+                    : base(true, endPosition)
+                {
+                    Items = items ?? throw new ArgumentNullException(nameof(items));
+                }
+
+                public override string ToString() => $"PegListResult({Items.Count} items)";
+            }
+
+            /// <summary>
+            /// Represents successful parsing that produced an AST node
+            /// </summary>
+            public sealed class PegAstResult : PegParseResult
+            {
+                public object AstNode { get; }
+
+                public PegAstResult(object astNode, int endPosition)
+                    : base(true, endPosition)
+                {
+                    AstNode = astNode ?? throw new ArgumentNullException(nameof(astNode));
+                }
+
+                public override string ToString() => $"PegAstResult({AstNode.GetType().Name})";
+            }
+
+            /// <summary>
+            /// Represents Cut operation results for control flow
+            /// </summary>
+            public sealed class PegCutResult : PegParseResult
+            {
+                public bool IsCutFailure { get; }
+                public IPegParseResult? InnerResult { get; }
+
+                public PegCutResult(bool isCutFailure, IPegParseResult? innerResult, int endPosition)
+                    : base(!isCutFailure, endPosition)
+                {
+                    IsCutFailure = isCutFailure;
+                    InnerResult = innerResult;
+                }
+
+                public override string ToString() =>
+                    IsCutFailure ? "PegCutFailure" : $"PegCutSuccess({InnerResult})";
+            }
+
+            /// <summary>
+            /// Represents simple successful parsing (e.g., for optional matches)
+            /// </summary>
+            public sealed class PegSuccess : PegParseResult
+            {
+                public static readonly PegSuccess Instance = new PegSuccess(-1);
+
+                public PegSuccess(int endPosition) : base(true, endPosition) { }
+
+                public override string ToString() => $"PegSuccess(pos:{EndPosition})";
+            }
+
+            /// <summary>
+            /// Represents successful parsing with an action result
+            /// </summary>
+            public sealed class PegActionResult : PegParseResult
+            {
+                public object ActionResult { get; }
+
+                public PegActionResult(object actionResult, int endPosition)
+                    : base(true, endPosition)
+                {
+                    ActionResult = actionResult ?? throw new ArgumentNullException(nameof(actionResult));
+                }
+
+                public override string ToString() => $"PegActionResult({ActionResult.GetType().Name})";
+            }
+
+        // ========================================
+        // PegInterpreter Supporting Types
+        // ========================================
+
+        public class SimpleModule
+        {
+            public List<object>? Body { get; set; }
+        }
+
+        public class SimpleStmt
+        {
+            public string? Type { get; set; }
+            public object? Data { get; set; }
+        }
+
+        public class SimpleExpr
+        {
+            public string? Type { get; set; }
+            public object? Data { get; set; }
+        }
+
+        // ========================================
+        // PegInterpreter - Complete Copy
+        // Note: ContextType and ParserContext are defined in PyTokenizer.cs
+        // ========================================
+
+        public class PegInterpreter
+            {
+                private readonly EmbeddedGrammar _grammar;
+                private readonly List<ITokenInfo> _tokens;
+                private int _position;
+                // ===== Performance Optimization: Cache Management =====
+                private readonly Dictionary<(int, string), IPegParseResult> _memoCache = new();
+                private readonly Queue<(int, string)> _cacheAccessOrder = new();
+                private const int MAX_CACHE_SIZE = 10000; // CPython 3.12 style cache limit
+                private int _cacheHits = 0;
+                private int _cacheMisses = 0;
+
+                private readonly Dictionary<string, object?> _variables = new();
+                private readonly HashSet<(int, string)> _activeRules = new(); // Track active rules to prevent left recursion
+                private readonly Dictionary<string, bool> _leftRecursiveRules = new(); // Cache for left-recursive rule detection
+                private readonly Dictionary<string, IPegParseResult> _seedResults = new(); // Store seed results for left-recursive expansion
+
+                // ===== Advanced Left Recursion Support (CPython 3.12 Style) =====
+                private readonly Dictionary<string, HashSet<string>> _leftRecursiveDependencies = new(); // Track indirect dependencies
+                private readonly HashSet<string> _currentRecursionStack = new(); // Track current recursion chain
+                private readonly Dictionary<string, int> _recursionDepth = new(); // Track recursion depth for each rule
+                private readonly Dictionary<int, int> _positionAttempts = new(); // Track attempts at each position for infinite loop detection
+
+                // ===== Parser Context Stack (CPython 3.12 Style) =====
+                private readonly Stack<ParserContext> _contextStack = new();
+                private int _indentLevel = 0; // Track current indentation level
+
+                public PegInterpreter(EmbeddedGrammar grammar, List<ITokenInfo> tokens)
+                {
+                    _grammar = grammar ?? throw new ArgumentNullException(nameof(grammar));
+                    _tokens = tokens ?? throw new ArgumentNullException(nameof(tokens));
+                    _position = 0;
+
+                    // Initialize with module context
+                    _contextStack.Push(new ParserContext(ContextType.Module, 0, 0, "<module>"));
+                }
+
+                /// <summary>
+                /// Current token for parsing
+                /// </summary>
+                private ITokenInfo? CurrentToken => _position < _tokens.Count ? _tokens[_position] : null;
+
+                /// <summary>
+                /// Check if we're at end of tokens
+                /// </summary>
+                private bool IsAtEnd => _position >= _tokens.Count;
+
+                /// <summary>
+                /// Set the current position (for synchronization with external parser)
+                /// </summary>
+                public void SetPosition(int position)
+                {
+                    _position = position;
+                    _positionAttempts.Clear();
+                }
+
+                /// <summary>
+                /// Get the current position
+                /// </summary>
+                public int GetPosition()
+                {
+                    return _position;
+                }
+
+                /// <summary>
+                /// Advance to next token
+                /// </summary>
+                private void Advance()
+                {
+                    if (_position < _tokens.Count)
+                    {
+                        _position++;
+                        // Reset position attempt counter when we advance
+                        _positionAttempts.Clear();
+                    }
+                }
+
+                /// <summary>
+                /// Mark current position for backtracking
+                /// </summary>
+                private int Mark()
+                {
+                    // Infinite loop detection - aggressive threshold for early detection
+                    if (_positionAttempts.ContainsKey(_position))
+                    {
+                        _positionAttempts[_position]++;
+                        if (_positionAttempts[_position] > 20) // Lower threshold for faster infinite loop detection
+                        {
+                            var tokenInfo = CurrentToken != null ? $"{CurrentToken.Type}('{CurrentToken.Value}')" : "EOF";
+                            var activeRulesInfo = _activeRules.Count > 0 ?
+                                string.Join(", ", _activeRules.Select(ar => $"{ar.Item2}@{ar.Item1}")) : "none";
+
+                            throw new InvalidOperationException(
+                                $"Infinite loop detected at token position {_position}. " +
+                                $"Current token: {tokenInfo}. " +
+                                $"Active rules: {activeRulesInfo}. " +
+                                $"Attempts at this position: {_positionAttempts[_position]}");
+                        }
+                    }
+                    else
+                    {
+                        _positionAttempts[_position] = 1;
+                    }
+
+                    return _position;
+                }
+
+                /// <summary>
+                /// Reset position for backtracking
+                /// </summary>
+                private void Reset(int mark) => _position = mark;
+
+                /// <summary>
+                /// Check if a rule is left-recursive (direct, indirect, or mutual)
+                /// CPython 3.12 compatible advanced left recursion detection
+                /// </summary>
+                private bool IsLeftRecursive(EmbeddedRule rule)
+                {
+                    if (_leftRecursiveRules.TryGetValue(rule.Name, out var cached))
+                    {
+                        return cached;
+                    }
+
+                    // Exclude certain rules from left recursion handling to preserve correct parsing behavior
+                    // These rules rely on token boundaries (INDENT/DEDENT) that must be processed sequentially
+                    if (rule.Name == "block" || rule.Name == "statements" || rule.Name == "statement")
+                    {
+                        Console.WriteLine($"[LEFT-REC] Excluding rule '{rule.Name}' from left recursion detection");
+                        _leftRecursiveRules[rule.Name] = false;
+                        return false;
+                    }
+
+                    // Clear recursion tracking for this check
+                    _currentRecursionStack.Clear();
+                    _recursionDepth.Clear();
+
+                    // Check for any form of left recursion
+                    var isLeftRec = CheckIndirectLeftRecursion(rule.Name, rule.Name);
+
+                    Console.WriteLine($"[LEFT-REC] EmbeddedRule '{rule.Name}' left-recursive check: {isLeftRec}");
+                    if (rule.Name == "primary")
+                    {
+                        Console.WriteLine($"[LEFT-REC] Primary rule has {rule.Alternatives.Count} alternatives");
+                        for (int i = 0; i < rule.Alternatives.Count; i++)
+                        {
+                            var alt = rule.Alternatives[i];
+                            var firstItem = alt.Items.Count > 0 ? alt.Items[0] : null;
+                            var firstAtom = firstItem?.Atom;
+                            var isRuleRef = firstAtom is EmbeddedRuleRef ruleRef;
+                            var refName = isRuleRef ? ((EmbeddedRuleRef)firstAtom).Name : "not-ruleref";
+                            Console.WriteLine($"[LEFT-REC]   Alt[{i}]: {alt.Items.Count} items, first={firstAtom?.GetType().Name}({refName})");
+                        }
+                    }
+
+                    _leftRecursiveRules[rule.Name] = isLeftRec;
+                    return isLeftRec;
+                }
+
+                /// <summary>
+                /// Check for indirect left recursion using depth-first search
+                /// This detects patterns like: A -> B, B -> A (mutual) or A -> B, B -> C, C -> A (indirect)
+                /// </summary>
+                private bool CheckIndirectLeftRecursion(string originalRule, string currentRule)
+                {
+                    // Prevent infinite recursion during detection
+                    if (_currentRecursionStack.Contains(currentRule))
+                    {
+                        // Found a cycle - check if it involves the original rule
+                        return currentRule == originalRule;
+                    }
+
+                    // Prevent too deep recursion
+                    if (_recursionDepth.GetValueOrDefault(currentRule, 0) > 50)
+                    {
+                        return false;
+                    }
+
+                    _currentRecursionStack.Add(currentRule);
+                    _recursionDepth[currentRule] = _recursionDepth.GetValueOrDefault(currentRule, 0) + 1;
+
+                    try
+                    {
+                        // Get the rule definition
+                        var rule = _grammar.Rules.FirstOrDefault(r => r.Name == currentRule);
+                        if (rule == null) return false;
+
+                        // Check each alternative
+                        foreach (var alternative in rule.Alternatives)
+                        {
+                            if (alternative.Items.Count == 0) continue;
+
+                            var firstItem = alternative.Items[0];
+                            if (firstItem.Atom is EmbeddedRuleRef ruleRef)
+                            {
+                                var referencedRule = ruleRef.Name;
+
+                                // Direct left recursion
+                                if (referencedRule == originalRule)
+                                {
+                                    return true;
+                                }
+
+                                // Indirect left recursion - recurse
+                                if (CheckIndirectLeftRecursion(originalRule, referencedRule))
+                                {
+                                    return true;
+                                }
+                            }
+                        }
+
+                        return false;
+                    }
+                    finally
+                    {
+                        _currentRecursionStack.Remove(currentRule);
+                        if (_recursionDepth.ContainsKey(currentRule))
+                        {
+                            _recursionDepth[currentRule]--;
+                            if (_recursionDepth[currentRule] <= 0)
+                            {
+                                _recursionDepth.Remove(currentRule);
+                            }
+                        }
+                    }
+                }
+
+                /// <summary>
+                /// Main entry point: Parse a rule by name
+                /// </summary>
+                public IPegParseResult ParseRule(string ruleName)
+                {
+        #if DEBUG_LOG
+                    // Add debug for assignment-related rules
+                    if (ruleName == "assignment" || ruleName == "simple_stmt" || ruleName == "simple_stmts")
+                    {
+                        Console.WriteLine($"[DEBUG] PEG ParseRule: Attempting '{ruleName}' at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
+                    }
+        #endif
+
+                    // Check if this rule should be excluded in first pass
+                    if (ShouldExcludeRuleInFirstPass(ruleName))
+                    {
+                        Console.WriteLine($"[2-PASS] Excluding invalid rule '{ruleName}' in first pass");
+                        return PegFailure.Instance;
+                    }
+
+                    // Check memoization cache with performance tracking
+                    var cacheKey = (_position, ruleName);
+                    if (TryGetFromCache(cacheKey, out var cachedResult))
+                    {
+                        // Console.WriteLine($"[MEMO] Cache hit for {ruleName} at position {_position}");
+                        return cachedResult;
+                    }
+
+                    // Find the rule in grammar
+                    var rule = _grammar.Rules.FirstOrDefault(r => r.Name == ruleName);
+                    if (rule == null)
+                    {
+                        // Console.WriteLine($"[DEBUG] EmbeddedRule not found: {ruleName}");
+                        return PegFailure.Instance;
+                    }
+
+                    // Check if this is a left-recursive rule and handle specially
+                    if (IsLeftRecursive(rule))
+                    {
+                        return ParseLeftRecursiveRule(ruleName, rule);
+                    }
+
+                    // Handle normal (non-left-recursive) rules
+                    return ParseNormalRule(ruleName, rule);
+                }
+
+                /// <summary>
+                /// Parse normal (non-left-recursive) rules
+                /// </summary>
+                private IPegParseResult ParseNormalRule(string ruleName, EmbeddedRule rule)
+                {
+                    var cacheKey = (_position, ruleName);
+
+                    // Prevent infinite recursion by detecting active rules
+                    if (_activeRules.Contains(cacheKey))
+                    {
+                        // Console.WriteLine($"[RECURSION] Infinite recursion detected for {ruleName} at position {_position}");
+                        return PegFailure.Instance;
+                    }
+
+                    // Mark rule as active
+                    _activeRules.Add(cacheKey);
+
+                    try
+                    {
+                        // Console.WriteLine($"[DEBUG] Parsing normal rule: {ruleName} at position {_position}");
+
+                        // Try each alternative (PEG ordered choice)
+                        foreach (var alternative in rule.Alternatives)
+                        {
+                            var mark = Mark();
+                            var result = ParseAlternative(alternative);
+
+                            if (result is PegCutResult cutResult && cutResult.IsCutFailure)
+                            {
+                                // EmbeddedCut failed - no backtracking to other alternatives allowed
+                                Console.WriteLine($"[DEBUG] EmbeddedRule {ruleName}: EmbeddedCut failure prevents trying other alternatives");
+                                StoreInCache(cacheKey, PegFailure.Instance);
+                                return PegFailure.Instance;
+                            }
+                            else if (result.IsSuccess)
+                            {
+                                // Success - cache and return
+                                StoreInCache(cacheKey, result);
+                                // Console.WriteLine($"[DEBUG] EmbeddedRule {ruleName} succeeded at position {_position}");
+                                return result;
+                            }
+
+                            // Failed - backtrack
+                            Reset(mark);
+                        }
+
+                        // No alternative succeeded
+                        // Console.WriteLine($"[DEBUG] EmbeddedRule {ruleName} failed at position {_position}");
+                        StoreInCache(cacheKey, PegFailure.Instance);
+                        return PegFailure.Instance;
+                    }
+                    finally
+                    {
+                        // Remove rule from active set
+                        _activeRules.Remove(cacheKey);
+                    }
+                }
+
+                /// <summary>
+                /// Parse left-recursive rules using seed parsing technique
+                /// </summary>
+                private IPegParseResult ParseLeftRecursiveRule(string ruleName, EmbeddedRule rule)
+                {
+                    var cacheKey = (_position, ruleName);
+
+                    Console.WriteLine($"[LEFT-REC] Parsing left-recursive rule: {ruleName} at position {_position}, token: {CurrentToken?.Type}('{CurrentToken?.Value}')");
+
+                    // Step 1: Find base alternatives (non-recursive ones)
+                    var baseAlternatives = rule.Alternatives.Where(alt =>
+                        !(alt.Items.Count > 0 &&
+                          alt.Items[0].Atom is EmbeddedRuleRef ruleRef &&
+                          ruleRef.Name == ruleName)).ToList();
+
+                    // Step 2: Find recursive alternatives
+                    var recursiveAlternatives = rule.Alternatives.Where(alt =>
+                        alt.Items.Count > 0 &&
+                        alt.Items[0].Atom is EmbeddedRuleRef ruleRef &&
+                        ruleRef.Name == ruleName).ToList();
+
+                    if (baseAlternatives.Count == 0)
+                    {
+                        // No base case - this shouldn't happen in well-formed grammar
+                        // Console.WriteLine($"[LEFT-REC] No base alternatives found for {ruleName}");
+                        return PegFailure.Instance;
+                    }
+
+                    // Step 3: Parse base alternatives to get initial seed
+                    IPegParseResult? seed = null;
+                    int seedPosition = _position;
+
+                    foreach (var baseAlt in baseAlternatives)
+                    {
+                        var mark = Mark();
+                        var result = ParseAlternative(baseAlt);
+
+                        if (result.IsSuccess)
+                        {
+                            seed = result;
+                            seedPosition = _position;
+                            Console.WriteLine($"[LEFT-REC] Found seed for {ruleName} at position {seedPosition}: {seed}");
+                            break;
+                        }
+
+                        Reset(mark);
+                    }
+
+                    if (seed == null)
+                    {
+                        // No base case matched
+                        StoreInCache(cacheKey, PegFailure.Instance);
+                        return PegFailure.Instance;
+                    }
+
+                    // Step 4: Iteratively expand the seed using recursive alternatives
+                    const int maxIterations = 1000; // Prevent infinite loops
+                    int iterationCount = 0;
+                    int lastPosition = seedPosition;
+
+                    while (iterationCount < maxIterations)
+                    {
+                        iterationCount++;
+                        var expandedSeed = seed;
+                        var expandedPosition = seedPosition;
+                        var foundExpansion = false;
+
+                        foreach (var recursiveAlt in recursiveAlternatives)
+                        {
+                            // Reset to seed position for each recursive alternative
+                            Reset(seedPosition);
+
+                            // Temporarily set the seed result for this rule
+                            var tempCacheKey = (_position, ruleName);
+                            _memoCache[tempCacheKey] = seed; // Direct assignment for left recursion
+
+                            try
+                            {
+                                var result = ParseAlternative(recursiveAlt);
+                                // CPython-style check: must advance position to be a valid expansion
+                                if (result.IsSuccess && _position > seedPosition)
+                                {
+                                    // Found a longer parse - update seed
+                                    expandedSeed = result;
+                                    expandedPosition = _position;
+                                    foundExpansion = true;
+                                    Console.WriteLine($"[LEFT-REC] Iteration {iterationCount}: Expanded seed for {ruleName} from pos {seedPosition} to {_position}");
+                                    break;
+                                }
+                            }
+                            finally
+                            {
+                                // Remove temporary cache entry
+                                _memoCache.Remove(tempCacheKey);
+                            }
+                        }
+
+                        if (!foundExpansion)
+                        {
+                            // No more expansions possible - terminate normally
+                            Console.WriteLine($"[LEFT-REC] No expansion found for {ruleName} at iteration {iterationCount}, terminating");
+                            break;
+                        }
+
+                        // CPython-style progress check: if position didn't advance, we're stuck
+                        if (expandedPosition <= lastPosition)
+                        {
+                            Console.WriteLine($"[LEFT-REC] Position didn't advance for {ruleName} (was {lastPosition}, now {expandedPosition}), terminating to prevent infinite loop");
+                            break;
+                        }
+
+                        // Update seed for next iteration
+                        seed = expandedSeed;
+                        lastPosition = seedPosition;  // Store previous seed position
+                        seedPosition = expandedPosition;  // New seed position
+                    }
+
+                    if (iterationCount >= maxIterations)
+                    {
+                        Console.WriteLine($"[LEFT-REC] WARNING: Maximum iterations ({maxIterations}) reached for rule {ruleName}, terminating to prevent infinite loop");
+                    }
+
+                    // Step 5: Set final position and cache result
+                    _position = seedPosition;
+                    StoreInCache(cacheKey, seed);
+
+                    Console.WriteLine($"[LEFT-REC] Final result for {ruleName}: {seed} at position {seedPosition}");
+                    return seed;
+                }
+
+                /// <summary>
+                /// Parse a single alternative (sequence of items)
+                /// </summary>
+                private IPegParseResult ParseAlternative(EmbeddedAlternative alternative)
+                {
+                    var results = new List<IPegParseResult>();
+                    var variables = new Dictionary<string, IPegParseResult>();
+
+                    // Console.WriteLine($"[DEBUG] Parsing alternative with {alternative.Items.Count} items");
+
+                    // Parse each item in sequence
+                    foreach (var item in alternative.Items)
+                    {
+                        var result = ParseItem(item);
+
+                        // Handle cut operations
+                        if (result is PegCutResult cutResult)
+                        {
+                            if (!cutResult.IsCutFailure)
+                            {
+                                // EmbeddedCut succeeded - use the result and continue with committed parse
+                                Console.WriteLine($"[DEBUG] EmbeddedCut succeeded, committed to this alternative");
+                                var innerResult = cutResult.InnerResult ?? PegSuccess.Instance;
+                                results.Add(innerResult);
+                                // Store variable binding if item has a name
+                                if (!string.IsNullOrEmpty(item.Name))
+                                {
+                                    variables[item.Name] = innerResult;
+                                }
+                                // Continue parsing rest of the alternative
+                                continue;
+                            }
+                            else
+                            {
+                                // EmbeddedCut failed - this prevents backtracking to other alternatives
+                                Console.WriteLine($"[DEBUG] EmbeddedCut failed at position {cutResult.EndPosition}, no backtracking allowed");
+                                return cutResult; // Propagate cut failure up to prevent backtracking
+                            }
+                        }
+                        else if (!result.IsSuccess)
+                        {
+                            // EmbeddedItem failed - alternative fails
+                            // Console.WriteLine($"[DEBUG] EmbeddedItem failed in alternative");
+                            return PegFailure.Instance;
+                        }
+
+                        results.Add(result);
+
+                        // Store variable binding if item has a name
+                        if (!string.IsNullOrEmpty(item.Name))
+                        {
+                            variables[item.Name] = result;
+                            // Console.WriteLine($"[DEBUG] Variable binding: {item.Name} = {result}");
+                        }
+                    }
+
+                    // All items succeeded - execute action
+                    return ExecuteAction(alternative.Action, variables, results);
+                }
+
+                /// <summary>
+                /// Parse a single item (with optional variable binding)
+                /// </summary>
+                private IPegParseResult ParseItem(EmbeddedItem item)
+                {
+                    // Console.WriteLine($"[DEBUG] Parsing item: {item.Name}={item.Atom}");
+                    return ParseAtom(item.Atom);
+                }
+
+                /// <summary>
+                /// Parse an atomic expression based on its type
+                /// </summary>
+                private IPegParseResult ParseAtom(EmbeddedAtom atom)
+                {
+                    switch (atom)
+                    {
+                        case EmbeddedStringLiteral stringLiteral:
+                            return ParseStringLiteral(stringLiteral);
+
+                        case EmbeddedRuleRef ruleRef:
+                            // Check if this is a token type (uppercase name)
+                            if (IsTokenType(ruleRef.Name))
+                            {
+                                return ParseTokenType(ruleRef.Name);
+                            }
+                            return ParseRule(ruleRef.Name);
+
+                        case EmbeddedOptional optional:
+                            return ParseOptional(optional);
+
+                        case EmbeddedGroup group:
+                            return ParseGroup(group);
+
+                        case EmbeddedZeroOrMore zeroOrMore:
+                            return ParseZeroOrMore(zeroOrMore);
+
+                        case EmbeddedOneOrMore oneOrMore:
+                            return ParseOneOrMore(oneOrMore);
+
+                        case EmbeddedPositiveLookahead positiveLookahead:
+                            return ParsePositiveLookahead(positiveLookahead);
+
+                        case EmbeddedNegativeLookahead negativeLookahead:
+                            return ParseNegativeLookahead(negativeLookahead);
+
+                        case EmbeddedCut cut:
+                            return ParseCut(cut);
+
+                        default:
+                            Console.WriteLine($"[ERROR] Unknown atom type: {atom.GetType()}");
+                            return PegFailure.Instance;
+                    }
+                }
+
+                /// <summary>
+                /// Parse string literal (keywords and operators)
+                /// </summary>
+                private IPegParseResult ParseStringLiteral(EmbeddedStringLiteral stringLiteral)
+                {
+                    var expected = stringLiteral.Value;
+                    var current = CurrentToken;
+
+                    Console.WriteLine($"[DEBUG] Expecting string literal: '{expected}', current token: {current?.Type}('{current?.Value}')");
+
+                    if (current == null) return PegFailure.Instance;
+
+                    // Handle keywords (they come as NAME tokens)
+                    if (IsKeyword(expected))
+                    {
+                        if (current.Type.ToString() == "NAME" && current.Value == expected)
+                        {
+                            Advance();
+                            return new PegTokenResult(current, _position);
+                        }
+                    }
+                    // Handle operators and punctuation (CPython 3.12: all operators are OP tokens)
+                    else
+                    {
+                        // Check if token is OP type with matching value
+                        if (current.Type.ToString() == "OP" && current.Value == expected)
+                        {
+                            Advance();
+                            return new PegTokenResult(current, _position);
+                        }
+                    }
+
+                    return PegFailure.Instance;
+                }
+
+                /// <summary>
+                /// Parse optional expression [expr]
+                /// </summary>
+                private IPegParseResult ParseOptional(EmbeddedOptional optional)
+                {
+                    // Console.WriteLine($"[DEBUG] Parsing optional: [{optional.Expression}]");
+
+                    var mark = Mark();
+                    var result = ParseAtom(optional.Expression);
+
+                    if (!result.IsSuccess)
+                    {
+                        // EmbeddedOptional failed - reset and return empty success
+                        Reset(mark);
+                        // Console.WriteLine($"[DEBUG] EmbeddedOptional failed, continuing");
+                        return new PegSuccess(_position); // Return success to indicate optional succeeded
+                    }
+
+                    // Console.WriteLine($"[DEBUG] EmbeddedOptional succeeded");
+                    return result;
+                }
+
+                /// <summary>
+                /// Parse group (alternatives in parentheses)
+                /// </summary>
+                private IPegParseResult ParseGroup(EmbeddedGroup group)
+                {
+                    Console.WriteLine($"[DEBUG] Parsing group with {group.Alternatives.Count} alternatives");
+
+                    // Try each alternative in the group
+                    foreach (var alternative in group.Alternatives)
+                    {
+                        var mark = Mark();
+                        var result = ParseAlternative(alternative);
+
+                        if (result.IsSuccess)
+                        {
+                            return result;
+                        }
+
+                        Reset(mark);
+                    }
+
+                    return PegFailure.Instance;
+                }
+
+                /// <summary>
+                /// Parse zero or more repetitions expr*
+                /// </summary>
+                private IPegParseResult ParseZeroOrMore(EmbeddedZeroOrMore zeroOrMore)
+                {
+                    Console.WriteLine($"[DEBUG] Parsing zero or more: {zeroOrMore.Expression}*");
+
+                    var results = new List<IPegParseResult>();
+
+                    while (true)
+                    {
+                        var mark = Mark();
+                        var result = ParseAtom(zeroOrMore.Expression);
+
+                        if (!result.IsSuccess)
+                        {
+                            Reset(mark);
+                            break;
+                        }
+
+                        results.Add(result);
+                    }
+
+                    Console.WriteLine($"[DEBUG] Zero or more matched {results.Count} items");
+                    return new PegListResult(results, _position);
+                }
+
+                /// <summary>
+                /// Parse one or more repetitions expr+
+                /// </summary>
+                private IPegParseResult ParseOneOrMore(EmbeddedOneOrMore oneOrMore)
+                {
+                    Console.WriteLine($"[DEBUG] Parsing one or more: {oneOrMore.Expression}+");
+
+                    var results = new List<IPegParseResult>();
+
+                    // Must match at least once
+                    var firstResult = ParseAtom(oneOrMore.Expression);
+                    if (!firstResult.IsSuccess)
+                    {
+                        return PegFailure.Instance;
+                    }
+
+                    results.Add(firstResult);
+
+                    // Then zero or more additional matches
+                    while (true)
+                    {
+                        var mark = Mark();
+                        var result = ParseAtom(oneOrMore.Expression);
+
+                        if (!result.IsSuccess)
+                        {
+                            Reset(mark);
+                            break;
+                        }
+
+                        results.Add(result);
+                    }
+
+                    Console.WriteLine($"[DEBUG] One or more matched {results.Count} items");
+                    return new PegListResult(results, _position);
+                }
+
+                /// <summary>
+                /// Parse positive lookahead &expr
+                /// </summary>
+                private IPegParseResult ParsePositiveLookahead(EmbeddedPositiveLookahead positiveLookahead)
+                {
+                    Console.WriteLine($"[DEBUG] Parsing positive lookahead: &{positiveLookahead.Expression}");
+
+                    var mark = Mark();
+                    var result = ParseAtom(positiveLookahead.Expression);
+
+                    // Always reset position (lookahead doesn't consume)
+                    Reset(mark);
+
+                    // Return success/failure based on whether expression matched
+                    return result.IsSuccess ? new PegSuccess(_position) : PegFailure.Instance;
+                }
+
+                /// <summary>
+                /// Parse negative lookahead !expr
+                /// </summary>
+                private IPegParseResult ParseNegativeLookahead(EmbeddedNegativeLookahead negativeLookahead)
+                {
+                    Console.WriteLine($"[DEBUG] Parsing negative lookahead: !{negativeLookahead.Expression}");
+
+                    var mark = Mark();
+                    var result = ParseAtom(negativeLookahead.Expression);
+
+                    // Always reset position (lookahead doesn't consume)
+                    Reset(mark);
+
+                    // Return success if expression did NOT match
+                    return !result.IsSuccess ? new PegSuccess(_position) : PegFailure.Instance;
+                }
+
+                /// <summary>
+                /// Parse cut operator ~expr - prevents backtracking beyond this point
+                /// In CPython 3.12, cut operator commits to the current alternative and
+                /// prevents exploring other alternatives in case of failure
+                /// </summary>
+                private IPegParseResult ParseCut(EmbeddedCut cut)
+                {
+                    Console.WriteLine($"[DEBUG] ParseCut: EmbeddedCut operator encountered at position {_position}");
+
+                    // Save the current position - this is our "cut point"
+                    var cutPosition = _position;
+
+                    // Try to parse the expression after the cut
+                    var result = ParseAtom(cut.Expression);
+
+                    if (result.IsSuccess)
+                    {
+                        Console.WriteLine($"[DEBUG] ParseCut: Expression after cut succeeded, committing to this path");
+                        // Success - mark this as a "committed" parse by setting a special flag
+                        // The cut succeeds and we return the result
+                        return CreateCutSuccess(result, cutPosition);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[DEBUG] ParseCut: Expression after cut failed, cut prevents backtracking");
+                        // Failure after cut - this should prevent backtracking to earlier alternatives
+                        // In a full implementation, this would throw a special exception or set a flag
+                        // For now, we'll return a special failure marker
+                        return CreateCutFailure(cutPosition);
+                    }
+                }
+
+                /// <summary>
+                /// Helper methods for creating cut results
+                /// </summary>
+                private static IPegParseResult CreateCutSuccess(IPegParseResult result, int cutPosition)
+                {
+                    return new PegCutResult(false, result, cutPosition);
+                }
+
+                private static IPegParseResult CreateCutFailure(int cutPosition)
+                {
+                    return new PegCutResult(true, null, cutPosition);
+                }
+
+                // ===== Performance Optimization: Cache Management Methods =====
+
+                /// <summary>
+                /// Try to get value from cache with LRU tracking
+                /// </summary>
+                private bool TryGetFromCache((int, string) key, out IPegParseResult result)
+                {
+                    if (_memoCache.TryGetValue(key, out result))
+                    {
+                        _cacheHits++;
+                        // Update access order for LRU
+                        UpdateCacheAccess(key);
+                        return true;
+                    }
+
+                    _cacheMisses++;
+                    return false;
+                }
+
+                /// <summary>
+                /// Store value in cache with size management
+                /// </summary>
+                private void StoreInCache((int, string) key, IPegParseResult value)
+                {
+                    // Evict oldest entries if cache is full
+                    while (_memoCache.Count >= MAX_CACHE_SIZE)
+                    {
+                        EvictOldestCacheEntry();
+                    }
+
+                    _memoCache[key] = value;
+                    _cacheAccessOrder.Enqueue(key);
+                }
+
+                /// <summary>
+                /// Update cache access order for LRU
+                /// </summary>
+                private void UpdateCacheAccess((int, string) key)
+                {
+                    // For simplicity, we just add to queue again
+                    // In a full LRU implementation, we would remove from middle and add to end
+                    _cacheAccessOrder.Enqueue(key);
+                }
+
+                /// <summary>
+                /// Evict oldest cache entry (LRU policy)
+                /// </summary>
+                private void EvictOldestCacheEntry()
+                {
+                    if (_cacheAccessOrder.Count > 0)
+                    {
+                        var oldestKey = _cacheAccessOrder.Dequeue();
+                        _memoCache.Remove(oldestKey);
+                        Console.WriteLine($"[CACHE] Evicted entry: {oldestKey}");
+                    }
+                }
+
+                /// <summary>
+                /// Get cache performance statistics
+                /// </summary>
+                public string GetCacheStats()
+                {
+                    var hitRate = _cacheHits + _cacheMisses > 0
+                        ? (double)_cacheHits / (_cacheHits + _cacheMisses) * 100
+                        : 0;
+
+                    return $"Cache Stats: {_cacheHits} hits, {_cacheMisses} misses, " +
+                           $"{hitRate:F1}% hit rate, {_memoCache.Count}/{MAX_CACHE_SIZE} entries";
+                }
+
+                /// <summary>
+                /// Clear performance counters
+                /// </summary>
+                public void ResetCacheStats()
+                {
+                    _cacheHits = 0;
+                    _cacheMisses = 0;
+                }
+
+                /// <summary>
+                /// Execute action with parsed results and variable bindings
+                /// </summary>
+                private IPegParseResult ExecuteAction(string? action, Dictionary<string, IPegParseResult> variables, List<IPegParseResult> results)
+                {
+                    if (string.IsNullOrEmpty(action))
+                    {
+                        // No action - return first result or success marker
+                        return results.FirstOrDefault() ?? new PegSuccess(_position);
+                    }
+
+                    Console.WriteLine($"[DEBUG] Executing action: {action}");
+                    Console.WriteLine($"[DEBUG] Variables: {string.Join(", ", variables.Select(kv => $"{kv.Key}={kv.Value}"))}");
+                    Console.WriteLine($"[DEBUG] Results count: {results.Count}");
+
+                    // Parse the action to generate appropriate AST node
+                    return ParseAction(action, variables, results);
+                }
+
+                /// <summary>
+                /// Parse semantic action and create corresponding AST node
+                /// </summary>
+                private IPegParseResult ParseAction(string action, Dictionary<string, IPegParseResult> variables, List<IPegParseResult> results)
+                {
+                    // Handle common action patterns
+                    if (action.Contains("_PyPegen_set_expr_context"))
+                    {
+                        // Expression context setting: _PyPegen_set_expr_context(p, a, Store)
+                        // Just return the variable 'a' as this is primarily for context setting
+                        if (variables.ContainsKey("a"))
+                        {
+                            return variables["a"];
+                        }
+                        return results.FirstOrDefault() ?? new PegSuccess(_position);
+                    }
+                    else if (action.Contains("CHECK_VERSION"))
+                    {
+                        // Handle version checks - for Python 3.12 interpreter, allow all modern features
+                        // Extract the version requirement (typically version 6 for annotations)
+        #if DEBUG_LOG
+                        Console.WriteLine($"[DEBUG] PEG: CHECK_VERSION called, allowing modern Python features");
+        #endif
+
+                        // For now, always allow version checks and return the actual AST construction
+                        if (action.Contains("_PyAST_AnnAssign"))
+                        {
+                            // Annotated Assignment: a=NAME ':' b=expression c=['=' d=annotated_rhs { d }]
+                            var stmt = new SimpleStmt
+                            {
+                                Type = "ann_assign",
+                                Data = new {
+                                    Target = variables.ContainsKey("a") ? variables["a"] : null,
+                                    Annotation = variables.ContainsKey("b") ? variables["b"] : null,
+                                    Value = variables.ContainsKey("c") ? variables["c"] : null,
+                                    Simple = 1 // Always 1 for NAME annotations as per CPython
+                                }
+                            };
+        #if DEBUG_LOG
+                            Console.WriteLine($"[DEBUG] PEG: Created ann_assign statement");
+        #endif
+                            return new PegAstResult(stmt, _position);
+                        }
+
+                        // For other version checks, continue with normal processing
+                        return results.FirstOrDefault() ?? new PegSuccess(_position);
+                    }
+                    else if (action.Contains("_PyAST_AnnAssign"))
+                    {
+                        // Annotated Assignment: a=NAME ':' b=expression c=['=' d=annotated_rhs { d }]
+                        var stmt = new SimpleStmt
+                        {
+                            Type = "ann_assign",
+                            Data = new {
+                                Target = variables.ContainsKey("a") ? variables["a"] : null,
+                                Annotation = variables.ContainsKey("b") ? variables["b"] : null,
+                                Value = variables.ContainsKey("c") ? variables["c"] : null,
+                                Simple = 1 // Always 1 for NAME annotations as per CPython
+                            }
+                        };
+                        return new PegAstResult(stmt, _position);
+                    }
+                    else if (action.Contains("_PyAST_TryStar"))
+                    {
+                        // Try statement with except* handlers (Python 3.11+ Exception Groups)
+                        var stmt = new SimpleStmt
+                        {
+                            Type = "try_star",
+                            Data = new {
+                                body = variables.ContainsKey("b") ? variables["b"] : null,
+                                handlers = variables.ContainsKey("ex") ? variables["ex"] : null,
+                                orelse = variables.ContainsKey("el") ? variables["el"] : null,
+                                finalbody = variables.ContainsKey("f") ? variables["f"] : null
+                            }
+                        };
+        #if DEBUG_LOG
+                        Console.WriteLine($"[DEBUG] PEG: Created try_star statement");
+        #endif
+                        return new PegAstResult(stmt, _position);
+                    }
+                    else if (action.Contains("_PyAST_Try"))
+                    {
+                        // Regular try statement
+                        var stmt = new SimpleStmt
+                        {
+                            Type = "try",
+                            Data = new {
+                                body = variables.ContainsKey("b") ? variables["b"] : null,
+                                handlers = variables.ContainsKey("ex") ? variables["ex"] : null,
+                                orelse = variables.ContainsKey("el") ? variables["el"] : null,
+                                finalbody = variables.ContainsKey("f") ? variables["f"] : null
+                            }
+                        };
+        #if DEBUG_LOG
+                        Console.WriteLine($"[DEBUG] PEG: Created try statement");
+        #endif
+                        return new PegAstResult(stmt, _position);
+                    }
+                    else if (action.Contains("_PyAST_ExceptHandler"))
+                    {
+                        // Exception handler: 'except' [expression ['as' NAME]] ':' block
+                        var handler = new SimpleStmt
+                        {
+                            Type = "except_handler",
+                            Data = new {
+                                type = variables.ContainsKey("e") ? variables["e"] : null,
+                                name = variables.ContainsKey("t") ? variables["t"] : null,
+                                body = variables.ContainsKey("b") ? variables["b"] : null
+                            }
+                        };
+        #if DEBUG_LOG
+                        Console.WriteLine($"[DEBUG] PEG: Created except_handler");
+        #endif
+                        return new PegAstResult(handler, _position);
+                    }
+                    else if (action.Contains("_PyAST_Assign"))
+                    {
+                        // Assignment: a[asdl_expr_seq*]=(z=star_targets '=' { z })+ b=(yield_expr | star_expressions)
+                        var stmt = new SimpleStmt
+                        {
+                            Type = "assignment",
+                            Data = new {
+                                Targets = variables.ContainsKey("a") ? variables["a"] : null,
+                                Value = variables.ContainsKey("b") ? variables["b"] : null
+                            }
+                        };
+                        return new PegAstResult(stmt, _position);
+                    }
+                    else if (action.Contains("_PyAST_Module"))
+                    {
+                        // Module: statements+
+                        var module = new SimpleModule
+                        {
+                            Body = variables.ContainsKey("a") ? variables["a"] as List<object> : new List<object>()
+                        };
+                        return new PegAstResult(module, _position);
+                    }
+                    else if (action.Contains("_PyAST_Name"))
+                    {
+                        // Name expression: NAME
+                        var expr = new SimpleExpr
+                        {
+                            Type = "name",
+                            Data = variables.ContainsKey("id") ? variables["id"] : null
+                        };
+                        return new PegAstResult(expr, _position);
+                    }
+                    else if (action.Contains("_PyAST_Constant") || action.Contains("_PyAST_Num"))
+                    {
+                        // Constant/Number expression
+                        var expr = new SimpleExpr
+                        {
+                            Type = "constant",
+                            Data = variables.ContainsKey("value") ? variables["value"] : null
+                        };
+                        return new PegAstResult(expr, _position);
+                    }
+                    else if (action.Contains("_PyAST_BinOp"))
+                    {
+                        // Binary operation: left op right
+                        var expr = new SimpleExpr
+                        {
+                            Type = "binop",
+                            Data = new {
+                                Left = variables.ContainsKey("left") ? variables["left"] : null,
+                                Op = variables.ContainsKey("op") ? variables["op"] : null,
+                                Right = variables.ContainsKey("right") ? variables["right"] : null
+                            }
+                        };
+                        return new PegAstResult(expr, _position);
+                    }
+                    else if (action.Contains("_PyAST_TypeAlias"))
+                    {
+                        // Type alias: "type" n=NAME t=[type_params] '=' b=expression
+                        var stmt = new SimpleStmt
+                        {
+                            Type = "type_alias",
+                            Data = new {
+                                Name = variables.ContainsKey("n") ? variables["n"] : null,
+                                TypeParams = variables.ContainsKey("t") ? variables["t"] : null,
+                                Value = variables.ContainsKey("b") ? variables["b"] : null
+                            }
+                        };
+                        return new PegAstResult(stmt, _position);
+                    }
+                    else if (action.Contains("_PyAST_AsyncFunctionDef"))
+                    {
+                        // Async function definition: ASYNC 'def' n=NAME params=[params] b=block
+                        var stmt = new SimpleStmt
+                        {
+                            Type = "async_function_def",
+                            Data = new {
+                                Name = variables.ContainsKey("n") ? variables["n"] : null,
+                                Params = variables.ContainsKey("params") ? variables["params"] : null,
+                                Body = variables.ContainsKey("b") ? variables["b"] : null,
+                                TypeParams = variables.ContainsKey("t") ? variables["t"] : null,
+                                Returns = variables.ContainsKey("a") ? variables["a"] : null
+                            }
+                        };
+                        return new PegAstResult(stmt, _position);
+                    }
+                    else if (action.Contains("_PyAST_Break"))
+                    {
+                        // Break statement: 'break' { _PyAST_Break(EXTRA) }
+                        var stmt = new SimpleStmt
+                        {
+                            Type = "break",
+                            Data = null
+                        };
+                        return new PegAstResult(stmt, _position);
+                    }
+                    else if (action.Contains("_PyAST_Continue"))
+                    {
+                        // Continue statement: 'continue' { _PyAST_Continue(EXTRA) }
+                        var stmt = new SimpleStmt
+                        {
+                            Type = "continue",
+                            Data = null
+                        };
+                        return new PegAstResult(stmt, _position);
+                    }
+
+                    // Default: return generic success marker for now
+                    Console.WriteLine($"[DEBUG] Unhandled action pattern: {action}");
+                    var defaultResult = new { Action = action, Variables = variables, Results = results };
+                    return new PegActionResult(defaultResult, _position);
+                }
+
+                /// <summary>
+                /// Check if a name refers to a token type (from GeneratedTokenType enum)
+                /// </summary>
+                private bool IsTokenType(string name)
+                {
+                    // Check if the name corresponds to a GeneratedTokenType enum value
+                    return Enum.TryParse<GeneratedTokenType>(name, out _);
+                }
+
+                /// <summary>
+                /// Parse a token type by matching current token against expected type
+                /// CPython 3.12: NAME tokens cannot be keywords
+                /// </summary>
+                private IPegParseResult ParseTokenType(string tokenType)
+                {
+                    var current = CurrentToken;
+                    if (current == null) return PegFailure.Instance;
+
+                    Console.WriteLine($"[DEBUG] Expecting token type: {tokenType}, current token: {current.Type}('{current.Value}')");
+
+                    if (current.Type.ToString() == tokenType)
+                    {
+                        // CPython 3.12: NAME tokens cannot be keywords (in, not, for, etc.)
+                        if (tokenType == "NAME" && IsKeyword(current.Value))
+                        {
+                            Console.WriteLine($"[DEBUG] Rejecting keyword '{current.Value}' as NAME token");
+                            return PegFailure.Instance;
+                        }
+
+                        Advance();
+                        return new PegTokenResult(current, _position);
+                    }
+
+                    return PegFailure.Instance;
+                }
+
+                /// <summary>
+                /// Check if string is a Python keyword
+                /// </summary>
+                private bool IsKeyword(string value)
+                {
+                    var keywords = new HashSet<string>
+                    {
+                        "and", "as", "assert", "async", "await", "break", "case", "class", "continue",
+                        "def", "del", "elif", "else", "except", "False", "finally", "for", "from",
+                        "global", "if", "import", "in", "is", "lambda", "match", "None", "nonlocal",
+                        "not", "or", "pass", "raise", "return", "True", "try", "type", "while", "with", "yield"
+                    };
+                    return keywords.Contains(value);
+                }
+
+                /// <summary>
+                /// Map string literals to token types
+                /// </summary>
+
+                // ===== 2-Pass Parsing Support for Invalid Rules =====
+
+                /// <summary>
+                /// Indicates whether we're in the first pass (excluding invalid rules) or second pass (including invalid rules)
+                /// </summary>
+                private bool _isFirstPass = true;
+                private int _firstPassFailurePosition = -1;
+
+                /// <summary>
+                /// Parse a rule with 2-pass support for better error messages
+                /// This is the new main entry point that handles invalid rules properly
+                /// </summary>
+                public IPegParseResult ParseRuleWithTwoPass(string ruleName)
+                {
+                    Console.WriteLine($"[2-PASS] Starting 2-pass parsing for rule: {ruleName}");
+
+                    // First pass: exclude invalid rules
+                    _isFirstPass = true;
+                    _firstPassFailurePosition = -1;
+                    var firstPassPosition = _position;
+
+                    var result = ParseRule(ruleName);
+                    if (result.IsSuccess)
+                    {
+                        Console.WriteLine($"[2-PASS] First pass succeeded for rule: {ruleName}");
+                        return result;
+                    }
+
+                    // First pass failed - record failure position
+                    _firstPassFailurePosition = _position;
+                    Console.WriteLine($"[2-PASS] First pass failed for rule: {ruleName} at position {_firstPassFailurePosition}");
+
+                    // Reset position for second pass
+                    _position = firstPassPosition;
+                    _memoCache.Clear(); // Clear memoization cache for second pass
+
+                    // Second pass: include invalid rules for better error messages
+                    _isFirstPass = false;
+                    Console.WriteLine($"[2-PASS] Starting second pass (with invalid rules) for rule: {ruleName}");
+
+                    result = ParseRule(ruleName);
+                    if (result.IsSuccess)
+                    {
+                        Console.WriteLine($"[2-PASS] Second pass succeeded for rule: {ruleName}");
+                        return result;
+                    }
+
+                    // Both passes failed - use first pass failure position for more accurate error location
+                    if (_firstPassFailurePosition >= 0)
+                    {
+                        _position = _firstPassFailurePosition;
+                        Console.WriteLine($"[2-PASS] Both passes failed, using first pass failure position: {_firstPassFailurePosition}");
+                    }
+
+                    return PegFailure.Instance;
+                }
+
+                /// <summary>
+                /// Check if a rule should be excluded in the first pass (is it an invalid rule?)
+                /// </summary>
+                private bool ShouldExcludeRuleInFirstPass(string ruleName)
+                {
+                    return _isFirstPass && ruleName.StartsWith("invalid_");
+                }
+
+                // ===== Parser Context Management (CPython 3.12 Style) =====
+
+                /// <summary>
+                /// Push a new context onto the context stack
+                /// </summary>
+                private void PushContext(ContextType type, string? name = null)
+                {
+                    var newLevel = _contextStack.Count > 0 ? _contextStack.Peek().NestingLevel + 1 : 0;
+                    var context = new ParserContext(type, newLevel, _position, name);
+                    _contextStack.Push(context);
+
+                    Console.WriteLine($"[CONTEXT] Pushed {context}");
+                }
+
+                /// <summary>
+                /// Pop the current context from the context stack
+                /// </summary>
+                private ParserContext? PopContext()
+                {
+                    if (_contextStack.Count > 1) // Keep module context
+                    {
+                        var context = _contextStack.Pop();
+                        Console.WriteLine($"[CONTEXT] Popped {context}");
+                        return context;
+                    }
+                    return null;
+                }
+
+                /// <summary>
+                /// Check if we're currently in a specific context type
+                /// </summary>
+                private bool IsInContext(ContextType type)
+                {
+                    return _contextStack.Any(ctx => ctx.Type == type);
+                }
+
+                /// <summary>
+                /// Get the current top context
+                /// </summary>
+                private ParserContext? GetCurrentContext()
+                {
+                    return _contextStack.Count > 0 ? _contextStack.Peek() : null;
+                }
+
+                /// <summary>
+                /// Validate if a statement is allowed in the current context
+                /// </summary>
+                private void ValidateStatementContext(string statementType)
+                {
+                    switch (statementType)
+                    {
+                        case "return":
+                            if (!IsInContext(ContextType.Function) && !IsInContext(ContextType.Lambda))
+                            {
+                                throw new InvalidOperationException("SyntaxError: 'return' outside function");
+                            }
+                            break;
+
+                        case "yield":
+                            if (!IsInContext(ContextType.Function))
+                            {
+                                throw new InvalidOperationException("SyntaxError: 'yield' outside function");
+                            }
+                            break;
+
+                        case "break":
+                        case "continue":
+                            if (!IsInContext(ContextType.Loop))
+                            {
+                                var msg = statementType == "break" ? "'break' outside loop" : "'continue' not properly in loop";
+                                throw new InvalidOperationException($"SyntaxError: {msg}");
+                            }
+                            break;
+
+                        case "await":
+                            if (!IsInContext(ContextType.Async))
+                            {
+                                throw new InvalidOperationException("SyntaxError: 'await' outside async function");
+                            }
+                            break;
+                    }
+                }
+
+                /// <summary>
+                /// Debug method to print current context stack
+                /// </summary>
+                private void PrintContextStack()
+                {
+                    Console.WriteLine($"[CONTEXT-STACK] Current stack ({_contextStack.Count} levels):");
+                    foreach (var ctx in _contextStack.Reverse())
+                    {
+                        Console.WriteLine($"[CONTEXT-STACK]   {ctx}");
+                    }
+                }
+
+            }
+        // ========================================
+        // Embedded Grammar Types - from python.gram
+        // These mirror Grammar.Grammar structure for PegInterpreter
+        // ========================================
+
+        public abstract class EmbeddedAtom { }
+
+        public class EmbeddedRuleRef : EmbeddedAtom
+        {
+            public string Name { get; set; } = "";
+            public override string ToString() => Name;
+        }
+
+        public class EmbeddedStringLiteral : EmbeddedAtom
+        {
+            public string Value { get; set; } = "";
+            public override string ToString() => $"'{Value}'";
+        }
+
+        public class EmbeddedGroup : EmbeddedAtom
+        {
+            public List<EmbeddedAlternative> Alternatives { get; set; } = new();
+        }
+
+        public class EmbeddedOptional : EmbeddedAtom
+        {
+            public EmbeddedAtom Expression { get; set; } = null!;
+        }
+
+        public class EmbeddedZeroOrMore : EmbeddedAtom
+        {
+            public EmbeddedAtom Expression { get; set; } = null!;
+        }
+
+        public class EmbeddedOneOrMore : EmbeddedAtom
+        {
+            public EmbeddedAtom Expression { get; set; } = null!;
+        }
+
+        public class EmbeddedPositiveLookahead : EmbeddedAtom
+        {
+            public EmbeddedAtom Expression { get; set; } = null!;
+        }
+
+        public class EmbeddedNegativeLookahead : EmbeddedAtom
+        {
+            public EmbeddedAtom Expression { get; set; } = null!;
+        }
+
+        public class EmbeddedCut : EmbeddedAtom
+        {
+            public EmbeddedAtom Expression { get; set; } = null!;
+        }
+
+        public class EmbeddedItem
+        {
+            public string? Name { get; set; }
+            public EmbeddedAtom Atom { get; set; } = null!;
+        }
+
+        public class EmbeddedAlternative
+        {
+            public List<EmbeddedItem> Items { get; set; } = new();
+            public string? Action { get; set; }
+        }
+
+        public class EmbeddedRule
+        {
+            public string Name { get; set; } = "";
+            public string? ReturnType { get; set; }
+            public List<EmbeddedAlternative> Alternatives { get; set; } = new();
+            public bool IsMemoized { get; set; } = false;
+        }
+
+        public class EmbeddedGrammar
+        {
+            public List<EmbeddedRule> Rules { get; } = new();
+
+            public static EmbeddedGrammar GetGrammar()
+            {
+                var grammar = new EmbeddedGrammar();
+
+                // Rule: file
+                var rule_file = new EmbeddedRule
+                {
+                    Name = "file",
+                    ReturnType = "mod_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_make_module(p, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "statements" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "ENDMARKER" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_file);
+
+                // Rule: interactive
+                var rule_interactive = new EmbeddedRule
+                {
+                    Name = "interactive",
+                    ReturnType = "mod_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Interactive(a, p->arena)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "statement_newline" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_interactive);
+
+                // Rule: eval
+                var rule_eval = new EmbeddedRule
+                {
+                    Name = "eval",
+                    ReturnType = "mod_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Expression(a, p->arena)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "expressions" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "NEWLINE" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "ENDMARKER" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_eval);
+
+                // Rule: func_type
+                var rule_func_type = new EmbeddedRule
+                {
+                    Name = "func_type",
+                    ReturnType = "mod_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_FunctionType(a, b, p->arena)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "type_expressions" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "->" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "NEWLINE" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "ENDMARKER" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_func_type);
+
+                // Rule: statements
+                var rule_statements = new EmbeddedRule
+                {
+                    Name = "statements",
+                    ReturnType = "asdl_stmt_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "(asdl_stmt_seq*)_PyPegen_seq_flatten(p, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "statement" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_statements);
+
+                // Rule: statement
+                var rule_statement = new EmbeddedRule
+                {
+                    Name = "statement",
+                    ReturnType = "asdl_stmt_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "(asdl_stmt_seq*)_PyPegen_singleton_seq(p, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "compound_stmt" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "simple_stmts" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_statement);
+
+                // Rule: statement_newline
+                var rule_statement_newline = new EmbeddedRule
+                {
+                    Name = "statement_newline",
+                    ReturnType = "asdl_stmt_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "(asdl_stmt_seq*)_PyPegen_singleton_seq(p, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "compound_stmt" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "simple_stmts" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "(asdl_stmt_seq*)_PyPegen_singleton_seq(p, CHECK(stmt_ty, _PyAST_Pass(EXTRA)))",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_interactive_exit(p)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "ENDMARKER" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_statement_newline);
+
+                // Rule: simple_stmts
+                var rule_simple_stmts = new EmbeddedRule
+                {
+                    Name = "simple_stmts",
+                    ReturnType = "asdl_stmt_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "(asdl_stmt_seq*)_PyPegen_singleton_seq(p, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "simple_stmt" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = ";" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = ";" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "simple_stmt" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ";" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_simple_stmts);
+
+                // Rule: simple_stmt
+                var rule_simple_stmt = new EmbeddedRule
+                {
+                    Name = "simple_stmt",
+                    ReturnType = "stmt_ty",
+                    IsMemoized = true,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "assignment" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = "\"type\"" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "type_alias" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Expr(e, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "e", Atom = new EmbeddedRuleRef { Name = "star_expressions" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = "return" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "return_stmt" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "import" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "from" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "import_stmt" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = "raise" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "raise_stmt" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Pass(EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "pass" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = "del" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "del_stmt" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = "yield" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "yield_stmt" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = "assert" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "assert_stmt" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Break(EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "break" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Continue(EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "continue" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = "global" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "global_stmt" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = "nonlocal" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "nonlocal_stmt" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_simple_stmt);
+
+                // Rule: compound_stmt
+                var rule_compound_stmt = new EmbeddedRule
+                {
+                    Name = "compound_stmt",
+                    ReturnType = "stmt_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "def" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "@" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "ASYNC" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "function_def" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = "if" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "if_stmt" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "class" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "@" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "class_def" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "with" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "ASYNC" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "with_stmt" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "for" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "ASYNC" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "for_stmt" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = "try" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "try_stmt" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = "while" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "while_stmt" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "match_stmt" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_compound_stmt);
+
+                // Rule: assignment
+                var rule_assignment = new EmbeddedRule
+                {
+                    Name = "assignment",
+                    ReturnType = "stmt_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "CHECK_VERSION(\n            stmt_ty,\n            6,\n            \"Variable annotation syntax is\",\n            _PyAST_AnnAssign(CHECK(expr_ty, _PyPegen_set_expr_context(p, a, Store)), b, c, 1, EXTRA)\n        )",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "=" } }, new EmbeddedItem { Name = "d", Atom = new EmbeddedRuleRef { Name = "annotated_rhs" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "CHECK_VERSION(stmt_ty, 6, \"Variable annotations syntax is\", _PyAST_AnnAssign(a, b, c, 0, EXTRA))",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } }, new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "single_target" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "single_subscript_attribute_target" } }, } }, } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "=" } }, new EmbeddedItem { Name = "d", Atom = new EmbeddedRuleRef { Name = "annotated_rhs" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Assign(a, b, NEW_TYPE_COMMENT(p, tc), EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = "z", Atom = new EmbeddedRuleRef { Name = "star_targets" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "=" } }, } }, } } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "yield_expr" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_expressions" } }, } }, } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = "=" } } },
+                                new EmbeddedItem { Name = "tc", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "TYPE_COMMENT" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_AugAssign(a, b->kind, c, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "single_target" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "augassign" } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedCut { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "yield_expr" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_expressions" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_assignment" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_assignment);
+
+                // Rule: annotated_rhs
+                var rule_annotated_rhs = new EmbeddedRule
+                {
+                    Name = "annotated_rhs",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "yield_expr" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_expressions" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_annotated_rhs);
+
+                // Rule: augassign
+                var rule_augassign = new EmbeddedRule
+                {
+                    Name = "augassign",
+                    ReturnType = "AugOperator*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_augoperator(p, Add)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "+=" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_augoperator(p, Sub)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "-=" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_augoperator(p, Mult)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*=" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "CHECK_VERSION(AugOperator*, 5, \"The '@' operator is\", _PyPegen_augoperator(p, MatMult))",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "@=" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_augoperator(p, Div)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "/=" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_augoperator(p, Mod)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "%=" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_augoperator(p, BitAnd)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "&=" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_augoperator(p, BitOr)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "|=" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_augoperator(p, BitXor)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "^=" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_augoperator(p, LShift)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "<<=" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_augoperator(p, RShift)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ">>=" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_augoperator(p, Pow)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "**=" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_augoperator(p, FloorDiv)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "//=" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_augassign);
+
+                // Rule: return_stmt
+                var rule_return_stmt = new EmbeddedRule
+                {
+                    Name = "return_stmt",
+                    ReturnType = "stmt_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Return(a, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "return" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_expressions" } }, } }, } } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_return_stmt);
+
+                // Rule: raise_stmt
+                var rule_raise_stmt = new EmbeddedRule
+                {
+                    Name = "raise_stmt",
+                    ReturnType = "stmt_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Raise(a, b, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "raise" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "from" } }, new EmbeddedItem { Name = "z", Atom = new EmbeddedRuleRef { Name = "expression" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Raise(NULL, NULL, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "raise" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_raise_stmt);
+
+                // Rule: global_stmt
+                var rule_global_stmt = new EmbeddedRule
+                {
+                    Name = "global_stmt",
+                    ReturnType = "stmt_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Global(CHECK(asdl_identifier_seq*, _PyPegen_map_names_to_ids(p, a)), EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "global" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "NAME" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_global_stmt);
+
+                // Rule: nonlocal_stmt
+                var rule_nonlocal_stmt = new EmbeddedRule
+                {
+                    Name = "nonlocal_stmt",
+                    ReturnType = "stmt_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Nonlocal(CHECK(asdl_identifier_seq*, _PyPegen_map_names_to_ids(p, a)), EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "nonlocal" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "NAME" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_nonlocal_stmt);
+
+                // Rule: del_stmt
+                var rule_del_stmt = new EmbeddedRule
+                {
+                    Name = "del_stmt",
+                    ReturnType = "stmt_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Delete(a, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "del" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "del_targets" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ";" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_del_stmt" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_del_stmt);
+
+                // Rule: yield_stmt
+                var rule_yield_stmt = new EmbeddedRule
+                {
+                    Name = "yield_stmt",
+                    ReturnType = "stmt_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Expr(y, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "y", Atom = new EmbeddedRuleRef { Name = "yield_expr" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_yield_stmt);
+
+                // Rule: assert_stmt
+                var rule_assert_stmt = new EmbeddedRule
+                {
+                    Name = "assert_stmt",
+                    ReturnType = "stmt_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Assert(a, b, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "assert" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, new EmbeddedItem { Name = "z", Atom = new EmbeddedRuleRef { Name = "expression" } }, } }, } } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_assert_stmt);
+
+                // Rule: import_stmt
+                var rule_import_stmt = new EmbeddedRule
+                {
+                    Name = "import_stmt",
+                    ReturnType = "stmt_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_import" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "import_name" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "import_from" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_import_stmt);
+
+                // Rule: import_name
+                var rule_import_name = new EmbeddedRule
+                {
+                    Name = "import_name",
+                    ReturnType = "stmt_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Import(a, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "import" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "dotted_as_names" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_import_name);
+
+                // Rule: import_from
+                var rule_import_from = new EmbeddedRule
+                {
+                    Name = "import_from",
+                    ReturnType = "stmt_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_checked_future_import(p, b->v.Name.id, c, _PyPegen_seq_count_dots(a), EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "from" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "." } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "..." } }, } }, } } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "dotted_name" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "import" } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedRuleRef { Name = "import_from_targets" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_ImportFrom(NULL, b, _PyPegen_seq_count_dots(a), EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "from" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "." } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "..." } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "import" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "import_from_targets" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_import_from);
+
+                // Rule: import_from_targets
+                var rule_import_from_targets = new EmbeddedRule
+                {
+                    Name = "import_from_targets",
+                    ReturnType = "asdl_alias_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "import_from_as_names" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "import_from_as_names" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "(asdl_alias_seq*)_PyPegen_singleton_seq(p, CHECK(alias_ty, _PyPegen_alias_for_star(p, EXTRA)))",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_import_from_targets" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_import_from_targets);
+
+                // Rule: import_from_as_names
+                var rule_import_from_as_names = new EmbeddedRule
+                {
+                    Name = "import_from_as_names",
+                    ReturnType = "asdl_alias_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "import_from_as_name" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_import_from_as_names);
+
+                // Rule: import_from_as_name
+                var rule_import_from_as_name = new EmbeddedRule
+                {
+                    Name = "import_from_as_name",
+                    ReturnType = "alias_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_alias(a->v.Name.id,\n                                               (b) ? ((expr_ty) b)->v.Name.id : NULL,\n                                               EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "as" } }, new EmbeddedItem { Name = "z", Atom = new EmbeddedRuleRef { Name = "NAME" } }, } }, } } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_import_from_as_name);
+
+                // Rule: dotted_as_names
+                var rule_dotted_as_names = new EmbeddedRule
+                {
+                    Name = "dotted_as_names",
+                    ReturnType = "asdl_alias_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "dotted_as_name" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_dotted_as_names);
+
+                // Rule: dotted_as_name
+                var rule_dotted_as_name = new EmbeddedRule
+                {
+                    Name = "dotted_as_name",
+                    ReturnType = "alias_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_alias(a->v.Name.id,\n                                                      (b) ? ((expr_ty) b)->v.Name.id : NULL,\n                                                      EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "dotted_name" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "as" } }, new EmbeddedItem { Name = "z", Atom = new EmbeddedRuleRef { Name = "NAME" } }, } }, } } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_dotted_as_name);
+
+                // Rule: dotted_name
+                var rule_dotted_name = new EmbeddedRule
+                {
+                    Name = "dotted_name",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_join_names_with_dot(p, a, b)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "dotted_name" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "." } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_dotted_name);
+
+                // Rule: block
+                var rule_block = new EmbeddedRule
+                {
+                    Name = "block",
+                    ReturnType = "asdl_stmt_seq*",
+                    IsMemoized = true,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "INDENT" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "statements" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "DEDENT" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "simple_stmts" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_block" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_block);
+
+                // Rule: decorators
+                var rule_decorators = new EmbeddedRule
+                {
+                    Name = "decorators",
+                    ReturnType = "asdl_expr_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "@" } }, new EmbeddedItem { Name = "f", Atom = new EmbeddedRuleRef { Name = "named_expression" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } }, } }, } } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_decorators);
+
+                // Rule: class_def
+                var rule_class_def = new EmbeddedRule
+                {
+                    Name = "class_def",
+                    ReturnType = "stmt_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_class_def_decorators(p, a, b)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "decorators" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "class_def_raw" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "class_def_raw" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_class_def);
+
+                // Rule: class_def_raw
+                var rule_class_def_raw = new EmbeddedRule
+                {
+                    Name = "class_def_raw",
+                    ReturnType = "stmt_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_class_def_raw" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_ClassDef(a->v.Name.id,\n                     (b) ? ((expr_ty) b)->v.Call.args : NULL,\n                     (b) ? ((expr_ty) b)->v.Call.keywords : NULL,\n                     c, NULL, t, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "class" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                                new EmbeddedItem { Name = "t", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "type_params" } }, } }, } } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } }, new EmbeddedItem { Name = "z", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "arguments" } }, } }, } } } }, new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedRuleRef { Name = "block" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_class_def_raw);
+
+                // Rule: function_def
+                var rule_function_def = new EmbeddedRule
+                {
+                    Name = "function_def",
+                    ReturnType = "stmt_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_function_def_decorators(p, d, f)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "d", Atom = new EmbeddedRuleRef { Name = "decorators" } },
+                                new EmbeddedItem { Name = "f", Atom = new EmbeddedRuleRef { Name = "function_def_raw" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "function_def_raw" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_function_def);
+
+                // Rule: function_def_raw
+                var rule_function_def_raw = new EmbeddedRule
+                {
+                    Name = "function_def_raw",
+                    ReturnType = "stmt_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_def_raw" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_FunctionDef(n->v.Name.id,\n                        (params) ? params : CHECK(arguments_ty, _PyPegen_empty_arguments(p)),\n                        b, NULL, a, NEW_TYPE_COMMENT(p, tc), t, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "def" } },
+                                new EmbeddedItem { Name = "n", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                                new EmbeddedItem { Name = "t", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "type_params" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = "(" } } } },
+                                new EmbeddedItem { Name = "params", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "params" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "->" } }, new EmbeddedItem { Name = "z", Atom = new EmbeddedRuleRef { Name = "expression" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = ":" } } } },
+                                new EmbeddedItem { Name = "tc", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "func_type_comment" } }, } }, } } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "block" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "CHECK_VERSION(\n            stmt_ty,\n            5,\n            \"Async functions are\",\n            _PyAST_AsyncFunctionDef(n->v.Name.id,\n                            (params) ? params : CHECK(arguments_ty, _PyPegen_empty_arguments(p)),\n                            b, NULL, a, NEW_TYPE_COMMENT(p, tc), t, EXTRA)\n        )",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "ASYNC" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "def" } },
+                                new EmbeddedItem { Name = "n", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                                new EmbeddedItem { Name = "t", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "type_params" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = "(" } } } },
+                                new EmbeddedItem { Name = "params", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "params" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "->" } }, new EmbeddedItem { Name = "z", Atom = new EmbeddedRuleRef { Name = "expression" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = ":" } } } },
+                                new EmbeddedItem { Name = "tc", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "func_type_comment" } }, } }, } } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "block" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_function_def_raw);
+
+                // Rule: params
+                var rule_params = new EmbeddedRule
+                {
+                    Name = "params",
+                    ReturnType = "arguments_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_parameters" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "parameters" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_params);
+
+                // Rule: parameters
+                var rule_parameters = new EmbeddedRule
+                {
+                    Name = "parameters",
+                    ReturnType = "arguments_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "CHECK_VERSION(arguments_ty, 8, \"Positional-only parameters are\", _PyPegen_make_arguments(p, a, NULL, b, c, d))",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "slash_no_default" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "param_no_default" } } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "param_with_default" } } },
+                                new EmbeddedItem { Name = "d", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_etc" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "CHECK_VERSION(arguments_ty, 8, \"Positional-only parameters are\", _PyPegen_make_arguments(p, NULL, a, NULL, b, c))",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "slash_with_default" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "param_with_default" } } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_etc" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_make_arguments(p, NULL, NULL, a, b, c)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "param_no_default" } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "param_with_default" } } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_etc" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_make_arguments(p, NULL, NULL, NULL, a, b)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "param_with_default" } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_etc" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_make_arguments(p, NULL, NULL, NULL, NULL, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "star_etc" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_parameters);
+
+                // Rule: slash_no_default
+                var rule_slash_no_default = new EmbeddedRule
+                {
+                    Name = "slash_no_default",
+                    ReturnType = "asdl_arg_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "param_no_default" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "/" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "param_no_default" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "/" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = ")" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_slash_no_default);
+
+                // Rule: slash_with_default
+                var rule_slash_with_default = new EmbeddedRule
+                {
+                    Name = "slash_with_default",
+                    ReturnType = "SlashWithDefault*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "param_no_default" } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "param_with_default" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "/" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "param_no_default" } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "param_with_default" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "/" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = ")" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_slash_with_default);
+
+                // Rule: star_etc
+                var rule_star_etc = new EmbeddedRule
+                {
+                    Name = "star_etc",
+                    ReturnType = "StarEtc*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_star_etc" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_star_etc(p, a, b, c)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "param_no_default" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "param_maybe_default" } } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "kwds" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_star_etc(p, a, b, c)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "param_no_default_star_annotation" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "param_maybe_default" } } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "kwds" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_star_etc(p, NULL, b, c)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "param_maybe_default" } } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "kwds" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_star_etc(p, NULL, NULL, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "kwds" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_star_etc);
+
+                // Rule: kwds
+                var rule_kwds = new EmbeddedRule
+                {
+                    Name = "kwds",
+                    ReturnType = "arg_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_kwds" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "**" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "param_no_default" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_kwds);
+
+                // Rule: param_no_default
+                var rule_param_no_default = new EmbeddedRule
+                {
+                    Name = "param_no_default",
+                    ReturnType = "arg_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_add_type_comment_to_arg(p, a, tc)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "param" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = "tc", Atom = new EmbeddedOptional { Expression = new EmbeddedRuleRef { Name = "TYPE_COMMENT" } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_add_type_comment_to_arg(p, a, tc)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "param" } },
+                                new EmbeddedItem { Name = "tc", Atom = new EmbeddedOptional { Expression = new EmbeddedRuleRef { Name = "TYPE_COMMENT" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = ")" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_param_no_default);
+
+                // Rule: param_no_default_star_annotation
+                var rule_param_no_default_star_annotation = new EmbeddedRule
+                {
+                    Name = "param_no_default_star_annotation",
+                    ReturnType = "arg_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_add_type_comment_to_arg(p, a, tc)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "param_star_annotation" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = "tc", Atom = new EmbeddedOptional { Expression = new EmbeddedRuleRef { Name = "TYPE_COMMENT" } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_add_type_comment_to_arg(p, a, tc)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "param_star_annotation" } },
+                                new EmbeddedItem { Name = "tc", Atom = new EmbeddedOptional { Expression = new EmbeddedRuleRef { Name = "TYPE_COMMENT" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = ")" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_param_no_default_star_annotation);
+
+                // Rule: param_with_default
+                var rule_param_with_default = new EmbeddedRule
+                {
+                    Name = "param_with_default",
+                    ReturnType = "NameDefaultPair*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_name_default_pair(p, a, c, tc)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "param" } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedRuleRef { Name = "default" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = "tc", Atom = new EmbeddedOptional { Expression = new EmbeddedRuleRef { Name = "TYPE_COMMENT" } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_name_default_pair(p, a, c, tc)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "param" } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedRuleRef { Name = "default" } },
+                                new EmbeddedItem { Name = "tc", Atom = new EmbeddedOptional { Expression = new EmbeddedRuleRef { Name = "TYPE_COMMENT" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = ")" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_param_with_default);
+
+                // Rule: param_maybe_default
+                var rule_param_maybe_default = new EmbeddedRule
+                {
+                    Name = "param_maybe_default",
+                    ReturnType = "NameDefaultPair*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_name_default_pair(p, a, c, tc)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "param" } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedOptional { Expression = new EmbeddedRuleRef { Name = "default" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = "tc", Atom = new EmbeddedOptional { Expression = new EmbeddedRuleRef { Name = "TYPE_COMMENT" } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_name_default_pair(p, a, c, tc)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "param" } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedOptional { Expression = new EmbeddedRuleRef { Name = "default" } } },
+                                new EmbeddedItem { Name = "tc", Atom = new EmbeddedOptional { Expression = new EmbeddedRuleRef { Name = "TYPE_COMMENT" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = ")" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_param_maybe_default);
+
+                // Rule: param
+                var rule_param = new EmbeddedRule
+                {
+                    Name = "param",
+                    ReturnType = "arg_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_arg(a->v.Name.id, b, NULL, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedOptional { Expression = new EmbeddedRuleRef { Name = "annotation" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_param);
+
+                // Rule: param_star_annotation
+                var rule_param_star_annotation = new EmbeddedRule
+                {
+                    Name = "param_star_annotation",
+                    ReturnType = "arg_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_arg(a->v.Name.id, b, NULL, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "star_annotation" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_param_star_annotation);
+
+                // Rule: annotation
+                var rule_annotation = new EmbeddedRule
+                {
+                    Name = "annotation",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_annotation);
+
+                // Rule: star_annotation
+                var rule_star_annotation = new EmbeddedRule
+                {
+                    Name = "star_annotation",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "star_expression" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_star_annotation);
+
+                // Rule: default
+                var rule_default = new EmbeddedRule
+                {
+                    Name = "default",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "=" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_default" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_default);
+
+                // Rule: if_stmt
+                var rule_if_stmt = new EmbeddedRule
+                {
+                    Name = "if_stmt",
+                    ReturnType = "stmt_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_if_stmt" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_If(a, b, CHECK(asdl_stmt_seq*, _PyPegen_singleton_seq(p, c)), EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "if" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "named_expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "block" } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedRuleRef { Name = "elif_stmt" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_If(a, b, c, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "if" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "named_expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "block" } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "else_block" } }, } }, } } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_if_stmt);
+
+                // Rule: elif_stmt
+                var rule_elif_stmt = new EmbeddedRule
+                {
+                    Name = "elif_stmt",
+                    ReturnType = "stmt_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_elif_stmt" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_If(a, b, CHECK(asdl_stmt_seq*, _PyPegen_singleton_seq(p, c)), EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "elif" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "named_expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "block" } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedRuleRef { Name = "elif_stmt" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_If(a, b, c, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "elif" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "named_expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "block" } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "else_block" } }, } }, } } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_elif_stmt);
+
+                // Rule: else_block
+                var rule_else_block = new EmbeddedRule
+                {
+                    Name = "else_block",
+                    ReturnType = "asdl_stmt_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_else_stmt" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "b",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "else" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = ":" } } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "block" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_else_block);
+
+                // Rule: while_stmt
+                var rule_while_stmt = new EmbeddedRule
+                {
+                    Name = "while_stmt",
+                    ReturnType = "stmt_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_while_stmt" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_While(a, b, c, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "while" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "named_expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "block" } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "else_block" } }, } }, } } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_while_stmt);
+
+                // Rule: for_stmt
+                var rule_for_stmt = new EmbeddedRule
+                {
+                    Name = "for_stmt",
+                    ReturnType = "stmt_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_for_stmt" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_For(t, ex, b, el, NEW_TYPE_COMMENT(p, tc), EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "for" } },
+                                new EmbeddedItem { Name = "t", Atom = new EmbeddedRuleRef { Name = "star_targets" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "in" } },
+                                new EmbeddedItem { Name = "ex", Atom = new EmbeddedCut { Expression = new EmbeddedRuleRef { Name = "star_expressions" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "tc", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "TYPE_COMMENT" } }, } }, } } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "block" } },
+                                new EmbeddedItem { Name = "el", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "else_block" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "CHECK_VERSION(stmt_ty, 5, \"Async for loops are\", _PyAST_AsyncFor(t, ex, b, el, NEW_TYPE_COMMENT(p, tc), EXTRA))",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "ASYNC" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "for" } },
+                                new EmbeddedItem { Name = "t", Atom = new EmbeddedRuleRef { Name = "star_targets" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "in" } },
+                                new EmbeddedItem { Name = "ex", Atom = new EmbeddedCut { Expression = new EmbeddedRuleRef { Name = "star_expressions" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "tc", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "TYPE_COMMENT" } }, } }, } } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "block" } },
+                                new EmbeddedItem { Name = "el", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "else_block" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_for_target" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_for_stmt);
+
+                // Rule: with_stmt
+                var rule_with_stmt = new EmbeddedRule
+                {
+                    Name = "with_stmt",
+                    ReturnType = "stmt_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_with_stmt_indent" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_With(a, b, NULL, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "with" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "with_item" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "block" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_With(a, b, NEW_TYPE_COMMENT(p, tc), EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "with" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "with_item" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "tc", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "TYPE_COMMENT" } }, } }, } } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "block" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "CHECK_VERSION(stmt_ty, 5, \"Async with statements are\", _PyAST_AsyncWith(a, b, NULL, EXTRA))",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "ASYNC" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "with" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "with_item" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "block" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "CHECK_VERSION(stmt_ty, 5, \"Async with statements are\", _PyAST_AsyncWith(a, b, NEW_TYPE_COMMENT(p, tc), EXTRA))",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "ASYNC" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "with" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "with_item" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "tc", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "TYPE_COMMENT" } }, } }, } } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "block" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_with_stmt" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_with_stmt);
+
+                // Rule: with_item
+                var rule_with_item = new EmbeddedRule
+                {
+                    Name = "with_item",
+                    ReturnType = "withitem_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_withitem(e, t, p->arena)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "e", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "as" } },
+                                new EmbeddedItem { Name = "t", Atom = new EmbeddedRuleRef { Name = "star_target" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_with_item" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_withitem(e, NULL, p->arena)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "e", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_with_item);
+
+                // Rule: try_stmt
+                var rule_try_stmt = new EmbeddedRule
+                {
+                    Name = "try_stmt",
+                    ReturnType = "stmt_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_try_stmt" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Try(b, NULL, NULL, f, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "try" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = ":" } } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "block" } },
+                                new EmbeddedItem { Name = "f", Atom = new EmbeddedRuleRef { Name = "finally_block" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Try(b, ex, el, f, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "try" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = ":" } } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "block" } },
+                                new EmbeddedItem { Name = "ex", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "except_block" } } },
+                                new EmbeddedItem { Name = "el", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "else_block" } }, } }, } } } },
+                                new EmbeddedItem { Name = "f", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "finally_block" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "CHECK_VERSION(stmt_ty, 11, \"Exception groups are\",\n                      _PyAST_TryStar(b, ex, el, f, EXTRA))",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "try" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = ":" } } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "block" } },
+                                new EmbeddedItem { Name = "ex", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "except_star_block" } } },
+                                new EmbeddedItem { Name = "el", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "else_block" } }, } }, } } } },
+                                new EmbeddedItem { Name = "f", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "finally_block" } }, } }, } } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_try_stmt);
+
+                // Rule: except_block
+                var rule_except_block = new EmbeddedRule
+                {
+                    Name = "except_block",
+                    ReturnType = "excepthandler_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_except_stmt_indent" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_ExceptHandler(e, (t) ? ((expr_ty) t)->v.Name.id : NULL, b, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "except" } },
+                                new EmbeddedItem { Name = "e", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = "t", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "as" } }, new EmbeddedItem { Name = "z", Atom = new EmbeddedRuleRef { Name = "NAME" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "block" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_ExceptHandler(NULL, NULL, b, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "except" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "block" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_except_stmt" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_except_block);
+
+                // Rule: except_star_block
+                var rule_except_star_block = new EmbeddedRule
+                {
+                    Name = "except_star_block",
+                    ReturnType = "excepthandler_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_except_star_stmt_indent" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_ExceptHandler(e, (t) ? ((expr_ty) t)->v.Name.id : NULL, b, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "except" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = "e", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = "t", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "as" } }, new EmbeddedItem { Name = "z", Atom = new EmbeddedRuleRef { Name = "NAME" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "block" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_except_stmt" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_except_star_block);
+
+                // Rule: finally_block
+                var rule_finally_block = new EmbeddedRule
+                {
+                    Name = "finally_block",
+                    ReturnType = "asdl_stmt_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_finally_stmt" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "finally" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = ":" } } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "block" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_finally_block);
+
+                // Rule: match_stmt
+                var rule_match_stmt = new EmbeddedRule
+                {
+                    Name = "match_stmt",
+                    ReturnType = "stmt_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "CHECK_VERSION(stmt_ty, 10, \"Pattern matching is\", _PyAST_Match(subject, cases, EXTRA))",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "\"match\"" } },
+                                new EmbeddedItem { Name = "subject", Atom = new EmbeddedRuleRef { Name = "subject_expr" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "INDENT" } },
+                                new EmbeddedItem { Name = "cases", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "case_block" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "DEDENT" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_match_stmt" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_match_stmt);
+
+                // Rule: subject_expr
+                var rule_subject_expr = new EmbeddedRule
+                {
+                    Name = "subject_expr",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_seq_insert_in_front(p, value, values)), Load, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "value", Atom = new EmbeddedRuleRef { Name = "star_named_expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = "values", Atom = new EmbeddedOptional { Expression = new EmbeddedRuleRef { Name = "star_named_expressions" } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "named_expression" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_subject_expr);
+
+                // Rule: case_block
+                var rule_case_block = new EmbeddedRule
+                {
+                    Name = "case_block",
+                    ReturnType = "match_case_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_case_block" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_match_case(pattern, guard, body, p->arena)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "\"case\"" } },
+                                new EmbeddedItem { Name = "pattern", Atom = new EmbeddedRuleRef { Name = "patterns" } },
+                                new EmbeddedItem { Name = "guard", Atom = new EmbeddedOptional { Expression = new EmbeddedRuleRef { Name = "guard" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "body", Atom = new EmbeddedRuleRef { Name = "block" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_case_block);
+
+                // Rule: guard
+                var rule_guard = new EmbeddedRule
+                {
+                    Name = "guard",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "guard",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "if" } },
+                                new EmbeddedItem { Name = "guard", Atom = new EmbeddedRuleRef { Name = "named_expression" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_guard);
+
+                // Rule: patterns
+                var rule_patterns = new EmbeddedRule
+                {
+                    Name = "patterns",
+                    ReturnType = "pattern_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_MatchSequence(patterns, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "patterns", Atom = new EmbeddedRuleRef { Name = "open_sequence_pattern" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "pattern" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_patterns);
+
+                // Rule: pattern
+                var rule_pattern = new EmbeddedRule
+                {
+                    Name = "pattern",
+                    ReturnType = "pattern_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "as_pattern" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "or_pattern" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_pattern);
+
+                // Rule: as_pattern
+                var rule_as_pattern = new EmbeddedRule
+                {
+                    Name = "as_pattern",
+                    ReturnType = "pattern_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_MatchAs(pattern, target->v.Name.id, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "pattern", Atom = new EmbeddedRuleRef { Name = "or_pattern" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "as" } },
+                                new EmbeddedItem { Name = "target", Atom = new EmbeddedRuleRef { Name = "pattern_capture_target" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_as_pattern" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_as_pattern);
+
+                // Rule: or_pattern
+                var rule_or_pattern = new EmbeddedRule
+                {
+                    Name = "or_pattern",
+                    ReturnType = "pattern_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "asdl_seq_LEN(patterns) == 1 ? asdl_seq_GET(patterns, 0) : _PyAST_MatchOr(patterns, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "patterns", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "|" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "closed_pattern" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_or_pattern);
+
+                // Rule: closed_pattern
+                var rule_closed_pattern = new EmbeddedRule
+                {
+                    Name = "closed_pattern",
+                    ReturnType = "pattern_ty",
+                    IsMemoized = true,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "literal_pattern" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "capture_pattern" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "wildcard_pattern" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "value_pattern" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "group_pattern" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "sequence_pattern" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "mapping_pattern" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "class_pattern" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_closed_pattern);
+
+                // Rule: literal_pattern
+                var rule_literal_pattern = new EmbeddedRule
+                {
+                    Name = "literal_pattern",
+                    ReturnType = "pattern_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_MatchValue(value, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "value", Atom = new EmbeddedRuleRef { Name = "signed_number" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "+" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "-" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_MatchValue(value, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "value", Atom = new EmbeddedRuleRef { Name = "complex_number" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_MatchValue(value, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "value", Atom = new EmbeddedRuleRef { Name = "strings" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_MatchSingleton(Py_None, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "None" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_MatchSingleton(Py_True, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "True" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_MatchSingleton(Py_False, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "False" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_literal_pattern);
+
+                // Rule: literal_expr
+                var rule_literal_expr = new EmbeddedRule
+                {
+                    Name = "literal_expr",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "signed_number" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "+" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "-" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "complex_number" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "strings" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Constant(Py_None, NULL, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "None" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Constant(Py_True, NULL, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "True" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Constant(Py_False, NULL, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "False" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_literal_expr);
+
+                // Rule: complex_number
+                var rule_complex_number = new EmbeddedRule
+                {
+                    Name = "complex_number",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_BinOp(real, Add, imag, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "real", Atom = new EmbeddedRuleRef { Name = "signed_real_number" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "+" } },
+                                new EmbeddedItem { Name = "imag", Atom = new EmbeddedRuleRef { Name = "imaginary_number" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_BinOp(real, Sub, imag, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "real", Atom = new EmbeddedRuleRef { Name = "signed_real_number" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "-" } },
+                                new EmbeddedItem { Name = "imag", Atom = new EmbeddedRuleRef { Name = "imaginary_number" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_complex_number);
+
+                // Rule: signed_number
+                var rule_signed_number = new EmbeddedRule
+                {
+                    Name = "signed_number",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NUMBER" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_UnaryOp(USub, number, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "-" } },
+                                new EmbeddedItem { Name = "number", Atom = new EmbeddedRuleRef { Name = "NUMBER" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_signed_number);
+
+                // Rule: signed_real_number
+                var rule_signed_real_number = new EmbeddedRule
+                {
+                    Name = "signed_real_number",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "real_number" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_UnaryOp(USub, real, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "-" } },
+                                new EmbeddedItem { Name = "real", Atom = new EmbeddedRuleRef { Name = "real_number" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_signed_real_number);
+
+                // Rule: real_number
+                var rule_real_number = new EmbeddedRule
+                {
+                    Name = "real_number",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_ensure_real(p, real)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "real", Atom = new EmbeddedRuleRef { Name = "NUMBER" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_real_number);
+
+                // Rule: imaginary_number
+                var rule_imaginary_number = new EmbeddedRule
+                {
+                    Name = "imaginary_number",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_ensure_imaginary(p, imag)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "imag", Atom = new EmbeddedRuleRef { Name = "NUMBER" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_imaginary_number);
+
+                // Rule: capture_pattern
+                var rule_capture_pattern = new EmbeddedRule
+                {
+                    Name = "capture_pattern",
+                    ReturnType = "pattern_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_MatchAs(NULL, target->v.Name.id, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "target", Atom = new EmbeddedRuleRef { Name = "pattern_capture_target" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_capture_pattern);
+
+                // Rule: pattern_capture_target
+                var rule_pattern_capture_target = new EmbeddedRule
+                {
+                    Name = "pattern_capture_target",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_set_expr_context(p, name, Store)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = "\"_\"" } } },
+                                new EmbeddedItem { Name = "name", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "." } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "=" } }, } }, } } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_pattern_capture_target);
+
+                // Rule: wildcard_pattern
+                var rule_wildcard_pattern = new EmbeddedRule
+                {
+                    Name = "wildcard_pattern",
+                    ReturnType = "pattern_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_MatchAs(NULL, NULL, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "\"_\"" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_wildcard_pattern);
+
+                // Rule: value_pattern
+                var rule_value_pattern = new EmbeddedRule
+                {
+                    Name = "value_pattern",
+                    ReturnType = "pattern_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_MatchValue(attr, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "attr", Atom = new EmbeddedRuleRef { Name = "attr" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "." } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "=" } }, } }, } } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_value_pattern);
+
+                // Rule: attr
+                var rule_attr = new EmbeddedRule
+                {
+                    Name = "attr",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Attribute(value, attr->v.Name.id, Load, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "value", Atom = new EmbeddedRuleRef { Name = "name_or_attr" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "." } },
+                                new EmbeddedItem { Name = "attr", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_attr);
+
+                // Rule: name_or_attr
+                var rule_name_or_attr = new EmbeddedRule
+                {
+                    Name = "name_or_attr",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "attr" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_name_or_attr);
+
+                // Rule: group_pattern
+                var rule_group_pattern = new EmbeddedRule
+                {
+                    Name = "group_pattern",
+                    ReturnType = "pattern_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "pattern",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = "pattern", Atom = new EmbeddedRuleRef { Name = "pattern" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_group_pattern);
+
+                // Rule: sequence_pattern
+                var rule_sequence_pattern = new EmbeddedRule
+                {
+                    Name = "sequence_pattern",
+                    ReturnType = "pattern_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_MatchSequence(patterns, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "[" } },
+                                new EmbeddedItem { Name = "patterns", Atom = new EmbeddedOptional { Expression = new EmbeddedRuleRef { Name = "maybe_sequence_pattern" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "]" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_MatchSequence(patterns, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = "patterns", Atom = new EmbeddedOptional { Expression = new EmbeddedRuleRef { Name = "open_sequence_pattern" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_sequence_pattern);
+
+                // Rule: open_sequence_pattern
+                var rule_open_sequence_pattern = new EmbeddedRule
+                {
+                    Name = "open_sequence_pattern",
+                    ReturnType = "asdl_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_seq_insert_in_front(p, pattern, patterns)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "pattern", Atom = new EmbeddedRuleRef { Name = "maybe_star_pattern" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = "patterns", Atom = new EmbeddedOptional { Expression = new EmbeddedRuleRef { Name = "maybe_sequence_pattern" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_open_sequence_pattern);
+
+                // Rule: maybe_sequence_pattern
+                var rule_maybe_sequence_pattern = new EmbeddedRule
+                {
+                    Name = "maybe_sequence_pattern",
+                    ReturnType = "asdl_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "patterns",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "patterns", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "maybe_star_pattern" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_maybe_sequence_pattern);
+
+                // Rule: maybe_star_pattern
+                var rule_maybe_star_pattern = new EmbeddedRule
+                {
+                    Name = "maybe_star_pattern",
+                    ReturnType = "pattern_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_pattern" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "pattern" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_maybe_star_pattern);
+
+                // Rule: star_pattern
+                var rule_star_pattern = new EmbeddedRule
+                {
+                    Name = "star_pattern",
+                    ReturnType = "pattern_ty",
+                    IsMemoized = true,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_MatchStar(target->v.Name.id, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = "target", Atom = new EmbeddedRuleRef { Name = "pattern_capture_target" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_MatchStar(NULL, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "wildcard_pattern" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_star_pattern);
+
+                // Rule: mapping_pattern
+                var rule_mapping_pattern = new EmbeddedRule
+                {
+                    Name = "mapping_pattern",
+                    ReturnType = "pattern_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_MatchMapping(NULL, NULL, NULL, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "{" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "}" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_MatchMapping(NULL, NULL, rest->v.Name.id, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "{" } },
+                                new EmbeddedItem { Name = "rest", Atom = new EmbeddedRuleRef { Name = "double_star_pattern" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "}" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_MatchMapping(\n            CHECK(asdl_expr_seq*, _PyPegen_get_pattern_keys(p, items)),\n            CHECK(asdl_pattern_seq*, _PyPegen_get_patterns(p, items)),\n            rest->v.Name.id,\n            EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "{" } },
+                                new EmbeddedItem { Name = "items", Atom = new EmbeddedRuleRef { Name = "items_pattern" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = "rest", Atom = new EmbeddedRuleRef { Name = "double_star_pattern" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "}" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_MatchMapping(\n            CHECK(asdl_expr_seq*, _PyPegen_get_pattern_keys(p, items)),\n            CHECK(asdl_pattern_seq*, _PyPegen_get_patterns(p, items)),\n            NULL,\n            EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "{" } },
+                                new EmbeddedItem { Name = "items", Atom = new EmbeddedRuleRef { Name = "items_pattern" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "}" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_mapping_pattern);
+
+                // Rule: items_pattern
+                var rule_items_pattern = new EmbeddedRule
+                {
+                    Name = "items_pattern",
+                    ReturnType = "asdl_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "key_value_pattern" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_items_pattern);
+
+                // Rule: key_value_pattern
+                var rule_key_value_pattern = new EmbeddedRule
+                {
+                    Name = "key_value_pattern",
+                    ReturnType = "KeyPatternPair*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_key_pattern_pair(p, key, pattern)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "key", Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "literal_expr" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "attr" } }, } }, } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "pattern", Atom = new EmbeddedRuleRef { Name = "pattern" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_key_value_pattern);
+
+                // Rule: double_star_pattern
+                var rule_double_star_pattern = new EmbeddedRule
+                {
+                    Name = "double_star_pattern",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "target",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "**" } },
+                                new EmbeddedItem { Name = "target", Atom = new EmbeddedRuleRef { Name = "pattern_capture_target" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_double_star_pattern);
+
+                // Rule: class_pattern
+                var rule_class_pattern = new EmbeddedRule
+                {
+                    Name = "class_pattern",
+                    ReturnType = "pattern_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_MatchClass(cls, NULL, NULL, NULL, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "cls", Atom = new EmbeddedRuleRef { Name = "name_or_attr" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_MatchClass(cls, patterns, NULL, NULL, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "cls", Atom = new EmbeddedRuleRef { Name = "name_or_attr" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = "patterns", Atom = new EmbeddedRuleRef { Name = "positional_patterns" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_MatchClass(\n            cls, NULL,\n            CHECK(asdl_identifier_seq*, _PyPegen_map_names_to_ids(p,\n                CHECK(asdl_expr_seq*, _PyPegen_get_pattern_keys(p, keywords)))),\n            CHECK(asdl_pattern_seq*, _PyPegen_get_patterns(p, keywords)),\n            EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "cls", Atom = new EmbeddedRuleRef { Name = "name_or_attr" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = "keywords", Atom = new EmbeddedRuleRef { Name = "keyword_patterns" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_MatchClass(\n            cls,\n            patterns,\n            CHECK(asdl_identifier_seq*, _PyPegen_map_names_to_ids(p,\n                CHECK(asdl_expr_seq*, _PyPegen_get_pattern_keys(p, keywords)))),\n            CHECK(asdl_pattern_seq*, _PyPegen_get_patterns(p, keywords)),\n            EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "cls", Atom = new EmbeddedRuleRef { Name = "name_or_attr" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = "patterns", Atom = new EmbeddedRuleRef { Name = "positional_patterns" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = "keywords", Atom = new EmbeddedRuleRef { Name = "keyword_patterns" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_class_pattern" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_class_pattern);
+
+                // Rule: positional_patterns
+                var rule_positional_patterns = new EmbeddedRule
+                {
+                    Name = "positional_patterns",
+                    ReturnType = "asdl_pattern_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "args",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "args", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "pattern" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_positional_patterns);
+
+                // Rule: keyword_patterns
+                var rule_keyword_patterns = new EmbeddedRule
+                {
+                    Name = "keyword_patterns",
+                    ReturnType = "asdl_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "keyword_pattern" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_keyword_patterns);
+
+                // Rule: keyword_pattern
+                var rule_keyword_pattern = new EmbeddedRule
+                {
+                    Name = "keyword_pattern",
+                    ReturnType = "KeyPatternPair*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_key_pattern_pair(p, arg, value)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "arg", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "=" } },
+                                new EmbeddedItem { Name = "value", Atom = new EmbeddedRuleRef { Name = "pattern" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_keyword_pattern);
+
+                // Rule: type_alias
+                var rule_type_alias = new EmbeddedRule
+                {
+                    Name = "type_alias",
+                    ReturnType = "stmt_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "CHECK_VERSION(stmt_ty, 12, \"Type statement is\",\n        _PyAST_TypeAlias(CHECK(expr_ty, _PyPegen_set_expr_context(p, n, Store)), t, b, EXTRA))",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "\"type\"" } },
+                                new EmbeddedItem { Name = "n", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                                new EmbeddedItem { Name = "t", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "type_params" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "=" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_type_alias);
+
+                // Rule: type_params
+                var rule_type_params = new EmbeddedRule
+                {
+                    Name = "type_params",
+                    ReturnType = "asdl_type_param_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "CHECK_VERSION(asdl_type_param_seq *, 12, \"Type parameter lists are\", t)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "[" } },
+                                new EmbeddedItem { Name = "t", Atom = new EmbeddedRuleRef { Name = "type_param_seq" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "]" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_type_params);
+
+                // Rule: type_param_seq
+                var rule_type_param_seq = new EmbeddedRule
+                {
+                    Name = "type_param_seq",
+                    ReturnType = "asdl_type_param_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "type_param" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_type_param_seq);
+
+                // Rule: type_param
+                var rule_type_param = new EmbeddedRule
+                {
+                    Name = "type_param",
+                    ReturnType = "type_param_ty",
+                    IsMemoized = true,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_TypeVar(a->v.Name.id, b, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "type_param_bound" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_STARTING_FROM(colon, e->kind == Tuple_kind\n                ? \"cannot use constraints with TypeVarTuple\"\n                : \"cannot use bound with TypeVarTuple\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                                new EmbeddedItem { Name = "colon", Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "e", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_TypeVarTuple(a->v.Name.id, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_STARTING_FROM(colon, e->kind == Tuple_kind\n                ? \"cannot use constraints with ParamSpec\"\n                : \"cannot use bound with ParamSpec\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "**" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                                new EmbeddedItem { Name = "colon", Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "e", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_ParamSpec(a->v.Name.id, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "**" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_type_param);
+
+                // Rule: type_param_bound
+                var rule_type_param_bound = new EmbeddedRule
+                {
+                    Name = "type_param_bound",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "e",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "e", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_type_param_bound);
+
+                // Rule: expressions
+                var rule_expressions = new EmbeddedRule
+                {
+                    Name = "expressions",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_seq_insert_in_front(p, a, b)), Load, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, new EmbeddedItem { Name = "c", Atom = new EmbeddedRuleRef { Name = "expression" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_singleton_seq(p, a)), Load, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_expressions);
+
+                // Rule: expression
+                var rule_expression = new EmbeddedRule
+                {
+                    Name = "expression",
+                    ReturnType = "expr_ty",
+                    IsMemoized = true,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_expression" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_legacy_expression" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_IfExp(b, a, c, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "disjunction" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "if" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "disjunction" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "else" } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "disjunction" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "lambdef" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_expression);
+
+                // Rule: yield_expr
+                var rule_yield_expr = new EmbeddedRule
+                {
+                    Name = "yield_expr",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_YieldFrom(a, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "yield" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "from" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Yield(a, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "yield" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_expressions" } }, } }, } } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_yield_expr);
+
+                // Rule: star_expressions
+                var rule_star_expressions = new EmbeddedRule
+                {
+                    Name = "star_expressions",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_seq_insert_in_front(p, a, b)), Load, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "star_expression" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, new EmbeddedItem { Name = "c", Atom = new EmbeddedRuleRef { Name = "star_expression" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_singleton_seq(p, a)), Load, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "star_expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_expression" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_star_expressions);
+
+                // Rule: star_expression
+                var rule_star_expression = new EmbeddedRule
+                {
+                    Name = "star_expression",
+                    ReturnType = "expr_ty",
+                    IsMemoized = true,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Starred(a, Load, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "bitwise_or" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_star_expression);
+
+                // Rule: star_named_expressions
+                var rule_star_named_expressions = new EmbeddedRule
+                {
+                    Name = "star_named_expressions",
+                    ReturnType = "asdl_expr_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "star_named_expression" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_star_named_expressions);
+
+                // Rule: star_named_expression
+                var rule_star_named_expression = new EmbeddedRule
+                {
+                    Name = "star_named_expression",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Starred(a, Load, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "bitwise_or" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "named_expression" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_star_named_expression);
+
+                // Rule: assignment_expression
+                var rule_assignment_expression = new EmbeddedRule
+                {
+                    Name = "assignment_expression",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "CHECK_VERSION(expr_ty, 8, \"Assignment expressions are\",\n        _PyAST_NamedExpr(CHECK(expr_ty, _PyPegen_set_expr_context(p, a, Store)), b, EXTRA))",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":=" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedCut { Expression = new EmbeddedRuleRef { Name = "expression" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_assignment_expression);
+
+                // Rule: named_expression
+                var rule_named_expression = new EmbeddedRule
+                {
+                    Name = "named_expression",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "assignment_expression" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_named_expression" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = ":=" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_named_expression);
+
+                // Rule: disjunction
+                var rule_disjunction = new EmbeddedRule
+                {
+                    Name = "disjunction",
+                    ReturnType = "expr_ty",
+                    IsMemoized = true,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_BoolOp(\n        Or,\n        CHECK(asdl_expr_seq*, _PyPegen_seq_insert_in_front(p, a, b)),\n        EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "conjunction" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "or" } }, new EmbeddedItem { Name = "c", Atom = new EmbeddedRuleRef { Name = "conjunction" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "conjunction" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_disjunction);
+
+                // Rule: conjunction
+                var rule_conjunction = new EmbeddedRule
+                {
+                    Name = "conjunction",
+                    ReturnType = "expr_ty",
+                    IsMemoized = true,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_BoolOp(\n        And,\n        CHECK(asdl_expr_seq*, _PyPegen_seq_insert_in_front(p, a, b)),\n        EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "inversion" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "and" } }, new EmbeddedItem { Name = "c", Atom = new EmbeddedRuleRef { Name = "inversion" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "inversion" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_conjunction);
+
+                // Rule: inversion
+                var rule_inversion = new EmbeddedRule
+                {
+                    Name = "inversion",
+                    ReturnType = "expr_ty",
+                    IsMemoized = true,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_UnaryOp(Not, a, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "not" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "inversion" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "comparison" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_inversion);
+
+                // Rule: comparison
+                var rule_comparison = new EmbeddedRule
+                {
+                    Name = "comparison",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Compare(\n            a,\n            CHECK(asdl_int_seq*, _PyPegen_get_cmpops(p, b)),\n            CHECK(asdl_expr_seq*, _PyPegen_get_exprs(p, b)),\n            EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "bitwise_or" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "compare_op_bitwise_or_pair" } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "bitwise_or" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_comparison);
+
+                // Rule: compare_op_bitwise_or_pair
+                var rule_compare_op_bitwise_or_pair = new EmbeddedRule
+                {
+                    Name = "compare_op_bitwise_or_pair",
+                    ReturnType = "CmpopExprPair*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "eq_bitwise_or" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "noteq_bitwise_or" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "lte_bitwise_or" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "lt_bitwise_or" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "gte_bitwise_or" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "gt_bitwise_or" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "notin_bitwise_or" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "in_bitwise_or" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "isnot_bitwise_or" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "is_bitwise_or" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_compare_op_bitwise_or_pair);
+
+                // Rule: eq_bitwise_or
+                var rule_eq_bitwise_or = new EmbeddedRule
+                {
+                    Name = "eq_bitwise_or",
+                    ReturnType = "CmpopExprPair*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_cmpop_expr_pair(p, Eq, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "==" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "bitwise_or" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_eq_bitwise_or);
+
+                // Rule: noteq_bitwise_or
+                var rule_noteq_bitwise_or = new EmbeddedRule
+                {
+                    Name = "noteq_bitwise_or",
+                    ReturnType = "CmpopExprPair*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_cmpop_expr_pair(p, NotEq, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = "tok", Atom = new EmbeddedStringLiteral { Value = "!=" } }, } }, } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "bitwise_or" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_noteq_bitwise_or);
+
+                // Rule: lte_bitwise_or
+                var rule_lte_bitwise_or = new EmbeddedRule
+                {
+                    Name = "lte_bitwise_or",
+                    ReturnType = "CmpopExprPair*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_cmpop_expr_pair(p, LtE, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "<=" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "bitwise_or" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_lte_bitwise_or);
+
+                // Rule: lt_bitwise_or
+                var rule_lt_bitwise_or = new EmbeddedRule
+                {
+                    Name = "lt_bitwise_or",
+                    ReturnType = "CmpopExprPair*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_cmpop_expr_pair(p, Lt, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "<" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "bitwise_or" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_lt_bitwise_or);
+
+                // Rule: gte_bitwise_or
+                var rule_gte_bitwise_or = new EmbeddedRule
+                {
+                    Name = "gte_bitwise_or",
+                    ReturnType = "CmpopExprPair*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_cmpop_expr_pair(p, GtE, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ">=" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "bitwise_or" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_gte_bitwise_or);
+
+                // Rule: gt_bitwise_or
+                var rule_gt_bitwise_or = new EmbeddedRule
+                {
+                    Name = "gt_bitwise_or",
+                    ReturnType = "CmpopExprPair*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_cmpop_expr_pair(p, Gt, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ">" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "bitwise_or" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_gt_bitwise_or);
+
+                // Rule: notin_bitwise_or
+                var rule_notin_bitwise_or = new EmbeddedRule
+                {
+                    Name = "notin_bitwise_or",
+                    ReturnType = "CmpopExprPair*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_cmpop_expr_pair(p, NotIn, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "not" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "in" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "bitwise_or" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_notin_bitwise_or);
+
+                // Rule: in_bitwise_or
+                var rule_in_bitwise_or = new EmbeddedRule
+                {
+                    Name = "in_bitwise_or",
+                    ReturnType = "CmpopExprPair*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_cmpop_expr_pair(p, In, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "in" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "bitwise_or" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_in_bitwise_or);
+
+                // Rule: isnot_bitwise_or
+                var rule_isnot_bitwise_or = new EmbeddedRule
+                {
+                    Name = "isnot_bitwise_or",
+                    ReturnType = "CmpopExprPair*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_cmpop_expr_pair(p, IsNot, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "is" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "not" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "bitwise_or" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_isnot_bitwise_or);
+
+                // Rule: is_bitwise_or
+                var rule_is_bitwise_or = new EmbeddedRule
+                {
+                    Name = "is_bitwise_or",
+                    ReturnType = "CmpopExprPair*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_cmpop_expr_pair(p, Is, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "is" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "bitwise_or" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_is_bitwise_or);
+
+                // Rule: bitwise_or
+                var rule_bitwise_or = new EmbeddedRule
+                {
+                    Name = "bitwise_or",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_BinOp(a, BitOr, b, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "bitwise_or" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "|" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "bitwise_xor" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "bitwise_xor" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_bitwise_or);
+
+                // Rule: bitwise_xor
+                var rule_bitwise_xor = new EmbeddedRule
+                {
+                    Name = "bitwise_xor",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_BinOp(a, BitXor, b, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "bitwise_xor" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "^" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "bitwise_and" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "bitwise_and" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_bitwise_xor);
+
+                // Rule: bitwise_and
+                var rule_bitwise_and = new EmbeddedRule
+                {
+                    Name = "bitwise_and",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_BinOp(a, BitAnd, b, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "bitwise_and" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "&" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "shift_expr" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "shift_expr" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_bitwise_and);
+
+                // Rule: shift_expr
+                var rule_shift_expr = new EmbeddedRule
+                {
+                    Name = "shift_expr",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_BinOp(a, LShift, b, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "shift_expr" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "<<" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "sum" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_BinOp(a, RShift, b, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "shift_expr" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ">>" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "sum" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "sum" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_shift_expr);
+
+                // Rule: sum
+                var rule_sum = new EmbeddedRule
+                {
+                    Name = "sum",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_BinOp(a, Add, b, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "sum" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "+" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "term" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_BinOp(a, Sub, b, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "sum" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "-" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "term" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "term" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_sum);
+
+                // Rule: term
+                var rule_term = new EmbeddedRule
+                {
+                    Name = "term",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_BinOp(a, Mult, b, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "term" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "factor" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_BinOp(a, Div, b, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "term" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "/" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "factor" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_BinOp(a, FloorDiv, b, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "term" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "//" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "factor" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_BinOp(a, Mod, b, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "term" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "%" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "factor" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "CHECK_VERSION(expr_ty, 5, \"The '@' operator is\", _PyAST_BinOp(a, MatMult, b, EXTRA))",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "term" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "@" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "factor" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "factor" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_term);
+
+                // Rule: factor
+                var rule_factor = new EmbeddedRule
+                {
+                    Name = "factor",
+                    ReturnType = "expr_ty",
+                    IsMemoized = true,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_UnaryOp(UAdd, a, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "+" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "factor" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_UnaryOp(USub, a, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "-" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "factor" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_UnaryOp(Invert, a, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "~" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "factor" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "power" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_factor);
+
+                // Rule: power
+                var rule_power = new EmbeddedRule
+                {
+                    Name = "power",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_BinOp(a, Pow, b, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "await_primary" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "**" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "factor" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "await_primary" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_power);
+
+                // Rule: await_primary
+                var rule_await_primary = new EmbeddedRule
+                {
+                    Name = "await_primary",
+                    ReturnType = "expr_ty",
+                    IsMemoized = true,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "CHECK_VERSION(expr_ty, 5, \"Await expressions are\", _PyAST_Await(a, EXTRA))",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "AWAIT" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "primary" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "primary" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_await_primary);
+
+                // Rule: primary
+                var rule_primary = new EmbeddedRule
+                {
+                    Name = "primary",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Attribute(a, b->v.Name.id, Load, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "primary" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "." } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Call(a, CHECK(asdl_expr_seq*, (asdl_expr_seq*)_PyPegen_singleton_seq(p, b)), NULL, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "primary" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "genexp" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Call(a,\n                 (b) ? ((expr_ty) b)->v.Call.args : NULL,\n                 (b) ? ((expr_ty) b)->v.Call.keywords : NULL,\n                 EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "primary" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "arguments" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Subscript(a, b, Load, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "primary" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "[" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "slices" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "]" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "atom" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_primary);
+
+                // Rule: slices
+                var rule_slices = new EmbeddedRule
+                {
+                    Name = "slices",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "slice" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Tuple(a, Load, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "slice" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "starred_expression" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_slices);
+
+                // Rule: slice
+                var rule_slice = new EmbeddedRule
+                {
+                    Name = "slice",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Slice(a, b, c, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } }, } }, } } } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } }, new EmbeddedItem { Name = "d", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } }, } }, } } } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "named_expression" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_slice);
+
+                // Rule: atom
+                var rule_atom = new EmbeddedRule
+                {
+                    Name = "atom",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Constant(Py_True, NULL, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "True" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Constant(Py_False, NULL, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "False" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Constant(Py_None, NULL, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "None" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "STRING" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "FSTRING_START" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "strings" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NUMBER" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = "(" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "tuple" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "group" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "genexp" } }, } }, } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = "[" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "list" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "listcomp" } }, } }, } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = "{" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "dict" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "set" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "dictcomp" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "setcomp" } }, } }, } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Constant(Py_Ellipsis, NULL, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "..." } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_atom);
+
+                // Rule: group
+                var rule_group = new EmbeddedRule
+                {
+                    Name = "group",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "yield_expr" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "named_expression" } }, } }, } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_group" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_group);
+
+                // Rule: lambdef
+                var rule_lambdef = new EmbeddedRule
+                {
+                    Name = "lambdef",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Lambda((a) ? a : CHECK(arguments_ty, _PyPegen_empty_arguments(p)), b, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "lambda" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "lambda_params" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_lambdef);
+
+                // Rule: lambda_params
+                var rule_lambda_params = new EmbeddedRule
+                {
+                    Name = "lambda_params",
+                    ReturnType = "arguments_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_lambda_parameters" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "lambda_parameters" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_lambda_params);
+
+                // Rule: lambda_parameters
+                var rule_lambda_parameters = new EmbeddedRule
+                {
+                    Name = "lambda_parameters",
+                    ReturnType = "arguments_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "CHECK_VERSION(arguments_ty, 8, \"Positional-only parameters are\", _PyPegen_make_arguments(p, a, NULL, b, c, d))",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "lambda_slash_no_default" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "lambda_param_no_default" } } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "lambda_param_with_default" } } },
+                                new EmbeddedItem { Name = "d", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "lambda_star_etc" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "CHECK_VERSION(arguments_ty, 8, \"Positional-only parameters are\", _PyPegen_make_arguments(p, NULL, a, NULL, b, c))",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "lambda_slash_with_default" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "lambda_param_with_default" } } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "lambda_star_etc" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_make_arguments(p, NULL, NULL, a, b, c)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "lambda_param_no_default" } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "lambda_param_with_default" } } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "lambda_star_etc" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_make_arguments(p, NULL, NULL, NULL, a, b)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "lambda_param_with_default" } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "lambda_star_etc" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_make_arguments(p, NULL, NULL, NULL, NULL, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "lambda_star_etc" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_lambda_parameters);
+
+                // Rule: lambda_slash_no_default
+                var rule_lambda_slash_no_default = new EmbeddedRule
+                {
+                    Name = "lambda_slash_no_default",
+                    ReturnType = "asdl_arg_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "lambda_param_no_default" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "/" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "lambda_param_no_default" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "/" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = ":" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_lambda_slash_no_default);
+
+                // Rule: lambda_slash_with_default
+                var rule_lambda_slash_with_default = new EmbeddedRule
+                {
+                    Name = "lambda_slash_with_default",
+                    ReturnType = "SlashWithDefault*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "lambda_param_no_default" } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "lambda_param_with_default" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "/" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "lambda_param_no_default" } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "lambda_param_with_default" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "/" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = ":" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_lambda_slash_with_default);
+
+                // Rule: lambda_star_etc
+                var rule_lambda_star_etc = new EmbeddedRule
+                {
+                    Name = "lambda_star_etc",
+                    ReturnType = "StarEtc*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_lambda_star_etc" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_star_etc(p, a, b, c)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "lambda_param_no_default" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "lambda_param_maybe_default" } } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "lambda_kwds" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_star_etc(p, NULL, b, c)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "lambda_param_maybe_default" } } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "lambda_kwds" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_star_etc(p, NULL, NULL, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "lambda_kwds" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_lambda_star_etc);
+
+                // Rule: lambda_kwds
+                var rule_lambda_kwds = new EmbeddedRule
+                {
+                    Name = "lambda_kwds",
+                    ReturnType = "arg_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_lambda_kwds" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "**" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "lambda_param_no_default" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_lambda_kwds);
+
+                // Rule: lambda_param_no_default
+                var rule_lambda_param_no_default = new EmbeddedRule
+                {
+                    Name = "lambda_param_no_default",
+                    ReturnType = "arg_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "lambda_param" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "lambda_param" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = ":" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_lambda_param_no_default);
+
+                // Rule: lambda_param_with_default
+                var rule_lambda_param_with_default = new EmbeddedRule
+                {
+                    Name = "lambda_param_with_default",
+                    ReturnType = "NameDefaultPair*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_name_default_pair(p, a, c, NULL)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "lambda_param" } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedRuleRef { Name = "default" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_name_default_pair(p, a, c, NULL)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "lambda_param" } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedRuleRef { Name = "default" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = ":" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_lambda_param_with_default);
+
+                // Rule: lambda_param_maybe_default
+                var rule_lambda_param_maybe_default = new EmbeddedRule
+                {
+                    Name = "lambda_param_maybe_default",
+                    ReturnType = "NameDefaultPair*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_name_default_pair(p, a, c, NULL)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "lambda_param" } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedOptional { Expression = new EmbeddedRuleRef { Name = "default" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_name_default_pair(p, a, c, NULL)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "lambda_param" } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedOptional { Expression = new EmbeddedRuleRef { Name = "default" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = ":" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_lambda_param_maybe_default);
+
+                // Rule: lambda_param
+                var rule_lambda_param = new EmbeddedRule
+                {
+                    Name = "lambda_param",
+                    ReturnType = "arg_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_arg(a->v.Name.id, NULL, NULL, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_lambda_param);
+
+                // Rule: fstring_middle
+                var rule_fstring_middle = new EmbeddedRule
+                {
+                    Name = "fstring_middle",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "fstring_replacement_field" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_constant_from_token(p, t)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "t", Atom = new EmbeddedRuleRef { Name = "FSTRING_MIDDLE" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_fstring_middle);
+
+                // Rule: fstring_replacement_field
+                var rule_fstring_replacement_field = new EmbeddedRule
+                {
+                    Name = "fstring_replacement_field",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_formatted_value(p, a, debug_expr, conversion, format, rbrace, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "{" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "yield_expr" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_expressions" } }, } }, } } },
+                                new EmbeddedItem { Name = "debug_expr", Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "=" } } },
+                                new EmbeddedItem { Name = "conversion", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "fstring_conversion" } }, } }, } } } },
+                                new EmbeddedItem { Name = "format", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "fstring_full_format_spec" } }, } }, } } } },
+                                new EmbeddedItem { Name = "rbrace", Atom = new EmbeddedStringLiteral { Value = "}" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_replacement_field" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_fstring_replacement_field);
+
+                // Rule: fstring_conversion
+                var rule_fstring_conversion = new EmbeddedRule
+                {
+                    Name = "fstring_conversion",
+                    ReturnType = "ResultTokenWithMetadata*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_check_fstring_conversion(p, conv_token, conv)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "conv_token", Atom = new EmbeddedStringLiteral { Value = "\"!\"" } },
+                                new EmbeddedItem { Name = "conv", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_fstring_conversion);
+
+                // Rule: fstring_full_format_spec
+                var rule_fstring_full_format_spec = new EmbeddedRule
+                {
+                    Name = "fstring_full_format_spec",
+                    ReturnType = "ResultTokenWithMetadata*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_setup_full_format_spec(p, colon, (asdl_expr_seq *) spec, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "colon", Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "spec", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "fstring_format_spec" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_fstring_full_format_spec);
+
+                // Rule: fstring_format_spec
+                var rule_fstring_format_spec = new EmbeddedRule
+                {
+                    Name = "fstring_format_spec",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_decoded_constant_from_token(p, t)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "t", Atom = new EmbeddedRuleRef { Name = "FSTRING_MIDDLE" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "fstring_replacement_field" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_fstring_format_spec);
+
+                // Rule: fstring
+                var rule_fstring = new EmbeddedRule
+                {
+                    Name = "fstring",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_joined_str(p, a, (asdl_expr_seq*)b, c)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "FSTRING_START" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "fstring_middle" } } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedRuleRef { Name = "FSTRING_END" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_fstring);
+
+                // Rule: string
+                var rule_string = new EmbeddedRule
+                {
+                    Name = "string",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_constant_from_string(p, s)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "s", Atom = new EmbeddedRuleRef { Name = "STRING" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_string);
+
+                // Rule: strings
+                var rule_strings = new EmbeddedRule
+                {
+                    Name = "strings",
+                    ReturnType = "expr_ty",
+                    IsMemoized = true,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_concatenate_strings(p, a, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "fstring" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "string" } }, } }, } } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_strings);
+
+                // Rule: list
+                var rule_list = new EmbeddedRule
+                {
+                    Name = "list",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_List(a, Load, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "[" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_named_expressions" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "]" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_list);
+
+                // Rule: tuple
+                var rule_tuple = new EmbeddedRule
+                {
+                    Name = "tuple",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Tuple(a, Load, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = "y", Atom = new EmbeddedRuleRef { Name = "star_named_expression" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, new EmbeddedItem { Name = "z", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_named_expressions" } }, } }, } } } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_tuple);
+
+                // Rule: set
+                var rule_set = new EmbeddedRule
+                {
+                    Name = "set",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Set(a, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "{" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "star_named_expressions" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "}" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_set);
+
+                // Rule: dict
+                var rule_dict = new EmbeddedRule
+                {
+                    Name = "dict",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Dict(\n            CHECK(asdl_expr_seq*, _PyPegen_get_keys(p, a)),\n            CHECK(asdl_expr_seq*, _PyPegen_get_values(p, a)),\n            EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "{" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "double_starred_kvpairs" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "}" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "{" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_double_starred_kvpairs" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "}" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_dict);
+
+                // Rule: double_starred_kvpairs
+                var rule_double_starred_kvpairs = new EmbeddedRule
+                {
+                    Name = "double_starred_kvpairs",
+                    ReturnType = "asdl_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "double_starred_kvpair" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_double_starred_kvpairs);
+
+                // Rule: double_starred_kvpair
+                var rule_double_starred_kvpair = new EmbeddedRule
+                {
+                    Name = "double_starred_kvpair",
+                    ReturnType = "KeyValuePair*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_key_value_pair(p, NULL, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "**" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "bitwise_or" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "kvpair" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_double_starred_kvpair);
+
+                // Rule: kvpair
+                var rule_kvpair = new EmbeddedRule
+                {
+                    Name = "kvpair",
+                    ReturnType = "KeyValuePair*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_key_value_pair(p, a, b)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_kvpair);
+
+                // Rule: for_if_clauses
+                var rule_for_if_clauses = new EmbeddedRule
+                {
+                    Name = "for_if_clauses",
+                    ReturnType = "asdl_comprehension_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "for_if_clause" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_for_if_clauses);
+
+                // Rule: for_if_clause
+                var rule_for_if_clause = new EmbeddedRule
+                {
+                    Name = "for_if_clause",
+                    ReturnType = "comprehension_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "CHECK_VERSION(comprehension_ty, 6, \"Async comprehensions are\", _PyAST_comprehension(a, b, c, 1, p->arena))",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "ASYNC" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "for" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "star_targets" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "in" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedCut { Expression = new EmbeddedRuleRef { Name = "disjunction" } } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "if" } }, new EmbeddedItem { Name = "z", Atom = new EmbeddedRuleRef { Name = "disjunction" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_comprehension(a, b, c, 0, p->arena)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "for" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "star_targets" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "in" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedCut { Expression = new EmbeddedRuleRef { Name = "disjunction" } } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "if" } }, new EmbeddedItem { Name = "z", Atom = new EmbeddedRuleRef { Name = "disjunction" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_for_target" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_for_if_clause);
+
+                // Rule: listcomp
+                var rule_listcomp = new EmbeddedRule
+                {
+                    Name = "listcomp",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_ListComp(a, b, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "[" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "named_expression" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "for_if_clauses" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "]" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_comprehension" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_listcomp);
+
+                // Rule: setcomp
+                var rule_setcomp = new EmbeddedRule
+                {
+                    Name = "setcomp",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_SetComp(a, b, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "{" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "named_expression" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "for_if_clauses" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "}" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_comprehension" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_setcomp);
+
+                // Rule: genexp
+                var rule_genexp = new EmbeddedRule
+                {
+                    Name = "genexp",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_GeneratorExp(a, b, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "assignment_expression" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = ":=" } } }, } }, } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "for_if_clauses" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_comprehension" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_genexp);
+
+                // Rule: dictcomp
+                var rule_dictcomp = new EmbeddedRule
+                {
+                    Name = "dictcomp",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_DictComp(a->key, a->value, b, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "{" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "kvpair" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "for_if_clauses" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "}" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_dict_comprehension" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_dictcomp);
+
+                // Rule: arguments
+                var rule_arguments = new EmbeddedRule
+                {
+                    Name = "arguments",
+                    ReturnType = "expr_ty",
+                    IsMemoized = true,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "args" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedStringLiteral { Value = ")" } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_arguments" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_arguments);
+
+                // Rule: args
+                var rule_args = new EmbeddedRule
+                {
+                    Name = "args",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_collect_call_seqs(p, a, b, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "starred_expression" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "assignment_expression" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = ":=" } } }, } }, } } }, new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = "=" } } }, } }, } } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, new EmbeddedItem { Name = "k", Atom = new EmbeddedRuleRef { Name = "kwargs" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Call(_PyPegen_dummy_name(p),\n                          CHECK_NULL_ALLOWED(asdl_expr_seq*, _PyPegen_seq_extract_starred_exprs(p, a)),\n                          CHECK_NULL_ALLOWED(asdl_keyword_seq*, _PyPegen_seq_delete_starred_exprs(p, a)),\n                          EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "kwargs" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_args);
+
+                // Rule: kwargs
+                var rule_kwargs = new EmbeddedRule
+                {
+                    Name = "kwargs",
+                    ReturnType = "asdl_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_join_sequences(p, a, b)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "kwarg_or_starred" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "kwarg_or_double_starred" } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "kwarg_or_starred" } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "kwarg_or_double_starred" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_kwargs);
+
+                // Rule: starred_expression
+                var rule_starred_expression = new EmbeddedRule
+                {
+                    Name = "starred_expression",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_starred_expression" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Starred(a, Load, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR(\"Invalid star expression\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_starred_expression);
+
+                // Rule: kwarg_or_starred
+                var rule_kwarg_or_starred = new EmbeddedRule
+                {
+                    Name = "kwarg_or_starred",
+                    ReturnType = "KeywordOrStarred*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_kwarg" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_keyword_or_starred(p, CHECK(keyword_ty, _PyAST_keyword(a->v.Name.id, b, EXTRA)), 1)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "=" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_keyword_or_starred(p, a, 0)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "starred_expression" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_kwarg_or_starred);
+
+                // Rule: kwarg_or_double_starred
+                var rule_kwarg_or_double_starred = new EmbeddedRule
+                {
+                    Name = "kwarg_or_double_starred",
+                    ReturnType = "KeywordOrStarred*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_kwarg" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_keyword_or_starred(p, CHECK(keyword_ty, _PyAST_keyword(a->v.Name.id, b, EXTRA)), 1)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "=" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_keyword_or_starred(p, CHECK(keyword_ty, _PyAST_keyword(NULL, a, EXTRA)), 1)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "**" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_kwarg_or_double_starred);
+
+                // Rule: star_targets
+                var rule_star_targets = new EmbeddedRule
+                {
+                    Name = "star_targets",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "star_target" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_seq_insert_in_front(p, a, b)), Store, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "star_target" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, new EmbeddedItem { Name = "c", Atom = new EmbeddedRuleRef { Name = "star_target" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_star_targets);
+
+                // Rule: star_targets_list_seq
+                var rule_star_targets_list_seq = new EmbeddedRule
+                {
+                    Name = "star_targets_list_seq",
+                    ReturnType = "asdl_expr_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "star_target" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_star_targets_list_seq);
+
+                // Rule: star_targets_tuple_seq
+                var rule_star_targets_tuple_seq = new EmbeddedRule
+                {
+                    Name = "star_targets_tuple_seq",
+                    ReturnType = "asdl_expr_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "(asdl_expr_seq*) _PyPegen_seq_insert_in_front(p, a, b)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "star_target" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedOneOrMore { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, new EmbeddedItem { Name = "c", Atom = new EmbeddedRuleRef { Name = "star_target" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "(asdl_expr_seq*) _PyPegen_singleton_seq(p, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "star_target" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_star_targets_tuple_seq);
+
+                // Rule: star_target
+                var rule_star_target = new EmbeddedRule
+                {
+                    Name = "star_target",
+                    ReturnType = "expr_ty",
+                    IsMemoized = true,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Starred(CHECK(expr_ty, _PyPegen_set_expr_context(p, a, Store)), Store, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = "*" } } }, new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_target" } }, } }, } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "target_with_star_atom" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_star_target);
+
+                // Rule: target_with_star_atom
+                var rule_target_with_star_atom = new EmbeddedRule
+                {
+                    Name = "target_with_star_atom",
+                    ReturnType = "expr_ty",
+                    IsMemoized = true,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Attribute(a, b->v.Name.id, Store, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "t_primary" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "." } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "t_lookahead" } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Subscript(a, b, Store, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "t_primary" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "[" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "slices" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "]" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "t_lookahead" } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_atom" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_target_with_star_atom);
+
+                // Rule: star_atom
+                var rule_star_atom = new EmbeddedRule
+                {
+                    Name = "star_atom",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_set_expr_context(p, a, Store)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_set_expr_context(p, a, Store)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "target_with_star_atom" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Tuple(a, Store, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_targets_tuple_seq" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_List(a, Store, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "[" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_targets_list_seq" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "]" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_star_atom);
+
+                // Rule: single_target
+                var rule_single_target = new EmbeddedRule
+                {
+                    Name = "single_target",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "single_subscript_attribute_target" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_set_expr_context(p, a, Store)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "single_target" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_single_target);
+
+                // Rule: single_subscript_attribute_target
+                var rule_single_subscript_attribute_target = new EmbeddedRule
+                {
+                    Name = "single_subscript_attribute_target",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Attribute(a, b->v.Name.id, Store, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "t_primary" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "." } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "t_lookahead" } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Subscript(a, b, Store, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "t_primary" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "[" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "slices" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "]" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "t_lookahead" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_single_subscript_attribute_target);
+
+                // Rule: t_primary
+                var rule_t_primary = new EmbeddedRule
+                {
+                    Name = "t_primary",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Attribute(a, b->v.Name.id, Load, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "t_primary" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "." } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedRuleRef { Name = "t_lookahead" } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Subscript(a, b, Load, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "t_primary" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "[" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "slices" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "]" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedRuleRef { Name = "t_lookahead" } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Call(a, CHECK(asdl_expr_seq*, (asdl_expr_seq*)_PyPegen_singleton_seq(p, b)), NULL, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "t_primary" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "genexp" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedRuleRef { Name = "t_lookahead" } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Call(a,\n                 (b) ? ((expr_ty) b)->v.Call.args : NULL,\n                 (b) ? ((expr_ty) b)->v.Call.keywords : NULL,\n                 EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "t_primary" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "arguments" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedRuleRef { Name = "t_lookahead" } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "atom" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedRuleRef { Name = "t_lookahead" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_t_primary);
+
+                // Rule: t_lookahead
+                var rule_t_lookahead = new EmbeddedRule
+                {
+                    Name = "t_lookahead",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "[" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "." } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_t_lookahead);
+
+                // Rule: del_targets
+                var rule_del_targets = new EmbeddedRule
+                {
+                    Name = "del_targets",
+                    ReturnType = "asdl_expr_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "del_target" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_del_targets);
+
+                // Rule: del_target
+                var rule_del_target = new EmbeddedRule
+                {
+                    Name = "del_target",
+                    ReturnType = "expr_ty",
+                    IsMemoized = true,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Attribute(a, b->v.Name.id, Del, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "t_primary" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "." } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "t_lookahead" } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Subscript(a, b, Del, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "t_primary" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "[" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "slices" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "]" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "t_lookahead" } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "del_t_atom" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_del_target);
+
+                // Rule: del_t_atom
+                var rule_del_t_atom = new EmbeddedRule
+                {
+                    Name = "del_t_atom",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_set_expr_context(p, a, Del)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_set_expr_context(p, a, Del)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "del_target" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_Tuple(a, Del, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "del_targets" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_List(a, Del, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "[" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "del_targets" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "]" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_del_t_atom);
+
+                // Rule: type_expressions
+                var rule_type_expressions = new EmbeddedRule
+                {
+                    Name = "type_expressions",
+                    ReturnType = "asdl_expr_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "(asdl_expr_seq*)_PyPegen_seq_append_to_end(\n            p,\n            CHECK(asdl_seq*, _PyPegen_seq_append_to_end(p, a, b)),\n            c)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "expression" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "**" } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "(asdl_expr_seq*)_PyPegen_seq_append_to_end(p, a, b)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "expression" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "(asdl_expr_seq*)_PyPegen_seq_append_to_end(p, a, b)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "expression" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "**" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "(asdl_expr_seq*)_PyPegen_seq_append_to_end(\n            p,\n            CHECK(asdl_seq*, _PyPegen_singleton_seq(p, a)),\n            b)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "**" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "(asdl_expr_seq*)_PyPegen_singleton_seq(p, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "(asdl_expr_seq*)_PyPegen_singleton_seq(p, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "**" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "expression" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_type_expressions);
+
+                // Rule: func_type_comment
+                var rule_func_type_comment = new EmbeddedRule
+                {
+                    Name = "func_type_comment",
+                    ReturnType = "Token*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "t",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                                new EmbeddedItem { Name = "t", Atom = new EmbeddedRuleRef { Name = "TYPE_COMMENT" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "INDENT" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_double_type_comments" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "TYPE_COMMENT" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_func_type_comment);
+
+                // Rule: invalid_arguments
+                var rule_invalid_arguments = new EmbeddedRule
+                {
+                    Name = "invalid_arguments",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_STARTING_FROM(a, \"iterable argument unpacking follows keyword argument unpacking\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } }, new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "starred_expression" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "assignment_expression" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = ":=" } } }, } }, } } }, new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = "=" } } }, } }, } } } }, new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "kwargs" } }, } }, } } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "kwargs" } }, } }, } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "starred_expression" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = "=" } } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, _PyPegen_get_last_comprehension_item(PyPegen_last_item(b, comprehension_ty)), \"Generator expression must be parenthesized\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "for_if_clauses" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "args" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, \"invalid syntax. Maybe you meant '==' or ':=' instead of '='?\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedStringLiteral { Value = "=" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "for_if_clauses" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, \"expected argument value expression\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "args" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedStringLiteral { Value = "=" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_nonparen_genexp_in_call(p, a, b)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "args" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "for_if_clauses" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, _PyPegen_get_last_comprehension_item(PyPegen_last_item(b, comprehension_ty)), \"Generator expression must be parenthesized\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "args" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "for_if_clauses" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_arguments_parsing_error(p, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "args" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "args" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_arguments);
+
+                // Rule: invalid_kwarg
+                var rule_invalid_kwarg = new EmbeddedRule
+                {
+                    Name = "invalid_kwarg",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, \"cannot assign to %s\", PyBytes_AS_STRING(a->bytes))",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "True" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "False" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "None" } }, } }, } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedStringLiteral { Value = "=" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, \"invalid syntax. Maybe you meant '==' or ':=' instead of '='?\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedStringLiteral { Value = "=" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "for_if_clauses" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_RANGE(\n            a, b, \"expression cannot contain assignment, perhaps you meant \\\"==\\\"?\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NAME" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "=" } }, } }, } } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedStringLiteral { Value = "=" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, \"cannot assign to keyword argument unpacking\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "**" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "=" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_kwarg);
+
+                // Rule: expression_without_invalid
+                var rule_expression_without_invalid = new EmbeddedRule
+                {
+                    Name = "expression_without_invalid",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyAST_IfExp(b, a, c, EXTRA)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "disjunction" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "if" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "disjunction" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "else" } },
+                                new EmbeddedItem { Name = "c", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "disjunction" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "lambdef" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_expression_without_invalid);
+
+                // Rule: invalid_legacy_expression
+                var rule_invalid_legacy_expression = new EmbeddedRule
+                {
+                    Name = "invalid_legacy_expression",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_check_legacy_stmt(p, a) ? RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b,\n            \"Missing parentheses in call to '%U'. Did you mean %U(...)?\", a->v.Name.id, a->v.Name.id) : NULL",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = "(" } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "star_expressions" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_legacy_expression);
+
+                // Rule: invalid_expression
+                var rule_invalid_expression = new EmbeddedRule
+                {
+                    Name = "invalid_expression",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_check_legacy_stmt(p, a) ? NULL : p->tokens[p->mark-1]->level == 0 ? NULL :\n        RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, \"invalid syntax. Perhaps you forgot a comma?\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NAME" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "STRING" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "SOFT_KEYWORD" } }, } }, } } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "disjunction" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "expression_without_invalid" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, \"expected 'else' after 'if' expression\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "disjunction" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "if" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "disjunction" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "else" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, \"f-string: lambda expressions are not allowed without parentheses\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "lambda" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "lambda_params" } }, } }, } } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedRuleRef { Name = "FSTRING_MIDDLE" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_expression);
+
+                // Rule: invalid_named_expression
+                var rule_invalid_named_expression = new EmbeddedRule
+                {
+                    Name = "invalid_named_expression",
+                    ReturnType = null,
+                    IsMemoized = true,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(\n            a, \"cannot use assignment expressions with %s\", _PyPegen_get_expr_name(a))",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":=" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, \"invalid syntax. Maybe you meant '==' or ':=' instead of '='?\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "NAME" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "=" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "bitwise_or" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "=" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":=" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"cannot assign to %s here. Maybe you meant '==' instead of '='?\",\n                                          _PyPegen_get_expr_name(a))",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "list" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "tuple" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "genexp" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "True" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "None" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "False" } }, } }, } } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "bitwise_or" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedStringLiteral { Value = "=" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "bitwise_or" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "=" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":=" } }, } }, } } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_named_expression);
+
+                // Rule: invalid_assignment
+                var rule_invalid_assignment = new EmbeddedRule
+                {
+                    Name = "invalid_assignment",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(\n            a,\n            \"only single target (not %s) can be annotated\",\n            _PyPegen_get_expr_name(a)\n        )",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "invalid_ann_assign_target" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"only single target (not tuple) can be annotated\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "star_named_expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "star_named_expressions" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"illegal target for annotation\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_INVALID_TARGET(STAR_TARGETS, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_targets" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "=" } }, } }, } } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "star_expressions" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "=" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"assignment to yield expression not possible\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_targets" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "=" } }, } }, } } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "yield_expr" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "=" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(\n            a,\n            \"'%s' is an illegal expression for augmented assignment\",\n            _PyPegen_get_expr_name(a)\n        )",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "star_expressions" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "augassign" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "yield_expr" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_expressions" } }, } }, } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_assignment);
+
+                // Rule: invalid_ann_assign_target
+                var rule_invalid_ann_assign_target = new EmbeddedRule
+                {
+                    Name = "invalid_ann_assign_target",
+                    ReturnType = "expr_ty",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "list" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "tuple" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "invalid_ann_assign_target" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_ann_assign_target);
+
+                // Rule: invalid_del_stmt
+                var rule_invalid_del_stmt = new EmbeddedRule
+                {
+                    Name = "invalid_del_stmt",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_INVALID_TARGET(DEL_TARGETS, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "del" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "star_expressions" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_del_stmt);
+
+                // Rule: invalid_block
+                var rule_invalid_block = new EmbeddedRule
+                {
+                    Name = "invalid_block",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_INDENTATION_ERROR(\"expected an indented block\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "INDENT" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_block);
+
+                // Rule: invalid_comprehension
+                var rule_invalid_comprehension = new EmbeddedRule
+                {
+                    Name = "invalid_comprehension",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"iterable unpacking cannot be used in comprehension\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "[" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "{" } }, } }, } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "starred_expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "for_if_clauses" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, PyPegen_last_item(b, expr_ty),\n        \"did you forget parentheses around the comprehension target?\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "[" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "{" } }, } }, } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "star_named_expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "star_named_expressions" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "for_if_clauses" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, \"did you forget parentheses around the comprehension target?\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "[" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "{" } }, } }, } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "star_named_expression" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "for_if_clauses" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_comprehension);
+
+                // Rule: invalid_dict_comprehension
+                var rule_invalid_dict_comprehension = new EmbeddedRule
+                {
+                    Name = "invalid_dict_comprehension",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"dict unpacking cannot be used in dict comprehension\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "{" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "**" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "bitwise_or" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "for_if_clauses" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "}" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_dict_comprehension);
+
+                // Rule: invalid_parameters
+                var rule_invalid_parameters = new EmbeddedRule
+                {
+                    Name = "invalid_parameters",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"at least one argument must precede /\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "\"/\"" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"/ may appear only once\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "slash_no_default" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "slash_with_default" } }, } }, } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "param_maybe_default" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "/" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"parameter without a default follows parameter with a default\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedRuleRef { Name = "slash_no_default" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "param_no_default" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_parameters_helper" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "param_no_default" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, \"Function parameters cannot be parenthesized\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "param_no_default" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "param_no_default" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedStringLiteral { Value = ")" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"/ must be ahead of *\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "slash_no_default" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "slash_with_default" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "param_maybe_default" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "param_no_default" } }, } }, } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "param_maybe_default" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "/" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"expected comma between / and *\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "param_maybe_default" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "/" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "*" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_parameters);
+
+                // Rule: invalid_default
+                var rule_invalid_default = new EmbeddedRule
+                {
+                    Name = "invalid_default",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"expected default value expression\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "=" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_default);
+
+                // Rule: invalid_star_etc
+                var rule_invalid_star_etc = new EmbeddedRule
+                {
+                    Name = "invalid_star_etc",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"named arguments must follow bare *\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "**" } }, } }, } } }, } }, } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR(\"bare * has associated type comment\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "TYPE_COMMENT" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"var-positional argument cannot have default value\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "param" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "=" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"* argument may appear only once\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "param_no_default" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "param_maybe_default" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "param_no_default" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_star_etc);
+
+                // Rule: invalid_kwds
+                var rule_invalid_kwds = new EmbeddedRule
+                {
+                    Name = "invalid_kwds",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"var-keyword argument cannot have default value\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "**" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "param" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "=" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"arguments cannot follow var-keyword argument\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "**" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "param" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "param" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"arguments cannot follow var-keyword argument\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "**" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "param" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "**" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "/" } }, } }, } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_kwds);
+
+                // Rule: invalid_parameters_helper
+                var rule_invalid_parameters_helper = new EmbeddedRule
+                {
+                    Name = "invalid_parameters_helper",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_singleton_seq(p, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "slash_with_default" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "param_with_default" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_parameters_helper);
+
+                // Rule: invalid_lambda_parameters
+                var rule_invalid_lambda_parameters = new EmbeddedRule
+                {
+                    Name = "invalid_lambda_parameters",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"at least one argument must precede /\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "\"/\"" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"/ may appear only once\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "lambda_slash_no_default" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "lambda_slash_with_default" } }, } }, } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "lambda_param_maybe_default" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "/" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"parameter without a default follows parameter with a default\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedRuleRef { Name = "lambda_slash_no_default" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "lambda_param_no_default" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_lambda_parameters_helper" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "lambda_param_no_default" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, \"Lambda expression parameters cannot be parenthesized\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "lambda_param_no_default" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "lambda_param" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedStringLiteral { Value = ")" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"/ must be ahead of *\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "lambda_slash_no_default" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "lambda_slash_with_default" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "lambda_param_maybe_default" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "lambda_param_no_default" } }, } }, } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "lambda_param_maybe_default" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "/" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"expected comma between / and *\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "lambda_param_maybe_default" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "/" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "*" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_lambda_parameters);
+
+                // Rule: invalid_lambda_parameters_helper
+                var rule_invalid_lambda_parameters_helper = new EmbeddedRule
+                {
+                    Name = "invalid_lambda_parameters_helper",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "_PyPegen_singleton_seq(p, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "lambda_slash_with_default" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "lambda_param_with_default" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_lambda_parameters_helper);
+
+                // Rule: invalid_lambda_star_etc
+                var rule_invalid_lambda_star_etc = new EmbeddedRule
+                {
+                    Name = "invalid_lambda_star_etc",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR(\"named arguments must follow bare *\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "**" } }, } }, } } }, } }, } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"var-positional argument cannot have default value\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "lambda_param" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "=" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"* argument may appear only once\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "lambda_param_no_default" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "lambda_param_maybe_default" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "lambda_param_no_default" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_lambda_star_etc);
+
+                // Rule: invalid_lambda_kwds
+                var rule_invalid_lambda_kwds = new EmbeddedRule
+                {
+                    Name = "invalid_lambda_kwds",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"var-keyword argument cannot have default value\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "**" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "lambda_param" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "=" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"arguments cannot follow var-keyword argument\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "**" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "lambda_param" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "lambda_param" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"arguments cannot follow var-keyword argument\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "**" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "lambda_param" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "**" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "/" } }, } }, } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_lambda_kwds);
+
+                // Rule: invalid_double_type_comments
+                var rule_invalid_double_type_comments = new EmbeddedRule
+                {
+                    Name = "invalid_double_type_comments",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR(\"Cannot have two type comments on def\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "TYPE_COMMENT" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "TYPE_COMMENT" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "INDENT" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_double_type_comments);
+
+                // Rule: invalid_with_item
+                var rule_invalid_with_item = new EmbeddedRule
+                {
+                    Name = "invalid_with_item",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_INVALID_TARGET(STAR_TARGETS, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "as" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } }, } }, } } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_with_item);
+
+                // Rule: invalid_for_target
+                var rule_invalid_for_target = new EmbeddedRule
+                {
+                    Name = "invalid_for_target",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_INVALID_TARGET(FOR_TARGETS, a)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedRuleRef { Name = "ASYNC" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "for" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "star_expressions" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_for_target);
+
+                // Rule: invalid_group
+                var rule_invalid_group = new EmbeddedRule
+                {
+                    Name = "invalid_group",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"cannot use starred expression here\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "starred_expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"cannot use double starred expression here\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "**" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_group);
+
+                // Rule: invalid_import
+                var rule_invalid_import = new EmbeddedRule
+                {
+                    Name = "invalid_import",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_STARTING_FROM(a, \"Did you mean to use 'from ... import ...' instead?\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "import" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "dotted_name" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "from" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "dotted_name" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_import);
+
+                // Rule: invalid_import_from_targets
+                var rule_invalid_import_from_targets = new EmbeddedRule
+                {
+                    Name = "invalid_import_from_targets",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR(\"trailing comma not allowed without surrounding parentheses\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "import_from_as_names" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_import_from_targets);
+
+                // Rule: invalid_with_stmt
+                var rule_invalid_with_stmt = new EmbeddedRule
+                {
+                    Name = "invalid_with_stmt",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR(\"expected ':'\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "ASYNC" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "with" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedGroup { Alternatives = new() { } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR(\"expected ':'\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "ASYNC" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "with" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedGroup { Alternatives = new() { } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_with_stmt);
+
+                // Rule: invalid_with_stmt_indent
+                var rule_invalid_with_stmt_indent = new EmbeddedRule
+                {
+                    Name = "invalid_with_stmt_indent",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_INDENTATION_ERROR(\"expected an indented block after 'with' statement on line %d\", a->lineno)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "ASYNC" } }, } }, } } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "with" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedGroup { Alternatives = new() { } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "INDENT" } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_INDENTATION_ERROR(\"expected an indented block after 'with' statement on line %d\", a->lineno)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "ASYNC" } }, } }, } } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "with" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedGroup { Alternatives = new() { } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "INDENT" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_with_stmt_indent);
+
+                // Rule: invalid_try_stmt
+                var rule_invalid_try_stmt = new EmbeddedRule
+                {
+                    Name = "invalid_try_stmt",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_INDENTATION_ERROR(\"expected an indented block after 'try' statement on line %d\", a->lineno)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "try" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "INDENT" } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR(\"expected 'except' or 'finally' block\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "try" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "block" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "except" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "finally" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, \"cannot have both 'except' and 'except*' on the same 'try'\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "try" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "block" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "except_block" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "except" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = "expression", Atom = new EmbeddedStringLiteral { Value = ":" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"cannot have both 'except' and 'except*' on the same 'try'\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "try" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "block" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "except_star_block" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "except" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_try_stmt);
+
+                // Rule: invalid_except_stmt
+                var rule_invalid_except_stmt = new EmbeddedRule
+                {
+                    Name = "invalid_except_stmt",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_STARTING_FROM(a, \"multiple exception types must be parenthesized\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "except" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "*" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = "expressions", Atom = new EmbeddedStringLiteral { Value = ":" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR(\"expected ':'\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "except" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "*" } } },
+                                new EmbeddedItem { Name = "expression", Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR(\"expected ':'\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "except" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR(\"expected one or more exception types\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "except" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } }, } }, } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_except_stmt);
+
+                // Rule: invalid_finally_stmt
+                var rule_invalid_finally_stmt = new EmbeddedRule
+                {
+                    Name = "invalid_finally_stmt",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_INDENTATION_ERROR(\"expected an indented block after 'finally' statement on line %d\", a->lineno)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "finally" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "INDENT" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_finally_stmt);
+
+                // Rule: invalid_except_stmt_indent
+                var rule_invalid_except_stmt_indent = new EmbeddedRule
+                {
+                    Name = "invalid_except_stmt_indent",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_INDENTATION_ERROR(\"expected an indented block after 'except' statement on line %d\", a->lineno)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "except" } },
+                                new EmbeddedItem { Name = "expression", Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "INDENT" } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_INDENTATION_ERROR(\"expected an indented block after 'except' statement on line %d\", a->lineno)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "except" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "INDENT" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_except_stmt_indent);
+
+                // Rule: invalid_except_star_stmt_indent
+                var rule_invalid_except_star_stmt_indent = new EmbeddedRule
+                {
+                    Name = "invalid_except_star_stmt_indent",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_INDENTATION_ERROR(\"expected an indented block after 'except*' statement on line %d\", a->lineno)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "except" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = "expression", Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "INDENT" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_except_star_stmt_indent);
+
+                // Rule: invalid_match_stmt
+                var rule_invalid_match_stmt = new EmbeddedRule
+                {
+                    Name = "invalid_match_stmt",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "CHECK_VERSION(void*, 10, \"Pattern matching is\", RAISE_SYNTAX_ERROR(\"expected ':'\") )",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "\"match\"" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "subject_expr" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_INDENTATION_ERROR(\"expected an indented block after 'match' statement on line %d\", a->lineno)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "\"match\"" } },
+                                new EmbeddedItem { Name = "subject", Atom = new EmbeddedRuleRef { Name = "subject_expr" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "INDENT" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_match_stmt);
+
+                // Rule: invalid_case_block
+                var rule_invalid_case_block = new EmbeddedRule
+                {
+                    Name = "invalid_case_block",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR(\"expected ':'\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "\"case\"" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "patterns" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedRuleRef { Name = "guard" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_INDENTATION_ERROR(\"expected an indented block after 'case' statement on line %d\", a->lineno)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "\"case\"" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "patterns" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedRuleRef { Name = "guard" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "INDENT" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_case_block);
+
+                // Rule: invalid_as_pattern
+                var rule_invalid_as_pattern = new EmbeddedRule
+                {
+                    Name = "invalid_as_pattern",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"cannot use '_' as a target\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "or_pattern" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "as" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "\"_\"" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"invalid pattern target\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "or_pattern" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "as" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "NAME" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_as_pattern);
+
+                // Rule: invalid_class_pattern
+                var rule_invalid_class_pattern = new EmbeddedRule
+                {
+                    Name = "invalid_class_pattern",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_RANGE(\n        PyPegen_first_item(a, pattern_ty),\n        PyPegen_last_item(a, pattern_ty),\n        \"positional patterns follow keyword patterns\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "name_or_attr" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "invalid_class_argument_pattern" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_class_pattern);
+
+                // Rule: invalid_class_argument_pattern
+                var rule_invalid_class_argument_pattern = new EmbeddedRule
+                {
+                    Name = "invalid_class_argument_pattern",
+                    ReturnType = "asdl_pattern_seq*",
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "a",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "positional_patterns" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "keyword_patterns" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "positional_patterns" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_class_argument_pattern);
+
+                // Rule: invalid_if_stmt
+                var rule_invalid_if_stmt = new EmbeddedRule
+                {
+                    Name = "invalid_if_stmt",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR(\"expected ':'\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "if" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "named_expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_INDENTATION_ERROR(\"expected an indented block after 'if' statement on line %d\", a->lineno)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "if" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "named_expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "INDENT" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_if_stmt);
+
+                // Rule: invalid_elif_stmt
+                var rule_invalid_elif_stmt = new EmbeddedRule
+                {
+                    Name = "invalid_elif_stmt",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR(\"expected ':'\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "elif" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "named_expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_INDENTATION_ERROR(\"expected an indented block after 'elif' statement on line %d\", a->lineno)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "elif" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "named_expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "INDENT" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_elif_stmt);
+
+                // Rule: invalid_else_stmt
+                var rule_invalid_else_stmt = new EmbeddedRule
+                {
+                    Name = "invalid_else_stmt",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_INDENTATION_ERROR(\"expected an indented block after 'else' statement on line %d\", a->lineno)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "else" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "INDENT" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_else_stmt);
+
+                // Rule: invalid_while_stmt
+                var rule_invalid_while_stmt = new EmbeddedRule
+                {
+                    Name = "invalid_while_stmt",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR(\"expected ':'\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "while" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "named_expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_INDENTATION_ERROR(\"expected an indented block after 'while' statement on line %d\", a->lineno)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "while" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "named_expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "INDENT" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_while_stmt);
+
+                // Rule: invalid_for_stmt
+                var rule_invalid_for_stmt = new EmbeddedRule
+                {
+                    Name = "invalid_for_stmt",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR(\"expected ':'\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "ASYNC" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "for" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_targets" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "in" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_expressions" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_INDENTATION_ERROR(\"expected an indented block after 'for' statement on line %d\", a->lineno)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "ASYNC" } }, } }, } } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "for" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_targets" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "in" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_expressions" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "INDENT" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_for_stmt);
+
+                // Rule: invalid_def_raw
+                var rule_invalid_def_raw = new EmbeddedRule
+                {
+                    Name = "invalid_def_raw",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_INDENTATION_ERROR(\"expected an indented block after function definition on line %d\", a->lineno)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "ASYNC" } }, } }, } } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "def" } },
+                                new EmbeddedItem { Name = "NAME", Atom = new EmbeddedStringLiteral { Value = "(" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "params" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "->" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "INDENT" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_def_raw);
+
+                // Rule: invalid_class_def_raw
+                var rule_invalid_class_def_raw = new EmbeddedRule
+                {
+                    Name = "invalid_class_def_raw",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR(\"expected ':'\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "class" } },
+                                new EmbeddedItem { Name = "NAME", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "arguments" } }, } }, } } } }, new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_INDENTATION_ERROR(\"expected an indented block after class definition on line %d\", a->lineno)",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "class" } },
+                                new EmbeddedItem { Name = "NAME", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "arguments" } }, } }, } } } }, new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "INDENT" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_class_def_raw);
+
+                // Rule: invalid_double_starred_kvpairs
+                var rule_invalid_double_starred_kvpairs = new EmbeddedRule
+                {
+                    Name = "invalid_double_starred_kvpairs",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "double_starred_kvpair" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_kvpair" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_STARTING_FROM(a, \"cannot use a starred expression in a dictionary value\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "bitwise_or" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"expression expected after dictionary key and ':'\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "}" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_double_starred_kvpairs);
+
+                // Rule: invalid_kvpair
+                var rule_invalid_kvpair = new EmbeddedRule
+                {
+                    Name = "invalid_kvpair",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_ERROR_KNOWN_LOCATION(p, PyExc_SyntaxError, a->lineno, a->end_col_offset - 1, a->end_lineno, -1, \"':' expected after dictionary key\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_STARTING_FROM(a, \"cannot use a starred expression in a dictionary value\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "bitwise_or" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"expression expected after dictionary key and ':'\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "}" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_kvpair);
+
+                // Rule: invalid_starred_expression
+                var rule_invalid_starred_expression = new EmbeddedRule
+                {
+                    Name = "invalid_starred_expression",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, \"cannot assign to iterable argument unpacking\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "*" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "=" } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "expression" } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_starred_expression);
+
+                // Rule: invalid_replacement_field
+                var rule_invalid_replacement_field = new EmbeddedRule
+                {
+                    Name = "invalid_replacement_field",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"f-string: valid expression required before '='\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "{" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "=" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"f-string: valid expression required before '!'\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "{" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "!" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"f-string: valid expression required before ':'\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "{" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = ":" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, \"f-string: valid expression required before '}'\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "{" } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "}" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN(\"f-string: expecting a valid expression after '{'\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "{" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "yield_expr" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_expressions" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN(\"f-string: expecting '=', or '!', or ':', or '}'\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "{" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "yield_expr" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_expressions" } }, } }, } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "=" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "!" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "}" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN(\"f-string: expecting '!', or ':', or '}'\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "{" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "yield_expr" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_expressions" } }, } }, } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "=" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "!" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "}" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = null,
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "{" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "yield_expr" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_expressions" } }, } }, } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "=" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_conversion_character" } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN(\"f-string: expecting ':' or '}'\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "{" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "yield_expr" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_expressions" } }, } }, } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "=" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "!" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NAME" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "}" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN(\"f-string: expecting '}', or format specs\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "{" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "yield_expr" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_expressions" } }, } }, } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "=" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "!" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NAME" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "fstring_format_spec" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = "}" } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN(\"f-string: expecting '}'\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "{" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "yield_expr" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "star_expressions" } }, } }, } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "=" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "!" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NAME" } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = "}" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_replacement_field);
+
+                // Rule: invalid_conversion_character
+                var rule_invalid_conversion_character = new EmbeddedRule
+                {
+                    Name = "invalid_conversion_character",
+                    ReturnType = null,
+                    IsMemoized = false,
+                    Alternatives = new()
+                    {
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN(\"f-string: missing conversion character\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "!" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedPositiveLookahead { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "}" } }, } }, } } } },
+                            }
+                        },
+                        new EmbeddedAlternative
+                        {
+                            Action = "RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN(\"f-string: invalid conversion character\")",
+                            Items = new()
+                            {
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "!" } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "NAME" } } },
+                            }
+                        },
+                    }
+                };
+                grammar.Rules.Add(rule_invalid_conversion_character);
+
+                return grammar;
+            }
         }
 
         /// <summary>

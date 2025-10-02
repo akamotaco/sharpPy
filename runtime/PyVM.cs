@@ -357,10 +357,9 @@ namespace SharpPy
         // CPython 3.12 Exception Table lookup
         public (int? handlerOffset, ExceptionTableEntry? entry) GetExceptionHandlerFromTableWithEntry()
         {
-            // CPython 3.12: Exception table uses byte offsets, not instruction indices
-            var currentOffset = PyJumpBackwardUtil.CalculateByteOffset(InstructionPointer, Code.Instructions);
+            var currentOffset = InstructionPointer;
             #if DEBUG_LOG
-            Console.WriteLine($"🔍 Searching Exception Table for byte offset {currentOffset} (instruction {InstructionPointer}):");
+            Console.WriteLine($"🔍 Searching Exception Table for offset {currentOffset}:");
             #endif
 
             // Search Exception Table for a handler covering current instruction
@@ -764,12 +763,12 @@ namespace SharpPy
                             #if DEBUG_LOG
                             Console.WriteLine($"🔧 Total instructions: {frame.Code.Instructions.Count}");
                             #endif
-
-                            // CPython 3.12 compatibility: Exception Table stores byte offsets, convert to instruction index
-                            var instructionIndex = PyJumpBackwardUtil.ByteOffsetToInstructionIndex(handlerOffset.Value, frame.Code.Instructions);
                             #if DEBUG_LOG
-                            Console.WriteLine($"🔧 Handler byte offset {handlerOffset.Value} → instruction index: {instructionIndex}");
+                            Console.WriteLine($"🔧 Handler offset {handlerOffset.Value} → instruction index: {handlerOffset.Value}");
                             #endif
+
+                            // CPython 3.12 compatibility: SharpPy Exception Table stores instruction indices, not byte offsets
+                            var instructionIndex = handlerOffset.Value;
                             if (instructionIndex >= 0 && instructionIndex < frame.Code.Instructions.Count)
                             {
                                 frame.InstructionPointer = instructionIndex;

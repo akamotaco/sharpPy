@@ -253,11 +253,10 @@ namespace SharpPy.Tools
 
                 case ByteCodeOp.LOAD_FAST:
                 case ByteCodeOp.STORE_FAST:
-                case ByteCodeOp.LOAD_FAST_AND_CLEAR:
                     if (arg >= 0 && arg < varNames.Count)
                         return $"{arg,15} ({varNames[arg]})";
                     return $"{arg,15}";
-
+                    
                 case ByteCodeOp.CALL:
                     return $"{arg,15}";
 

@@ -483,11 +483,21 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
         private void GenerateParserConstructor()
         {
+            // Generate PegInterpreter field and property
+            WriteLine("// CPython 3.12: PegInterpreter for grammar-based parsing");
+            WriteLine("private readonly PegInterpreter _interpreter;");
+            WriteLine();
+            WriteLine("// Override base class abstract property");
+            WriteLine("protected override object? InterpreterObject => _interpreter;");
+            WriteLine();
+
             WriteLine("public GeneratedPyParser(List<GeneratedTokenInfo> tokens, string filename = \"<string>\")");
             WriteLine("    : base(tokens, filename)");
             WriteLine("{");
-            WriteLine("    // CPython 3.12: PegInterpreter will be initialized on first use");
-            WriteLine("    // This avoids circular dependency and lazy initialization");
+            WriteLine("    // CPython 3.12: Initialize PegInterpreter with embedded grammar");
+            WriteLine("    var embeddedGrammar = EmbeddedGrammar.GetGrammar();");
+            WriteLine("    var tokenInfoList = tokens.Cast<ITokenInfo>().ToList();");
+            WriteLine("    _interpreter = new PegInterpreter(embeddedGrammar, tokenInfoList);");
             WriteLine("}");
             WriteLine();
 
@@ -1753,43 +1763,40 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 return;
             }
 
-            WriteLine($"// Rule: {rule.Name}{(rule.IsMemoized ? " (memo)" : "")}");
+            WriteLine($"// Rule: {rule.Name} from python.gram");
             WriteLine($"public {returnType} {methodName}()");
             WriteLine("{");
             Indent();
 
-            if (rule.IsMemoized)
+            // CPython 3.12 style: Direct parsing logic generation
+            WriteLine($"// CPython 3.12 PEG: {rule.Name}");
+            WriteLine($"int _mark = _position;");
+            WriteLine($"{returnType} _res = null;");
+            WriteLine();
+
+            // Generate code for each alternative
+            for (int i = 0; i < rule.Alternatives.Count; i++)
             {
-                // Generate memoization code for (memo) rules
-                WriteLine($"// Memoization for rule '{rule.Name}'");
-                WriteLine($"var memoKey = \"{rule.Name}\";");
-                WriteLine($"var memoResult = GetMemo<{returnType}>(memoKey);");
-                WriteLine("if (memoResult != null)");
-                WriteLine("{");
-                WriteLine("    return memoResult;");
-                WriteLine("}");
-                WriteLine();
-                WriteLine("var startPos = _position;");
-                WriteLine($"var result = _interpreter.ParseRule(\"{rule.Name}\");");
-                WriteLine($"var parsedResult = result as {returnType.TrimEnd('?')};");
-                WriteLine($"SetMemo<{returnType}>(memoKey, parsedResult);");
-                WriteLine("return parsedResult;");
-            }
-            else
-            {
-                // Use PegInterpreter for non-memoized rules
-                WriteLine($"var result = _interpreter.ParseRule(\"{rule.Name}\");");
-                // Fix nullable casting issue - use proper casting syntax
-                if (returnType.EndsWith("?"))
+                var alt = rule.Alternatives[i];
+                var altGen = new AlternativeCodeGenerator(this, rule, alt, i);
+                altGen.Generate();
+
+                // Add alternative_failed label after first alternative
+                if (i == 0)
                 {
-                    var baseType = returnType.Substring(0, returnType.Length - 1);
-                    WriteLine($"return result as {baseType};");
-                }
-                else
-                {
-                    WriteLine($"return ({returnType})result;");
+                    WriteLine("alternative_failed:");
+                    WriteLine(";");  // C# requires a statement after label
                 }
             }
+
+            // All alternatives failed
+            WriteLine("_position = _mark;");
+            WriteLine("_res = null;");
+            WriteLine();
+
+            // Done label
+            WriteLine("done:");
+            WriteLine("return _res;");
 
             Dedent();
             WriteLine("}");
@@ -2459,7 +2466,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             return result;
         }
 
-        private string ToCSharpMethodName(string grammarName)
+        public string ToCSharpMethodName(string grammarName)
         {
             // Convert grammar rule name to C# method name
             var parts = grammarName.Split('_');
@@ -2467,7 +2474,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 char.ToUpper(p[0]) + p.Substring(1).ToLower()));
         }
 
-        private string TranslateCTypeToCS(string cType)
+        public string TranslateCTypeToCS(string cType)
         {
             // Convert CPython C types to C# types - CPython 3.12 compatible
             return cType switch
@@ -2490,9 +2497,19 @@ namespace SharpPy.PegGenerator.CodeGenerator
             };
         }
 
+        public string GetRuleReturnType(Rule rule)
+        {
+            if (!string.IsNullOrEmpty(rule.ReturnType))
+            {
+                return TranslateCTypeToCS(rule.ReturnType);
+            }
+            // Default: return object? for rules without explicit type
+            return "object?";
+        }
+
 
         // Output helper methods
-        private void WriteLine(string line = "")
+        public void WriteLine(string line = "")
         {
             if (!string.IsNullOrEmpty(line))
             {
@@ -2505,8 +2522,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             }
         }
 
-        private void Indent() => _indentLevel++;
-        private void Dedent() => _indentLevel--;
+        public void Indent() => _indentLevel++;
+        public void Dedent() => _indentLevel--;
 
         private string EscapeForCSharp(string value)
         {
@@ -2917,10 +2934,438 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
         private void GenerateEmbeddedTypes()
         {
-            WriteLine("// Embedded PEG Interpreter types and classes");
-            WriteLine("// Note: GeneratedTokenType and GeneratedTokenInfo are defined in tokenizer");
+            WriteLine("// ========================================");
+            WriteLine("// Embedded PEG Interpreter - Complete Copy");
+            WriteLine("// This makes PyParser.cs independent from SharpPy.PegGenerator");
+            WriteLine("// ========================================");
             WriteLine();
 
+            // Copy PegInterpreter source files into generated code
+            CopyPegInterpreterSource();
+            CopyEmbeddedGrammarSource();
+        }
+
+        private void CopyPegInterpreterSource()
+        {
+            // Read actual PegInterpreter.cs and copy it
+            // Get the solution root directory - assembly is in bin/Debug/net8.0 or similar
+            var assemblyLocation = typeof(CSharpCodeGenerator).Assembly.Location;
+            var assemblyDir = Path.GetDirectoryName(assemblyLocation) ?? "";
+            var interpreterPath = Path.Combine(assemblyDir, "..", "..", "..", "Interpreter", "PegInterpreter.cs");
+            interpreterPath = Path.GetFullPath(interpreterPath);
+
+            if (!File.Exists(interpreterPath))
+            {
+                Console.WriteLine($"[WARNING] PegInterpreter.cs not found at {interpreterPath}");
+                Console.WriteLine("[WARNING] Generating minimal stub instead");
+                GenerateMinimalPegInterpreterStub();
+                return;
+            }
+
+            Console.WriteLine($"[CODEGEN] Copying PegInterpreter from {interpreterPath}");
+            var source = File.ReadAllText(interpreterPath);
+
+            // Replace all Grammar type references with Embedded types
+            // First replace qualified names (Grammar.X), then standalone type names
+            source = source.Replace("using SharpPy.PegGenerator.Grammar;", "// Grammar types embedded below");
+            source = source.Replace("using SharpPy.Generated;", "// Already in SharpPy.Generated namespace");
+            source = source.Replace("namespace SharpPy.PegGenerator.Interpreter", "// Part of SharpPy.Generated namespace");
+
+            // Replace qualified names first (Grammar.X)
+            source = source.Replace("Grammar.Grammar", "EmbeddedGrammar");
+            source = source.Replace("Grammar.Rule", "EmbeddedRule");
+            source = source.Replace("Grammar.Alternative", "EmbeddedAlternative");
+            source = source.Replace("Grammar.Item", "EmbeddedItem");
+            source = source.Replace("Grammar.Atom", "EmbeddedAtom");
+            source = source.Replace("Grammar.RuleRef", "EmbeddedRuleRef");
+            source = source.Replace("Grammar.StringLiteral", "EmbeddedStringLiteral");
+            source = source.Replace("Grammar.Group", "EmbeddedGroup");
+            source = source.Replace("Grammar.Optional", "EmbeddedOptional");
+            source = source.Replace("Grammar.ZeroOrMore", "EmbeddedZeroOrMore");
+            source = source.Replace("Grammar.OneOrMore", "EmbeddedOneOrMore");
+            source = source.Replace("Grammar.PositiveLookahead", "EmbeddedPositiveLookahead");
+            source = source.Replace("Grammar.NegativeLookahead", "EmbeddedNegativeLookahead");
+            source = source.Replace("Grammar.Cut", "EmbeddedCut");
+
+            // Replace standalone type names ONLY when used as types (after specific keywords)
+            // This avoids replacing property names like "item.Atom"
+            var typeReplacements = new[] {
+                ("Rule", "EmbeddedRule"),
+                ("Alternative", "EmbeddedAlternative"),
+                ("Item", "EmbeddedItem"),
+                ("Atom", "EmbeddedAtom"),
+                ("RuleRef", "EmbeddedRuleRef"),
+                ("StringLiteral", "EmbeddedStringLiteral"),
+                ("Group", "EmbeddedGroup"),
+                ("Optional", "EmbeddedOptional"),
+                ("ZeroOrMore", "EmbeddedZeroOrMore"),
+                ("OneOrMore", "EmbeddedOneOrMore"),
+                ("PositiveLookahead", "EmbeddedPositiveLookahead"),
+                ("NegativeLookahead", "EmbeddedNegativeLookahead"),
+                ("Cut", "EmbeddedCut")
+            };
+
+            foreach (var (oldType, newType) in typeReplacements)
+            {
+                // Replace in type declarations: "private Rule", "List<Rule>", "Rule rule", "(Rule r)"
+                source = System.Text.RegularExpressions.Regex.Replace(source, $@"(private|public|protected|internal|static|readonly|List<|IEnumerable<|var|return|new|\(|\s){oldType}(\s|\)|\>|,)", m => m.Groups[1].Value + newType + m.Groups[2].Value);
+                // Replace in switch patterns:  "case Rule:"
+                source = System.Text.RegularExpressions.Regex.Replace(source, $@"(case\s+){oldType}(\s+)", m => m.Groups[1].Value + newType + m.Groups[2].Value);
+                //  Replace in is/as patterns: "is Rule", "as Rule"
+                source = System.Text.RegularExpressions.Regex.Replace(source, $@"(\sis\s+|\sas\s+){oldType}(\s|\))", m => m.Groups[1].Value + newType + m.Groups[2].Value);
+            }
+
+            // Write PegParseResult types header (ITokenInfo already defined in PyTokenizer.cs)
+            WriteLine("// ========================================");
+            WriteLine("// PegParseResult Types - from IPegParseResult.cs");
+            WriteLine("// Note: ITokenInfo is defined in PyTokenizer.cs");
+            WriteLine("// ========================================");
+            WriteLine();
+
+            // Copy all parse result types from IPegParseResult.cs
+            var parseResultPath = Path.Combine(assemblyDir, "..", "..", "..", "Interpreter", "IPegParseResult.cs");
+            parseResultPath = Path.GetFullPath(parseResultPath);
+
+            if (File.Exists(parseResultPath))
+            {
+                Console.WriteLine($"[CODEGEN] Copying parse result types from {parseResultPath}");
+                var parseResultSource = File.ReadAllText(parseResultPath);
+                // Remove namespace and using statements
+                parseResultSource = parseResultSource.Replace("using System;", "");
+                parseResultSource = parseResultSource.Replace("using System.Collections.Generic;", "");
+                parseResultSource = parseResultSource.Replace("namespace SharpPy.PegGenerator.Interpreter", "// Part of SharpPy.Generated namespace");
+
+                // Extract only the class/interface definitions
+                var parseResultStartIdx = parseResultSource.IndexOf("/// <summary>");
+                if (parseResultStartIdx >= 0)
+                {
+                    var parseResultContent = parseResultSource.Substring(parseResultStartIdx);
+                    // Remove namespace closing brace
+                    var parseResultLastBrace = parseResultContent.LastIndexOf('}');
+                    if (parseResultLastBrace > 0 && parseResultContent.Substring(parseResultLastBrace).Trim() == "}")
+                    {
+                        parseResultContent = parseResultContent.Substring(0, parseResultLastBrace).TrimEnd();
+                    }
+
+                    using (var reader = new StringReader(parseResultContent))
+                    {
+                        string? line;
+                        while ((line = reader.ReadLine()) != null)
+                        {
+                            WriteLine(line);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                Console.WriteLine($"[WARNING] IPegParseResult.cs not found at {parseResultPath}");
+                // Fallback minimal implementation
+                WriteLine("public class PegParseResult : IPegParseResult");
+                WriteLine("{");
+                Indent();
+                WriteLine("public bool IsSuccess { get; set; }");
+                WriteLine("public object? Value { get; set; }");
+                WriteLine("public int Position { get; set; }");
+                Dedent();
+                WriteLine("}");
+            }
+            WriteLine();
+
+            // Write PegInterpreter class and supporting types
+            WriteLine("// ========================================");
+            WriteLine("// PegInterpreter Supporting Types");
+            WriteLine("// ========================================");
+            WriteLine();
+
+            // Include SimpleModule, SimpleStmt, SimpleExpr classes
+            WriteLine("public class SimpleModule");
+            WriteLine("{");
+            Indent();
+            WriteLine("public List<object>? Body { get; set; }");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("public class SimpleStmt");
+            WriteLine("{");
+            Indent();
+            WriteLine("public string? Type { get; set; }");
+            WriteLine("public object? Data { get; set; }");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("public class SimpleExpr");
+            WriteLine("{");
+            Indent();
+            WriteLine("public string? Type { get; set; }");
+            WriteLine("public object? Data { get; set; }");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// ========================================");
+            WriteLine("// PegInterpreter - Complete Copy");
+            WriteLine("// Note: ContextType and ParserContext are defined in PyTokenizer.cs");
+            WriteLine("// ========================================");
+            WriteLine();
+
+            // Extract only PegInterpreter class (ContextType and ParserContext are in PyTokenizer.cs)
+            var startIdx = source.IndexOf("public class PegInterpreter");
+
+            if (startIdx >= 0)
+            {
+                var content = source.Substring(startIdx);
+                // Remove namespace closing brace if present
+                var lastBrace = content.LastIndexOf('}');
+                if (lastBrace > 0 && content.Substring(lastBrace).Trim() == "}")
+                {
+                    content = content.Substring(0, lastBrace).TrimEnd();
+                }
+
+                // Write line by line
+                using (var reader = new StringReader(content))
+                {
+                    string? line;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        WriteLine(line);
+                    }
+                }
+            }
+        }
+
+        private void CopyEmbeddedGrammarSource()
+        {
+            // Generate complete EmbeddedGrammar structure from _grammar (CPython 3.12 PEG compatible)
+            WriteLine("// ========================================");
+            WriteLine("// Embedded Grammar Types - from python.gram");
+            WriteLine("// These mirror Grammar.Grammar structure for PegInterpreter");
+            WriteLine("// ========================================");
+            WriteLine();
+
+            // Base classes and types
+            WriteLine("public abstract class EmbeddedAtom { }");
+            WriteLine();
+
+            WriteLine("public class EmbeddedRuleRef : EmbeddedAtom");
+            WriteLine("{");
+            Indent();
+            WriteLine("public string Name { get; set; } = \"\";");
+            WriteLine("public override string ToString() => Name;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("public class EmbeddedStringLiteral : EmbeddedAtom");
+            WriteLine("{");
+            Indent();
+            WriteLine("public string Value { get; set; } = \"\";");
+            WriteLine("public override string ToString() => $\"'{Value}'\";");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("public class EmbeddedGroup : EmbeddedAtom");
+            WriteLine("{");
+            Indent();
+            WriteLine("public List<EmbeddedAlternative> Alternatives { get; set; } = new();");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("public class EmbeddedOptional : EmbeddedAtom");
+            WriteLine("{");
+            Indent();
+            WriteLine("public EmbeddedAtom Expression { get; set; } = null!;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("public class EmbeddedZeroOrMore : EmbeddedAtom");
+            WriteLine("{");
+            Indent();
+            WriteLine("public EmbeddedAtom Expression { get; set; } = null!;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("public class EmbeddedOneOrMore : EmbeddedAtom");
+            WriteLine("{");
+            Indent();
+            WriteLine("public EmbeddedAtom Expression { get; set; } = null!;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("public class EmbeddedPositiveLookahead : EmbeddedAtom");
+            WriteLine("{");
+            Indent();
+            WriteLine("public EmbeddedAtom Expression { get; set; } = null!;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("public class EmbeddedNegativeLookahead : EmbeddedAtom");
+            WriteLine("{");
+            Indent();
+            WriteLine("public EmbeddedAtom Expression { get; set; } = null!;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("public class EmbeddedCut : EmbeddedAtom");
+            WriteLine("{");
+            Indent();
+            WriteLine("public EmbeddedAtom Expression { get; set; } = null!;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("public class EmbeddedItem");
+            WriteLine("{");
+            Indent();
+            WriteLine("public string? Name { get; set; }");
+            WriteLine("public EmbeddedAtom Atom { get; set; } = null!;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("public class EmbeddedAlternative");
+            WriteLine("{");
+            Indent();
+            WriteLine("public List<EmbeddedItem> Items { get; set; } = new();");
+            WriteLine("public string? Action { get; set; }");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("public class EmbeddedRule");
+            WriteLine("{");
+            Indent();
+            WriteLine("public string Name { get; set; } = \"\";");
+            WriteLine("public string? ReturnType { get; set; }");
+            WriteLine("public List<EmbeddedAlternative> Alternatives { get; set; } = new();");
+            WriteLine("public bool IsMemoized { get; set; } = false;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            // Main EmbeddedGrammar class
+            WriteLine("public class EmbeddedGrammar");
+            WriteLine("{");
+            Indent();
+            WriteLine("public List<EmbeddedRule> Rules { get; } = new();");
+            WriteLine();
+            WriteLine("public static EmbeddedGrammar GetGrammar()");
+            WriteLine("{");
+            Indent();
+            WriteLine("var grammar = new EmbeddedGrammar();");
+            WriteLine();
+
+            // Generate all rules with complete structure
+            foreach (var rule in _grammar.Rules)
+            {
+                WriteLine($"// Rule: {rule.Name}");
+                WriteLine($"var rule_{EscapeRuleName(rule.Name)} = new EmbeddedRule");
+                WriteLine("{");
+                Indent();
+                WriteLine($"Name = \"{rule.Name}\",");
+                WriteLine($"ReturnType = {(rule.ReturnType != null ? $"\"{rule.ReturnType}\"" : "null")},");
+                WriteLine($"IsMemoized = {rule.IsMemoized.ToString().ToLower()},");
+                WriteLine("Alternatives = new()");
+                WriteLine("{");
+                Indent();
+
+                // Generate alternatives
+                foreach (var alt in rule.Alternatives)
+                {
+                    WriteLine("new EmbeddedAlternative");
+                    WriteLine("{");
+                    Indent();
+                    WriteLine($"Action = {(alt.Action != null ? $"\"{EscapeString(alt.Action)}\"" : "null")},");
+                    WriteLine("Items = new()");
+                    WriteLine("{");
+                    Indent();
+
+                    // Generate items
+                    foreach (var item in alt.Items)
+                    {
+                        WriteLine($"new EmbeddedItem {{ Name = {(item.Name != null ? $"\"{item.Name}\"" : "null")}, Atom = {GenerateEmbeddedAtom(item.Atom)} }},");
+                    }
+
+                    Dedent();
+                    WriteLine("}");
+                    Dedent();
+                    WriteLine("},");
+                }
+
+                Dedent();
+                WriteLine("}");
+                Dedent();
+                WriteLine("};");
+                WriteLine($"grammar.Rules.Add(rule_{EscapeRuleName(rule.Name)});");
+                WriteLine();
+            }
+
+            WriteLine("return grammar;");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
+        private string EscapeRuleName(string name)
+        {
+            return name.Replace("-", "_").Replace(".", "_");
+        }
+
+        public string EscapeString(string str)
+        {
+            // Escape backslashes first, then quotes, then newlines
+            return str.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r").Replace("\t", "\\t");
+        }
+
+        private string GenerateEmbeddedAtom(Grammar.Atom atom)
+        {
+            return atom switch
+            {
+                Grammar.RuleRef ruleRef => $"new EmbeddedRuleRef {{ Name = \"{ruleRef.Name}\" }}",
+                Grammar.StringLiteral str => $"new EmbeddedStringLiteral {{ Value = \"{EscapeString(str.Value)}\" }}",
+                Grammar.Group group => GenerateEmbeddedGroup(group),
+                Grammar.Optional opt => $"new EmbeddedOptional {{ Expression = {GenerateEmbeddedAtom(opt.Expression)} }}",
+                Grammar.ZeroOrMore zero => $"new EmbeddedZeroOrMore {{ Expression = {GenerateEmbeddedAtom(zero.Expression)} }}",
+                Grammar.OneOrMore one => $"new EmbeddedOneOrMore {{ Expression = {GenerateEmbeddedAtom(one.Expression)} }}",
+                Grammar.PositiveLookahead pos => $"new EmbeddedPositiveLookahead {{ Expression = {GenerateEmbeddedAtom(pos.Expression)} }}",
+                Grammar.NegativeLookahead neg => $"new EmbeddedNegativeLookahead {{ Expression = {GenerateEmbeddedAtom(neg.Expression)} }}",
+                Grammar.Cut cut => $"new EmbeddedCut {{ Expression = {GenerateEmbeddedAtom(cut.Expression)} }}",
+                _ => throw new NotImplementedException($"Unknown atom type: {atom.GetType().Name}")
+            };
+        }
+
+        private string GenerateEmbeddedGroup(Grammar.Group group)
+        {
+            var sb = new StringBuilder();
+            sb.Append("new EmbeddedGroup { Alternatives = new() { ");
+
+            foreach (var alt in group.Alternatives)
+            {
+                sb.Append("new EmbeddedAlternative { Items = new() { ");
+                foreach (var item in alt.Items)
+                {
+                    sb.Append($"new EmbeddedItem {{ Name = {(item.Name != null ? $"\"{item.Name}\"" : "null")}, Atom = {GenerateEmbeddedAtom(item.Atom)} }}, ");
+                }
+                sb.Append("} }, ");
+            }
+
+            sb.Append("} }");
+            return sb.ToString();
+        }
+
+        private void GenerateMinimalPegInterpreterStub()
+        {
             // IEmbeddedTokenInfo interface
             WriteLine("public interface IEmbeddedTokenInfo");
             WriteLine("{");
@@ -4508,246 +4953,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
         }
 
-        // CPython 3.12: if/while/for statement generators
-        // These generate pure C# code following python.gram rules exactly
-
-        /// <summary>
-        /// Generate if_stmt parser following CPython 3.12 grammar:
-        /// if_stmt[stmt_ty]:
-        ///     | 'if' a=named_expression ':' b=block c=elif_stmt
-        ///     | 'if' a=named_expression ':' b=block c=[else_block]
-        /// </summary>
-        private void GenerateIfStmtMethod()
-        {
-            WriteLine("/// <summary>");
-            WriteLine("/// CPython 3.12: if_stmt[stmt_ty]");
-            WriteLine("///     | 'if' a=named_expression ':' b=block c=elif_stmt");
-            WriteLine("///     | 'if' a=named_expression ':' b=block c=[else_block]");
-            WriteLine("/// </summary>");
-            WriteLine("public GeneratedStmt ParseIfStmt()");
-            WriteLine("{");
-            Indent();
-
-            WriteLine("// Expect 'if' keyword");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != \"if\")");
-            WriteLine("    return null;");
-            WriteLine("Advance(); // consume 'if'");
-            WriteLine();
-
-            WriteLine("// Parse condition");
-            WriteLine("var condition = ParseExpression();");
-            WriteLine("if (condition == null)");
-            WriteLine("    return null;");
-            WriteLine();
-
-            WriteLine("// Expect ':'");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != \":\")");
-            WriteLine("    return null;");
-            WriteLine("Advance(); // consume ':'");
-            WriteLine();
-
-            WriteLine("// Parse block");
-            WriteLine("var body = ParseBlock();");
-            WriteLine("if (body == null)");
-            WriteLine("    return null;");
-            WriteLine();
-
-            WriteLine("// CPython 3.12: Parse elif_stmt or else_block");
-            WriteLine("List<object>? elseBody = null;");
-            WriteLine();
-            WriteLine("// Check for elif - treated as nested if statement");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == \"elif\")");
-            WriteLine("{");
-            Indent();
-            WriteLine("Advance(); // consume 'elif'");
-            WriteLine();
-            WriteLine("// Parse elif as if statement (condition + body + elif/else)");
-            WriteLine("var elifCondition = ParseExpression();");
-            WriteLine("if (elifCondition != null && CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \":\")");
-            WriteLine("{");
-            Indent();
-            WriteLine("Advance(); // consume ':'");
-            WriteLine("var elifBody = ParseBlock();");
-            WriteLine("if (elifBody != null)");
-            WriteLine("{");
-            Indent();
-            WriteLine("// Recursively parse more elif/else");
-            WriteLine("List<object>? elifElseBody = null;");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == \"elif\")");
-            WriteLine("{");
-            Indent();
-            WriteLine("// Recursive elif");
-            WriteLine("var nestedElifStmt = ParseIfStmt(); // Will consume 'elif' and parse as if");
-            WriteLine("if (nestedElifStmt != null)");
-            WriteLine("    elifElseBody = new List<object> { nestedElifStmt };");
-            Dedent();
-            WriteLine("}");
-            WriteLine("else if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == \"else\")");
-            WriteLine("{");
-            Indent();
-            WriteLine("Advance(); // consume 'else'");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \":\")");
-            WriteLine("{");
-            Indent();
-            WriteLine("Advance(); // consume ':'");
-            WriteLine("elifElseBody = ParseBlock();");
-            Dedent();
-            WriteLine("}");
-            Dedent();
-            WriteLine("}");
-            WriteLine();
-            WriteLine("// Create nested if statement for elif");
-            WriteLine("var elifStmt = new GeneratedStmt();");
-            WriteLine("elifStmt.StatementType = \"if\";");
-            WriteLine("elifStmt.Value = new { condition = elifCondition, body = elifBody, elifs = new List<object>(), elseBody = elifElseBody };");
-            WriteLine("elseBody = new List<object> { elifStmt };");
-            Dedent();
-            WriteLine("}");
-            Dedent();
-            WriteLine("}");
-            Dedent();
-            WriteLine("}");
-            WriteLine("else if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == \"else\")");
-            WriteLine("{");
-            Indent();
-            WriteLine("Advance(); // consume 'else'");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \":\")");
-            WriteLine("{");
-            Indent();
-            WriteLine("Advance(); // consume ':'");
-            WriteLine("elseBody = ParseBlock();");
-            Dedent();
-            WriteLine("}");
-            Dedent();
-            WriteLine("}");
-            WriteLine();
-
-            WriteLine("// Create if statement");
-            WriteLine("var ifStmt = new GeneratedStmt();");
-            WriteLine("ifStmt.StatementType = \"if\";");
-            WriteLine("var elifs = new List<object>();");
-            WriteLine("ifStmt.Value = new { condition = condition, body = body, elifs = elifs, elseBody = elseBody };");
-            WriteLine("return ifStmt;");
-
-            Dedent();
-            WriteLine("}");
-            WriteLine();
-        }
-
-        /// <summary>
-        /// Generate while_stmt parser following CPython 3.12 grammar:
-        /// while_stmt[stmt_ty]:
-        ///     | 'while' a=named_expression ':' b=block c=[else_block]
-        /// </summary>
-        private void GenerateWhileStmtMethod()
-        {
-            WriteLine("/// <summary>");
-            WriteLine("/// CPython 3.12: while_stmt[stmt_ty]");
-            WriteLine("///     | 'while' a=named_expression ':' b=block c=[else_block]");
-            WriteLine("/// </summary>");
-            WriteLine("public GeneratedStmt ParseWhileStmt()");
-            WriteLine("{");
-            Indent();
-
-            WriteLine("// Expect 'while' keyword");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != \"while\")");
-            WriteLine("    return null;");
-            WriteLine("Advance(); // consume 'while'");
-            WriteLine();
-
-            WriteLine("// Parse condition");
-            WriteLine("var condition = ParseExpression();");
-            WriteLine("if (condition == null)");
-            WriteLine("    return null;");
-            WriteLine();
-
-            WriteLine("// Expect ':'");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != \":\")");
-            WriteLine("    return null;");
-            WriteLine("Advance(); // consume ':'");
-            WriteLine();
-
-            WriteLine("// Parse block");
-            WriteLine("var body = ParseBlock();");
-            WriteLine("if (body == null)");
-            WriteLine("    return null;");
-            WriteLine();
-
-            WriteLine("// Create while statement");
-            WriteLine("var whileStmt = new GeneratedStmt();");
-            WriteLine("whileStmt.StatementType = \"while\";");
-            WriteLine("whileStmt.Value = new { condition = condition, body = body, elseBody = (List<object>?)null };");
-            WriteLine("return whileStmt;");
-
-            Dedent();
-            WriteLine("}");
-            WriteLine();
-        }
-
-        /// <summary>
-        /// Generate for_stmt parser following CPython 3.12 grammar:
-        /// for_stmt[stmt_ty]:
-        ///     | 'for' t=star_targets 'in' ~ ex=star_expressions ':' tc=[TYPE_COMMENT] b=block el=[else_block]
-        /// </summary>
-        private void GenerateForStmtMethod()
-        {
-            WriteLine("/// <summary>");
-            WriteLine("/// CPython 3.12: for_stmt[stmt_ty]");
-            WriteLine("///     | 'for' t=star_targets 'in' ~ ex=star_expressions ':' tc=[TYPE_COMMENT] b=block el=[else_block]");
-            WriteLine("/// </summary>");
-            WriteLine("public GeneratedStmt ParseForStmt()");
-            WriteLine("{");
-            Indent();
-
-            WriteLine("// Expect 'for' keyword");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != \"for\")");
-            WriteLine("    return null;");
-            WriteLine("Advance(); // consume 'for'");
-            WriteLine();
-
-            WriteLine("// Parse target (simplified: just NAME for now)");
-            WriteLine("// CPython 3.12: for loop target has Store context");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.NAME)");
-            WriteLine("    return null;");
-            WriteLine("var targetName = CurrentToken.Value;");
-            WriteLine("Advance();");
-            WriteLine("var target = new GeneratedExpr { ExpressionType = \"Name\", Value = new { id = targetName }, Context = \"Store\" };");
-            WriteLine();
-
-            WriteLine("// Expect 'in' keyword");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != \"in\")");
-            WriteLine("    return null;");
-            WriteLine("Advance(); // consume 'in'");
-            WriteLine();
-
-            WriteLine("// Parse iterator expression");
-            WriteLine("var iter = ParseExpression();");
-            WriteLine("if (iter == null)");
-            WriteLine("    return null;");
-            WriteLine();
-
-            WriteLine("// Expect ':'");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != \":\")");
-            WriteLine("    return null;");
-            WriteLine("Advance(); // consume ':'");
-            WriteLine();
-
-            WriteLine("// Parse block");
-            WriteLine("var body = ParseBlock();");
-            WriteLine("if (body == null)");
-            WriteLine("    return null;");
-            WriteLine();
-
-            WriteLine("// Create for statement");
-            WriteLine("var forStmt = new GeneratedStmt();");
-            WriteLine("forStmt.StatementType = \"for\";");
-            WriteLine("forStmt.Value = new { target = target, iter = iter, body = body, elseBody = (List<object>?)null };");
-            WriteLine("return forStmt;");
-
-            Dedent();
-            WriteLine("}");
-            WriteLine();
-        }
+        // CPython 3.12: if/while/for statements removed - now handled by grammar-based compound_stmt parsing
+        // ParseIfStatement(), ParseWhileStatement(), ParseForStatement() are no longer generated
+        // PegInterpreter processes python.gram rules: if_stmt, while_stmt, for_stmt
 
         /// <summary>
         /// Convert parsed Grammar AST to dictionary format for EmbeddedGrammar
@@ -4835,6 +5043,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             GenerateFunctionDefMethods();
             GenerateStatementMethods();
             GenerateBasicMethods();
+
+            // CPython 3.12: Generate embedded types (PegInterpreter, EmbeddedGrammar, etc.)
+            // This makes PyParser.cs completely independent from SharpPy.PegGenerator
+            Console.WriteLine("[CODEGEN] Generating embedded types (PegInterpreter, Grammar, etc.)");
+            GenerateEmbeddedTypes();
         }
 
         /// <summary>
@@ -4846,13 +5059,29 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("// === Specific Grammar Rules ===");
             WriteLine();
 
-            // CPython 3.12: Generate if_stmt, while_stmt, for_stmt as pure C# code
-            // These cannot use GenerateRuleMethod (which relies on PegInterpreter)
-            // Must generate complete C# parsing logic following python.gram rules
-            Console.WriteLine("[CODEGEN] Generating if_stmt, while_stmt, for_stmt as pure C# code");
-            GenerateIfStmtMethod();
-            GenerateWhileStmtMethod();
-            GenerateForStmtMethod();
+            // CPython 3.12: Generate if_stmt, while_stmt, for_stmt from grammar
+            Console.WriteLine("[CODEGEN] Generating if_stmt, while_stmt, for_stmt from python.gram");
+            var ifRule = _grammar.Rules.FirstOrDefault(r => r.Name == "if_stmt");
+            var whileRule = _grammar.Rules.FirstOrDefault(r => r.Name == "while_stmt");
+            var forRule = _grammar.Rules.FirstOrDefault(r => r.Name == "for_stmt");
+
+            if (ifRule != null)
+            {
+                Console.WriteLine("[CODEGEN] Generating if_stmt from grammar");
+                GenerateRuleMethod(ifRule);
+            }
+
+            if (whileRule != null)
+            {
+                Console.WriteLine("[CODEGEN] Generating while_stmt from grammar");
+                GenerateRuleMethod(whileRule);
+            }
+
+            if (forRule != null)
+            {
+                Console.WriteLine("[CODEGEN] Generating for_stmt from grammar");
+                GenerateRuleMethod(forRule);
+            }
 
             // Generate assignment_expression rule directly for walrus operator
             Console.WriteLine("[CODEGEN] Generating assignment_expression rule for walrus operator");
@@ -5894,12 +6123,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"if\")");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseCompoundStmt: Found if, calling ParseIfStmt\");");
-            WriteLine("var result = ParseIfStmt();");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseCompoundStmt: Found if, calling IfStmt\");");
+            WriteLine("var result = IfStmt();");
             WriteLine("if (result != null)");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseCompoundStmt: ParseIfStmt succeeded\");");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseCompoundStmt: IfStmt succeeded\");");
             WriteLine("return result;");
             Dedent();
             WriteLine("}");
@@ -5910,12 +6139,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"while\")");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseCompoundStmt: Found while, calling ParseWhileStmt\");");
-            WriteLine("var result = ParseWhileStmt();");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseCompoundStmt: Found while, calling WhileStmt\");");
+            WriteLine("var result = WhileStmt();");
             WriteLine("if (result != null)");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseCompoundStmt: ParseWhileStmt succeeded\");");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseCompoundStmt: WhileStmt succeeded\");");
             WriteLine("return result;");
             Dedent();
             WriteLine("}");
@@ -5926,12 +6155,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"for\")");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseCompoundStmt: Found for, calling ParseForStmt\");");
-            WriteLine("var result = ParseForStmt();");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseCompoundStmt: Found for, calling ForStmt\");");
+            WriteLine("var result = ForStmt();");
             WriteLine("if (result != null)");
             WriteLine("{");
             Indent();
-            WriteLine("Console.WriteLine($\"[DEBUG] ParseCompoundStmt: ParseForStmt succeeded\");");
+            WriteLine("Console.WriteLine($\"[DEBUG] ParseCompoundStmt: ForStmt succeeded\");");
             WriteLine("return result;");
             Dedent();
             WriteLine("}");

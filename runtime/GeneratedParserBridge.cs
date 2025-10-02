@@ -968,32 +968,8 @@ namespace SharpPy
                             }
                         }
 
-                        // CPython 3.12: Convert elseBody (elif/else)
+                        // For now, create empty else clause (TODO: handle elif/else)
                         var elseStmts = new List<Statement>();
-                        if (ifData.elseBody != null)
-                        {
-                            foreach (var elseStmt in ifData.elseBody)
-                            {
-                                if (elseStmt is GeneratedStmt generatedElseStmt)
-                                {
-                                    var convertedStmt = ConvertStatement(generatedElseStmt, insideLoop, insideFunction);
-                                    if (convertedStmt != null)
-                                        elseStmts.Add(convertedStmt);
-                                }
-                                else if (elseStmt is System.Collections.IEnumerable enumerable && !(elseStmt is string))
-                                {
-                                    foreach (var nestedStmt in enumerable)
-                                    {
-                                        if (nestedStmt is GeneratedStmt nestedGeneratedStmt)
-                                        {
-                                            var convertedStmt = ConvertStatement(nestedGeneratedStmt, insideLoop, insideFunction);
-                                            if (convertedStmt != null)
-                                                elseStmts.Add(convertedStmt);
-                                        }
-                                    }
-                                }
-                            }
-                        }
 
                         return new IfStatement(conditionExpr, bodyStmts, elseStmts);
                     }
@@ -1055,14 +1031,31 @@ namespace SharpPy
                     return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
                 case "for":
-                    // CPython 3.12: For statement (for target in iterable: body [else: elseBody])
-                    // target is an Expression (Name, Tuple, etc.)
+                    // For statement (for target in iterable: body [else: elseBody])
                     if (stmt.Value != null)
                     {
                         var forData = stmt.Value as dynamic;
 
-                        // CPython 3.12: Convert target as Expression
-                        Expression targetExpr = ConvertAnyExpression(forData.target);
+                        // Extract target variable name from GeneratedExpr
+                        string targetVar = "i"; // default
+                        if (forData.target is GeneratedExpr targetExpr && targetExpr.ExpressionType == "Name")
+                        {
+                            if (targetExpr.Value is object targetValue)
+                            {
+                                var valueType = targetValue.GetType();
+                                var idProperty = valueType.GetProperty("id");
+                                var valueProperty = valueType.GetProperty("value");
+
+                                if (idProperty != null)
+                                {
+                                    targetVar = idProperty.GetValue(targetValue)?.ToString() ?? "i";
+                                }
+                                else if (valueProperty != null)
+                                {
+                                    targetVar = valueProperty.GetValue(targetValue)?.ToString() ?? "i";
+                                }
+                            }
+                        }
 
                         // Convert iterable expression
                         Expression iterableExpr = ConvertAnyExpression(forData.iter);
@@ -1117,8 +1110,7 @@ namespace SharpPy
                             }
                         }
 
-                        // CPython 3.12: target is an Expression
-                        return new ForStatement(targetExpr, iterableExpr, bodyStmts, elseStmts);
+                        return new ForStatement(targetVar, iterableExpr, bodyStmts, elseStmts);
                     }
                     return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 

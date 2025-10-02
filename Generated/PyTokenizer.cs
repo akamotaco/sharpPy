@@ -86,9 +86,20 @@ namespace SharpPy.Generated
     }
 
     /// <summary>
+    /// Token information interface for PegInterpreter compatibility
+    /// </summary>
+    public interface ITokenInfo
+    {
+        object Type { get; }
+        string Value { get; }
+        int Line { get; }
+        int Column { get; }
+    }
+
+    /// <summary>
     /// CPython 3.12 compatible token info
     /// </summary>
-    public class GeneratedTokenInfo
+    public class GeneratedTokenInfo : ITokenInfo
     {
         public GeneratedTokenType Type { get; set; }
         public string Value { get; set; } = "";
@@ -96,6 +107,9 @@ namespace SharpPy.Generated
         public int Column { get; set; }
         public int Start { get; set; }
         public int End { get; set; }
+
+        // ITokenInfo interface implementation
+        object ITokenInfo.Type => Type;
 
         public GeneratedTokenInfo(GeneratedTokenType type, string value, int line, int column, int start = 0, int end = 0)
         {
@@ -105,6 +119,45 @@ namespace SharpPy.Generated
             Column = column;
             Start = start;
             End = end;
+        }
+    }
+
+    /// <summary>
+    /// Parser context types for tracking parsing state - CPython 3.12 compatible
+    /// </summary>
+    public enum ContextType
+    {
+        Module,
+        Function,
+        Class,
+        Loop,
+        Async,
+        Lambda,
+        Comprehension
+    }
+
+    /// <summary>
+    /// Parser context information for validation
+    /// </summary>
+    public class ParserContext
+    {
+        public ContextType Type { get; set; }
+        public int NestingLevel { get; set; }
+        public int StartPosition { get; set; }
+        public string? Name { get; set; } // Function/class name for debugging
+
+        public ParserContext(ContextType type, int nestingLevel = 0, int startPosition = 0, string? name = null)
+        {
+            Type = type;
+            NestingLevel = nestingLevel;
+            StartPosition = startPosition;
+            Name = name;
+        }
+
+        public override string ToString()
+        {
+            var name = Name ?? "anonymous";
+            return $"{Type}({name}) at level {NestingLevel}, pos {StartPosition}";
         }
     }
 
