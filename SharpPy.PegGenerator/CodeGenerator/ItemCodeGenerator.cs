@@ -88,7 +88,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             _parent.Indent();
             _parent.WriteLine("_position = _mark;");
             _parent.WriteLine("_res = null;");
-            _parent.WriteLine("goto alternative_failed;");
+            _parent.WriteLine("break;  // Exit this alternative");
             _parent.Dedent();
             _parent.WriteLine("}");
         }
@@ -108,7 +108,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 _parent.Indent();
                 _parent.WriteLine("_position = _mark;");
                 _parent.WriteLine("_res = null;");
-                _parent.WriteLine("goto alternative_failed;");
+                _parent.WriteLine("break;  // Exit this alternative");
                 _parent.Dedent();
                 _parent.WriteLine("}");
             }
@@ -123,7 +123,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 _parent.Indent();
                 _parent.WriteLine("_position = _mark;");
                 _parent.WriteLine("_res = null;");
-                _parent.WriteLine("goto alternative_failed;");
+                _parent.WriteLine("break;  // Exit this alternative");
                 _parent.Dedent();
                 _parent.WriteLine("}");
             }
@@ -223,7 +223,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             _parent.WriteLine($"// One or more requires at least one match");
             _parent.WriteLine($"_position = _mark;");
             _parent.WriteLine($"_res = null;");
-            _parent.WriteLine($"goto alternative_failed;");
+            _parent.WriteLine("break;  // Exit this alternative");
             _parent.Dedent();
             _parent.WriteLine("}");
         }
@@ -231,7 +231,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private void GenerateGroup(Group grp)
         {
             // CPython 3.12 pattern: Group tries each alternative until one succeeds
-            // Unlike rule alternatives, group must handle goto alternative_failed internally
+            // Unlike rule alternatives, group uses nested if-else (no goto within group)
             _parent.WriteLine($"// Group: ({string.Join(" | ", grp.Alternatives.Select(a => a.ToString()))})");
             _parent.WriteLine($"object? {_varName} = null;");
             _parent.WriteLine($"int _group_mark_{_varName} = _position;");
@@ -242,55 +242,117 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 var altVarName = $"_group_alt{i}_{_varName}";
 
                 _parent.WriteLine($"// Try group alternative {i + 1}: {alt}");
+                if (i > 0)
+                {
+                    _parent.WriteLine($"if ({_varName} == null)");
+                }
                 _parent.WriteLine("{");
                 _parent.Indent();
                 _parent.WriteLine($"_position = _group_mark_{_varName};");
 
-                // Generate code for all items in this alternative - each item may use "goto alternative_failed"
-                // which will jump to the end of current rule alternative, so we need to catch that
-                // For now, we'll generate items and check if the last item succeeded
-                bool hasItems = alt.Items.Count > 0;
-                string lastItemVarName = null;
-
-                for (int j = 0; j < alt.Items.Count; j++)
-                {
-                    var item = alt.Items[j];
-                    var itemVarName = $"{altVarName}_item{j}";
-
-                    // Track the last item that actually generates a variable
-                    // (lookaheads don't generate variables but still count as items)
-                    if (!(item.Atom is PositiveLookahead) && !(item.Atom is NegativeLookahead))
-                    {
-                        lastItemVarName = itemVarName;
-                    }
-
-                    // Items use goto alternative_failed which exits the entire rule alternative
-                    // In a group context, we need to catch this and try next group alternative
-                    // Solution: Each generated item code already does: if (item == null) goto alternative_failed
-                    // So if we reach here, the item succeeded
-                    var itemGen = new ItemCodeGenerator(_parent, item, itemVarName, _labelPrefix);
-                    itemGen.Generate();
-                }
-
-                // If we reach here, all items succeeded
-                if (hasItems && lastItemVarName != null)
-                {
-                    _parent.WriteLine($"// Group alternative {i + 1} succeeded");
-                    _parent.WriteLine($"{_varName} = {lastItemVarName};");
-                    _parent.WriteLine($"goto group_success_{_varName};");
-                }
+                // Generate code for items with nested if structure (CPython pattern)
+                GenerateGroupAlternativeItems(alt, altVarName, i);
 
                 _parent.Dedent();
                 _parent.WriteLine("}");
             }
 
-            // All alternatives tried, none succeeded
-            _parent.WriteLine($"// All group alternatives failed");
+            // If all alternatives failed, this group fails the rule alternative
+            _parent.WriteLine($"if ({_varName} == null)");
+            _parent.WriteLine("{");
+            _parent.Indent();
             _parent.WriteLine($"_position = _mark;");
             _parent.WriteLine($"_res = null;");
-            _parent.WriteLine($"goto alternative_failed;");
+            _parent.WriteLine("break;  // Exit this alternative");
+            _parent.Dedent();
+            _parent.WriteLine("}");
+        }
 
-            _parent.WriteLine($"group_success_{_varName}: ; // Group succeeded");
+        private void GenerateGroupAlternativeItems(Alternative alt, string altVarName, int altIndex)
+        {
+            // CPython 3.12: Generate items in nested if structure
+            // Each item check is wrapped in "if (prev != null)"
+            var items = alt.Items.ToList();
+            if (items.Count == 0)
+            {
+                return;
+            }
+
+            // Generate first item
+            var firstItemVar = $"{altVarName}_item0";
+            GenerateGroupItem(items[0], firstItemVar, 0, alt.Items.Count);
+
+            // Generate remaining items in nested if blocks
+            for (int i = 1; i < items.Count; i++)
+            {
+                var prevItemVar = $"{altVarName}_item{i - 1}";
+                var currItemVar = $"{altVarName}_item{i}";
+
+                _parent.WriteLine($"if ({prevItemVar} != null)");
+                _parent.WriteLine("{");
+                _parent.Indent();
+
+                GenerateGroupItem(items[i], currItemVar, i, items.Count);
+            }
+
+            // After last item, assign result and close all if blocks
+            var lastItemVar = $"{altVarName}_item{items.Count - 1}";
+            var groupVarName = altVarName.Substring(0, altVarName.LastIndexOf("_group_alt") + "_group_alt0".Length - 1);
+            // Extract original group var name from altVarName
+            var parts = altVarName.Split(new[] { "_group_alt" }, StringSplitOptions.None);
+            if (parts.Length >= 2)
+            {
+                groupVarName = parts[1].Substring(parts[1].IndexOf('_') + 1);
+            }
+
+            _parent.WriteLine($"if ({lastItemVar} != null)");
+            _parent.WriteLine("{");
+            _parent.Indent();
+            _parent.WriteLine($"{groupVarName} = {lastItemVar};");
+            _parent.Dedent();
+            _parent.WriteLine("}");
+
+            // Close nested if blocks (one for each item after first)
+            for (int i = 1; i < items.Count; i++)
+            {
+                _parent.Dedent();
+                _parent.WriteLine("}");
+            }
+        }
+
+        private void GenerateGroupItem(Item item, string varName, int itemIndex, int totalItems)
+        {
+            // Generate item parsing code without goto (CPython pattern for groups)
+            switch (item.Atom)
+            {
+                case RuleRef ruleRef:
+                    var isToken = char.IsUpper(ruleRef.Name[0]);
+                    if (isToken)
+                    {
+                        _parent.WriteLine($"var {varName} = ExpectToken(GeneratedTokenType.{ruleRef.Name.ToUpper()});");
+                    }
+                    else
+                    {
+                        var methodName = _parent.ToCSharpMethodName(ruleRef.Name);
+                        _parent.WriteLine($"var {varName} = {methodName}();");
+                    }
+                    break;
+
+                case StringLiteral lit:
+                    var escaped = _parent.EscapeString(lit.Value);
+                    _parent.WriteLine($"var {varName} = Expect(\"{escaped}\");");
+                    break;
+
+                default:
+                    // For complex atoms (Optional, OneOrMore, etc.), generate normally
+                    // Use a dummy label prefix since we don't use goto in groups
+                    var itemGen = new ItemCodeGenerator(_parent, item, varName, "group_dummy");
+                    // This is recursive but safe since groups are relatively shallow
+                    // TODO: Handle this better - maybe create a flag for "no goto" mode
+                    _parent.WriteLine($"object? {varName} = null;");
+                    _parent.WriteLine($"// TODO: Complex group item type: {item.Atom.GetType().Name}");
+                    break;
+            }
         }
 
         private void GeneratePositiveLookahead(PositiveLookahead pla)

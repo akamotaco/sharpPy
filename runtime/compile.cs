@@ -1313,10 +1313,33 @@ namespace SharpPy
             {
                 CompileStatement(statement);
             }
-            
-            // 함수는 None 반환
-            EmitLoadConst(PyNone.Instance);
-            EmitInstruction(ByteCodeOp.RETURN_VALUE);
+
+            // CPython 3.12: 마지막 statement가 return이 아닐 때만 implicit None return 추가
+            bool endsWithReturn = false;
+            if (statements.Count > 0)
+            {
+                var lastStmt = statements[statements.Count - 1];
+                endsWithReturn = EndsWithReturn(lastStmt);
+#if DEBUG_LOG
+                Console.WriteLine($"🔍 EndsWithReturn check for {name}: lastStmt type = {lastStmt.GetType().Name}, endsWithReturn = {endsWithReturn}");
+#endif
+            }
+
+            if (!endsWithReturn)
+            {
+#if DEBUG_LOG
+                Console.WriteLine($"  → Adding implicit None return for {name}");
+#endif
+                // 함수는 None 반환 (return문이 없을 경우)
+                EmitLoadConst(PyNone.Instance);
+                EmitInstruction(ByteCodeOp.RETURN_VALUE);
+            }
+#if DEBUG_LOG
+            else
+            {
+                Console.WriteLine($"  → Skipping implicit None return for {name} (already ends with return)");
+            }
+#endif
             
             var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames,
                                             finalArgCount, posonlyArgCount, freeVars, cellVars, defaults, flags, _currentFileName, _sourceLines);
@@ -1470,10 +1493,33 @@ namespace SharpPy
             {
                 CompileStatement(statement);
             }
-            
-            // 함수는 None 반환 (return문이 없을 경우)
-            EmitLoadConst(PyNone.Instance);
-            EmitInstruction(ByteCodeOp.RETURN_VALUE);
+
+            // CPython 3.12: 마지막 statement가 return이 아닐 때만 implicit None return 추가
+            bool endsWithReturn = false;
+            if (statements.Count > 0)
+            {
+                var lastStmt = statements[statements.Count - 1];
+                endsWithReturn = EndsWithReturn(lastStmt);
+#if DEBUG_LOG
+                Console.WriteLine($"🔍 EndsWithReturn check for {name}: lastStmt type = {lastStmt.GetType().Name}, endsWithReturn = {endsWithReturn}");
+#endif
+            }
+
+            if (!endsWithReturn)
+            {
+#if DEBUG_LOG
+                Console.WriteLine($"  → Adding implicit None return for {name}");
+#endif
+                // 함수는 None 반환 (return문이 없을 경우)
+                EmitLoadConst(PyNone.Instance);
+                EmitInstruction(ByteCodeOp.RETURN_VALUE);
+            }
+#if DEBUG_LOG
+            else
+            {
+                Console.WriteLine($"  → Skipping implicit None return for {name} (already ends with return)");
+            }
+#endif
             
             // CPython 3.12: Generator 함수 감지 - 임시 객체로 체크
             var tempCodeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames,
@@ -9711,6 +9757,47 @@ namespace SharpPy
                 {
                     CollectComprehensionVars(element, comprehensionVars);
                 }
+            }
+        }
+
+        /// <summary>
+        /// CPython 3.12: statement가 return으로 끝나는지 확인 (control flow 분석)
+        /// </summary>
+        private bool EndsWithReturn(Statement stmt)
+        {
+            switch (stmt)
+            {
+                case ReturnStatement:
+                    return true;
+
+                case IfStatement ifStmt:
+                    // if/elif/else가 모두 return으로 끝나야 함
+                    if (ifStmt.Body.Count > 0 && EndsWithReturn(ifStmt.Body[ifStmt.Body.Count - 1]))
+                    {
+                        // else 절이 없으면 false (if만으로는 모든 경로를 커버하지 못함)
+                        if (ifStmt.OrElse == null || ifStmt.OrElse.Count == 0)
+                            return false;
+
+                        // else 절도 return으로 끝나야 함
+                        return EndsWithReturn(ifStmt.OrElse[ifStmt.OrElse.Count - 1]);
+                    }
+                    return false;
+
+                case WhileStatement whileStmt:
+                    // while은 break로 빠져나올 수 있으므로 항상 false
+                    return false;
+
+                case ForStatement forStmt:
+                    // for도 break로 빠져나올 수 있으므로 항상 false
+                    return false;
+
+                case TryStatement tryStmt:
+                    // try/except/finally 모두 분석해야 하지만 복잡하므로 보수적으로 false
+                    // CPython도 복잡한 control flow는 보수적으로 처리
+                    return false;
+
+                default:
+                    return false;
             }
         }
 

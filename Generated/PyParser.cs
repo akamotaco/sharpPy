@@ -1665,6 +1665,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -1676,23 +1677,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: statements
                 {
                     _position = _group_mark__opt_a;
-                    // Call rule: statements
                     var _group_alt0__opt_a_item0 = Statements();
-                    if (_group_alt0__opt_a_item0 == null)
+                    if (_group_alt0__opt_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_a = _group_alt0__opt_a_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_a = _group_alt0__opt_a_item0;
-                    goto group_success__opt_a;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_a: ; // Group succeeded
+                if (_opt_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? a = _opt_a;
                 if (a == null)
                 {
@@ -1705,16 +1701,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_make_module(p, a)
                 // TODO: Complex action expression: _PyPegen_make_module(p, a)
                 _res = default(GeneratedModule);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -1741,6 +1735,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -1750,16 +1745,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_Interactive(a, p->arena)
                 // Unknown AST function: _PyAST_Interactive
                 _res = default(GeneratedModule);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -1786,6 +1779,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -1795,7 +1789,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: NEWLINE*
                 var _tmp0 = new System.Collections.Generic.List<object?>();
@@ -1808,7 +1802,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -1824,16 +1818,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_Expression(a, p->arena)
                 // Unknown AST function: _PyAST_Expression
                 _res = default(GeneratedModule);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -1860,6 +1852,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -1869,7 +1862,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(type_expressions)]
                 int _opt_mark_a = _position;
@@ -1879,23 +1872,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: type_expressions
                 {
                     _position = _group_mark__opt_a;
-                    // Call rule: type_expressions
                     var _group_alt0__opt_a_item0 = TypeExpressions();
-                    if (_group_alt0__opt_a_item0 == null)
+                    if (_group_alt0__opt_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_a = _group_alt0__opt_a_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_a = _group_alt0__opt_a_item0;
-                    goto group_success__opt_a;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_a: ; // Group succeeded
+                if (_opt_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? a = _opt_a;
                 if (a == null)
                 {
@@ -1908,7 +1896,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '->'
                 var _tmp2 = Expect("->");
@@ -1916,7 +1904,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var b = Expression();
@@ -1924,7 +1912,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: NEWLINE*
                 var _tmp3 = new System.Collections.Generic.List<object?>();
@@ -1937,7 +1925,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp3 == null)
                     {
@@ -1953,16 +1941,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_FunctionType(a, b, p->arena)
                 // Unknown AST function: _PyAST_FunctionType
                 _res = default(GeneratedModule);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -1989,6 +1975,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -1998,7 +1985,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp0 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -2006,17 +1993,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: (asdl_stmt_seq*)_PyPegen_singleton_seq(p, a)
                 // TODO: Complex action expression: (asdl_stmt_seq*)_PyPegen_singleton_seq(p, a)
                 _res = default(GeneratedStmtSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -2026,14 +2012,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmtSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -2043,16 +2030,17 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: (asdl_stmt_seq*)_PyPegen_singleton_seq(p, CHECK(stmt_ty, _PyAST_Pass(EXTRA)))
                 var _stmt_tmp = _PyAST_Pass();
 
                 _res = (_stmt_tmp != null) ? new GeneratedStmtSeq { _stmt_tmp } : null;
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -2062,13 +2050,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_interactive_exit(p)
                 // TODO: Complex action expression: _PyPegen_interactive_exit(p)
                 _res = default(GeneratedStmtSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -2096,6 +2084,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -2105,7 +2094,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
                 int _lookahead_mark_0 = _position;
@@ -2117,17 +2106,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: (asdl_stmt_seq*)_PyPegen_singleton_seq(p, a)
                 // TODO: Complex action expression: (asdl_stmt_seq*)_PyPegen_singleton_seq(p, a)
                 _res = default(GeneratedStmtSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -2142,7 +2130,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -2163,7 +2151,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -2177,7 +2165,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(';')]
                 int _opt_mark__tmp1 = _position;
@@ -2187,23 +2175,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ';'
                 {
                     _position = _group_mark__opt__tmp1;
-                    // Expect ';'
                     var _group_alt0__opt__tmp1_item0 = Expect(";");
-                    if (_group_alt0__opt__tmp1_item0 == null)
+                    if (_group_alt0__opt__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt__tmp1 = _group_alt0__opt__tmp1_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt__tmp1 = _group_alt0__opt__tmp1_item0;
-                    goto group_success__opt__tmp1;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp1: ; // Group succeeded
+                if (_opt__tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
                 {
@@ -2216,12 +2199,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: a
                 _res = (GeneratedStmtSeq)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -2237,6 +2220,12 @@ namespace SharpPy.Generated
         // Rule: simple_stmt from python.gram
         public GeneratedStmt SimpleStmt()
         {
+            // CPython 3.12: Left recursion - use Warth et al. algorithm
+            return TryLeftRecursive<GeneratedStmt>("SimpleStmt", _SimpleStmt);
+        }
+
+        private GeneratedStmt _SimpleStmt()
+        {
             // CPython 3.12 PEG: simple_stmt
             int _mark = _position;
             GeneratedStmt _res = null;
@@ -2249,6 +2238,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -2258,16 +2248,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -2281,14 +2270,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -2298,15 +2288,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_Expr(e, EXTRA)
                 _res = _PyAST_Expr(e, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -2320,14 +2311,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 5
+            do
             {
                 _position = _mark;
 
@@ -2341,14 +2333,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 6
+            do
             {
                 _position = _mark;
 
@@ -2362,14 +2355,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 7
+            do
             {
                 _position = _mark;
 
@@ -2379,15 +2373,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_Pass(EXTRA)
                 _res = _PyAST_Pass(_start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 8
+            do
             {
                 _position = _mark;
 
@@ -2401,14 +2396,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 9
+            do
             {
                 _position = _mark;
 
@@ -2422,14 +2418,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 10
+            do
             {
                 _position = _mark;
 
@@ -2443,14 +2440,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 11
+            do
             {
                 _position = _mark;
 
@@ -2460,15 +2458,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_Break(EXTRA)
                 _res = _PyAST_Break(_start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 12
+            do
             {
                 _position = _mark;
 
@@ -2478,15 +2477,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_Continue(EXTRA)
                 _res = _PyAST_Continue(_start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 13
+            do
             {
                 _position = _mark;
 
@@ -2500,14 +2500,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 14
+            do
             {
                 _position = _mark;
 
@@ -2521,12 +2522,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -2554,6 +2555,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -2567,16 +2569,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -2590,14 +2591,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -2611,14 +2613,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -2632,14 +2635,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 5
+            do
             {
                 _position = _mark;
 
@@ -2653,14 +2657,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 6
+            do
             {
                 _position = _mark;
 
@@ -2674,14 +2679,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 7
+            do
             {
                 _position = _mark;
 
@@ -2695,14 +2701,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 8
+            do
             {
                 _position = _mark;
 
@@ -2712,12 +2719,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -2745,6 +2752,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -2754,16 +2762,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -2773,12 +2780,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -2806,6 +2813,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -2815,7 +2823,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(star_expressions)]
                 int _opt_mark_a = _position;
@@ -2825,23 +2833,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: star_expressions
                 {
                     _position = _group_mark__opt_a;
-                    // Call rule: star_expressions
                     var _group_alt0__opt_a_item0 = StarExpressions();
-                    if (_group_alt0__opt_a_item0 == null)
+                    if (_group_alt0__opt_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_a = _group_alt0__opt_a_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_a = _group_alt0__opt_a_item0;
-                    goto group_success__opt_a;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_a: ; // Group succeeded
+                if (_opt_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? a = _opt_a;
                 if (a == null)
                 {
@@ -2852,10 +2855,8 @@ namespace SharpPy.Generated
                 _res = _PyAST_Return(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -2882,6 +2883,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -2891,7 +2893,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var a = Expression();
@@ -2899,7 +2901,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [('from' z=expression { z })]
                 int _opt_mark_b = _position;
@@ -2909,31 +2911,22 @@ namespace SharpPy.Generated
                 // Try group alternative 1: 'from' z=expression { z }
                 {
                     _position = _group_mark__opt_b;
-                    // Expect 'from'
                     var _group_alt0__opt_b_item0 = Expect("from");
-                    if (_group_alt0__opt_b_item0 == null)
+                    if (_group_alt0__opt_b_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        var _group_alt0__opt_b_item1 = Expression();
+                        if (_group_alt0__opt_b_item1 != null)
+                        {
+                            _opt_b = _group_alt0__opt_b_item1;
+                        }
                     }
-                    // Call rule: expression
-                    var _group_alt0__opt_b_item1 = Expression();
-                    if (_group_alt0__opt_b_item1 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Group alternative 1 succeeded
-                    _opt_b = _group_alt0__opt_b_item1;
-                    goto group_success__opt_b;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_b: ; // Group succeeded
+                if (_opt_b == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? b = _opt_b;
                 if (b == null)
                 {
@@ -2944,11 +2937,10 @@ namespace SharpPy.Generated
                 _res = _PyAST_Raise(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -2958,13 +2950,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_Raise(NULL, NULL, EXTRA)
                 _res = _PyAST_Raise(_start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -2992,6 +2984,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -3001,7 +2994,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: ','*
                 var a = new System.Collections.Generic.List<object?>();
@@ -3014,7 +3007,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -3035,7 +3028,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp1 == null)
                     {
@@ -3049,16 +3042,14 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_Global(CHECK(asdl_identifier_seq*, _PyPegen_map_names_to_ids(p, a)), EXTRA)
                 _res = _PyAST_Global();
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -3085,6 +3076,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -3094,7 +3086,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: ','*
                 var a = new System.Collections.Generic.List<object?>();
@@ -3107,7 +3099,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -3128,7 +3120,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp1 == null)
                     {
@@ -3142,16 +3134,14 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_Nonlocal(CHECK(asdl_identifier_seq*, _PyPegen_map_names_to_ids(p, a)), EXTRA)
                 _res = _PyAST_Nonlocal();
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -3178,6 +3168,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -3187,7 +3178,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: del_targets
                 var a = DelTargets();
@@ -3195,7 +3186,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
                 int _lookahead_mark_17 = _position;
@@ -3205,11 +3196,10 @@ namespace SharpPy.Generated
                 _res = _PyAST_Delete(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -3219,12 +3209,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -3252,6 +3242,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -3261,16 +3252,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_Expr(y, EXTRA)
                 _res = _PyAST_Expr(y, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -3297,6 +3286,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -3306,7 +3296,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var a = Expression();
@@ -3314,7 +3304,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(',' z=expression { z })]
                 int _opt_mark_b = _position;
@@ -3324,31 +3314,22 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ',' z=expression { z }
                 {
                     _position = _group_mark__opt_b;
-                    // Expect ','
                     var _group_alt0__opt_b_item0 = Expect(",");
-                    if (_group_alt0__opt_b_item0 == null)
+                    if (_group_alt0__opt_b_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        var _group_alt0__opt_b_item1 = Expression();
+                        if (_group_alt0__opt_b_item1 != null)
+                        {
+                            _opt_b = _group_alt0__opt_b_item1;
+                        }
                     }
-                    // Call rule: expression
-                    var _group_alt0__opt_b_item1 = Expression();
-                    if (_group_alt0__opt_b_item1 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Group alternative 1 succeeded
-                    _opt_b = _group_alt0__opt_b_item1;
-                    goto group_success__opt_b;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_b: ; // Group succeeded
+                if (_opt_b == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? b = _opt_b;
                 if (b == null)
                 {
@@ -3359,10 +3340,8 @@ namespace SharpPy.Generated
                 _res = _PyAST_Assert(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -3389,6 +3368,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -3398,16 +3378,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -3417,14 +3396,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -3434,12 +3414,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -3467,6 +3447,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -3476,7 +3457,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: dotted_as_names
                 var a = DottedAsNames();
@@ -3484,16 +3465,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_Import(a, EXTRA)
                 _res = _PyAST_Import(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -3520,6 +3499,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -3529,7 +3509,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: ('.' | '...')*
                 var a = new System.Collections.Generic.List<object?>();
@@ -3542,38 +3522,28 @@ namespace SharpPy.Generated
                     // Try group alternative 1: '.'
                     {
                         _position = _group_mark__loop_elem_a;
-                        // Expect '.'
                         var _group_alt0__loop_elem_a_item0 = Expect(".");
-                        if (_group_alt0__loop_elem_a_item0 == null)
+                        if (_group_alt0__loop_elem_a_item0 != null)
                         {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
+                            _loop_elem_a = _group_alt0__loop_elem_a_item0;
                         }
-                        // Group alternative 1 succeeded
-                        _loop_elem_a = _group_alt0__loop_elem_a_item0;
-                        goto group_success__loop_elem_a;
                     }
                     // Try group alternative 2: '...'
+                    if (_loop_elem_a == null)
                     {
                         _position = _group_mark__loop_elem_a;
-                        // Expect '...'
                         var _group_alt1__loop_elem_a_item0 = Expect("...");
-                        if (_group_alt1__loop_elem_a_item0 == null)
+                        if (_group_alt1__loop_elem_a_item0 != null)
                         {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
+                            _loop_elem_a = _group_alt1__loop_elem_a_item0;
                         }
-                        // Group alternative 2 succeeded
-                        _loop_elem_a = _group_alt1__loop_elem_a_item0;
-                        goto group_success__loop_elem_a;
                     }
-                    // All group alternatives failed
-                    _position = _mark;
-                    _res = null;
-                    goto alternative_failed;
-                    group_success__loop_elem_a: ; // Group succeeded
+                    if (_loop_elem_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
                     if (_loop_elem_a == null)
                     {
                         _position = _loop_mark; // Reset to before failed attempt
@@ -3588,7 +3558,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'import'
                 var _tmp1 = Expect("import");
@@ -3596,7 +3566,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: import_from_targets
                 var c = ImportFromTargets();
@@ -3604,17 +3574,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_checked_future_import(p, b->v.Name.id, c, _PyPegen_seq_count_dots(a), EXTRA)
                 // TODO: Complex action expression: _PyPegen_checked_future_import(p, b->v.Name.id, c, _PyPegen_seq_count_dots(a), EXTRA)
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -3624,7 +3593,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // One or more: ('.' | '...')+
                 var a = new System.Collections.Generic.List<object?>();
@@ -3637,38 +3606,28 @@ namespace SharpPy.Generated
                     // Try group alternative 1: '.'
                     {
                         _position = _group_mark__loop_elem_a;
-                        // Expect '.'
                         var _group_alt0__loop_elem_a_item0 = Expect(".");
-                        if (_group_alt0__loop_elem_a_item0 == null)
+                        if (_group_alt0__loop_elem_a_item0 != null)
                         {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
+                            _loop_elem_a = _group_alt0__loop_elem_a_item0;
                         }
-                        // Group alternative 1 succeeded
-                        _loop_elem_a = _group_alt0__loop_elem_a_item0;
-                        goto group_success__loop_elem_a;
                     }
                     // Try group alternative 2: '...'
+                    if (_loop_elem_a == null)
                     {
                         _position = _group_mark__loop_elem_a;
-                        // Expect '...'
                         var _group_alt1__loop_elem_a_item0 = Expect("...");
-                        if (_group_alt1__loop_elem_a_item0 == null)
+                        if (_group_alt1__loop_elem_a_item0 != null)
                         {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
+                            _loop_elem_a = _group_alt1__loop_elem_a_item0;
                         }
-                        // Group alternative 2 succeeded
-                        _loop_elem_a = _group_alt1__loop_elem_a_item0;
-                        goto group_success__loop_elem_a;
                     }
-                    // All group alternatives failed
-                    _position = _mark;
-                    _res = null;
-                    goto alternative_failed;
-                    group_success__loop_elem_a: ; // Group succeeded
+                    if (_loop_elem_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
                     if (_loop_elem_a == null)
                     {
                         _position = _loop_mark; // Reset to before failed attempt
@@ -3681,7 +3640,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'import'
                 var _tmp1 = Expect("import");
@@ -3689,7 +3648,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: import_from_targets
                 var b = ImportFromTargets();
@@ -3697,13 +3656,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_ImportFrom(NULL, b, _PyPegen_seq_count_dots(a), EXTRA)
                 _res = _PyAST_ImportFrom(b);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -3731,6 +3690,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -3740,7 +3700,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: import_from_as_names
                 var a = ImportFromAsNames();
@@ -3748,7 +3708,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(',')]
                 int _opt_mark__tmp1 = _position;
@@ -3758,23 +3718,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ','
                 {
                     _position = _group_mark__opt__tmp1;
-                    // Expect ','
                     var _group_alt0__opt__tmp1_item0 = Expect(",");
-                    if (_group_alt0__opt__tmp1_item0 == null)
+                    if (_group_alt0__opt__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt__tmp1 = _group_alt0__opt__tmp1_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt__tmp1 = _group_alt0__opt__tmp1_item0;
-                    goto group_success__opt__tmp1;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp1: ; // Group succeeded
+                if (_opt__tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
                 {
@@ -3787,16 +3742,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: a
                 _res = (GeneratedSeq)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -3806,7 +3760,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
                 int _lookahead_mark_18 = _position;
@@ -3815,9 +3769,10 @@ namespace SharpPy.Generated
                 // No action specified - using default result
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -3827,15 +3782,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: (asdl_alias_seq*)_PyPegen_singleton_seq(p, CHECK(alias_ty, _PyPegen_alias_for_star(p, EXTRA)))
                 // TODO: Complex action expression: (asdl_alias_seq*)_PyPegen_singleton_seq(p, CHECK(alias_ty, _PyPegen_alias_for_star(p, EXTRA)))
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -3845,12 +3801,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -3878,6 +3834,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -3892,7 +3849,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -3913,7 +3870,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -3927,15 +3884,13 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: a
                 _res = (GeneratedSeq)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -3962,6 +3917,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -3971,7 +3927,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [('as' z=NAME { z })]
                 int _opt_mark_b = _position;
@@ -3981,31 +3937,22 @@ namespace SharpPy.Generated
                 // Try group alternative 1: 'as' z=NAME { z }
                 {
                     _position = _group_mark__opt_b;
-                    // Expect 'as'
                     var _group_alt0__opt_b_item0 = Expect("as");
-                    if (_group_alt0__opt_b_item0 == null)
+                    if (_group_alt0__opt_b_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        var _group_alt0__opt_b_item1 = ExpectToken(GeneratedTokenType.NAME);
+                        if (_group_alt0__opt_b_item1 != null)
+                        {
+                            _opt_b = _group_alt0__opt_b_item1;
+                        }
                     }
-                    // Expect token: NAME
-                    var _group_alt0__opt_b_item1 = ExpectToken(GeneratedTokenType.NAME);
-                    if (_group_alt0__opt_b_item1 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Group alternative 1 succeeded
-                    _opt_b = _group_alt0__opt_b_item1;
-                    goto group_success__opt_b;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_b: ; // Group succeeded
+                if (_opt_b == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? b = _opt_b;
                 if (b == null)
                 {
@@ -4019,10 +3966,8 @@ namespace SharpPy.Generated
                 // Unknown AST function: _PyAST_alias
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -4049,6 +3994,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -4063,7 +4009,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -4084,7 +4030,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -4098,15 +4044,13 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: a
                 _res = (GeneratedSeq)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -4133,6 +4077,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -4142,7 +4087,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [('as' z=NAME { z })]
                 int _opt_mark_b = _position;
@@ -4152,31 +4097,22 @@ namespace SharpPy.Generated
                 // Try group alternative 1: 'as' z=NAME { z }
                 {
                     _position = _group_mark__opt_b;
-                    // Expect 'as'
                     var _group_alt0__opt_b_item0 = Expect("as");
-                    if (_group_alt0__opt_b_item0 == null)
+                    if (_group_alt0__opt_b_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        var _group_alt0__opt_b_item1 = ExpectToken(GeneratedTokenType.NAME);
+                        if (_group_alt0__opt_b_item1 != null)
+                        {
+                            _opt_b = _group_alt0__opt_b_item1;
+                        }
                     }
-                    // Expect token: NAME
-                    var _group_alt0__opt_b_item1 = ExpectToken(GeneratedTokenType.NAME);
-                    if (_group_alt0__opt_b_item1 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Group alternative 1 succeeded
-                    _opt_b = _group_alt0__opt_b_item1;
-                    goto group_success__opt_b;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_b: ; // Group succeeded
+                if (_opt_b == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? b = _opt_b;
                 if (b == null)
                 {
@@ -4190,10 +4126,8 @@ namespace SharpPy.Generated
                 // Unknown AST function: _PyAST_alias
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -4208,6 +4142,12 @@ namespace SharpPy.Generated
         // Rule: dotted_name from python.gram
         public GeneratedExpr DottedName()
         {
+            // CPython 3.12: Left recursion - use Warth et al. algorithm
+            return TryLeftRecursive<GeneratedExpr>("DottedName", _DottedName);
+        }
+
+        private GeneratedExpr _DottedName()
+        {
             // CPython 3.12 PEG: dotted_name
             int _mark = _position;
             GeneratedExpr _res = null;
@@ -4220,6 +4160,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -4229,7 +4170,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '.'
                 var _tmp0 = Expect(".");
@@ -4237,7 +4178,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NAME
                 var b = ExpectToken(GeneratedTokenType.NAME);
@@ -4245,17 +4186,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_join_names_with_dot(p, a, b)
                 // TODO: Complex action expression: _PyPegen_join_names_with_dot(p, a, b)
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -4265,12 +4205,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -4286,6 +4226,12 @@ namespace SharpPy.Generated
         // Rule: block from python.gram
         public GeneratedStmtSeq Block()
         {
+            // CPython 3.12: Left recursion - use Warth et al. algorithm
+            return TryLeftRecursive<GeneratedStmtSeq>("Block", _Block);
+        }
+
+        private GeneratedStmtSeq _Block()
+        {
             // CPython 3.12 PEG: block
             int _mark = _position;
             GeneratedStmtSeq _res = null;
@@ -4298,6 +4244,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -4307,7 +4254,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: INDENT
                 var _tmp1 = ExpectToken(GeneratedTokenType.INDENT);
@@ -4315,7 +4262,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: statements
                 var a = Statements();
@@ -4323,7 +4270,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: DEDENT
                 var _tmp2 = ExpectToken(GeneratedTokenType.DEDENT);
@@ -4331,16 +4278,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: a
                 _res = (GeneratedStmtSeq)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -4350,14 +4296,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmtSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -4367,12 +4314,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmtSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -4400,6 +4347,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -4414,39 +4362,26 @@ namespace SharpPy.Generated
                     // Try group alternative 1: '@' f=named_expression NEWLINE { f }
                     {
                         _position = _group_mark__loop_elem_a;
-                        // Expect '@'
                         var _group_alt0__loop_elem_a_item0 = Expect("@");
-                        if (_group_alt0__loop_elem_a_item0 == null)
+                        if (_group_alt0__loop_elem_a_item0 != null)
                         {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
+                            var _group_alt0__loop_elem_a_item1 = NamedExpression();
+                            if (_group_alt0__loop_elem_a_item1 != null)
+                            {
+                                var _group_alt0__loop_elem_a_item2 = ExpectToken(GeneratedTokenType.NEWLINE);
+                                if (_group_alt0__loop_elem_a_item2 != null)
+                                {
+                                    _loop_elem_a = _group_alt0__loop_elem_a_item2;
+                                }
+                            }
                         }
-                        // Call rule: named_expression
-                        var _group_alt0__loop_elem_a_item1 = NamedExpression();
-                        if (_group_alt0__loop_elem_a_item1 == null)
-                        {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
-                        }
-                        // Expect token: NEWLINE
-                        var _group_alt0__loop_elem_a_item2 = ExpectToken(GeneratedTokenType.NEWLINE);
-                        if (_group_alt0__loop_elem_a_item2 == null)
-                        {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
-                        }
-                        // Group alternative 1 succeeded
-                        _loop_elem_a = _group_alt0__loop_elem_a_item2;
-                        goto group_success__loop_elem_a;
                     }
-                    // All group alternatives failed
-                    _position = _mark;
-                    _res = null;
-                    goto alternative_failed;
-                    group_success__loop_elem_a: ; // Group succeeded
+                    if (_loop_elem_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
                     if (_loop_elem_a == null)
                     {
                         _position = _loop_mark; // Reset to before failed attempt
@@ -4459,15 +4394,13 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: a
                 _res = (GeneratedExprSeq)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -4494,6 +4427,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -4503,7 +4437,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: class_def_raw
                 var b = ClassDefRaw();
@@ -4511,17 +4445,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_class_def_decorators(p, a, b)
                 // TODO: Complex action expression: _PyPegen_class_def_decorators(p, a, b)
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -4531,12 +4464,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -4564,6 +4497,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -4573,16 +4507,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -4592,7 +4525,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NAME
                 var a = ExpectToken(GeneratedTokenType.NAME);
@@ -4600,7 +4533,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(type_params)]
                 int _opt_mark_t = _position;
@@ -4610,23 +4543,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: type_params
                 {
                     _position = _group_mark__opt_t;
-                    // Call rule: type_params
                     var _group_alt0__opt_t_item0 = TypeParams();
-                    if (_group_alt0__opt_t_item0 == null)
+                    if (_group_alt0__opt_t_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_t = _group_alt0__opt_t_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_t = _group_alt0__opt_t_item0;
-                    goto group_success__opt_t;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_t: ; // Group succeeded
+                if (_opt_t == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? t = _opt_t;
                 if (t == null)
                 {
@@ -4641,62 +4569,27 @@ namespace SharpPy.Generated
                 // Try group alternative 1: '(' z=[(arguments)] ')' { z }
                 {
                     _position = _group_mark__opt_b;
-                    // Expect '('
                     var _group_alt0__opt_b_item0 = Expect("(");
-                    if (_group_alt0__opt_b_item0 == null)
+                    if (_group_alt0__opt_b_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Optional: [(arguments)]
-                    int _opt_mark__group_alt0__opt_b_item1 = _position;
-                    // Group: (arguments)
-                    object? _opt__group_alt0__opt_b_item1 = null;
-                    int _group_mark__opt__group_alt0__opt_b_item1 = _position;
-                    // Try group alternative 1: arguments
-                    {
-                        _position = _group_mark__opt__group_alt0__opt_b_item1;
-                        // Call rule: arguments
-                        var _group_alt0__opt__group_alt0__opt_b_item1_item0 = Arguments();
-                        if (_group_alt0__opt__group_alt0__opt_b_item1_item0 == null)
+                        object? _group_alt0__opt_b_item1 = null;
+                        // TODO: Complex group item type: Optional
+                        if (_group_alt0__opt_b_item1 != null)
                         {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
+                            var _group_alt0__opt_b_item2 = Expect(")");
+                            if (_group_alt0__opt_b_item2 != null)
+                            {
+                                _opt_b = _group_alt0__opt_b_item2;
+                            }
                         }
-                        // Group alternative 1 succeeded
-                        _opt__group_alt0__opt_b_item1 = _group_alt0__opt__group_alt0__opt_b_item1_item0;
-                        goto group_success__opt__group_alt0__opt_b_item1;
                     }
-                    // All group alternatives failed
+                }
+                if (_opt_b == null)
+                {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
-                    group_success__opt__group_alt0__opt_b_item1: ; // Group succeeded
-                    object? _group_alt0__opt_b_item1 = _opt__group_alt0__opt_b_item1;
-                    if (_group_alt0__opt_b_item1 == null)
-                    {
-                        _position = _opt_mark__group_alt0__opt_b_item1; // Reset position
-                        _group_alt0__opt_b_item1 = null; // Optional not present
-                    }
-                    // Expect ')'
-                    var _group_alt0__opt_b_item2 = Expect(")");
-                    if (_group_alt0__opt_b_item2 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Group alternative 1 succeeded
-                    _opt_b = _group_alt0__opt_b_item2;
-                    goto group_success__opt_b;
+                    break;  // Exit this alternative
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_b: ; // Group succeeded
                 object? b = _opt_b;
                 if (b == null)
                 {
@@ -4709,7 +4602,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: block
                 var c = Block();
@@ -4717,7 +4610,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action (multiline):
                 //   _PyAST_ClassDef(a->v.Name.id,
@@ -4727,7 +4620,7 @@ namespace SharpPy.Generated
                 _res = _PyAST_ClassDef(a, b, b, c, t, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -4755,6 +4648,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -4764,7 +4658,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: function_def_raw
                 var f = FunctionDefRaw();
@@ -4772,17 +4666,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_function_def_decorators(p, d, f)
                 // TODO: Complex action expression: _PyPegen_function_def_decorators(p, d, f)
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -4792,12 +4685,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -4825,6 +4718,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -4834,16 +4728,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -4853,7 +4746,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NAME
                 var n = ExpectToken(GeneratedTokenType.NAME);
@@ -4861,7 +4754,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(type_params)]
                 int _opt_mark_t = _position;
@@ -4871,23 +4764,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: type_params
                 {
                     _position = _group_mark__opt_t;
-                    // Call rule: type_params
                     var _group_alt0__opt_t_item0 = TypeParams();
-                    if (_group_alt0__opt_t_item0 == null)
+                    if (_group_alt0__opt_t_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_t = _group_alt0__opt_t_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_t = _group_alt0__opt_t_item0;
-                    goto group_success__opt_t;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_t: ; // Group succeeded
+                if (_opt_t == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? t = _opt_t;
                 if (t == null)
                 {
@@ -4906,23 +4794,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: params
                 {
                     _position = _group_mark__opt_params_;
-                    // Call rule: params
                     var _group_alt0__opt_params__item0 = Params();
-                    if (_group_alt0__opt_params__item0 == null)
+                    if (_group_alt0__opt_params__item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_params_ = _group_alt0__opt_params__item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_params_ = _group_alt0__opt_params__item0;
-                    goto group_success__opt_params_;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_params_: ; // Group succeeded
+                if (_opt_params_ == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? params_ = _opt_params_;
                 if (params_ == null)
                 {
@@ -4935,7 +4818,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [('->' z=expression { z })]
                 int _opt_mark_a = _position;
@@ -4945,31 +4828,22 @@ namespace SharpPy.Generated
                 // Try group alternative 1: '->' z=expression { z }
                 {
                     _position = _group_mark__opt_a;
-                    // Expect '->'
                     var _group_alt0__opt_a_item0 = Expect("->");
-                    if (_group_alt0__opt_a_item0 == null)
+                    if (_group_alt0__opt_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        var _group_alt0__opt_a_item1 = Expression();
+                        if (_group_alt0__opt_a_item1 != null)
+                        {
+                            _opt_a = _group_alt0__opt_a_item1;
+                        }
                     }
-                    // Call rule: expression
-                    var _group_alt0__opt_a_item1 = Expression();
-                    if (_group_alt0__opt_a_item1 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Group alternative 1 succeeded
-                    _opt_a = _group_alt0__opt_a_item1;
-                    goto group_success__opt_a;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_a: ; // Group succeeded
+                if (_opt_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? a = _opt_a;
                 if (a == null)
                 {
@@ -4988,23 +4862,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: func_type_comment
                 {
                     _position = _group_mark__opt_tc;
-                    // Call rule: func_type_comment
                     var _group_alt0__opt_tc_item0 = FuncTypeComment();
-                    if (_group_alt0__opt_tc_item0 == null)
+                    if (_group_alt0__opt_tc_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_tc = _group_alt0__opt_tc_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_tc = _group_alt0__opt_tc_item0;
-                    goto group_success__opt_tc;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_tc: ; // Group succeeded
+                if (_opt_tc == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? tc = _opt_tc;
                 if (tc == null)
                 {
@@ -5017,7 +4886,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action (multiline):
                 //   _PyAST_FunctionDef(n->v.Name.id,
@@ -5026,9 +4895,10 @@ namespace SharpPy.Generated
                 _res = _PyAST_FunctionDef(n, params_);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -5038,7 +4908,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'def'
                 var _tmp1 = Expect("def");
@@ -5046,7 +4916,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NAME
                 var n = ExpectToken(GeneratedTokenType.NAME);
@@ -5054,7 +4924,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(type_params)]
                 int _opt_mark_t = _position;
@@ -5064,23 +4934,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: type_params
                 {
                     _position = _group_mark__opt_t;
-                    // Call rule: type_params
                     var _group_alt0__opt_t_item0 = TypeParams();
-                    if (_group_alt0__opt_t_item0 == null)
+                    if (_group_alt0__opt_t_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_t = _group_alt0__opt_t_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_t = _group_alt0__opt_t_item0;
-                    goto group_success__opt_t;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_t: ; // Group succeeded
+                if (_opt_t == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? t = _opt_t;
                 if (t == null)
                 {
@@ -5099,23 +4964,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: params
                 {
                     _position = _group_mark__opt_params_;
-                    // Call rule: params
                     var _group_alt0__opt_params__item0 = Params();
-                    if (_group_alt0__opt_params__item0 == null)
+                    if (_group_alt0__opt_params__item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_params_ = _group_alt0__opt_params__item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_params_ = _group_alt0__opt_params__item0;
-                    goto group_success__opt_params_;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_params_: ; // Group succeeded
+                if (_opt_params_ == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? params_ = _opt_params_;
                 if (params_ == null)
                 {
@@ -5128,7 +4988,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [('->' z=expression { z })]
                 int _opt_mark_a = _position;
@@ -5138,31 +4998,22 @@ namespace SharpPy.Generated
                 // Try group alternative 1: '->' z=expression { z }
                 {
                     _position = _group_mark__opt_a;
-                    // Expect '->'
                     var _group_alt0__opt_a_item0 = Expect("->");
-                    if (_group_alt0__opt_a_item0 == null)
+                    if (_group_alt0__opt_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        var _group_alt0__opt_a_item1 = Expression();
+                        if (_group_alt0__opt_a_item1 != null)
+                        {
+                            _opt_a = _group_alt0__opt_a_item1;
+                        }
                     }
-                    // Call rule: expression
-                    var _group_alt0__opt_a_item1 = Expression();
-                    if (_group_alt0__opt_a_item1 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Group alternative 1 succeeded
-                    _opt_a = _group_alt0__opt_a_item1;
-                    goto group_success__opt_a;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_a: ; // Group succeeded
+                if (_opt_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? a = _opt_a;
                 if (a == null)
                 {
@@ -5181,23 +5032,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: func_type_comment
                 {
                     _position = _group_mark__opt_tc;
-                    // Call rule: func_type_comment
                     var _group_alt0__opt_tc_item0 = FuncTypeComment();
-                    if (_group_alt0__opt_tc_item0 == null)
+                    if (_group_alt0__opt_tc_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_tc = _group_alt0__opt_tc_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_tc = _group_alt0__opt_tc_item0;
-                    goto group_success__opt_tc;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_tc: ; // Group succeeded
+                if (_opt_tc == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? tc = _opt_tc;
                 if (tc == null)
                 {
@@ -5210,7 +5056,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action (multiline):
                 //   CHECK_VERSION(
@@ -5224,7 +5070,7 @@ namespace SharpPy.Generated
                 // No _PyAST_ function in action: EXTRA)
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -5252,6 +5098,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -5261,16 +5108,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -5280,12 +5126,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -5313,6 +5159,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -5322,7 +5169,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: param_no_default*
                 var b = new System.Collections.Generic.List<object?>();
@@ -5335,7 +5182,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_b == null)
                     {
@@ -5356,7 +5203,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_c == null)
                     {
@@ -5374,23 +5221,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: star_etc
                 {
                     _position = _group_mark__opt_d;
-                    // Call rule: star_etc
                     var _group_alt0__opt_d_item0 = StarEtc();
-                    if (_group_alt0__opt_d_item0 == null)
+                    if (_group_alt0__opt_d_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_d = _group_alt0__opt_d_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_d = _group_alt0__opt_d_item0;
-                    goto group_success__opt_d;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_d: ; // Group succeeded
+                if (_opt_d == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? d = _opt_d;
                 if (d == null)
                 {
@@ -5401,11 +5243,10 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(p, a, NULL, b, c, d))
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -5415,7 +5256,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: param_with_default*
                 var b = new System.Collections.Generic.List<object?>();
@@ -5428,7 +5269,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_b == null)
                     {
@@ -5446,23 +5287,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: star_etc
                 {
                     _position = _group_mark__opt_c;
-                    // Call rule: star_etc
                     var _group_alt0__opt_c_item0 = StarEtc();
-                    if (_group_alt0__opt_c_item0 == null)
+                    if (_group_alt0__opt_c_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_c = _group_alt0__opt_c_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_c = _group_alt0__opt_c_item0;
-                    goto group_success__opt_c;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_c: ; // Group succeeded
+                if (_opt_c == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? c = _opt_c;
                 if (c == null)
                 {
@@ -5473,9 +5309,10 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(p, NULL, a, NULL, b, c))
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -5490,7 +5327,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -5504,7 +5341,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: param_with_default*
                 var b = new System.Collections.Generic.List<object?>();
@@ -5517,7 +5354,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_b == null)
                     {
@@ -5535,23 +5372,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: star_etc
                 {
                     _position = _group_mark__opt_c;
-                    // Call rule: star_etc
                     var _group_alt0__opt_c_item0 = StarEtc();
-                    if (_group_alt0__opt_c_item0 == null)
+                    if (_group_alt0__opt_c_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_c = _group_alt0__opt_c_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_c = _group_alt0__opt_c_item0;
-                    goto group_success__opt_c;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_c: ; // Group succeeded
+                if (_opt_c == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? c = _opt_c;
                 if (c == null)
                 {
@@ -5562,9 +5394,10 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: _PyPegen_make_arguments(p, NULL, NULL, a, b, c)
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -5579,7 +5412,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -5593,7 +5426,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(star_etc)]
                 int _opt_mark_b = _position;
@@ -5603,23 +5436,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: star_etc
                 {
                     _position = _group_mark__opt_b;
-                    // Call rule: star_etc
                     var _group_alt0__opt_b_item0 = StarEtc();
-                    if (_group_alt0__opt_b_item0 == null)
+                    if (_group_alt0__opt_b_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_b = _group_alt0__opt_b_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_b = _group_alt0__opt_b_item0;
-                    goto group_success__opt_b;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_b: ; // Group succeeded
+                if (_opt_b == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? b = _opt_b;
                 if (b == null)
                 {
@@ -5630,9 +5458,10 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: _PyPegen_make_arguments(p, NULL, NULL, NULL, a, b)
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 5
+            do
             {
                 _position = _mark;
 
@@ -5642,13 +5471,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_make_arguments(p, NULL, NULL, NULL, NULL, a)
                 // TODO: Complex action expression: _PyPegen_make_arguments(p, NULL, NULL, NULL, NULL, a)
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -5676,6 +5505,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -5690,7 +5520,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -5704,7 +5534,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '/'
                 var _tmp0 = Expect("/");
@@ -5712,7 +5542,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp1 = Expect(",");
@@ -5720,16 +5550,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: a
                 _res = (GeneratedSeq)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -5744,7 +5573,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -5758,7 +5587,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '/'
                 var _tmp0 = Expect("/");
@@ -5766,7 +5595,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
                 int _lookahead_mark_23 = _position;
@@ -5775,7 +5604,7 @@ namespace SharpPy.Generated
                 // Action: a
                 _res = (GeneratedSeq)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -5803,6 +5632,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -5817,7 +5647,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -5838,7 +5668,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_b == null)
                     {
@@ -5852,7 +5682,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '/'
                 var _tmp0 = Expect("/");
@@ -5860,7 +5690,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp1 = Expect(",");
@@ -5868,17 +5698,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b)
                 // TODO: Complex action expression: _PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -5893,7 +5722,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -5914,7 +5743,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_b == null)
                     {
@@ -5928,7 +5757,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '/'
                 var _tmp0 = Expect("/");
@@ -5936,7 +5765,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
                 int _lookahead_mark_24 = _position;
@@ -5946,7 +5775,7 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: _PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -5974,6 +5803,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -5983,16 +5813,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -6002,7 +5831,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: param_no_default
                 var a = ParamNoDefault();
@@ -6010,7 +5839,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: param_maybe_default*
                 var b = new System.Collections.Generic.List<object?>();
@@ -6023,7 +5852,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_b == null)
                     {
@@ -6041,23 +5870,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: kwds
                 {
                     _position = _group_mark__opt_c;
-                    // Call rule: kwds
                     var _group_alt0__opt_c_item0 = Kwds();
-                    if (_group_alt0__opt_c_item0 == null)
+                    if (_group_alt0__opt_c_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_c = _group_alt0__opt_c_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_c = _group_alt0__opt_c_item0;
-                    goto group_success__opt_c;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_c: ; // Group succeeded
+                if (_opt_c == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? c = _opt_c;
                 if (c == null)
                 {
@@ -6068,9 +5892,10 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: _PyPegen_star_etc(p, a, b, c)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -6080,7 +5905,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: param_no_default_star_annotation
                 var a = ParamNoDefaultStarAnnotation();
@@ -6088,7 +5913,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: param_maybe_default*
                 var b = new System.Collections.Generic.List<object?>();
@@ -6101,7 +5926,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_b == null)
                     {
@@ -6119,23 +5944,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: kwds
                 {
                     _position = _group_mark__opt_c;
-                    // Call rule: kwds
                     var _group_alt0__opt_c_item0 = Kwds();
-                    if (_group_alt0__opt_c_item0 == null)
+                    if (_group_alt0__opt_c_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_c = _group_alt0__opt_c_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_c = _group_alt0__opt_c_item0;
-                    goto group_success__opt_c;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_c: ; // Group succeeded
+                if (_opt_c == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? c = _opt_c;
                 if (c == null)
                 {
@@ -6146,9 +5966,10 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: _PyPegen_star_etc(p, a, b, c)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -6158,7 +5979,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp1 = Expect(",");
@@ -6166,7 +5987,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // One or more: param_maybe_default+
                 var b = new System.Collections.Generic.List<object?>();
@@ -6179,7 +6000,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_b == null)
                     {
@@ -6193,7 +6014,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(kwds)]
                 int _opt_mark_c = _position;
@@ -6203,23 +6024,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: kwds
                 {
                     _position = _group_mark__opt_c;
-                    // Call rule: kwds
                     var _group_alt0__opt_c_item0 = Kwds();
-                    if (_group_alt0__opt_c_item0 == null)
+                    if (_group_alt0__opt_c_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_c = _group_alt0__opt_c_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_c = _group_alt0__opt_c_item0;
-                    goto group_success__opt_c;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_c: ; // Group succeeded
+                if (_opt_c == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? c = _opt_c;
                 if (c == null)
                 {
@@ -6230,9 +6046,10 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: _PyPegen_star_etc(p, NULL, b, c)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 5
+            do
             {
                 _position = _mark;
 
@@ -6242,13 +6059,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_star_etc(p, NULL, NULL, a)
                 // TODO: Complex action expression: _PyPegen_star_etc(p, NULL, NULL, a)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -6276,6 +6093,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -6285,16 +6103,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -6304,7 +6121,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: param_no_default
                 var a = ParamNoDefault();
@@ -6312,12 +6129,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: a
                 _res = (GeneratedAstNode)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -6345,6 +6162,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -6354,7 +6172,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp0 = Expect(",");
@@ -6362,7 +6180,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [TYPE_COMMENT]
                 int _opt_mark_tc = _position;
@@ -6372,7 +6190,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? tc = _opt_tc;
                 if (tc == null)
@@ -6384,11 +6202,10 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: _PyPegen_add_type_comment_to_arg(p, a, tc)
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -6398,7 +6215,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [TYPE_COMMENT]
                 int _opt_mark_tc = _position;
@@ -6408,7 +6225,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? tc = _opt_tc;
                 if (tc == null)
@@ -6424,7 +6241,7 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: _PyPegen_add_type_comment_to_arg(p, a, tc)
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -6452,6 +6269,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -6461,7 +6279,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp0 = Expect(",");
@@ -6469,7 +6287,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [TYPE_COMMENT]
                 int _opt_mark_tc = _position;
@@ -6479,7 +6297,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? tc = _opt_tc;
                 if (tc == null)
@@ -6491,11 +6309,10 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: _PyPegen_add_type_comment_to_arg(p, a, tc)
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -6505,7 +6322,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [TYPE_COMMENT]
                 int _opt_mark_tc = _position;
@@ -6515,7 +6332,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? tc = _opt_tc;
                 if (tc == null)
@@ -6531,7 +6348,7 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: _PyPegen_add_type_comment_to_arg(p, a, tc)
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -6559,6 +6376,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -6568,7 +6386,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: default
                 var c = Default();
@@ -6576,7 +6394,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp0 = Expect(",");
@@ -6584,7 +6402,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [TYPE_COMMENT]
                 int _opt_mark_tc = _position;
@@ -6594,7 +6412,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? tc = _opt_tc;
                 if (tc == null)
@@ -6606,11 +6424,10 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: _PyPegen_name_default_pair(p, a, c, tc)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -6620,7 +6437,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: default
                 var c = Default();
@@ -6628,7 +6445,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [TYPE_COMMENT]
                 int _opt_mark_tc = _position;
@@ -6638,7 +6455,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? tc = _opt_tc;
                 if (tc == null)
@@ -6654,7 +6471,7 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: _PyPegen_name_default_pair(p, a, c, tc)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -6682,6 +6499,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -6691,7 +6509,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [default]
                 int _opt_mark_c = _position;
@@ -6701,7 +6519,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? c = _opt_c;
                 if (c == null)
@@ -6715,7 +6533,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [TYPE_COMMENT]
                 int _opt_mark_tc = _position;
@@ -6725,7 +6543,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? tc = _opt_tc;
                 if (tc == null)
@@ -6737,11 +6555,10 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: _PyPegen_name_default_pair(p, a, c, tc)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -6751,7 +6568,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [default]
                 int _opt_mark_c = _position;
@@ -6761,7 +6578,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? c = _opt_c;
                 if (c == null)
@@ -6777,7 +6594,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? tc = _opt_tc;
                 if (tc == null)
@@ -6793,7 +6610,7 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: _PyPegen_name_default_pair(p, a, c, tc)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -6821,6 +6638,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -6830,7 +6648,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [annotation]
                 int _opt_mark_b = _position;
@@ -6840,7 +6658,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? b = _opt_b;
                 if (b == null)
@@ -6852,10 +6670,8 @@ namespace SharpPy.Generated
                 // Unknown AST function: _PyAST_arg
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -6882,6 +6698,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -6891,7 +6708,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: star_annotation
                 var b = StarAnnotation();
@@ -6899,16 +6716,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_arg(a->v.Name.id, b, NULL, EXTRA)
                 // Unknown AST function: _PyAST_arg
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -6935,6 +6750,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -6944,7 +6760,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var a = Expression();
@@ -6952,15 +6768,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: a
                 _res = (GeneratedExpr)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -6987,6 +6801,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -6996,7 +6811,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: star_expression
                 var a = StarExpression();
@@ -7004,15 +6819,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: a
                 _res = (GeneratedExpr)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -7039,6 +6852,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -7048,7 +6862,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var a = Expression();
@@ -7056,16 +6870,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: a
                 _res = (GeneratedExpr)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -7075,12 +6888,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -7108,6 +6921,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -7117,16 +6931,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -7136,7 +6949,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: named_expression
                 var a = NamedExpression();
@@ -7144,7 +6957,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp1 = Expect(":");
@@ -7152,7 +6965,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: block
                 var b = Block();
@@ -7160,7 +6973,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: elif_stmt
                 var c = ElifStmt();
@@ -7168,15 +6981,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_If(a, b, CHECK(asdl_stmt_seq*, _PyPegen_singleton_seq(p, c)), EXTRA)
                 _res = _PyAST_If(a, b, c, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -7186,7 +7000,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: named_expression
                 var a = NamedExpression();
@@ -7194,7 +7008,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp1 = Expect(":");
@@ -7202,7 +7016,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: block
                 var b = Block();
@@ -7210,7 +7024,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(else_block)]
                 int _opt_mark_c = _position;
@@ -7220,23 +7034,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: else_block
                 {
                     _position = _group_mark__opt_c;
-                    // Call rule: else_block
                     var _group_alt0__opt_c_item0 = ElseBlock();
-                    if (_group_alt0__opt_c_item0 == null)
+                    if (_group_alt0__opt_c_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_c = _group_alt0__opt_c_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_c = _group_alt0__opt_c_item0;
-                    goto group_success__opt_c;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_c: ; // Group succeeded
+                if (_opt_c == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? c = _opt_c;
                 if (c == null)
                 {
@@ -7247,7 +7056,7 @@ namespace SharpPy.Generated
                 _res = _PyAST_If(a, b, c, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -7275,6 +7084,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -7284,16 +7094,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -7303,7 +7112,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: named_expression
                 var a = NamedExpression();
@@ -7311,7 +7120,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp1 = Expect(":");
@@ -7319,7 +7128,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: block
                 var b = Block();
@@ -7327,7 +7136,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: elif_stmt
                 var c = ElifStmt();
@@ -7335,15 +7144,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_If(a, b, CHECK(asdl_stmt_seq*, _PyPegen_singleton_seq(p, c)), EXTRA)
                 _res = _PyAST_If(a, b, c, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -7353,7 +7163,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: named_expression
                 var a = NamedExpression();
@@ -7361,7 +7171,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp1 = Expect(":");
@@ -7369,7 +7179,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: block
                 var b = Block();
@@ -7377,7 +7187,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(else_block)]
                 int _opt_mark_c = _position;
@@ -7387,23 +7197,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: else_block
                 {
                     _position = _group_mark__opt_c;
-                    // Call rule: else_block
                     var _group_alt0__opt_c_item0 = ElseBlock();
-                    if (_group_alt0__opt_c_item0 == null)
+                    if (_group_alt0__opt_c_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_c = _group_alt0__opt_c_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_c = _group_alt0__opt_c_item0;
-                    goto group_success__opt_c;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_c: ; // Group succeeded
+                if (_opt_c == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? c = _opt_c;
                 if (c == null)
                 {
@@ -7414,7 +7219,7 @@ namespace SharpPy.Generated
                 _res = _PyAST_If(a, b, c, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -7442,6 +7247,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -7451,16 +7257,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmtSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -7470,7 +7275,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
                 int _lookahead_mark_29 = _position;
@@ -7482,12 +7287,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: b
                 _res = (GeneratedStmtSeq)((object?)b);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -7515,6 +7320,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -7524,16 +7330,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -7543,7 +7348,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: named_expression
                 var a = NamedExpression();
@@ -7551,7 +7356,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp1 = Expect(":");
@@ -7559,7 +7364,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: block
                 var b = Block();
@@ -7567,7 +7372,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(else_block)]
                 int _opt_mark_c = _position;
@@ -7577,23 +7382,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: else_block
                 {
                     _position = _group_mark__opt_c;
-                    // Call rule: else_block
                     var _group_alt0__opt_c_item0 = ElseBlock();
-                    if (_group_alt0__opt_c_item0 == null)
+                    if (_group_alt0__opt_c_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_c = _group_alt0__opt_c_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_c = _group_alt0__opt_c_item0;
-                    goto group_success__opt_c;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_c: ; // Group succeeded
+                if (_opt_c == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? c = _opt_c;
                 if (c == null)
                 {
@@ -7604,7 +7404,7 @@ namespace SharpPy.Generated
                 _res = _PyAST_While(a, b, c, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -7632,6 +7432,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -7641,16 +7442,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -7660,7 +7460,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: star_targets
                 var t = StarTargets();
@@ -7668,7 +7468,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'in'
                 var _tmp1 = Expect("in");
@@ -7676,7 +7476,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Cut operator - commit to this alternative
                 // TODO: Implement cut semantics (prevent backtracking)
@@ -7686,7 +7486,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp2 = Expect(":");
@@ -7694,7 +7494,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(TYPE_COMMENT)]
                 int _opt_mark_tc = _position;
@@ -7704,23 +7504,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: TYPE_COMMENT
                 {
                     _position = _group_mark__opt_tc;
-                    // Expect token: TYPE_COMMENT
                     var _group_alt0__opt_tc_item0 = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
-                    if (_group_alt0__opt_tc_item0 == null)
+                    if (_group_alt0__opt_tc_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_tc = _group_alt0__opt_tc_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_tc = _group_alt0__opt_tc_item0;
-                    goto group_success__opt_tc;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_tc: ; // Group succeeded
+                if (_opt_tc == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? tc = _opt_tc;
                 if (tc == null)
                 {
@@ -7733,7 +7528,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(else_block)]
                 int _opt_mark_el = _position;
@@ -7743,23 +7538,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: else_block
                 {
                     _position = _group_mark__opt_el;
-                    // Call rule: else_block
                     var _group_alt0__opt_el_item0 = ElseBlock();
-                    if (_group_alt0__opt_el_item0 == null)
+                    if (_group_alt0__opt_el_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_el = _group_alt0__opt_el_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_el = _group_alt0__opt_el_item0;
-                    goto group_success__opt_el;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_el: ; // Group succeeded
+                if (_opt_el == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? el = _opt_el;
                 if (el == null)
                 {
@@ -7770,9 +7560,10 @@ namespace SharpPy.Generated
                 _res = _PyAST_For(t, ex, b, el, tc, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -7782,7 +7573,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'for'
                 var _tmp1 = Expect("for");
@@ -7790,7 +7581,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: star_targets
                 var t = StarTargets();
@@ -7798,7 +7589,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'in'
                 var _tmp2 = Expect("in");
@@ -7806,7 +7597,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Cut operator - commit to this alternative
                 // TODO: Implement cut semantics (prevent backtracking)
@@ -7816,7 +7607,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp3 = Expect(":");
@@ -7824,7 +7615,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(TYPE_COMMENT)]
                 int _opt_mark_tc = _position;
@@ -7834,23 +7625,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: TYPE_COMMENT
                 {
                     _position = _group_mark__opt_tc;
-                    // Expect token: TYPE_COMMENT
                     var _group_alt0__opt_tc_item0 = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
-                    if (_group_alt0__opt_tc_item0 == null)
+                    if (_group_alt0__opt_tc_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_tc = _group_alt0__opt_tc_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_tc = _group_alt0__opt_tc_item0;
-                    goto group_success__opt_tc;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_tc: ; // Group succeeded
+                if (_opt_tc == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? tc = _opt_tc;
                 if (tc == null)
                 {
@@ -7863,7 +7649,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(else_block)]
                 int _opt_mark_el = _position;
@@ -7873,23 +7659,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: else_block
                 {
                     _position = _group_mark__opt_el;
-                    // Call rule: else_block
                     var _group_alt0__opt_el_item0 = ElseBlock();
-                    if (_group_alt0__opt_el_item0 == null)
+                    if (_group_alt0__opt_el_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_el = _group_alt0__opt_el_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_el = _group_alt0__opt_el_item0;
-                    goto group_success__opt_el;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_el: ; // Group succeeded
+                if (_opt_el == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? el = _opt_el;
                 if (el == null)
                 {
@@ -7900,9 +7681,10 @@ namespace SharpPy.Generated
                 // No _PyAST_ function in action: EXTRA)
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -7912,12 +7694,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -7945,6 +7727,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -7954,16 +7737,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -7973,7 +7755,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '('
                 var _tmp1 = Expect("(");
@@ -7981,7 +7763,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: ','*
                 var a = new System.Collections.Generic.List<object?>();
@@ -7994,7 +7776,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -8015,7 +7797,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp2 == null)
                     {
@@ -8029,7 +7811,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [',']
                 int _opt_mark__tmp3 = _position;
@@ -8039,7 +7821,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? _tmp3 = _opt__tmp3;
                 if (_tmp3 == null)
@@ -8053,7 +7835,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp5 = Expect(":");
@@ -8061,7 +7843,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: block
                 var b = Block();
@@ -8069,15 +7851,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_With(a, b, NULL, EXTRA)
                 _res = _PyAST_With(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -8087,7 +7870,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: ','*
                 var a = new System.Collections.Generic.List<object?>();
@@ -8100,7 +7883,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -8121,7 +7904,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp1 == null)
                     {
@@ -8135,7 +7918,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp2 = Expect(":");
@@ -8143,7 +7926,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(TYPE_COMMENT)]
                 int _opt_mark_tc = _position;
@@ -8153,23 +7936,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: TYPE_COMMENT
                 {
                     _position = _group_mark__opt_tc;
-                    // Expect token: TYPE_COMMENT
                     var _group_alt0__opt_tc_item0 = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
-                    if (_group_alt0__opt_tc_item0 == null)
+                    if (_group_alt0__opt_tc_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_tc = _group_alt0__opt_tc_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_tc = _group_alt0__opt_tc_item0;
-                    goto group_success__opt_tc;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_tc: ; // Group succeeded
+                if (_opt_tc == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? tc = _opt_tc;
                 if (tc == null)
                 {
@@ -8182,15 +7960,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_With(a, b, NEW_TYPE_COMMENT(p, tc), EXTRA)
                 _res = _PyAST_With(a, b, tc, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -8200,7 +7979,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'with'
                 var _tmp1 = Expect("with");
@@ -8208,7 +7987,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '('
                 var _tmp2 = Expect("(");
@@ -8216,7 +7995,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: ','*
                 var a = new System.Collections.Generic.List<object?>();
@@ -8229,7 +8008,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -8250,7 +8029,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp3 == null)
                     {
@@ -8264,7 +8043,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [',']
                 int _opt_mark__tmp4 = _position;
@@ -8274,7 +8053,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? _tmp4 = _opt__tmp4;
                 if (_tmp4 == null)
@@ -8288,7 +8067,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp6 = Expect(":");
@@ -8296,7 +8075,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: block
                 var b = Block();
@@ -8304,15 +8083,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: CHECK_VERSION(stmt_ty, 5, "Async with statements are", _PyAST_AsyncWith(a, b, NULL, EXTRA))
                 // No _PyAST_ function in action: EXTRA)
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 5
+            do
             {
                 _position = _mark;
 
@@ -8322,7 +8102,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'with'
                 var _tmp1 = Expect("with");
@@ -8330,7 +8110,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: ','*
                 var a = new System.Collections.Generic.List<object?>();
@@ -8343,7 +8123,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -8364,7 +8144,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp2 == null)
                     {
@@ -8378,7 +8158,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp3 = Expect(":");
@@ -8386,7 +8166,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(TYPE_COMMENT)]
                 int _opt_mark_tc = _position;
@@ -8396,23 +8176,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: TYPE_COMMENT
                 {
                     _position = _group_mark__opt_tc;
-                    // Expect token: TYPE_COMMENT
                     var _group_alt0__opt_tc_item0 = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
-                    if (_group_alt0__opt_tc_item0 == null)
+                    if (_group_alt0__opt_tc_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_tc = _group_alt0__opt_tc_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_tc = _group_alt0__opt_tc_item0;
-                    goto group_success__opt_tc;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_tc: ; // Group succeeded
+                if (_opt_tc == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? tc = _opt_tc;
                 if (tc == null)
                 {
@@ -8425,15 +8200,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: CHECK_VERSION(stmt_ty, 5, "Async with statements are", _PyAST_AsyncWith(a, b, NEW_TYPE_COMMENT(p, tc), EXTRA))
                 // No _PyAST_ function in action: EXTRA)
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 6
+            do
             {
                 _position = _mark;
 
@@ -8443,12 +8219,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -8476,6 +8252,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -8485,7 +8262,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'as'
                 var _tmp0 = Expect("as");
@@ -8493,7 +8270,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: star_target
                 var t = StarTarget();
@@ -8501,7 +8278,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
                 int _lookahead_mark_30 = _position;
@@ -8511,11 +8288,10 @@ namespace SharpPy.Generated
                 // Unknown AST function: _PyAST_withitem
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -8525,14 +8301,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -8542,13 +8319,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_withitem(e, NULL, p->arena)
                 // Unknown AST function: _PyAST_withitem
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -8576,6 +8353,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -8585,16 +8363,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -8604,7 +8381,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
                 int _lookahead_mark_31 = _position;
@@ -8616,7 +8393,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: finally_block
                 var f = FinallyBlock();
@@ -8624,15 +8401,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_Try(b, NULL, NULL, f, EXTRA)
                 _res = _PyAST_Try(b, f, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -8642,7 +8420,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
                 int _lookahead_mark_32 = _position;
@@ -8654,7 +8432,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // One or more: except_block+
                 var ex = new System.Collections.Generic.List<object?>();
@@ -8667,7 +8445,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_ex == null)
                     {
@@ -8681,7 +8459,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(else_block)]
                 int _opt_mark_el = _position;
@@ -8691,23 +8469,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: else_block
                 {
                     _position = _group_mark__opt_el;
-                    // Call rule: else_block
                     var _group_alt0__opt_el_item0 = ElseBlock();
-                    if (_group_alt0__opt_el_item0 == null)
+                    if (_group_alt0__opt_el_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_el = _group_alt0__opt_el_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_el = _group_alt0__opt_el_item0;
-                    goto group_success__opt_el;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_el: ; // Group succeeded
+                if (_opt_el == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? el = _opt_el;
                 if (el == null)
                 {
@@ -8722,23 +8495,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: finally_block
                 {
                     _position = _group_mark__opt_f;
-                    // Call rule: finally_block
                     var _group_alt0__opt_f_item0 = FinallyBlock();
-                    if (_group_alt0__opt_f_item0 == null)
+                    if (_group_alt0__opt_f_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_f = _group_alt0__opt_f_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_f = _group_alt0__opt_f_item0;
-                    goto group_success__opt_f;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_f: ; // Group succeeded
+                if (_opt_f == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? f = _opt_f;
                 if (f == null)
                 {
@@ -8749,9 +8517,10 @@ namespace SharpPy.Generated
                 _res = _PyAST_Try(b, ex, el, f, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -8761,7 +8530,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
                 int _lookahead_mark_33 = _position;
@@ -8773,7 +8542,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // One or more: except_star_block+
                 var ex = new System.Collections.Generic.List<object?>();
@@ -8786,7 +8555,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_ex == null)
                     {
@@ -8800,7 +8569,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(else_block)]
                 int _opt_mark_el = _position;
@@ -8810,23 +8579,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: else_block
                 {
                     _position = _group_mark__opt_el;
-                    // Call rule: else_block
                     var _group_alt0__opt_el_item0 = ElseBlock();
-                    if (_group_alt0__opt_el_item0 == null)
+                    if (_group_alt0__opt_el_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_el = _group_alt0__opt_el_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_el = _group_alt0__opt_el_item0;
-                    goto group_success__opt_el;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_el: ; // Group succeeded
+                if (_opt_el == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? el = _opt_el;
                 if (el == null)
                 {
@@ -8841,23 +8605,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: finally_block
                 {
                     _position = _group_mark__opt_f;
-                    // Call rule: finally_block
                     var _group_alt0__opt_f_item0 = FinallyBlock();
-                    if (_group_alt0__opt_f_item0 == null)
+                    if (_group_alt0__opt_f_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_f = _group_alt0__opt_f_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_f = _group_alt0__opt_f_item0;
-                    goto group_success__opt_f;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_f: ; // Group succeeded
+                if (_opt_f == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? f = _opt_f;
                 if (f == null)
                 {
@@ -8870,7 +8629,7 @@ namespace SharpPy.Generated
                 // No _PyAST_ function in action: EXTRA)
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -8898,6 +8657,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -8907,16 +8667,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -8926,7 +8685,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var e = Expression();
@@ -8934,7 +8693,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [('as' z=NAME { z })]
                 int _opt_mark_t = _position;
@@ -8944,31 +8703,22 @@ namespace SharpPy.Generated
                 // Try group alternative 1: 'as' z=NAME { z }
                 {
                     _position = _group_mark__opt_t;
-                    // Expect 'as'
                     var _group_alt0__opt_t_item0 = Expect("as");
-                    if (_group_alt0__opt_t_item0 == null)
+                    if (_group_alt0__opt_t_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        var _group_alt0__opt_t_item1 = ExpectToken(GeneratedTokenType.NAME);
+                        if (_group_alt0__opt_t_item1 != null)
+                        {
+                            _opt_t = _group_alt0__opt_t_item1;
+                        }
                     }
-                    // Expect token: NAME
-                    var _group_alt0__opt_t_item1 = ExpectToken(GeneratedTokenType.NAME);
-                    if (_group_alt0__opt_t_item1 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Group alternative 1 succeeded
-                    _opt_t = _group_alt0__opt_t_item1;
-                    goto group_success__opt_t;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_t: ; // Group succeeded
+                if (_opt_t == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? t = _opt_t;
                 if (t == null)
                 {
@@ -8981,7 +8731,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: block
                 var b = Block();
@@ -8989,15 +8739,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_ExceptHandler(e, (t) ? ((expr_ty) t)->v.Name.id : NULL, b, EXTRA)
                 // Unknown AST function: _PyAST_ExceptHandler
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -9007,7 +8758,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp1 = Expect(":");
@@ -9015,7 +8766,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: block
                 var b = Block();
@@ -9023,15 +8774,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_ExceptHandler(NULL, NULL, b, EXTRA)
                 // Unknown AST function: _PyAST_ExceptHandler
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -9041,12 +8793,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -9074,6 +8826,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -9083,16 +8836,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -9102,7 +8854,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '*'
                 var _tmp1 = Expect("*");
@@ -9110,7 +8862,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var e = Expression();
@@ -9118,7 +8870,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [('as' z=NAME { z })]
                 int _opt_mark_t = _position;
@@ -9128,31 +8880,22 @@ namespace SharpPy.Generated
                 // Try group alternative 1: 'as' z=NAME { z }
                 {
                     _position = _group_mark__opt_t;
-                    // Expect 'as'
                     var _group_alt0__opt_t_item0 = Expect("as");
-                    if (_group_alt0__opt_t_item0 == null)
+                    if (_group_alt0__opt_t_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        var _group_alt0__opt_t_item1 = ExpectToken(GeneratedTokenType.NAME);
+                        if (_group_alt0__opt_t_item1 != null)
+                        {
+                            _opt_t = _group_alt0__opt_t_item1;
+                        }
                     }
-                    // Expect token: NAME
-                    var _group_alt0__opt_t_item1 = ExpectToken(GeneratedTokenType.NAME);
-                    if (_group_alt0__opt_t_item1 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Group alternative 1 succeeded
-                    _opt_t = _group_alt0__opt_t_item1;
-                    goto group_success__opt_t;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_t: ; // Group succeeded
+                if (_opt_t == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? t = _opt_t;
                 if (t == null)
                 {
@@ -9165,7 +8908,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: block
                 var b = Block();
@@ -9173,15 +8916,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_ExceptHandler(e, (t) ? ((expr_ty) t)->v.Name.id : NULL, b, EXTRA)
                 // Unknown AST function: _PyAST_ExceptHandler
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -9191,12 +8935,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -9224,6 +8968,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -9233,16 +8978,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmtSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -9252,7 +8996,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
                 int _lookahead_mark_34 = _position;
@@ -9264,12 +9008,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: a
                 _res = (GeneratedStmtSeq)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -9297,6 +9041,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -9306,7 +9051,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: subject_expr
                 var subject = SubjectExpr();
@@ -9314,7 +9059,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp1 = Expect(":");
@@ -9322,7 +9067,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp2 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -9330,7 +9075,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: INDENT
                 var _tmp3 = ExpectToken(GeneratedTokenType.INDENT);
@@ -9338,7 +9083,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // One or more: case_block+
                 var cases = new System.Collections.Generic.List<object?>();
@@ -9351,7 +9096,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_cases == null)
                     {
@@ -9365,7 +9110,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: DEDENT
                 var _tmp4 = ExpectToken(GeneratedTokenType.DEDENT);
@@ -9373,17 +9118,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: CHECK_VERSION(stmt_ty, 10, "Pattern matching is", _PyAST_Match(subject, cases, EXTRA))
                 // No _PyAST_ function in action: EXTRA)
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -9393,12 +9137,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -9426,6 +9170,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -9435,7 +9180,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp0 = Expect(",");
@@ -9443,7 +9188,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [star_named_expressions]
                 int _opt_mark_values = _position;
@@ -9453,7 +9198,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? values = _opt_values;
                 if (values == null)
@@ -9465,11 +9210,10 @@ namespace SharpPy.Generated
                 _res = _PyAST_Tuple();
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -9479,12 +9223,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -9512,6 +9256,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -9521,16 +9266,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -9540,7 +9284,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: patterns
                 var pattern = Patterns();
@@ -9548,7 +9292,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [guard]
                 int _opt_mark_guard = _position;
@@ -9558,7 +9302,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? guard = _opt_guard;
                 if (guard == null)
@@ -9572,7 +9316,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: block
                 var body = Block();
@@ -9580,13 +9324,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_match_case(pattern, guard, body, p->arena)
                 // Unknown AST function: _PyAST_match_case
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -9614,6 +9358,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -9623,7 +9368,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: named_expression
                 var guard = NamedExpression();
@@ -9631,15 +9376,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: guard
                 _res = (GeneratedExpr)((object?)guard);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -9666,6 +9409,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -9675,17 +9419,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchSequence(patterns, EXTRA)
                 // Unknown AST function: _PyAST_MatchSequence
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -9695,12 +9438,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -9728,6 +9471,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -9737,16 +9481,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -9756,12 +9499,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -9789,6 +9532,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -9798,7 +9542,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'as'
                 var _tmp0 = Expect("as");
@@ -9806,7 +9550,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: pattern_capture_target
                 var target = PatternCaptureTarget();
@@ -9814,17 +9558,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchAs(pattern, target->v.Name.id, EXTRA)
                 // Unknown AST function: _PyAST_MatchAs
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -9834,12 +9577,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -9867,6 +9610,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -9881,7 +9625,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_patterns == null)
                     {
@@ -9902,7 +9646,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -9916,16 +9660,14 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: asdl_seq_LEN(patterns) == 1 ? asdl_seq_GET(patterns, 0) : _PyAST_MatchOr(patterns, EXTRA)
                 // Unknown AST function: _PyAST_MatchOr
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -9940,6 +9682,12 @@ namespace SharpPy.Generated
         // Rule: closed_pattern from python.gram
         public GeneratedAstNode ClosedPattern()
         {
+            // CPython 3.12: Left recursion - use Warth et al. algorithm
+            return TryLeftRecursive<GeneratedAstNode>("ClosedPattern", _ClosedPattern);
+        }
+
+        private GeneratedAstNode _ClosedPattern()
+        {
             // CPython 3.12 PEG: closed_pattern
             int _mark = _position;
             GeneratedAstNode _res = null;
@@ -9952,6 +9700,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -9961,16 +9710,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -9980,14 +9728,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -9997,14 +9746,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -10014,14 +9764,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 5
+            do
             {
                 _position = _mark;
 
@@ -10031,14 +9782,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 6
+            do
             {
                 _position = _mark;
 
@@ -10048,14 +9800,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 7
+            do
             {
                 _position = _mark;
 
@@ -10065,14 +9818,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 8
+            do
             {
                 _position = _mark;
 
@@ -10082,12 +9836,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -10115,6 +9869,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -10124,7 +9879,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
                 int _lookahead_mark_35 = _position;
@@ -10134,11 +9889,10 @@ namespace SharpPy.Generated
                 // Unknown AST function: _PyAST_MatchValue
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -10148,15 +9902,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchValue(value, EXTRA)
                 // Unknown AST function: _PyAST_MatchValue
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -10166,15 +9921,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchValue(value, EXTRA)
                 // Unknown AST function: _PyAST_MatchValue
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -10184,15 +9940,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchSingleton(Py_None, EXTRA)
                 // Unknown AST function: _PyAST_MatchSingleton
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 5
+            do
             {
                 _position = _mark;
 
@@ -10202,15 +9959,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchSingleton(Py_True, EXTRA)
                 // Unknown AST function: _PyAST_MatchSingleton
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 6
+            do
             {
                 _position = _mark;
 
@@ -10220,13 +9978,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchSingleton(Py_False, EXTRA)
                 // Unknown AST function: _PyAST_MatchSingleton
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -10254,6 +10012,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -10263,7 +10022,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
                 int _lookahead_mark_36 = _position;
@@ -10272,11 +10031,10 @@ namespace SharpPy.Generated
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -10286,14 +10044,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -10303,14 +10062,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -10320,15 +10080,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_Constant(Py_None, NULL, EXTRA)
                 _res = _PyAST_Constant(_start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 5
+            do
             {
                 _position = _mark;
 
@@ -10338,15 +10099,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_Constant(Py_True, NULL, EXTRA)
                 _res = _PyAST_Constant(_start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 6
+            do
             {
                 _position = _mark;
 
@@ -10356,13 +10118,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_Constant(Py_False, NULL, EXTRA)
                 _res = _PyAST_Constant(_start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -10390,6 +10152,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -10399,7 +10162,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '+'
                 var _tmp0 = Expect("+");
@@ -10407,7 +10170,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: imaginary_number
                 var imag = ImaginaryNumber();
@@ -10415,17 +10178,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(real, Add, imag, EXTRA)
                 _res = _PyAST_BinOp(real, imag, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -10435,7 +10197,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '-'
                 var _tmp0 = Expect("-");
@@ -10443,7 +10205,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: imaginary_number
                 var imag = ImaginaryNumber();
@@ -10451,13 +10213,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(real, Sub, imag, EXTRA)
                 _res = _PyAST_BinOp(real, imag, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -10485,6 +10247,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -10494,16 +10257,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -10513,7 +10275,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NUMBER
                 var number = ExpectToken(GeneratedTokenType.NUMBER);
@@ -10521,13 +10283,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_UnaryOp(USub, number, EXTRA)
                 _res = _PyAST_UnaryOp(number, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -10555,6 +10317,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -10564,16 +10327,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -10583,7 +10345,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: real_number
                 var real = RealNumber();
@@ -10591,13 +10353,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_UnaryOp(USub, real, EXTRA)
                 _res = _PyAST_UnaryOp(real, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -10625,6 +10387,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -10634,16 +10397,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_ensure_real(p, real)
                 // TODO: Complex action expression: _PyPegen_ensure_real(p, real)
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -10670,6 +10431,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -10679,16 +10441,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_ensure_imaginary(p, imag)
                 // TODO: Complex action expression: _PyPegen_ensure_imaginary(p, imag)
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -10715,6 +10475,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -10724,16 +10485,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchAs(NULL, target->v.Name.id, EXTRA)
                 // Unknown AST function: _PyAST_MatchAs
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -10760,6 +10519,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -10773,7 +10533,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
                 int _lookahead_mark_38 = _position;
@@ -10783,10 +10543,8 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: _PyPegen_set_expr_context(p, name, Store)
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -10813,6 +10571,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -10822,16 +10581,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchAs(NULL, NULL, EXTRA)
                 // Unknown AST function: _PyAST_MatchAs
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -10858,6 +10615,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -10867,7 +10625,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
                 int _lookahead_mark_39 = _position;
@@ -10877,10 +10635,8 @@ namespace SharpPy.Generated
                 // Unknown AST function: _PyAST_MatchValue
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -10907,6 +10663,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -10916,7 +10673,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '.'
                 var _tmp0 = Expect(".");
@@ -10924,7 +10681,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NAME
                 var attr = ExpectToken(GeneratedTokenType.NAME);
@@ -10932,16 +10689,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_Attribute(value, attr->v.Name.id, Load, EXTRA)
                 _res = _PyAST_Attribute(value, attr, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -10968,6 +10723,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -10977,16 +10733,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -10996,12 +10751,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -11029,6 +10784,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -11038,7 +10794,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: pattern
                 var pattern = Pattern();
@@ -11046,7 +10802,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ')'
                 var _tmp1 = Expect(")");
@@ -11054,15 +10810,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: pattern
                 _res = (GeneratedAstNode)((object?)pattern);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -11089,6 +10843,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -11098,7 +10853,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [maybe_sequence_pattern]
                 int _opt_mark_patterns = _position;
@@ -11108,7 +10863,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? patterns = _opt_patterns;
                 if (patterns == null)
@@ -11122,17 +10877,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchSequence(patterns, EXTRA)
                 // Unknown AST function: _PyAST_MatchSequence
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -11142,7 +10896,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [open_sequence_pattern]
                 int _opt_mark_patterns = _position;
@@ -11152,7 +10906,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? patterns = _opt_patterns;
                 if (patterns == null)
@@ -11166,13 +10920,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchSequence(patterns, EXTRA)
                 // Unknown AST function: _PyAST_MatchSequence
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -11200,6 +10954,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -11209,7 +10964,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp0 = Expect(",");
@@ -11217,7 +10972,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [maybe_sequence_pattern]
                 int _opt_mark_patterns = _position;
@@ -11227,7 +10982,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? patterns = _opt_patterns;
                 if (patterns == null)
@@ -11239,10 +10994,8 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: _PyPegen_seq_insert_in_front(p, pattern, patterns)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -11269,6 +11022,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -11283,7 +11037,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_patterns == null)
                     {
@@ -11304,7 +11058,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -11318,7 +11072,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [',']
                 int _opt_mark__tmp1 = _position;
@@ -11328,7 +11082,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
@@ -11339,10 +11093,8 @@ namespace SharpPy.Generated
                 // Action: patterns
                 _res = (GeneratedSeq)((object?)patterns);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -11369,6 +11121,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -11378,16 +11131,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -11397,12 +11149,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -11418,6 +11170,12 @@ namespace SharpPy.Generated
         // Rule: star_pattern from python.gram
         public GeneratedAstNode StarPattern()
         {
+            // CPython 3.12: Left recursion - use Warth et al. algorithm
+            return TryLeftRecursive<GeneratedAstNode>("StarPattern", _StarPattern);
+        }
+
+        private GeneratedAstNode _StarPattern()
+        {
             // CPython 3.12 PEG: star_pattern
             int _mark = _position;
             GeneratedAstNode _res = null;
@@ -11430,6 +11188,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -11439,7 +11198,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: pattern_capture_target
                 var target = PatternCaptureTarget();
@@ -11447,17 +11206,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchStar(target->v.Name.id, EXTRA)
                 // Unknown AST function: _PyAST_MatchStar
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -11467,7 +11225,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: wildcard_pattern
                 var _tmp1 = WildcardPattern();
@@ -11475,13 +11233,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchStar(NULL, EXTRA)
                 // Unknown AST function: _PyAST_MatchStar
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -11509,6 +11267,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -11518,7 +11277,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '}'
                 var _tmp1 = Expect("}");
@@ -11526,17 +11285,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchMapping(NULL, NULL, NULL, EXTRA)
                 // Unknown AST function: _PyAST_MatchMapping
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -11546,7 +11304,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: double_star_pattern
                 var rest = DoubleStarPattern();
@@ -11554,7 +11312,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [',']
                 int _opt_mark__tmp1 = _position;
@@ -11564,7 +11322,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
@@ -11578,15 +11336,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchMapping(NULL, NULL, rest->v.Name.id, EXTRA)
                 // Unknown AST function: _PyAST_MatchMapping
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -11596,7 +11355,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: items_pattern
                 var items = ItemsPattern();
@@ -11604,7 +11363,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp1 = Expect(",");
@@ -11612,7 +11371,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: double_star_pattern
                 var rest = DoubleStarPattern();
@@ -11620,7 +11379,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [',']
                 int _opt_mark__tmp2 = _position;
@@ -11630,7 +11389,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? _tmp2 = _opt__tmp2;
                 if (_tmp2 == null)
@@ -11644,7 +11403,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action (multiline):
                 //   _PyAST_MatchMapping(
@@ -11655,9 +11414,10 @@ namespace SharpPy.Generated
                 // Unknown AST function: _PyAST_MatchMapping
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -11667,7 +11427,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: items_pattern
                 var items = ItemsPattern();
@@ -11675,7 +11435,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [',']
                 int _opt_mark__tmp1 = _position;
@@ -11685,7 +11445,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
@@ -11699,7 +11459,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action (multiline):
                 //   _PyAST_MatchMapping(
@@ -11710,7 +11470,7 @@ namespace SharpPy.Generated
                 // Unknown AST function: _PyAST_MatchMapping
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -11738,6 +11498,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -11752,7 +11513,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -11773,7 +11534,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp1 == null)
                     {
@@ -11787,15 +11548,13 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -11822,6 +11581,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -11831,45 +11591,35 @@ namespace SharpPy.Generated
                 // Try group alternative 1: literal_expr
                 {
                     _position = _group_mark_key;
-                    // Call rule: literal_expr
                     var _group_alt0_key_item0 = LiteralExpr();
-                    if (_group_alt0_key_item0 == null)
+                    if (_group_alt0_key_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        key = _group_alt0_key_item0;
                     }
-                    // Group alternative 1 succeeded
-                    key = _group_alt0_key_item0;
-                    goto group_success_key;
                 }
                 // Try group alternative 2: attr
+                if (key == null)
                 {
                     _position = _group_mark_key;
-                    // Call rule: attr
                     var _group_alt1_key_item0 = Attr();
-                    if (_group_alt1_key_item0 == null)
+                    if (_group_alt1_key_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        key = _group_alt1_key_item0;
                     }
-                    // Group alternative 2 succeeded
-                    key = _group_alt1_key_item0;
-                    goto group_success_key;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success_key: ; // Group succeeded
+                if (key == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Expect ':'
                 var _tmp0 = Expect(":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: pattern
                 var pattern = Pattern();
@@ -11877,16 +11627,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_key_pattern_pair(p, key, pattern)
                 // TODO: Complex action expression: _PyPegen_key_pattern_pair(p, key, pattern)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -11913,6 +11661,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -11922,7 +11671,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: pattern_capture_target
                 var target = PatternCaptureTarget();
@@ -11930,15 +11679,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: target
                 _res = (GeneratedExpr)((object?)target);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -11965,6 +11712,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -11974,7 +11722,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '('
                 var _tmp0 = Expect("(");
@@ -11982,7 +11730,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ')'
                 var _tmp1 = Expect(")");
@@ -11990,17 +11738,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchClass(cls, NULL, NULL, NULL, EXTRA)
                 // Unknown AST function: _PyAST_MatchClass
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -12010,7 +11757,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '('
                 var _tmp0 = Expect("(");
@@ -12018,7 +11765,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: positional_patterns
                 var patterns = PositionalPatterns();
@@ -12026,7 +11773,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [',']
                 int _opt_mark__tmp1 = _position;
@@ -12036,7 +11783,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
@@ -12050,15 +11797,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchClass(cls, patterns, NULL, NULL, EXTRA)
                 // Unknown AST function: _PyAST_MatchClass
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -12068,7 +11816,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '('
                 var _tmp0 = Expect("(");
@@ -12076,7 +11824,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: keyword_patterns
                 var keywords = KeywordPatterns();
@@ -12084,7 +11832,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [',']
                 int _opt_mark__tmp1 = _position;
@@ -12094,7 +11842,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
@@ -12108,7 +11856,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action (multiline):
                 //   _PyAST_MatchClass(
@@ -12120,9 +11868,10 @@ namespace SharpPy.Generated
                 // Unknown AST function: _PyAST_MatchClass
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -12132,7 +11881,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '('
                 var _tmp0 = Expect("(");
@@ -12140,7 +11889,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: positional_patterns
                 var patterns = PositionalPatterns();
@@ -12148,7 +11897,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp1 = Expect(",");
@@ -12156,7 +11905,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: keyword_patterns
                 var keywords = KeywordPatterns();
@@ -12164,7 +11913,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [',']
                 int _opt_mark__tmp2 = _position;
@@ -12174,7 +11923,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? _tmp2 = _opt__tmp2;
                 if (_tmp2 == null)
@@ -12188,7 +11937,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action (multiline):
                 //   _PyAST_MatchClass(
@@ -12201,9 +11950,10 @@ namespace SharpPy.Generated
                 // Unknown AST function: _PyAST_MatchClass
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 5
+            do
             {
                 _position = _mark;
 
@@ -12213,12 +11963,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -12246,6 +11996,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -12260,7 +12011,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_args == null)
                     {
@@ -12281,7 +12032,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -12295,15 +12046,13 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: args
                 _res = (GeneratedSeq)((object?)args);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -12330,6 +12079,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -12344,7 +12094,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -12365,7 +12115,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp1 == null)
                     {
@@ -12379,15 +12129,13 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -12414,6 +12162,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -12423,7 +12172,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '='
                 var _tmp0 = Expect("=");
@@ -12431,7 +12180,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: pattern
                 var value = Pattern();
@@ -12439,16 +12188,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_key_pattern_pair(p, arg, value)
                 // TODO: Complex action expression: _PyPegen_key_pattern_pair(p, arg, value)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -12475,6 +12222,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -12484,7 +12232,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NAME
                 var n = ExpectToken(GeneratedTokenType.NAME);
@@ -12492,7 +12240,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(type_params)]
                 int _opt_mark_t = _position;
@@ -12502,23 +12250,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: type_params
                 {
                     _position = _group_mark__opt_t;
-                    // Call rule: type_params
                     var _group_alt0__opt_t_item0 = TypeParams();
-                    if (_group_alt0__opt_t_item0 == null)
+                    if (_group_alt0__opt_t_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_t = _group_alt0__opt_t_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_t = _group_alt0__opt_t_item0;
-                    goto group_success__opt_t;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_t: ; // Group succeeded
+                if (_opt_t == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? t = _opt_t;
                 if (t == null)
                 {
@@ -12531,7 +12274,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var b = Expression();
@@ -12539,7 +12282,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action (multiline):
                 //   CHECK_VERSION(stmt_ty, 12, "Type statement is",
@@ -12547,10 +12290,8 @@ namespace SharpPy.Generated
                 // No _PyAST_ function in action: EXTRA)
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -12577,6 +12318,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -12586,7 +12328,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: type_param_seq
                 var t = TypeParamSeq();
@@ -12594,7 +12336,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ']'
                 var _tmp1 = Expect("]");
@@ -12602,16 +12344,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: CHECK_VERSION(asdl_type_param_seq *, 12, "Type parameter lists are", t)
                 // TODO: Complex action expression: CHECK_VERSION(asdl_type_param_seq *, 12, "Type parameter lists are", t)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -12638,6 +12378,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -12652,7 +12393,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -12673,7 +12414,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -12687,7 +12428,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(',')]
                 int _opt_mark__tmp1 = _position;
@@ -12697,23 +12438,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ','
                 {
                     _position = _group_mark__opt__tmp1;
-                    // Expect ','
                     var _group_alt0__opt__tmp1_item0 = Expect(",");
-                    if (_group_alt0__opt__tmp1_item0 == null)
+                    if (_group_alt0__opt__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt__tmp1 = _group_alt0__opt__tmp1_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt__tmp1 = _group_alt0__opt__tmp1_item0;
-                    goto group_success__opt__tmp1;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp1: ; // Group succeeded
+                if (_opt__tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
                 {
@@ -12723,10 +12459,8 @@ namespace SharpPy.Generated
                 // Action: a
                 _res = (GeneratedSeq)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -12741,6 +12475,12 @@ namespace SharpPy.Generated
         // Rule: type_param from python.gram
         public GeneratedAstNode TypeParam()
         {
+            // CPython 3.12: Left recursion - use Warth et al. algorithm
+            return TryLeftRecursive<GeneratedAstNode>("TypeParam", _TypeParam);
+        }
+
+        private GeneratedAstNode _TypeParam()
+        {
             // CPython 3.12 PEG: type_param
             int _mark = _position;
             GeneratedAstNode _res = null;
@@ -12753,6 +12493,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -12762,7 +12503,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(type_param_bound)]
                 int _opt_mark_b = _position;
@@ -12772,23 +12513,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: type_param_bound
                 {
                     _position = _group_mark__opt_b;
-                    // Call rule: type_param_bound
                     var _group_alt0__opt_b_item0 = TypeParamBound();
-                    if (_group_alt0__opt_b_item0 == null)
+                    if (_group_alt0__opt_b_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_b = _group_alt0__opt_b_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_b = _group_alt0__opt_b_item0;
-                    goto group_success__opt_b;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_b: ; // Group succeeded
+                if (_opt_b == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? b = _opt_b;
                 if (b == null)
                 {
@@ -12799,11 +12535,10 @@ namespace SharpPy.Generated
                 // Unknown AST function: _PyAST_TypeVar
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -12813,7 +12548,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NAME
                 var a = ExpectToken(GeneratedTokenType.NAME);
@@ -12821,7 +12556,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var colon = Expect(":");
@@ -12829,7 +12564,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var e = Expression();
@@ -12837,7 +12572,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action (multiline):
                 //   RAISE_SYNTAX_ERROR_STARTING_FROM(colon, e->kind == Tuple_kind
@@ -12849,9 +12584,10 @@ namespace SharpPy.Generated
                 //   : "cannot use bound with TypeVarTuple")
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -12861,7 +12597,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NAME
                 var a = ExpectToken(GeneratedTokenType.NAME);
@@ -12869,15 +12605,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_TypeVarTuple(a->v.Name.id, EXTRA)
                 // Unknown AST function: _PyAST_TypeVarTuple
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -12887,7 +12624,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NAME
                 var a = ExpectToken(GeneratedTokenType.NAME);
@@ -12895,7 +12632,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var colon = Expect(":");
@@ -12903,7 +12640,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var e = Expression();
@@ -12911,7 +12648,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action (multiline):
                 //   RAISE_SYNTAX_ERROR_STARTING_FROM(colon, e->kind == Tuple_kind
@@ -12923,9 +12660,10 @@ namespace SharpPy.Generated
                 //   : "cannot use bound with ParamSpec")
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 5
+            do
             {
                 _position = _mark;
 
@@ -12935,7 +12673,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NAME
                 var a = ExpectToken(GeneratedTokenType.NAME);
@@ -12943,13 +12681,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_ParamSpec(a->v.Name.id, EXTRA)
                 // Unknown AST function: _PyAST_ParamSpec
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -12977,6 +12715,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -12986,7 +12725,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var e = Expression();
@@ -12994,15 +12733,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: e
                 _res = (GeneratedExpr)((object?)e);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -13029,6 +12766,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -13038,7 +12776,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'from'
                 var _tmp1 = Expect("from");
@@ -13046,7 +12784,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var a = Expression();
@@ -13054,17 +12792,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_YieldFrom(a, EXTRA)
                 _res = _PyAST_YieldFrom(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -13074,7 +12811,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(star_expressions)]
                 int _opt_mark_a = _position;
@@ -13084,23 +12821,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: star_expressions
                 {
                     _position = _group_mark__opt_a;
-                    // Call rule: star_expressions
                     var _group_alt0__opt_a_item0 = StarExpressions();
-                    if (_group_alt0__opt_a_item0 == null)
+                    if (_group_alt0__opt_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_a = _group_alt0__opt_a_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_a = _group_alt0__opt_a_item0;
-                    goto group_success__opt_a;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_a: ; // Group succeeded
+                if (_opt_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? a = _opt_a;
                 if (a == null)
                 {
@@ -13111,7 +12843,7 @@ namespace SharpPy.Generated
                 _res = _PyAST_Yield(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -13127,6 +12859,12 @@ namespace SharpPy.Generated
         // Rule: star_expression from python.gram
         public GeneratedExpr StarExpression()
         {
+            // CPython 3.12: Left recursion - use Warth et al. algorithm
+            return TryLeftRecursive<GeneratedExpr>("StarExpression", _StarExpression);
+        }
+
+        private GeneratedExpr _StarExpression()
+        {
             // CPython 3.12 PEG: star_expression
             int _mark = _position;
             GeneratedExpr _res = null;
@@ -13139,6 +12877,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -13148,7 +12887,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
                 var a = BitwiseOr();
@@ -13156,17 +12895,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_Starred(a, Load, EXTRA)
                 _res = _PyAST_Starred(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -13176,12 +12914,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -13209,6 +12947,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -13223,7 +12962,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -13244,7 +12983,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -13258,7 +12997,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(',')]
                 int _opt_mark__tmp1 = _position;
@@ -13268,23 +13007,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ','
                 {
                     _position = _group_mark__opt__tmp1;
-                    // Expect ','
                     var _group_alt0__opt__tmp1_item0 = Expect(",");
-                    if (_group_alt0__opt__tmp1_item0 == null)
+                    if (_group_alt0__opt__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt__tmp1 = _group_alt0__opt__tmp1_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt__tmp1 = _group_alt0__opt__tmp1_item0;
-                    goto group_success__opt__tmp1;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp1: ; // Group succeeded
+                if (_opt__tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
                 {
@@ -13294,10 +13028,8 @@ namespace SharpPy.Generated
                 // Action: a
                 _res = (GeneratedExprSeq)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -13324,6 +13056,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -13333,7 +13066,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
                 var a = BitwiseOr();
@@ -13341,17 +13074,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_Starred(a, Load, EXTRA)
                 _res = _PyAST_Starred(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -13361,12 +13093,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -13394,6 +13126,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -13403,16 +13136,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -13422,14 +13154,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -13439,7 +13172,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
                 int _lookahead_mark_40 = _position;
@@ -13448,7 +13181,7 @@ namespace SharpPy.Generated
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -13476,6 +13209,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -13485,16 +13219,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -13504,14 +13237,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -13521,14 +13255,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -13538,14 +13273,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 5
+            do
             {
                 _position = _mark;
 
@@ -13555,14 +13291,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 6
+            do
             {
                 _position = _mark;
 
@@ -13572,14 +13309,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 7
+            do
             {
                 _position = _mark;
 
@@ -13589,14 +13327,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 8
+            do
             {
                 _position = _mark;
 
@@ -13606,14 +13345,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 9
+            do
             {
                 _position = _mark;
 
@@ -13623,14 +13363,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 10
+            do
             {
                 _position = _mark;
 
@@ -13640,12 +13381,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -13673,6 +13414,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -13682,7 +13424,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
                 var a = BitwiseOr();
@@ -13690,16 +13432,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(p, Eq, a)
                 // TODO: Complex action expression: _PyPegen_cmpop_expr_pair(p, Eq, a)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -13726,6 +13466,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -13735,39 +13476,32 @@ namespace SharpPy.Generated
                 // Try group alternative 1: tok='!=' { _PyPegen_check_barry_as_flufl(p, tok) ? NULL : tok }
                 {
                     _position = _group_mark__tmp0;
-                    // Expect '!='
                     var _group_alt0__tmp0_item0 = Expect("!=");
-                    if (_group_alt0__tmp0_item0 == null)
+                    if (_group_alt0__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp0 = _group_alt0__tmp0_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _tmp0 = _group_alt0__tmp0_item0;
-                    goto group_success__tmp0;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__tmp0: ; // Group succeeded
+                if (_tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: bitwise_or
                 var a = BitwiseOr();
                 if (a == null)
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(p, NotEq, a)
                 // TODO: Complex action expression: _PyPegen_cmpop_expr_pair(p, NotEq, a)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -13794,6 +13528,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -13803,7 +13538,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
                 var a = BitwiseOr();
@@ -13811,16 +13546,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(p, LtE, a)
                 // TODO: Complex action expression: _PyPegen_cmpop_expr_pair(p, LtE, a)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -13847,6 +13580,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -13856,7 +13590,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
                 var a = BitwiseOr();
@@ -13864,16 +13598,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(p, Lt, a)
                 // TODO: Complex action expression: _PyPegen_cmpop_expr_pair(p, Lt, a)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -13900,6 +13632,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -13909,7 +13642,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
                 var a = BitwiseOr();
@@ -13917,16 +13650,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(p, GtE, a)
                 // TODO: Complex action expression: _PyPegen_cmpop_expr_pair(p, GtE, a)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -13953,6 +13684,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -13962,7 +13694,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
                 var a = BitwiseOr();
@@ -13970,16 +13702,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(p, Gt, a)
                 // TODO: Complex action expression: _PyPegen_cmpop_expr_pair(p, Gt, a)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -14006,6 +13736,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -14015,7 +13746,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'in'
                 var _tmp1 = Expect("in");
@@ -14023,7 +13754,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
                 var a = BitwiseOr();
@@ -14031,16 +13762,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(p, NotIn, a)
                 // TODO: Complex action expression: _PyPegen_cmpop_expr_pair(p, NotIn, a)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -14067,6 +13796,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -14076,7 +13806,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
                 var a = BitwiseOr();
@@ -14084,16 +13814,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(p, In, a)
                 // TODO: Complex action expression: _PyPegen_cmpop_expr_pair(p, In, a)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -14120,6 +13848,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -14129,7 +13858,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'not'
                 var _tmp1 = Expect("not");
@@ -14137,7 +13866,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
                 var a = BitwiseOr();
@@ -14145,16 +13874,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(p, IsNot, a)
                 // TODO: Complex action expression: _PyPegen_cmpop_expr_pair(p, IsNot, a)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -14181,6 +13908,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -14190,7 +13918,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
                 var a = BitwiseOr();
@@ -14198,16 +13926,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(p, Is, a)
                 // TODO: Complex action expression: _PyPegen_cmpop_expr_pair(p, Is, a)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -14222,6 +13948,12 @@ namespace SharpPy.Generated
         // Rule: bitwise_or from python.gram
         public GeneratedExpr BitwiseOr()
         {
+            // CPython 3.12: Left recursion - use Warth et al. algorithm
+            return TryLeftRecursive<GeneratedExpr>("BitwiseOr", _BitwiseOr);
+        }
+
+        private GeneratedExpr _BitwiseOr()
+        {
             // CPython 3.12 PEG: bitwise_or
             int _mark = _position;
             GeneratedExpr _res = null;
@@ -14234,6 +13966,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -14243,7 +13976,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '|'
                 var _tmp0 = Expect("|");
@@ -14251,7 +13984,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: bitwise_xor
                 var b = BitwiseXor();
@@ -14259,17 +13992,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(a, BitOr, b, EXTRA)
                 _res = _PyAST_BinOp(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -14279,12 +14011,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -14300,6 +14032,12 @@ namespace SharpPy.Generated
         // Rule: bitwise_xor from python.gram
         public GeneratedExpr BitwiseXor()
         {
+            // CPython 3.12: Left recursion - use Warth et al. algorithm
+            return TryLeftRecursive<GeneratedExpr>("BitwiseXor", _BitwiseXor);
+        }
+
+        private GeneratedExpr _BitwiseXor()
+        {
             // CPython 3.12 PEG: bitwise_xor
             int _mark = _position;
             GeneratedExpr _res = null;
@@ -14312,6 +14050,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -14321,7 +14060,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '^'
                 var _tmp0 = Expect("^");
@@ -14329,7 +14068,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: bitwise_and
                 var b = BitwiseAnd();
@@ -14337,17 +14076,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(a, BitXor, b, EXTRA)
                 _res = _PyAST_BinOp(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -14357,12 +14095,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -14378,6 +14116,12 @@ namespace SharpPy.Generated
         // Rule: bitwise_and from python.gram
         public GeneratedExpr BitwiseAnd()
         {
+            // CPython 3.12: Left recursion - use Warth et al. algorithm
+            return TryLeftRecursive<GeneratedExpr>("BitwiseAnd", _BitwiseAnd);
+        }
+
+        private GeneratedExpr _BitwiseAnd()
+        {
             // CPython 3.12 PEG: bitwise_and
             int _mark = _position;
             GeneratedExpr _res = null;
@@ -14390,6 +14134,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -14399,7 +14144,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '&'
                 var _tmp0 = Expect("&");
@@ -14407,7 +14152,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: shift_expr
                 var b = ShiftExpr();
@@ -14415,17 +14160,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(a, BitAnd, b, EXTRA)
                 _res = _PyAST_BinOp(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -14435,12 +14179,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -14456,6 +14200,12 @@ namespace SharpPy.Generated
         // Rule: shift_expr from python.gram
         public GeneratedExpr ShiftExpr()
         {
+            // CPython 3.12: Left recursion - use Warth et al. algorithm
+            return TryLeftRecursive<GeneratedExpr>("ShiftExpr", _ShiftExpr);
+        }
+
+        private GeneratedExpr _ShiftExpr()
+        {
             // CPython 3.12 PEG: shift_expr
             int _mark = _position;
             GeneratedExpr _res = null;
@@ -14468,6 +14218,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -14477,7 +14228,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '<<'
                 var _tmp0 = Expect("<<");
@@ -14485,7 +14236,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: sum
                 var b = Sum();
@@ -14493,17 +14244,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(a, LShift, b, EXTRA)
                 _res = _PyAST_BinOp(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -14513,7 +14263,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '>>'
                 var _tmp0 = Expect(">>");
@@ -14521,7 +14271,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: sum
                 var b = Sum();
@@ -14529,15 +14279,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(a, RShift, b, EXTRA)
                 _res = _PyAST_BinOp(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -14547,12 +14298,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -14568,6 +14319,12 @@ namespace SharpPy.Generated
         // Rule: sum from python.gram
         public GeneratedExpr Sum()
         {
+            // CPython 3.12: Left recursion - use Warth et al. algorithm
+            return TryLeftRecursive<GeneratedExpr>("Sum", _Sum);
+        }
+
+        private GeneratedExpr _Sum()
+        {
             // CPython 3.12 PEG: sum
             int _mark = _position;
             GeneratedExpr _res = null;
@@ -14580,6 +14337,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -14589,7 +14347,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '+'
                 var _tmp0 = Expect("+");
@@ -14597,7 +14355,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: term
                 var b = Term();
@@ -14605,17 +14363,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(a, Add, b, EXTRA)
                 _res = _PyAST_BinOp(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -14625,7 +14382,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '-'
                 var _tmp0 = Expect("-");
@@ -14633,7 +14390,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: term
                 var b = Term();
@@ -14641,15 +14398,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(a, Sub, b, EXTRA)
                 _res = _PyAST_BinOp(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -14659,12 +14417,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -14680,6 +14438,12 @@ namespace SharpPy.Generated
         // Rule: term from python.gram
         public GeneratedExpr Term()
         {
+            // CPython 3.12: Left recursion - use Warth et al. algorithm
+            return TryLeftRecursive<GeneratedExpr>("Term", _Term);
+        }
+
+        private GeneratedExpr _Term()
+        {
             // CPython 3.12 PEG: term
             int _mark = _position;
             GeneratedExpr _res = null;
@@ -14692,6 +14456,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -14701,7 +14466,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '*'
                 var _tmp0 = Expect("*");
@@ -14709,7 +14474,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: factor
                 var b = Factor();
@@ -14717,17 +14482,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(a, Mult, b, EXTRA)
                 _res = _PyAST_BinOp(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -14737,7 +14501,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '/'
                 var _tmp0 = Expect("/");
@@ -14745,7 +14509,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: factor
                 var b = Factor();
@@ -14753,15 +14517,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(a, Div, b, EXTRA)
                 _res = _PyAST_BinOp(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -14771,7 +14536,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '//'
                 var _tmp0 = Expect("//");
@@ -14779,7 +14544,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: factor
                 var b = Factor();
@@ -14787,15 +14552,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(a, FloorDiv, b, EXTRA)
                 _res = _PyAST_BinOp(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -14805,7 +14571,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '%'
                 var _tmp0 = Expect("%");
@@ -14813,7 +14579,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: factor
                 var b = Factor();
@@ -14821,15 +14587,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(a, Mod, b, EXTRA)
                 _res = _PyAST_BinOp(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 5
+            do
             {
                 _position = _mark;
 
@@ -14839,7 +14606,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '@'
                 var _tmp0 = Expect("@");
@@ -14847,7 +14614,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: factor
                 var b = Factor();
@@ -14855,15 +14622,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: CHECK_VERSION(expr_ty, 5, "The '@' operator is", _PyAST_BinOp(a, MatMult, b, EXTRA))
                 // No _PyAST_ function in action: EXTRA)
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 6
+            do
             {
                 _position = _mark;
 
@@ -14873,12 +14641,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -14894,6 +14662,12 @@ namespace SharpPy.Generated
         // Rule: factor from python.gram
         public GeneratedExpr Factor()
         {
+            // CPython 3.12: Left recursion - use Warth et al. algorithm
+            return TryLeftRecursive<GeneratedExpr>("Factor", _Factor);
+        }
+
+        private GeneratedExpr _Factor()
+        {
             // CPython 3.12 PEG: factor
             int _mark = _position;
             GeneratedExpr _res = null;
@@ -14906,6 +14680,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -14915,7 +14690,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: factor
                 var a = Factor();
@@ -14923,17 +14698,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_UnaryOp(UAdd, a, EXTRA)
                 _res = _PyAST_UnaryOp(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -14943,7 +14717,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: factor
                 var a = Factor();
@@ -14951,15 +14725,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_UnaryOp(USub, a, EXTRA)
                 _res = _PyAST_UnaryOp(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -14969,7 +14744,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: factor
                 var a = Factor();
@@ -14977,15 +14752,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_UnaryOp(Invert, a, EXTRA)
                 _res = _PyAST_UnaryOp(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -14995,12 +14771,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -15028,6 +14804,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -15037,7 +14814,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '**'
                 var _tmp0 = Expect("**");
@@ -15045,7 +14822,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: factor
                 var b = Factor();
@@ -15053,17 +14830,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(a, Pow, b, EXTRA)
                 _res = _PyAST_BinOp(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -15073,12 +14849,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -15106,6 +14882,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -15115,7 +14892,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
                 int _lookahead_mark_41 = _position;
@@ -15124,11 +14901,10 @@ namespace SharpPy.Generated
                 // Action: a
                 _res = (GeneratedExpr)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -15143,7 +14919,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -15164,38 +14940,28 @@ namespace SharpPy.Generated
                     // Try group alternative 1: slice
                     {
                         _position = _group_mark__loop_elem__tmp0;
-                        // Call rule: slice
                         var _group_alt0__loop_elem__tmp0_item0 = Slice();
-                        if (_group_alt0__loop_elem__tmp0_item0 == null)
+                        if (_group_alt0__loop_elem__tmp0_item0 != null)
                         {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
+                            _loop_elem__tmp0 = _group_alt0__loop_elem__tmp0_item0;
                         }
-                        // Group alternative 1 succeeded
-                        _loop_elem__tmp0 = _group_alt0__loop_elem__tmp0_item0;
-                        goto group_success__loop_elem__tmp0;
                     }
                     // Try group alternative 2: starred_expression
+                    if (_loop_elem__tmp0 == null)
                     {
                         _position = _group_mark__loop_elem__tmp0;
-                        // Call rule: starred_expression
                         var _group_alt1__loop_elem__tmp0_item0 = StarredExpression();
-                        if (_group_alt1__loop_elem__tmp0_item0 == null)
+                        if (_group_alt1__loop_elem__tmp0_item0 != null)
                         {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
+                            _loop_elem__tmp0 = _group_alt1__loop_elem__tmp0_item0;
                         }
-                        // Group alternative 2 succeeded
-                        _loop_elem__tmp0 = _group_alt1__loop_elem__tmp0_item0;
-                        goto group_success__loop_elem__tmp0;
                     }
-                    // All group alternatives failed
-                    _position = _mark;
-                    _res = null;
-                    goto alternative_failed;
-                    group_success__loop_elem__tmp0: ; // Group succeeded
+                    if (_loop_elem__tmp0 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
                     if (_loop_elem__tmp0 == null)
                     {
                         _position = _loop_mark; // Reset to before failed attempt
@@ -15208,7 +14974,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(',')]
                 int _opt_mark__tmp1 = _position;
@@ -15218,23 +14984,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ','
                 {
                     _position = _group_mark__opt__tmp1;
-                    // Expect ','
                     var _group_alt0__opt__tmp1_item0 = Expect(",");
-                    if (_group_alt0__opt__tmp1_item0 == null)
+                    if (_group_alt0__opt__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt__tmp1 = _group_alt0__opt__tmp1_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt__tmp1 = _group_alt0__opt__tmp1_item0;
-                    goto group_success__opt__tmp1;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp1: ; // Group succeeded
+                if (_opt__tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
                 {
@@ -15245,7 +15006,7 @@ namespace SharpPy.Generated
                 _res = _PyAST_Tuple(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -15273,6 +15034,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -15284,23 +15046,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: expression
                 {
                     _position = _group_mark__opt_a;
-                    // Call rule: expression
                     var _group_alt0__opt_a_item0 = Expression();
-                    if (_group_alt0__opt_a_item0 == null)
+                    if (_group_alt0__opt_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_a = _group_alt0__opt_a_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_a = _group_alt0__opt_a_item0;
-                    goto group_success__opt_a;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_a: ; // Group succeeded
+                if (_opt_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? a = _opt_a;
                 if (a == null)
                 {
@@ -15313,7 +15070,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(expression)]
                 int _opt_mark_b = _position;
@@ -15323,23 +15080,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: expression
                 {
                     _position = _group_mark__opt_b;
-                    // Call rule: expression
                     var _group_alt0__opt_b_item0 = Expression();
-                    if (_group_alt0__opt_b_item0 == null)
+                    if (_group_alt0__opt_b_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_b = _group_alt0__opt_b_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_b = _group_alt0__opt_b_item0;
-                    goto group_success__opt_b;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_b: ; // Group succeeded
+                if (_opt_b == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? b = _opt_b;
                 if (b == null)
                 {
@@ -15354,54 +15106,23 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ':' d=[(expression)] { d }
                 {
                     _position = _group_mark__opt_c;
-                    // Expect ':'
                     var _group_alt0__opt_c_item0 = Expect(":");
-                    if (_group_alt0__opt_c_item0 == null)
+                    if (_group_alt0__opt_c_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Optional: [(expression)]
-                    int _opt_mark__group_alt0__opt_c_item1 = _position;
-                    // Group: (expression)
-                    object? _opt__group_alt0__opt_c_item1 = null;
-                    int _group_mark__opt__group_alt0__opt_c_item1 = _position;
-                    // Try group alternative 1: expression
-                    {
-                        _position = _group_mark__opt__group_alt0__opt_c_item1;
-                        // Call rule: expression
-                        var _group_alt0__opt__group_alt0__opt_c_item1_item0 = Expression();
-                        if (_group_alt0__opt__group_alt0__opt_c_item1_item0 == null)
+                        object? _group_alt0__opt_c_item1 = null;
+                        // TODO: Complex group item type: Optional
+                        if (_group_alt0__opt_c_item1 != null)
                         {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
+                            _opt_c = _group_alt0__opt_c_item1;
                         }
-                        // Group alternative 1 succeeded
-                        _opt__group_alt0__opt_c_item1 = _group_alt0__opt__group_alt0__opt_c_item1_item0;
-                        goto group_success__opt__group_alt0__opt_c_item1;
                     }
-                    // All group alternatives failed
+                }
+                if (_opt_c == null)
+                {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
-                    group_success__opt__group_alt0__opt_c_item1: ; // Group succeeded
-                    object? _group_alt0__opt_c_item1 = _opt__group_alt0__opt_c_item1;
-                    if (_group_alt0__opt_c_item1 == null)
-                    {
-                        _position = _opt_mark__group_alt0__opt_c_item1; // Reset position
-                        _group_alt0__opt_c_item1 = null; // Optional not present
-                    }
-                    // Group alternative 1 succeeded
-                    _opt_c = _group_alt0__opt_c_item1;
-                    goto group_success__opt_c;
+                    break;  // Exit this alternative
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_c: ; // Group succeeded
                 object? c = _opt_c;
                 if (c == null)
                 {
@@ -15412,11 +15133,10 @@ namespace SharpPy.Generated
                 _res = _PyAST_Slice(a, b, c, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -15426,12 +15146,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: a
                 _res = (GeneratedExpr)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -15459,6 +15179,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -15468,7 +15189,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Group: (yield_expr | named_expression)
                 object? a = null;
@@ -15476,54 +15197,43 @@ namespace SharpPy.Generated
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark_a;
-                    // Call rule: yield_expr
                     var _group_alt0_a_item0 = YieldExpr();
-                    if (_group_alt0_a_item0 == null)
+                    if (_group_alt0_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        a = _group_alt0_a_item0;
                     }
-                    // Group alternative 1 succeeded
-                    a = _group_alt0_a_item0;
-                    goto group_success_a;
                 }
                 // Try group alternative 2: named_expression
+                if (a == null)
                 {
                     _position = _group_mark_a;
-                    // Call rule: named_expression
                     var _group_alt1_a_item0 = NamedExpression();
-                    if (_group_alt1_a_item0 == null)
+                    if (_group_alt1_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        a = _group_alt1_a_item0;
                     }
-                    // Group alternative 2 succeeded
-                    a = _group_alt1_a_item0;
-                    goto group_success_a;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success_a: ; // Group succeeded
+                if (a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Expect ')'
                 var _tmp1 = Expect(")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: a
                 _res = (GeneratedExpr)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -15533,12 +15243,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -15566,6 +15276,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -15575,7 +15286,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(lambda_params)]
                 int _opt_mark_a = _position;
@@ -15585,23 +15296,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: lambda_params
                 {
                     _position = _group_mark__opt_a;
-                    // Call rule: lambda_params
                     var _group_alt0__opt_a_item0 = LambdaParams();
-                    if (_group_alt0__opt_a_item0 == null)
+                    if (_group_alt0__opt_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_a = _group_alt0__opt_a_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_a = _group_alt0__opt_a_item0;
-                    goto group_success__opt_a;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_a: ; // Group succeeded
+                if (_opt_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? a = _opt_a;
                 if (a == null)
                 {
@@ -15614,7 +15320,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var b = Expression();
@@ -15622,16 +15328,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_Lambda((a) ? a : CHECK(arguments_ty, _PyPegen_empty_arguments(p)), b, EXTRA)
                 _res = _PyAST_Lambda(a);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -15658,6 +15362,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -15667,16 +15372,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -15686,12 +15390,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -15719,6 +15423,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -15728,7 +15433,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: lambda_param_no_default*
                 var b = new System.Collections.Generic.List<object?>();
@@ -15741,7 +15446,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_b == null)
                     {
@@ -15762,7 +15467,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_c == null)
                     {
@@ -15780,23 +15485,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: lambda_star_etc
                 {
                     _position = _group_mark__opt_d;
-                    // Call rule: lambda_star_etc
                     var _group_alt0__opt_d_item0 = LambdaStarEtc();
-                    if (_group_alt0__opt_d_item0 == null)
+                    if (_group_alt0__opt_d_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_d = _group_alt0__opt_d_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_d = _group_alt0__opt_d_item0;
-                    goto group_success__opt_d;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_d: ; // Group succeeded
+                if (_opt_d == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? d = _opt_d;
                 if (d == null)
                 {
@@ -15807,11 +15507,10 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(p, a, NULL, b, c, d))
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -15821,7 +15520,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: lambda_param_with_default*
                 var b = new System.Collections.Generic.List<object?>();
@@ -15834,7 +15533,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_b == null)
                     {
@@ -15852,23 +15551,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: lambda_star_etc
                 {
                     _position = _group_mark__opt_c;
-                    // Call rule: lambda_star_etc
                     var _group_alt0__opt_c_item0 = LambdaStarEtc();
-                    if (_group_alt0__opt_c_item0 == null)
+                    if (_group_alt0__opt_c_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_c = _group_alt0__opt_c_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_c = _group_alt0__opt_c_item0;
-                    goto group_success__opt_c;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_c: ; // Group succeeded
+                if (_opt_c == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? c = _opt_c;
                 if (c == null)
                 {
@@ -15879,9 +15573,10 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(p, NULL, a, NULL, b, c))
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -15896,7 +15591,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -15910,7 +15605,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: lambda_param_with_default*
                 var b = new System.Collections.Generic.List<object?>();
@@ -15923,7 +15618,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_b == null)
                     {
@@ -15941,23 +15636,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: lambda_star_etc
                 {
                     _position = _group_mark__opt_c;
-                    // Call rule: lambda_star_etc
                     var _group_alt0__opt_c_item0 = LambdaStarEtc();
-                    if (_group_alt0__opt_c_item0 == null)
+                    if (_group_alt0__opt_c_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_c = _group_alt0__opt_c_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_c = _group_alt0__opt_c_item0;
-                    goto group_success__opt_c;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_c: ; // Group succeeded
+                if (_opt_c == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? c = _opt_c;
                 if (c == null)
                 {
@@ -15968,9 +15658,10 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: _PyPegen_make_arguments(p, NULL, NULL, a, b, c)
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -15985,7 +15676,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -15999,7 +15690,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(lambda_star_etc)]
                 int _opt_mark_b = _position;
@@ -16009,23 +15700,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: lambda_star_etc
                 {
                     _position = _group_mark__opt_b;
-                    // Call rule: lambda_star_etc
                     var _group_alt0__opt_b_item0 = LambdaStarEtc();
-                    if (_group_alt0__opt_b_item0 == null)
+                    if (_group_alt0__opt_b_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_b = _group_alt0__opt_b_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_b = _group_alt0__opt_b_item0;
-                    goto group_success__opt_b;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_b: ; // Group succeeded
+                if (_opt_b == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? b = _opt_b;
                 if (b == null)
                 {
@@ -16036,9 +15722,10 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: _PyPegen_make_arguments(p, NULL, NULL, NULL, a, b)
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 5
+            do
             {
                 _position = _mark;
 
@@ -16048,13 +15735,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_make_arguments(p, NULL, NULL, NULL, NULL, a)
                 // TODO: Complex action expression: _PyPegen_make_arguments(p, NULL, NULL, NULL, NULL, a)
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -16082,6 +15769,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -16096,7 +15784,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -16110,7 +15798,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '/'
                 var _tmp0 = Expect("/");
@@ -16118,7 +15806,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp1 = Expect(",");
@@ -16126,16 +15814,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: a
                 _res = (GeneratedSeq)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -16150,7 +15837,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -16164,7 +15851,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '/'
                 var _tmp0 = Expect("/");
@@ -16172,7 +15859,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
                 int _lookahead_mark_42 = _position;
@@ -16181,7 +15868,7 @@ namespace SharpPy.Generated
                 // Action: a
                 _res = (GeneratedSeq)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -16209,6 +15896,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -16223,7 +15911,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -16244,7 +15932,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_b == null)
                     {
@@ -16258,7 +15946,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '/'
                 var _tmp0 = Expect("/");
@@ -16266,7 +15954,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp1 = Expect(",");
@@ -16274,17 +15962,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b)
                 // TODO: Complex action expression: _PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -16299,7 +15986,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -16320,7 +16007,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_b == null)
                     {
@@ -16334,7 +16021,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '/'
                 var _tmp0 = Expect("/");
@@ -16342,7 +16029,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
                 int _lookahead_mark_43 = _position;
@@ -16352,7 +16039,7 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: _PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -16380,6 +16067,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -16389,16 +16077,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -16408,7 +16095,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: lambda_param_no_default
                 var a = LambdaParamNoDefault();
@@ -16416,7 +16103,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: lambda_param_maybe_default*
                 var b = new System.Collections.Generic.List<object?>();
@@ -16429,7 +16116,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_b == null)
                     {
@@ -16447,23 +16134,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: lambda_kwds
                 {
                     _position = _group_mark__opt_c;
-                    // Call rule: lambda_kwds
                     var _group_alt0__opt_c_item0 = LambdaKwds();
-                    if (_group_alt0__opt_c_item0 == null)
+                    if (_group_alt0__opt_c_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_c = _group_alt0__opt_c_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_c = _group_alt0__opt_c_item0;
-                    goto group_success__opt_c;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_c: ; // Group succeeded
+                if (_opt_c == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? c = _opt_c;
                 if (c == null)
                 {
@@ -16474,9 +16156,10 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: _PyPegen_star_etc(p, a, b, c)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -16486,7 +16169,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp1 = Expect(",");
@@ -16494,7 +16177,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // One or more: lambda_param_maybe_default+
                 var b = new System.Collections.Generic.List<object?>();
@@ -16507,7 +16190,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_b == null)
                     {
@@ -16521,7 +16204,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(lambda_kwds)]
                 int _opt_mark_c = _position;
@@ -16531,23 +16214,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: lambda_kwds
                 {
                     _position = _group_mark__opt_c;
-                    // Call rule: lambda_kwds
                     var _group_alt0__opt_c_item0 = LambdaKwds();
-                    if (_group_alt0__opt_c_item0 == null)
+                    if (_group_alt0__opt_c_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_c = _group_alt0__opt_c_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_c = _group_alt0__opt_c_item0;
-                    goto group_success__opt_c;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_c: ; // Group succeeded
+                if (_opt_c == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? c = _opt_c;
                 if (c == null)
                 {
@@ -16558,9 +16236,10 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: _PyPegen_star_etc(p, NULL, b, c)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -16570,13 +16249,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_star_etc(p, NULL, NULL, a)
                 // TODO: Complex action expression: _PyPegen_star_etc(p, NULL, NULL, a)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -16604,6 +16283,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -16613,16 +16293,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -16632,7 +16311,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: lambda_param_no_default
                 var a = LambdaParamNoDefault();
@@ -16640,12 +16319,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: a
                 _res = (GeneratedAstNode)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -16673,6 +16352,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -16682,7 +16362,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp0 = Expect(",");
@@ -16690,16 +16370,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: a
                 _res = (GeneratedAstNode)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -16709,7 +16388,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
                 int _lookahead_mark_44 = _position;
@@ -16718,7 +16397,7 @@ namespace SharpPy.Generated
                 // Action: a
                 _res = (GeneratedAstNode)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -16746,6 +16425,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -16755,7 +16435,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: default
                 var c = Default();
@@ -16763,7 +16443,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp0 = Expect(",");
@@ -16771,17 +16451,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_name_default_pair(p, a, c, NULL)
                 // TODO: Complex action expression: _PyPegen_name_default_pair(p, a, c, NULL)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -16791,7 +16470,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: default
                 var c = Default();
@@ -16799,7 +16478,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
                 int _lookahead_mark_45 = _position;
@@ -16809,7 +16488,7 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: _PyPegen_name_default_pair(p, a, c, NULL)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -16837,6 +16516,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -16846,7 +16526,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [default]
                 int _opt_mark_c = _position;
@@ -16856,7 +16536,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? c = _opt_c;
                 if (c == null)
@@ -16870,17 +16550,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_name_default_pair(p, a, c, NULL)
                 // TODO: Complex action expression: _PyPegen_name_default_pair(p, a, c, NULL)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -16890,7 +16569,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [default]
                 int _opt_mark_c = _position;
@@ -16900,7 +16579,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? c = _opt_c;
                 if (c == null)
@@ -16916,7 +16595,7 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: _PyPegen_name_default_pair(p, a, c, NULL)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -16944,6 +16623,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -16953,16 +16633,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_arg(a->v.Name.id, NULL, NULL, EXTRA)
                 // Unknown AST function: _PyAST_arg
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -16989,6 +16667,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -16998,7 +16677,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NAME
                 var conv = ExpectToken(GeneratedTokenType.NAME);
@@ -17006,16 +16685,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_check_fstring_conversion(p, conv_token, conv)
                 // TODO: Complex action expression: _PyPegen_check_fstring_conversion(p, conv_token, conv)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -17042,6 +16719,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -17051,7 +16729,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: fstring_format_spec*
                 var spec = new System.Collections.Generic.List<object?>();
@@ -17064,7 +16742,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_spec == null)
                     {
@@ -17078,10 +16756,8 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: _PyPegen_setup_full_format_spec(p, colon, (asdl_expr_seq *) spec, EXTRA)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -17108,6 +16784,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -17117,17 +16794,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_decoded_constant_from_token(p, t)
                 // TODO: Complex action expression: _PyPegen_decoded_constant_from_token(p, t)
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -17137,12 +16813,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -17158,6 +16834,12 @@ namespace SharpPy.Generated
         // Rule: string from python.gram
         public GeneratedExpr String()
         {
+            // CPython 3.12: Left recursion - use Warth et al. algorithm
+            return TryLeftRecursive<GeneratedExpr>("String", _String);
+        }
+
+        private GeneratedExpr _String()
+        {
             // CPython 3.12 PEG: string
             int _mark = _position;
             GeneratedExpr _res = null;
@@ -17170,6 +16852,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -17179,16 +16862,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_constant_from_string(p, s)
                 // TODO: Complex action expression: _PyPegen_constant_from_string(p, s)
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -17215,6 +16896,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -17224,7 +16906,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(star_named_expressions)]
                 int _opt_mark_a = _position;
@@ -17234,23 +16916,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: star_named_expressions
                 {
                     _position = _group_mark__opt_a;
-                    // Call rule: star_named_expressions
                     var _group_alt0__opt_a_item0 = StarNamedExpressions();
-                    if (_group_alt0__opt_a_item0 == null)
+                    if (_group_alt0__opt_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_a = _group_alt0__opt_a_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_a = _group_alt0__opt_a_item0;
-                    goto group_success__opt_a;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_a: ; // Group succeeded
+                if (_opt_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? a = _opt_a;
                 if (a == null)
                 {
@@ -17263,16 +16940,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_List(a, Load, EXTRA)
                 _res = _PyAST_List(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -17299,6 +16974,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -17308,7 +16984,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(y=star_named_expression ',' z=[(star_named_expressions)] { _PyPegen_seq_insert_in_front(p, y, z) })]
                 int _opt_mark_a = _position;
@@ -17318,62 +16994,27 @@ namespace SharpPy.Generated
                 // Try group alternative 1: y=star_named_expression ',' z=[(star_named_expressions)] { _PyPegen_seq_insert_in_front(p, y, z) }
                 {
                     _position = _group_mark__opt_a;
-                    // Call rule: star_named_expression
                     var _group_alt0__opt_a_item0 = StarNamedExpression();
-                    if (_group_alt0__opt_a_item0 == null)
+                    if (_group_alt0__opt_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Expect ','
-                    var _group_alt0__opt_a_item1 = Expect(",");
-                    if (_group_alt0__opt_a_item1 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Optional: [(star_named_expressions)]
-                    int _opt_mark__group_alt0__opt_a_item2 = _position;
-                    // Group: (star_named_expressions)
-                    object? _opt__group_alt0__opt_a_item2 = null;
-                    int _group_mark__opt__group_alt0__opt_a_item2 = _position;
-                    // Try group alternative 1: star_named_expressions
-                    {
-                        _position = _group_mark__opt__group_alt0__opt_a_item2;
-                        // Call rule: star_named_expressions
-                        var _group_alt0__opt__group_alt0__opt_a_item2_item0 = StarNamedExpressions();
-                        if (_group_alt0__opt__group_alt0__opt_a_item2_item0 == null)
+                        var _group_alt0__opt_a_item1 = Expect(",");
+                        if (_group_alt0__opt_a_item1 != null)
                         {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
+                            object? _group_alt0__opt_a_item2 = null;
+                            // TODO: Complex group item type: Optional
+                            if (_group_alt0__opt_a_item2 != null)
+                            {
+                                _opt_a = _group_alt0__opt_a_item2;
+                            }
                         }
-                        // Group alternative 1 succeeded
-                        _opt__group_alt0__opt_a_item2 = _group_alt0__opt__group_alt0__opt_a_item2_item0;
-                        goto group_success__opt__group_alt0__opt_a_item2;
                     }
-                    // All group alternatives failed
+                }
+                if (_opt_a == null)
+                {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
-                    group_success__opt__group_alt0__opt_a_item2: ; // Group succeeded
-                    object? _group_alt0__opt_a_item2 = _opt__group_alt0__opt_a_item2;
-                    if (_group_alt0__opt_a_item2 == null)
-                    {
-                        _position = _opt_mark__group_alt0__opt_a_item2; // Reset position
-                        _group_alt0__opt_a_item2 = null; // Optional not present
-                    }
-                    // Group alternative 1 succeeded
-                    _opt_a = _group_alt0__opt_a_item2;
-                    goto group_success__opt_a;
+                    break;  // Exit this alternative
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_a: ; // Group succeeded
                 object? a = _opt_a;
                 if (a == null)
                 {
@@ -17386,16 +17027,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_Tuple(a, Load, EXTRA)
                 _res = _PyAST_Tuple(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -17422,6 +17061,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -17431,7 +17071,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: star_named_expressions
                 var a = StarNamedExpressions();
@@ -17439,7 +17079,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '}'
                 var _tmp1 = Expect("}");
@@ -17447,16 +17087,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_Set(a, EXTRA)
                 _res = _PyAST_Set(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -17483,6 +17121,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -17492,7 +17131,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(double_starred_kvpairs)]
                 int _opt_mark_a = _position;
@@ -17502,23 +17141,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: double_starred_kvpairs
                 {
                     _position = _group_mark__opt_a;
-                    // Call rule: double_starred_kvpairs
                     var _group_alt0__opt_a_item0 = DoubleStarredKvpairs();
-                    if (_group_alt0__opt_a_item0 == null)
+                    if (_group_alt0__opt_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_a = _group_alt0__opt_a_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_a = _group_alt0__opt_a_item0;
-                    goto group_success__opt_a;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_a: ; // Group succeeded
+                if (_opt_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? a = _opt_a;
                 if (a == null)
                 {
@@ -17531,7 +17165,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action (multiline):
                 //   _PyAST_Dict(
@@ -17541,11 +17175,10 @@ namespace SharpPy.Generated
                 _res = _PyAST_Dict();
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -17555,7 +17188,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: invalid_double_starred_kvpairs
                 var _tmp1 = InvalidDoubleStarredKvpairs();
@@ -17563,7 +17196,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '}'
                 var _tmp2 = Expect("}");
@@ -17571,12 +17204,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -17604,6 +17237,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -17618,7 +17252,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -17639,7 +17273,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -17653,7 +17287,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(',')]
                 int _opt_mark__tmp1 = _position;
@@ -17663,23 +17297,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ','
                 {
                     _position = _group_mark__opt__tmp1;
-                    // Expect ','
                     var _group_alt0__opt__tmp1_item0 = Expect(",");
-                    if (_group_alt0__opt__tmp1_item0 == null)
+                    if (_group_alt0__opt__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt__tmp1 = _group_alt0__opt__tmp1_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt__tmp1 = _group_alt0__opt__tmp1_item0;
-                    goto group_success__opt__tmp1;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp1: ; // Group succeeded
+                if (_opt__tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
                 {
@@ -17689,10 +17318,8 @@ namespace SharpPy.Generated
                 // Action: a
                 _res = (GeneratedSeq)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -17719,6 +17346,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -17728,7 +17356,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
                 var a = BitwiseOr();
@@ -17736,17 +17364,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_key_value_pair(p, NULL, a)
                 // TODO: Complex action expression: _PyPegen_key_value_pair(p, NULL, a)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -17756,12 +17383,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -17789,6 +17416,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -17798,7 +17426,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp0 = Expect(":");
@@ -17806,7 +17434,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var b = Expression();
@@ -17814,16 +17442,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_key_value_pair(p, a, b)
                 // TODO: Complex action expression: _PyPegen_key_value_pair(p, a, b)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -17850,6 +17476,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -17864,7 +17491,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -17878,15 +17505,13 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: a
                 _res = (GeneratedSeq)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -17913,6 +17538,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -17922,7 +17548,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'for'
                 var _tmp1 = Expect("for");
@@ -17930,7 +17556,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: star_targets
                 var a = StarTargets();
@@ -17938,7 +17564,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'in'
                 var _tmp2 = Expect("in");
@@ -17946,7 +17572,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Cut operator - commit to this alternative
                 // TODO: Implement cut semantics (prevent backtracking)
@@ -17956,7 +17582,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: ('if' z=disjunction { z })*
                 var c = new System.Collections.Generic.List<object?>();
@@ -17969,31 +17595,22 @@ namespace SharpPy.Generated
                     // Try group alternative 1: 'if' z=disjunction { z }
                     {
                         _position = _group_mark__loop_elem_c;
-                        // Expect 'if'
                         var _group_alt0__loop_elem_c_item0 = Expect("if");
-                        if (_group_alt0__loop_elem_c_item0 == null)
+                        if (_group_alt0__loop_elem_c_item0 != null)
                         {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
+                            var _group_alt0__loop_elem_c_item1 = Disjunction();
+                            if (_group_alt0__loop_elem_c_item1 != null)
+                            {
+                                _loop_elem_c = _group_alt0__loop_elem_c_item1;
+                            }
                         }
-                        // Call rule: disjunction
-                        var _group_alt0__loop_elem_c_item1 = Disjunction();
-                        if (_group_alt0__loop_elem_c_item1 == null)
-                        {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
-                        }
-                        // Group alternative 1 succeeded
-                        _loop_elem_c = _group_alt0__loop_elem_c_item1;
-                        goto group_success__loop_elem_c;
                     }
-                    // All group alternatives failed
-                    _position = _mark;
-                    _res = null;
-                    goto alternative_failed;
-                    group_success__loop_elem_c: ; // Group succeeded
+                    if (_loop_elem_c == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
                     if (_loop_elem_c == null)
                     {
                         _position = _loop_mark; // Reset to before failed attempt
@@ -18006,11 +17623,10 @@ namespace SharpPy.Generated
                 // No _PyAST_ function in action: p->arena)
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -18020,7 +17636,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: star_targets
                 var a = StarTargets();
@@ -18028,7 +17644,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'in'
                 var _tmp1 = Expect("in");
@@ -18036,7 +17652,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Cut operator - commit to this alternative
                 // TODO: Implement cut semantics (prevent backtracking)
@@ -18046,7 +17662,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: ('if' z=disjunction { z })*
                 var c = new System.Collections.Generic.List<object?>();
@@ -18059,31 +17675,22 @@ namespace SharpPy.Generated
                     // Try group alternative 1: 'if' z=disjunction { z }
                     {
                         _position = _group_mark__loop_elem_c;
-                        // Expect 'if'
                         var _group_alt0__loop_elem_c_item0 = Expect("if");
-                        if (_group_alt0__loop_elem_c_item0 == null)
+                        if (_group_alt0__loop_elem_c_item0 != null)
                         {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
+                            var _group_alt0__loop_elem_c_item1 = Disjunction();
+                            if (_group_alt0__loop_elem_c_item1 != null)
+                            {
+                                _loop_elem_c = _group_alt0__loop_elem_c_item1;
+                            }
                         }
-                        // Call rule: disjunction
-                        var _group_alt0__loop_elem_c_item1 = Disjunction();
-                        if (_group_alt0__loop_elem_c_item1 == null)
-                        {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
-                        }
-                        // Group alternative 1 succeeded
-                        _loop_elem_c = _group_alt0__loop_elem_c_item1;
-                        goto group_success__loop_elem_c;
                     }
-                    // All group alternatives failed
-                    _position = _mark;
-                    _res = null;
-                    goto alternative_failed;
-                    group_success__loop_elem_c: ; // Group succeeded
+                    if (_loop_elem_c == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
                     if (_loop_elem_c == null)
                     {
                         _position = _loop_mark; // Reset to before failed attempt
@@ -18096,9 +17703,10 @@ namespace SharpPy.Generated
                 // Unknown AST function: _PyAST_comprehension
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -18108,12 +17716,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedAstNode);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -18141,6 +17749,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -18150,7 +17759,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: named_expression
                 var a = NamedExpression();
@@ -18158,7 +17767,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: for_if_clauses
                 var b = ForIfClauses();
@@ -18166,7 +17775,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ']'
                 var _tmp1 = Expect("]");
@@ -18174,17 +17783,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_ListComp(a, b, EXTRA)
                 _res = _PyAST_ListComp(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -18194,12 +17802,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -18227,6 +17835,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -18236,7 +17845,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: named_expression
                 var a = NamedExpression();
@@ -18244,7 +17853,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: for_if_clauses
                 var b = ForIfClauses();
@@ -18252,7 +17861,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '}'
                 var _tmp1 = Expect("}");
@@ -18260,17 +17869,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_SetComp(a, b, EXTRA)
                 _res = _PyAST_SetComp(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -18280,12 +17888,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -18313,6 +17921,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -18322,7 +17931,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Group: (assignment_expression | expression !':=')
                 object? a = null;
@@ -18330,49 +17939,40 @@ namespace SharpPy.Generated
                 // Try group alternative 1: assignment_expression
                 {
                     _position = _group_mark_a;
-                    // Call rule: assignment_expression
                     var _group_alt0_a_item0 = AssignmentExpression();
-                    if (_group_alt0_a_item0 == null)
+                    if (_group_alt0_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        a = _group_alt0_a_item0;
                     }
-                    // Group alternative 1 succeeded
-                    a = _group_alt0_a_item0;
-                    goto group_success_a;
                 }
                 // Try group alternative 2: expression !':='
+                if (a == null)
                 {
                     _position = _group_mark_a;
-                    // Call rule: expression
                     var _group_alt1_a_item0 = Expression();
-                    if (_group_alt1_a_item0 == null)
+                    if (_group_alt1_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        object? _group_alt1_a_item1 = null;
+                        // TODO: Complex group item type: NegativeLookahead
+                        if (_group_alt1_a_item1 != null)
+                        {
+                            a = _group_alt1_a_item1;
+                        }
                     }
-                    // Negative lookahead - fail if matches
-                    int _lookahead_mark_47 = _position;
-                    // TODO: Parse lookahead content for StringLiteral, fail if succeeds
-                    _position = _lookahead_mark_47; // Restore position
-                    // Group alternative 2 succeeded
-                    a = _group_alt1_a_item0;
-                    goto group_success_a;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success_a: ; // Group succeeded
+                if (a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: for_if_clauses
                 var b = ForIfClauses();
                 if (b == null)
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ')'
                 var _tmp1 = Expect(")");
@@ -18380,17 +17980,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_GeneratorExp(a, b, EXTRA)
                 _res = _PyAST_GeneratorExp(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -18400,12 +17999,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -18433,6 +18032,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -18442,7 +18042,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: kvpair
                 var a = Kvpair();
@@ -18450,7 +18050,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: for_if_clauses
                 var b = ForIfClauses();
@@ -18458,7 +18058,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '}'
                 var _tmp1 = Expect("}");
@@ -18466,17 +18066,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_DictComp(a->key, a->value, b, EXTRA)
                 _res = _PyAST_DictComp(a, a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -18486,12 +18085,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -18507,6 +18106,12 @@ namespace SharpPy.Generated
         // Rule: arguments from python.gram
         public GeneratedExpr Arguments()
         {
+            // CPython 3.12: Left recursion - use Warth et al. algorithm
+            return TryLeftRecursive<GeneratedExpr>("Arguments", _Arguments);
+        }
+
+        private GeneratedExpr _Arguments()
+        {
             // CPython 3.12 PEG: arguments
             int _mark = _position;
             GeneratedExpr _res = null;
@@ -18519,6 +18124,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -18528,7 +18134,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(',')]
                 int _opt_mark__tmp0 = _position;
@@ -18538,23 +18144,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ','
                 {
                     _position = _group_mark__opt__tmp0;
-                    // Expect ','
                     var _group_alt0__opt__tmp0_item0 = Expect(",");
-                    if (_group_alt0__opt__tmp0_item0 == null)
+                    if (_group_alt0__opt__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt__tmp0 = _group_alt0__opt__tmp0_item0;
-                    goto group_success__opt__tmp0;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp0: ; // Group succeeded
+                if (_opt__tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
@@ -18562,17 +18163,16 @@ namespace SharpPy.Generated
                     _tmp0 = null; // Optional not present
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_48 = _position;
+                int _lookahead_mark_47 = _position;
                 // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_48; // Restore position
+                _position = _lookahead_mark_47; // Restore position
                 // Action: a
                 _res = (GeneratedExpr)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -18582,12 +18182,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -18615,6 +18215,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -18629,7 +18230,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -18650,76 +18251,34 @@ namespace SharpPy.Generated
                     // Try group alternative 1: starred_expression
                     {
                         _position = _group_mark__loop_elem__tmp0;
-                        // Call rule: starred_expression
                         var _group_alt0__loop_elem__tmp0_item0 = StarredExpression();
-                        if (_group_alt0__loop_elem__tmp0_item0 == null)
+                        if (_group_alt0__loop_elem__tmp0_item0 != null)
                         {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
+                            _loop_elem__tmp0 = _group_alt0__loop_elem__tmp0_item0;
                         }
-                        // Group alternative 1 succeeded
-                        _loop_elem__tmp0 = _group_alt0__loop_elem__tmp0_item0;
-                        goto group_success__loop_elem__tmp0;
                     }
                     // Try group alternative 2: (assignment_expression | expression !':=') !'='
+                    if (_loop_elem__tmp0 == null)
                     {
                         _position = _group_mark__loop_elem__tmp0;
-                        // Group: (assignment_expression | expression !':=')
                         object? _group_alt1__loop_elem__tmp0_item0 = null;
-                        int _group_mark__group_alt1__loop_elem__tmp0_item0 = _position;
-                        // Try group alternative 1: assignment_expression
+                        // TODO: Complex group item type: Group
+                        if (_group_alt1__loop_elem__tmp0_item0 != null)
                         {
-                            _position = _group_mark__group_alt1__loop_elem__tmp0_item0;
-                            // Call rule: assignment_expression
-                            var _group_alt0__group_alt1__loop_elem__tmp0_item0_item0 = AssignmentExpression();
-                            if (_group_alt0__group_alt1__loop_elem__tmp0_item0_item0 == null)
+                            object? _group_alt1__loop_elem__tmp0_item1 = null;
+                            // TODO: Complex group item type: NegativeLookahead
+                            if (_group_alt1__loop_elem__tmp0_item1 != null)
                             {
-                                _position = _mark;
-                                _res = null;
-                                goto alternative_failed;
+                                _loop_elem__tmp0 = _group_alt1__loop_elem__tmp0_item1;
                             }
-                            // Group alternative 1 succeeded
-                            _group_alt1__loop_elem__tmp0_item0 = _group_alt0__group_alt1__loop_elem__tmp0_item0_item0;
-                            goto group_success__group_alt1__loop_elem__tmp0_item0;
                         }
-                        // Try group alternative 2: expression !':='
-                        {
-                            _position = _group_mark__group_alt1__loop_elem__tmp0_item0;
-                            // Call rule: expression
-                            var _group_alt1__group_alt1__loop_elem__tmp0_item0_item0 = Expression();
-                            if (_group_alt1__group_alt1__loop_elem__tmp0_item0_item0 == null)
-                            {
-                                _position = _mark;
-                                _res = null;
-                                goto alternative_failed;
-                            }
-                            // Negative lookahead - fail if matches
-                            int _lookahead_mark_49 = _position;
-                            // TODO: Parse lookahead content for StringLiteral, fail if succeeds
-                            _position = _lookahead_mark_49; // Restore position
-                            // Group alternative 2 succeeded
-                            _group_alt1__loop_elem__tmp0_item0 = _group_alt1__group_alt1__loop_elem__tmp0_item0_item0;
-                            goto group_success__group_alt1__loop_elem__tmp0_item0;
-                        }
-                        // All group alternatives failed
+                    }
+                    if (_loop_elem__tmp0 == null)
+                    {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
-                        group_success__group_alt1__loop_elem__tmp0_item0: ; // Group succeeded
-                        // Negative lookahead - fail if matches
-                        int _lookahead_mark_50 = _position;
-                        // TODO: Parse lookahead content for StringLiteral, fail if succeeds
-                        _position = _lookahead_mark_50; // Restore position
-                        // Group alternative 2 succeeded
-                        _loop_elem__tmp0 = _group_alt1__loop_elem__tmp0_item0;
-                        goto group_success__loop_elem__tmp0;
+                        break;  // Exit this alternative
                     }
-                    // All group alternatives failed
-                    _position = _mark;
-                    _res = null;
-                    goto alternative_failed;
-                    group_success__loop_elem__tmp0: ; // Group succeeded
                     if (_loop_elem__tmp0 == null)
                     {
                         _position = _loop_mark; // Reset to before failed attempt
@@ -18732,7 +18291,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(',' k=kwargs { k })]
                 int _opt_mark_b = _position;
@@ -18742,31 +18301,22 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ',' k=kwargs { k }
                 {
                     _position = _group_mark__opt_b;
-                    // Expect ','
                     var _group_alt0__opt_b_item0 = Expect(",");
-                    if (_group_alt0__opt_b_item0 == null)
+                    if (_group_alt0__opt_b_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        var _group_alt0__opt_b_item1 = Kwargs();
+                        if (_group_alt0__opt_b_item1 != null)
+                        {
+                            _opt_b = _group_alt0__opt_b_item1;
+                        }
                     }
-                    // Call rule: kwargs
-                    var _group_alt0__opt_b_item1 = Kwargs();
-                    if (_group_alt0__opt_b_item1 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Group alternative 1 succeeded
-                    _opt_b = _group_alt0__opt_b_item1;
-                    goto group_success__opt_b;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_b: ; // Group succeeded
+                if (_opt_b == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? b = _opt_b;
                 if (b == null)
                 {
@@ -18777,11 +18327,10 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: _PyPegen_collect_call_seqs(p, a, b, EXTRA)
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -18791,7 +18340,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action (multiline):
                 //   _PyAST_Call(_PyPegen_dummy_name(p),
@@ -18801,7 +18350,7 @@ namespace SharpPy.Generated
                 _res = _PyAST_Call();
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -18829,6 +18378,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -18843,7 +18393,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -18864,7 +18414,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -18878,7 +18428,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp1 = Expect(",");
@@ -18886,7 +18436,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: ','*
                 var b = new System.Collections.Generic.List<object?>();
@@ -18899,7 +18449,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_b == null)
                     {
@@ -18920,7 +18470,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp2 == null)
                     {
@@ -18934,17 +18484,16 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_join_sequences(p, a, b)
                 // TODO: Complex action expression: _PyPegen_join_sequences(p, a, b)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -18959,7 +18508,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -18980,7 +18529,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp1 == null)
                     {
@@ -18994,14 +18543,15 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -19016,7 +18566,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -19037,7 +18587,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp1 == null)
                     {
@@ -19051,12 +18601,12 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -19084,6 +18634,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -19093,16 +18644,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -19112,7 +18662,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var a = Expression();
@@ -19120,15 +18670,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_Starred(a, Load, EXTRA)
                 _res = _PyAST_Starred(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -19138,13 +18689,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR("Invalid star expression")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR("Invalid star expression")
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -19172,6 +18723,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -19181,16 +18733,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -19200,7 +18751,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '='
                 var _tmp0 = Expect("=");
@@ -19208,7 +18759,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var b = Expression();
@@ -19216,15 +18767,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_keyword_or_starred(p, CHECK(keyword_ty, _PyAST_keyword(a->v.Name.id, b, EXTRA)), 1)
                 // Unknown AST function: _PyAST_keyword
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -19234,13 +18786,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_keyword_or_starred(p, a, 0)
                 // TODO: Complex action expression: _PyPegen_keyword_or_starred(p, a, 0)
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -19268,6 +18820,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -19277,16 +18830,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -19296,7 +18848,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '='
                 var _tmp0 = Expect("=");
@@ -19304,7 +18856,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var b = Expression();
@@ -19312,15 +18864,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_keyword_or_starred(p, CHECK(keyword_ty, _PyAST_keyword(a->v.Name.id, b, EXTRA)), 1)
                 // Unknown AST function: _PyAST_keyword
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -19330,7 +18883,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var a = Expression();
@@ -19338,13 +18891,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_keyword_or_starred(p, CHECK(keyword_ty, _PyAST_keyword(NULL, a, EXTRA)), 1)
                 // Unknown AST function: _PyAST_keyword
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -19372,6 +18925,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -19386,7 +18940,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -19407,7 +18961,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -19421,7 +18975,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(',')]
                 int _opt_mark__tmp1 = _position;
@@ -19431,23 +18985,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ','
                 {
                     _position = _group_mark__opt__tmp1;
-                    // Expect ','
                     var _group_alt0__opt__tmp1_item0 = Expect(",");
-                    if (_group_alt0__opt__tmp1_item0 == null)
+                    if (_group_alt0__opt__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt__tmp1 = _group_alt0__opt__tmp1_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt__tmp1 = _group_alt0__opt__tmp1_item0;
-                    goto group_success__opt__tmp1;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp1: ; // Group succeeded
+                if (_opt__tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
                 {
@@ -19457,10 +19006,8 @@ namespace SharpPy.Generated
                 // Action: a
                 _res = (GeneratedExprSeq)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -19487,6 +19034,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -19496,7 +19044,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // One or more: (',' c=star_target { c })+
                 var b = new System.Collections.Generic.List<object?>();
@@ -19509,31 +19057,22 @@ namespace SharpPy.Generated
                     // Try group alternative 1: ',' c=star_target { c }
                     {
                         _position = _group_mark__loop_elem_b;
-                        // Expect ','
                         var _group_alt0__loop_elem_b_item0 = Expect(",");
-                        if (_group_alt0__loop_elem_b_item0 == null)
+                        if (_group_alt0__loop_elem_b_item0 != null)
                         {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
+                            var _group_alt0__loop_elem_b_item1 = StarTarget();
+                            if (_group_alt0__loop_elem_b_item1 != null)
+                            {
+                                _loop_elem_b = _group_alt0__loop_elem_b_item1;
+                            }
                         }
-                        // Call rule: star_target
-                        var _group_alt0__loop_elem_b_item1 = StarTarget();
-                        if (_group_alt0__loop_elem_b_item1 == null)
-                        {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
-                        }
-                        // Group alternative 1 succeeded
-                        _loop_elem_b = _group_alt0__loop_elem_b_item1;
-                        goto group_success__loop_elem_b;
                     }
-                    // All group alternatives failed
-                    _position = _mark;
-                    _res = null;
-                    goto alternative_failed;
-                    group_success__loop_elem_b: ; // Group succeeded
+                    if (_loop_elem_b == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
                     if (_loop_elem_b == null)
                     {
                         _position = _loop_mark; // Reset to before failed attempt
@@ -19546,7 +19085,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(',')]
                 int _opt_mark__tmp0 = _position;
@@ -19556,23 +19095,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ','
                 {
                     _position = _group_mark__opt__tmp0;
-                    // Expect ','
                     var _group_alt0__opt__tmp0_item0 = Expect(",");
-                    if (_group_alt0__opt__tmp0_item0 == null)
+                    if (_group_alt0__opt__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt__tmp0 = _group_alt0__opt__tmp0_item0;
-                    goto group_success__opt__tmp0;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp0: ; // Group succeeded
+                if (_opt__tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
@@ -19583,11 +19117,10 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: (asdl_expr_seq*) _PyPegen_seq_insert_in_front(p, a, b)
                 _res = default(GeneratedExprSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -19597,7 +19130,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp0 = Expect(",");
@@ -19605,13 +19138,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: (asdl_expr_seq*) _PyPegen_singleton_seq(p, a)
                 // TODO: Complex action expression: (asdl_expr_seq*) _PyPegen_singleton_seq(p, a)
                 _res = default(GeneratedExprSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -19627,6 +19160,12 @@ namespace SharpPy.Generated
         // Rule: star_target from python.gram
         public GeneratedExpr StarTarget()
         {
+            // CPython 3.12: Left recursion - use Warth et al. algorithm
+            return TryLeftRecursive<GeneratedExpr>("StarTarget", _StarTarget);
+        }
+
+        private GeneratedExpr _StarTarget()
+        {
             // CPython 3.12 PEG: star_target
             int _mark = _position;
             GeneratedExpr _res = null;
@@ -19639,6 +19178,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -19648,7 +19188,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Group: (!'*' star_target)
                 object? a = null;
@@ -19656,36 +19196,31 @@ namespace SharpPy.Generated
                 // Try group alternative 1: !'*' star_target
                 {
                     _position = _group_mark_a;
-                    // Negative lookahead - fail if matches
-                    int _lookahead_mark_51 = _position;
-                    // TODO: Parse lookahead content for StringLiteral, fail if succeeds
-                    _position = _lookahead_mark_51; // Restore position
-                    // Call rule: star_target
-                    var _group_alt0_a_item1 = StarTarget();
-                    if (_group_alt0_a_item1 == null)
+                    object? _group_alt0_a_item0 = null;
+                    // TODO: Complex group item type: NegativeLookahead
+                    if (_group_alt0_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        var _group_alt0_a_item1 = StarTarget();
+                        if (_group_alt0_a_item1 != null)
+                        {
+                            a = _group_alt0_a_item1;
+                        }
                     }
-                    // Group alternative 1 succeeded
-                    a = _group_alt0_a_item1;
-                    goto group_success_a;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success_a: ; // Group succeeded
+                if (a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: _PyAST_Starred(CHECK(expr_ty, _PyPegen_set_expr_context(p, a, Store)), Store, EXTRA)
                 _res = _PyAST_Starred();
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -19695,12 +19230,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -19716,6 +19251,12 @@ namespace SharpPy.Generated
         // Rule: target_with_star_atom from python.gram
         public GeneratedExpr TargetWithStarAtom()
         {
+            // CPython 3.12: Left recursion - use Warth et al. algorithm
+            return TryLeftRecursive<GeneratedExpr>("TargetWithStarAtom", _TargetWithStarAtom);
+        }
+
+        private GeneratedExpr _TargetWithStarAtom()
+        {
             // CPython 3.12 PEG: target_with_star_atom
             int _mark = _position;
             GeneratedExpr _res = null;
@@ -19728,6 +19269,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -19737,7 +19279,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '.'
                 var _tmp0 = Expect(".");
@@ -19745,7 +19287,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NAME
                 var b = ExpectToken(GeneratedTokenType.NAME);
@@ -19753,21 +19295,20 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_52 = _position;
+                int _lookahead_mark_48 = _position;
                 // TODO: Parse lookahead content for RuleRef, fail if succeeds
-                _position = _lookahead_mark_52; // Restore position
+                _position = _lookahead_mark_48; // Restore position
                 // Action: _PyAST_Attribute(a, b->v.Name.id, Store, EXTRA)
                 _res = _PyAST_Attribute(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -19777,7 +19318,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '['
                 var _tmp0 = Expect("[");
@@ -19785,7 +19326,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: slices
                 var b = Slices();
@@ -19793,7 +19334,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ']'
                 var _tmp1 = Expect("]");
@@ -19801,19 +19342,20 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_53 = _position;
+                int _lookahead_mark_49 = _position;
                 // TODO: Parse lookahead content for RuleRef, fail if succeeds
-                _position = _lookahead_mark_53; // Restore position
+                _position = _lookahead_mark_49; // Restore position
                 // Action: _PyAST_Subscript(a, b, Store, EXTRA)
                 _res = _PyAST_Subscript(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -19823,12 +19365,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -19856,6 +19398,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -19865,17 +19408,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_set_expr_context(p, a, Store)
                 // TODO: Complex action expression: _PyPegen_set_expr_context(p, a, Store)
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -19885,7 +19427,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: target_with_star_atom
                 var a = TargetWithStarAtom();
@@ -19893,7 +19435,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ')'
                 var _tmp1 = Expect(")");
@@ -19901,15 +19443,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_set_expr_context(p, a, Store)
                 // TODO: Complex action expression: _PyPegen_set_expr_context(p, a, Store)
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -19919,7 +19462,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(star_targets_tuple_seq)]
                 int _opt_mark_a = _position;
@@ -19929,23 +19472,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: star_targets_tuple_seq
                 {
                     _position = _group_mark__opt_a;
-                    // Call rule: star_targets_tuple_seq
                     var _group_alt0__opt_a_item0 = StarTargetsTupleSeq();
-                    if (_group_alt0__opt_a_item0 == null)
+                    if (_group_alt0__opt_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_a = _group_alt0__opt_a_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_a = _group_alt0__opt_a_item0;
-                    goto group_success__opt_a;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_a: ; // Group succeeded
+                if (_opt_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? a = _opt_a;
                 if (a == null)
                 {
@@ -19958,15 +19496,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_Tuple(a, Store, EXTRA)
                 _res = _PyAST_Tuple(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -19976,7 +19515,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(star_targets_list_seq)]
                 int _opt_mark_a = _position;
@@ -19986,23 +19525,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: star_targets_list_seq
                 {
                     _position = _group_mark__opt_a;
-                    // Call rule: star_targets_list_seq
                     var _group_alt0__opt_a_item0 = StarTargetsListSeq();
-                    if (_group_alt0__opt_a_item0 == null)
+                    if (_group_alt0__opt_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_a = _group_alt0__opt_a_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_a = _group_alt0__opt_a_item0;
-                    goto group_success__opt_a;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_a: ; // Group succeeded
+                if (_opt_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? a = _opt_a;
                 if (a == null)
                 {
@@ -20015,13 +19549,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_List(a, Store, EXTRA)
                 _res = _PyAST_List(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -20049,6 +19583,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -20058,16 +19593,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -20077,15 +19611,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_set_expr_context(p, a, Store)
                 // TODO: Complex action expression: _PyPegen_set_expr_context(p, a, Store)
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -20095,7 +19630,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: single_target
                 var a = SingleTarget();
@@ -20103,7 +19638,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ')'
                 var _tmp1 = Expect(")");
@@ -20111,12 +19646,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: a
                 _res = (GeneratedExpr)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -20144,6 +19679,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -20153,7 +19689,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '.'
                 var _tmp0 = Expect(".");
@@ -20161,7 +19697,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NAME
                 var b = ExpectToken(GeneratedTokenType.NAME);
@@ -20169,21 +19705,20 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_54 = _position;
+                int _lookahead_mark_50 = _position;
                 // TODO: Parse lookahead content for RuleRef, fail if succeeds
-                _position = _lookahead_mark_54; // Restore position
+                _position = _lookahead_mark_50; // Restore position
                 // Action: _PyAST_Attribute(a, b->v.Name.id, Store, EXTRA)
                 _res = _PyAST_Attribute(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -20193,7 +19728,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '['
                 var _tmp0 = Expect("[");
@@ -20201,7 +19736,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: slices
                 var b = Slices();
@@ -20209,7 +19744,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ']'
                 var _tmp1 = Expect("]");
@@ -20217,17 +19752,17 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_55 = _position;
+                int _lookahead_mark_51 = _position;
                 // TODO: Parse lookahead content for RuleRef, fail if succeeds
-                _position = _lookahead_mark_55; // Restore position
+                _position = _lookahead_mark_51; // Restore position
                 // Action: _PyAST_Subscript(a, b, Store, EXTRA)
                 _res = _PyAST_Subscript(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -20243,6 +19778,12 @@ namespace SharpPy.Generated
         // Rule: t_primary from python.gram
         public GeneratedExpr TPrimary()
         {
+            // CPython 3.12: Left recursion - use Warth et al. algorithm
+            return TryLeftRecursive<GeneratedExpr>("TPrimary", _TPrimary);
+        }
+
+        private GeneratedExpr _TPrimary()
+        {
             // CPython 3.12 PEG: t_primary
             int _mark = _position;
             GeneratedExpr _res = null;
@@ -20255,6 +19796,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -20264,7 +19806,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '.'
                 var _tmp0 = Expect(".");
@@ -20272,7 +19814,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NAME
                 var b = ExpectToken(GeneratedTokenType.NAME);
@@ -20280,21 +19822,20 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_56 = _position;
+                int _lookahead_mark_52 = _position;
                 // TODO: Parse lookahead content for RuleRef
-                _position = _lookahead_mark_56; // Restore position
+                _position = _lookahead_mark_52; // Restore position
                 // Action: _PyAST_Attribute(a, b->v.Name.id, Load, EXTRA)
                 _res = _PyAST_Attribute(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -20304,7 +19845,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '['
                 var _tmp0 = Expect("[");
@@ -20312,7 +19853,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: slices
                 var b = Slices();
@@ -20320,7 +19861,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ']'
                 var _tmp1 = Expect("]");
@@ -20328,19 +19869,20 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_57 = _position;
+                int _lookahead_mark_53 = _position;
                 // TODO: Parse lookahead content for RuleRef
-                _position = _lookahead_mark_57; // Restore position
+                _position = _lookahead_mark_53; // Restore position
                 // Action: _PyAST_Subscript(a, b, Load, EXTRA)
                 _res = _PyAST_Subscript(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -20350,7 +19892,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: genexp
                 var b = Genexp();
@@ -20358,19 +19900,20 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_58 = _position;
+                int _lookahead_mark_54 = _position;
                 // TODO: Parse lookahead content for RuleRef
-                _position = _lookahead_mark_58; // Restore position
+                _position = _lookahead_mark_54; // Restore position
                 // Action: _PyAST_Call(a, CHECK(asdl_expr_seq*, (asdl_expr_seq*)_PyPegen_singleton_seq(p, b)), NULL, EXTRA)
                 _res = _PyAST_Call(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -20380,7 +19923,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '('
                 var _tmp0 = Expect("(");
@@ -20388,7 +19931,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(arguments)]
                 int _opt_mark_b = _position;
@@ -20398,23 +19941,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: arguments
                 {
                     _position = _group_mark__opt_b;
-                    // Call rule: arguments
                     var _group_alt0__opt_b_item0 = Arguments();
-                    if (_group_alt0__opt_b_item0 == null)
+                    if (_group_alt0__opt_b_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_b = _group_alt0__opt_b_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_b = _group_alt0__opt_b_item0;
-                    goto group_success__opt_b;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_b: ; // Group succeeded
+                if (_opt_b == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? b = _opt_b;
                 if (b == null)
                 {
@@ -20427,12 +19965,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_59 = _position;
+                int _lookahead_mark_55 = _position;
                 // TODO: Parse lookahead content for RuleRef
-                _position = _lookahead_mark_59; // Restore position
+                _position = _lookahead_mark_55; // Restore position
                 // Action (multiline):
                 //   _PyAST_Call(a,
                 //   (b) ? ((expr_ty) b)->v.Call.args : NULL,
@@ -20441,9 +19979,10 @@ namespace SharpPy.Generated
                 _res = _PyAST_Call(a, b, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 5
+            do
             {
                 _position = _mark;
 
@@ -20453,16 +19992,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_60 = _position;
+                int _lookahead_mark_56 = _position;
                 // TODO: Parse lookahead content for RuleRef
-                _position = _lookahead_mark_60; // Restore position
+                _position = _lookahead_mark_56; // Restore position
                 // Action: a
                 _res = (GeneratedExpr)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -20490,6 +20029,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -20499,16 +20039,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -20518,14 +20057,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -20535,12 +20075,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -20568,6 +20108,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -20582,7 +20123,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -20603,7 +20144,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -20617,7 +20158,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(',')]
                 int _opt_mark__tmp1 = _position;
@@ -20627,23 +20168,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ','
                 {
                     _position = _group_mark__opt__tmp1;
-                    // Expect ','
                     var _group_alt0__opt__tmp1_item0 = Expect(",");
-                    if (_group_alt0__opt__tmp1_item0 == null)
+                    if (_group_alt0__opt__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt__tmp1 = _group_alt0__opt__tmp1_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt__tmp1 = _group_alt0__opt__tmp1_item0;
-                    goto group_success__opt__tmp1;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp1: ; // Group succeeded
+                if (_opt__tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
                 {
@@ -20653,10 +20189,8 @@ namespace SharpPy.Generated
                 // Action: a
                 _res = (GeneratedExprSeq)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -20671,6 +20205,12 @@ namespace SharpPy.Generated
         // Rule: del_target from python.gram
         public GeneratedExpr DelTarget()
         {
+            // CPython 3.12: Left recursion - use Warth et al. algorithm
+            return TryLeftRecursive<GeneratedExpr>("DelTarget", _DelTarget);
+        }
+
+        private GeneratedExpr _DelTarget()
+        {
             // CPython 3.12 PEG: del_target
             int _mark = _position;
             GeneratedExpr _res = null;
@@ -20683,6 +20223,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -20692,7 +20233,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '.'
                 var _tmp0 = Expect(".");
@@ -20700,7 +20241,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NAME
                 var b = ExpectToken(GeneratedTokenType.NAME);
@@ -20708,21 +20249,20 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_61 = _position;
+                int _lookahead_mark_57 = _position;
                 // TODO: Parse lookahead content for RuleRef, fail if succeeds
-                _position = _lookahead_mark_61; // Restore position
+                _position = _lookahead_mark_57; // Restore position
                 // Action: _PyAST_Attribute(a, b->v.Name.id, Del, EXTRA)
                 _res = _PyAST_Attribute(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -20732,7 +20272,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '['
                 var _tmp0 = Expect("[");
@@ -20740,7 +20280,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: slices
                 var b = Slices();
@@ -20748,7 +20288,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ']'
                 var _tmp1 = Expect("]");
@@ -20756,19 +20296,20 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_62 = _position;
+                int _lookahead_mark_58 = _position;
                 // TODO: Parse lookahead content for RuleRef, fail if succeeds
-                _position = _lookahead_mark_62; // Restore position
+                _position = _lookahead_mark_58; // Restore position
                 // Action: _PyAST_Subscript(a, b, Del, EXTRA)
                 _res = _PyAST_Subscript(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -20778,12 +20319,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -20811,6 +20352,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -20820,17 +20362,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_set_expr_context(p, a, Del)
                 // TODO: Complex action expression: _PyPegen_set_expr_context(p, a, Del)
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -20840,7 +20381,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: del_target
                 var a = DelTarget();
@@ -20848,7 +20389,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ')'
                 var _tmp1 = Expect(")");
@@ -20856,15 +20397,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_set_expr_context(p, a, Del)
                 // TODO: Complex action expression: _PyPegen_set_expr_context(p, a, Del)
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -20874,7 +20416,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(del_targets)]
                 int _opt_mark_a = _position;
@@ -20884,23 +20426,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: del_targets
                 {
                     _position = _group_mark__opt_a;
-                    // Call rule: del_targets
                     var _group_alt0__opt_a_item0 = DelTargets();
-                    if (_group_alt0__opt_a_item0 == null)
+                    if (_group_alt0__opt_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_a = _group_alt0__opt_a_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_a = _group_alt0__opt_a_item0;
-                    goto group_success__opt_a;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_a: ; // Group succeeded
+                if (_opt_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? a = _opt_a;
                 if (a == null)
                 {
@@ -20913,15 +20450,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_Tuple(a, Del, EXTRA)
                 _res = _PyAST_Tuple(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -20931,7 +20469,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(del_targets)]
                 int _opt_mark_a = _position;
@@ -20941,23 +20479,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: del_targets
                 {
                     _position = _group_mark__opt_a;
-                    // Call rule: del_targets
                     var _group_alt0__opt_a_item0 = DelTargets();
-                    if (_group_alt0__opt_a_item0 == null)
+                    if (_group_alt0__opt_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt_a = _group_alt0__opt_a_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt_a = _group_alt0__opt_a_item0;
-                    goto group_success__opt_a;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_a: ; // Group succeeded
+                if (_opt_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? a = _opt_a;
                 if (a == null)
                 {
@@ -20970,13 +20503,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_List(a, Del, EXTRA)
                 _res = _PyAST_List(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -21004,6 +20537,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -21018,7 +20552,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -21039,7 +20573,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -21053,7 +20587,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp1 = Expect(",");
@@ -21061,7 +20595,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '*'
                 var _tmp2 = Expect("*");
@@ -21069,7 +20603,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var b = Expression();
@@ -21077,7 +20611,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp3 = Expect(",");
@@ -21085,7 +20619,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '**'
                 var _tmp4 = Expect("**");
@@ -21093,7 +20627,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var c = Expression();
@@ -21101,7 +20635,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action (multiline):
                 //   (asdl_expr_seq*)_PyPegen_seq_append_to_end(
@@ -21115,11 +20649,10 @@ namespace SharpPy.Generated
                 //   c)
                 _res = default(GeneratedExprSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -21134,7 +20667,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -21155,7 +20688,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -21169,7 +20702,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp1 = Expect(",");
@@ -21177,7 +20710,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '*'
                 var _tmp2 = Expect("*");
@@ -21185,7 +20718,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var b = Expression();
@@ -21193,15 +20726,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: (asdl_expr_seq*)_PyPegen_seq_append_to_end(p, a, b)
                 // TODO: Complex action expression: (asdl_expr_seq*)_PyPegen_seq_append_to_end(p, a, b)
                 _res = default(GeneratedExprSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -21216,7 +20750,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -21237,7 +20771,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -21251,7 +20785,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp1 = Expect(",");
@@ -21259,7 +20793,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '**'
                 var _tmp2 = Expect("**");
@@ -21267,7 +20801,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var b = Expression();
@@ -21275,15 +20809,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: (asdl_expr_seq*)_PyPegen_seq_append_to_end(p, a, b)
                 // TODO: Complex action expression: (asdl_expr_seq*)_PyPegen_seq_append_to_end(p, a, b)
                 _res = default(GeneratedExprSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -21293,7 +20828,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var a = Expression();
@@ -21301,7 +20836,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp1 = Expect(",");
@@ -21309,7 +20844,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '**'
                 var _tmp2 = Expect("**");
@@ -21317,7 +20852,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var b = Expression();
@@ -21325,7 +20860,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action (multiline):
                 //   (asdl_expr_seq*)_PyPegen_seq_append_to_end(
@@ -21339,9 +20874,10 @@ namespace SharpPy.Generated
                 //   b)
                 _res = default(GeneratedExprSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 5
+            do
             {
                 _position = _mark;
 
@@ -21351,7 +20887,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var a = Expression();
@@ -21359,15 +20895,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: (asdl_expr_seq*)_PyPegen_singleton_seq(p, a)
                 // TODO: Complex action expression: (asdl_expr_seq*)_PyPegen_singleton_seq(p, a)
                 _res = default(GeneratedExprSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 6
+            do
             {
                 _position = _mark;
 
@@ -21377,7 +20914,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var a = Expression();
@@ -21385,15 +20922,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: (asdl_expr_seq*)_PyPegen_singleton_seq(p, a)
                 // TODO: Complex action expression: (asdl_expr_seq*)_PyPegen_singleton_seq(p, a)
                 _res = default(GeneratedExprSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 7
+            do
             {
                 _position = _mark;
 
@@ -21408,7 +20946,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -21429,7 +20967,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -21443,12 +20981,12 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: a
                 _res = (GeneratedExprSeq)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -21476,6 +21014,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -21485,7 +21024,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: TYPE_COMMENT
                 var t = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
@@ -21493,20 +21032,19 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_63 = _position;
+                int _lookahead_mark_59 = _position;
                 // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_63; // Restore position
+                _position = _lookahead_mark_59; // Restore position
                 // Action: t
                 _res = (GeneratedSeq)((object?)t);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -21516,14 +21054,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -21533,12 +21072,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -21566,6 +21105,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -21575,184 +21115,36 @@ namespace SharpPy.Generated
                 // Try group alternative 1: (','* (starred_expression | (assignment_expression | expression !':=') !'=')+ ',' kwargs)
                 {
                     _position = _group_mark__tmp0;
-                    // Group: (','* (starred_expression | (assignment_expression | expression !':=') !'=')+ ',' kwargs)
                     object? _group_alt0__tmp0_item0 = null;
-                    int _group_mark__group_alt0__tmp0_item0 = _position;
-                    // Try group alternative 1: ','* (starred_expression | (assignment_expression | expression !':=') !'=')+ ',' kwargs
+                    // TODO: Complex group item type: Group
+                    if (_group_alt0__tmp0_item0 != null)
                     {
-                        _position = _group_mark__group_alt0__tmp0_item0;
-                        // Zero or more: ','*
-                        var _group_alt0__group_alt0__tmp0_item0_item0 = new System.Collections.Generic.List<object?>();
-                        while (true)
-                        {
-                            int _loop_mark = _position;
-                            // Expect ','
-                            var _loop_elem__group_alt0__group_alt0__tmp0_item0_item0 = Expect(",");
-                            if (_loop_elem__group_alt0__group_alt0__tmp0_item0_item0 == null)
-                            {
-                                _position = _mark;
-                                _res = null;
-                                goto alternative_failed;
-                            }
-                            if (_loop_elem__group_alt0__group_alt0__tmp0_item0_item0 == null)
-                            {
-                                _position = _loop_mark; // Reset to before failed attempt
-                                break;
-                            }
-                            _group_alt0__group_alt0__tmp0_item0_item0.Add(_loop_elem__group_alt0__group_alt0__tmp0_item0_item0);
-                        }
-                        // Collected _group_alt0__group_alt0__tmp0_item0_item0.Count items (may be 0)
-                        // One or more: (starred_expression | (assignment_expression | expression !':=') !'=')+
-                        var _group_alt0__group_alt0__tmp0_item0_item1 = new System.Collections.Generic.List<object?>();
-                        while (true)
-                        {
-                            int _loop_mark = _position;
-                            // Group: (starred_expression | (assignment_expression | expression !':=') !'=')
-                            object? _loop_elem__group_alt0__group_alt0__tmp0_item0_item1 = null;
-                            int _group_mark__loop_elem__group_alt0__group_alt0__tmp0_item0_item1 = _position;
-                            // Try group alternative 1: starred_expression
-                            {
-                                _position = _group_mark__loop_elem__group_alt0__group_alt0__tmp0_item0_item1;
-                                // Call rule: starred_expression
-                                var _group_alt0__loop_elem__group_alt0__group_alt0__tmp0_item0_item1_item0 = StarredExpression();
-                                if (_group_alt0__loop_elem__group_alt0__group_alt0__tmp0_item0_item1_item0 == null)
-                                {
-                                    _position = _mark;
-                                    _res = null;
-                                    goto alternative_failed;
-                                }
-                                // Group alternative 1 succeeded
-                                _loop_elem__group_alt0__group_alt0__tmp0_item0_item1 = _group_alt0__loop_elem__group_alt0__group_alt0__tmp0_item0_item1_item0;
-                                goto group_success__loop_elem__group_alt0__group_alt0__tmp0_item0_item1;
-                            }
-                            // Try group alternative 2: (assignment_expression | expression !':=') !'='
-                            {
-                                _position = _group_mark__loop_elem__group_alt0__group_alt0__tmp0_item0_item1;
-                                // Group: (assignment_expression | expression !':=')
-                                object? _group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item1_item0 = null;
-                                int _group_mark__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item1_item0 = _position;
-                                // Try group alternative 1: assignment_expression
-                                {
-                                    _position = _group_mark__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item1_item0;
-                                    // Call rule: assignment_expression
-                                    var _group_alt0__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item1_item0_item0 = AssignmentExpression();
-                                    if (_group_alt0__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item1_item0_item0 == null)
-                                    {
-                                        _position = _mark;
-                                        _res = null;
-                                        goto alternative_failed;
-                                    }
-                                    // Group alternative 1 succeeded
-                                    _group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item1_item0 = _group_alt0__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item1_item0_item0;
-                                    goto group_success__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item1_item0;
-                                }
-                                // Try group alternative 2: expression !':='
-                                {
-                                    _position = _group_mark__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item1_item0;
-                                    // Call rule: expression
-                                    var _group_alt1__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item1_item0_item0 = Expression();
-                                    if (_group_alt1__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item1_item0_item0 == null)
-                                    {
-                                        _position = _mark;
-                                        _res = null;
-                                        goto alternative_failed;
-                                    }
-                                    // Negative lookahead - fail if matches
-                                    int _lookahead_mark_64 = _position;
-                                    // TODO: Parse lookahead content for StringLiteral, fail if succeeds
-                                    _position = _lookahead_mark_64; // Restore position
-                                    // Group alternative 2 succeeded
-                                    _group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item1_item0 = _group_alt1__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item1_item0_item0;
-                                    goto group_success__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item1_item0;
-                                }
-                                // All group alternatives failed
-                                _position = _mark;
-                                _res = null;
-                                goto alternative_failed;
-                                group_success__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item1_item0: ; // Group succeeded
-                                // Negative lookahead - fail if matches
-                                int _lookahead_mark_65 = _position;
-                                // TODO: Parse lookahead content for StringLiteral, fail if succeeds
-                                _position = _lookahead_mark_65; // Restore position
-                                // Group alternative 2 succeeded
-                                _loop_elem__group_alt0__group_alt0__tmp0_item0_item1 = _group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item1_item0;
-                                goto group_success__loop_elem__group_alt0__group_alt0__tmp0_item0_item1;
-                            }
-                            // All group alternatives failed
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
-                            group_success__loop_elem__group_alt0__group_alt0__tmp0_item0_item1: ; // Group succeeded
-                            if (_loop_elem__group_alt0__group_alt0__tmp0_item0_item1 == null)
-                            {
-                                _position = _loop_mark; // Reset to before failed attempt
-                                break;
-                            }
-                            _group_alt0__group_alt0__tmp0_item0_item1.Add(_loop_elem__group_alt0__group_alt0__tmp0_item0_item1);
-                        }
-                        if (_group_alt0__group_alt0__tmp0_item0_item1.Count == 0)
-                        {
-                            // One or more requires at least one match
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
-                        }
-                        // Expect ','
-                        var _group_alt0__group_alt0__tmp0_item0_item2 = Expect(",");
-                        if (_group_alt0__group_alt0__tmp0_item0_item2 == null)
-                        {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
-                        }
-                        // Call rule: kwargs
-                        var _group_alt0__group_alt0__tmp0_item0_item3 = Kwargs();
-                        if (_group_alt0__group_alt0__tmp0_item0_item3 == null)
-                        {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
-                        }
-                        // Group alternative 1 succeeded
-                        _group_alt0__tmp0_item0 = _group_alt0__group_alt0__tmp0_item0_item3;
-                        goto group_success__group_alt0__tmp0_item0;
+                        _tmp0 = _group_alt0__tmp0_item0;
                     }
-                    // All group alternatives failed
-                    _position = _mark;
-                    _res = null;
-                    goto alternative_failed;
-                    group_success__group_alt0__tmp0_item0: ; // Group succeeded
-                    // Group alternative 1 succeeded
-                    _tmp0 = _group_alt0__tmp0_item0;
-                    goto group_success__tmp0;
                 }
                 // Try group alternative 2: kwargs
+                if (_tmp0 == null)
                 {
                     _position = _group_mark__tmp0;
-                    // Call rule: kwargs
                     var _group_alt1__tmp0_item0 = Kwargs();
-                    if (_group_alt1__tmp0_item0 == null)
+                    if (_group_alt1__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp0 = _group_alt1__tmp0_item0;
                     }
-                    // Group alternative 2 succeeded
-                    _tmp0 = _group_alt1__tmp0_item0;
-                    goto group_success__tmp0;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__tmp0: ; // Group succeeded
+                if (_tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Expect ','
                 var a = Expect(",");
                 if (a == null)
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: ','*
                 var _tmp1 = new System.Collections.Generic.List<object?>();
@@ -21765,7 +21157,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp1 == null)
                     {
@@ -21786,27 +21178,23 @@ namespace SharpPy.Generated
                     // Try group alternative 1: starred_expression !'='
                     {
                         _position = _group_mark__loop_elem__tmp2;
-                        // Call rule: starred_expression
                         var _group_alt0__loop_elem__tmp2_item0 = StarredExpression();
-                        if (_group_alt0__loop_elem__tmp2_item0 == null)
+                        if (_group_alt0__loop_elem__tmp2_item0 != null)
                         {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
+                            object? _group_alt0__loop_elem__tmp2_item1 = null;
+                            // TODO: Complex group item type: NegativeLookahead
+                            if (_group_alt0__loop_elem__tmp2_item1 != null)
+                            {
+                                _loop_elem__tmp2 = _group_alt0__loop_elem__tmp2_item1;
+                            }
                         }
-                        // Negative lookahead - fail if matches
-                        int _lookahead_mark_66 = _position;
-                        // TODO: Parse lookahead content for StringLiteral, fail if succeeds
-                        _position = _lookahead_mark_66; // Restore position
-                        // Group alternative 1 succeeded
-                        _loop_elem__tmp2 = _group_alt0__loop_elem__tmp2_item0;
-                        goto group_success__loop_elem__tmp2;
                     }
-                    // All group alternatives failed
-                    _position = _mark;
-                    _res = null;
-                    goto alternative_failed;
-                    group_success__loop_elem__tmp2: ; // Group succeeded
+                    if (_loop_elem__tmp2 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
                     if (_loop_elem__tmp2 == null)
                     {
                         _position = _loop_mark; // Reset to before failed attempt
@@ -21819,17 +21207,16 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_STARTING_FROM(a, "iterable argument unpacking follows keyword argument unpacking")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_STARTING_FROM(a, "iterable argument unpacking follows keyword argument unpacking")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -21839,7 +21226,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: for_if_clauses
                 var b = ForIfClauses();
@@ -21847,7 +21234,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp0 = Expect(",");
@@ -21855,7 +21242,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(args)]
                 int _opt_mark__tmp1 = _position;
@@ -21865,23 +21252,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: args
                 {
                     _position = _group_mark__opt__tmp1;
-                    // Call rule: args
                     var _group_alt0__opt__tmp1_item0 = Args();
-                    if (_group_alt0__opt__tmp1_item0 == null)
+                    if (_group_alt0__opt__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt__tmp1 = _group_alt0__opt__tmp1_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt__tmp1 = _group_alt0__opt__tmp1_item0;
-                    goto group_success__opt__tmp1;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp1: ; // Group succeeded
+                if (_opt__tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
                 {
@@ -21892,9 +21274,10 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, _PyPegen_get_last_comprehension_item(PyPegen_last_item(b, comprehension_ty)), "Generator expression must be parenthesized")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -21904,7 +21287,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '='
                 var b = Expect("=");
@@ -21912,7 +21295,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var _tmp0 = Expression();
@@ -21920,7 +21303,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: for_if_clauses
                 var _tmp1 = ForIfClauses();
@@ -21928,15 +21311,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "invalid syntax. Maybe you meant '==' or ':=' instead of '='?")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "invalid syntax. Maybe you meant '==' or ':=' instead of '='?")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -21948,31 +21332,22 @@ namespace SharpPy.Generated
                 // Try group alternative 1: args ','
                 {
                     _position = _group_mark__opt__tmp0;
-                    // Call rule: args
                     var _group_alt0__opt__tmp0_item0 = Args();
-                    if (_group_alt0__opt__tmp0_item0 == null)
+                    if (_group_alt0__opt__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        var _group_alt0__opt__tmp0_item1 = Expect(",");
+                        if (_group_alt0__opt__tmp0_item1 != null)
+                        {
+                            _opt__tmp0 = _group_alt0__opt__tmp0_item1;
+                        }
                     }
-                    // Expect ','
-                    var _group_alt0__opt__tmp0_item1 = Expect(",");
-                    if (_group_alt0__opt__tmp0_item1 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Group alternative 1 succeeded
-                    _opt__tmp0 = _group_alt0__opt__tmp0_item1;
-                    goto group_success__opt__tmp0;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp0: ; // Group succeeded
+                if (_opt__tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
@@ -21985,7 +21360,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '='
                 var b = Expect("=");
@@ -21993,19 +21368,20 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_67 = _position;
+                int _lookahead_mark_60 = _position;
                 // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_67; // Restore position
+                _position = _lookahead_mark_60; // Restore position
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "expected argument value expression")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "expected argument value expression")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 5
+            do
             {
                 _position = _mark;
 
@@ -22015,7 +21391,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: for_if_clauses
                 var b = ForIfClauses();
@@ -22023,15 +21399,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_nonparen_genexp_in_call(p, a, b)
                 // TODO: Complex action expression: _PyPegen_nonparen_genexp_in_call(p, a, b)
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 6
+            do
             {
                 _position = _mark;
 
@@ -22041,7 +21418,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp1 = Expect(",");
@@ -22049,7 +21426,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var a = Expression();
@@ -22057,7 +21434,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: for_if_clauses
                 var b = ForIfClauses();
@@ -22065,15 +21442,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, _PyPegen_get_last_comprehension_item(PyPegen_last_item(b, comprehension_ty)), "Generator expression must be parenthesized")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, _PyPegen_get_last_comprehension_item(PyPegen_last_item(b, comprehension_ty)), "Generator expression must be parenthesized")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 7
+            do
             {
                 _position = _mark;
 
@@ -22083,7 +21461,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp0 = Expect(",");
@@ -22091,7 +21469,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: args
                 var _tmp1 = Args();
@@ -22099,13 +21477,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_arguments_parsing_error(p, a)
                 // TODO: Complex action expression: _PyPegen_arguments_parsing_error(p, a)
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -22133,6 +21511,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -22142,70 +21521,54 @@ namespace SharpPy.Generated
                 // Try group alternative 1: 'True'
                 {
                     _position = _group_mark_a;
-                    // Expect 'True'
                     var _group_alt0_a_item0 = Expect("True");
-                    if (_group_alt0_a_item0 == null)
+                    if (_group_alt0_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        a = _group_alt0_a_item0;
                     }
-                    // Group alternative 1 succeeded
-                    a = _group_alt0_a_item0;
-                    goto group_success_a;
                 }
                 // Try group alternative 2: 'False'
+                if (a == null)
                 {
                     _position = _group_mark_a;
-                    // Expect 'False'
                     var _group_alt1_a_item0 = Expect("False");
-                    if (_group_alt1_a_item0 == null)
+                    if (_group_alt1_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        a = _group_alt1_a_item0;
                     }
-                    // Group alternative 2 succeeded
-                    a = _group_alt1_a_item0;
-                    goto group_success_a;
                 }
                 // Try group alternative 3: 'None'
+                if (a == null)
                 {
                     _position = _group_mark_a;
-                    // Expect 'None'
                     var _group_alt2_a_item0 = Expect("None");
-                    if (_group_alt2_a_item0 == null)
+                    if (_group_alt2_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        a = _group_alt2_a_item0;
                     }
-                    // Group alternative 3 succeeded
-                    a = _group_alt2_a_item0;
-                    goto group_success_a;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success_a: ; // Group succeeded
+                if (a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Expect '='
                 var b = Expect("=");
                 if (b == null)
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "cannot assign to %s", PyBytes_AS_STRING(a->bytes))
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "cannot assign to %s", PyBytes_AS_STRING(a->bytes))
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -22215,7 +21578,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '='
                 var b = Expect("=");
@@ -22223,7 +21586,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var _tmp0 = Expression();
@@ -22231,7 +21594,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: for_if_clauses
                 var _tmp1 = ForIfClauses();
@@ -22239,29 +21602,30 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "invalid syntax. Maybe you meant '==' or ':=' instead of '='?")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "invalid syntax. Maybe you meant '==' or ':=' instead of '='?")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_68 = _position;
+                int _lookahead_mark_61 = _position;
                 // TODO: Parse lookahead content for Group, fail if succeeds
-                _position = _lookahead_mark_68; // Restore position
+                _position = _lookahead_mark_61; // Restore position
                 // Call rule: expression
                 var a = Expression();
                 if (a == null)
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '='
                 var b = Expect("=");
@@ -22269,7 +21633,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action (multiline):
                 //   RAISE_SYNTAX_ERROR_KNOWN_RANGE(
@@ -22279,9 +21643,10 @@ namespace SharpPy.Generated
                 //   a, b, "expression cannot contain assignment, perhaps you meant \"==\"?")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -22291,7 +21656,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var _tmp0 = Expression();
@@ -22299,7 +21664,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '='
                 var _tmp1 = Expect("=");
@@ -22307,7 +21672,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var b = Expression();
@@ -22315,13 +21680,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "cannot assign to keyword argument unpacking")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "cannot assign to keyword argument unpacking")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -22349,6 +21714,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -22358,7 +21724,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'if'
                 var _tmp0 = Expect("if");
@@ -22366,7 +21732,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: disjunction
                 var b = Disjunction();
@@ -22374,7 +21740,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'else'
                 var _tmp1 = Expect("else");
@@ -22382,7 +21748,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var c = Expression();
@@ -22390,17 +21756,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyAST_IfExp(b, a, c, EXTRA)
                 _res = _PyAST_IfExp(b, a, c, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -22410,14 +21775,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -22427,12 +21793,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -22460,6 +21826,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -22469,19 +21836,19 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_69 = _position;
+                int _lookahead_mark_62 = _position;
                 // TODO: Parse lookahead content for StringLiteral, fail if succeeds
-                _position = _lookahead_mark_69; // Restore position
+                _position = _lookahead_mark_62; // Restore position
                 // Call rule: star_expressions
                 var b = StarExpressions();
                 if (b == null)
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action (multiline):
                 //   _PyPegen_check_legacy_stmt(p, a) ? RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b,
@@ -22491,10 +21858,8 @@ namespace SharpPy.Generated
                 //   "Missing parentheses in call to '%U'. Did you mean %U(...)?", a->v.Name.id, a->v.Name.id) : NULL
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -22521,20 +21886,21 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_70 = _position;
+                int _lookahead_mark_63 = _position;
                 // TODO: Parse lookahead content for Group, fail if succeeds
-                _position = _lookahead_mark_70; // Restore position
+                _position = _lookahead_mark_63; // Restore position
                 // Call rule: disjunction
                 var a = Disjunction();
                 if (a == null)
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression_without_invalid
                 var b = ExpressionWithoutInvalid();
@@ -22542,7 +21908,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action (multiline):
                 //   _PyPegen_check_legacy_stmt(p, a) ? NULL : p->tokens[p->mark-1]->level == 0 ? NULL :
@@ -22552,11 +21918,10 @@ namespace SharpPy.Generated
                 //   RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "invalid syntax. Perhaps you forgot a comma?")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -22566,7 +21931,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'if'
                 var _tmp0 = Expect("if");
@@ -22574,7 +21939,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: disjunction
                 var b = Disjunction();
@@ -22582,19 +21947,20 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_71 = _position;
+                int _lookahead_mark_64 = _position;
                 // TODO: Parse lookahead content for Group, fail if succeeds
-                _position = _lookahead_mark_71; // Restore position
+                _position = _lookahead_mark_64; // Restore position
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "expected 'else' after 'if' expression")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "expected 'else' after 'if' expression")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -22604,7 +21970,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(lambda_params)]
                 int _opt_mark__tmp0 = _position;
@@ -22614,23 +21980,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: lambda_params
                 {
                     _position = _group_mark__opt__tmp0;
-                    // Call rule: lambda_params
                     var _group_alt0__opt__tmp0_item0 = LambdaParams();
-                    if (_group_alt0__opt__tmp0_item0 == null)
+                    if (_group_alt0__opt__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt__tmp0 = _group_alt0__opt__tmp0_item0;
-                    goto group_success__opt__tmp0;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp0: ; // Group succeeded
+                if (_opt__tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
@@ -22643,17 +22004,17 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_72 = _position;
+                int _lookahead_mark_65 = _position;
                 // TODO: Parse lookahead content for RuleRef
-                _position = _lookahead_mark_72; // Restore position
+                _position = _lookahead_mark_65; // Restore position
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "f-string: lambda expressions are not allowed without parentheses")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "f-string: lambda expressions are not allowed without parentheses")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -22669,6 +22030,12 @@ namespace SharpPy.Generated
         // Rule: invalid_named_expression from python.gram
         public object? InvalidNamedExpression()
         {
+            // CPython 3.12: Left recursion - use Warth et al. algorithm
+            return TryLeftRecursive<object?>("InvalidNamedExpression", _InvalidNamedExpression);
+        }
+
+        private object? _InvalidNamedExpression()
+        {
             // CPython 3.12 PEG: invalid_named_expression
             int _mark = _position;
             object? _res = null;
@@ -22681,6 +22048,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -22690,7 +22058,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':='
                 var _tmp0 = Expect(":=");
@@ -22698,7 +22066,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var _tmp1 = Expression();
@@ -22706,7 +22074,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action (multiline):
                 //   RAISE_SYNTAX_ERROR_KNOWN_LOCATION(
@@ -22716,11 +22084,10 @@ namespace SharpPy.Generated
                 //   a, "cannot use assignment expressions with %s", _PyPegen_get_expr_name(a))
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -22730,7 +22097,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '='
                 var _tmp0 = Expect("=");
@@ -22738,7 +22105,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
                 var b = BitwiseOr();
@@ -22746,33 +22113,34 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_73 = _position;
+                int _lookahead_mark_66 = _position;
                 // TODO: Parse lookahead content for Group, fail if succeeds
-                _position = _lookahead_mark_73; // Restore position
+                _position = _lookahead_mark_66; // Restore position
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "invalid syntax. Maybe you meant '==' or ':=' instead of '='?")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "invalid syntax. Maybe you meant '==' or ':=' instead of '='?")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_74 = _position;
+                int _lookahead_mark_67 = _position;
                 // TODO: Parse lookahead content for Group, fail if succeeds
-                _position = _lookahead_mark_74; // Restore position
+                _position = _lookahead_mark_67; // Restore position
                 // Call rule: bitwise_or
                 var a = BitwiseOr();
                 if (a == null)
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '='
                 var b = Expect("=");
@@ -22780,7 +22148,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
                 var _tmp1 = BitwiseOr();
@@ -22788,12 +22156,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_75 = _position;
+                int _lookahead_mark_68 = _position;
                 // TODO: Parse lookahead content for Group, fail if succeeds
-                _position = _lookahead_mark_75; // Restore position
+                _position = _lookahead_mark_68; // Restore position
                 // Action (multiline):
                 //   RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "cannot assign to %s here. Maybe you meant '==' instead of '='?",
                 //   _PyPegen_get_expr_name(a))
@@ -22802,7 +22170,7 @@ namespace SharpPy.Generated
                 //   _PyPegen_get_expr_name(a))
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -22830,6 +22198,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -22839,7 +22208,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp0 = Expect(":");
@@ -22847,7 +22216,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var _tmp1 = Expression();
@@ -22855,7 +22224,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action (multiline):
                 //   RAISE_SYNTAX_ERROR_KNOWN_LOCATION(
@@ -22871,11 +22240,10 @@ namespace SharpPy.Generated
                 //   )
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -22885,7 +22253,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp0 = Expect(",");
@@ -22893,7 +22261,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: star_named_expressions*
                 var _tmp1 = new System.Collections.Generic.List<object?>();
@@ -22906,7 +22274,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp1 == null)
                     {
@@ -22922,7 +22290,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var _tmp3 = Expression();
@@ -22930,15 +22298,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "only single target (not tuple) can be annotated")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "only single target (not tuple) can be annotated")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -22948,7 +22317,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp0 = Expect(":");
@@ -22956,7 +22325,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var _tmp1 = Expression();
@@ -22964,15 +22333,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "illegal target for annotation")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "illegal target for annotation")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -22987,31 +22357,22 @@ namespace SharpPy.Generated
                     // Try group alternative 1: star_targets '='
                     {
                         _position = _group_mark__loop_elem__tmp0;
-                        // Call rule: star_targets
                         var _group_alt0__loop_elem__tmp0_item0 = StarTargets();
-                        if (_group_alt0__loop_elem__tmp0_item0 == null)
+                        if (_group_alt0__loop_elem__tmp0_item0 != null)
                         {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
+                            var _group_alt0__loop_elem__tmp0_item1 = Expect("=");
+                            if (_group_alt0__loop_elem__tmp0_item1 != null)
+                            {
+                                _loop_elem__tmp0 = _group_alt0__loop_elem__tmp0_item1;
+                            }
                         }
-                        // Expect '='
-                        var _group_alt0__loop_elem__tmp0_item1 = Expect("=");
-                        if (_group_alt0__loop_elem__tmp0_item1 == null)
-                        {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
-                        }
-                        // Group alternative 1 succeeded
-                        _loop_elem__tmp0 = _group_alt0__loop_elem__tmp0_item1;
-                        goto group_success__loop_elem__tmp0;
                     }
-                    // All group alternatives failed
-                    _position = _mark;
-                    _res = null;
-                    goto alternative_failed;
-                    group_success__loop_elem__tmp0: ; // Group succeeded
+                    if (_loop_elem__tmp0 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
                     if (_loop_elem__tmp0 == null)
                     {
                         _position = _loop_mark; // Reset to before failed attempt
@@ -23026,7 +22387,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '='
                 var _tmp1 = Expect("=");
@@ -23034,15 +22395,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_INVALID_TARGET(STAR_TARGETS, a)
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_INVALID_TARGET(STAR_TARGETS, a)
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 5
+            do
             {
                 _position = _mark;
 
@@ -23057,31 +22419,22 @@ namespace SharpPy.Generated
                     // Try group alternative 1: star_targets '='
                     {
                         _position = _group_mark__loop_elem__tmp0;
-                        // Call rule: star_targets
                         var _group_alt0__loop_elem__tmp0_item0 = StarTargets();
-                        if (_group_alt0__loop_elem__tmp0_item0 == null)
+                        if (_group_alt0__loop_elem__tmp0_item0 != null)
                         {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
+                            var _group_alt0__loop_elem__tmp0_item1 = Expect("=");
+                            if (_group_alt0__loop_elem__tmp0_item1 != null)
+                            {
+                                _loop_elem__tmp0 = _group_alt0__loop_elem__tmp0_item1;
+                            }
                         }
-                        // Expect '='
-                        var _group_alt0__loop_elem__tmp0_item1 = Expect("=");
-                        if (_group_alt0__loop_elem__tmp0_item1 == null)
-                        {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
-                        }
-                        // Group alternative 1 succeeded
-                        _loop_elem__tmp0 = _group_alt0__loop_elem__tmp0_item1;
-                        goto group_success__loop_elem__tmp0;
                     }
-                    // All group alternatives failed
-                    _position = _mark;
-                    _res = null;
-                    goto alternative_failed;
-                    group_success__loop_elem__tmp0: ; // Group succeeded
+                    if (_loop_elem__tmp0 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
                     if (_loop_elem__tmp0 == null)
                     {
                         _position = _loop_mark; // Reset to before failed attempt
@@ -23096,7 +22449,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '='
                 var _tmp1 = Expect("=");
@@ -23104,15 +22457,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "assignment to yield expression not possible")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "assignment to yield expression not possible")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 6
+            do
             {
                 _position = _mark;
 
@@ -23122,7 +22476,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: augassign
                 var _tmp0 = Augassign();
@@ -23130,7 +22484,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Group: (yield_expr | star_expressions)
                 object? _tmp1 = null;
@@ -23138,38 +22492,28 @@ namespace SharpPy.Generated
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark__tmp1;
-                    // Call rule: yield_expr
                     var _group_alt0__tmp1_item0 = YieldExpr();
-                    if (_group_alt0__tmp1_item0 == null)
+                    if (_group_alt0__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp1 = _group_alt0__tmp1_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _tmp1 = _group_alt0__tmp1_item0;
-                    goto group_success__tmp1;
                 }
                 // Try group alternative 2: star_expressions
+                if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    // Call rule: star_expressions
                     var _group_alt1__tmp1_item0 = StarExpressions();
-                    if (_group_alt1__tmp1_item0 == null)
+                    if (_group_alt1__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp1 = _group_alt1__tmp1_item0;
                     }
-                    // Group alternative 2 succeeded
-                    _tmp1 = _group_alt1__tmp1_item0;
-                    goto group_success__tmp1;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__tmp1: ; // Group succeeded
+                if (_tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action (multiline):
                 //   RAISE_SYNTAX_ERROR_KNOWN_LOCATION(
                 //   a,
@@ -23184,7 +22528,7 @@ namespace SharpPy.Generated
                 //   )
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -23212,6 +22556,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -23221,16 +22566,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -23240,14 +22584,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -23257,7 +22602,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: invalid_ann_assign_target
                 var a = InvalidAnnAssignTarget();
@@ -23265,7 +22610,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ')'
                 var _tmp1 = Expect(")");
@@ -23273,12 +22618,12 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: a
                 _res = (GeneratedExpr)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -23306,6 +22651,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -23315,7 +22661,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: star_expressions
                 var a = StarExpressions();
@@ -23323,16 +22669,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_INVALID_TARGET(DEL_TARGETS, a)
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_INVALID_TARGET(DEL_TARGETS, a)
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -23359,6 +22703,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -23368,20 +22713,18 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_76 = _position;
+                int _lookahead_mark_69 = _position;
                 // TODO: Parse lookahead content for RuleRef, fail if succeeds
-                _position = _lookahead_mark_76; // Restore position
+                _position = _lookahead_mark_69; // Restore position
                 // Action: RAISE_INDENTATION_ERROR("expected an indented block")
                 // TODO: Complex action expression: RAISE_INDENTATION_ERROR("expected an indented block")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -23408,6 +22751,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -23417,60 +22761,45 @@ namespace SharpPy.Generated
                 // Try group alternative 1: '['
                 {
                     _position = _group_mark__tmp0;
-                    // Expect '['
                     var _group_alt0__tmp0_item0 = Expect("[");
-                    if (_group_alt0__tmp0_item0 == null)
+                    if (_group_alt0__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp0 = _group_alt0__tmp0_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _tmp0 = _group_alt0__tmp0_item0;
-                    goto group_success__tmp0;
                 }
                 // Try group alternative 2: '('
+                if (_tmp0 == null)
                 {
                     _position = _group_mark__tmp0;
-                    // Expect '('
                     var _group_alt1__tmp0_item0 = Expect("(");
-                    if (_group_alt1__tmp0_item0 == null)
+                    if (_group_alt1__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp0 = _group_alt1__tmp0_item0;
                     }
-                    // Group alternative 2 succeeded
-                    _tmp0 = _group_alt1__tmp0_item0;
-                    goto group_success__tmp0;
                 }
                 // Try group alternative 3: '{'
+                if (_tmp0 == null)
                 {
                     _position = _group_mark__tmp0;
-                    // Expect '{'
                     var _group_alt2__tmp0_item0 = Expect("{");
-                    if (_group_alt2__tmp0_item0 == null)
+                    if (_group_alt2__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp0 = _group_alt2__tmp0_item0;
                     }
-                    // Group alternative 3 succeeded
-                    _tmp0 = _group_alt2__tmp0_item0;
-                    goto group_success__tmp0;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__tmp0: ; // Group succeeded
+                if (_tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: starred_expression
                 var a = StarredExpression();
                 if (a == null)
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: for_if_clauses
                 var _tmp1 = ForIfClauses();
@@ -23478,17 +22807,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "iterable unpacking cannot be used in comprehension")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "iterable unpacking cannot be used in comprehension")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -23498,45 +22826,35 @@ namespace SharpPy.Generated
                 // Try group alternative 1: '['
                 {
                     _position = _group_mark__tmp0;
-                    // Expect '['
                     var _group_alt0__tmp0_item0 = Expect("[");
-                    if (_group_alt0__tmp0_item0 == null)
+                    if (_group_alt0__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp0 = _group_alt0__tmp0_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _tmp0 = _group_alt0__tmp0_item0;
-                    goto group_success__tmp0;
                 }
                 // Try group alternative 2: '{'
+                if (_tmp0 == null)
                 {
                     _position = _group_mark__tmp0;
-                    // Expect '{'
                     var _group_alt1__tmp0_item0 = Expect("{");
-                    if (_group_alt1__tmp0_item0 == null)
+                    if (_group_alt1__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp0 = _group_alt1__tmp0_item0;
                     }
-                    // Group alternative 2 succeeded
-                    _tmp0 = _group_alt1__tmp0_item0;
-                    goto group_success__tmp0;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__tmp0: ; // Group succeeded
+                if (_tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: star_named_expression
                 var a = StarNamedExpression();
                 if (a == null)
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp1 = Expect(",");
@@ -23544,7 +22862,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: star_named_expressions
                 var b = StarNamedExpressions();
@@ -23552,7 +22870,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: for_if_clauses
                 var _tmp2 = ForIfClauses();
@@ -23560,7 +22878,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action (multiline):
                 //   RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, PyPegen_last_item(b, expr_ty),
@@ -23570,9 +22888,10 @@ namespace SharpPy.Generated
                 //   "did you forget parentheses around the comprehension target?")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -23582,45 +22901,35 @@ namespace SharpPy.Generated
                 // Try group alternative 1: '['
                 {
                     _position = _group_mark__tmp0;
-                    // Expect '['
                     var _group_alt0__tmp0_item0 = Expect("[");
-                    if (_group_alt0__tmp0_item0 == null)
+                    if (_group_alt0__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp0 = _group_alt0__tmp0_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _tmp0 = _group_alt0__tmp0_item0;
-                    goto group_success__tmp0;
                 }
                 // Try group alternative 2: '{'
+                if (_tmp0 == null)
                 {
                     _position = _group_mark__tmp0;
-                    // Expect '{'
                     var _group_alt1__tmp0_item0 = Expect("{");
-                    if (_group_alt1__tmp0_item0 == null)
+                    if (_group_alt1__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp0 = _group_alt1__tmp0_item0;
                     }
-                    // Group alternative 2 succeeded
-                    _tmp0 = _group_alt1__tmp0_item0;
-                    goto group_success__tmp0;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__tmp0: ; // Group succeeded
+                if (_tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: star_named_expression
                 var a = StarNamedExpression();
                 if (a == null)
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var b = Expect(",");
@@ -23628,7 +22937,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: for_if_clauses
                 var _tmp1 = ForIfClauses();
@@ -23636,13 +22945,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "did you forget parentheses around the comprehension target?")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "did you forget parentheses around the comprehension target?")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -23670,6 +22979,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -23679,7 +22989,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '**'
                 var a = Expect("**");
@@ -23687,7 +22997,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
                 var _tmp1 = BitwiseOr();
@@ -23695,7 +23005,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: for_if_clauses
                 var _tmp2 = ForIfClauses();
@@ -23703,7 +23013,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '}'
                 var _tmp3 = Expect("}");
@@ -23711,16 +23021,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "dict unpacking cannot be used in dict comprehension")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "dict unpacking cannot be used in dict comprehension")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -23747,6 +23055,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -23756,7 +23065,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp0 = Expect(",");
@@ -23764,17 +23073,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "at least one argument must precede /")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "at least one argument must precede /")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -23784,38 +23092,28 @@ namespace SharpPy.Generated
                 // Try group alternative 1: slash_no_default
                 {
                     _position = _group_mark__tmp0;
-                    // Call rule: slash_no_default
                     var _group_alt0__tmp0_item0 = SlashNoDefault();
-                    if (_group_alt0__tmp0_item0 == null)
+                    if (_group_alt0__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp0 = _group_alt0__tmp0_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _tmp0 = _group_alt0__tmp0_item0;
-                    goto group_success__tmp0;
                 }
                 // Try group alternative 2: slash_with_default
+                if (_tmp0 == null)
                 {
                     _position = _group_mark__tmp0;
-                    // Call rule: slash_with_default
                     var _group_alt1__tmp0_item0 = SlashWithDefault();
-                    if (_group_alt1__tmp0_item0 == null)
+                    if (_group_alt1__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp0 = _group_alt1__tmp0_item0;
                     }
-                    // Group alternative 2 succeeded
-                    _tmp0 = _group_alt1__tmp0_item0;
-                    goto group_success__tmp0;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__tmp0: ; // Group succeeded
+                if (_tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Zero or more: param_maybe_default*
                 var _tmp1 = new System.Collections.Generic.List<object?>();
                 while (true)
@@ -23827,7 +23125,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp1 == null)
                     {
@@ -23843,15 +23141,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "/ may appear only once")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "/ may appear only once")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -23863,7 +23162,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
@@ -23882,7 +23181,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp1 == null)
                     {
@@ -23898,7 +23197,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: param_no_default
                 var a = ParamNoDefault();
@@ -23906,15 +23205,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "parameter without a default follows parameter with a default")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "parameter without a default follows parameter with a default")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -23929,7 +23229,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -23945,7 +23245,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // One or more: param_no_default+
                 var _tmp1 = new System.Collections.Generic.List<object?>();
@@ -23958,7 +23258,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp1 == null)
                     {
@@ -23972,7 +23272,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [',']
                 int _opt_mark__tmp2 = _position;
@@ -23982,7 +23282,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? _tmp2 = _opt__tmp2;
                 if (_tmp2 == null)
@@ -23996,15 +23296,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "Function parameters cannot be parenthesized")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "Function parameters cannot be parenthesized")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 5
+            do
             {
                 _position = _mark;
 
@@ -24016,38 +23317,28 @@ namespace SharpPy.Generated
                 // Try group alternative 1: slash_no_default
                 {
                     _position = _group_mark__opt__tmp0;
-                    // Call rule: slash_no_default
                     var _group_alt0__opt__tmp0_item0 = SlashNoDefault();
-                    if (_group_alt0__opt__tmp0_item0 == null)
+                    if (_group_alt0__opt__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt__tmp0 = _group_alt0__opt__tmp0_item0;
-                    goto group_success__opt__tmp0;
                 }
                 // Try group alternative 2: slash_with_default
+                if (_opt__tmp0 == null)
                 {
                     _position = _group_mark__opt__tmp0;
-                    // Call rule: slash_with_default
                     var _group_alt1__opt__tmp0_item0 = SlashWithDefault();
-                    if (_group_alt1__opt__tmp0_item0 == null)
+                    if (_group_alt1__opt__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt__tmp0 = _group_alt1__opt__tmp0_item0;
                     }
-                    // Group alternative 2 succeeded
-                    _opt__tmp0 = _group_alt1__opt__tmp0_item0;
-                    goto group_success__opt__tmp0;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp0: ; // Group succeeded
+                if (_opt__tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
@@ -24065,7 +23356,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp1 == null)
                     {
@@ -24081,7 +23372,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Group: (',' | param_no_default)
                 object? _tmp3 = null;
@@ -24089,38 +23380,28 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ','
                 {
                     _position = _group_mark__tmp3;
-                    // Expect ','
                     var _group_alt0__tmp3_item0 = Expect(",");
-                    if (_group_alt0__tmp3_item0 == null)
+                    if (_group_alt0__tmp3_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp3 = _group_alt0__tmp3_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _tmp3 = _group_alt0__tmp3_item0;
-                    goto group_success__tmp3;
                 }
                 // Try group alternative 2: param_no_default
+                if (_tmp3 == null)
                 {
                     _position = _group_mark__tmp3;
-                    // Call rule: param_no_default
                     var _group_alt1__tmp3_item0 = ParamNoDefault();
-                    if (_group_alt1__tmp3_item0 == null)
+                    if (_group_alt1__tmp3_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp3 = _group_alt1__tmp3_item0;
                     }
-                    // Group alternative 2 succeeded
-                    _tmp3 = _group_alt1__tmp3_item0;
-                    goto group_success__tmp3;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__tmp3: ; // Group succeeded
+                if (_tmp3 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Zero or more: param_maybe_default*
                 var _tmp4 = new System.Collections.Generic.List<object?>();
                 while (true)
@@ -24132,7 +23413,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp4 == null)
                     {
@@ -24148,15 +23429,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "/ must be ahead of *")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "/ must be ahead of *")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 6
+            do
             {
                 _position = _mark;
 
@@ -24171,7 +23453,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -24185,7 +23467,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '/'
                 var _tmp1 = Expect("/");
@@ -24193,7 +23475,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '*'
                 var a = Expect("*");
@@ -24201,13 +23483,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "expected comma between / and *")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "expected comma between / and *")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -24235,6 +23517,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -24244,20 +23527,18 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_77 = _position;
+                int _lookahead_mark_70 = _position;
                 // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_77; // Restore position
+                _position = _lookahead_mark_70; // Restore position
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "expected default value expression")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "expected default value expression")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -24284,6 +23565,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -24293,7 +23575,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Group: (')' | ',' (')' | '**'))
                 object? _tmp0 = null;
@@ -24301,85 +23583,41 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ')'
                 {
                     _position = _group_mark__tmp0;
-                    // Expect ')'
                     var _group_alt0__tmp0_item0 = Expect(")");
-                    if (_group_alt0__tmp0_item0 == null)
+                    if (_group_alt0__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp0 = _group_alt0__tmp0_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _tmp0 = _group_alt0__tmp0_item0;
-                    goto group_success__tmp0;
                 }
                 // Try group alternative 2: ',' (')' | '**')
+                if (_tmp0 == null)
                 {
                     _position = _group_mark__tmp0;
-                    // Expect ','
                     var _group_alt1__tmp0_item0 = Expect(",");
-                    if (_group_alt1__tmp0_item0 == null)
+                    if (_group_alt1__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Group: (')' | '**')
-                    object? _group_alt1__tmp0_item1 = null;
-                    int _group_mark__group_alt1__tmp0_item1 = _position;
-                    // Try group alternative 1: ')'
-                    {
-                        _position = _group_mark__group_alt1__tmp0_item1;
-                        // Expect ')'
-                        var _group_alt0__group_alt1__tmp0_item1_item0 = Expect(")");
-                        if (_group_alt0__group_alt1__tmp0_item1_item0 == null)
+                        object? _group_alt1__tmp0_item1 = null;
+                        // TODO: Complex group item type: Group
+                        if (_group_alt1__tmp0_item1 != null)
                         {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
+                            _tmp0 = _group_alt1__tmp0_item1;
                         }
-                        // Group alternative 1 succeeded
-                        _group_alt1__tmp0_item1 = _group_alt0__group_alt1__tmp0_item1_item0;
-                        goto group_success__group_alt1__tmp0_item1;
                     }
-                    // Try group alternative 2: '**'
-                    {
-                        _position = _group_mark__group_alt1__tmp0_item1;
-                        // Expect '**'
-                        var _group_alt1__group_alt1__tmp0_item1_item0 = Expect("**");
-                        if (_group_alt1__group_alt1__tmp0_item1_item0 == null)
-                        {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
-                        }
-                        // Group alternative 2 succeeded
-                        _group_alt1__tmp0_item1 = _group_alt1__group_alt1__tmp0_item1_item0;
-                        goto group_success__group_alt1__tmp0_item1;
-                    }
-                    // All group alternatives failed
+                }
+                if (_tmp0 == null)
+                {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
-                    group_success__group_alt1__tmp0_item1: ; // Group succeeded
-                    // Group alternative 2 succeeded
-                    _tmp0 = _group_alt1__tmp0_item1;
-                    goto group_success__tmp0;
+                    break;  // Exit this alternative
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__tmp0: ; // Group succeeded
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "named arguments must follow bare *")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "named arguments must follow bare *")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -24389,7 +23627,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp1 = Expect(",");
@@ -24397,7 +23635,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: TYPE_COMMENT
                 var _tmp2 = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
@@ -24405,15 +23643,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR("bare * has associated type comment")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR("bare * has associated type comment")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -24423,7 +23662,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: param
                 var _tmp1 = Param();
@@ -24431,7 +23670,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '='
                 var a = Expect("=");
@@ -24439,15 +23678,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "var-positional argument cannot have default value")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "var-positional argument cannot have default value")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -24457,7 +23697,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Group: (param_no_default | ',')
                 object? _tmp1 = null;
@@ -24465,38 +23705,28 @@ namespace SharpPy.Generated
                 // Try group alternative 1: param_no_default
                 {
                     _position = _group_mark__tmp1;
-                    // Call rule: param_no_default
                     var _group_alt0__tmp1_item0 = ParamNoDefault();
-                    if (_group_alt0__tmp1_item0 == null)
+                    if (_group_alt0__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp1 = _group_alt0__tmp1_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _tmp1 = _group_alt0__tmp1_item0;
-                    goto group_success__tmp1;
                 }
                 // Try group alternative 2: ','
+                if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    // Expect ','
                     var _group_alt1__tmp1_item0 = Expect(",");
-                    if (_group_alt1__tmp1_item0 == null)
+                    if (_group_alt1__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp1 = _group_alt1__tmp1_item0;
                     }
-                    // Group alternative 2 succeeded
-                    _tmp1 = _group_alt1__tmp1_item0;
-                    goto group_success__tmp1;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__tmp1: ; // Group succeeded
+                if (_tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Zero or more: param_maybe_default*
                 var _tmp2 = new System.Collections.Generic.List<object?>();
                 while (true)
@@ -24508,7 +23738,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp2 == null)
                     {
@@ -24524,7 +23754,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Group: (param_no_default | ',')
                 object? _tmp3 = null;
@@ -24532,43 +23762,33 @@ namespace SharpPy.Generated
                 // Try group alternative 1: param_no_default
                 {
                     _position = _group_mark__tmp3;
-                    // Call rule: param_no_default
                     var _group_alt0__tmp3_item0 = ParamNoDefault();
-                    if (_group_alt0__tmp3_item0 == null)
+                    if (_group_alt0__tmp3_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp3 = _group_alt0__tmp3_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _tmp3 = _group_alt0__tmp3_item0;
-                    goto group_success__tmp3;
                 }
                 // Try group alternative 2: ','
+                if (_tmp3 == null)
                 {
                     _position = _group_mark__tmp3;
-                    // Expect ','
                     var _group_alt1__tmp3_item0 = Expect(",");
-                    if (_group_alt1__tmp3_item0 == null)
+                    if (_group_alt1__tmp3_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp3 = _group_alt1__tmp3_item0;
                     }
-                    // Group alternative 2 succeeded
-                    _tmp3 = _group_alt1__tmp3_item0;
-                    goto group_success__tmp3;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__tmp3: ; // Group succeeded
+                if (_tmp3 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "* argument may appear only once")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "* argument may appear only once")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -24596,6 +23816,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -24605,7 +23826,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: param
                 var _tmp1 = Param();
@@ -24613,7 +23834,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '='
                 var a = Expect("=");
@@ -24621,17 +23842,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "var-keyword argument cannot have default value")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "var-keyword argument cannot have default value")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -24641,7 +23861,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: param
                 var _tmp1 = Param();
@@ -24649,7 +23869,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp2 = Expect(",");
@@ -24657,7 +23877,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: param
                 var a = Param();
@@ -24665,15 +23885,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "arguments cannot follow var-keyword argument")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "arguments cannot follow var-keyword argument")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -24683,7 +23904,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: param
                 var _tmp1 = Param();
@@ -24691,7 +23912,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp2 = Expect(",");
@@ -24699,7 +23920,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Group: ('*' | '**' | '/')
                 object? a = null;
@@ -24707,58 +23928,43 @@ namespace SharpPy.Generated
                 // Try group alternative 1: '*'
                 {
                     _position = _group_mark_a;
-                    // Expect '*'
                     var _group_alt0_a_item0 = Expect("*");
-                    if (_group_alt0_a_item0 == null)
+                    if (_group_alt0_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        a = _group_alt0_a_item0;
                     }
-                    // Group alternative 1 succeeded
-                    a = _group_alt0_a_item0;
-                    goto group_success_a;
                 }
                 // Try group alternative 2: '**'
+                if (a == null)
                 {
                     _position = _group_mark_a;
-                    // Expect '**'
                     var _group_alt1_a_item0 = Expect("**");
-                    if (_group_alt1_a_item0 == null)
+                    if (_group_alt1_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        a = _group_alt1_a_item0;
                     }
-                    // Group alternative 2 succeeded
-                    a = _group_alt1_a_item0;
-                    goto group_success_a;
                 }
                 // Try group alternative 3: '/'
+                if (a == null)
                 {
                     _position = _group_mark_a;
-                    // Expect '/'
                     var _group_alt2_a_item0 = Expect("/");
-                    if (_group_alt2_a_item0 == null)
+                    if (_group_alt2_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        a = _group_alt2_a_item0;
                     }
-                    // Group alternative 3 succeeded
-                    a = _group_alt2_a_item0;
-                    goto group_success_a;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success_a: ; // Group succeeded
+                if (a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "arguments cannot follow var-keyword argument")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "arguments cannot follow var-keyword argument")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -24786,6 +23992,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -24795,17 +24002,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_singleton_seq(p, a)
                 // TODO: Complex action expression: _PyPegen_singleton_seq(p, a)
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -24820,7 +24026,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -24834,12 +24040,12 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -24867,6 +24073,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -24876,7 +24083,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp0 = Expect(",");
@@ -24884,17 +24091,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "at least one argument must precede /")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "at least one argument must precede /")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -24904,38 +24110,28 @@ namespace SharpPy.Generated
                 // Try group alternative 1: lambda_slash_no_default
                 {
                     _position = _group_mark__tmp0;
-                    // Call rule: lambda_slash_no_default
                     var _group_alt0__tmp0_item0 = LambdaSlashNoDefault();
-                    if (_group_alt0__tmp0_item0 == null)
+                    if (_group_alt0__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp0 = _group_alt0__tmp0_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _tmp0 = _group_alt0__tmp0_item0;
-                    goto group_success__tmp0;
                 }
                 // Try group alternative 2: lambda_slash_with_default
+                if (_tmp0 == null)
                 {
                     _position = _group_mark__tmp0;
-                    // Call rule: lambda_slash_with_default
                     var _group_alt1__tmp0_item0 = LambdaSlashWithDefault();
-                    if (_group_alt1__tmp0_item0 == null)
+                    if (_group_alt1__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp0 = _group_alt1__tmp0_item0;
                     }
-                    // Group alternative 2 succeeded
-                    _tmp0 = _group_alt1__tmp0_item0;
-                    goto group_success__tmp0;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__tmp0: ; // Group succeeded
+                if (_tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Zero or more: lambda_param_maybe_default*
                 var _tmp1 = new System.Collections.Generic.List<object?>();
                 while (true)
@@ -24947,7 +24143,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp1 == null)
                     {
@@ -24963,15 +24159,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "/ may appear only once")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "/ may appear only once")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -24983,7 +24180,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
@@ -25002,7 +24199,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp1 == null)
                     {
@@ -25018,7 +24215,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: lambda_param_no_default
                 var a = LambdaParamNoDefault();
@@ -25026,15 +24223,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "parameter without a default follows parameter with a default")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "parameter without a default follows parameter with a default")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -25049,7 +24247,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -25065,7 +24263,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: ','*
                 var _tmp1 = new System.Collections.Generic.List<object?>();
@@ -25078,7 +24276,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp1 == null)
                     {
@@ -25099,7 +24297,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp2 == null)
                     {
@@ -25113,7 +24311,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [',']
                 int _opt_mark__tmp3 = _position;
@@ -25123,7 +24321,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? _tmp3 = _opt__tmp3;
                 if (_tmp3 == null)
@@ -25137,15 +24335,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "Lambda expression parameters cannot be parenthesized")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "Lambda expression parameters cannot be parenthesized")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 5
+            do
             {
                 _position = _mark;
 
@@ -25157,38 +24356,28 @@ namespace SharpPy.Generated
                 // Try group alternative 1: lambda_slash_no_default
                 {
                     _position = _group_mark__opt__tmp0;
-                    // Call rule: lambda_slash_no_default
                     var _group_alt0__opt__tmp0_item0 = LambdaSlashNoDefault();
-                    if (_group_alt0__opt__tmp0_item0 == null)
+                    if (_group_alt0__opt__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt__tmp0 = _group_alt0__opt__tmp0_item0;
-                    goto group_success__opt__tmp0;
                 }
                 // Try group alternative 2: lambda_slash_with_default
+                if (_opt__tmp0 == null)
                 {
                     _position = _group_mark__opt__tmp0;
-                    // Call rule: lambda_slash_with_default
                     var _group_alt1__opt__tmp0_item0 = LambdaSlashWithDefault();
-                    if (_group_alt1__opt__tmp0_item0 == null)
+                    if (_group_alt1__opt__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt__tmp0 = _group_alt1__opt__tmp0_item0;
                     }
-                    // Group alternative 2 succeeded
-                    _opt__tmp0 = _group_alt1__opt__tmp0_item0;
-                    goto group_success__opt__tmp0;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp0: ; // Group succeeded
+                if (_opt__tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
@@ -25206,7 +24395,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp1 == null)
                     {
@@ -25222,7 +24411,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Group: (',' | lambda_param_no_default)
                 object? _tmp3 = null;
@@ -25230,38 +24419,28 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ','
                 {
                     _position = _group_mark__tmp3;
-                    // Expect ','
                     var _group_alt0__tmp3_item0 = Expect(",");
-                    if (_group_alt0__tmp3_item0 == null)
+                    if (_group_alt0__tmp3_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp3 = _group_alt0__tmp3_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _tmp3 = _group_alt0__tmp3_item0;
-                    goto group_success__tmp3;
                 }
                 // Try group alternative 2: lambda_param_no_default
+                if (_tmp3 == null)
                 {
                     _position = _group_mark__tmp3;
-                    // Call rule: lambda_param_no_default
                     var _group_alt1__tmp3_item0 = LambdaParamNoDefault();
-                    if (_group_alt1__tmp3_item0 == null)
+                    if (_group_alt1__tmp3_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp3 = _group_alt1__tmp3_item0;
                     }
-                    // Group alternative 2 succeeded
-                    _tmp3 = _group_alt1__tmp3_item0;
-                    goto group_success__tmp3;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__tmp3: ; // Group succeeded
+                if (_tmp3 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Zero or more: lambda_param_maybe_default*
                 var _tmp4 = new System.Collections.Generic.List<object?>();
                 while (true)
@@ -25273,7 +24452,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp4 == null)
                     {
@@ -25289,15 +24468,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "/ must be ahead of *")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "/ must be ahead of *")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 6
+            do
             {
                 _position = _mark;
 
@@ -25312,7 +24492,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -25326,7 +24506,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '/'
                 var _tmp1 = Expect("/");
@@ -25334,7 +24514,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '*'
                 var a = Expect("*");
@@ -25342,13 +24522,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "expected comma between / and *")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "expected comma between / and *")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -25376,6 +24556,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -25385,17 +24566,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: _PyPegen_singleton_seq(p, a)
                 // TODO: Complex action expression: _PyPegen_singleton_seq(p, a)
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -25410,7 +24590,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -25424,12 +24604,12 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -25457,6 +24637,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -25466,7 +24647,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Group: (':' | ',' (':' | '**'))
                 object? _tmp1 = null;
@@ -25474,85 +24655,41 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ':'
                 {
                     _position = _group_mark__tmp1;
-                    // Expect ':'
                     var _group_alt0__tmp1_item0 = Expect(":");
-                    if (_group_alt0__tmp1_item0 == null)
+                    if (_group_alt0__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp1 = _group_alt0__tmp1_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _tmp1 = _group_alt0__tmp1_item0;
-                    goto group_success__tmp1;
                 }
                 // Try group alternative 2: ',' (':' | '**')
+                if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    // Expect ','
                     var _group_alt1__tmp1_item0 = Expect(",");
-                    if (_group_alt1__tmp1_item0 == null)
+                    if (_group_alt1__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Group: (':' | '**')
-                    object? _group_alt1__tmp1_item1 = null;
-                    int _group_mark__group_alt1__tmp1_item1 = _position;
-                    // Try group alternative 1: ':'
-                    {
-                        _position = _group_mark__group_alt1__tmp1_item1;
-                        // Expect ':'
-                        var _group_alt0__group_alt1__tmp1_item1_item0 = Expect(":");
-                        if (_group_alt0__group_alt1__tmp1_item1_item0 == null)
+                        object? _group_alt1__tmp1_item1 = null;
+                        // TODO: Complex group item type: Group
+                        if (_group_alt1__tmp1_item1 != null)
                         {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
+                            _tmp1 = _group_alt1__tmp1_item1;
                         }
-                        // Group alternative 1 succeeded
-                        _group_alt1__tmp1_item1 = _group_alt0__group_alt1__tmp1_item1_item0;
-                        goto group_success__group_alt1__tmp1_item1;
                     }
-                    // Try group alternative 2: '**'
-                    {
-                        _position = _group_mark__group_alt1__tmp1_item1;
-                        // Expect '**'
-                        var _group_alt1__group_alt1__tmp1_item1_item0 = Expect("**");
-                        if (_group_alt1__group_alt1__tmp1_item1_item0 == null)
-                        {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
-                        }
-                        // Group alternative 2 succeeded
-                        _group_alt1__tmp1_item1 = _group_alt1__group_alt1__tmp1_item1_item0;
-                        goto group_success__group_alt1__tmp1_item1;
-                    }
-                    // All group alternatives failed
+                }
+                if (_tmp1 == null)
+                {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
-                    group_success__group_alt1__tmp1_item1: ; // Group succeeded
-                    // Group alternative 2 succeeded
-                    _tmp1 = _group_alt1__tmp1_item1;
-                    goto group_success__tmp1;
+                    break;  // Exit this alternative
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__tmp1: ; // Group succeeded
                 // Action: RAISE_SYNTAX_ERROR("named arguments must follow bare *")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR("named arguments must follow bare *")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -25562,7 +24699,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: lambda_param
                 var _tmp1 = LambdaParam();
@@ -25570,7 +24707,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '='
                 var a = Expect("=");
@@ -25578,15 +24715,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "var-positional argument cannot have default value")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "var-positional argument cannot have default value")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -25596,7 +24734,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Group: (lambda_param_no_default | ',')
                 object? _tmp1 = null;
@@ -25604,38 +24742,28 @@ namespace SharpPy.Generated
                 // Try group alternative 1: lambda_param_no_default
                 {
                     _position = _group_mark__tmp1;
-                    // Call rule: lambda_param_no_default
                     var _group_alt0__tmp1_item0 = LambdaParamNoDefault();
-                    if (_group_alt0__tmp1_item0 == null)
+                    if (_group_alt0__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp1 = _group_alt0__tmp1_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _tmp1 = _group_alt0__tmp1_item0;
-                    goto group_success__tmp1;
                 }
                 // Try group alternative 2: ','
+                if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    // Expect ','
                     var _group_alt1__tmp1_item0 = Expect(",");
-                    if (_group_alt1__tmp1_item0 == null)
+                    if (_group_alt1__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp1 = _group_alt1__tmp1_item0;
                     }
-                    // Group alternative 2 succeeded
-                    _tmp1 = _group_alt1__tmp1_item0;
-                    goto group_success__tmp1;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__tmp1: ; // Group succeeded
+                if (_tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Zero or more: lambda_param_maybe_default*
                 var _tmp2 = new System.Collections.Generic.List<object?>();
                 while (true)
@@ -25647,7 +24775,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp2 == null)
                     {
@@ -25663,7 +24791,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Group: (lambda_param_no_default | ',')
                 object? _tmp3 = null;
@@ -25671,43 +24799,33 @@ namespace SharpPy.Generated
                 // Try group alternative 1: lambda_param_no_default
                 {
                     _position = _group_mark__tmp3;
-                    // Call rule: lambda_param_no_default
                     var _group_alt0__tmp3_item0 = LambdaParamNoDefault();
-                    if (_group_alt0__tmp3_item0 == null)
+                    if (_group_alt0__tmp3_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp3 = _group_alt0__tmp3_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _tmp3 = _group_alt0__tmp3_item0;
-                    goto group_success__tmp3;
                 }
                 // Try group alternative 2: ','
+                if (_tmp3 == null)
                 {
                     _position = _group_mark__tmp3;
-                    // Expect ','
                     var _group_alt1__tmp3_item0 = Expect(",");
-                    if (_group_alt1__tmp3_item0 == null)
+                    if (_group_alt1__tmp3_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp3 = _group_alt1__tmp3_item0;
                     }
-                    // Group alternative 2 succeeded
-                    _tmp3 = _group_alt1__tmp3_item0;
-                    goto group_success__tmp3;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__tmp3: ; // Group succeeded
+                if (_tmp3 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "* argument may appear only once")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "* argument may appear only once")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -25735,6 +24853,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -25744,7 +24863,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: lambda_param
                 var _tmp1 = LambdaParam();
@@ -25752,7 +24871,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '='
                 var a = Expect("=");
@@ -25760,17 +24879,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "var-keyword argument cannot have default value")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "var-keyword argument cannot have default value")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -25780,7 +24898,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: lambda_param
                 var _tmp1 = LambdaParam();
@@ -25788,7 +24906,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp2 = Expect(",");
@@ -25796,7 +24914,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: lambda_param
                 var a = LambdaParam();
@@ -25804,15 +24922,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "arguments cannot follow var-keyword argument")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "arguments cannot follow var-keyword argument")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -25822,7 +24941,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: lambda_param
                 var _tmp1 = LambdaParam();
@@ -25830,7 +24949,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp2 = Expect(",");
@@ -25838,7 +24957,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Group: ('*' | '**' | '/')
                 object? a = null;
@@ -25846,58 +24965,43 @@ namespace SharpPy.Generated
                 // Try group alternative 1: '*'
                 {
                     _position = _group_mark_a;
-                    // Expect '*'
                     var _group_alt0_a_item0 = Expect("*");
-                    if (_group_alt0_a_item0 == null)
+                    if (_group_alt0_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        a = _group_alt0_a_item0;
                     }
-                    // Group alternative 1 succeeded
-                    a = _group_alt0_a_item0;
-                    goto group_success_a;
                 }
                 // Try group alternative 2: '**'
+                if (a == null)
                 {
                     _position = _group_mark_a;
-                    // Expect '**'
                     var _group_alt1_a_item0 = Expect("**");
-                    if (_group_alt1_a_item0 == null)
+                    if (_group_alt1_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        a = _group_alt1_a_item0;
                     }
-                    // Group alternative 2 succeeded
-                    a = _group_alt1_a_item0;
-                    goto group_success_a;
                 }
                 // Try group alternative 3: '/'
+                if (a == null)
                 {
                     _position = _group_mark_a;
-                    // Expect '/'
                     var _group_alt2_a_item0 = Expect("/");
-                    if (_group_alt2_a_item0 == null)
+                    if (_group_alt2_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        a = _group_alt2_a_item0;
                     }
-                    // Group alternative 3 succeeded
-                    a = _group_alt2_a_item0;
-                    goto group_success_a;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success_a: ; // Group succeeded
+                if (a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "arguments cannot follow var-keyword argument")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "arguments cannot follow var-keyword argument")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -25925,6 +25029,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -25934,7 +25039,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp1 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -25942,7 +25047,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: TYPE_COMMENT
                 var _tmp2 = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
@@ -25950,7 +25055,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp3 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -25958,7 +25063,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: INDENT
                 var _tmp4 = ExpectToken(GeneratedTokenType.INDENT);
@@ -25966,16 +25071,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR("Cannot have two type comments on def")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR("Cannot have two type comments on def")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -26002,6 +25105,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -26011,7 +25115,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'as'
                 var _tmp1 = Expect("as");
@@ -26019,7 +25123,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var a = Expression();
@@ -26027,20 +25131,18 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_78 = _position;
+                int _lookahead_mark_71 = _position;
                 // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_78; // Restore position
+                _position = _lookahead_mark_71; // Restore position
                 // Action: RAISE_SYNTAX_ERROR_INVALID_TARGET(STAR_TARGETS, a)
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_INVALID_TARGET(STAR_TARGETS, a)
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -26067,6 +25169,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -26078,7 +25181,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
@@ -26092,7 +25195,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: star_expressions
                 var a = StarExpressions();
@@ -26100,16 +25203,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_INVALID_TARGET(FOR_TARGETS, a)
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_INVALID_TARGET(FOR_TARGETS, a)
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -26136,6 +25237,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -26145,7 +25247,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: starred_expression
                 var a = StarredExpression();
@@ -26153,7 +25255,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ')'
                 var _tmp1 = Expect(")");
@@ -26161,17 +25263,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "cannot use starred expression here")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "cannot use starred expression here")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -26181,7 +25282,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '**'
                 var a = Expect("**");
@@ -26189,7 +25290,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var _tmp1 = Expression();
@@ -26197,7 +25298,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ')'
                 var _tmp2 = Expect(")");
@@ -26205,13 +25306,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "cannot use double starred expression here")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "cannot use double starred expression here")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -26239,6 +25340,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -26248,7 +25350,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: ','*
                 var _tmp0 = new System.Collections.Generic.List<object?>();
@@ -26261,7 +25363,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -26282,7 +25384,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp1 == null)
                     {
@@ -26296,7 +25398,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'from'
                 var _tmp2 = Expect("from");
@@ -26304,7 +25406,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: dotted_name
                 var _tmp3 = DottedName();
@@ -26312,16 +25414,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_STARTING_FROM(a, "Did you mean to use 'from ... import ...' instead?")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_STARTING_FROM(a, "Did you mean to use 'from ... import ...' instead?")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -26348,6 +25448,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -26357,7 +25458,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp1 = Expect(",");
@@ -26365,7 +25466,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp2 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -26373,16 +25474,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR("trailing comma not allowed without surrounding parentheses")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR("trailing comma not allowed without surrounding parentheses")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -26409,6 +25508,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -26420,23 +25520,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ASYNC
                 {
                     _position = _group_mark__opt__tmp0;
-                    // Expect token: ASYNC
                     var _group_alt0__opt__tmp0_item0 = ExpectToken(GeneratedTokenType.ASYNC);
-                    if (_group_alt0__opt__tmp0_item0 == null)
+                    if (_group_alt0__opt__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt__tmp0 = _group_alt0__opt__tmp0_item0;
-                    goto group_success__opt__tmp0;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp0: ; // Group succeeded
+                if (_opt__tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
@@ -26449,7 +25544,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: ','*
                 var _tmp2 = new System.Collections.Generic.List<object?>();
@@ -26462,7 +25557,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp2 == null)
                     {
@@ -26480,11 +25575,12 @@ namespace SharpPy.Generated
                     // Group: ()
                     object? _loop_elem__tmp3 = null;
                     int _group_mark__loop_elem__tmp3 = _position;
-                    // All group alternatives failed
-                    _position = _mark;
-                    _res = null;
-                    goto alternative_failed;
-                    group_success__loop_elem__tmp3: ; // Group succeeded
+                    if (_loop_elem__tmp3 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
                     if (_loop_elem__tmp3 == null)
                     {
                         _position = _loop_mark; // Reset to before failed attempt
@@ -26497,7 +25593,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp4 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -26505,17 +25601,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR("expected ':'")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR("expected ':'")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -26527,23 +25622,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ASYNC
                 {
                     _position = _group_mark__opt__tmp0;
-                    // Expect token: ASYNC
                     var _group_alt0__opt__tmp0_item0 = ExpectToken(GeneratedTokenType.ASYNC);
-                    if (_group_alt0__opt__tmp0_item0 == null)
+                    if (_group_alt0__opt__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt__tmp0 = _group_alt0__opt__tmp0_item0;
-                    goto group_success__opt__tmp0;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp0: ; // Group succeeded
+                if (_opt__tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
@@ -26556,7 +25646,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '('
                 var _tmp2 = Expect("(");
@@ -26564,7 +25654,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: ','*
                 var _tmp3 = new System.Collections.Generic.List<object?>();
@@ -26577,7 +25667,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp3 == null)
                     {
@@ -26595,11 +25685,12 @@ namespace SharpPy.Generated
                     // Group: ()
                     object? _loop_elem__tmp4 = null;
                     int _group_mark__loop_elem__tmp4 = _position;
-                    // All group alternatives failed
-                    _position = _mark;
-                    _res = null;
-                    goto alternative_failed;
-                    group_success__loop_elem__tmp4: ; // Group succeeded
+                    if (_loop_elem__tmp4 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
                     if (_loop_elem__tmp4 == null)
                     {
                         _position = _loop_mark; // Reset to before failed attempt
@@ -26612,7 +25703,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [',']
                 int _opt_mark__tmp5 = _position;
@@ -26622,7 +25713,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? _tmp5 = _opt__tmp5;
                 if (_tmp5 == null)
@@ -26636,7 +25727,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp7 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -26644,13 +25735,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR("expected ':'")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR("expected ':'")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -26678,6 +25769,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -26689,23 +25781,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ASYNC
                 {
                     _position = _group_mark__opt__tmp0;
-                    // Expect token: ASYNC
                     var _group_alt0__opt__tmp0_item0 = ExpectToken(GeneratedTokenType.ASYNC);
-                    if (_group_alt0__opt__tmp0_item0 == null)
+                    if (_group_alt0__opt__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt__tmp0 = _group_alt0__opt__tmp0_item0;
-                    goto group_success__opt__tmp0;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp0: ; // Group succeeded
+                if (_opt__tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
@@ -26718,7 +25805,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: ','*
                 var _tmp1 = new System.Collections.Generic.List<object?>();
@@ -26731,7 +25818,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp1 == null)
                     {
@@ -26749,11 +25836,12 @@ namespace SharpPy.Generated
                     // Group: ()
                     object? _loop_elem__tmp2 = null;
                     int _group_mark__loop_elem__tmp2 = _position;
-                    // All group alternatives failed
-                    _position = _mark;
-                    _res = null;
-                    goto alternative_failed;
-                    group_success__loop_elem__tmp2: ; // Group succeeded
+                    if (_loop_elem__tmp2 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
                     if (_loop_elem__tmp2 == null)
                     {
                         _position = _loop_mark; // Reset to before failed attempt
@@ -26766,7 +25854,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp3 = Expect(":");
@@ -26774,7 +25862,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp4 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -26782,21 +25870,20 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_79 = _position;
+                int _lookahead_mark_72 = _position;
                 // TODO: Parse lookahead content for RuleRef, fail if succeeds
-                _position = _lookahead_mark_79; // Restore position
+                _position = _lookahead_mark_72; // Restore position
                 // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'with' statement on line %d", a->lineno)
                 // TODO: Complex action expression: RAISE_INDENTATION_ERROR("expected an indented block after 'with' statement on line %d", a->lineno)
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -26808,23 +25895,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ASYNC
                 {
                     _position = _group_mark__opt__tmp0;
-                    // Expect token: ASYNC
                     var _group_alt0__opt__tmp0_item0 = ExpectToken(GeneratedTokenType.ASYNC);
-                    if (_group_alt0__opt__tmp0_item0 == null)
+                    if (_group_alt0__opt__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt__tmp0 = _group_alt0__opt__tmp0_item0;
-                    goto group_success__opt__tmp0;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp0: ; // Group succeeded
+                if (_opt__tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
@@ -26837,7 +25919,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '('
                 var _tmp1 = Expect("(");
@@ -26845,7 +25927,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: ','*
                 var _tmp2 = new System.Collections.Generic.List<object?>();
@@ -26858,7 +25940,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp2 == null)
                     {
@@ -26876,11 +25958,12 @@ namespace SharpPy.Generated
                     // Group: ()
                     object? _loop_elem__tmp3 = null;
                     int _group_mark__loop_elem__tmp3 = _position;
-                    // All group alternatives failed
-                    _position = _mark;
-                    _res = null;
-                    goto alternative_failed;
-                    group_success__loop_elem__tmp3: ; // Group succeeded
+                    if (_loop_elem__tmp3 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
                     if (_loop_elem__tmp3 == null)
                     {
                         _position = _loop_mark; // Reset to before failed attempt
@@ -26893,7 +25976,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [',']
                 int _opt_mark__tmp4 = _position;
@@ -26903,7 +25986,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? _tmp4 = _opt__tmp4;
                 if (_tmp4 == null)
@@ -26917,7 +26000,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp6 = Expect(":");
@@ -26925,7 +26008,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp7 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -26933,17 +26016,17 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_80 = _position;
+                int _lookahead_mark_73 = _position;
                 // TODO: Parse lookahead content for RuleRef, fail if succeeds
-                _position = _lookahead_mark_80; // Restore position
+                _position = _lookahead_mark_73; // Restore position
                 // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'with' statement on line %d", a->lineno)
                 // TODO: Complex action expression: RAISE_INDENTATION_ERROR("expected an indented block after 'with' statement on line %d", a->lineno)
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -26971,6 +26054,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -26980,7 +26064,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp0 = Expect(":");
@@ -26988,7 +26072,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp1 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -26996,21 +26080,20 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_81 = _position;
+                int _lookahead_mark_74 = _position;
                 // TODO: Parse lookahead content for RuleRef, fail if succeeds
-                _position = _lookahead_mark_81; // Restore position
+                _position = _lookahead_mark_74; // Restore position
                 // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'try' statement on line %d", a->lineno)
                 // TODO: Complex action expression: RAISE_INDENTATION_ERROR("expected an indented block after 'try' statement on line %d", a->lineno)
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -27020,7 +26103,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp1 = Expect(":");
@@ -27028,7 +26111,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: block
                 var _tmp2 = Block();
@@ -27036,19 +26119,20 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_82 = _position;
+                int _lookahead_mark_75 = _position;
                 // TODO: Parse lookahead content for Group, fail if succeeds
-                _position = _lookahead_mark_82; // Restore position
+                _position = _lookahead_mark_75; // Restore position
                 // Action: RAISE_SYNTAX_ERROR("expected 'except' or 'finally' block")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR("expected 'except' or 'finally' block")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -27058,7 +26142,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp1 = Expect(":");
@@ -27066,7 +26150,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: block*
                 var _tmp2 = new System.Collections.Generic.List<object?>();
@@ -27079,7 +26163,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp2 == null)
                     {
@@ -27100,7 +26184,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp3 == null)
                     {
@@ -27114,7 +26198,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'except'
                 var a = Expect("except");
@@ -27122,7 +26206,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '*'
                 var b = Expect("*");
@@ -27130,7 +26214,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var expression = Expect(":");
@@ -27138,15 +26222,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "cannot have both 'except' and 'except*' on the same 'try'")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "cannot have both 'except' and 'except*' on the same 'try'")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -27156,7 +26241,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp1 = Expect(":");
@@ -27164,7 +26249,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: block*
                 var _tmp2 = new System.Collections.Generic.List<object?>();
@@ -27177,7 +26262,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp2 == null)
                     {
@@ -27198,7 +26283,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp3 == null)
                     {
@@ -27212,7 +26297,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'except'
                 var a = Expect("except");
@@ -27220,7 +26305,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [()]
                 int _opt_mark__tmp4 = _position;
@@ -27231,11 +26316,12 @@ namespace SharpPy.Generated
                 {
                     _position = _group_mark__opt__tmp4;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp4: ; // Group succeeded
+                if (_opt__tmp4 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp4 = _opt__tmp4;
                 if (_tmp4 == null)
                 {
@@ -27248,13 +26334,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "cannot have both 'except' and 'except*' on the same 'try'")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "cannot have both 'except' and 'except*' on the same 'try'")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -27282,6 +26368,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -27291,7 +26378,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: ['*']
                 int _opt_mark__tmp1 = _position;
@@ -27301,7 +26388,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
@@ -27315,7 +26402,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp2 = Expect(",");
@@ -27323,7 +26410,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var expressions = Expect(":");
@@ -27331,17 +26418,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_STARTING_FROM(a, "multiple exception types must be parenthesized")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_STARTING_FROM(a, "multiple exception types must be parenthesized")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -27351,7 +26437,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: ['*']
                 int _opt_mark__tmp0 = _position;
@@ -27361,7 +26447,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
@@ -27375,15 +26461,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR("expected ':'")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR("expected ':'")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -27393,7 +26480,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp0 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -27401,15 +26488,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR("expected ':'")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR("expected ':'")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -27419,7 +26507,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '*'
                 var _tmp0 = Expect("*");
@@ -27427,7 +26515,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Group: (NEWLINE | ':')
                 object? _tmp1 = null;
@@ -27435,43 +26523,33 @@ namespace SharpPy.Generated
                 // Try group alternative 1: NEWLINE
                 {
                     _position = _group_mark__tmp1;
-                    // Expect token: NEWLINE
                     var _group_alt0__tmp1_item0 = ExpectToken(GeneratedTokenType.NEWLINE);
-                    if (_group_alt0__tmp1_item0 == null)
+                    if (_group_alt0__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp1 = _group_alt0__tmp1_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _tmp1 = _group_alt0__tmp1_item0;
-                    goto group_success__tmp1;
                 }
                 // Try group alternative 2: ':'
+                if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    // Expect ':'
                     var _group_alt1__tmp1_item0 = Expect(":");
-                    if (_group_alt1__tmp1_item0 == null)
+                    if (_group_alt1__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp1 = _group_alt1__tmp1_item0;
                     }
-                    // Group alternative 2 succeeded
-                    _tmp1 = _group_alt1__tmp1_item0;
-                    goto group_success__tmp1;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__tmp1: ; // Group succeeded
+                if (_tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: RAISE_SYNTAX_ERROR("expected one or more exception types")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR("expected one or more exception types")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -27499,6 +26577,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -27508,7 +26587,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp0 = Expect(":");
@@ -27516,7 +26595,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp1 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -27524,20 +26603,18 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_83 = _position;
+                int _lookahead_mark_76 = _position;
                 // TODO: Parse lookahead content for RuleRef, fail if succeeds
-                _position = _lookahead_mark_83; // Restore position
+                _position = _lookahead_mark_76; // Restore position
                 // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'finally' statement on line %d", a->lineno)
                 // TODO: Complex action expression: RAISE_INDENTATION_ERROR("expected an indented block after 'finally' statement on line %d", a->lineno)
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -27564,6 +26641,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -27573,7 +26651,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var expression = Expect(":");
@@ -27581,7 +26659,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp0 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -27589,21 +26667,20 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_84 = _position;
+                int _lookahead_mark_77 = _position;
                 // TODO: Parse lookahead content for RuleRef, fail if succeeds
-                _position = _lookahead_mark_84; // Restore position
+                _position = _lookahead_mark_77; // Restore position
                 // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'except' statement on line %d", a->lineno)
                 // TODO: Complex action expression: RAISE_INDENTATION_ERROR("expected an indented block after 'except' statement on line %d", a->lineno)
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -27613,7 +26690,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp0 = Expect(":");
@@ -27621,7 +26698,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp1 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -27629,17 +26706,17 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_85 = _position;
+                int _lookahead_mark_78 = _position;
                 // TODO: Parse lookahead content for RuleRef, fail if succeeds
-                _position = _lookahead_mark_85; // Restore position
+                _position = _lookahead_mark_78; // Restore position
                 // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'except' statement on line %d", a->lineno)
                 // TODO: Complex action expression: RAISE_INDENTATION_ERROR("expected an indented block after 'except' statement on line %d", a->lineno)
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -27667,6 +26744,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -27676,7 +26754,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '*'
                 var _tmp0 = Expect("*");
@@ -27684,7 +26762,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var expression = Expect(":");
@@ -27692,7 +26770,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp1 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -27700,20 +26778,18 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_86 = _position;
+                int _lookahead_mark_79 = _position;
                 // TODO: Parse lookahead content for RuleRef, fail if succeeds
-                _position = _lookahead_mark_86; // Restore position
+                _position = _lookahead_mark_79; // Restore position
                 // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'except*' statement on line %d", a->lineno)
                 // TODO: Complex action expression: RAISE_INDENTATION_ERROR("expected an indented block after 'except*' statement on line %d", a->lineno)
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -27740,6 +26816,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -27749,7 +26826,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: subject_expr
                 var _tmp1 = SubjectExpr();
@@ -27757,7 +26834,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp2 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -27765,17 +26842,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: CHECK_VERSION(void*, 10, "Pattern matching is", RAISE_SYNTAX_ERROR("expected ':'") )
                 // TODO: Complex action expression: CHECK_VERSION(void*, 10, "Pattern matching is", RAISE_SYNTAX_ERROR("expected ':'") )
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -27785,7 +26861,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: subject_expr
                 var subject = SubjectExpr();
@@ -27793,7 +26869,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp0 = Expect(":");
@@ -27801,7 +26877,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp1 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -27809,17 +26885,17 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_87 = _position;
+                int _lookahead_mark_80 = _position;
                 // TODO: Parse lookahead content for RuleRef, fail if succeeds
-                _position = _lookahead_mark_87; // Restore position
+                _position = _lookahead_mark_80; // Restore position
                 // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'match' statement on line %d", a->lineno)
                 // TODO: Complex action expression: RAISE_INDENTATION_ERROR("expected an indented block after 'match' statement on line %d", a->lineno)
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -27847,6 +26923,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -27856,7 +26933,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: patterns
                 var _tmp1 = Patterns();
@@ -27864,7 +26941,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [guard]
                 int _opt_mark__tmp2 = _position;
@@ -27874,7 +26951,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? _tmp2 = _opt__tmp2;
                 if (_tmp2 == null)
@@ -27888,17 +26965,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR("expected ':'")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR("expected ':'")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -27908,7 +26984,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: patterns
                 var _tmp0 = Patterns();
@@ -27916,7 +26992,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [guard]
                 int _opt_mark__tmp1 = _position;
@@ -27926,7 +27002,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
@@ -27940,7 +27016,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp3 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -27948,17 +27024,17 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_88 = _position;
+                int _lookahead_mark_81 = _position;
                 // TODO: Parse lookahead content for RuleRef, fail if succeeds
-                _position = _lookahead_mark_88; // Restore position
+                _position = _lookahead_mark_81; // Restore position
                 // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'case' statement on line %d", a->lineno)
                 // TODO: Complex action expression: RAISE_INDENTATION_ERROR("expected an indented block after 'case' statement on line %d", a->lineno)
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -27986,6 +27062,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -27995,7 +27072,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'as'
                 var _tmp1 = Expect("as");
@@ -28003,7 +27080,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '\"_\"'
                 var a = Expect("\"_\"");
@@ -28011,17 +27088,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "cannot use '_' as a target")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "cannot use '_' as a target")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -28031,7 +27107,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'as'
                 var _tmp1 = Expect("as");
@@ -28039,25 +27115,25 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_89 = _position;
+                int _lookahead_mark_82 = _position;
                 // TODO: Parse lookahead content for RuleRef, fail if succeeds
-                _position = _lookahead_mark_89; // Restore position
+                _position = _lookahead_mark_82; // Restore position
                 // Call rule: expression
                 var a = Expression();
                 if (a == null)
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "invalid pattern target")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "invalid pattern target")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -28085,6 +27161,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -28094,7 +27171,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '('
                 var _tmp1 = Expect("(");
@@ -28102,7 +27179,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: invalid_class_argument_pattern
                 var a = InvalidClassArgumentPattern();
@@ -28110,7 +27187,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action (multiline):
                 //   RAISE_SYNTAX_ERROR_KNOWN_RANGE(
@@ -28124,10 +27201,8 @@ namespace SharpPy.Generated
                 //   "positional patterns follow keyword patterns")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -28154,6 +27229,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -28165,31 +27241,22 @@ namespace SharpPy.Generated
                 // Try group alternative 1: positional_patterns ','
                 {
                     _position = _group_mark__opt__tmp0;
-                    // Call rule: positional_patterns
                     var _group_alt0__opt__tmp0_item0 = PositionalPatterns();
-                    if (_group_alt0__opt__tmp0_item0 == null)
+                    if (_group_alt0__opt__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        var _group_alt0__opt__tmp0_item1 = Expect(",");
+                        if (_group_alt0__opt__tmp0_item1 != null)
+                        {
+                            _opt__tmp0 = _group_alt0__opt__tmp0_item1;
+                        }
                     }
-                    // Expect ','
-                    var _group_alt0__opt__tmp0_item1 = Expect(",");
-                    if (_group_alt0__opt__tmp0_item1 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Group alternative 1 succeeded
-                    _opt__tmp0 = _group_alt0__opt__tmp0_item1;
-                    goto group_success__opt__tmp0;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp0: ; // Group succeeded
+                if (_opt__tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
@@ -28202,7 +27269,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp2 = Expect(",");
@@ -28210,7 +27277,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: positional_patterns
                 var a = PositionalPatterns();
@@ -28218,15 +27285,13 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: a
                 _res = (GeneratedSeq)((object?)a);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -28253,6 +27318,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -28262,7 +27328,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: named_expression
                 var _tmp1 = NamedExpression();
@@ -28270,7 +27336,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp2 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -28278,17 +27344,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR("expected ':'")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR("expected ':'")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -28298,7 +27363,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: named_expression
                 var a_2 = NamedExpression();
@@ -28306,7 +27371,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp0 = Expect(":");
@@ -28314,7 +27379,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp1 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -28322,17 +27387,17 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_90 = _position;
+                int _lookahead_mark_83 = _position;
                 // TODO: Parse lookahead content for RuleRef, fail if succeeds
-                _position = _lookahead_mark_90; // Restore position
+                _position = _lookahead_mark_83; // Restore position
                 // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'if' statement on line %d", a->lineno)
                 // TODO: Complex action expression: RAISE_INDENTATION_ERROR("expected an indented block after 'if' statement on line %d", a->lineno)
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -28360,6 +27425,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -28369,7 +27435,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: named_expression
                 var _tmp1 = NamedExpression();
@@ -28377,7 +27443,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp2 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -28385,17 +27451,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR("expected ':'")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR("expected ':'")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -28405,7 +27470,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: named_expression
                 var _tmp0 = NamedExpression();
@@ -28413,7 +27478,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp1 = Expect(":");
@@ -28421,7 +27486,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp2 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -28429,17 +27494,17 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_91 = _position;
+                int _lookahead_mark_84 = _position;
                 // TODO: Parse lookahead content for RuleRef, fail if succeeds
-                _position = _lookahead_mark_91; // Restore position
+                _position = _lookahead_mark_84; // Restore position
                 // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'elif' statement on line %d", a->lineno)
                 // TODO: Complex action expression: RAISE_INDENTATION_ERROR("expected an indented block after 'elif' statement on line %d", a->lineno)
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -28467,6 +27532,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -28476,7 +27542,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp0 = Expect(":");
@@ -28484,7 +27550,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp1 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -28492,20 +27558,18 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_92 = _position;
+                int _lookahead_mark_85 = _position;
                 // TODO: Parse lookahead content for RuleRef, fail if succeeds
-                _position = _lookahead_mark_92; // Restore position
+                _position = _lookahead_mark_85; // Restore position
                 // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'else' statement on line %d", a->lineno)
                 // TODO: Complex action expression: RAISE_INDENTATION_ERROR("expected an indented block after 'else' statement on line %d", a->lineno)
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -28532,6 +27596,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -28541,7 +27606,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: named_expression
                 var _tmp1 = NamedExpression();
@@ -28549,7 +27614,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp2 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -28557,17 +27622,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR("expected ':'")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR("expected ':'")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -28577,7 +27641,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: named_expression
                 var _tmp0 = NamedExpression();
@@ -28585,7 +27649,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp1 = Expect(":");
@@ -28593,7 +27657,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp2 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -28601,17 +27665,17 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_93 = _position;
+                int _lookahead_mark_86 = _position;
                 // TODO: Parse lookahead content for RuleRef, fail if succeeds
-                _position = _lookahead_mark_93; // Restore position
+                _position = _lookahead_mark_86; // Restore position
                 // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'while' statement on line %d", a->lineno)
                 // TODO: Complex action expression: RAISE_INDENTATION_ERROR("expected an indented block after 'while' statement on line %d", a->lineno)
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -28639,6 +27703,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -28650,23 +27715,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ASYNC
                 {
                     _position = _group_mark__opt__tmp0;
-                    // Expect token: ASYNC
                     var _group_alt0__opt__tmp0_item0 = ExpectToken(GeneratedTokenType.ASYNC);
-                    if (_group_alt0__opt__tmp0_item0 == null)
+                    if (_group_alt0__opt__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt__tmp0 = _group_alt0__opt__tmp0_item0;
-                    goto group_success__opt__tmp0;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp0: ; // Group succeeded
+                if (_opt__tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
@@ -28679,7 +27739,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: star_targets
                 var _tmp2 = StarTargets();
@@ -28687,7 +27747,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'in'
                 var _tmp3 = Expect("in");
@@ -28695,7 +27755,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: star_expressions
                 var _tmp4 = StarExpressions();
@@ -28703,7 +27763,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp5 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -28711,17 +27771,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR("expected ':'")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR("expected ':'")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -28733,23 +27792,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ASYNC
                 {
                     _position = _group_mark__opt__tmp0;
-                    // Expect token: ASYNC
                     var _group_alt0__opt__tmp0_item0 = ExpectToken(GeneratedTokenType.ASYNC);
-                    if (_group_alt0__opt__tmp0_item0 == null)
+                    if (_group_alt0__opt__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt__tmp0 = _group_alt0__opt__tmp0_item0;
-                    goto group_success__opt__tmp0;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp0: ; // Group succeeded
+                if (_opt__tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
@@ -28762,7 +27816,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: star_targets
                 var _tmp1 = StarTargets();
@@ -28770,7 +27824,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect 'in'
                 var _tmp2 = Expect("in");
@@ -28778,7 +27832,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: star_expressions
                 var _tmp3 = StarExpressions();
@@ -28786,7 +27840,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp4 = Expect(":");
@@ -28794,7 +27848,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp5 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -28802,17 +27856,17 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_94 = _position;
+                int _lookahead_mark_87 = _position;
                 // TODO: Parse lookahead content for RuleRef, fail if succeeds
-                _position = _lookahead_mark_94; // Restore position
+                _position = _lookahead_mark_87; // Restore position
                 // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'for' statement on line %d", a->lineno)
                 // TODO: Complex action expression: RAISE_INDENTATION_ERROR("expected an indented block after 'for' statement on line %d", a->lineno)
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -28840,6 +27894,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -28851,23 +27906,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ASYNC
                 {
                     _position = _group_mark__opt__tmp0;
-                    // Expect token: ASYNC
                     var _group_alt0__opt__tmp0_item0 = ExpectToken(GeneratedTokenType.ASYNC);
-                    if (_group_alt0__opt__tmp0_item0 == null)
+                    if (_group_alt0__opt__tmp0_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt__tmp0 = _group_alt0__opt__tmp0_item0;
-                    goto group_success__opt__tmp0;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp0: ; // Group succeeded
+                if (_opt__tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
@@ -28880,7 +27930,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '('
                 var NAME = Expect("(");
@@ -28888,7 +27938,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [(params)]
                 int _opt_mark__tmp1 = _position;
@@ -28898,23 +27948,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: params
                 {
                     _position = _group_mark__opt__tmp1;
-                    // Call rule: params
                     var _group_alt0__opt__tmp1_item0 = Params();
-                    if (_group_alt0__opt__tmp1_item0 == null)
+                    if (_group_alt0__opt__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _opt__tmp1 = _group_alt0__opt__tmp1_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _opt__tmp1 = _group_alt0__opt__tmp1_item0;
-                    goto group_success__opt__tmp1;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp1: ; // Group succeeded
+                if (_opt__tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
                 {
@@ -28927,7 +27972,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [('->' expression)]
                 int _opt_mark__tmp3 = _position;
@@ -28937,31 +27982,22 @@ namespace SharpPy.Generated
                 // Try group alternative 1: '->' expression
                 {
                     _position = _group_mark__opt__tmp3;
-                    // Expect '->'
                     var _group_alt0__opt__tmp3_item0 = Expect("->");
-                    if (_group_alt0__opt__tmp3_item0 == null)
+                    if (_group_alt0__opt__tmp3_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        var _group_alt0__opt__tmp3_item1 = Expression();
+                        if (_group_alt0__opt__tmp3_item1 != null)
+                        {
+                            _opt__tmp3 = _group_alt0__opt__tmp3_item1;
+                        }
                     }
-                    // Call rule: expression
-                    var _group_alt0__opt__tmp3_item1 = Expression();
-                    if (_group_alt0__opt__tmp3_item1 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Group alternative 1 succeeded
-                    _opt__tmp3 = _group_alt0__opt__tmp3_item1;
-                    goto group_success__opt__tmp3;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp3: ; // Group succeeded
+                if (_opt__tmp3 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp3 = _opt__tmp3;
                 if (_tmp3 == null)
                 {
@@ -28974,7 +28010,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp5 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -28982,20 +28018,18 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_95 = _position;
+                int _lookahead_mark_88 = _position;
                 // TODO: Parse lookahead content for RuleRef, fail if succeeds
-                _position = _lookahead_mark_95; // Restore position
+                _position = _lookahead_mark_88; // Restore position
                 // Action: RAISE_INDENTATION_ERROR("expected an indented block after function definition on line %d", a->lineno)
                 // TODO: Complex action expression: RAISE_INDENTATION_ERROR("expected an indented block after function definition on line %d", a->lineno)
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -29022,6 +28056,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -29031,7 +28066,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [('(' [(arguments)] ')')]
                 int _opt_mark_NAME = _position;
@@ -29041,62 +28076,27 @@ namespace SharpPy.Generated
                 // Try group alternative 1: '(' [(arguments)] ')'
                 {
                     _position = _group_mark__opt_NAME;
-                    // Expect '('
                     var _group_alt0__opt_NAME_item0 = Expect("(");
-                    if (_group_alt0__opt_NAME_item0 == null)
+                    if (_group_alt0__opt_NAME_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Optional: [(arguments)]
-                    int _opt_mark__group_alt0__opt_NAME_item1 = _position;
-                    // Group: (arguments)
-                    object? _opt__group_alt0__opt_NAME_item1 = null;
-                    int _group_mark__opt__group_alt0__opt_NAME_item1 = _position;
-                    // Try group alternative 1: arguments
-                    {
-                        _position = _group_mark__opt__group_alt0__opt_NAME_item1;
-                        // Call rule: arguments
-                        var _group_alt0__opt__group_alt0__opt_NAME_item1_item0 = Arguments();
-                        if (_group_alt0__opt__group_alt0__opt_NAME_item1_item0 == null)
+                        object? _group_alt0__opt_NAME_item1 = null;
+                        // TODO: Complex group item type: Optional
+                        if (_group_alt0__opt_NAME_item1 != null)
                         {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
+                            var _group_alt0__opt_NAME_item2 = Expect(")");
+                            if (_group_alt0__opt_NAME_item2 != null)
+                            {
+                                _opt_NAME = _group_alt0__opt_NAME_item2;
+                            }
                         }
-                        // Group alternative 1 succeeded
-                        _opt__group_alt0__opt_NAME_item1 = _group_alt0__opt__group_alt0__opt_NAME_item1_item0;
-                        goto group_success__opt__group_alt0__opt_NAME_item1;
                     }
-                    // All group alternatives failed
+                }
+                if (_opt_NAME == null)
+                {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
-                    group_success__opt__group_alt0__opt_NAME_item1: ; // Group succeeded
-                    object? _group_alt0__opt_NAME_item1 = _opt__group_alt0__opt_NAME_item1;
-                    if (_group_alt0__opt_NAME_item1 == null)
-                    {
-                        _position = _opt_mark__group_alt0__opt_NAME_item1; // Reset position
-                        _group_alt0__opt_NAME_item1 = null; // Optional not present
-                    }
-                    // Expect ')'
-                    var _group_alt0__opt_NAME_item2 = Expect(")");
-                    if (_group_alt0__opt_NAME_item2 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Group alternative 1 succeeded
-                    _opt_NAME = _group_alt0__opt_NAME_item2;
-                    goto group_success__opt_NAME;
+                    break;  // Exit this alternative
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_NAME: ; // Group succeeded
                 object? NAME = _opt_NAME;
                 if (NAME == null)
                 {
@@ -29109,17 +28109,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR("expected ':'")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR("expected ':'")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -29129,7 +28128,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Optional: [('(' [(arguments)] ')')]
                 int _opt_mark_NAME = _position;
@@ -29139,62 +28138,27 @@ namespace SharpPy.Generated
                 // Try group alternative 1: '(' [(arguments)] ')'
                 {
                     _position = _group_mark__opt_NAME;
-                    // Expect '('
                     var _group_alt0__opt_NAME_item0 = Expect("(");
-                    if (_group_alt0__opt_NAME_item0 == null)
+                    if (_group_alt0__opt_NAME_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Optional: [(arguments)]
-                    int _opt_mark__group_alt0__opt_NAME_item1 = _position;
-                    // Group: (arguments)
-                    object? _opt__group_alt0__opt_NAME_item1 = null;
-                    int _group_mark__opt__group_alt0__opt_NAME_item1 = _position;
-                    // Try group alternative 1: arguments
-                    {
-                        _position = _group_mark__opt__group_alt0__opt_NAME_item1;
-                        // Call rule: arguments
-                        var _group_alt0__opt__group_alt0__opt_NAME_item1_item0 = Arguments();
-                        if (_group_alt0__opt__group_alt0__opt_NAME_item1_item0 == null)
+                        object? _group_alt0__opt_NAME_item1 = null;
+                        // TODO: Complex group item type: Optional
+                        if (_group_alt0__opt_NAME_item1 != null)
                         {
-                            _position = _mark;
-                            _res = null;
-                            goto alternative_failed;
+                            var _group_alt0__opt_NAME_item2 = Expect(")");
+                            if (_group_alt0__opt_NAME_item2 != null)
+                            {
+                                _opt_NAME = _group_alt0__opt_NAME_item2;
+                            }
                         }
-                        // Group alternative 1 succeeded
-                        _opt__group_alt0__opt_NAME_item1 = _group_alt0__opt__group_alt0__opt_NAME_item1_item0;
-                        goto group_success__opt__group_alt0__opt_NAME_item1;
                     }
-                    // All group alternatives failed
+                }
+                if (_opt_NAME == null)
+                {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
-                    group_success__opt__group_alt0__opt_NAME_item1: ; // Group succeeded
-                    object? _group_alt0__opt_NAME_item1 = _opt__group_alt0__opt_NAME_item1;
-                    if (_group_alt0__opt_NAME_item1 == null)
-                    {
-                        _position = _opt_mark__group_alt0__opt_NAME_item1; // Reset position
-                        _group_alt0__opt_NAME_item1 = null; // Optional not present
-                    }
-                    // Expect ')'
-                    var _group_alt0__opt_NAME_item2 = Expect(")");
-                    if (_group_alt0__opt_NAME_item2 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Group alternative 1 succeeded
-                    _opt_NAME = _group_alt0__opt_NAME_item2;
-                    goto group_success__opt_NAME;
+                    break;  // Exit this alternative
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt_NAME: ; // Group succeeded
                 object? NAME = _opt_NAME;
                 if (NAME == null)
                 {
@@ -29207,7 +28171,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect token: NEWLINE
                 var _tmp1 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -29215,17 +28179,17 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_96 = _position;
+                int _lookahead_mark_89 = _position;
                 // TODO: Parse lookahead content for RuleRef, fail if succeeds
-                _position = _lookahead_mark_96; // Restore position
+                _position = _lookahead_mark_89; // Restore position
                 // Action: RAISE_INDENTATION_ERROR("expected an indented block after class definition on line %d", a->lineno)
                 // TODO: Complex action expression: RAISE_INDENTATION_ERROR("expected an indented block after class definition on line %d", a->lineno)
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -29253,6 +28217,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -29267,7 +28232,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp0 == null)
                     {
@@ -29288,7 +28253,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp1 == null)
                     {
@@ -29302,7 +28267,7 @@ namespace SharpPy.Generated
                     // One or more requires at least one match
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ','
                 var _tmp2 = Expect(",");
@@ -29310,7 +28275,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: invalid_kvpair
                 var _tmp3 = InvalidKvpair();
@@ -29318,16 +28283,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -29337,7 +28301,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp1 = Expect(":");
@@ -29345,7 +28309,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '*'
                 var a = Expect("*");
@@ -29353,7 +28317,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
                 var _tmp2 = BitwiseOr();
@@ -29361,15 +28325,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_STARTING_FROM(a, "cannot use a starred expression in a dictionary value")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_STARTING_FROM(a, "cannot use a starred expression in a dictionary value")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -29379,7 +28344,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var a = Expect(":");
@@ -29387,17 +28352,17 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_97 = _position;
+                int _lookahead_mark_90 = _position;
                 // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_97; // Restore position
+                _position = _lookahead_mark_90; // Restore position
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "expression expected after dictionary key and ':'")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "expression expected after dictionary key and ':'")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -29425,6 +28390,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -29434,21 +28400,20 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_98 = _position;
+                int _lookahead_mark_91 = _position;
                 // TODO: Parse lookahead content for Group, fail if succeeds
-                _position = _lookahead_mark_98; // Restore position
+                _position = _lookahead_mark_91; // Restore position
                 // Action: RAISE_ERROR_KNOWN_LOCATION(p, PyExc_SyntaxError, a->lineno, a->end_col_offset - 1, a->end_lineno, -1, "':' expected after dictionary key")
                 // TODO: Complex action expression: RAISE_ERROR_KNOWN_LOCATION(p, PyExc_SyntaxError, a->lineno, a->end_col_offset - 1, a->end_lineno, -1, "':' expected after dictionary key")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -29458,7 +28423,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var _tmp1 = Expect(":");
@@ -29466,7 +28431,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '*'
                 var a = Expect("*");
@@ -29474,7 +28439,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
                 var _tmp2 = BitwiseOr();
@@ -29482,15 +28447,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_STARTING_FROM(a, "cannot use a starred expression in a dictionary value")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_STARTING_FROM(a, "cannot use a starred expression in a dictionary value")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -29500,7 +28466,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var a = Expect(":");
@@ -29508,17 +28474,17 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_99 = _position;
+                int _lookahead_mark_92 = _position;
                 // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_99; // Restore position
+                _position = _lookahead_mark_92; // Restore position
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "expression expected after dictionary key and ':'")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "expression expected after dictionary key and ':'")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -29546,6 +28512,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -29555,7 +28522,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var _tmp0 = Expression();
@@ -29563,7 +28530,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '='
                 var _tmp1 = Expect("=");
@@ -29571,7 +28538,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Call rule: expression
                 var b = Expression();
@@ -29579,16 +28546,14 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "cannot assign to iterable argument unpacking")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "cannot assign to iterable argument unpacking")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             _position = _mark;
             _res = null;
 
@@ -29615,6 +28580,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -29624,7 +28590,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '='
                 var a = Expect("=");
@@ -29632,17 +28598,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "f-string: valid expression required before '='")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "f-string: valid expression required before '='")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -29652,7 +28617,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '!'
                 var a = Expect("!");
@@ -29660,15 +28625,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "f-string: valid expression required before '!'")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "f-string: valid expression required before '!'")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 3
+            do
             {
                 _position = _mark;
 
@@ -29678,7 +28644,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect ':'
                 var a = Expect(":");
@@ -29686,15 +28652,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "f-string: valid expression required before ':'")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "f-string: valid expression required before ':'")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 4
+            do
             {
                 _position = _mark;
 
@@ -29704,7 +28671,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Expect '}'
                 var a = Expect("}");
@@ -29712,15 +28679,16 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "f-string: valid expression required before '}'")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "f-string: valid expression required before '}'")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 5
+            do
             {
                 _position = _mark;
 
@@ -29730,19 +28698,20 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_100 = _position;
+                int _lookahead_mark_93 = _position;
                 // TODO: Parse lookahead content for Group, fail if succeeds
-                _position = _lookahead_mark_100; // Restore position
+                _position = _lookahead_mark_93; // Restore position
                 // Action: RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting a valid expression after '{'")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting a valid expression after '{'")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 6
+            do
             {
                 _position = _mark;
 
@@ -29752,7 +28721,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Group: (yield_expr | star_expressions)
                 object? _tmp1 = null;
@@ -29760,49 +28729,40 @@ namespace SharpPy.Generated
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark__tmp1;
-                    // Call rule: yield_expr
                     var _group_alt0__tmp1_item0 = YieldExpr();
-                    if (_group_alt0__tmp1_item0 == null)
+                    if (_group_alt0__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp1 = _group_alt0__tmp1_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _tmp1 = _group_alt0__tmp1_item0;
-                    goto group_success__tmp1;
                 }
                 // Try group alternative 2: star_expressions
+                if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    // Call rule: star_expressions
                     var _group_alt1__tmp1_item0 = StarExpressions();
-                    if (_group_alt1__tmp1_item0 == null)
+                    if (_group_alt1__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp1 = _group_alt1__tmp1_item0;
                     }
-                    // Group alternative 2 succeeded
-                    _tmp1 = _group_alt1__tmp1_item0;
-                    goto group_success__tmp1;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__tmp1: ; // Group succeeded
+                if (_tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_101 = _position;
+                int _lookahead_mark_94 = _position;
                 // TODO: Parse lookahead content for Group, fail if succeeds
-                _position = _lookahead_mark_101; // Restore position
+                _position = _lookahead_mark_94; // Restore position
                 // Action: PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '=', or '!', or ':', or '}'")
                 // TODO: Complex action expression: PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '=', or '!', or ':', or '}'")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 7
+            do
             {
                 _position = _mark;
 
@@ -29812,7 +28772,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Group: (yield_expr | star_expressions)
                 object? _tmp1 = null;
@@ -29820,57 +28780,48 @@ namespace SharpPy.Generated
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark__tmp1;
-                    // Call rule: yield_expr
                     var _group_alt0__tmp1_item0 = YieldExpr();
-                    if (_group_alt0__tmp1_item0 == null)
+                    if (_group_alt0__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp1 = _group_alt0__tmp1_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _tmp1 = _group_alt0__tmp1_item0;
-                    goto group_success__tmp1;
                 }
                 // Try group alternative 2: star_expressions
+                if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    // Call rule: star_expressions
                     var _group_alt1__tmp1_item0 = StarExpressions();
-                    if (_group_alt1__tmp1_item0 == null)
+                    if (_group_alt1__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp1 = _group_alt1__tmp1_item0;
                     }
-                    // Group alternative 2 succeeded
-                    _tmp1 = _group_alt1__tmp1_item0;
-                    goto group_success__tmp1;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__tmp1: ; // Group succeeded
+                if (_tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Expect '='
                 var _tmp2 = Expect("=");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_102 = _position;
+                int _lookahead_mark_95 = _position;
                 // TODO: Parse lookahead content for Group, fail if succeeds
-                _position = _lookahead_mark_102; // Restore position
+                _position = _lookahead_mark_95; // Restore position
                 // Action: PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '!', or ':', or '}'")
                 // TODO: Complex action expression: PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '!', or ':', or '}'")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 8
+            do
             {
                 _position = _mark;
 
@@ -29880,7 +28831,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Group: (yield_expr | star_expressions)
                 object? _tmp1 = null;
@@ -29888,38 +28839,28 @@ namespace SharpPy.Generated
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark__tmp1;
-                    // Call rule: yield_expr
                     var _group_alt0__tmp1_item0 = YieldExpr();
-                    if (_group_alt0__tmp1_item0 == null)
+                    if (_group_alt0__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp1 = _group_alt0__tmp1_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _tmp1 = _group_alt0__tmp1_item0;
-                    goto group_success__tmp1;
                 }
                 // Try group alternative 2: star_expressions
+                if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    // Call rule: star_expressions
                     var _group_alt1__tmp1_item0 = StarExpressions();
-                    if (_group_alt1__tmp1_item0 == null)
+                    if (_group_alt1__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp1 = _group_alt1__tmp1_item0;
                     }
-                    // Group alternative 2 succeeded
-                    _tmp1 = _group_alt1__tmp1_item0;
-                    goto group_success__tmp1;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__tmp1: ; // Group succeeded
+                if (_tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Optional: ['=']
                 int _opt_mark__tmp2 = _position;
                 // Expect '='
@@ -29928,7 +28869,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? _tmp2 = _opt__tmp2;
                 if (_tmp2 == null)
@@ -29942,14 +28883,15 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 9
+            do
             {
                 _position = _mark;
 
@@ -29959,7 +28901,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Group: (yield_expr | star_expressions)
                 object? _tmp1 = null;
@@ -29967,38 +28909,28 @@ namespace SharpPy.Generated
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark__tmp1;
-                    // Call rule: yield_expr
                     var _group_alt0__tmp1_item0 = YieldExpr();
-                    if (_group_alt0__tmp1_item0 == null)
+                    if (_group_alt0__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp1 = _group_alt0__tmp1_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _tmp1 = _group_alt0__tmp1_item0;
-                    goto group_success__tmp1;
                 }
                 // Try group alternative 2: star_expressions
+                if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    // Call rule: star_expressions
                     var _group_alt1__tmp1_item0 = StarExpressions();
-                    if (_group_alt1__tmp1_item0 == null)
+                    if (_group_alt1__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp1 = _group_alt1__tmp1_item0;
                     }
-                    // Group alternative 2 succeeded
-                    _tmp1 = _group_alt1__tmp1_item0;
-                    goto group_success__tmp1;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__tmp1: ; // Group succeeded
+                if (_tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Optional: ['=']
                 int _opt_mark__tmp2 = _position;
                 // Expect '='
@@ -30007,7 +28939,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? _tmp2 = _opt__tmp2;
                 if (_tmp2 == null)
@@ -30023,31 +28955,22 @@ namespace SharpPy.Generated
                 // Try group alternative 1: '!' NAME
                 {
                     _position = _group_mark__opt__tmp3;
-                    // Expect '!'
                     var _group_alt0__opt__tmp3_item0 = Expect("!");
-                    if (_group_alt0__opt__tmp3_item0 == null)
+                    if (_group_alt0__opt__tmp3_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        var _group_alt0__opt__tmp3_item1 = ExpectToken(GeneratedTokenType.NAME);
+                        if (_group_alt0__opt__tmp3_item1 != null)
+                        {
+                            _opt__tmp3 = _group_alt0__opt__tmp3_item1;
+                        }
                     }
-                    // Expect token: NAME
-                    var _group_alt0__opt__tmp3_item1 = ExpectToken(GeneratedTokenType.NAME);
-                    if (_group_alt0__opt__tmp3_item1 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Group alternative 1 succeeded
-                    _opt__tmp3 = _group_alt0__opt__tmp3_item1;
-                    goto group_success__opt__tmp3;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp3: ; // Group succeeded
+                if (_opt__tmp3 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp3 = _opt__tmp3;
                 if (_tmp3 == null)
                 {
@@ -30055,16 +28978,17 @@ namespace SharpPy.Generated
                     _tmp3 = null; // Optional not present
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_103 = _position;
+                int _lookahead_mark_96 = _position;
                 // TODO: Parse lookahead content for Group, fail if succeeds
-                _position = _lookahead_mark_103; // Restore position
+                _position = _lookahead_mark_96; // Restore position
                 // Action: PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting ':' or '}'")
                 // TODO: Complex action expression: PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting ':' or '}'")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 10
+            do
             {
                 _position = _mark;
 
@@ -30074,7 +28998,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Group: (yield_expr | star_expressions)
                 object? _tmp1 = null;
@@ -30082,38 +29006,28 @@ namespace SharpPy.Generated
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark__tmp1;
-                    // Call rule: yield_expr
                     var _group_alt0__tmp1_item0 = YieldExpr();
-                    if (_group_alt0__tmp1_item0 == null)
+                    if (_group_alt0__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp1 = _group_alt0__tmp1_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _tmp1 = _group_alt0__tmp1_item0;
-                    goto group_success__tmp1;
                 }
                 // Try group alternative 2: star_expressions
+                if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    // Call rule: star_expressions
                     var _group_alt1__tmp1_item0 = StarExpressions();
-                    if (_group_alt1__tmp1_item0 == null)
+                    if (_group_alt1__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp1 = _group_alt1__tmp1_item0;
                     }
-                    // Group alternative 2 succeeded
-                    _tmp1 = _group_alt1__tmp1_item0;
-                    goto group_success__tmp1;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__tmp1: ; // Group succeeded
+                if (_tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Optional: ['=']
                 int _opt_mark__tmp2 = _position;
                 // Expect '='
@@ -30122,7 +29036,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? _tmp2 = _opt__tmp2;
                 if (_tmp2 == null)
@@ -30138,31 +29052,22 @@ namespace SharpPy.Generated
                 // Try group alternative 1: '!' NAME
                 {
                     _position = _group_mark__opt__tmp3;
-                    // Expect '!'
                     var _group_alt0__opt__tmp3_item0 = Expect("!");
-                    if (_group_alt0__opt__tmp3_item0 == null)
+                    if (_group_alt0__opt__tmp3_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        var _group_alt0__opt__tmp3_item1 = ExpectToken(GeneratedTokenType.NAME);
+                        if (_group_alt0__opt__tmp3_item1 != null)
+                        {
+                            _opt__tmp3 = _group_alt0__opt__tmp3_item1;
+                        }
                     }
-                    // Expect token: NAME
-                    var _group_alt0__opt__tmp3_item1 = ExpectToken(GeneratedTokenType.NAME);
-                    if (_group_alt0__opt__tmp3_item1 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Group alternative 1 succeeded
-                    _opt__tmp3 = _group_alt0__opt__tmp3_item1;
-                    goto group_success__opt__tmp3;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp3: ; // Group succeeded
+                if (_opt__tmp3 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp3 = _opt__tmp3;
                 if (_tmp3 == null)
                 {
@@ -30175,7 +29080,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Zero or more: fstring_format_spec*
                 var _tmp5 = new System.Collections.Generic.List<object?>();
@@ -30188,7 +29093,7 @@ namespace SharpPy.Generated
                     {
                         _position = _mark;
                         _res = null;
-                        goto alternative_failed;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp5 == null)
                     {
@@ -30199,16 +29104,17 @@ namespace SharpPy.Generated
                 }
                 // Collected _tmp5.Count items (may be 0)
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_104 = _position;
+                int _lookahead_mark_97 = _position;
                 // TODO: Parse lookahead content for StringLiteral, fail if succeeds
-                _position = _lookahead_mark_104; // Restore position
+                _position = _lookahead_mark_97; // Restore position
                 // Action: PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '}', or format specs")
                 // TODO: Complex action expression: PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '}', or format specs")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             // Alternative 11
+            do
             {
                 _position = _mark;
 
@@ -30218,7 +29124,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Group: (yield_expr | star_expressions)
                 object? _tmp1 = null;
@@ -30226,38 +29132,28 @@ namespace SharpPy.Generated
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark__tmp1;
-                    // Call rule: yield_expr
                     var _group_alt0__tmp1_item0 = YieldExpr();
-                    if (_group_alt0__tmp1_item0 == null)
+                    if (_group_alt0__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp1 = _group_alt0__tmp1_item0;
                     }
-                    // Group alternative 1 succeeded
-                    _tmp1 = _group_alt0__tmp1_item0;
-                    goto group_success__tmp1;
                 }
                 // Try group alternative 2: star_expressions
+                if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    // Call rule: star_expressions
                     var _group_alt1__tmp1_item0 = StarExpressions();
-                    if (_group_alt1__tmp1_item0 == null)
+                    if (_group_alt1__tmp1_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        _tmp1 = _group_alt1__tmp1_item0;
                     }
-                    // Group alternative 2 succeeded
-                    _tmp1 = _group_alt1__tmp1_item0;
-                    goto group_success__tmp1;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__tmp1: ; // Group succeeded
+                if (_tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Optional: ['=']
                 int _opt_mark__tmp2 = _position;
                 // Expect '='
@@ -30266,7 +29162,7 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 object? _tmp2 = _opt__tmp2;
                 if (_tmp2 == null)
@@ -30282,31 +29178,22 @@ namespace SharpPy.Generated
                 // Try group alternative 1: '!' NAME
                 {
                     _position = _group_mark__opt__tmp3;
-                    // Expect '!'
                     var _group_alt0__opt__tmp3_item0 = Expect("!");
-                    if (_group_alt0__opt__tmp3_item0 == null)
+                    if (_group_alt0__opt__tmp3_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
+                        var _group_alt0__opt__tmp3_item1 = ExpectToken(GeneratedTokenType.NAME);
+                        if (_group_alt0__opt__tmp3_item1 != null)
+                        {
+                            _opt__tmp3 = _group_alt0__opt__tmp3_item1;
+                        }
                     }
-                    // Expect token: NAME
-                    var _group_alt0__opt__tmp3_item1 = ExpectToken(GeneratedTokenType.NAME);
-                    if (_group_alt0__opt__tmp3_item1 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        goto alternative_failed;
-                    }
-                    // Group alternative 1 succeeded
-                    _opt__tmp3 = _group_alt0__opt__tmp3_item1;
-                    goto group_success__opt__tmp3;
                 }
-                // All group alternatives failed
-                _position = _mark;
-                _res = null;
-                goto alternative_failed;
-                group_success__opt__tmp3: ; // Group succeeded
+                if (_opt__tmp3 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 object? _tmp3 = _opt__tmp3;
                 if (_tmp3 == null)
                 {
@@ -30314,14 +29201,14 @@ namespace SharpPy.Generated
                     _tmp3 = null; // Optional not present
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_105 = _position;
+                int _lookahead_mark_98 = _position;
                 // TODO: Parse lookahead content for StringLiteral, fail if succeeds
-                _position = _lookahead_mark_105; // Restore position
+                _position = _lookahead_mark_98; // Restore position
                 // Action: PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '}'")
                 // TODO: Complex action expression: PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '}'")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;
@@ -30349,6 +29236,7 @@ namespace SharpPy.Generated
             int _end_col_offset = 0;
 
             // Alternative 1
+            do
             {
                 _position = _mark;
 
@@ -30358,21 +29246,20 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_106 = _position;
+                int _lookahead_mark_99 = _position;
                 // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_106; // Restore position
+                _position = _lookahead_mark_99; // Restore position
                 // Action: RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: missing conversion character")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: missing conversion character")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
-            alternative_failed:
-            ;
             // Alternative 2
+            do
             {
                 _position = _mark;
 
@@ -30382,17 +29269,17 @@ namespace SharpPy.Generated
                 {
                     _position = _mark;
                     _res = null;
-                    goto alternative_failed;
+                    break;  // Exit this alternative
                 }
                 // Negative lookahead - fail if matches
-                int _lookahead_mark_107 = _position;
+                int _lookahead_mark_100 = _position;
                 // TODO: Parse lookahead content for RuleRef, fail if succeeds
-                _position = _lookahead_mark_107; // Restore position
+                _position = _lookahead_mark_100; // Restore position
                 // Action: RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: invalid conversion character")
                 // TODO: Complex action expression: RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: invalid conversion character")
                 _res = default(object?);
                 if (_res != null) goto done;
-            }
+            } while (false);
 
             _position = _mark;
             _res = null;

@@ -14,6 +14,10 @@ namespace SharpPy.Generated
         protected readonly List<GeneratedTokenInfo> _tokens;
         protected internal int _position;
         protected readonly Dictionary<(int, string), object?> _memoCache = new();
+
+        // CPython 3.12: Track active left-recursive parsing to prevent infinite loops
+        private readonly HashSet<(int position, string ruleName)> _activeLeftRecursive = new();
+
         protected readonly string _filename;
 
         // CPython 3.12: PegInterpreter for grammar-based parsing
@@ -101,76 +105,108 @@ namespace SharpPy.Generated
 
             Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} at position {startPos}");
 
-            // Check if we're already in a recursive call at this position for this rule
-            if (_memoCache.TryGetValue(key, out var existing) && existing == null)
+            // Warth algorithm: Use a special marker to distinguish "being processed" from "already completed"
+            // We need to know if this is:
+            // 1. First call (no memo) → start expansion
+            // 2. Recursive call during seed/expansion (memo exists, active) → return memo value
+            // 3. Call after completion (memo exists, not active) → return cached result
+
+            // Check if we're actively processing this position+rule
+            bool isActive = _activeLeftRecursive.Contains(key);
+
+            if (_memoCache.TryGetValue(key, out var existing))
             {
-                // We're in a recursive call - return null to break initial recursion
-                Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} recursive call detected, breaking");
-                return null;
+                // Memo exists - either being processed or completed
+                Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} found in memo: {(existing != null ? "result" : "null")}, active={isActive}");
+
+                if (isActive)
+                {
+                    // Recursive call during active processing - return current memo to build on it
+                    Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} recursive call, returning memo");
+                    return existing as T;
+                }
+                else
+                {
+                    // Previous completed parse - return cached result
+                    Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} returning cached result");
+                    return existing as T;
+                }
             }
 
-            // Step 1: Mark as being processed (seed with failure)
-            SetMemo(ruleName, (T?)null);
+            // First time at this position - start left-recursive expansion
+            Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} starting new left-recursive parse");
+            _activeLeftRecursive.Add(key);
 
-            // Step 2: Try initial parse (seed parse)
-            Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} attempting seed parse");
-            var lastResult = parseMethod();
-            if (lastResult == null)
+            try
             {
-                // No seed parse succeeded, keep the null memo and return null
-                Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} seed parse failed");
-                return null;
-            }
+                // Step 1: Seed with failure
+                SetMemo(ruleName, (T?)null);
 
-            var lastEndPos = _position;
-            Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} seed parse succeeded, position {startPos} -> {lastEndPos}");
-            SetMemo(ruleName, lastResult);
-
-            // Step 3: Expansion loop - keep trying to get longer parses
-            int loopCount = 0;
-            const int MAX_EXPANSION_ATTEMPTS = 100; // Safety limit
-            while (loopCount < MAX_EXPANSION_ATTEMPTS)
-            {
-                loopCount++;
-                Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} expansion attempt {loopCount}");
-
-                // Reset to start position for next attempt
-                Reset(startPos);
-
-                var result = parseMethod();
-                var endPos = _position;
-
-                Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} expansion result: {(result != null ? "success" : "null")}, position {startPos} -> {endPos} (last was {lastEndPos})");
-
-                // Step 4: Termination condition - no progress made or result is null
-                if (result == null)
+                // Step 2: Try initial parse (seed parse)
+                Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} attempting seed parse");
+                var lastResult = parseMethod();
+                if (lastResult == null)
                 {
-                    Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} result is null, terminating loop");
-                    break;
+                    // No seed parse succeeded, keep the null memo and return null
+                    Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} seed parse failed");
+                    return null;
                 }
 
-                // Critical fix: position must advance to continue expansion
-                if (endPos <= lastEndPos)
-                {
-                    Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} no position advancement ({endPos} <= {lastEndPos}), terminating loop");
-                    break;
-                }
-
-                // Progress made - update the cached result
-                lastResult = result;
-                lastEndPos = endPos;
+                var lastEndPos = _position;
+                Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} seed parse succeeded, position {startPos} -> {lastEndPos}");
                 SetMemo(ruleName, lastResult);
-            }
 
-            if (loopCount >= MAX_EXPANSION_ATTEMPTS)
+                // Step 3: Expansion loop - keep trying to get longer parses
+                int loopCount = 0;
+                const int MAX_EXPANSION_ATTEMPTS = 100; // Safety limit
+                while (loopCount < MAX_EXPANSION_ATTEMPTS)
+                {
+                    loopCount++;
+                    Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} expansion attempt {loopCount}");
+
+                    // Reset to start position for next attempt
+                    Reset(startPos);
+
+                    var result = parseMethod();
+                    var endPos = _position;
+
+                    Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} expansion result: {(result != null ? "success" : "null")}, position {startPos} -> {endPos} (last was {lastEndPos})");
+
+                    // Step 4: Termination condition - no progress made or result is null
+                    if (result == null)
+                    {
+                        Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} result is null, terminating loop");
+                        break;
+                    }
+
+                    // Critical fix: position must advance to continue expansion
+                    if (endPos <= lastEndPos)
+                    {
+                        Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} no position advancement ({endPos} <= {lastEndPos}), terminating loop");
+                        break;
+                    }
+
+                    // Progress made - update the cached result
+                    lastResult = result;
+                    lastEndPos = endPos;
+                    SetMemo(ruleName, lastResult);
+                }
+
+                if (loopCount >= MAX_EXPANSION_ATTEMPTS)
+                {
+                    Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} hit safety limit, terminating");
+                }
+
+                // Reset to the final successful position
+                Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} final result at position {lastEndPos}");
+                Reset(lastEndPos);
+                return lastResult;
+            }
+            finally
             {
-                Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} hit safety limit, terminating");
+                // Clean up: remove from active set
+                _activeLeftRecursive.Remove(key);
             }
-
-            // Reset to the final successful position
-            Console.WriteLine($"[DEBUG] TryLeftRecursive: {ruleName} final result at position {lastEndPos}");
-            Reset(lastEndPos);
-            return lastResult;
         }
 
         // Generic parsing methods

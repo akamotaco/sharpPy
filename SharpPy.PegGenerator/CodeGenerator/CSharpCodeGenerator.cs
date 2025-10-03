@@ -1629,6 +1629,37 @@ namespace SharpPy.PegGenerator.CodeGenerator
             };
         }
 
+        /// <summary>
+        /// Check if a rule has left recursion (first alternative starts with the rule itself)
+        /// CPython 3.12 PEG: bitwise_or: bitwise_or '|' bitwise_xor | bitwise_xor
+        /// </summary>
+        private bool IsLeftRecursive(Rule rule)
+        {
+            if (rule.Alternatives == null || rule.Alternatives.Count == 0)
+                return false;
+
+            // Check first alternative
+            var firstAlt = rule.Alternatives[0];
+            if (firstAlt.Items == null || firstAlt.Items.Count == 0)
+                return false;
+
+            // Get first item
+            var firstItem = firstAlt.Items[0];
+
+            // Check if it's an Item with an Atom pointing to the same rule
+            if (firstItem.Atom != null)
+            {
+                // Check if Atom is a RuleRef pointing to the same rule
+                if (firstItem.Atom is RuleRef ruleRef)
+                {
+                    // Compare rule names (case-insensitive)
+                    return string.Equals(ruleRef.Name, rule.Name, StringComparison.OrdinalIgnoreCase);
+                }
+            }
+
+            return false;
+        }
+
         private void GenerateRuleMethod(Rule rule)
         {
             Console.WriteLine($"[DEBUG] GenerateRuleMethod called for rule: '{rule.Name}'");
@@ -1659,9 +1690,38 @@ namespace SharpPy.PegGenerator.CodeGenerator
             }
 
             WriteLine($"// Rule: {rule.Name} from python.gram");
-            WriteLine($"public {returnType} {methodName}()");
-            WriteLine("{");
-            Indent();
+
+            // CPython 3.12 PEG: Check for left recursion or memoization
+            bool isLeftRecursive = IsLeftRecursive(rule);
+            bool needsWrapper = isLeftRecursive || rule.IsMemoized;
+
+            if (needsWrapper)
+            {
+                var reason = isLeftRecursive ? "left-recursive" : "memoized";
+                Console.WriteLine($"[CODEGEN] Rule '{rule.Name}' is {reason} - generating wrapper + inner method");
+
+                // Generate public wrapper that calls TryLeftRecursive
+                WriteLine($"public {returnType} {methodName}()");
+                WriteLine("{");
+                Indent();
+                WriteLine($"// CPython 3.12: Left recursion - use Warth et al. algorithm");
+                WriteLine($"return TryLeftRecursive<{returnType}>(\"{methodName}\", _{methodName});");
+                Dedent();
+                WriteLine("}");
+                WriteLine();
+
+                // Generate private inner method with actual parsing logic
+                WriteLine($"private {returnType} _{methodName}()");
+                WriteLine("{");
+                Indent();
+            }
+            else
+            {
+                // Non-left-recursive: generate normal public method
+                WriteLine($"public {returnType} {methodName}()");
+                WriteLine("{");
+                Indent();
+            }
 
             // CPython 3.12 style: Direct parsing logic generation
             WriteLine($"// CPython 3.12 PEG: {rule.Name}");
@@ -1678,19 +1738,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine($"int _end_col_offset = 0;");
             WriteLine();
 
-            // Generate code for each alternative
+            // CPython 3.12: Generate alternatives with do-while(false) + break pattern
             for (int i = 0; i < rule.Alternatives.Count; i++)
             {
                 var alt = rule.Alternatives[i];
                 var altGen = new AlternativeCodeGenerator(this, rule, alt, i);
                 altGen.Generate();
-
-                // Add alternative_failed label after first alternative
-                if (i == 0)
-                {
-                    WriteLine("alternative_failed:");
-                    WriteLine(";");  // C# requires a statement after label
-                }
             }
 
             // All alternatives failed

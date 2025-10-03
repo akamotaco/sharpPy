@@ -38,8 +38,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
         /// </summary>
         public void Generate()
         {
-            // CPython style: try this alternative, backtrack on failure
+            // CPython 3.12 style: do-while(false) block + break for failure
             _parent.WriteLine($"// Alternative {_alternativeIndex + 1}");
+            _parent.WriteLine("do");
             _parent.WriteLine("{");
             _parent.Indent();
             _parent.WriteLine("_position = _mark;");
@@ -56,7 +57,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             }
 
             _parent.Dedent();
-            _parent.WriteLine("}");
+            _parent.WriteLine("} while (false);");
             _parent.WriteLine();
         }
 
