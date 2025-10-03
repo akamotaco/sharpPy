@@ -54,6 +54,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     GenerateOneOrMore(om);
                     break;
 
+                case Gather gather:
+                    GenerateGather(gather);
+                    break;
+
                 case Group grp:
                     GenerateGroup(grp);
                     break;
@@ -162,8 +166,16 @@ namespace SharpPy.PegGenerator.CodeGenerator
             var innerGen = new ItemCodeGenerator(_parent, innerItem, innerVarName, _labelPrefix);
             innerGen.Generate();
 
+            // Determine type of optional result based on inner expression
+            string itemType = DetermineItemType(opt.Expression);
+            // Ensure nullable
+            if (!itemType.EndsWith("?"))
+            {
+                itemType += "?";
+            }
+
             // If parsing failed, reset and set to null (optional always succeeds)
-            _parent.WriteLine($"object? {_varName} = {innerVarName};");
+            _parent.WriteLine($"{itemType} {_varName} = {innerVarName};");
             _parent.WriteLine($"if ({_varName} == null)");
             _parent.WriteLine("{");
             _parent.Indent();
@@ -177,7 +189,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
         {
             // CPython 3.12 pattern: Loop until parsing fails (always succeeds, may return empty list)
             _parent.WriteLine($"// Zero or more: {zm.Expression}*");
-            _parent.WriteLine($"var {_varName} = new System.Collections.Generic.List<object?>();");
+
+            // Determine the appropriate sequence type based on inner expression
+            string seqType = DetermineSequenceType(zm.Expression);
+            _parent.WriteLine($"var {_varName} = new {seqType}();");
+
             _parent.WriteLine($"while (true)");
             _parent.WriteLine("{");
             _parent.Indent();
@@ -210,7 +226,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
         {
             // CPython 3.12 pattern: Must match at least once (fails if zero matches)
             _parent.WriteLine($"// One or more: {om.Expression}+");
-            _parent.WriteLine($"var {_varName} = new System.Collections.Generic.List<object?>();");
+
+            // Determine the appropriate sequence type based on inner expression
+            string seqType = DetermineSequenceType(om.Expression);
+            _parent.WriteLine($"var {_varName} = new {seqType}();");
+
             _parent.WriteLine($"while (true)");
             _parent.WriteLine("{");
             _parent.Indent();
@@ -249,12 +269,211 @@ namespace SharpPy.PegGenerator.CodeGenerator
             _parent.WriteLine("}");
         }
 
+        /// <summary>
+        /// Generate code for Gather pattern: separator.item+ or separator.item*
+        /// CPython 3.12: Separated list like ','.expression+
+        /// </summary>
+        private void GenerateGather(Gather gather)
+        {
+            // CPython 3.12: Gather collects items separated by a separator
+            // Example: ','.expression+ means one or more expressions separated by ','
+            _parent.WriteLine($"// Gather: {gather.Separator}.{gather.Item}{(gather.IsOneOrMore ? "+" : "*")}");
+
+            // Determine the sequence type for items
+            string seqType = DetermineSequenceType(gather.Item);
+            _parent.WriteLine($"var {_varName} = new {seqType}();");
+
+            // CPython 3.12: Infer item type from sequence type
+            // Example: GeneratedExprSeq → GeneratedExpr
+            string expectedItemType = InferItemTypeFromSeqType(seqType);
+
+            // First item (no separator before it)
+            _parent.WriteLine($"// Parse first item (no separator)");
+            var firstItemVarName = $"_first_{_varName}";
+            var firstItemGen = new ItemCodeGenerator(_parent, new Item { Atom = gather.Item, Name = null }, firstItemVarName, _labelPrefix);
+            firstItemGen.Generate();
+
+            // CPython 3.12: Determine if cast is necessary (C# explicit cast, C uses implicit void*)
+            string actualItemType = DetermineItemType(gather.Item);
+            bool needsCast = actualItemType != expectedItemType && actualItemType.Replace("?", "") != expectedItemType.Replace("?", "");
+
+            if (gather.IsOneOrMore)
+            {
+                // For +: First item is required
+                _parent.WriteLine($"if ({firstItemVarName} == null)");
+                _parent.WriteLine("{");
+                _parent.Indent();
+                _parent.WriteLine($"_position = _mark;");
+                _parent.WriteLine($"_res = null;");
+                _parent.WriteLine("break;  // Exit this alternative");
+                _parent.Dedent();
+                _parent.WriteLine("}");
+                if (needsCast)
+                {
+                    _parent.WriteLine($"{_varName}.Add(({expectedItemType}){firstItemVarName});");
+                }
+                else
+                {
+                    _parent.WriteLine($"{_varName}.Add({firstItemVarName});");
+                }
+            }
+            else
+            {
+                // For *: First item is optional
+                _parent.WriteLine($"if ({firstItemVarName} != null)");
+                _parent.WriteLine("{");
+                _parent.Indent();
+                if (needsCast)
+                {
+                    _parent.WriteLine($"{_varName}.Add(({expectedItemType}){firstItemVarName});");
+                }
+                else
+                {
+                    _parent.WriteLine($"{_varName}.Add({firstItemVarName});");
+                }
+                _parent.Dedent();
+                _parent.WriteLine("}");
+            }
+
+            // Loop for remaining items (separator + item)
+            _parent.WriteLine($"// Parse remaining items (separator + item)");
+            _parent.WriteLine($"while (true)");
+            _parent.WriteLine("{");
+            _parent.Indent();
+            _parent.WriteLine($"int _loop_mark = _position;");
+
+            // Parse separator
+            var sepVarName = $"_sep_{_varName}";
+            var sepItemGen = new ItemCodeGenerator(_parent, new Item { Atom = gather.Separator, Name = null }, sepVarName, _labelPrefix);
+            sepItemGen.Generate();
+
+            _parent.WriteLine($"if ({sepVarName} == null)");
+            _parent.WriteLine("{");
+            _parent.Indent();
+            _parent.WriteLine($"_position = _loop_mark;");
+            _parent.WriteLine("break; // No more separators");
+            _parent.Dedent();
+            _parent.WriteLine("}");
+
+            // Parse item
+            var itemVarName = $"_loop_elem_{_varName}";
+            var itemGen = new ItemCodeGenerator(_parent, new Item { Atom = gather.Item, Name = null }, itemVarName, _labelPrefix);
+            itemGen.Generate();
+
+            _parent.WriteLine($"if ({itemVarName} == null)");
+            _parent.WriteLine("{");
+            _parent.Indent();
+            _parent.WriteLine($"_position = _loop_mark; // Reset to before separator");
+            _parent.WriteLine("break; // No item after separator");
+            _parent.Dedent();
+            _parent.WriteLine("}");
+
+            // Add to list with cast if necessary (reuse needsCast from above)
+            if (needsCast)
+            {
+                _parent.WriteLine($"{_varName}.Add(({expectedItemType}){itemVarName});");
+            }
+            else
+            {
+                _parent.WriteLine($"{_varName}.Add({itemVarName});");
+            }
+
+            _parent.Dedent();
+            _parent.WriteLine("}");
+
+            if (!gather.IsOneOrMore)
+            {
+                // For *, the list can be empty, which is already handled
+                _parent.WriteLine($"// Collected {_varName}.Count items (may be 0)");
+            }
+        }
+
         private void GenerateGroup(Group grp)
         {
             // CPython 3.12 pattern: Group tries each alternative until one succeeds
             // Unlike rule alternatives, group uses nested if-else (no goto within group)
             _parent.WriteLine($"// Group: ({string.Join(" | ", grp.Alternatives.Select(a => a.ToString()))})");
-            _parent.WriteLine($"object? {_varName} = null;");
+
+            // Determine type of group result based on alternatives
+            // CPython 3.12: When alternatives return different types, find common base
+            // C uses void* (implicit conversion), C# needs explicit common type
+            string groupType = "GeneratedAstNode?";
+            if (grp.Alternatives.Count > 0)
+            {
+                var alternativeTypes = new List<string>();
+
+                foreach (var alt in grp.Alternatives)
+                {
+                    var items = alt.Items.ToList();
+                    if (items.Count == 0) continue;
+
+                    // Find result item index for this alternative
+                    int resultItemIndex = -1;
+                    if (!string.IsNullOrWhiteSpace(alt.Action))
+                    {
+                        var actionContent = alt.Action.Trim();
+                        // Check if action is a simple variable reference
+                        if (actionContent.Length > 0 && char.IsLetter(actionContent[0]) &&
+                            actionContent.All(c => char.IsLetterOrDigit(c) || c == '_'))
+                        {
+                            // Find which item has this name
+                            for (int i = 0; i < items.Count; i++)
+                            {
+                                if (items[i].Name == actionContent)
+                                {
+                                    resultItemIndex = i;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    // If no action or action variable not found, use last value-producing item
+                    if (resultItemIndex < 0)
+                    {
+                        resultItemIndex = items.Count - 1;
+                        // Skip lookaheads
+                        while (resultItemIndex >= 0)
+                        {
+                            var atom = items[resultItemIndex].Atom;
+                            if (atom is PositiveLookahead || atom is NegativeLookahead)
+                            {
+                                resultItemIndex--;
+                            }
+                            else
+                            {
+                                break;
+                            }
+                        }
+                    }
+
+                    if (resultItemIndex >= 0)
+                    {
+                        var altType = DetermineItemType(items[resultItemIndex].Atom);
+                        alternativeTypes.Add(altType);
+                    }
+                }
+
+                // Find common base type for all alternatives
+                if (alternativeTypes.Count > 0)
+                {
+                    groupType = FindCommonBaseType(alternativeTypes);
+                    if (!groupType.EndsWith("?"))
+                    {
+                        groupType += "?";
+                    }
+                }
+            }
+
+            _parent.WriteLine($"{groupType} {_varName} = null;");
+
+            // Add type validation comment for object? types (void* pattern)
+            if (groupType == "object?")
+            {
+                _parent.WriteLine($"// CPython 3.12: void* pattern - only GeneratedTokenInfo or GeneratedArg expected");
+                _parent.WriteLine($"// Type check: if ({_varName} != null) {{ var typeName = {_varName}.GetType().Name; /* validate */ }}");
+            }
+
             _parent.WriteLine($"int _group_mark_{_varName} = _position;");
 
             for (int i = 0; i < grp.Alternatives.Count; i++)
@@ -317,19 +536,71 @@ namespace SharpPy.PegGenerator.CodeGenerator
             }
 
             // After last item, assign result and close all if blocks
-            var lastItemVar = $"{altVarName}_item{items.Count - 1}";
-            var groupVarName = altVarName.Substring(0, altVarName.LastIndexOf("_group_alt") + "_group_alt0".Length - 1);
-            // Extract original group var name from altVarName
-            var parts = altVarName.Split(new[] { "_group_alt" }, StringSplitOptions.None);
-            if (parts.Length >= 2)
+            // CPython 3.12: Find the last item that produces a value (not a lookahead)
+            int lastValueItemIndex = items.Count - 1;
+            while (lastValueItemIndex >= 0)
             {
-                groupVarName = parts[1].Substring(parts[1].IndexOf('_') + 1);
+                var atom = items[lastValueItemIndex].Atom;
+                if (atom is PositiveLookahead || atom is NegativeLookahead)
+                {
+                    // Lookahead doesn't produce a value, skip it
+                    lastValueItemIndex--;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            if (lastValueItemIndex < 0)
+            {
+                // All items are lookaheads? This shouldn't happen in valid grammar
+                Console.WriteLine($"[ERROR] Alternative has no value-producing items: {alt}");
+                lastValueItemIndex = items.Count - 1; // Fallback
+            }
+
+            var lastItemVar = $"{altVarName}_item{lastValueItemIndex}";
+
+            // Extract original group var name from altVarName
+            // altVarName format: "_group_altN_<groupVarName>" where N is alternative index
+            // For nested groups: "_group_altN__group_altM_<varname>"
+            // CPython 3.12: Only strip the FIRST prefix (current alternative's prefix)
+            // NOT all prefixes - nested groups need to keep their parent prefixes!
+            string groupVarName = altVarName;
+
+            // Remove only the FIRST "_group_alt<digit>_" prefix
+            var match = System.Text.RegularExpressions.Regex.Match(groupVarName, "^_group_alt\\d+_");
+            if (match.Success)
+            {
+                groupVarName = groupVarName.Substring(match.Length);
             }
 
             _parent.WriteLine($"if ({lastItemVar} != null)");
             _parent.WriteLine("{");
             _parent.Indent();
-            _parent.WriteLine($"{groupVarName} = {lastItemVar};");
+
+            // CPython 3.12: Respect grammar action if present
+            // If action is { varname }, return that variable instead of last item
+            string resultVar = lastItemVar;
+            if (!string.IsNullOrWhiteSpace(alt.Action))
+            {
+                var actionContent = alt.Action.Trim();
+                // Check if action is a simple variable reference
+                if (actionContent.Length > 0 && char.IsLetter(actionContent[0]) && actionContent.All(c => char.IsLetterOrDigit(c) || c == '_'))
+                {
+                    // Find which item has this name
+                    for (int i = 0; i < items.Count; i++)
+                    {
+                        if (items[i].Name == actionContent)
+                        {
+                            resultVar = $"{altVarName}_item{i}";
+                            break;
+                        }
+                    }
+                }
+            }
+
+            _parent.WriteLine($"{groupVarName} = {resultVar};");
             _parent.Dedent();
             _parent.WriteLine("}");
 
@@ -350,28 +621,37 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     var isToken = char.IsUpper(ruleRef.Name[0]);
                     if (isToken)
                     {
-                        _parent.WriteLine($"var {varName} = ExpectToken(GeneratedTokenType.{ruleRef.Name.ToUpper()});");
+                        _parent.WriteLine($"GeneratedTokenInfo? {varName} = ExpectToken(GeneratedTokenType.{ruleRef.Name.ToUpper()});");
                     }
                     else
                     {
                         var methodName = _parent.ToCSharpMethodName(ruleRef.Name);
-                        _parent.WriteLine($"var {varName} = {methodName}();");
+                        string returnType = _parent.GetRuleReturnType(ruleRef.Name);
+                        _parent.WriteLine($"{returnType} {varName} = {methodName}();");
                     }
                     break;
 
                 case StringLiteral lit:
                     var escaped = _parent.EscapeString(lit.Value);
-                    _parent.WriteLine($"var {varName} = Expect(\"{escaped}\");");
+                    _parent.WriteLine($"GeneratedTokenInfo? {varName} = Expect(\"{escaped}\");");
+                    break;
+
+                case PositiveLookahead pla:
+                case NegativeLookahead nla:
+                    // Lookahead should not appear as group item that produces a value
+                    // But if it does, generate the lookahead test and set result to true/false
+                    _parent.WriteLine($"// WARNING: Lookahead in value position - this is unusual");
+                    var lookaheadGen = new ItemCodeGenerator(_parent, item, $"_lookahead_{varName}", "group_dummy");
+                    lookaheadGen.Generate();
+                    _parent.WriteLine($"bool {varName} = true; // Lookahead succeeded");
                     break;
 
                 default:
-                    // For complex atoms (Optional, OneOrMore, etc.), generate normally
-                    // Use a dummy label prefix since we don't use goto in groups
+                    // For complex atoms (Optional, ZeroOrMore, OneOrMore, Group, etc.)
+                    // These generate their own variable declarations
                     var itemGen = new ItemCodeGenerator(_parent, item, varName, "group_dummy");
-                    // This is recursive but safe since groups are relatively shallow
-                    // TODO: Handle this better - maybe create a flag for "no goto" mode
-                    _parent.WriteLine($"object? {varName} = null;");
-                    _parent.WriteLine($"// TODO: Complex group item type: {item.Atom.GetType().Name}");
+                    itemGen.Generate();
+                    // Note: ItemCodeGenerator.Generate() will declare the variable with appropriate type
                     break;
             }
         }
@@ -448,6 +728,455 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 var innerGen = new ItemCodeGenerator(_parent, innerItem, _varName, _labelPrefix);
                 innerGen.Generate();
             }
+        }
+
+        /// <summary>
+        /// Determine the type of a single item (for Optional, Group, etc.)
+        /// CPython 3.12: Analyze the expression to determine result type
+        /// </summary>
+        private string DetermineItemType(Atom expression)
+        {
+            // If expression is a RuleRef
+            if (expression is RuleRef ruleRef)
+            {
+                // CPython PEG convention: Uppercase = Token, lowercase = Rule
+                bool isToken = char.IsUpper(ruleRef.Name[0]);
+
+                if (isToken)
+                {
+                    return "GeneratedTokenInfo?";
+                }
+                else
+                {
+                    return _parent.GetRuleReturnType(ruleRef.Name);
+                }
+            }
+
+            // For StringLiteral, return token type
+            if (expression is StringLiteral)
+            {
+                return "GeneratedTokenInfo?";
+            }
+
+            // For Group, analyze alternatives - CPython 3.12: Use action or last value-producing item
+            if (expression is Group group && group.Alternatives.Count > 0)
+            {
+                // CPython 3.12: Group type is determined by what it returns
+                // When multiple alternatives return different types, find common base type
+                // C uses void* (implicit conversion), C# needs explicit common type
+                var alternativeTypes = new List<string>();
+
+                foreach (var alt in group.Alternatives)
+                {
+                    var items = alt.Items.ToList();
+                    if (items.Count == 0) continue;
+
+                    // Find result item index for this alternative
+                    int resultItemIndex = -1;
+                    if (!string.IsNullOrWhiteSpace(alt.Action))
+                    {
+                        var actionContent = alt.Action.Trim();
+                        // Check if action is a simple variable reference
+                        if (actionContent.Length > 0 && char.IsLetter(actionContent[0]) &&
+                            actionContent.All(c => char.IsLetterOrDigit(c) || c == '_'))
+                        {
+                            // Find which item has this name
+                            for (int i = 0; i < items.Count; i++)
+                            {
+                                if (items[i].Name == actionContent)
+                                {
+                                    resultItemIndex = i;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    // If no action or action variable not found, use last value-producing item
+                    if (resultItemIndex < 0)
+                    {
+                        resultItemIndex = items.Count - 1;
+                        // Skip lookaheads
+                        while (resultItemIndex >= 0)
+                        {
+                            var atom = items[resultItemIndex].Atom;
+                            if (atom is PositiveLookahead || atom is NegativeLookahead)
+                            {
+                                resultItemIndex--;
+                            }
+                            else
+                            {
+                                break;
+                            }
+                        }
+                    }
+
+                    if (resultItemIndex >= 0)
+                    {
+                        var altType = DetermineItemType(items[resultItemIndex].Atom);
+                        alternativeTypes.Add(altType);
+                    }
+                }
+
+                // Find common base type for all alternatives
+                if (alternativeTypes.Count > 0)
+                {
+                    return FindCommonBaseType(alternativeTypes);
+                }
+            }
+
+            // For Optional, analyze inner expression
+            if (expression is Optional opt)
+            {
+                return DetermineItemType(opt.Expression);
+            }
+
+            // For Gather, return sequence type
+            if (expression is Gather gather)
+            {
+                return DetermineSequenceType(gather.Item);
+            }
+
+            // For Lookahead, return bool (lookahead doesn't capture value, only tests)
+            if (expression is PositiveLookahead || expression is NegativeLookahead)
+            {
+                // Lookahead doesn't produce a value for assignment
+                // This should not be used in Optional/Group that needs a value
+                Console.WriteLine($"[WARNING] Lookahead in value position - should not happen");
+                return "bool";
+            }
+
+            // Default: base AST node type
+            return "GeneratedAstNode?";
+        }
+
+        /// <summary>
+        /// Determine the appropriate sequence type for loop/gather operations
+        /// CPython 3.12: Analyze the inner expression to determine element type
+        /// </summary>
+        private string DetermineSequenceType(Atom expression)
+        {
+            // If expression is a RuleRef
+            if (expression is RuleRef ruleRef)
+            {
+                // CPython PEG convention: Uppercase = Token, lowercase = Rule
+                bool isToken = char.IsUpper(ruleRef.Name[0]);
+
+                if (isToken)
+                {
+                    // Token sequence: List<GeneratedTokenInfo>
+                    // But there's no GeneratedTokenInfoSeq, so we need to create one
+                    // For now, tokens in sequences are not common - use GeneratedAstNodeSeq
+                    Console.WriteLine($"[WARNING] Token sequence {ruleRef.Name}* - tokens don't usually form sequences");
+                    return "List<GeneratedTokenInfo>";
+                }
+                else
+                {
+                    // Rule sequence: look up the rule's return type
+                    string returnType = _parent.GetRuleReturnType(ruleRef.Name);
+                    return MapReturnTypeToSequenceType(returnType);
+                }
+            }
+
+            // For StringLiteral
+            if (expression is StringLiteral)
+            {
+                // String literals in sequences (e.g., '.'*) return tokens
+                return "List<GeneratedTokenInfo>";
+            }
+
+            // For Group/Optional/etc, try to infer from contained expressions
+            if (expression is Group group && group.Alternatives.Count > 0)
+            {
+                // CPython 3.12: Group result type is determined by what it returns
+                // 1. If action exists and references a variable, use that variable's type
+                // 2. Otherwise, use the last value-producing item's type
+                var firstAlt = group.Alternatives[0];
+                var items = firstAlt.Items.ToList();
+
+                if (items.Count > 0)
+                {
+                    // Check if action references a specific variable
+                    int resultItemIndex = -1;
+                    if (!string.IsNullOrWhiteSpace(firstAlt.Action))
+                    {
+                        var actionContent = firstAlt.Action.Trim();
+                        // Check if action is a simple variable reference
+                        if (actionContent.Length > 0 && char.IsLetter(actionContent[0]) &&
+                            actionContent.All(c => char.IsLetterOrDigit(c) || c == '_'))
+                        {
+                            // Find which item has this name
+                            for (int i = 0; i < items.Count; i++)
+                            {
+                                if (items[i].Name == actionContent)
+                                {
+                                    resultItemIndex = i;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    // If no action or action variable not found, use last value-producing item
+                    if (resultItemIndex < 0)
+                    {
+                        resultItemIndex = items.Count - 1;
+                        // Skip lookaheads
+                        while (resultItemIndex >= 0)
+                        {
+                            var atom = items[resultItemIndex].Atom;
+                            if (atom is PositiveLookahead || atom is NegativeLookahead)
+                            {
+                                resultItemIndex--;
+                            }
+                            else
+                            {
+                                break;
+                            }
+                        }
+                    }
+
+                    if (resultItemIndex >= 0)
+                    {
+                        return DetermineSequenceType(items[resultItemIndex].Atom);
+                    }
+                }
+            }
+
+            // For Gather, return the item sequence type
+            if (expression is Gather gather)
+            {
+                return DetermineSequenceType(gather.Item);
+            }
+
+            // Default fallback - but this should be avoided
+            // Log warning if we reach here
+            Console.WriteLine($"[WARNING] Could not determine sequence type for {expression}, using GeneratedExprSeq as default");
+            return "GeneratedExprSeq";
+        }
+
+        /// <summary>
+        /// Infer item type from sequence type
+        /// CPython 3.12: Reverse mapping from Seq to element type
+        /// Example: GeneratedExprSeq → GeneratedExpr
+        /// </summary>
+        private string InferItemTypeFromSeqType(string seqType)
+        {
+            if (seqType.StartsWith("List<") && seqType.EndsWith(">"))
+            {
+                // List<GeneratedStmtSeq> → GeneratedStmtSeq
+                return seqType.Substring(5, seqType.Length - 6);
+            }
+
+            if (seqType.EndsWith("Seq"))
+            {
+                // Remove "Seq" suffix: GeneratedExprSeq → GeneratedExpr
+                return seqType.Substring(0, seqType.Length - 3);
+            }
+
+            if (seqType.StartsWith("List<GeneratedTokenInfo>"))
+            {
+                return "GeneratedTokenInfo";
+            }
+
+            // Default fallback
+            return seqType;
+        }
+
+        /// <summary>
+        /// Map CPython rule return type to C# sequence type
+        /// </summary>
+        private string MapReturnTypeToSequenceType(string returnType)
+        {
+            if (string.IsNullOrEmpty(returnType))
+            {
+                return "GeneratedExprSeq"; // Default
+            }
+
+            // Remove nullable marker for type matching
+            string baseType = returnType.TrimEnd('?');
+
+            // Map CPython types to C# sequence types
+            switch (baseType)
+            {
+                case "stmt_ty":
+                case "GeneratedStmt":
+                    return "GeneratedStmtSeq";
+
+                case "expr_ty":
+                case "GeneratedExpr":
+                    return "GeneratedExprSeq";
+
+                case "alias_ty":
+                case "GeneratedAlias":
+                    return "GeneratedAliasSeq";
+
+                case "pattern_ty":
+                case "GeneratedPattern":
+                    return "GeneratedPatternSeq";
+
+                case "keyword_ty":
+                case "GeneratedKeyword":
+                    return "GeneratedKeywordSeq";
+
+                case "KeywordOrStarred*":
+                case "GeneratedKeywordOrStarred":
+                    return "GeneratedKeywordOrStarredSeq";
+
+                case "arg_ty":
+                case "GeneratedArg":
+                    return "GeneratedArgSeq";
+
+                case "excepthandler_ty":
+                case "GeneratedExceptHandler":
+                    return "GeneratedExceptHandlerSeq";
+
+                case "withitem_ty":
+                case "GeneratedWithItem":
+                    return "GeneratedWithItemSeq";
+
+                case "match_case_ty":
+                case "GeneratedMatchCase":
+                    return "GeneratedMatchCaseSeq";
+
+                case "comprehension_ty":
+                case "GeneratedComprehension":
+                    return "GeneratedComprehensionSeq";
+
+                case "type_param_ty":
+                case "GeneratedTypeParam":
+                    return "GeneratedTypeParamSeq";
+
+                case "type_ignore_ty":
+                case "GeneratedTypeIgnore":
+                    return "GeneratedTypeIgnoreSeq";
+
+                // Base AST node type - used for mixed or unknown AST nodes
+                case "GeneratedAstNode":
+                    return "GeneratedAstNodeSeq";
+
+                // CPython 3.12: If already a sequence type, wrap in List<>
+                // Example: statement[asdl_stmt_seq*] returns GeneratedStmtSeq
+                // So statement+ should be List<GeneratedStmtSeq>, not GeneratedStmtSeq
+                // This is then flattened by _PyPegen_seq_flatten
+                case string s when s.EndsWith("Seq"):
+                    return $"List<{s}>";
+
+                default:
+                    // Unknown type - log and use default
+                    Console.WriteLine($"[WARNING] Unknown return type '{returnType}', using GeneratedExprSeq");
+                    return "GeneratedExprSeq";
+            }
+        }
+
+        /// <summary>
+        /// Find common base type for multiple alternative types
+        /// CPython 3.12: C uses void* for implicit conversion, C# needs explicit common type
+        /// Type hierarchy:
+        /// - GeneratedAstNode (base for all)
+        ///   - GeneratedStmt
+        ///   - GeneratedExpr
+        ///   - GeneratedPattern
+        ///   - GeneratedSlashWithDefault
+        ///   - GeneratedStarEtc
+        ///   - etc.
+        /// </summary>
+        private string FindCommonBaseType(List<string> types)
+        {
+            if (types.Count == 0) return "GeneratedAstNode?";
+            if (types.Count == 1) return types[0];
+
+            // Remove nullable markers for comparison
+            var cleanTypes = types.Select(t => t.TrimEnd('?')).Distinct().ToList();
+            if (cleanTypes.Count == 1) return types[0]; // All same type
+
+            // Check if all types are the same (accounting for nullable)
+            var firstType = cleanTypes[0];
+            if (cleanTypes.All(t => t == firstType))
+            {
+                return types[0]; // Return with original nullable marker
+            }
+
+            // CPython 3.12: Type hierarchy mapping
+            // Seq types: If ALL are Seq types, use common Seq base
+            // BUT: Seq types (like GeneratedAstNodeSeq) are List<>, not AstNode subclasses!
+            // Special handling needed when mixing Seq and non-Seq types
+            bool hasSeqTypes = cleanTypes.Any(t => t.EndsWith("Seq"));
+            bool hasNonSeqTypes = cleanTypes.Any(t => !t.EndsWith("Seq"));
+
+            if (hasSeqTypes && hasNonSeqTypes)
+            {
+                // Mixing Seq and non-Seq types (e.g., GeneratedAstNodeSeq + GeneratedSlashWithDefault)
+                // Seq types don't inherit from AstNode, they are List<AstNode>
+                // This happens in invalid_* rules - CPython uses void* for both
+                // C# solution: Use GeneratedAstNode as common base (accepts both individual nodes and will need runtime handling for sequences)
+                Console.WriteLine($"[WARNING] Group mixing Seq and non-Seq types: {string.Join(", ", types)}");
+                return "GeneratedAstNode?";
+            }
+
+            if (cleanTypes.All(t => t.EndsWith("Seq")))
+            {
+                // All are sequence types - use GeneratedAstNodeSeq as common base
+                return "GeneratedAstNodeSeq?";
+            }
+
+            // Check if all derive from GeneratedStmt
+            var stmtTypes = new HashSet<string> { "GeneratedStmt", "GeneratedFunctionDefStmt", "GeneratedAsyncFunctionDefStmt",
+                "GeneratedClassDefStmt", "GeneratedReturnStmt", "GeneratedDeleteStmt", "GeneratedAssignStmt",
+                "GeneratedAugAssignStmt", "GeneratedAnnAssignStmt", "GeneratedForStmt", "GeneratedAsyncForStmt",
+                "GeneratedWhileStmt", "GeneratedIfStmt", "GeneratedWithStmt", "GeneratedAsyncWithStmt",
+                "GeneratedMatchStmt", "GeneratedRaiseStmt", "GeneratedTryStmt", "GeneratedTryStarStmt",
+                "GeneratedAssertStmt", "GeneratedImportStmt", "GeneratedImportFromStmt", "GeneratedGlobalStmt",
+                "GeneratedNonlocalStmt", "GeneratedExprStmt", "GeneratedPassStmt", "GeneratedBreakStmt",
+                "GeneratedContinueStmt" };
+            if (cleanTypes.All(t => stmtTypes.Contains(t)))
+            {
+                return "GeneratedStmt?";
+            }
+
+            // Check if all derive from GeneratedExpr
+            var exprTypes = new HashSet<string> { "GeneratedExpr", "GeneratedBoolOpExpr", "GeneratedNamedExpr",
+                "GeneratedBinOpExpr", "GeneratedUnaryOpExpr", "GeneratedLambdaExpr", "GeneratedIfExpr",
+                "GeneratedDictExpr", "GeneratedSetExpr", "GeneratedListCompExpr", "GeneratedSetCompExpr",
+                "GeneratedDictCompExpr", "GeneratedGeneratorExpExpr", "GeneratedAwaitExpr", "GeneratedYieldExpr",
+                "GeneratedYieldFromExpr", "GeneratedCompareExpr", "GeneratedCallExpr", "GeneratedFormattedValueExpr",
+                "GeneratedJoinedStrExpr", "GeneratedConstantExpr", "GeneratedAttributeExpr", "GeneratedSubscriptExpr",
+                "GeneratedStarredExpr", "GeneratedNameExpr", "GeneratedListExpr", "GeneratedTupleExpr", "GeneratedSliceExpr" };
+            if (cleanTypes.All(t => exprTypes.Contains(t)))
+            {
+                return "GeneratedExpr?";
+            }
+
+            // Check if all derive from GeneratedPattern
+            var patternTypes = new HashSet<string> { "GeneratedPattern", "GeneratedMatchValue", "GeneratedMatchSingleton",
+                "GeneratedMatchSequence", "GeneratedMatchMapping", "GeneratedMatchClass", "GeneratedMatchStar",
+                "GeneratedMatchAs", "GeneratedMatchOr" };
+            if (cleanTypes.All(t => patternTypes.Contains(t)))
+            {
+                return "GeneratedPattern?";
+            }
+
+            // CPython 3.12: Special case for invalid_* rules mixing incompatible types
+            // All types ultimately derive from GeneratedAstNode
+            // Examples:
+            // - (slash_no_default | slash_with_default) → both are GeneratedAstNode subclasses
+            // - (param_no_default | ',') → GeneratedArg vs GeneratedTokenInfo (see below)
+
+            // Special case: TokenInfo doesn't derive from AstNode
+            if (cleanTypes.Contains("GeneratedTokenInfo"))
+            {
+                // Mixing TokenInfo with AstNode types - this happens in invalid_* error recovery rules
+                // CPython 3.12: Uses void* for both tokens and AST nodes
+                // C# solution: Use object type (C void* equivalent) with string-based type checking
+                // This is ONLY for compile-time error recovery rules (no runtime performance impact)
+                // Type checking pattern: use GetType().Name comparison to avoid reference issues
+                Console.WriteLine($"[INFO] Group mixing TokenInfo with AST nodes: {string.Join(", ", types)}");
+                Console.WriteLine($"[INFO] Using object? type (C void* equivalent) with string-based type checks");
+                return "object?";
+            }
+
+            // Default: All AST types derive from GeneratedAstNode
+            return "GeneratedAstNode?";
         }
     }
 }

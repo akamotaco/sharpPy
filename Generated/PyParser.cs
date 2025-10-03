@@ -66,12 +66,12 @@ namespace SharpPy.Generated
                 // Optional: [(statements)]
                 int _opt_mark_a = _position;
                 // Group: (statements)
-                object? _opt_a = null;
+                GeneratedStmtSeq? _opt_a = null;
                 int _group_mark__opt_a = _position;
                 // Try group alternative 1: statements
                 {
                     _position = _group_mark__opt_a;
-                    var _group_alt0__opt_a_item0 = Statements();
+                    GeneratedStmtSeq _group_alt0__opt_a_item0 = Statements();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
@@ -83,7 +83,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? a = _opt_a;
+                GeneratedStmtSeq? a = _opt_a;
                 if (a == null)
                 {
                     _position = _opt_mark_a; // Reset position
@@ -100,7 +100,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_make_module(p, a)
-                // TODO: Complex action expression: _PyPegen_make_module(p, a)
+                // Unknown AST function: _PyPegen_make_module
                 _res = default(GeneratedModule);
                 if (_res != null) goto done;
             } while (false);
@@ -204,7 +204,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: NEWLINE*
-                var _tmp0 = new System.Collections.Generic.List<object?>();
+                var _tmp0 = new List<GeneratedTokenInfo>();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -291,12 +291,12 @@ namespace SharpPy.Generated
                 // Optional: [(type_expressions)]
                 int _opt_mark_a = _position;
                 // Group: (type_expressions)
-                object? _opt_a = null;
+                GeneratedExprSeq? _opt_a = null;
                 int _group_mark__opt_a = _position;
                 // Try group alternative 1: type_expressions
                 {
                     _position = _group_mark__opt_a;
-                    var _group_alt0__opt_a_item0 = TypeExpressions();
+                    GeneratedExprSeq _group_alt0__opt_a_item0 = TypeExpressions();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
@@ -308,7 +308,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? a = _opt_a;
+                GeneratedExprSeq? a = _opt_a;
                 if (a == null)
                 {
                     _position = _opt_mark_a; // Reset position
@@ -339,7 +339,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: NEWLINE*
-                var _tmp3 = new System.Collections.Generic.List<object?>();
+                var _tmp3 = new List<GeneratedTokenInfo>();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -416,7 +416,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: statement+
-                var a = new System.Collections.Generic.List<object?>();
+                var a = new List<GeneratedStmtSeq>();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -443,8 +443,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: (asdl_stmt_seq*)_PyPegen_seq_flatten(p, a)
-                // TODO: Complex action expression: (asdl_stmt_seq*)_PyPegen_seq_flatten(p, a)
-                _res = default(GeneratedStmtSeq);
+                _res = _PyPegen_seq_flatten(a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -495,8 +494,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: (asdl_stmt_seq*)_PyPegen_singleton_seq(p, a)
-                // TODO: Complex action expression: (asdl_stmt_seq*)_PyPegen_singleton_seq(p, a)
-                _res = default(GeneratedStmtSeq);
+                _res = _PyPegen_singleton_seq(a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -582,8 +580,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: (asdl_stmt_seq*)_PyPegen_singleton_seq(p, a)
-                // TODO: Complex action expression: (asdl_stmt_seq*)_PyPegen_singleton_seq(p, a)
-                _res = default(GeneratedStmtSeq);
+                _res = _PyPegen_singleton_seq(a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -664,7 +661,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_interactive_exit(p)
-                // TODO: Complex action expression: _PyPegen_interactive_exit(p)
+                // Unknown AST function: _PyPegen_interactive_exit
                 _res = default(GeneratedStmtSeq);
                 if (_res != null) goto done;
             } while (false);
@@ -736,8 +733,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: (asdl_stmt_seq*)_PyPegen_singleton_seq(p, a)
-                // TODO: Complex action expression: (asdl_stmt_seq*)_PyPegen_singleton_seq(p, a)
-                _res = default(GeneratedStmtSeq);
+                _res = _PyPegen_singleton_seq(a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -753,13 +749,43 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Zero or more: ';'*
-                var a = new System.Collections.Generic.List<object?>();
+                // Gather: ';'.simple_stmt+
+                var a = new GeneratedStmtSeq();
+                // Parse first item (no separator)
+                // Call rule: simple_stmt
+                var _first_a = SimpleStmt();
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                a.Add(_first_a);
+                // Parse remaining items (separator + item)
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Expect ';'
-                    var _loop_elem_a = Expect(";");
+                    var _sep_a = Expect(";");
+                    if (_sep_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep_a == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: simple_stmt
+                    var _loop_elem_a = SimpleStmt();
                     if (_loop_elem_a == null)
                     {
                         _position = _mark;
@@ -768,70 +794,42 @@ namespace SharpPy.Generated
                     }
                     if (_loop_elem_a == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
                     }
                     a.Add(_loop_elem_a);
                 }
-                // Collected a.Count items (may be 0)
-                // One or more: simple_stmt+
-                var _tmp0 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: simple_stmt
-                    var _loop_elem__tmp0 = SimpleStmt();
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
-                }
-                if (_tmp0.Count == 0)
-                {
-                    // One or more requires at least one match
-                    _position = _mark;
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // Optional: [(';')]
-                int _opt_mark__tmp1 = _position;
+                int _opt_mark__tmp0 = _position;
                 // Group: (';')
-                object? _opt__tmp1 = null;
-                int _group_mark__opt__tmp1 = _position;
+                GeneratedTokenInfo? _opt__tmp0 = null;
+                int _group_mark__opt__tmp0 = _position;
                 // Try group alternative 1: ';'
                 {
-                    _position = _group_mark__opt__tmp1;
-                    var _group_alt0__opt__tmp1_item0 = Expect(";");
-                    if (_group_alt0__opt__tmp1_item0 != null)
+                    _position = _group_mark__opt__tmp0;
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = Expect(";");
+                    if (_group_alt0__opt__tmp0_item0 != null)
                     {
-                        _opt__tmp1 = _group_alt0__opt__tmp1_item0;
+                        _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
                 }
-                if (_opt__tmp1 == null)
+                if (_opt__tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp1 = _opt__tmp1;
-                if (_tmp1 == null)
+                GeneratedTokenInfo? _tmp0 = _opt__tmp0;
+                if (_tmp0 == null)
                 {
-                    _position = _opt_mark__tmp1; // Reset position
-                    _tmp1 = null; // Optional not present
+                    _position = _opt_mark__tmp0; // Reset position
+                    _tmp0 = null; // Optional not present
                 }
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var _tmp2 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (_tmp2 == null)
+                var _tmp1 = ExpectToken(GeneratedTokenType.NEWLINE);
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
+                if (_tmp1 == null)
                 {
                     _position = _mark;
                     _res = null;
@@ -1585,15 +1583,15 @@ namespace SharpPy.Generated
                 // Optional: [('=' d=annotated_rhs { d })]
                 int _opt_mark_c = _position;
                 // Group: ('=' d=annotated_rhs { d })
-                object? _opt_c = null;
+                GeneratedExpr? _opt_c = null;
                 int _group_mark__opt_c = _position;
                 // Try group alternative 1: '=' d=annotated_rhs { d }
                 {
                     _position = _group_mark__opt_c;
-                    var _group_alt0__opt_c_item0 = Expect("=");
+                    GeneratedTokenInfo? _group_alt0__opt_c_item0 = Expect("=");
                     if (_group_alt0__opt_c_item0 != null)
                     {
-                        var _group_alt0__opt_c_item1 = AnnotatedRhs();
+                        GeneratedExpr _group_alt0__opt_c_item1 = AnnotatedRhs();
                         if (_group_alt0__opt_c_item1 != null)
                         {
                             _opt_c = _group_alt0__opt_c_item1;
@@ -1606,7 +1604,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? c = _opt_c;
+                GeneratedExpr? c = _opt_c;
                 if (c == null)
                 {
                     _position = _opt_mark_c; // Reset position
@@ -1619,7 +1617,7 @@ namespace SharpPy.Generated
                 //   "Variable annotation syntax is",
                 //   _PyAST_AnnAssign(CHECK(expr_ty, _PyPegen_set_expr_context(p, a, Store)), b, c, 1, EXTRA)
                 //   )
-                // No _PyAST_ function in action: EXTRA)
+                // No _PyAST_ or _PyPegen_ function in action: EXTRA)
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
             } while (false);
@@ -1637,21 +1635,21 @@ namespace SharpPy.Generated
                 }
 
                 // Group: ('(' b=single_target ')' { b } | single_subscript_attribute_target)
-                object? a = null;
+                GeneratedExpr? a = null;
                 int _group_mark_a = _position;
                 // Try group alternative 1: '(' b=single_target ')' { b }
                 {
                     _position = _group_mark_a;
-                    var _group_alt0_a_item0 = Expect("(");
+                    GeneratedTokenInfo? _group_alt0_a_item0 = Expect("(");
                     if (_group_alt0_a_item0 != null)
                     {
-                        var _group_alt0_a_item1 = SingleTarget();
+                        GeneratedExpr _group_alt0_a_item1 = SingleTarget();
                         if (_group_alt0_a_item1 != null)
                         {
-                            var _group_alt0_a_item2 = Expect(")");
+                            GeneratedTokenInfo? _group_alt0_a_item2 = Expect(")");
                             if (_group_alt0_a_item2 != null)
                             {
-                                a = _group_alt0_a_item2;
+                                a = _group_alt0_a_item1;
                             }
                         }
                     }
@@ -1660,7 +1658,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _group_mark_a;
-                    var _group_alt1_a_item0 = SingleSubscriptAttributeTarget();
+                    GeneratedExpr _group_alt1_a_item0 = SingleSubscriptAttributeTarget();
                     if (_group_alt1_a_item0 != null)
                     {
                         a = _group_alt1_a_item0;
@@ -1691,15 +1689,15 @@ namespace SharpPy.Generated
                 // Optional: [('=' d=annotated_rhs { d })]
                 int _opt_mark_c = _position;
                 // Group: ('=' d=annotated_rhs { d })
-                object? _opt_c = null;
+                GeneratedExpr? _opt_c = null;
                 int _group_mark__opt_c = _position;
                 // Try group alternative 1: '=' d=annotated_rhs { d }
                 {
                     _position = _group_mark__opt_c;
-                    var _group_alt0__opt_c_item0 = Expect("=");
+                    GeneratedTokenInfo? _group_alt0__opt_c_item0 = Expect("=");
                     if (_group_alt0__opt_c_item0 != null)
                     {
-                        var _group_alt0__opt_c_item1 = AnnotatedRhs();
+                        GeneratedExpr _group_alt0__opt_c_item1 = AnnotatedRhs();
                         if (_group_alt0__opt_c_item1 != null)
                         {
                             _opt_c = _group_alt0__opt_c_item1;
@@ -1712,14 +1710,14 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? c = _opt_c;
+                GeneratedExpr? c = _opt_c;
                 if (c == null)
                 {
                     _position = _opt_mark_c; // Reset position
                     c = null; // Optional not present
                 }
                 // Action: CHECK_VERSION(stmt_ty, 6, "Variable annotations syntax is", _PyAST_AnnAssign(a, b, c, 0, EXTRA))
-                // No _PyAST_ function in action: EXTRA)
+                // No _PyAST_ or _PyPegen_ function in action: EXTRA)
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
             } while (false);
@@ -1737,23 +1735,23 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: (z=star_targets '=' { z })+
-                var a = new System.Collections.Generic.List<object?>();
+                var a = new GeneratedExprSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Group: (z=star_targets '=' { z })
-                    object? _loop_elem_a = null;
+                    GeneratedExpr? _loop_elem_a = null;
                     int _group_mark__loop_elem_a = _position;
                     // Try group alternative 1: z=star_targets '=' { z }
                     {
                         _position = _group_mark__loop_elem_a;
-                        var _group_alt0__loop_elem_a_item0 = StarTargets();
+                        GeneratedExpr _group_alt0__loop_elem_a_item0 = StarTargets();
                         if (_group_alt0__loop_elem_a_item0 != null)
                         {
-                            var _group_alt0__loop_elem_a_item1 = Expect("=");
+                            GeneratedTokenInfo? _group_alt0__loop_elem_a_item1 = Expect("=");
                             if (_group_alt0__loop_elem_a_item1 != null)
                             {
-                                _loop_elem_a = _group_alt0__loop_elem_a_item1;
+                                _loop_elem_a = _group_alt0__loop_elem_a_item0;
                             }
                         }
                     }
@@ -1778,12 +1776,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Group: (yield_expr | star_expressions)
-                object? b = null;
+                GeneratedExpr? b = null;
                 int _group_mark_b = _position;
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark_b;
-                    var _group_alt0_b_item0 = YieldExpr();
+                    GeneratedExpr _group_alt0_b_item0 = YieldExpr();
                     if (_group_alt0_b_item0 != null)
                     {
                         b = _group_alt0_b_item0;
@@ -1793,7 +1791,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _group_mark_b;
-                    var _group_alt1_b_item0 = StarExpressions();
+                    GeneratedExpr _group_alt1_b_item0 = StarExpressions();
                     if (_group_alt1_b_item0 != null)
                     {
                         b = _group_alt1_b_item0;
@@ -1818,12 +1816,12 @@ namespace SharpPy.Generated
                 // Optional: [(TYPE_COMMENT)]
                 int _opt_mark_tc = _position;
                 // Group: (TYPE_COMMENT)
-                object? _opt_tc = null;
+                GeneratedTokenInfo? _opt_tc = null;
                 int _group_mark__opt_tc = _position;
                 // Try group alternative 1: TYPE_COMMENT
                 {
                     _position = _group_mark__opt_tc;
-                    var _group_alt0__opt_tc_item0 = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
+                    GeneratedTokenInfo? _group_alt0__opt_tc_item0 = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
                     if (_group_alt0__opt_tc_item0 != null)
                     {
                         _opt_tc = _group_alt0__opt_tc_item0;
@@ -1835,7 +1833,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? tc = _opt_tc;
+                GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
                 {
                     _position = _opt_mark_tc; // Reset position
@@ -1878,12 +1876,12 @@ namespace SharpPy.Generated
                 // Cut operator - commit to this alternative
                 // TODO: Implement cut semantics (prevent backtracking)
                 // Group: (yield_expr | star_expressions)
-                object? c = null;
+                GeneratedExpr? c = null;
                 int _group_mark_c = _position;
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark_c;
-                    var _group_alt0_c_item0 = YieldExpr();
+                    GeneratedExpr _group_alt0_c_item0 = YieldExpr();
                     if (_group_alt0_c_item0 != null)
                     {
                         c = _group_alt0_c_item0;
@@ -1893,7 +1891,7 @@ namespace SharpPy.Generated
                 if (c == null)
                 {
                     _position = _group_mark_c;
-                    var _group_alt1_c_item0 = StarExpressions();
+                    GeneratedExpr _group_alt1_c_item0 = StarExpressions();
                     if (_group_alt1_c_item0 != null)
                     {
                         c = _group_alt1_c_item0;
@@ -2029,11 +2027,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: augassign from python.gram
-        public GeneratedSeq Augassign()
+        public GeneratedAstNode? Augassign()
         {
             // CPython 3.12 PEG: augassign
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -2063,8 +2061,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_augoperator(p, Add)
-                // TODO: Complex action expression: _PyPegen_augoperator(p, Add)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_augoperator
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -2089,8 +2087,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_augoperator(p, Sub)
-                // TODO: Complex action expression: _PyPegen_augoperator(p, Sub)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_augoperator
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -2115,8 +2113,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_augoperator(p, Mult)
-                // TODO: Complex action expression: _PyPegen_augoperator(p, Mult)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_augoperator
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -2141,8 +2139,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: CHECK_VERSION(AugOperator*, 5, "The '@' operator is", _PyPegen_augoperator(p, MatMult))
-                // TODO: Complex action expression: CHECK_VERSION(AugOperator*, 5, "The '@' operator is", _PyPegen_augoperator(p, MatMult))
-                _res = default(GeneratedSeq);
+                // No _PyAST_ or _PyPegen_ function in action: MatMult)
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -2167,8 +2165,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_augoperator(p, Div)
-                // TODO: Complex action expression: _PyPegen_augoperator(p, Div)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_augoperator
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -2193,8 +2191,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_augoperator(p, Mod)
-                // TODO: Complex action expression: _PyPegen_augoperator(p, Mod)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_augoperator
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -2219,8 +2217,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_augoperator(p, BitAnd)
-                // TODO: Complex action expression: _PyPegen_augoperator(p, BitAnd)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_augoperator
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -2245,8 +2243,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_augoperator(p, BitOr)
-                // TODO: Complex action expression: _PyPegen_augoperator(p, BitOr)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_augoperator
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -2271,8 +2269,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_augoperator(p, BitXor)
-                // TODO: Complex action expression: _PyPegen_augoperator(p, BitXor)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_augoperator
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -2297,8 +2295,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_augoperator(p, LShift)
-                // TODO: Complex action expression: _PyPegen_augoperator(p, LShift)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_augoperator
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -2323,8 +2321,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_augoperator(p, RShift)
-                // TODO: Complex action expression: _PyPegen_augoperator(p, RShift)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_augoperator
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -2349,8 +2347,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_augoperator(p, Pow)
-                // TODO: Complex action expression: _PyPegen_augoperator(p, Pow)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_augoperator
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -2375,8 +2373,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_augoperator(p, FloorDiv)
-                // TODO: Complex action expression: _PyPegen_augoperator(p, FloorDiv)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_augoperator
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -2429,12 +2427,12 @@ namespace SharpPy.Generated
                 // Optional: [(star_expressions)]
                 int _opt_mark_a = _position;
                 // Group: (star_expressions)
-                object? _opt_a = null;
+                GeneratedExpr? _opt_a = null;
                 int _group_mark__opt_a = _position;
                 // Try group alternative 1: star_expressions
                 {
                     _position = _group_mark__opt_a;
-                    var _group_alt0__opt_a_item0 = StarExpressions();
+                    GeneratedExpr _group_alt0__opt_a_item0 = StarExpressions();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
@@ -2446,7 +2444,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? a = _opt_a;
+                GeneratedExpr? a = _opt_a;
                 if (a == null)
                 {
                     _position = _opt_mark_a; // Reset position
@@ -2515,15 +2513,15 @@ namespace SharpPy.Generated
                 // Optional: [('from' z=expression { z })]
                 int _opt_mark_b = _position;
                 // Group: ('from' z=expression { z })
-                object? _opt_b = null;
+                GeneratedExpr? _opt_b = null;
                 int _group_mark__opt_b = _position;
                 // Try group alternative 1: 'from' z=expression { z }
                 {
                     _position = _group_mark__opt_b;
-                    var _group_alt0__opt_b_item0 = Expect("from");
+                    GeneratedTokenInfo? _group_alt0__opt_b_item0 = Expect("from");
                     if (_group_alt0__opt_b_item0 != null)
                     {
-                        var _group_alt0__opt_b_item1 = Expression();
+                        GeneratedExpr _group_alt0__opt_b_item1 = Expression();
                         if (_group_alt0__opt_b_item1 != null)
                         {
                             _opt_b = _group_alt0__opt_b_item1;
@@ -2536,7 +2534,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? b = _opt_b;
+                GeneratedExpr? b = _opt_b;
                 if (b == null)
                 {
                     _position = _opt_mark_b; // Reset position
@@ -2620,55 +2618,59 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Zero or more: ','*
-                var a = new System.Collections.Generic.List<object?>();
+                // Gather: ','.NAME+
+                var a = new List<GeneratedTokenInfo>();
+                // Parse first item (no separator)
+                // Expect token: NAME
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
+                var _first_a = ExpectToken(GeneratedTokenType.NAME);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(_first_a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                a.Add(_first_a);
+                // Parse remaining items (separator + item)
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Expect ','
-                    var _loop_elem_a = Expect(",");
-                    if (_loop_elem_a == null)
+                    var _sep_a = Expect(",");
+                    if (_sep_a == null)
                     {
                         _position = _mark;
                         _res = null;
                         break;  // Exit this alternative
                     }
-                    if (_loop_elem_a == null)
+                    if (_sep_a == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark;
+                        break; // No more separators
                     }
-                    a.Add(_loop_elem_a);
-                }
-                // Collected a.Count items (may be 0)
-                // One or more: NAME+
-                var _tmp1 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
                     // Expect token: NAME
                     Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                    var _loop_elem__tmp1 = ExpectToken(GeneratedTokenType.NAME);
-                    Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(_loop_elem__tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                    if (_loop_elem__tmp1 == null)
+                    var _loop_elem_a = ExpectToken(GeneratedTokenType.NAME);
+                    Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(_loop_elem_a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
+                    if (_loop_elem_a == null)
                     {
                         _position = _mark;
                         _res = null;
                         break;  // Exit this alternative
                     }
-                    if (_loop_elem__tmp1 == null)
+                    if (_loop_elem_a == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
                     }
-                    _tmp1.Add(_loop_elem__tmp1);
-                }
-                if (_tmp1.Count == 0)
-                {
-                    // One or more requires at least one match
-                    _position = _mark;
-                    _res = null;
-                    break;  // Exit this alternative
+                    a.Add(_loop_elem_a);
                 }
                 // Action: _PyAST_Global(CHECK(asdl_identifier_seq*, _PyPegen_map_names_to_ids(p, a)), EXTRA)
                 _res = _PyAST_Global(_PyPegen_map_names_to_ids(a), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
@@ -2722,55 +2724,59 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Zero or more: ','*
-                var a = new System.Collections.Generic.List<object?>();
+                // Gather: ','.NAME+
+                var a = new List<GeneratedTokenInfo>();
+                // Parse first item (no separator)
+                // Expect token: NAME
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
+                var _first_a = ExpectToken(GeneratedTokenType.NAME);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(_first_a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                a.Add(_first_a);
+                // Parse remaining items (separator + item)
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Expect ','
-                    var _loop_elem_a = Expect(",");
-                    if (_loop_elem_a == null)
+                    var _sep_a = Expect(",");
+                    if (_sep_a == null)
                     {
                         _position = _mark;
                         _res = null;
                         break;  // Exit this alternative
                     }
-                    if (_loop_elem_a == null)
+                    if (_sep_a == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark;
+                        break; // No more separators
                     }
-                    a.Add(_loop_elem_a);
-                }
-                // Collected a.Count items (may be 0)
-                // One or more: NAME+
-                var _tmp1 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
                     // Expect token: NAME
                     Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                    var _loop_elem__tmp1 = ExpectToken(GeneratedTokenType.NAME);
-                    Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(_loop_elem__tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                    if (_loop_elem__tmp1 == null)
+                    var _loop_elem_a = ExpectToken(GeneratedTokenType.NAME);
+                    Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(_loop_elem_a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
+                    if (_loop_elem_a == null)
                     {
                         _position = _mark;
                         _res = null;
                         break;  // Exit this alternative
                     }
-                    if (_loop_elem__tmp1 == null)
+                    if (_loop_elem_a == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
                     }
-                    _tmp1.Add(_loop_elem__tmp1);
-                }
-                if (_tmp1.Count == 0)
-                {
-                    // One or more requires at least one match
-                    _position = _mark;
-                    _res = null;
-                    break;  // Exit this alternative
+                    a.Add(_loop_elem_a);
                 }
                 // Action: _PyAST_Nonlocal(CHECK(asdl_identifier_seq*, _PyPegen_map_names_to_ids(p, a)), EXTRA)
                 _res = _PyAST_Nonlocal(_PyPegen_map_names_to_ids(a), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
@@ -2980,15 +2986,15 @@ namespace SharpPy.Generated
                 // Optional: [(',' z=expression { z })]
                 int _opt_mark_b = _position;
                 // Group: (',' z=expression { z })
-                object? _opt_b = null;
+                GeneratedExpr? _opt_b = null;
                 int _group_mark__opt_b = _position;
                 // Try group alternative 1: ',' z=expression { z }
                 {
                     _position = _group_mark__opt_b;
-                    var _group_alt0__opt_b_item0 = Expect(",");
+                    GeneratedTokenInfo? _group_alt0__opt_b_item0 = Expect(",");
                     if (_group_alt0__opt_b_item0 != null)
                     {
-                        var _group_alt0__opt_b_item1 = Expression();
+                        GeneratedExpr _group_alt0__opt_b_item1 = Expression();
                         if (_group_alt0__opt_b_item1 != null)
                         {
                             _opt_b = _group_alt0__opt_b_item1;
@@ -3001,7 +3007,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? b = _opt_b;
+                GeneratedExpr? b = _opt_b;
                 if (b == null)
                 {
                     _position = _opt_mark_b; // Reset position
@@ -3225,17 +3231,17 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: ('.' | '...')*
-                var a = new System.Collections.Generic.List<object?>();
+                var a = new List<GeneratedTokenInfo>();
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Group: ('.' | '...')
-                    object? _loop_elem_a = null;
+                    GeneratedTokenInfo? _loop_elem_a = null;
                     int _group_mark__loop_elem_a = _position;
                     // Try group alternative 1: '.'
                     {
                         _position = _group_mark__loop_elem_a;
-                        var _group_alt0__loop_elem_a_item0 = Expect(".");
+                        GeneratedTokenInfo? _group_alt0__loop_elem_a_item0 = Expect(".");
                         if (_group_alt0__loop_elem_a_item0 != null)
                         {
                             _loop_elem_a = _group_alt0__loop_elem_a_item0;
@@ -3245,7 +3251,7 @@ namespace SharpPy.Generated
                     if (_loop_elem_a == null)
                     {
                         _position = _group_mark__loop_elem_a;
-                        var _group_alt1__loop_elem_a_item0 = Expect("...");
+                        GeneratedTokenInfo? _group_alt1__loop_elem_a_item0 = Expect("...");
                         if (_group_alt1__loop_elem_a_item0 != null)
                         {
                             _loop_elem_a = _group_alt1__loop_elem_a_item0;
@@ -3290,7 +3296,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_checked_future_import(p, b->v.Name.id, c, _PyPegen_seq_count_dots(a), EXTRA)
-                // TODO: Complex action expression: _PyPegen_checked_future_import(p, b->v.Name.id, c, _PyPegen_seq_count_dots(a), EXTRA)
+                // Unknown AST function: _PyPegen_checked_future_import
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
             } while (false);
@@ -3316,17 +3322,17 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: ('.' | '...')+
-                var a = new System.Collections.Generic.List<object?>();
+                var a = new List<GeneratedTokenInfo>();
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Group: ('.' | '...')
-                    object? _loop_elem_a = null;
+                    GeneratedTokenInfo? _loop_elem_a = null;
                     int _group_mark__loop_elem_a = _position;
                     // Try group alternative 1: '.'
                     {
                         _position = _group_mark__loop_elem_a;
-                        var _group_alt0__loop_elem_a_item0 = Expect(".");
+                        GeneratedTokenInfo? _group_alt0__loop_elem_a_item0 = Expect(".");
                         if (_group_alt0__loop_elem_a_item0 != null)
                         {
                             _loop_elem_a = _group_alt0__loop_elem_a_item0;
@@ -3336,7 +3342,7 @@ namespace SharpPy.Generated
                     if (_loop_elem_a == null)
                     {
                         _position = _group_mark__loop_elem_a;
-                        var _group_alt1__loop_elem_a_item0 = Expect("...");
+                        GeneratedTokenInfo? _group_alt1__loop_elem_a_item0 = Expect("...");
                         if (_group_alt1__loop_elem_a_item0 != null)
                         {
                             _loop_elem_a = _group_alt1__loop_elem_a_item0;
@@ -3397,11 +3403,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: import_from_targets from python.gram
-        public GeneratedSeq ImportFromTargets()
+        public GeneratedAliasSeq ImportFromTargets()
         {
             // CPython 3.12 PEG: import_from_targets
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAliasSeq _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -3441,12 +3447,12 @@ namespace SharpPy.Generated
                 // Optional: [(',')]
                 int _opt_mark__tmp1 = _position;
                 // Group: (',')
-                object? _opt__tmp1 = null;
+                GeneratedTokenInfo? _opt__tmp1 = null;
                 int _group_mark__opt__tmp1 = _position;
                 // Try group alternative 1: ','
                 {
                     _position = _group_mark__opt__tmp1;
-                    var _group_alt0__opt__tmp1_item0 = Expect(",");
+                    GeneratedTokenInfo? _group_alt0__opt__tmp1_item0 = Expect(",");
                     if (_group_alt0__opt__tmp1_item0 != null)
                     {
                         _opt__tmp1 = _group_alt0__opt__tmp1_item0;
@@ -3458,7 +3464,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp1 = _opt__tmp1;
+                GeneratedTokenInfo? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
                 {
                     _position = _opt_mark__tmp1; // Reset position
@@ -3473,7 +3479,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedSeq)((object?)a);
+                _res = (GeneratedAliasSeq)((object?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -3508,7 +3514,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)((object?)_tmp0);
+                _res = (GeneratedAliasSeq)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -3533,8 +3539,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: (asdl_alias_seq*)_PyPegen_singleton_seq(p, CHECK(alias_ty, _PyPegen_alias_for_star(p, EXTRA)))
-                // TODO: Complex action expression: (asdl_alias_seq*)_PyPegen_singleton_seq(p, CHECK(alias_ty, _PyPegen_alias_for_star(p, EXTRA)))
-                _res = default(GeneratedSeq);
+                _res = _PyPegen_singleton_seq(_PyPegen_alias_for_star(_start_lineno, _start_col_offset, _end_lineno, _end_col_offset));
                 if (_res != null) goto done;
             } while (false);
 
@@ -3563,7 +3568,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)((object?)_tmp0);
+                _res = (GeneratedAliasSeq)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -3580,11 +3585,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: import_from_as_names from python.gram
-        public GeneratedSeq ImportFromAsNames()
+        public GeneratedAliasSeq ImportFromAsNames()
         {
             // CPython 3.12 PEG: import_from_as_names
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAliasSeq _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -3605,56 +3610,58 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Zero or more: ','*
-                var a = new System.Collections.Generic.List<object?>();
-                while (true)
+                // Gather: ','.import_from_as_name+
+                var a = new GeneratedAliasSeq();
+                // Parse first item (no separator)
+                // Call rule: import_from_as_name
+                var _first_a = ImportFromAsName();
+                if (_first_a == null)
                 {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _loop_elem_a = Expect(",");
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    a.Add(_loop_elem_a);
-                }
-                // Collected a.Count items (may be 0)
-                // One or more: import_from_as_name+
-                var _tmp0 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: import_from_as_name
-                    var _loop_elem__tmp0 = ImportFromAsName();
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
-                }
-                if (_tmp0.Count == 0)
-                {
-                    // One or more requires at least one match
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                a.Add(_first_a);
+                // Parse remaining items (separator + item)
+                while (true)
+                {
+                    int _loop_mark = _position;
+                    // Expect ','
+                    var _sep_a = Expect(",");
+                    if (_sep_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep_a == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: import_from_as_name
+                    var _loop_elem_a = ImportFromAsName();
+                    if (_loop_elem_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_loop_elem_a == null)
+                    {
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
+                    }
+                    a.Add(_loop_elem_a);
+                }
                 // Action: a
-                _res = (GeneratedSeq)((object?)a);
+                _res = (GeneratedAliasSeq)((object?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -3671,11 +3678,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: import_from_as_name from python.gram
-        public GeneratedAstNode ImportFromAsName()
+        public GeneratedAlias ImportFromAsName()
         {
             // CPython 3.12 PEG: import_from_as_name
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedAlias _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -3709,15 +3716,15 @@ namespace SharpPy.Generated
                 // Optional: [('as' z=NAME { z })]
                 int _opt_mark_b = _position;
                 // Group: ('as' z=NAME { z })
-                object? _opt_b = null;
+                GeneratedTokenInfo? _opt_b = null;
                 int _group_mark__opt_b = _position;
                 // Try group alternative 1: 'as' z=NAME { z }
                 {
                     _position = _group_mark__opt_b;
-                    var _group_alt0__opt_b_item0 = Expect("as");
+                    GeneratedTokenInfo? _group_alt0__opt_b_item0 = Expect("as");
                     if (_group_alt0__opt_b_item0 != null)
                     {
-                        var _group_alt0__opt_b_item1 = ExpectToken(GeneratedTokenType.NAME);
+                        GeneratedTokenInfo? _group_alt0__opt_b_item1 = ExpectToken(GeneratedTokenType.NAME);
                         if (_group_alt0__opt_b_item1 != null)
                         {
                             _opt_b = _group_alt0__opt_b_item1;
@@ -3730,7 +3737,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? b = _opt_b;
+                GeneratedTokenInfo? b = _opt_b;
                 if (b == null)
                 {
                     _position = _opt_mark_b; // Reset position
@@ -3741,7 +3748,7 @@ namespace SharpPy.Generated
                 //   (b) ? ((expr_ty) b)->v.Name.id : NULL,
                 //   EXTRA)
                 // Unknown AST function: _PyAST_alias
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedAlias);
                 if (_res != null) goto done;
             } while (false);
 
@@ -3758,11 +3765,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: dotted_as_names from python.gram
-        public GeneratedSeq DottedAsNames()
+        public GeneratedAliasSeq DottedAsNames()
         {
             // CPython 3.12 PEG: dotted_as_names
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAliasSeq _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -3783,56 +3790,58 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Zero or more: ','*
-                var a = new System.Collections.Generic.List<object?>();
-                while (true)
+                // Gather: ','.dotted_as_name+
+                var a = new GeneratedAliasSeq();
+                // Parse first item (no separator)
+                // Call rule: dotted_as_name
+                var _first_a = DottedAsName();
+                if (_first_a == null)
                 {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _loop_elem_a = Expect(",");
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    a.Add(_loop_elem_a);
-                }
-                // Collected a.Count items (may be 0)
-                // One or more: dotted_as_name+
-                var _tmp0 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: dotted_as_name
-                    var _loop_elem__tmp0 = DottedAsName();
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
-                }
-                if (_tmp0.Count == 0)
-                {
-                    // One or more requires at least one match
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                a.Add(_first_a);
+                // Parse remaining items (separator + item)
+                while (true)
+                {
+                    int _loop_mark = _position;
+                    // Expect ','
+                    var _sep_a = Expect(",");
+                    if (_sep_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep_a == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: dotted_as_name
+                    var _loop_elem_a = DottedAsName();
+                    if (_loop_elem_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_loop_elem_a == null)
+                    {
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
+                    }
+                    a.Add(_loop_elem_a);
+                }
                 // Action: a
-                _res = (GeneratedSeq)((object?)a);
+                _res = (GeneratedAliasSeq)((object?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -3849,11 +3858,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: dotted_as_name from python.gram
-        public GeneratedAstNode DottedAsName()
+        public GeneratedAlias DottedAsName()
         {
             // CPython 3.12 PEG: dotted_as_name
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedAlias _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -3885,15 +3894,15 @@ namespace SharpPy.Generated
                 // Optional: [('as' z=NAME { z })]
                 int _opt_mark_b = _position;
                 // Group: ('as' z=NAME { z })
-                object? _opt_b = null;
+                GeneratedTokenInfo? _opt_b = null;
                 int _group_mark__opt_b = _position;
                 // Try group alternative 1: 'as' z=NAME { z }
                 {
                     _position = _group_mark__opt_b;
-                    var _group_alt0__opt_b_item0 = Expect("as");
+                    GeneratedTokenInfo? _group_alt0__opt_b_item0 = Expect("as");
                     if (_group_alt0__opt_b_item0 != null)
                     {
-                        var _group_alt0__opt_b_item1 = ExpectToken(GeneratedTokenType.NAME);
+                        GeneratedTokenInfo? _group_alt0__opt_b_item1 = ExpectToken(GeneratedTokenType.NAME);
                         if (_group_alt0__opt_b_item1 != null)
                         {
                             _opt_b = _group_alt0__opt_b_item1;
@@ -3906,7 +3915,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? b = _opt_b;
+                GeneratedTokenInfo? b = _opt_b;
                 if (b == null)
                 {
                     _position = _opt_mark_b; // Reset position
@@ -3917,7 +3926,7 @@ namespace SharpPy.Generated
                 //   (b) ? ((expr_ty) b)->v.Name.id : NULL,
                 //   EXTRA)
                 // Unknown AST function: _PyAST_alias
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedAlias);
                 if (_res != null) goto done;
             } while (false);
 
@@ -3992,7 +4001,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_join_names_with_dot(p, a, b)
-                // TODO: Complex action expression: _PyPegen_join_names_with_dot(p, a, b)
+                // Unknown AST function: _PyPegen_join_names_with_dot
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
             } while (false);
@@ -4204,26 +4213,26 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: ('@' f=named_expression NEWLINE { f })+
-                var a = new System.Collections.Generic.List<object?>();
+                var a = new GeneratedExprSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Group: ('@' f=named_expression NEWLINE { f })
-                    object? _loop_elem_a = null;
+                    GeneratedExpr? _loop_elem_a = null;
                     int _group_mark__loop_elem_a = _position;
                     // Try group alternative 1: '@' f=named_expression NEWLINE { f }
                     {
                         _position = _group_mark__loop_elem_a;
-                        var _group_alt0__loop_elem_a_item0 = Expect("@");
+                        GeneratedTokenInfo? _group_alt0__loop_elem_a_item0 = Expect("@");
                         if (_group_alt0__loop_elem_a_item0 != null)
                         {
-                            var _group_alt0__loop_elem_a_item1 = NamedExpression();
+                            GeneratedExpr _group_alt0__loop_elem_a_item1 = NamedExpression();
                             if (_group_alt0__loop_elem_a_item1 != null)
                             {
-                                var _group_alt0__loop_elem_a_item2 = ExpectToken(GeneratedTokenType.NEWLINE);
+                                GeneratedTokenInfo? _group_alt0__loop_elem_a_item2 = ExpectToken(GeneratedTokenType.NEWLINE);
                                 if (_group_alt0__loop_elem_a_item2 != null)
                                 {
-                                    _loop_elem_a = _group_alt0__loop_elem_a_item2;
+                                    _loop_elem_a = _group_alt0__loop_elem_a_item1;
                                 }
                             }
                         }
@@ -4308,7 +4317,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_class_def_decorators(p, a, b)
-                // TODO: Complex action expression: _PyPegen_class_def_decorators(p, a, b)
+                // Unknown AST function: _PyPegen_class_def_decorators
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
             } while (false);
@@ -4426,12 +4435,12 @@ namespace SharpPy.Generated
                 // Optional: [(type_params)]
                 int _opt_mark_t = _position;
                 // Group: (type_params)
-                object? _opt_t = null;
+                GeneratedTypeParamSeq? _opt_t = null;
                 int _group_mark__opt_t = _position;
                 // Try group alternative 1: type_params
                 {
                     _position = _group_mark__opt_t;
-                    var _group_alt0__opt_t_item0 = TypeParams();
+                    GeneratedTypeParamSeq _group_alt0__opt_t_item0 = TypeParams();
                     if (_group_alt0__opt_t_item0 != null)
                     {
                         _opt_t = _group_alt0__opt_t_item0;
@@ -4443,7 +4452,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? t = _opt_t;
+                GeneratedTypeParamSeq? t = _opt_t;
                 if (t == null)
                 {
                     _position = _opt_mark_t; // Reset position
@@ -4452,22 +4461,46 @@ namespace SharpPy.Generated
                 // Optional: [('(' z=[(arguments)] ')' { z })]
                 int _opt_mark_b = _position;
                 // Group: ('(' z=[(arguments)] ')' { z })
-                object? _opt_b = null;
+                GeneratedExpr? _opt_b = null;
                 int _group_mark__opt_b = _position;
                 // Try group alternative 1: '(' z=[(arguments)] ')' { z }
                 {
                     _position = _group_mark__opt_b;
-                    var _group_alt0__opt_b_item0 = Expect("(");
+                    GeneratedTokenInfo? _group_alt0__opt_b_item0 = Expect("(");
                     if (_group_alt0__opt_b_item0 != null)
                     {
-                        object? _group_alt0__opt_b_item1 = null;
-                        // TODO: Complex group item type: Optional
+                        // Optional: [(arguments)]
+                        int _opt_mark__group_alt0__opt_b_item1 = _position;
+                        // Group: (arguments)
+                        GeneratedExpr? _opt__group_alt0__opt_b_item1 = null;
+                        int _group_mark__opt__group_alt0__opt_b_item1 = _position;
+                        // Try group alternative 1: arguments
+                        {
+                            _position = _group_mark__opt__group_alt0__opt_b_item1;
+                            GeneratedExpr _group_alt0__opt__group_alt0__opt_b_item1_item0 = Arguments();
+                            if (_group_alt0__opt__group_alt0__opt_b_item1_item0 != null)
+                            {
+                                _opt__group_alt0__opt_b_item1 = _group_alt0__opt__group_alt0__opt_b_item1_item0;
+                            }
+                        }
+                        if (_opt__group_alt0__opt_b_item1 == null)
+                        {
+                            _position = _mark;
+                            _res = null;
+                            break;  // Exit this alternative
+                        }
+                        GeneratedExpr? _group_alt0__opt_b_item1 = _opt__group_alt0__opt_b_item1;
+                        if (_group_alt0__opt_b_item1 == null)
+                        {
+                            _position = _opt_mark__group_alt0__opt_b_item1; // Reset position
+                            _group_alt0__opt_b_item1 = null; // Optional not present
+                        }
                         if (_group_alt0__opt_b_item1 != null)
                         {
-                            var _group_alt0__opt_b_item2 = Expect(")");
+                            GeneratedTokenInfo? _group_alt0__opt_b_item2 = Expect(")");
                             if (_group_alt0__opt_b_item2 != null)
                             {
-                                _opt_b = _group_alt0__opt_b_item2;
+                                _opt_b = _group_alt0__opt_b_item1;
                             }
                         }
                     }
@@ -4478,7 +4511,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? b = _opt_b;
+                GeneratedExpr? b = _opt_b;
                 if (b == null)
                 {
                     _position = _opt_mark_b; // Reset position
@@ -4565,7 +4598,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_function_def_decorators(p, d, f)
-                // TODO: Complex action expression: _PyPegen_function_def_decorators(p, d, f)
+                // Unknown AST function: _PyPegen_function_def_decorators
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
             } while (false);
@@ -4683,12 +4716,12 @@ namespace SharpPy.Generated
                 // Optional: [(type_params)]
                 int _opt_mark_t = _position;
                 // Group: (type_params)
-                object? _opt_t = null;
+                GeneratedTypeParamSeq? _opt_t = null;
                 int _group_mark__opt_t = _position;
                 // Try group alternative 1: type_params
                 {
                     _position = _group_mark__opt_t;
-                    var _group_alt0__opt_t_item0 = TypeParams();
+                    GeneratedTypeParamSeq _group_alt0__opt_t_item0 = TypeParams();
                     if (_group_alt0__opt_t_item0 != null)
                     {
                         _opt_t = _group_alt0__opt_t_item0;
@@ -4700,7 +4733,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? t = _opt_t;
+                GeneratedTypeParamSeq? t = _opt_t;
                 if (t == null)
                 {
                     _position = _opt_mark_t; // Reset position
@@ -4713,12 +4746,12 @@ namespace SharpPy.Generated
                 // Optional: [(params)]
                 int _opt_mark_params_ = _position;
                 // Group: (params)
-                object? _opt_params_ = null;
+                GeneratedArguments? _opt_params_ = null;
                 int _group_mark__opt_params_ = _position;
                 // Try group alternative 1: params
                 {
                     _position = _group_mark__opt_params_;
-                    var _group_alt0__opt_params__item0 = Params();
+                    GeneratedArguments _group_alt0__opt_params__item0 = Params();
                     if (_group_alt0__opt_params__item0 != null)
                     {
                         _opt_params_ = _group_alt0__opt_params__item0;
@@ -4730,7 +4763,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? params_ = _opt_params_;
+                GeneratedArguments? params_ = _opt_params_;
                 if (params_ == null)
                 {
                     _position = _opt_mark_params_; // Reset position
@@ -4747,15 +4780,15 @@ namespace SharpPy.Generated
                 // Optional: [('->' z=expression { z })]
                 int _opt_mark_a = _position;
                 // Group: ('->' z=expression { z })
-                object? _opt_a = null;
+                GeneratedExpr? _opt_a = null;
                 int _group_mark__opt_a = _position;
                 // Try group alternative 1: '->' z=expression { z }
                 {
                     _position = _group_mark__opt_a;
-                    var _group_alt0__opt_a_item0 = Expect("->");
+                    GeneratedTokenInfo? _group_alt0__opt_a_item0 = Expect("->");
                     if (_group_alt0__opt_a_item0 != null)
                     {
-                        var _group_alt0__opt_a_item1 = Expression();
+                        GeneratedExpr _group_alt0__opt_a_item1 = Expression();
                         if (_group_alt0__opt_a_item1 != null)
                         {
                             _opt_a = _group_alt0__opt_a_item1;
@@ -4768,7 +4801,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? a = _opt_a;
+                GeneratedExpr? a = _opt_a;
                 if (a == null)
                 {
                     _position = _opt_mark_a; // Reset position
@@ -4781,12 +4814,12 @@ namespace SharpPy.Generated
                 // Optional: [(func_type_comment)]
                 int _opt_mark_tc = _position;
                 // Group: (func_type_comment)
-                object? _opt_tc = null;
+                GeneratedAstNode? _opt_tc = null;
                 int _group_mark__opt_tc = _position;
                 // Try group alternative 1: func_type_comment
                 {
                     _position = _group_mark__opt_tc;
-                    var _group_alt0__opt_tc_item0 = FuncTypeComment();
+                    GeneratedAstNode? _group_alt0__opt_tc_item0 = FuncTypeComment();
                     if (_group_alt0__opt_tc_item0 != null)
                     {
                         _opt_tc = _group_alt0__opt_tc_item0;
@@ -4798,7 +4831,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? tc = _opt_tc;
+                GeneratedAstNode? tc = _opt_tc;
                 if (tc == null)
                 {
                     _position = _opt_mark_tc; // Reset position
@@ -4864,12 +4897,12 @@ namespace SharpPy.Generated
                 // Optional: [(type_params)]
                 int _opt_mark_t = _position;
                 // Group: (type_params)
-                object? _opt_t = null;
+                GeneratedTypeParamSeq? _opt_t = null;
                 int _group_mark__opt_t = _position;
                 // Try group alternative 1: type_params
                 {
                     _position = _group_mark__opt_t;
-                    var _group_alt0__opt_t_item0 = TypeParams();
+                    GeneratedTypeParamSeq _group_alt0__opt_t_item0 = TypeParams();
                     if (_group_alt0__opt_t_item0 != null)
                     {
                         _opt_t = _group_alt0__opt_t_item0;
@@ -4881,7 +4914,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? t = _opt_t;
+                GeneratedTypeParamSeq? t = _opt_t;
                 if (t == null)
                 {
                     _position = _opt_mark_t; // Reset position
@@ -4894,12 +4927,12 @@ namespace SharpPy.Generated
                 // Optional: [(params)]
                 int _opt_mark_params_ = _position;
                 // Group: (params)
-                object? _opt_params_ = null;
+                GeneratedArguments? _opt_params_ = null;
                 int _group_mark__opt_params_ = _position;
                 // Try group alternative 1: params
                 {
                     _position = _group_mark__opt_params_;
-                    var _group_alt0__opt_params__item0 = Params();
+                    GeneratedArguments _group_alt0__opt_params__item0 = Params();
                     if (_group_alt0__opt_params__item0 != null)
                     {
                         _opt_params_ = _group_alt0__opt_params__item0;
@@ -4911,7 +4944,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? params_ = _opt_params_;
+                GeneratedArguments? params_ = _opt_params_;
                 if (params_ == null)
                 {
                     _position = _opt_mark_params_; // Reset position
@@ -4928,15 +4961,15 @@ namespace SharpPy.Generated
                 // Optional: [('->' z=expression { z })]
                 int _opt_mark_a = _position;
                 // Group: ('->' z=expression { z })
-                object? _opt_a = null;
+                GeneratedExpr? _opt_a = null;
                 int _group_mark__opt_a = _position;
                 // Try group alternative 1: '->' z=expression { z }
                 {
                     _position = _group_mark__opt_a;
-                    var _group_alt0__opt_a_item0 = Expect("->");
+                    GeneratedTokenInfo? _group_alt0__opt_a_item0 = Expect("->");
                     if (_group_alt0__opt_a_item0 != null)
                     {
-                        var _group_alt0__opt_a_item1 = Expression();
+                        GeneratedExpr _group_alt0__opt_a_item1 = Expression();
                         if (_group_alt0__opt_a_item1 != null)
                         {
                             _opt_a = _group_alt0__opt_a_item1;
@@ -4949,7 +4982,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? a = _opt_a;
+                GeneratedExpr? a = _opt_a;
                 if (a == null)
                 {
                     _position = _opt_mark_a; // Reset position
@@ -4962,12 +4995,12 @@ namespace SharpPy.Generated
                 // Optional: [(func_type_comment)]
                 int _opt_mark_tc = _position;
                 // Group: (func_type_comment)
-                object? _opt_tc = null;
+                GeneratedAstNode? _opt_tc = null;
                 int _group_mark__opt_tc = _position;
                 // Try group alternative 1: func_type_comment
                 {
                     _position = _group_mark__opt_tc;
-                    var _group_alt0__opt_tc_item0 = FuncTypeComment();
+                    GeneratedAstNode? _group_alt0__opt_tc_item0 = FuncTypeComment();
                     if (_group_alt0__opt_tc_item0 != null)
                     {
                         _opt_tc = _group_alt0__opt_tc_item0;
@@ -4979,7 +5012,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? tc = _opt_tc;
+                GeneratedAstNode? tc = _opt_tc;
                 if (tc == null)
                 {
                     _position = _opt_mark_tc; // Reset position
@@ -5002,7 +5035,7 @@ namespace SharpPy.Generated
                 //   (params) ? params : CHECK(arguments_ty, _PyPegen_empty_arguments(p)),
                 //   b, NULL, a, NEW_TYPE_COMMENT(p, tc), t, EXTRA)
                 //   )
-                // No _PyAST_ function in action: EXTRA)
+                // No _PyAST_ or _PyPegen_ function in action: EXTRA)
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
             } while (false);
@@ -5020,11 +5053,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: params from python.gram
-        public GeneratedAstNode Params()
+        public GeneratedArguments Params()
         {
             // CPython 3.12 PEG: params
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedArguments _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -5058,7 +5091,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedArguments)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5083,7 +5116,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedArguments)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5100,11 +5133,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: parameters from python.gram
-        public GeneratedAstNode Parameters()
+        public GeneratedArguments Parameters()
         {
             // CPython 3.12 PEG: parameters
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedArguments _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -5134,7 +5167,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: param_no_default*
-                var b = new System.Collections.Generic.List<object?>();
+                var b = new GeneratedArgSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -5155,7 +5188,7 @@ namespace SharpPy.Generated
                 }
                 // Collected b.Count items (may be 0)
                 // Zero or more: param_with_default*
-                var c = new System.Collections.Generic.List<object?>();
+                var c = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -5178,12 +5211,12 @@ namespace SharpPy.Generated
                 // Optional: [(star_etc)]
                 int _opt_mark_d = _position;
                 // Group: (star_etc)
-                object? _opt_d = null;
+                GeneratedStarEtc? _opt_d = null;
                 int _group_mark__opt_d = _position;
                 // Try group alternative 1: star_etc
                 {
                     _position = _group_mark__opt_d;
-                    var _group_alt0__opt_d_item0 = StarEtc();
+                    GeneratedStarEtc _group_alt0__opt_d_item0 = StarEtc();
                     if (_group_alt0__opt_d_item0 != null)
                     {
                         _opt_d = _group_alt0__opt_d_item0;
@@ -5195,15 +5228,15 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? d = _opt_d;
+                GeneratedStarEtc? d = _opt_d;
                 if (d == null)
                 {
                     _position = _opt_mark_d; // Reset position
                     d = null; // Optional not present
                 }
                 // Action: CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(p, a, NULL, b, c, d))
-                // TODO: Complex action expression: CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(p, a, NULL, b, c, d))
-                _res = default(GeneratedAstNode);
+                // No _PyAST_ or _PyPegen_ function in action: d)
+                _res = default(GeneratedArguments);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5228,7 +5261,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: param_with_default*
-                var b = new System.Collections.Generic.List<object?>();
+                var b = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -5251,12 +5284,12 @@ namespace SharpPy.Generated
                 // Optional: [(star_etc)]
                 int _opt_mark_c = _position;
                 // Group: (star_etc)
-                object? _opt_c = null;
+                GeneratedStarEtc? _opt_c = null;
                 int _group_mark__opt_c = _position;
                 // Try group alternative 1: star_etc
                 {
                     _position = _group_mark__opt_c;
-                    var _group_alt0__opt_c_item0 = StarEtc();
+                    GeneratedStarEtc _group_alt0__opt_c_item0 = StarEtc();
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
@@ -5268,15 +5301,15 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? c = _opt_c;
+                GeneratedStarEtc? c = _opt_c;
                 if (c == null)
                 {
                     _position = _opt_mark_c; // Reset position
                     c = null; // Optional not present
                 }
                 // Action: CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(p, NULL, a, NULL, b, c))
-                // TODO: Complex action expression: CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(p, NULL, a, NULL, b, c))
-                _res = default(GeneratedAstNode);
+                // No _PyAST_ or _PyPegen_ function in action: c)
+                _res = default(GeneratedArguments);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5293,7 +5326,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: param_no_default+
-                var a = new System.Collections.Generic.List<object?>();
+                var a = new GeneratedArgSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -5320,7 +5353,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: param_with_default*
-                var b = new System.Collections.Generic.List<object?>();
+                var b = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -5343,12 +5376,12 @@ namespace SharpPy.Generated
                 // Optional: [(star_etc)]
                 int _opt_mark_c = _position;
                 // Group: (star_etc)
-                object? _opt_c = null;
+                GeneratedStarEtc? _opt_c = null;
                 int _group_mark__opt_c = _position;
                 // Try group alternative 1: star_etc
                 {
                     _position = _group_mark__opt_c;
-                    var _group_alt0__opt_c_item0 = StarEtc();
+                    GeneratedStarEtc _group_alt0__opt_c_item0 = StarEtc();
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
@@ -5360,15 +5393,15 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? c = _opt_c;
+                GeneratedStarEtc? c = _opt_c;
                 if (c == null)
                 {
                     _position = _opt_mark_c; // Reset position
                     c = null; // Optional not present
                 }
                 // Action: _PyPegen_make_arguments(p, NULL, NULL, a, b, c)
-                // TODO: Complex action expression: _PyPegen_make_arguments(p, NULL, NULL, a, b, c)
-                _res = default(GeneratedAstNode);
+                // Unknown AST function: _PyPegen_make_arguments
+                _res = default(GeneratedArguments);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5385,7 +5418,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: param_with_default+
-                var a = new System.Collections.Generic.List<object?>();
+                var a = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -5414,12 +5447,12 @@ namespace SharpPy.Generated
                 // Optional: [(star_etc)]
                 int _opt_mark_b = _position;
                 // Group: (star_etc)
-                object? _opt_b = null;
+                GeneratedStarEtc? _opt_b = null;
                 int _group_mark__opt_b = _position;
                 // Try group alternative 1: star_etc
                 {
                     _position = _group_mark__opt_b;
-                    var _group_alt0__opt_b_item0 = StarEtc();
+                    GeneratedStarEtc _group_alt0__opt_b_item0 = StarEtc();
                     if (_group_alt0__opt_b_item0 != null)
                     {
                         _opt_b = _group_alt0__opt_b_item0;
@@ -5431,15 +5464,15 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? b = _opt_b;
+                GeneratedStarEtc? b = _opt_b;
                 if (b == null)
                 {
                     _position = _opt_mark_b; // Reset position
                     b = null; // Optional not present
                 }
                 // Action: _PyPegen_make_arguments(p, NULL, NULL, NULL, a, b)
-                // TODO: Complex action expression: _PyPegen_make_arguments(p, NULL, NULL, NULL, a, b)
-                _res = default(GeneratedAstNode);
+                // Unknown AST function: _PyPegen_make_arguments
+                _res = default(GeneratedArguments);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5464,8 +5497,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_make_arguments(p, NULL, NULL, NULL, NULL, a)
-                // TODO: Complex action expression: _PyPegen_make_arguments(p, NULL, NULL, NULL, NULL, a)
-                _res = default(GeneratedAstNode);
+                // Unknown AST function: _PyPegen_make_arguments
+                _res = default(GeneratedArguments);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5482,11 +5515,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: slash_no_default from python.gram
-        public GeneratedSeq SlashNoDefault()
+        public GeneratedAstNodeSeq SlashNoDefault()
         {
             // CPython 3.12 PEG: slash_no_default
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNodeSeq _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -5508,7 +5541,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: param_no_default+
-                var a = new System.Collections.Generic.List<object?>();
+                var a = new GeneratedArgSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -5551,7 +5584,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedSeq)((object?)a);
+                _res = (GeneratedAstNodeSeq)((object?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5568,7 +5601,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: param_no_default+
-                var a = new System.Collections.Generic.List<object?>();
+                var a = new GeneratedArgSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -5607,7 +5640,7 @@ namespace SharpPy.Generated
                 // TODO: Parse lookahead content for StringLiteral
                 _position = _lookahead_mark_24; // Restore position
                 // Action: a
-                _res = (GeneratedSeq)((object?)a);
+                _res = (GeneratedAstNodeSeq)((object?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5624,11 +5657,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: slash_with_default from python.gram
-        public GeneratedSeq SlashWithDefault()
+        public GeneratedSlashWithDefault SlashWithDefault()
         {
             // CPython 3.12 PEG: slash_with_default
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedSlashWithDefault _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -5650,7 +5683,7 @@ namespace SharpPy.Generated
                 }
 
                 // Zero or more: param_no_default*
-                var a = new System.Collections.Generic.List<object?>();
+                var a = new GeneratedArgSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -5671,7 +5704,7 @@ namespace SharpPy.Generated
                 }
                 // Collected a.Count items (may be 0)
                 // One or more: param_with_default+
-                var b = new System.Collections.Generic.List<object?>();
+                var b = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -5714,8 +5747,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b)
-                // TODO: Complex action expression: _PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_slash_with_default
+                _res = default(GeneratedSlashWithDefault);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5732,7 +5765,7 @@ namespace SharpPy.Generated
                 }
 
                 // Zero or more: param_no_default*
-                var a = new System.Collections.Generic.List<object?>();
+                var a = new GeneratedArgSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -5753,7 +5786,7 @@ namespace SharpPy.Generated
                 }
                 // Collected a.Count items (may be 0)
                 // One or more: param_with_default+
-                var b = new System.Collections.Generic.List<object?>();
+                var b = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -5792,8 +5825,8 @@ namespace SharpPy.Generated
                 // TODO: Parse lookahead content for StringLiteral
                 _position = _lookahead_mark_25; // Restore position
                 // Action: _PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b)
-                // TODO: Complex action expression: _PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_slash_with_default
+                _res = default(GeneratedSlashWithDefault);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5810,11 +5843,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: star_etc from python.gram
-        public GeneratedSeq StarEtc()
+        public GeneratedStarEtc StarEtc()
         {
             // CPython 3.12 PEG: star_etc
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedStarEtc _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -5848,7 +5881,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)((object?)_tmp0);
+                _res = (GeneratedStarEtc)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5881,7 +5914,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: param_maybe_default*
-                var b = new System.Collections.Generic.List<object?>();
+                var b = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -5904,12 +5937,12 @@ namespace SharpPy.Generated
                 // Optional: [(kwds)]
                 int _opt_mark_c = _position;
                 // Group: (kwds)
-                object? _opt_c = null;
+                GeneratedArg? _opt_c = null;
                 int _group_mark__opt_c = _position;
                 // Try group alternative 1: kwds
                 {
                     _position = _group_mark__opt_c;
-                    var _group_alt0__opt_c_item0 = Kwds();
+                    GeneratedArg _group_alt0__opt_c_item0 = Kwds();
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
@@ -5921,15 +5954,15 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? c = _opt_c;
+                GeneratedArg? c = _opt_c;
                 if (c == null)
                 {
                     _position = _opt_mark_c; // Reset position
                     c = null; // Optional not present
                 }
                 // Action: _PyPegen_star_etc(p, a, b, c)
-                // TODO: Complex action expression: _PyPegen_star_etc(p, a, b, c)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_star_etc
+                _res = default(GeneratedStarEtc);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5962,7 +5995,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: param_maybe_default*
-                var b = new System.Collections.Generic.List<object?>();
+                var b = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -5985,12 +6018,12 @@ namespace SharpPy.Generated
                 // Optional: [(kwds)]
                 int _opt_mark_c = _position;
                 // Group: (kwds)
-                object? _opt_c = null;
+                GeneratedArg? _opt_c = null;
                 int _group_mark__opt_c = _position;
                 // Try group alternative 1: kwds
                 {
                     _position = _group_mark__opt_c;
-                    var _group_alt0__opt_c_item0 = Kwds();
+                    GeneratedArg _group_alt0__opt_c_item0 = Kwds();
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
@@ -6002,15 +6035,15 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? c = _opt_c;
+                GeneratedArg? c = _opt_c;
                 if (c == null)
                 {
                     _position = _opt_mark_c; // Reset position
                     c = null; // Optional not present
                 }
                 // Action: _PyPegen_star_etc(p, a, b, c)
-                // TODO: Complex action expression: _PyPegen_star_etc(p, a, b, c)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_star_etc
+                _res = default(GeneratedStarEtc);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6043,7 +6076,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: param_maybe_default+
-                var b = new System.Collections.Generic.List<object?>();
+                var b = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -6072,12 +6105,12 @@ namespace SharpPy.Generated
                 // Optional: [(kwds)]
                 int _opt_mark_c = _position;
                 // Group: (kwds)
-                object? _opt_c = null;
+                GeneratedArg? _opt_c = null;
                 int _group_mark__opt_c = _position;
                 // Try group alternative 1: kwds
                 {
                     _position = _group_mark__opt_c;
-                    var _group_alt0__opt_c_item0 = Kwds();
+                    GeneratedArg _group_alt0__opt_c_item0 = Kwds();
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
@@ -6089,15 +6122,15 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? c = _opt_c;
+                GeneratedArg? c = _opt_c;
                 if (c == null)
                 {
                     _position = _opt_mark_c; // Reset position
                     c = null; // Optional not present
                 }
                 // Action: _PyPegen_star_etc(p, NULL, b, c)
-                // TODO: Complex action expression: _PyPegen_star_etc(p, NULL, b, c)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_star_etc
+                _res = default(GeneratedStarEtc);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6122,8 +6155,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_star_etc(p, NULL, NULL, a)
-                // TODO: Complex action expression: _PyPegen_star_etc(p, NULL, NULL, a)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_star_etc
+                _res = default(GeneratedStarEtc);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6140,11 +6173,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: kwds from python.gram
-        public GeneratedAstNode Kwds()
+        public GeneratedArg Kwds()
         {
             // CPython 3.12 PEG: kwds
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedArg _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -6178,7 +6211,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedArg)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6211,7 +6244,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedAstNode)((object?)a);
+                _res = (GeneratedArg)((object?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6228,11 +6261,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: param_no_default from python.gram
-        public GeneratedAstNode ParamNoDefault()
+        public GeneratedArg ParamNoDefault()
         {
             // CPython 3.12 PEG: param_no_default
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedArg _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -6281,15 +6314,15 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? tc = _opt_tc;
+                GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
                 {
                     _position = _opt_mark_tc; // Reset position
                     tc = null; // Optional not present
                 }
                 // Action: _PyPegen_add_type_comment_to_arg(p, a, tc)
-                // TODO: Complex action expression: _PyPegen_add_type_comment_to_arg(p, a, tc)
-                _res = default(GeneratedAstNode);
+                // Unknown AST function: _PyPegen_add_type_comment_to_arg
+                _res = default(GeneratedArg);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6325,7 +6358,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? tc = _opt_tc;
+                GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
                 {
                     _position = _opt_mark_tc; // Reset position
@@ -6336,8 +6369,8 @@ namespace SharpPy.Generated
                 // TODO: Parse lookahead content for StringLiteral
                 _position = _lookahead_mark_26; // Restore position
                 // Action: _PyPegen_add_type_comment_to_arg(p, a, tc)
-                // TODO: Complex action expression: _PyPegen_add_type_comment_to_arg(p, a, tc)
-                _res = default(GeneratedAstNode);
+                // Unknown AST function: _PyPegen_add_type_comment_to_arg
+                _res = default(GeneratedArg);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6354,11 +6387,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: param_no_default_star_annotation from python.gram
-        public GeneratedAstNode ParamNoDefaultStarAnnotation()
+        public GeneratedArg ParamNoDefaultStarAnnotation()
         {
             // CPython 3.12 PEG: param_no_default_star_annotation
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedArg _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -6407,15 +6440,15 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? tc = _opt_tc;
+                GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
                 {
                     _position = _opt_mark_tc; // Reset position
                     tc = null; // Optional not present
                 }
                 // Action: _PyPegen_add_type_comment_to_arg(p, a, tc)
-                // TODO: Complex action expression: _PyPegen_add_type_comment_to_arg(p, a, tc)
-                _res = default(GeneratedAstNode);
+                // Unknown AST function: _PyPegen_add_type_comment_to_arg
+                _res = default(GeneratedArg);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6451,7 +6484,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? tc = _opt_tc;
+                GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
                 {
                     _position = _opt_mark_tc; // Reset position
@@ -6462,8 +6495,8 @@ namespace SharpPy.Generated
                 // TODO: Parse lookahead content for StringLiteral
                 _position = _lookahead_mark_27; // Restore position
                 // Action: _PyPegen_add_type_comment_to_arg(p, a, tc)
-                // TODO: Complex action expression: _PyPegen_add_type_comment_to_arg(p, a, tc)
-                _res = default(GeneratedAstNode);
+                // Unknown AST function: _PyPegen_add_type_comment_to_arg
+                _res = default(GeneratedArg);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6480,11 +6513,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: param_with_default from python.gram
-        public GeneratedSeq ParamWithDefault()
+        public GeneratedAstNode? ParamWithDefault()
         {
             // CPython 3.12 PEG: param_with_default
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -6541,15 +6574,15 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? tc = _opt_tc;
+                GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
                 {
                     _position = _opt_mark_tc; // Reset position
                     tc = null; // Optional not present
                 }
                 // Action: _PyPegen_name_default_pair(p, a, c, tc)
-                // TODO: Complex action expression: _PyPegen_name_default_pair(p, a, c, tc)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_name_default_pair
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6593,7 +6626,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? tc = _opt_tc;
+                GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
                 {
                     _position = _opt_mark_tc; // Reset position
@@ -6604,8 +6637,8 @@ namespace SharpPy.Generated
                 // TODO: Parse lookahead content for StringLiteral
                 _position = _lookahead_mark_28; // Restore position
                 // Action: _PyPegen_name_default_pair(p, a, c, tc)
-                // TODO: Complex action expression: _PyPegen_name_default_pair(p, a, c, tc)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_name_default_pair
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6622,11 +6655,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: param_maybe_default from python.gram
-        public GeneratedSeq ParamMaybeDefault()
+        public GeneratedAstNode? ParamMaybeDefault()
         {
             // CPython 3.12 PEG: param_maybe_default
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -6665,7 +6698,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? c = _opt_c;
+                GeneratedExpr? c = _opt_c;
                 if (c == null)
                 {
                     _position = _opt_mark_c; // Reset position
@@ -6691,15 +6724,15 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? tc = _opt_tc;
+                GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
                 {
                     _position = _opt_mark_tc; // Reset position
                     tc = null; // Optional not present
                 }
                 // Action: _PyPegen_name_default_pair(p, a, c, tc)
-                // TODO: Complex action expression: _PyPegen_name_default_pair(p, a, c, tc)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_name_default_pair
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6733,7 +6766,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? c = _opt_c;
+                GeneratedExpr? c = _opt_c;
                 if (c == null)
                 {
                     _position = _opt_mark_c; // Reset position
@@ -6751,7 +6784,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? tc = _opt_tc;
+                GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
                 {
                     _position = _opt_mark_tc; // Reset position
@@ -6762,8 +6795,8 @@ namespace SharpPy.Generated
                 // TODO: Parse lookahead content for StringLiteral
                 _position = _lookahead_mark_29; // Restore position
                 // Action: _PyPegen_name_default_pair(p, a, c, tc)
-                // TODO: Complex action expression: _PyPegen_name_default_pair(p, a, c, tc)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_name_default_pair
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6780,11 +6813,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: param from python.gram
-        public GeneratedAstNode Param()
+        public GeneratedArg Param()
         {
             // CPython 3.12 PEG: param
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedArg _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -6825,7 +6858,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? b = _opt_b;
+                GeneratedExpr? b = _opt_b;
                 if (b == null)
                 {
                     _position = _opt_mark_b; // Reset position
@@ -6833,7 +6866,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_arg(a->v.Name.id, b, NULL, EXTRA)
                 // Unknown AST function: _PyAST_arg
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedArg);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6850,11 +6883,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: param_star_annotation from python.gram
-        public GeneratedAstNode ParamStarAnnotation()
+        public GeneratedArg ParamStarAnnotation()
         {
             // CPython 3.12 PEG: param_star_annotation
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedArg _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -6895,7 +6928,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_arg(a->v.Name.id, b, NULL, EXTRA)
                 // Unknown AST function: _PyAST_arg
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedArg);
                 if (_res != null) goto done;
             } while (false);
 
@@ -7265,12 +7298,12 @@ namespace SharpPy.Generated
                 // Optional: [(else_block)]
                 int _opt_mark_c = _position;
                 // Group: (else_block)
-                object? _opt_c = null;
+                GeneratedStmtSeq? _opt_c = null;
                 int _group_mark__opt_c = _position;
                 // Try group alternative 1: else_block
                 {
                     _position = _group_mark__opt_c;
-                    var _group_alt0__opt_c_item0 = ElseBlock();
+                    GeneratedStmtSeq _group_alt0__opt_c_item0 = ElseBlock();
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
@@ -7282,7 +7315,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? c = _opt_c;
+                GeneratedStmtSeq? c = _opt_c;
                 if (c == null)
                 {
                     _position = _opt_mark_c; // Reset position
@@ -7454,12 +7487,12 @@ namespace SharpPy.Generated
                 // Optional: [(else_block)]
                 int _opt_mark_c = _position;
                 // Group: (else_block)
-                object? _opt_c = null;
+                GeneratedStmtSeq? _opt_c = null;
                 int _group_mark__opt_c = _position;
                 // Try group alternative 1: else_block
                 {
                     _position = _group_mark__opt_c;
-                    var _group_alt0__opt_c_item0 = ElseBlock();
+                    GeneratedStmtSeq _group_alt0__opt_c_item0 = ElseBlock();
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
@@ -7471,7 +7504,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? c = _opt_c;
+                GeneratedStmtSeq? c = _opt_c;
                 if (c == null)
                 {
                     _position = _opt_mark_c; // Reset position
@@ -7677,12 +7710,12 @@ namespace SharpPy.Generated
                 // Optional: [(else_block)]
                 int _opt_mark_c = _position;
                 // Group: (else_block)
-                object? _opt_c = null;
+                GeneratedStmtSeq? _opt_c = null;
                 int _group_mark__opt_c = _position;
                 // Try group alternative 1: else_block
                 {
                     _position = _group_mark__opt_c;
-                    var _group_alt0__opt_c_item0 = ElseBlock();
+                    GeneratedStmtSeq _group_alt0__opt_c_item0 = ElseBlock();
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
@@ -7694,7 +7727,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? c = _opt_c;
+                GeneratedStmtSeq? c = _opt_c;
                 if (c == null)
                 {
                     _position = _opt_mark_c; // Reset position
@@ -7818,12 +7851,12 @@ namespace SharpPy.Generated
                 // Optional: [(TYPE_COMMENT)]
                 int _opt_mark_tc = _position;
                 // Group: (TYPE_COMMENT)
-                object? _opt_tc = null;
+                GeneratedTokenInfo? _opt_tc = null;
                 int _group_mark__opt_tc = _position;
                 // Try group alternative 1: TYPE_COMMENT
                 {
                     _position = _group_mark__opt_tc;
-                    var _group_alt0__opt_tc_item0 = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
+                    GeneratedTokenInfo? _group_alt0__opt_tc_item0 = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
                     if (_group_alt0__opt_tc_item0 != null)
                     {
                         _opt_tc = _group_alt0__opt_tc_item0;
@@ -7835,7 +7868,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? tc = _opt_tc;
+                GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
                 {
                     _position = _opt_mark_tc; // Reset position
@@ -7852,12 +7885,12 @@ namespace SharpPy.Generated
                 // Optional: [(else_block)]
                 int _opt_mark_el = _position;
                 // Group: (else_block)
-                object? _opt_el = null;
+                GeneratedStmtSeq? _opt_el = null;
                 int _group_mark__opt_el = _position;
                 // Try group alternative 1: else_block
                 {
                     _position = _group_mark__opt_el;
-                    var _group_alt0__opt_el_item0 = ElseBlock();
+                    GeneratedStmtSeq _group_alt0__opt_el_item0 = ElseBlock();
                     if (_group_alt0__opt_el_item0 != null)
                     {
                         _opt_el = _group_alt0__opt_el_item0;
@@ -7869,7 +7902,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? el = _opt_el;
+                GeneratedStmtSeq? el = _opt_el;
                 if (el == null)
                 {
                     _position = _opt_mark_el; // Reset position
@@ -7948,12 +7981,12 @@ namespace SharpPy.Generated
                 // Optional: [(TYPE_COMMENT)]
                 int _opt_mark_tc = _position;
                 // Group: (TYPE_COMMENT)
-                object? _opt_tc = null;
+                GeneratedTokenInfo? _opt_tc = null;
                 int _group_mark__opt_tc = _position;
                 // Try group alternative 1: TYPE_COMMENT
                 {
                     _position = _group_mark__opt_tc;
-                    var _group_alt0__opt_tc_item0 = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
+                    GeneratedTokenInfo? _group_alt0__opt_tc_item0 = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
                     if (_group_alt0__opt_tc_item0 != null)
                     {
                         _opt_tc = _group_alt0__opt_tc_item0;
@@ -7965,7 +7998,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? tc = _opt_tc;
+                GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
                 {
                     _position = _opt_mark_tc; // Reset position
@@ -7982,12 +8015,12 @@ namespace SharpPy.Generated
                 // Optional: [(else_block)]
                 int _opt_mark_el = _position;
                 // Group: (else_block)
-                object? _opt_el = null;
+                GeneratedStmtSeq? _opt_el = null;
                 int _group_mark__opt_el = _position;
                 // Try group alternative 1: else_block
                 {
                     _position = _group_mark__opt_el;
-                    var _group_alt0__opt_el_item0 = ElseBlock();
+                    GeneratedStmtSeq _group_alt0__opt_el_item0 = ElseBlock();
                     if (_group_alt0__opt_el_item0 != null)
                     {
                         _opt_el = _group_alt0__opt_el_item0;
@@ -7999,14 +8032,14 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? el = _opt_el;
+                GeneratedStmtSeq? el = _opt_el;
                 if (el == null)
                 {
                     _position = _opt_mark_el; // Reset position
                     el = null; // Optional not present
                 }
                 // Action: CHECK_VERSION(stmt_ty, 5, "Async for loops are", _PyAST_AsyncFor(t, ex, b, el, NEW_TYPE_COMMENT(p, tc), EXTRA))
-                // No _PyAST_ function in action: EXTRA)
+                // No _PyAST_ or _PyPegen_ function in action: EXTRA)
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
             } while (false);
@@ -8123,13 +8156,43 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Zero or more: ','*
-                var a = new System.Collections.Generic.List<object?>();
+                // Gather: ','.with_item+
+                var a = new GeneratedWithItemSeq();
+                // Parse first item (no separator)
+                // Call rule: with_item
+                var _first_a = WithItem();
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                a.Add(_first_a);
+                // Parse remaining items (separator + item)
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Expect ','
-                    var _loop_elem_a = Expect(",");
+                    var _sep_a = Expect(",");
+                    if (_sep_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep_a == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: with_item
+                    var _loop_elem_a = WithItem();
                     if (_loop_elem_a == null)
                     {
                         _position = _mark;
@@ -8138,66 +8201,38 @@ namespace SharpPy.Generated
                     }
                     if (_loop_elem_a == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
                     }
                     a.Add(_loop_elem_a);
                 }
-                // Collected a.Count items (may be 0)
-                // One or more: with_item+
-                var _tmp2 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: with_item
-                    var _loop_elem__tmp2 = WithItem();
-                    if (_loop_elem__tmp2 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp2 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp2.Add(_loop_elem__tmp2);
-                }
-                if (_tmp2.Count == 0)
-                {
-                    // One or more requires at least one match
-                    _position = _mark;
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // Optional: [',']
-                int _opt_mark__tmp3 = _position;
+                int _opt_mark__tmp2 = _position;
                 // Expect ','
-                var _opt__tmp3 = Expect(",");
-                if (_opt__tmp3 == null)
+                var _opt__tmp2 = Expect(",");
+                if (_opt__tmp2 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp3 = _opt__tmp3;
-                if (_tmp3 == null)
+                GeneratedTokenInfo? _tmp2 = _opt__tmp2;
+                if (_tmp2 == null)
                 {
-                    _position = _opt_mark__tmp3; // Reset position
-                    _tmp3 = null; // Optional not present
+                    _position = _opt_mark__tmp2; // Reset position
+                    _tmp2 = null; // Optional not present
                 }
                 // Expect ')'
-                var _tmp4 = Expect(")");
-                if (_tmp4 == null)
+                var _tmp3 = Expect(")");
+                if (_tmp3 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp5 = Expect(":");
-                if (_tmp5 == null)
+                var _tmp4 = Expect(":");
+                if (_tmp4 == null)
                 {
                     _position = _mark;
                     _res = null;
@@ -8237,57 +8272,59 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Zero or more: ','*
-                var a = new System.Collections.Generic.List<object?>();
-                while (true)
+                // Gather: ','.with_item+
+                var a = new GeneratedWithItemSeq();
+                // Parse first item (no separator)
+                // Call rule: with_item
+                var _first_a = WithItem();
+                if (_first_a == null)
                 {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _loop_elem_a = Expect(",");
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    a.Add(_loop_elem_a);
-                }
-                // Collected a.Count items (may be 0)
-                // One or more: with_item+
-                var _tmp1 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: with_item
-                    var _loop_elem__tmp1 = WithItem();
-                    if (_loop_elem__tmp1 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp1 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp1.Add(_loop_elem__tmp1);
-                }
-                if (_tmp1.Count == 0)
-                {
-                    // One or more requires at least one match
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                a.Add(_first_a);
+                // Parse remaining items (separator + item)
+                while (true)
+                {
+                    int _loop_mark = _position;
+                    // Expect ','
+                    var _sep_a = Expect(",");
+                    if (_sep_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep_a == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: with_item
+                    var _loop_elem_a = WithItem();
+                    if (_loop_elem_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_loop_elem_a == null)
+                    {
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
+                    }
+                    a.Add(_loop_elem_a);
+                }
                 // Expect ':'
-                var _tmp2 = Expect(":");
-                if (_tmp2 == null)
+                var _tmp1 = Expect(":");
+                if (_tmp1 == null)
                 {
                     _position = _mark;
                     _res = null;
@@ -8296,12 +8333,12 @@ namespace SharpPy.Generated
                 // Optional: [(TYPE_COMMENT)]
                 int _opt_mark_tc = _position;
                 // Group: (TYPE_COMMENT)
-                object? _opt_tc = null;
+                GeneratedTokenInfo? _opt_tc = null;
                 int _group_mark__opt_tc = _position;
                 // Try group alternative 1: TYPE_COMMENT
                 {
                     _position = _group_mark__opt_tc;
-                    var _group_alt0__opt_tc_item0 = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
+                    GeneratedTokenInfo? _group_alt0__opt_tc_item0 = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
                     if (_group_alt0__opt_tc_item0 != null)
                     {
                         _opt_tc = _group_alt0__opt_tc_item0;
@@ -8313,7 +8350,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? tc = _opt_tc;
+                GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
                 {
                     _position = _opt_mark_tc; // Reset position
@@ -8371,13 +8408,43 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Zero or more: ','*
-                var a = new System.Collections.Generic.List<object?>();
+                // Gather: ','.with_item+
+                var a = new GeneratedWithItemSeq();
+                // Parse first item (no separator)
+                // Call rule: with_item
+                var _first_a = WithItem();
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                a.Add(_first_a);
+                // Parse remaining items (separator + item)
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Expect ','
-                    var _loop_elem_a = Expect(",");
+                    var _sep_a = Expect(",");
+                    if (_sep_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep_a == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: with_item
+                    var _loop_elem_a = WithItem();
                     if (_loop_elem_a == null)
                     {
                         _position = _mark;
@@ -8386,66 +8453,38 @@ namespace SharpPy.Generated
                     }
                     if (_loop_elem_a == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
                     }
                     a.Add(_loop_elem_a);
                 }
-                // Collected a.Count items (may be 0)
-                // One or more: with_item+
-                var _tmp3 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: with_item
-                    var _loop_elem__tmp3 = WithItem();
-                    if (_loop_elem__tmp3 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp3 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp3.Add(_loop_elem__tmp3);
-                }
-                if (_tmp3.Count == 0)
-                {
-                    // One or more requires at least one match
-                    _position = _mark;
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // Optional: [',']
-                int _opt_mark__tmp4 = _position;
+                int _opt_mark__tmp3 = _position;
                 // Expect ','
-                var _opt__tmp4 = Expect(",");
-                if (_opt__tmp4 == null)
+                var _opt__tmp3 = Expect(",");
+                if (_opt__tmp3 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp4 = _opt__tmp4;
-                if (_tmp4 == null)
+                GeneratedTokenInfo? _tmp3 = _opt__tmp3;
+                if (_tmp3 == null)
                 {
-                    _position = _opt_mark__tmp4; // Reset position
-                    _tmp4 = null; // Optional not present
+                    _position = _opt_mark__tmp3; // Reset position
+                    _tmp3 = null; // Optional not present
                 }
                 // Expect ')'
-                var _tmp5 = Expect(")");
-                if (_tmp5 == null)
+                var _tmp4 = Expect(")");
+                if (_tmp4 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp6 = Expect(":");
-                if (_tmp6 == null)
+                var _tmp5 = Expect(":");
+                if (_tmp5 == null)
                 {
                     _position = _mark;
                     _res = null;
@@ -8460,7 +8499,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: CHECK_VERSION(stmt_ty, 5, "Async with statements are", _PyAST_AsyncWith(a, b, NULL, EXTRA))
-                // No _PyAST_ function in action: EXTRA)
+                // No _PyAST_ or _PyPegen_ function in action: EXTRA)
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
             } while (false);
@@ -8495,57 +8534,59 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Zero or more: ','*
-                var a = new System.Collections.Generic.List<object?>();
-                while (true)
+                // Gather: ','.with_item+
+                var a = new GeneratedWithItemSeq();
+                // Parse first item (no separator)
+                // Call rule: with_item
+                var _first_a = WithItem();
+                if (_first_a == null)
                 {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _loop_elem_a = Expect(",");
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    a.Add(_loop_elem_a);
-                }
-                // Collected a.Count items (may be 0)
-                // One or more: with_item+
-                var _tmp2 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: with_item
-                    var _loop_elem__tmp2 = WithItem();
-                    if (_loop_elem__tmp2 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp2 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp2.Add(_loop_elem__tmp2);
-                }
-                if (_tmp2.Count == 0)
-                {
-                    // One or more requires at least one match
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                a.Add(_first_a);
+                // Parse remaining items (separator + item)
+                while (true)
+                {
+                    int _loop_mark = _position;
+                    // Expect ','
+                    var _sep_a = Expect(",");
+                    if (_sep_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep_a == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: with_item
+                    var _loop_elem_a = WithItem();
+                    if (_loop_elem_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_loop_elem_a == null)
+                    {
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
+                    }
+                    a.Add(_loop_elem_a);
+                }
                 // Expect ':'
-                var _tmp3 = Expect(":");
-                if (_tmp3 == null)
+                var _tmp2 = Expect(":");
+                if (_tmp2 == null)
                 {
                     _position = _mark;
                     _res = null;
@@ -8554,12 +8595,12 @@ namespace SharpPy.Generated
                 // Optional: [(TYPE_COMMENT)]
                 int _opt_mark_tc = _position;
                 // Group: (TYPE_COMMENT)
-                object? _opt_tc = null;
+                GeneratedTokenInfo? _opt_tc = null;
                 int _group_mark__opt_tc = _position;
                 // Try group alternative 1: TYPE_COMMENT
                 {
                     _position = _group_mark__opt_tc;
-                    var _group_alt0__opt_tc_item0 = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
+                    GeneratedTokenInfo? _group_alt0__opt_tc_item0 = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
                     if (_group_alt0__opt_tc_item0 != null)
                     {
                         _opt_tc = _group_alt0__opt_tc_item0;
@@ -8571,7 +8612,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? tc = _opt_tc;
+                GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
                 {
                     _position = _opt_mark_tc; // Reset position
@@ -8586,7 +8627,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: CHECK_VERSION(stmt_ty, 5, "Async with statements are", _PyAST_AsyncWith(a, b, NEW_TYPE_COMMENT(p, tc), EXTRA))
-                // No _PyAST_ function in action: EXTRA)
+                // No _PyAST_ or _PyPegen_ function in action: EXTRA)
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
             } while (false);
@@ -8633,11 +8674,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: with_item from python.gram
-        public GeneratedAstNode WithItem()
+        public GeneratedWithItem WithItem()
         {
             // CPython 3.12 PEG: with_item
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedWithItem _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -8688,7 +8729,7 @@ namespace SharpPy.Generated
                 _position = _lookahead_mark_31; // Restore position
                 // Action: _PyAST_withitem(e, t, p->arena)
                 // Unknown AST function: _PyAST_withitem
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedWithItem);
                 if (_res != null) goto done;
             } while (false);
 
@@ -8717,7 +8758,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedWithItem)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -8743,7 +8784,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_withitem(e, NULL, p->arena)
                 // Unknown AST function: _PyAST_withitem
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedWithItem);
                 if (_res != null) goto done;
             } while (false);
 
@@ -8881,7 +8922,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: except_block+
-                var ex = new System.Collections.Generic.List<object?>();
+                var ex = new GeneratedExceptHandlerSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -8910,12 +8951,12 @@ namespace SharpPy.Generated
                 // Optional: [(else_block)]
                 int _opt_mark_el = _position;
                 // Group: (else_block)
-                object? _opt_el = null;
+                GeneratedStmtSeq? _opt_el = null;
                 int _group_mark__opt_el = _position;
                 // Try group alternative 1: else_block
                 {
                     _position = _group_mark__opt_el;
-                    var _group_alt0__opt_el_item0 = ElseBlock();
+                    GeneratedStmtSeq _group_alt0__opt_el_item0 = ElseBlock();
                     if (_group_alt0__opt_el_item0 != null)
                     {
                         _opt_el = _group_alt0__opt_el_item0;
@@ -8927,7 +8968,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? el = _opt_el;
+                GeneratedStmtSeq? el = _opt_el;
                 if (el == null)
                 {
                     _position = _opt_mark_el; // Reset position
@@ -8936,12 +8977,12 @@ namespace SharpPy.Generated
                 // Optional: [(finally_block)]
                 int _opt_mark_f = _position;
                 // Group: (finally_block)
-                object? _opt_f = null;
+                GeneratedStmtSeq? _opt_f = null;
                 int _group_mark__opt_f = _position;
                 // Try group alternative 1: finally_block
                 {
                     _position = _group_mark__opt_f;
-                    var _group_alt0__opt_f_item0 = FinallyBlock();
+                    GeneratedStmtSeq _group_alt0__opt_f_item0 = FinallyBlock();
                     if (_group_alt0__opt_f_item0 != null)
                     {
                         _opt_f = _group_alt0__opt_f_item0;
@@ -8953,7 +8994,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? f = _opt_f;
+                GeneratedStmtSeq? f = _opt_f;
                 if (f == null)
                 {
                     _position = _opt_mark_f; // Reset position
@@ -8998,7 +9039,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: except_star_block+
-                var ex = new System.Collections.Generic.List<object?>();
+                var ex = new GeneratedExceptHandlerSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -9027,12 +9068,12 @@ namespace SharpPy.Generated
                 // Optional: [(else_block)]
                 int _opt_mark_el = _position;
                 // Group: (else_block)
-                object? _opt_el = null;
+                GeneratedStmtSeq? _opt_el = null;
                 int _group_mark__opt_el = _position;
                 // Try group alternative 1: else_block
                 {
                     _position = _group_mark__opt_el;
-                    var _group_alt0__opt_el_item0 = ElseBlock();
+                    GeneratedStmtSeq _group_alt0__opt_el_item0 = ElseBlock();
                     if (_group_alt0__opt_el_item0 != null)
                     {
                         _opt_el = _group_alt0__opt_el_item0;
@@ -9044,7 +9085,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? el = _opt_el;
+                GeneratedStmtSeq? el = _opt_el;
                 if (el == null)
                 {
                     _position = _opt_mark_el; // Reset position
@@ -9053,12 +9094,12 @@ namespace SharpPy.Generated
                 // Optional: [(finally_block)]
                 int _opt_mark_f = _position;
                 // Group: (finally_block)
-                object? _opt_f = null;
+                GeneratedStmtSeq? _opt_f = null;
                 int _group_mark__opt_f = _position;
                 // Try group alternative 1: finally_block
                 {
                     _position = _group_mark__opt_f;
-                    var _group_alt0__opt_f_item0 = FinallyBlock();
+                    GeneratedStmtSeq _group_alt0__opt_f_item0 = FinallyBlock();
                     if (_group_alt0__opt_f_item0 != null)
                     {
                         _opt_f = _group_alt0__opt_f_item0;
@@ -9070,7 +9111,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? f = _opt_f;
+                GeneratedStmtSeq? f = _opt_f;
                 if (f == null)
                 {
                     _position = _opt_mark_f; // Reset position
@@ -9079,7 +9120,7 @@ namespace SharpPy.Generated
                 // Action (multiline):
                 //   CHECK_VERSION(stmt_ty, 11, "Exception groups are",
                 //   _PyAST_TryStar(b, ex, el, f, EXTRA))
-                // No _PyAST_ function in action: EXTRA)
+                // No _PyAST_ or _PyPegen_ function in action: EXTRA)
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
             } while (false);
@@ -9097,11 +9138,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: except_block from python.gram
-        public GeneratedAstNode ExceptBlock()
+        public GeneratedExceptHandler ExceptBlock()
         {
             // CPython 3.12 PEG: except_block
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedExceptHandler _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -9135,7 +9176,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedExceptHandler)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -9170,15 +9211,15 @@ namespace SharpPy.Generated
                 // Optional: [('as' z=NAME { z })]
                 int _opt_mark_t = _position;
                 // Group: ('as' z=NAME { z })
-                object? _opt_t = null;
+                GeneratedTokenInfo? _opt_t = null;
                 int _group_mark__opt_t = _position;
                 // Try group alternative 1: 'as' z=NAME { z }
                 {
                     _position = _group_mark__opt_t;
-                    var _group_alt0__opt_t_item0 = Expect("as");
+                    GeneratedTokenInfo? _group_alt0__opt_t_item0 = Expect("as");
                     if (_group_alt0__opt_t_item0 != null)
                     {
-                        var _group_alt0__opt_t_item1 = ExpectToken(GeneratedTokenType.NAME);
+                        GeneratedTokenInfo? _group_alt0__opt_t_item1 = ExpectToken(GeneratedTokenType.NAME);
                         if (_group_alt0__opt_t_item1 != null)
                         {
                             _opt_t = _group_alt0__opt_t_item1;
@@ -9191,7 +9232,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? t = _opt_t;
+                GeneratedTokenInfo? t = _opt_t;
                 if (t == null)
                 {
                     _position = _opt_mark_t; // Reset position
@@ -9215,7 +9256,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_ExceptHandler(e, (t) ? ((expr_ty) t)->v.Name.id : NULL, b, EXTRA)
                 // Unknown AST function: _PyAST_ExceptHandler
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedExceptHandler);
                 if (_res != null) goto done;
             } while (false);
 
@@ -9257,7 +9298,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_ExceptHandler(NULL, NULL, b, EXTRA)
                 // Unknown AST function: _PyAST_ExceptHandler
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedExceptHandler);
                 if (_res != null) goto done;
             } while (false);
 
@@ -9286,7 +9327,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedExceptHandler)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -9303,11 +9344,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: except_star_block from python.gram
-        public GeneratedAstNode ExceptStarBlock()
+        public GeneratedExceptHandler ExceptStarBlock()
         {
             // CPython 3.12 PEG: except_star_block
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedExceptHandler _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -9341,7 +9382,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedExceptHandler)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -9384,15 +9425,15 @@ namespace SharpPy.Generated
                 // Optional: [('as' z=NAME { z })]
                 int _opt_mark_t = _position;
                 // Group: ('as' z=NAME { z })
-                object? _opt_t = null;
+                GeneratedTokenInfo? _opt_t = null;
                 int _group_mark__opt_t = _position;
                 // Try group alternative 1: 'as' z=NAME { z }
                 {
                     _position = _group_mark__opt_t;
-                    var _group_alt0__opt_t_item0 = Expect("as");
+                    GeneratedTokenInfo? _group_alt0__opt_t_item0 = Expect("as");
                     if (_group_alt0__opt_t_item0 != null)
                     {
-                        var _group_alt0__opt_t_item1 = ExpectToken(GeneratedTokenType.NAME);
+                        GeneratedTokenInfo? _group_alt0__opt_t_item1 = ExpectToken(GeneratedTokenType.NAME);
                         if (_group_alt0__opt_t_item1 != null)
                         {
                             _opt_t = _group_alt0__opt_t_item1;
@@ -9405,7 +9446,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? t = _opt_t;
+                GeneratedTokenInfo? t = _opt_t;
                 if (t == null)
                 {
                     _position = _opt_mark_t; // Reset position
@@ -9429,7 +9470,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_ExceptHandler(e, (t) ? ((expr_ty) t)->v.Name.id : NULL, b, EXTRA)
                 // Unknown AST function: _PyAST_ExceptHandler
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedExceptHandler);
                 if (_res != null) goto done;
             } while (false);
 
@@ -9458,7 +9499,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedExceptHandler)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -9637,7 +9678,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: case_block+
-                var cases = new System.Collections.Generic.List<object?>();
+                var cases = new GeneratedMatchCaseSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -9674,7 +9715,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: CHECK_VERSION(stmt_ty, 10, "Pattern matching is", _PyAST_Match(subject, cases, EXTRA))
-                // No _PyAST_ function in action: EXTRA)
+                // No _PyAST_ or _PyPegen_ function in action: EXTRA)
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
             } while (false);
@@ -9772,7 +9813,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? values = _opt_values;
+                GeneratedExprSeq? values = _opt_values;
                 if (values == null)
                 {
                     _position = _opt_mark_values; // Reset position
@@ -9822,11 +9863,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: case_block from python.gram
-        public GeneratedAstNode CaseBlock()
+        public GeneratedMatchCase CaseBlock()
         {
             // CPython 3.12 PEG: case_block
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedMatchCase _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -9860,7 +9901,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedMatchCase)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -9902,7 +9943,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? guard = _opt_guard;
+                GeneratedExpr? guard = _opt_guard;
                 if (guard == null)
                 {
                     _position = _opt_mark_guard; // Reset position
@@ -9926,7 +9967,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_match_case(pattern, guard, body, p->arena)
                 // Unknown AST function: _PyAST_match_case
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedMatchCase);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10002,11 +10043,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: patterns from python.gram
-        public GeneratedAstNode Patterns()
+        public GeneratedPattern Patterns()
         {
             // CPython 3.12 PEG: patterns
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedPattern _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -10037,7 +10078,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchSequence(patterns, EXTRA)
                 // Unknown AST function: _PyAST_MatchSequence
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedPattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10062,7 +10103,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedPattern)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10079,11 +10120,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: pattern from python.gram
-        public GeneratedAstNode Pattern()
+        public GeneratedPattern Pattern()
         {
             // CPython 3.12 PEG: pattern
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedPattern _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -10113,7 +10154,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedPattern)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10138,7 +10179,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedPattern)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10155,11 +10196,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: as_pattern from python.gram
-        public GeneratedAstNode AsPattern()
+        public GeneratedPattern AsPattern()
         {
             // CPython 3.12 PEG: as_pattern
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedPattern _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -10206,7 +10247,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchAs(pattern, target->v.Name.id, EXTRA)
                 // Unknown AST function: _PyAST_MatchAs
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedPattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10235,7 +10276,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedPattern)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10252,11 +10293,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: or_pattern from python.gram
-        public GeneratedAstNode OrPattern()
+        public GeneratedPattern OrPattern()
         {
             // CPython 3.12 PEG: or_pattern
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedPattern _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -10277,57 +10318,59 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Zero or more: '|'*
-                var patterns = new System.Collections.Generic.List<object?>();
-                while (true)
+                // Gather: '|'.closed_pattern+
+                var patterns = new GeneratedPatternSeq();
+                // Parse first item (no separator)
+                // Call rule: closed_pattern
+                var _first_patterns = ClosedPattern();
+                if (_first_patterns == null)
                 {
-                    int _loop_mark = _position;
-                    // Expect '|'
-                    var _loop_elem_patterns = Expect("|");
-                    if (_loop_elem_patterns == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem_patterns == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    patterns.Add(_loop_elem_patterns);
-                }
-                // Collected patterns.Count items (may be 0)
-                // One or more: closed_pattern+
-                var _tmp0 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: closed_pattern
-                    var _loop_elem__tmp0 = ClosedPattern();
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
-                }
-                if (_tmp0.Count == 0)
-                {
-                    // One or more requires at least one match
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                if (_first_patterns == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                patterns.Add(_first_patterns);
+                // Parse remaining items (separator + item)
+                while (true)
+                {
+                    int _loop_mark = _position;
+                    // Expect '|'
+                    var _sep_patterns = Expect("|");
+                    if (_sep_patterns == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep_patterns == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: closed_pattern
+                    var _loop_elem_patterns = ClosedPattern();
+                    if (_loop_elem_patterns == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_loop_elem_patterns == null)
+                    {
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
+                    }
+                    patterns.Add(_loop_elem_patterns);
+                }
                 // Action: asdl_seq_LEN(patterns) == 1 ? asdl_seq_GET(patterns, 0) : _PyAST_MatchOr(patterns, EXTRA)
                 // Unknown AST function: _PyAST_MatchOr
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedPattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10344,17 +10387,17 @@ namespace SharpPy.Generated
         }
 
         // Rule: closed_pattern from python.gram
-        public GeneratedAstNode ClosedPattern()
+        public GeneratedPattern ClosedPattern()
         {
             // CPython 3.12: Left recursion - use Warth et al. algorithm
-            return TryLeftRecursive<GeneratedAstNode>("ClosedPattern", _ClosedPattern);
+            return TryLeftRecursive<GeneratedPattern>("ClosedPattern", _ClosedPattern);
         }
 
-        private GeneratedAstNode _ClosedPattern()
+        private GeneratedPattern _ClosedPattern()
         {
             // CPython 3.12 PEG: closed_pattern
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedPattern _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -10384,7 +10427,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedPattern)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10409,7 +10452,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedPattern)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10434,7 +10477,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedPattern)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10459,7 +10502,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedPattern)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10484,7 +10527,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedPattern)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10509,7 +10552,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedPattern)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10534,7 +10577,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedPattern)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10559,7 +10602,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedPattern)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10576,11 +10619,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: literal_pattern from python.gram
-        public GeneratedAstNode LiteralPattern()
+        public GeneratedPattern LiteralPattern()
         {
             // CPython 3.12 PEG: literal_pattern
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedPattern _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -10623,7 +10666,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchValue(value, EXTRA)
                 // Unknown AST function: _PyAST_MatchValue
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedPattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10649,7 +10692,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchValue(value, EXTRA)
                 // Unknown AST function: _PyAST_MatchValue
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedPattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10675,7 +10718,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchValue(value, EXTRA)
                 // Unknown AST function: _PyAST_MatchValue
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedPattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10701,7 +10744,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchSingleton(Py_None, EXTRA)
                 // Unknown AST function: _PyAST_MatchSingleton
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedPattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10727,7 +10770,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchSingleton(Py_True, EXTRA)
                 // Unknown AST function: _PyAST_MatchSingleton
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedPattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10753,7 +10796,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchSingleton(Py_False, EXTRA)
                 // Unknown AST function: _PyAST_MatchSingleton
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedPattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11281,7 +11324,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_ensure_real(p, real)
-                // TODO: Complex action expression: _PyPegen_ensure_real(p, real)
+                // Unknown AST function: _PyPegen_ensure_real
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
             } while (false);
@@ -11335,7 +11378,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_ensure_imaginary(p, imag)
-                // TODO: Complex action expression: _PyPegen_ensure_imaginary(p, imag)
+                // Unknown AST function: _PyPegen_ensure_imaginary
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
             } while (false);
@@ -11353,11 +11396,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: capture_pattern from python.gram
-        public GeneratedAstNode CapturePattern()
+        public GeneratedPattern CapturePattern()
         {
             // CPython 3.12 PEG: capture_pattern
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedPattern _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -11388,7 +11431,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchAs(NULL, target->v.Name.id, EXTRA)
                 // Unknown AST function: _PyAST_MatchAs
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedPattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11464,8 +11507,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_set_expr_context(p, name, Store)
-                // TODO: Complex action expression: _PyPegen_set_expr_context(p, name, Store)
-                _res = default(GeneratedExpr);
+                _res = _PyPegen_set_expr_context(name, Store);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11482,11 +11524,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: wildcard_pattern from python.gram
-        public GeneratedAstNode WildcardPattern()
+        public GeneratedPattern WildcardPattern()
         {
             // CPython 3.12 PEG: wildcard_pattern
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedPattern _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -11517,7 +11559,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchAs(NULL, NULL, EXTRA)
                 // Unknown AST function: _PyAST_MatchAs
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedPattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11534,11 +11576,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: value_pattern from python.gram
-        public GeneratedAstNode ValuePattern()
+        public GeneratedPattern ValuePattern()
         {
             // CPython 3.12 PEG: value_pattern
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedPattern _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -11582,7 +11624,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchValue(attr, EXTRA)
                 // Unknown AST function: _PyAST_MatchValue
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedPattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11747,11 +11789,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: group_pattern from python.gram
-        public GeneratedAstNode GroupPattern()
+        public GeneratedPattern GroupPattern()
         {
             // CPython 3.12 PEG: group_pattern
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedPattern _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -11797,7 +11839,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: pattern
-                _res = (GeneratedAstNode)((object?)pattern);
+                _res = (GeneratedPattern)((object?)pattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11814,11 +11856,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: sequence_pattern from python.gram
-        public GeneratedAstNode SequencePattern()
+        public GeneratedPattern SequencePattern()
         {
             // CPython 3.12 PEG: sequence_pattern
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedPattern _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -11857,7 +11899,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? patterns = _opt_patterns;
+                GeneratedSeq? patterns = _opt_patterns;
                 if (patterns == null)
                 {
                     _position = _opt_mark_patterns; // Reset position
@@ -11873,7 +11915,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchSequence(patterns, EXTRA)
                 // Unknown AST function: _PyAST_MatchSequence
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedPattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11907,7 +11949,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? patterns = _opt_patterns;
+                GeneratedSeq? patterns = _opt_patterns;
                 if (patterns == null)
                 {
                     _position = _opt_mark_patterns; // Reset position
@@ -11923,7 +11965,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchSequence(patterns, EXTRA)
                 // Unknown AST function: _PyAST_MatchSequence
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedPattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11991,15 +12033,14 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? patterns = _opt_patterns;
+                GeneratedSeq? patterns = _opt_patterns;
                 if (patterns == null)
                 {
                     _position = _opt_mark_patterns; // Reset position
                     patterns = null; // Optional not present
                 }
                 // Action: _PyPegen_seq_insert_in_front(p, pattern, patterns)
-                // TODO: Complex action expression: _PyPegen_seq_insert_in_front(p, pattern, patterns)
-                _res = default(GeneratedSeq);
+                _res = _PyPegen_seq_insert_in_front(pattern, patterns);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12041,13 +12082,43 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Zero or more: ','*
-                var patterns = new System.Collections.Generic.List<object?>();
+                // Gather: ','.maybe_star_pattern+
+                var patterns = new GeneratedPatternSeq();
+                // Parse first item (no separator)
+                // Call rule: maybe_star_pattern
+                var _first_patterns = MaybeStarPattern();
+                if (_first_patterns == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                if (_first_patterns == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                patterns.Add(_first_patterns);
+                // Parse remaining items (separator + item)
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Expect ','
-                    var _loop_elem_patterns = Expect(",");
+                    var _sep_patterns = Expect(",");
+                    if (_sep_patterns == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep_patterns == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: maybe_star_pattern
+                    var _loop_elem_patterns = MaybeStarPattern();
                     if (_loop_elem_patterns == null)
                     {
                         _position = _mark;
@@ -12056,54 +12127,26 @@ namespace SharpPy.Generated
                     }
                     if (_loop_elem_patterns == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
                     }
                     patterns.Add(_loop_elem_patterns);
                 }
-                // Collected patterns.Count items (may be 0)
-                // One or more: maybe_star_pattern+
-                var _tmp0 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: maybe_star_pattern
-                    var _loop_elem__tmp0 = MaybeStarPattern();
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
-                }
-                if (_tmp0.Count == 0)
-                {
-                    // One or more requires at least one match
-                    _position = _mark;
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // Optional: [',']
-                int _opt_mark__tmp1 = _position;
+                int _opt_mark__tmp0 = _position;
                 // Expect ','
-                var _opt__tmp1 = Expect(",");
-                if (_opt__tmp1 == null)
+                var _opt__tmp0 = Expect(",");
+                if (_opt__tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp1 = _opt__tmp1;
-                if (_tmp1 == null)
+                GeneratedTokenInfo? _tmp0 = _opt__tmp0;
+                if (_tmp0 == null)
                 {
-                    _position = _opt_mark__tmp1; // Reset position
-                    _tmp1 = null; // Optional not present
+                    _position = _opt_mark__tmp0; // Reset position
+                    _tmp0 = null; // Optional not present
                 }
                 // Action: patterns
                 _res = (GeneratedSeq)((object?)patterns);
@@ -12123,11 +12166,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: maybe_star_pattern from python.gram
-        public GeneratedAstNode MaybeStarPattern()
+        public GeneratedPattern MaybeStarPattern()
         {
             // CPython 3.12 PEG: maybe_star_pattern
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedPattern _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -12157,7 +12200,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedPattern)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12182,7 +12225,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedPattern)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12199,17 +12242,17 @@ namespace SharpPy.Generated
         }
 
         // Rule: star_pattern from python.gram
-        public GeneratedAstNode StarPattern()
+        public GeneratedPattern StarPattern()
         {
             // CPython 3.12: Left recursion - use Warth et al. algorithm
-            return TryLeftRecursive<GeneratedAstNode>("StarPattern", _StarPattern);
+            return TryLeftRecursive<GeneratedPattern>("StarPattern", _StarPattern);
         }
 
-        private GeneratedAstNode _StarPattern()
+        private GeneratedPattern _StarPattern()
         {
             // CPython 3.12 PEG: star_pattern
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedPattern _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -12248,7 +12291,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchStar(target->v.Name.id, EXTRA)
                 // Unknown AST function: _PyAST_MatchStar
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedPattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12282,7 +12325,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchStar(NULL, EXTRA)
                 // Unknown AST function: _PyAST_MatchStar
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedPattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12299,11 +12342,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: mapping_pattern from python.gram
-        public GeneratedAstNode MappingPattern()
+        public GeneratedPattern MappingPattern()
         {
             // CPython 3.12 PEG: mapping_pattern
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedPattern _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -12342,7 +12385,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchMapping(NULL, NULL, NULL, EXTRA)
                 // Unknown AST function: _PyAST_MatchMapping
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedPattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12384,7 +12427,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp1 = _opt__tmp1;
+                GeneratedTokenInfo? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
                 {
                     _position = _opt_mark__tmp1; // Reset position
@@ -12400,7 +12443,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchMapping(NULL, NULL, rest->v.Name.id, EXTRA)
                 // Unknown AST function: _PyAST_MatchMapping
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedPattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12458,7 +12501,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp2 = _opt__tmp2;
+                GeneratedTokenInfo? _tmp2 = _opt__tmp2;
                 if (_tmp2 == null)
                 {
                     _position = _opt_mark__tmp2; // Reset position
@@ -12479,7 +12522,7 @@ namespace SharpPy.Generated
                 //   rest->v.Name.id,
                 //   EXTRA)
                 // Unknown AST function: _PyAST_MatchMapping
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedPattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12521,7 +12564,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp1 = _opt__tmp1;
+                GeneratedTokenInfo? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
                 {
                     _position = _opt_mark__tmp1; // Reset position
@@ -12542,7 +12585,7 @@ namespace SharpPy.Generated
                 //   NULL,
                 //   EXTRA)
                 // Unknown AST function: _PyAST_MatchMapping
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedPattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12584,13 +12627,43 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Zero or more: ','*
-                var _tmp0 = new System.Collections.Generic.List<object?>();
+                // Gather: ','.key_value_pattern+
+                var _tmp0 = new GeneratedAstNodeSeq();
+                // Parse first item (no separator)
+                // Call rule: key_value_pattern
+                var _first__tmp0 = KeyValuePattern();
+                if (_first__tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                if (_first__tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                _tmp0.Add(_first__tmp0);
+                // Parse remaining items (separator + item)
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Expect ','
-                    var _loop_elem__tmp0 = Expect(",");
+                    var _sep__tmp0 = Expect(",");
+                    if (_sep__tmp0 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep__tmp0 == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: key_value_pattern
+                    var _loop_elem__tmp0 = KeyValuePattern();
                     if (_loop_elem__tmp0 == null)
                     {
                         _position = _mark;
@@ -12599,38 +12672,10 @@ namespace SharpPy.Generated
                     }
                     if (_loop_elem__tmp0 == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
                     }
                     _tmp0.Add(_loop_elem__tmp0);
-                }
-                // Collected _tmp0.Count items (may be 0)
-                // One or more: key_value_pattern+
-                var _tmp1 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: key_value_pattern
-                    var _loop_elem__tmp1 = KeyValuePattern();
-                    if (_loop_elem__tmp1 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp1 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp1.Add(_loop_elem__tmp1);
-                }
-                if (_tmp1.Count == 0)
-                {
-                    // One or more requires at least one match
-                    _position = _mark;
-                    _res = null;
-                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = (GeneratedSeq)((object?)_tmp0);
@@ -12650,11 +12695,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: key_value_pattern from python.gram
-        public GeneratedSeq KeyValuePattern()
+        public GeneratedAstNode? KeyValuePattern()
         {
             // CPython 3.12 PEG: key_value_pattern
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -12676,12 +12721,12 @@ namespace SharpPy.Generated
                 }
 
                 // Group: (literal_expr | attr)
-                object? key = null;
+                GeneratedExpr? key = null;
                 int _group_mark_key = _position;
                 // Try group alternative 1: literal_expr
                 {
                     _position = _group_mark_key;
-                    var _group_alt0_key_item0 = LiteralExpr();
+                    GeneratedExpr _group_alt0_key_item0 = LiteralExpr();
                     if (_group_alt0_key_item0 != null)
                     {
                         key = _group_alt0_key_item0;
@@ -12691,7 +12736,7 @@ namespace SharpPy.Generated
                 if (key == null)
                 {
                     _position = _group_mark_key;
-                    var _group_alt1_key_item0 = Attr();
+                    GeneratedExpr _group_alt1_key_item0 = Attr();
                     if (_group_alt1_key_item0 != null)
                     {
                         key = _group_alt1_key_item0;
@@ -12720,8 +12765,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_key_pattern_pair(p, key, pattern)
-                // TODO: Complex action expression: _PyPegen_key_pattern_pair(p, key, pattern)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_key_pattern_pair
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12797,11 +12842,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: class_pattern from python.gram
-        public GeneratedAstNode ClassPattern()
+        public GeneratedPattern ClassPattern()
         {
             // CPython 3.12 PEG: class_pattern
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedPattern _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -12848,7 +12893,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchClass(cls, NULL, NULL, NULL, EXTRA)
                 // Unknown AST function: _PyAST_MatchClass
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedPattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12898,7 +12943,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp1 = _opt__tmp1;
+                GeneratedTokenInfo? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
                 {
                     _position = _opt_mark__tmp1; // Reset position
@@ -12914,7 +12959,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchClass(cls, patterns, NULL, NULL, EXTRA)
                 // Unknown AST function: _PyAST_MatchClass
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedPattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12964,7 +13009,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp1 = _opt__tmp1;
+                GeneratedTokenInfo? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
                 {
                     _position = _opt_mark__tmp1; // Reset position
@@ -12986,7 +13031,7 @@ namespace SharpPy.Generated
                 //   CHECK(asdl_pattern_seq*, _PyPegen_get_patterns(p, keywords)),
                 //   EXTRA)
                 // Unknown AST function: _PyAST_MatchClass
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedPattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13052,7 +13097,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp2 = _opt__tmp2;
+                GeneratedTokenInfo? _tmp2 = _opt__tmp2;
                 if (_tmp2 == null)
                 {
                     _position = _opt_mark__tmp2; // Reset position
@@ -13075,7 +13120,7 @@ namespace SharpPy.Generated
                 //   CHECK(asdl_pattern_seq*, _PyPegen_get_patterns(p, keywords)),
                 //   EXTRA)
                 // Unknown AST function: _PyAST_MatchClass
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedPattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13104,7 +13149,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedPattern)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13121,11 +13166,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: positional_patterns from python.gram
-        public GeneratedSeq PositionalPatterns()
+        public GeneratedAstNodeSeq PositionalPatterns()
         {
             // CPython 3.12 PEG: positional_patterns
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNodeSeq _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -13146,56 +13191,58 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Zero or more: ','*
-                var args = new System.Collections.Generic.List<object?>();
-                while (true)
+                // Gather: ','.pattern+
+                var args = new GeneratedPatternSeq();
+                // Parse first item (no separator)
+                // Call rule: pattern
+                var _first_args = Pattern();
+                if (_first_args == null)
                 {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _loop_elem_args = Expect(",");
-                    if (_loop_elem_args == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem_args == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    args.Add(_loop_elem_args);
-                }
-                // Collected args.Count items (may be 0)
-                // One or more: pattern+
-                var _tmp0 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: pattern
-                    var _loop_elem__tmp0 = Pattern();
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
-                }
-                if (_tmp0.Count == 0)
-                {
-                    // One or more requires at least one match
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                if (_first_args == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                args.Add(_first_args);
+                // Parse remaining items (separator + item)
+                while (true)
+                {
+                    int _loop_mark = _position;
+                    // Expect ','
+                    var _sep_args = Expect(",");
+                    if (_sep_args == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep_args == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: pattern
+                    var _loop_elem_args = Pattern();
+                    if (_loop_elem_args == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_loop_elem_args == null)
+                    {
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
+                    }
+                    args.Add(_loop_elem_args);
+                }
                 // Action: args
-                _res = (GeneratedSeq)((object?)args);
+                _res = (GeneratedAstNodeSeq)((object?)args);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13237,13 +13284,43 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Zero or more: ','*
-                var _tmp0 = new System.Collections.Generic.List<object?>();
+                // Gather: ','.keyword_pattern+
+                var _tmp0 = new GeneratedAstNodeSeq();
+                // Parse first item (no separator)
+                // Call rule: keyword_pattern
+                var _first__tmp0 = KeywordPattern();
+                if (_first__tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                if (_first__tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                _tmp0.Add(_first__tmp0);
+                // Parse remaining items (separator + item)
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Expect ','
-                    var _loop_elem__tmp0 = Expect(",");
+                    var _sep__tmp0 = Expect(",");
+                    if (_sep__tmp0 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep__tmp0 == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: keyword_pattern
+                    var _loop_elem__tmp0 = KeywordPattern();
                     if (_loop_elem__tmp0 == null)
                     {
                         _position = _mark;
@@ -13252,38 +13329,10 @@ namespace SharpPy.Generated
                     }
                     if (_loop_elem__tmp0 == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
                     }
                     _tmp0.Add(_loop_elem__tmp0);
-                }
-                // Collected _tmp0.Count items (may be 0)
-                // One or more: keyword_pattern+
-                var _tmp1 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: keyword_pattern
-                    var _loop_elem__tmp1 = KeywordPattern();
-                    if (_loop_elem__tmp1 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp1 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp1.Add(_loop_elem__tmp1);
-                }
-                if (_tmp1.Count == 0)
-                {
-                    // One or more requires at least one match
-                    _position = _mark;
-                    _res = null;
-                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = (GeneratedSeq)((object?)_tmp0);
@@ -13303,11 +13352,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: keyword_pattern from python.gram
-        public GeneratedSeq KeywordPattern()
+        public GeneratedAstNode? KeywordPattern()
         {
             // CPython 3.12 PEG: keyword_pattern
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -13355,8 +13404,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_key_pattern_pair(p, arg, value)
-                // TODO: Complex action expression: _PyPegen_key_pattern_pair(p, arg, value)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_key_pattern_pair
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13419,12 +13468,12 @@ namespace SharpPy.Generated
                 // Optional: [(type_params)]
                 int _opt_mark_t = _position;
                 // Group: (type_params)
-                object? _opt_t = null;
+                GeneratedTypeParamSeq? _opt_t = null;
                 int _group_mark__opt_t = _position;
                 // Try group alternative 1: type_params
                 {
                     _position = _group_mark__opt_t;
-                    var _group_alt0__opt_t_item0 = TypeParams();
+                    GeneratedTypeParamSeq _group_alt0__opt_t_item0 = TypeParams();
                     if (_group_alt0__opt_t_item0 != null)
                     {
                         _opt_t = _group_alt0__opt_t_item0;
@@ -13436,7 +13485,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? t = _opt_t;
+                GeneratedTypeParamSeq? t = _opt_t;
                 if (t == null)
                 {
                     _position = _opt_mark_t; // Reset position
@@ -13461,7 +13510,7 @@ namespace SharpPy.Generated
                 // Action (multiline):
                 //   CHECK_VERSION(stmt_ty, 12, "Type statement is",
                 //   _PyAST_TypeAlias(CHECK(expr_ty, _PyPegen_set_expr_context(p, n, Store)), t, b, EXTRA))
-                // No _PyAST_ function in action: EXTRA)
+                // No _PyAST_ or _PyPegen_ function in action: EXTRA)
                 _res = default(GeneratedStmt);
                 if (_res != null) goto done;
             } while (false);
@@ -13479,11 +13528,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: type_params from python.gram
-        public GeneratedSeq TypeParams()
+        public GeneratedTypeParamSeq TypeParams()
         {
             // CPython 3.12 PEG: type_params
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedTypeParamSeq _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -13530,7 +13579,7 @@ namespace SharpPy.Generated
                 }
                 // Action: CHECK_VERSION(asdl_type_param_seq *, 12, "Type parameter lists are", t)
                 // TODO: Complex action expression: CHECK_VERSION(asdl_type_param_seq *, 12, "Type parameter lists are", t)
-                _res = default(GeneratedSeq);
+                _res = default(GeneratedTypeParamSeq);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13547,11 +13596,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: type_param_seq from python.gram
-        public GeneratedSeq TypeParamSeq()
+        public GeneratedTypeParamSeq TypeParamSeq()
         {
             // CPython 3.12 PEG: type_param_seq
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedTypeParamSeq _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -13572,13 +13621,43 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Zero or more: ','*
-                var a = new System.Collections.Generic.List<object?>();
+                // Gather: ','.type_param+
+                var a = new GeneratedTypeParamSeq();
+                // Parse first item (no separator)
+                // Call rule: type_param
+                var _first_a = TypeParam();
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                a.Add(_first_a);
+                // Parse remaining items (separator + item)
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Expect ','
-                    var _loop_elem_a = Expect(",");
+                    var _sep_a = Expect(",");
+                    if (_sep_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep_a == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: type_param
+                    var _loop_elem_a = TypeParam();
                     if (_loop_elem_a == null)
                     {
                         _position = _mark;
@@ -13587,67 +13666,39 @@ namespace SharpPy.Generated
                     }
                     if (_loop_elem_a == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
                     }
                     a.Add(_loop_elem_a);
                 }
-                // Collected a.Count items (may be 0)
-                // One or more: type_param+
-                var _tmp0 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: type_param
-                    var _loop_elem__tmp0 = TypeParam();
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
-                }
-                if (_tmp0.Count == 0)
-                {
-                    // One or more requires at least one match
-                    _position = _mark;
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // Optional: [(',')]
-                int _opt_mark__tmp1 = _position;
+                int _opt_mark__tmp0 = _position;
                 // Group: (',')
-                object? _opt__tmp1 = null;
-                int _group_mark__opt__tmp1 = _position;
+                GeneratedTokenInfo? _opt__tmp0 = null;
+                int _group_mark__opt__tmp0 = _position;
                 // Try group alternative 1: ','
                 {
-                    _position = _group_mark__opt__tmp1;
-                    var _group_alt0__opt__tmp1_item0 = Expect(",");
-                    if (_group_alt0__opt__tmp1_item0 != null)
+                    _position = _group_mark__opt__tmp0;
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = Expect(",");
+                    if (_group_alt0__opt__tmp0_item0 != null)
                     {
-                        _opt__tmp1 = _group_alt0__opt__tmp1_item0;
+                        _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
                 }
-                if (_opt__tmp1 == null)
+                if (_opt__tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp1 = _opt__tmp1;
-                if (_tmp1 == null)
+                GeneratedTokenInfo? _tmp0 = _opt__tmp0;
+                if (_tmp0 == null)
                 {
-                    _position = _opt_mark__tmp1; // Reset position
-                    _tmp1 = null; // Optional not present
+                    _position = _opt_mark__tmp0; // Reset position
+                    _tmp0 = null; // Optional not present
                 }
                 // Action: a
-                _res = (GeneratedSeq)((object?)a);
+                _res = (GeneratedTypeParamSeq)((object?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13664,17 +13715,17 @@ namespace SharpPy.Generated
         }
 
         // Rule: type_param from python.gram
-        public GeneratedAstNode TypeParam()
+        public GeneratedTypeParam TypeParam()
         {
             // CPython 3.12: Left recursion - use Warth et al. algorithm
-            return TryLeftRecursive<GeneratedAstNode>("TypeParam", _TypeParam);
+            return TryLeftRecursive<GeneratedTypeParam>("TypeParam", _TypeParam);
         }
 
-        private GeneratedAstNode _TypeParam()
+        private GeneratedTypeParam _TypeParam()
         {
             // CPython 3.12 PEG: type_param
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedTypeParam _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -13708,12 +13759,12 @@ namespace SharpPy.Generated
                 // Optional: [(type_param_bound)]
                 int _opt_mark_b = _position;
                 // Group: (type_param_bound)
-                object? _opt_b = null;
+                GeneratedExpr? _opt_b = null;
                 int _group_mark__opt_b = _position;
                 // Try group alternative 1: type_param_bound
                 {
                     _position = _group_mark__opt_b;
-                    var _group_alt0__opt_b_item0 = TypeParamBound();
+                    GeneratedExpr _group_alt0__opt_b_item0 = TypeParamBound();
                     if (_group_alt0__opt_b_item0 != null)
                     {
                         _opt_b = _group_alt0__opt_b_item0;
@@ -13725,7 +13776,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? b = _opt_b;
+                GeneratedExpr? b = _opt_b;
                 if (b == null)
                 {
                     _position = _opt_mark_b; // Reset position
@@ -13733,7 +13784,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_TypeVar(a->v.Name.id, b, EXTRA)
                 // Unknown AST function: _PyAST_TypeVar
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedTypeParam);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13826,7 +13877,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_TypeVarTuple(a->v.Name.id, EXTRA)
                 // Unknown AST function: _PyAST_TypeVarTuple
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedTypeParam);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13919,7 +13970,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_ParamSpec(a->v.Name.id, EXTRA)
                 // Unknown AST function: _PyAST_ParamSpec
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedTypeParam);
                 if (_res != null) goto done;
             } while (false);
 
@@ -14029,20 +14080,20 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: (',' c=expression { c })+
-                var b = new System.Collections.Generic.List<object?>();
+                var b = new GeneratedExprSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Group: (',' c=expression { c })
-                    object? _loop_elem_b = null;
+                    GeneratedExpr? _loop_elem_b = null;
                     int _group_mark__loop_elem_b = _position;
                     // Try group alternative 1: ',' c=expression { c }
                     {
                         _position = _group_mark__loop_elem_b;
-                        var _group_alt0__loop_elem_b_item0 = Expect(",");
+                        GeneratedTokenInfo? _group_alt0__loop_elem_b_item0 = Expect(",");
                         if (_group_alt0__loop_elem_b_item0 != null)
                         {
-                            var _group_alt0__loop_elem_b_item1 = Expression();
+                            GeneratedExpr _group_alt0__loop_elem_b_item1 = Expression();
                             if (_group_alt0__loop_elem_b_item1 != null)
                             {
                                 _loop_elem_b = _group_alt0__loop_elem_b_item1;
@@ -14072,12 +14123,12 @@ namespace SharpPy.Generated
                 // Optional: [(',')]
                 int _opt_mark__tmp0 = _position;
                 // Group: (',')
-                object? _opt__tmp0 = null;
+                GeneratedTokenInfo? _opt__tmp0 = null;
                 int _group_mark__opt__tmp0 = _position;
                 // Try group alternative 1: ','
                 {
                     _position = _group_mark__opt__tmp0;
-                    var _group_alt0__opt__tmp0_item0 = Expect(",");
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = Expect(",");
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
@@ -14089,7 +14140,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp0 = _opt__tmp0;
+                GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
                     _position = _opt_mark__tmp0; // Reset position
@@ -14449,12 +14500,12 @@ namespace SharpPy.Generated
                 // Optional: [(star_expressions)]
                 int _opt_mark_a = _position;
                 // Group: (star_expressions)
-                object? _opt_a = null;
+                GeneratedExpr? _opt_a = null;
                 int _group_mark__opt_a = _position;
                 // Try group alternative 1: star_expressions
                 {
                     _position = _group_mark__opt_a;
-                    var _group_alt0__opt_a_item0 = StarExpressions();
+                    GeneratedExpr _group_alt0__opt_a_item0 = StarExpressions();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
@@ -14466,7 +14517,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? a = _opt_a;
+                GeneratedExpr? a = _opt_a;
                 if (a == null)
                 {
                     _position = _opt_mark_a; // Reset position
@@ -14525,20 +14576,20 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: (',' c=star_expression { c })+
-                var b = new System.Collections.Generic.List<object?>();
+                var b = new GeneratedExprSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Group: (',' c=star_expression { c })
-                    object? _loop_elem_b = null;
+                    GeneratedExpr? _loop_elem_b = null;
                     int _group_mark__loop_elem_b = _position;
                     // Try group alternative 1: ',' c=star_expression { c }
                     {
                         _position = _group_mark__loop_elem_b;
-                        var _group_alt0__loop_elem_b_item0 = Expect(",");
+                        GeneratedTokenInfo? _group_alt0__loop_elem_b_item0 = Expect(",");
                         if (_group_alt0__loop_elem_b_item0 != null)
                         {
-                            var _group_alt0__loop_elem_b_item1 = StarExpression();
+                            GeneratedExpr _group_alt0__loop_elem_b_item1 = StarExpression();
                             if (_group_alt0__loop_elem_b_item1 != null)
                             {
                                 _loop_elem_b = _group_alt0__loop_elem_b_item1;
@@ -14568,12 +14619,12 @@ namespace SharpPy.Generated
                 // Optional: [(',')]
                 int _opt_mark__tmp0 = _position;
                 // Group: (',')
-                object? _opt__tmp0 = null;
+                GeneratedTokenInfo? _opt__tmp0 = null;
                 int _group_mark__opt__tmp0 = _position;
                 // Try group alternative 1: ','
                 {
                     _position = _group_mark__opt__tmp0;
-                    var _group_alt0__opt__tmp0_item0 = Expect(",");
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = Expect(",");
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
@@ -14585,7 +14636,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp0 = _opt__tmp0;
+                GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
                     _position = _opt_mark__tmp0; // Reset position
@@ -14785,13 +14836,43 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Zero or more: ','*
-                var a = new System.Collections.Generic.List<object?>();
+                // Gather: ','.star_named_expression+
+                var a = new GeneratedExprSeq();
+                // Parse first item (no separator)
+                // Call rule: star_named_expression
+                var _first_a = StarNamedExpression();
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                a.Add(_first_a);
+                // Parse remaining items (separator + item)
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Expect ','
-                    var _loop_elem_a = Expect(",");
+                    var _sep_a = Expect(",");
+                    if (_sep_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep_a == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: star_named_expression
+                    var _loop_elem_a = StarNamedExpression();
                     if (_loop_elem_a == null)
                     {
                         _position = _mark;
@@ -14800,64 +14881,36 @@ namespace SharpPy.Generated
                     }
                     if (_loop_elem_a == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
                     }
                     a.Add(_loop_elem_a);
                 }
-                // Collected a.Count items (may be 0)
-                // One or more: star_named_expression+
-                var _tmp0 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: star_named_expression
-                    var _loop_elem__tmp0 = StarNamedExpression();
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
-                }
-                if (_tmp0.Count == 0)
-                {
-                    // One or more requires at least one match
-                    _position = _mark;
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // Optional: [(',')]
-                int _opt_mark__tmp1 = _position;
+                int _opt_mark__tmp0 = _position;
                 // Group: (',')
-                object? _opt__tmp1 = null;
-                int _group_mark__opt__tmp1 = _position;
+                GeneratedTokenInfo? _opt__tmp0 = null;
+                int _group_mark__opt__tmp0 = _position;
                 // Try group alternative 1: ','
                 {
-                    _position = _group_mark__opt__tmp1;
-                    var _group_alt0__opt__tmp1_item0 = Expect(",");
-                    if (_group_alt0__opt__tmp1_item0 != null)
+                    _position = _group_mark__opt__tmp0;
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = Expect(",");
+                    if (_group_alt0__opt__tmp0_item0 != null)
                     {
-                        _opt__tmp1 = _group_alt0__opt__tmp1_item0;
+                        _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
                 }
-                if (_opt__tmp1 == null)
+                if (_opt__tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp1 = _opt__tmp1;
-                if (_tmp1 == null)
+                GeneratedTokenInfo? _tmp0 = _opt__tmp0;
+                if (_tmp0 == null)
                 {
-                    _position = _opt_mark__tmp1; // Reset position
-                    _tmp1 = null; // Optional not present
+                    _position = _opt_mark__tmp0; // Reset position
+                    _tmp0 = null; // Optional not present
                 }
                 // Action: a
                 _res = (GeneratedExprSeq)((object?)a);
@@ -15018,7 +15071,7 @@ namespace SharpPy.Generated
                 // Action (multiline):
                 //   CHECK_VERSION(expr_ty, 8, "Assignment expressions are",
                 //   _PyAST_NamedExpr(CHECK(expr_ty, _PyPegen_set_expr_context(p, a, Store)), b, EXTRA))
-                // No _PyAST_ function in action: EXTRA)
+                // No _PyAST_ or _PyPegen_ function in action: EXTRA)
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
             } while (false);
@@ -15191,20 +15244,20 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: ('or' c=conjunction { c })+
-                var b = new System.Collections.Generic.List<object?>();
+                var b = new GeneratedExprSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Group: ('or' c=conjunction { c })
-                    object? _loop_elem_b = null;
+                    GeneratedExpr? _loop_elem_b = null;
                     int _group_mark__loop_elem_b = _position;
                     // Try group alternative 1: 'or' c=conjunction { c }
                     {
                         _position = _group_mark__loop_elem_b;
-                        var _group_alt0__loop_elem_b_item0 = Expect("or");
+                        GeneratedTokenInfo? _group_alt0__loop_elem_b_item0 = Expect("or");
                         if (_group_alt0__loop_elem_b_item0 != null)
                         {
-                            var _group_alt0__loop_elem_b_item1 = Conjunction();
+                            GeneratedExpr _group_alt0__loop_elem_b_item1 = Conjunction();
                             if (_group_alt0__loop_elem_b_item1 != null)
                             {
                                 _loop_elem_b = _group_alt0__loop_elem_b_item1;
@@ -15319,20 +15372,20 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: ('and' c=inversion { c })+
-                var b = new System.Collections.Generic.List<object?>();
+                var b = new GeneratedExprSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Group: ('and' c=inversion { c })
-                    object? _loop_elem_b = null;
+                    GeneratedExpr? _loop_elem_b = null;
                     int _group_mark__loop_elem_b = _position;
                     // Try group alternative 1: 'and' c=inversion { c }
                     {
                         _position = _group_mark__loop_elem_b;
-                        var _group_alt0__loop_elem_b_item0 = Expect("and");
+                        GeneratedTokenInfo? _group_alt0__loop_elem_b_item0 = Expect("and");
                         if (_group_alt0__loop_elem_b_item0 != null)
                         {
-                            var _group_alt0__loop_elem_b_item1 = Inversion();
+                            GeneratedExpr _group_alt0__loop_elem_b_item1 = Inversion();
                             if (_group_alt0__loop_elem_b_item1 != null)
                             {
                                 _loop_elem_b = _group_alt0__loop_elem_b_item1;
@@ -15532,7 +15585,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: compare_op_bitwise_or_pair+
-                var b = new System.Collections.Generic.List<object?>();
+                var b = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -15607,11 +15660,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: compare_op_bitwise_or_pair from python.gram
-        public GeneratedSeq CompareOpBitwiseOrPair()
+        public GeneratedAstNode? CompareOpBitwiseOrPair()
         {
             // CPython 3.12 PEG: compare_op_bitwise_or_pair
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -15641,7 +15694,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)((object?)_tmp0);
+                _res = (GeneratedAstNode?)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -15666,7 +15719,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)((object?)_tmp0);
+                _res = (GeneratedAstNode?)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -15691,7 +15744,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)((object?)_tmp0);
+                _res = (GeneratedAstNode?)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -15716,7 +15769,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)((object?)_tmp0);
+                _res = (GeneratedAstNode?)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -15741,7 +15794,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)((object?)_tmp0);
+                _res = (GeneratedAstNode?)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -15766,7 +15819,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)((object?)_tmp0);
+                _res = (GeneratedAstNode?)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -15791,7 +15844,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)((object?)_tmp0);
+                _res = (GeneratedAstNode?)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -15816,7 +15869,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)((object?)_tmp0);
+                _res = (GeneratedAstNode?)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -15841,7 +15894,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)((object?)_tmp0);
+                _res = (GeneratedAstNode?)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -15866,7 +15919,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)((object?)_tmp0);
+                _res = (GeneratedAstNode?)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -15883,11 +15936,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: eq_bitwise_or from python.gram
-        public GeneratedSeq EqBitwiseOr()
+        public GeneratedAstNode? EqBitwiseOr()
         {
             // CPython 3.12 PEG: eq_bitwise_or
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -15925,8 +15978,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(p, Eq, a)
-                // TODO: Complex action expression: _PyPegen_cmpop_expr_pair(p, Eq, a)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_cmpop_expr_pair
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -15943,11 +15996,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: noteq_bitwise_or from python.gram
-        public GeneratedSeq NoteqBitwiseOr()
+        public GeneratedAstNode? NoteqBitwiseOr()
         {
             // CPython 3.12 PEG: noteq_bitwise_or
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -15969,12 +16022,12 @@ namespace SharpPy.Generated
                 }
 
                 // Group: (tok='!=' { _PyPegen_check_barry_as_flufl(p, tok) ? NULL : tok })
-                object? _tmp0 = null;
+                GeneratedTokenInfo? _tmp0 = null;
                 int _group_mark__tmp0 = _position;
                 // Try group alternative 1: tok='!=' { _PyPegen_check_barry_as_flufl(p, tok) ? NULL : tok }
                 {
                     _position = _group_mark__tmp0;
-                    var _group_alt0__tmp0_item0 = Expect("!=");
+                    GeneratedTokenInfo? _group_alt0__tmp0_item0 = Expect("!=");
                     if (_group_alt0__tmp0_item0 != null)
                     {
                         _tmp0 = _group_alt0__tmp0_item0;
@@ -15995,8 +16048,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(p, NotEq, a)
-                // TODO: Complex action expression: _PyPegen_cmpop_expr_pair(p, NotEq, a)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_cmpop_expr_pair
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -16013,11 +16066,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: lte_bitwise_or from python.gram
-        public GeneratedSeq LteBitwiseOr()
+        public GeneratedAstNode? LteBitwiseOr()
         {
             // CPython 3.12 PEG: lte_bitwise_or
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -16055,8 +16108,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(p, LtE, a)
-                // TODO: Complex action expression: _PyPegen_cmpop_expr_pair(p, LtE, a)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_cmpop_expr_pair
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -16073,11 +16126,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: lt_bitwise_or from python.gram
-        public GeneratedSeq LtBitwiseOr()
+        public GeneratedAstNode? LtBitwiseOr()
         {
             // CPython 3.12 PEG: lt_bitwise_or
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -16115,8 +16168,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(p, Lt, a)
-                // TODO: Complex action expression: _PyPegen_cmpop_expr_pair(p, Lt, a)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_cmpop_expr_pair
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -16133,11 +16186,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: gte_bitwise_or from python.gram
-        public GeneratedSeq GteBitwiseOr()
+        public GeneratedAstNode? GteBitwiseOr()
         {
             // CPython 3.12 PEG: gte_bitwise_or
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -16175,8 +16228,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(p, GtE, a)
-                // TODO: Complex action expression: _PyPegen_cmpop_expr_pair(p, GtE, a)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_cmpop_expr_pair
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -16193,11 +16246,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: gt_bitwise_or from python.gram
-        public GeneratedSeq GtBitwiseOr()
+        public GeneratedAstNode? GtBitwiseOr()
         {
             // CPython 3.12 PEG: gt_bitwise_or
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -16235,8 +16288,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(p, Gt, a)
-                // TODO: Complex action expression: _PyPegen_cmpop_expr_pair(p, Gt, a)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_cmpop_expr_pair
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -16253,11 +16306,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: notin_bitwise_or from python.gram
-        public GeneratedSeq NotinBitwiseOr()
+        public GeneratedAstNode? NotinBitwiseOr()
         {
             // CPython 3.12 PEG: notin_bitwise_or
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -16303,8 +16356,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(p, NotIn, a)
-                // TODO: Complex action expression: _PyPegen_cmpop_expr_pair(p, NotIn, a)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_cmpop_expr_pair
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -16321,11 +16374,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: in_bitwise_or from python.gram
-        public GeneratedSeq InBitwiseOr()
+        public GeneratedAstNode? InBitwiseOr()
         {
             // CPython 3.12 PEG: in_bitwise_or
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -16363,8 +16416,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(p, In, a)
-                // TODO: Complex action expression: _PyPegen_cmpop_expr_pair(p, In, a)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_cmpop_expr_pair
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -16381,11 +16434,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: isnot_bitwise_or from python.gram
-        public GeneratedSeq IsnotBitwiseOr()
+        public GeneratedAstNode? IsnotBitwiseOr()
         {
             // CPython 3.12 PEG: isnot_bitwise_or
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -16431,8 +16484,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(p, IsNot, a)
-                // TODO: Complex action expression: _PyPegen_cmpop_expr_pair(p, IsNot, a)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_cmpop_expr_pair
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -16449,11 +16502,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: is_bitwise_or from python.gram
-        public GeneratedSeq IsBitwiseOr()
+        public GeneratedAstNode? IsBitwiseOr()
         {
             // CPython 3.12 PEG: is_bitwise_or
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -16491,8 +16544,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(p, Is, a)
-                // TODO: Complex action expression: _PyPegen_cmpop_expr_pair(p, Is, a)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_cmpop_expr_pair
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -17312,7 +17365,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: CHECK_VERSION(expr_ty, 5, "The '@' operator is", _PyAST_BinOp(a, MatMult, b, EXTRA))
-                // No _PyAST_ function in action: EXTRA)
+                // No _PyAST_ or _PyPegen_ function in action: EXTRA)
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
             } while (false);
@@ -17657,7 +17710,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: CHECK_VERSION(expr_ty, 5, "Await expressions are", _PyAST_Await(a, EXTRA))
-                // No _PyAST_ function in action: EXTRA)
+                // No _PyAST_ or _PyPegen_ function in action: EXTRA)
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
             } while (false);
@@ -17828,12 +17881,12 @@ namespace SharpPy.Generated
                 // Optional: [(arguments)]
                 int _opt_mark_b = _position;
                 // Group: (arguments)
-                object? _opt_b = null;
+                GeneratedExpr? _opt_b = null;
                 int _group_mark__opt_b = _position;
                 // Try group alternative 1: arguments
                 {
                     _position = _group_mark__opt_b;
-                    var _group_alt0__opt_b_item0 = Arguments();
+                    GeneratedExpr _group_alt0__opt_b_item0 = Arguments();
                     if (_group_alt0__opt_b_item0 != null)
                     {
                         _opt_b = _group_alt0__opt_b_item0;
@@ -17845,7 +17898,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? b = _opt_b;
+                GeneratedExpr? b = _opt_b;
                 if (b == null)
                 {
                     _position = _opt_mark_b; // Reset position
@@ -18017,99 +18070,121 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Zero or more: ','*
-                var a = new System.Collections.Generic.List<object?>();
+                // Gather: ','.(slice | starred_expression)+
+                var a = new GeneratedExprSeq();
+                // Parse first item (no separator)
+                // Group: (slice | starred_expression)
+                GeneratedExpr? _first_a = null;
+                int _group_mark__first_a = _position;
+                // Try group alternative 1: slice
+                {
+                    _position = _group_mark__first_a;
+                    GeneratedExpr _group_alt0__first_a_item0 = Slice();
+                    if (_group_alt0__first_a_item0 != null)
+                    {
+                        _first_a = _group_alt0__first_a_item0;
+                    }
+                }
+                // Try group alternative 2: starred_expression
+                if (_first_a == null)
+                {
+                    _position = _group_mark__first_a;
+                    GeneratedExpr _group_alt1__first_a_item0 = StarredExpression();
+                    if (_group_alt1__first_a_item0 != null)
+                    {
+                        _first_a = _group_alt1__first_a_item0;
+                    }
+                }
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                a.Add(_first_a);
+                // Parse remaining items (separator + item)
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Expect ','
-                    var _loop_elem_a = Expect(",");
-                    if (_loop_elem_a == null)
+                    var _sep_a = Expect(",");
+                    if (_sep_a == null)
                     {
                         _position = _mark;
                         _res = null;
                         break;  // Exit this alternative
                     }
-                    if (_loop_elem_a == null)
+                    if (_sep_a == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark;
+                        break; // No more separators
                     }
-                    a.Add(_loop_elem_a);
-                }
-                // Collected a.Count items (may be 0)
-                // One or more: (slice | starred_expression)+
-                var _tmp0 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
                     // Group: (slice | starred_expression)
-                    object? _loop_elem__tmp0 = null;
-                    int _group_mark__loop_elem__tmp0 = _position;
+                    GeneratedExpr? _loop_elem_a = null;
+                    int _group_mark__loop_elem_a = _position;
                     // Try group alternative 1: slice
                     {
-                        _position = _group_mark__loop_elem__tmp0;
-                        var _group_alt0__loop_elem__tmp0_item0 = Slice();
-                        if (_group_alt0__loop_elem__tmp0_item0 != null)
+                        _position = _group_mark__loop_elem_a;
+                        GeneratedExpr _group_alt0__loop_elem_a_item0 = Slice();
+                        if (_group_alt0__loop_elem_a_item0 != null)
                         {
-                            _loop_elem__tmp0 = _group_alt0__loop_elem__tmp0_item0;
+                            _loop_elem_a = _group_alt0__loop_elem_a_item0;
                         }
                     }
                     // Try group alternative 2: starred_expression
-                    if (_loop_elem__tmp0 == null)
+                    if (_loop_elem_a == null)
                     {
-                        _position = _group_mark__loop_elem__tmp0;
-                        var _group_alt1__loop_elem__tmp0_item0 = StarredExpression();
-                        if (_group_alt1__loop_elem__tmp0_item0 != null)
+                        _position = _group_mark__loop_elem_a;
+                        GeneratedExpr _group_alt1__loop_elem_a_item0 = StarredExpression();
+                        if (_group_alt1__loop_elem_a_item0 != null)
                         {
-                            _loop_elem__tmp0 = _group_alt1__loop_elem__tmp0_item0;
+                            _loop_elem_a = _group_alt1__loop_elem_a_item0;
                         }
                     }
-                    if (_loop_elem__tmp0 == null)
+                    if (_loop_elem_a == null)
                     {
                         _position = _mark;
                         _res = null;
                         break;  // Exit this alternative
                     }
-                    if (_loop_elem__tmp0 == null)
+                    if (_loop_elem_a == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
                     }
-                    _tmp0.Add(_loop_elem__tmp0);
-                }
-                if (_tmp0.Count == 0)
-                {
-                    // One or more requires at least one match
-                    _position = _mark;
-                    _res = null;
-                    break;  // Exit this alternative
+                    a.Add(_loop_elem_a);
                 }
                 // Optional: [(',')]
-                int _opt_mark__tmp1 = _position;
+                int _opt_mark__tmp0 = _position;
                 // Group: (',')
-                object? _opt__tmp1 = null;
-                int _group_mark__opt__tmp1 = _position;
+                GeneratedTokenInfo? _opt__tmp0 = null;
+                int _group_mark__opt__tmp0 = _position;
                 // Try group alternative 1: ','
                 {
-                    _position = _group_mark__opt__tmp1;
-                    var _group_alt0__opt__tmp1_item0 = Expect(",");
-                    if (_group_alt0__opt__tmp1_item0 != null)
+                    _position = _group_mark__opt__tmp0;
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = Expect(",");
+                    if (_group_alt0__opt__tmp0_item0 != null)
                     {
-                        _opt__tmp1 = _group_alt0__opt__tmp1_item0;
+                        _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
                 }
-                if (_opt__tmp1 == null)
+                if (_opt__tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp1 = _opt__tmp1;
-                if (_tmp1 == null)
+                GeneratedTokenInfo? _tmp0 = _opt__tmp0;
+                if (_tmp0 == null)
                 {
-                    _position = _opt_mark__tmp1; // Reset position
-                    _tmp1 = null; // Optional not present
+                    _position = _opt_mark__tmp0; // Reset position
+                    _tmp0 = null; // Optional not present
                 }
                 // Action: _PyAST_Tuple(a, Load, EXTRA)
                 _res = _PyAST_Tuple(a, Load, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
@@ -18158,12 +18233,12 @@ namespace SharpPy.Generated
                 // Optional: [(expression)]
                 int _opt_mark_a = _position;
                 // Group: (expression)
-                object? _opt_a = null;
+                GeneratedExpr? _opt_a = null;
                 int _group_mark__opt_a = _position;
                 // Try group alternative 1: expression
                 {
                     _position = _group_mark__opt_a;
-                    var _group_alt0__opt_a_item0 = Expression();
+                    GeneratedExpr _group_alt0__opt_a_item0 = Expression();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
@@ -18175,7 +18250,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? a = _opt_a;
+                GeneratedExpr? a = _opt_a;
                 if (a == null)
                 {
                     _position = _opt_mark_a; // Reset position
@@ -18192,12 +18267,12 @@ namespace SharpPy.Generated
                 // Optional: [(expression)]
                 int _opt_mark_b = _position;
                 // Group: (expression)
-                object? _opt_b = null;
+                GeneratedExpr? _opt_b = null;
                 int _group_mark__opt_b = _position;
                 // Try group alternative 1: expression
                 {
                     _position = _group_mark__opt_b;
-                    var _group_alt0__opt_b_item0 = Expression();
+                    GeneratedExpr _group_alt0__opt_b_item0 = Expression();
                     if (_group_alt0__opt_b_item0 != null)
                     {
                         _opt_b = _group_alt0__opt_b_item0;
@@ -18209,7 +18284,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? b = _opt_b;
+                GeneratedExpr? b = _opt_b;
                 if (b == null)
                 {
                     _position = _opt_mark_b; // Reset position
@@ -18218,16 +18293,40 @@ namespace SharpPy.Generated
                 // Optional: [(':' d=[(expression)] { d })]
                 int _opt_mark_c = _position;
                 // Group: (':' d=[(expression)] { d })
-                object? _opt_c = null;
+                GeneratedExpr? _opt_c = null;
                 int _group_mark__opt_c = _position;
                 // Try group alternative 1: ':' d=[(expression)] { d }
                 {
                     _position = _group_mark__opt_c;
-                    var _group_alt0__opt_c_item0 = Expect(":");
+                    GeneratedTokenInfo? _group_alt0__opt_c_item0 = Expect(":");
                     if (_group_alt0__opt_c_item0 != null)
                     {
-                        object? _group_alt0__opt_c_item1 = null;
-                        // TODO: Complex group item type: Optional
+                        // Optional: [(expression)]
+                        int _opt_mark__group_alt0__opt_c_item1 = _position;
+                        // Group: (expression)
+                        GeneratedExpr? _opt__group_alt0__opt_c_item1 = null;
+                        int _group_mark__opt__group_alt0__opt_c_item1 = _position;
+                        // Try group alternative 1: expression
+                        {
+                            _position = _group_mark__opt__group_alt0__opt_c_item1;
+                            GeneratedExpr _group_alt0__opt__group_alt0__opt_c_item1_item0 = Expression();
+                            if (_group_alt0__opt__group_alt0__opt_c_item1_item0 != null)
+                            {
+                                _opt__group_alt0__opt_c_item1 = _group_alt0__opt__group_alt0__opt_c_item1_item0;
+                            }
+                        }
+                        if (_opt__group_alt0__opt_c_item1 == null)
+                        {
+                            _position = _mark;
+                            _res = null;
+                            break;  // Exit this alternative
+                        }
+                        GeneratedExpr? _group_alt0__opt_c_item1 = _opt__group_alt0__opt_c_item1;
+                        if (_group_alt0__opt_c_item1 == null)
+                        {
+                            _position = _opt_mark__group_alt0__opt_c_item1; // Reset position
+                            _group_alt0__opt_c_item1 = null; // Optional not present
+                        }
                         if (_group_alt0__opt_c_item1 != null)
                         {
                             _opt_c = _group_alt0__opt_c_item1;
@@ -18240,7 +18339,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? c = _opt_c;
+                GeneratedExpr? c = _opt_c;
                 if (c == null)
                 {
                     _position = _opt_mark_c; // Reset position
@@ -18481,12 +18580,12 @@ namespace SharpPy.Generated
                 // TODO: Parse lookahead content for StringLiteral
                 _position = _lookahead_mark_44; // Restore position
                 // Group: (tuple | group | genexp)
-                object? _tmp1 = null;
+                GeneratedExpr? _tmp1 = null;
                 int _group_mark__tmp1 = _position;
                 // Try group alternative 1: tuple
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt0__tmp1_item0 = Tuple();
+                    GeneratedExpr _group_alt0__tmp1_item0 = Tuple();
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -18496,7 +18595,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt1__tmp1_item0 = Group();
+                    GeneratedExpr _group_alt1__tmp1_item0 = Group();
                     if (_group_alt1__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
@@ -18506,7 +18605,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt2__tmp1_item0 = Genexp();
+                    GeneratedExpr _group_alt2__tmp1_item0 = Genexp();
                     if (_group_alt2__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt2__tmp1_item0;
@@ -18540,12 +18639,12 @@ namespace SharpPy.Generated
                 // TODO: Parse lookahead content for StringLiteral
                 _position = _lookahead_mark_45; // Restore position
                 // Group: (list | listcomp)
-                object? _tmp1 = null;
+                GeneratedExpr? _tmp1 = null;
                 int _group_mark__tmp1 = _position;
                 // Try group alternative 1: list
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt0__tmp1_item0 = List();
+                    GeneratedExpr _group_alt0__tmp1_item0 = List();
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -18555,7 +18654,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt1__tmp1_item0 = Listcomp();
+                    GeneratedExpr _group_alt1__tmp1_item0 = Listcomp();
                     if (_group_alt1__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
@@ -18589,12 +18688,12 @@ namespace SharpPy.Generated
                 // TODO: Parse lookahead content for StringLiteral
                 _position = _lookahead_mark_46; // Restore position
                 // Group: (dict | set | dictcomp | setcomp)
-                object? _tmp1 = null;
+                GeneratedExpr? _tmp1 = null;
                 int _group_mark__tmp1 = _position;
                 // Try group alternative 1: dict
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt0__tmp1_item0 = Dict();
+                    GeneratedExpr _group_alt0__tmp1_item0 = Dict();
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -18604,7 +18703,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt1__tmp1_item0 = Set();
+                    GeneratedExpr _group_alt1__tmp1_item0 = Set();
                     if (_group_alt1__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
@@ -18614,7 +18713,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt2__tmp1_item0 = Dictcomp();
+                    GeneratedExpr _group_alt2__tmp1_item0 = Dictcomp();
                     if (_group_alt2__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt2__tmp1_item0;
@@ -18624,7 +18723,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt3__tmp1_item0 = Setcomp();
+                    GeneratedExpr _group_alt3__tmp1_item0 = Setcomp();
                     if (_group_alt3__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt3__tmp1_item0;
@@ -18714,12 +18813,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Group: (yield_expr | named_expression)
-                object? a = null;
+                GeneratedExpr? a = null;
                 int _group_mark_a = _position;
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark_a;
-                    var _group_alt0_a_item0 = YieldExpr();
+                    GeneratedExpr _group_alt0_a_item0 = YieldExpr();
                     if (_group_alt0_a_item0 != null)
                     {
                         a = _group_alt0_a_item0;
@@ -18729,7 +18828,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _group_mark_a;
-                    var _group_alt1_a_item0 = NamedExpression();
+                    GeneratedExpr _group_alt1_a_item0 = NamedExpression();
                     if (_group_alt1_a_item0 != null)
                     {
                         a = _group_alt1_a_item0;
@@ -18832,12 +18931,12 @@ namespace SharpPy.Generated
                 // Optional: [(lambda_params)]
                 int _opt_mark_a = _position;
                 // Group: (lambda_params)
-                object? _opt_a = null;
+                GeneratedArguments? _opt_a = null;
                 int _group_mark__opt_a = _position;
                 // Try group alternative 1: lambda_params
                 {
                     _position = _group_mark__opt_a;
-                    var _group_alt0__opt_a_item0 = LambdaParams();
+                    GeneratedArguments _group_alt0__opt_a_item0 = LambdaParams();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
@@ -18849,7 +18948,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? a = _opt_a;
+                GeneratedArguments? a = _opt_a;
                 if (a == null)
                 {
                     _position = _opt_mark_a; // Reset position
@@ -18890,11 +18989,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: lambda_params from python.gram
-        public GeneratedAstNode LambdaParams()
+        public GeneratedArguments LambdaParams()
         {
             // CPython 3.12 PEG: lambda_params
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedArguments _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -18928,7 +19027,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedArguments)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -18953,7 +19052,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedArguments)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -18970,11 +19069,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: lambda_parameters from python.gram
-        public GeneratedAstNode LambdaParameters()
+        public GeneratedArguments LambdaParameters()
         {
             // CPython 3.12 PEG: lambda_parameters
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedArguments _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -19004,7 +19103,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: lambda_param_no_default*
-                var b = new System.Collections.Generic.List<object?>();
+                var b = new GeneratedArgSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -19025,7 +19124,7 @@ namespace SharpPy.Generated
                 }
                 // Collected b.Count items (may be 0)
                 // Zero or more: lambda_param_with_default*
-                var c = new System.Collections.Generic.List<object?>();
+                var c = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -19048,12 +19147,12 @@ namespace SharpPy.Generated
                 // Optional: [(lambda_star_etc)]
                 int _opt_mark_d = _position;
                 // Group: (lambda_star_etc)
-                object? _opt_d = null;
+                GeneratedStarEtc? _opt_d = null;
                 int _group_mark__opt_d = _position;
                 // Try group alternative 1: lambda_star_etc
                 {
                     _position = _group_mark__opt_d;
-                    var _group_alt0__opt_d_item0 = LambdaStarEtc();
+                    GeneratedStarEtc _group_alt0__opt_d_item0 = LambdaStarEtc();
                     if (_group_alt0__opt_d_item0 != null)
                     {
                         _opt_d = _group_alt0__opt_d_item0;
@@ -19065,15 +19164,15 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? d = _opt_d;
+                GeneratedStarEtc? d = _opt_d;
                 if (d == null)
                 {
                     _position = _opt_mark_d; // Reset position
                     d = null; // Optional not present
                 }
                 // Action: CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(p, a, NULL, b, c, d))
-                // TODO: Complex action expression: CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(p, a, NULL, b, c, d))
-                _res = default(GeneratedAstNode);
+                // No _PyAST_ or _PyPegen_ function in action: d)
+                _res = default(GeneratedArguments);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19098,7 +19197,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: lambda_param_with_default*
-                var b = new System.Collections.Generic.List<object?>();
+                var b = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -19121,12 +19220,12 @@ namespace SharpPy.Generated
                 // Optional: [(lambda_star_etc)]
                 int _opt_mark_c = _position;
                 // Group: (lambda_star_etc)
-                object? _opt_c = null;
+                GeneratedStarEtc? _opt_c = null;
                 int _group_mark__opt_c = _position;
                 // Try group alternative 1: lambda_star_etc
                 {
                     _position = _group_mark__opt_c;
-                    var _group_alt0__opt_c_item0 = LambdaStarEtc();
+                    GeneratedStarEtc _group_alt0__opt_c_item0 = LambdaStarEtc();
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
@@ -19138,15 +19237,15 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? c = _opt_c;
+                GeneratedStarEtc? c = _opt_c;
                 if (c == null)
                 {
                     _position = _opt_mark_c; // Reset position
                     c = null; // Optional not present
                 }
                 // Action: CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(p, NULL, a, NULL, b, c))
-                // TODO: Complex action expression: CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(p, NULL, a, NULL, b, c))
-                _res = default(GeneratedAstNode);
+                // No _PyAST_ or _PyPegen_ function in action: c)
+                _res = default(GeneratedArguments);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19163,7 +19262,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: lambda_param_no_default+
-                var a = new System.Collections.Generic.List<object?>();
+                var a = new GeneratedArgSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -19190,7 +19289,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: lambda_param_with_default*
-                var b = new System.Collections.Generic.List<object?>();
+                var b = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -19213,12 +19312,12 @@ namespace SharpPy.Generated
                 // Optional: [(lambda_star_etc)]
                 int _opt_mark_c = _position;
                 // Group: (lambda_star_etc)
-                object? _opt_c = null;
+                GeneratedStarEtc? _opt_c = null;
                 int _group_mark__opt_c = _position;
                 // Try group alternative 1: lambda_star_etc
                 {
                     _position = _group_mark__opt_c;
-                    var _group_alt0__opt_c_item0 = LambdaStarEtc();
+                    GeneratedStarEtc _group_alt0__opt_c_item0 = LambdaStarEtc();
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
@@ -19230,15 +19329,15 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? c = _opt_c;
+                GeneratedStarEtc? c = _opt_c;
                 if (c == null)
                 {
                     _position = _opt_mark_c; // Reset position
                     c = null; // Optional not present
                 }
                 // Action: _PyPegen_make_arguments(p, NULL, NULL, a, b, c)
-                // TODO: Complex action expression: _PyPegen_make_arguments(p, NULL, NULL, a, b, c)
-                _res = default(GeneratedAstNode);
+                // Unknown AST function: _PyPegen_make_arguments
+                _res = default(GeneratedArguments);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19255,7 +19354,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: lambda_param_with_default+
-                var a = new System.Collections.Generic.List<object?>();
+                var a = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -19284,12 +19383,12 @@ namespace SharpPy.Generated
                 // Optional: [(lambda_star_etc)]
                 int _opt_mark_b = _position;
                 // Group: (lambda_star_etc)
-                object? _opt_b = null;
+                GeneratedStarEtc? _opt_b = null;
                 int _group_mark__opt_b = _position;
                 // Try group alternative 1: lambda_star_etc
                 {
                     _position = _group_mark__opt_b;
-                    var _group_alt0__opt_b_item0 = LambdaStarEtc();
+                    GeneratedStarEtc _group_alt0__opt_b_item0 = LambdaStarEtc();
                     if (_group_alt0__opt_b_item0 != null)
                     {
                         _opt_b = _group_alt0__opt_b_item0;
@@ -19301,15 +19400,15 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? b = _opt_b;
+                GeneratedStarEtc? b = _opt_b;
                 if (b == null)
                 {
                     _position = _opt_mark_b; // Reset position
                     b = null; // Optional not present
                 }
                 // Action: _PyPegen_make_arguments(p, NULL, NULL, NULL, a, b)
-                // TODO: Complex action expression: _PyPegen_make_arguments(p, NULL, NULL, NULL, a, b)
-                _res = default(GeneratedAstNode);
+                // Unknown AST function: _PyPegen_make_arguments
+                _res = default(GeneratedArguments);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19334,8 +19433,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_make_arguments(p, NULL, NULL, NULL, NULL, a)
-                // TODO: Complex action expression: _PyPegen_make_arguments(p, NULL, NULL, NULL, NULL, a)
-                _res = default(GeneratedAstNode);
+                // Unknown AST function: _PyPegen_make_arguments
+                _res = default(GeneratedArguments);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19352,11 +19451,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: lambda_slash_no_default from python.gram
-        public GeneratedSeq LambdaSlashNoDefault()
+        public GeneratedAstNodeSeq LambdaSlashNoDefault()
         {
             // CPython 3.12 PEG: lambda_slash_no_default
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNodeSeq _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -19378,7 +19477,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: lambda_param_no_default+
-                var a = new System.Collections.Generic.List<object?>();
+                var a = new GeneratedArgSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -19421,7 +19520,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedSeq)((object?)a);
+                _res = (GeneratedAstNodeSeq)((object?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19438,7 +19537,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: lambda_param_no_default+
-                var a = new System.Collections.Generic.List<object?>();
+                var a = new GeneratedArgSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -19477,7 +19576,7 @@ namespace SharpPy.Generated
                 // TODO: Parse lookahead content for StringLiteral
                 _position = _lookahead_mark_47; // Restore position
                 // Action: a
-                _res = (GeneratedSeq)((object?)a);
+                _res = (GeneratedAstNodeSeq)((object?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19494,11 +19593,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: lambda_slash_with_default from python.gram
-        public GeneratedSeq LambdaSlashWithDefault()
+        public GeneratedSlashWithDefault LambdaSlashWithDefault()
         {
             // CPython 3.12 PEG: lambda_slash_with_default
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedSlashWithDefault _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -19520,7 +19619,7 @@ namespace SharpPy.Generated
                 }
 
                 // Zero or more: lambda_param_no_default*
-                var a = new System.Collections.Generic.List<object?>();
+                var a = new GeneratedArgSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -19541,7 +19640,7 @@ namespace SharpPy.Generated
                 }
                 // Collected a.Count items (may be 0)
                 // One or more: lambda_param_with_default+
-                var b = new System.Collections.Generic.List<object?>();
+                var b = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -19584,8 +19683,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b)
-                // TODO: Complex action expression: _PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_slash_with_default
+                _res = default(GeneratedSlashWithDefault);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19602,7 +19701,7 @@ namespace SharpPy.Generated
                 }
 
                 // Zero or more: lambda_param_no_default*
-                var a = new System.Collections.Generic.List<object?>();
+                var a = new GeneratedArgSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -19623,7 +19722,7 @@ namespace SharpPy.Generated
                 }
                 // Collected a.Count items (may be 0)
                 // One or more: lambda_param_with_default+
-                var b = new System.Collections.Generic.List<object?>();
+                var b = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -19662,8 +19761,8 @@ namespace SharpPy.Generated
                 // TODO: Parse lookahead content for StringLiteral
                 _position = _lookahead_mark_48; // Restore position
                 // Action: _PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b)
-                // TODO: Complex action expression: _PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_slash_with_default
+                _res = default(GeneratedSlashWithDefault);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19680,11 +19779,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: lambda_star_etc from python.gram
-        public GeneratedSeq LambdaStarEtc()
+        public GeneratedStarEtc LambdaStarEtc()
         {
             // CPython 3.12 PEG: lambda_star_etc
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedStarEtc _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -19718,7 +19817,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)((object?)_tmp0);
+                _res = (GeneratedStarEtc)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19751,7 +19850,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: lambda_param_maybe_default*
-                var b = new System.Collections.Generic.List<object?>();
+                var b = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -19774,12 +19873,12 @@ namespace SharpPy.Generated
                 // Optional: [(lambda_kwds)]
                 int _opt_mark_c = _position;
                 // Group: (lambda_kwds)
-                object? _opt_c = null;
+                GeneratedArg? _opt_c = null;
                 int _group_mark__opt_c = _position;
                 // Try group alternative 1: lambda_kwds
                 {
                     _position = _group_mark__opt_c;
-                    var _group_alt0__opt_c_item0 = LambdaKwds();
+                    GeneratedArg _group_alt0__opt_c_item0 = LambdaKwds();
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
@@ -19791,15 +19890,15 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? c = _opt_c;
+                GeneratedArg? c = _opt_c;
                 if (c == null)
                 {
                     _position = _opt_mark_c; // Reset position
                     c = null; // Optional not present
                 }
                 // Action: _PyPegen_star_etc(p, a, b, c)
-                // TODO: Complex action expression: _PyPegen_star_etc(p, a, b, c)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_star_etc
+                _res = default(GeneratedStarEtc);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19832,7 +19931,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: lambda_param_maybe_default+
-                var b = new System.Collections.Generic.List<object?>();
+                var b = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -19861,12 +19960,12 @@ namespace SharpPy.Generated
                 // Optional: [(lambda_kwds)]
                 int _opt_mark_c = _position;
                 // Group: (lambda_kwds)
-                object? _opt_c = null;
+                GeneratedArg? _opt_c = null;
                 int _group_mark__opt_c = _position;
                 // Try group alternative 1: lambda_kwds
                 {
                     _position = _group_mark__opt_c;
-                    var _group_alt0__opt_c_item0 = LambdaKwds();
+                    GeneratedArg _group_alt0__opt_c_item0 = LambdaKwds();
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
@@ -19878,15 +19977,15 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? c = _opt_c;
+                GeneratedArg? c = _opt_c;
                 if (c == null)
                 {
                     _position = _opt_mark_c; // Reset position
                     c = null; // Optional not present
                 }
                 // Action: _PyPegen_star_etc(p, NULL, b, c)
-                // TODO: Complex action expression: _PyPegen_star_etc(p, NULL, b, c)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_star_etc
+                _res = default(GeneratedStarEtc);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19911,8 +20010,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_star_etc(p, NULL, NULL, a)
-                // TODO: Complex action expression: _PyPegen_star_etc(p, NULL, NULL, a)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_star_etc
+                _res = default(GeneratedStarEtc);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19929,11 +20028,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: lambda_kwds from python.gram
-        public GeneratedAstNode LambdaKwds()
+        public GeneratedArg LambdaKwds()
         {
             // CPython 3.12 PEG: lambda_kwds
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedArg _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -19967,7 +20066,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedArg)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20000,7 +20099,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedAstNode)((object?)a);
+                _res = (GeneratedArg)((object?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20017,11 +20116,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: lambda_param_no_default from python.gram
-        public GeneratedAstNode LambdaParamNoDefault()
+        public GeneratedArg LambdaParamNoDefault()
         {
             // CPython 3.12 PEG: lambda_param_no_default
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedArg _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -20059,7 +20158,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedAstNode)((object?)a);
+                _res = (GeneratedArg)((object?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20088,7 +20187,7 @@ namespace SharpPy.Generated
                 // TODO: Parse lookahead content for StringLiteral
                 _position = _lookahead_mark_49; // Restore position
                 // Action: a
-                _res = (GeneratedAstNode)((object?)a);
+                _res = (GeneratedArg)((object?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20105,11 +20204,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: lambda_param_with_default from python.gram
-        public GeneratedSeq LambdaParamWithDefault()
+        public GeneratedAstNode? LambdaParamWithDefault()
         {
             // CPython 3.12 PEG: lambda_param_with_default
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -20155,8 +20254,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_name_default_pair(p, a, c, NULL)
-                // TODO: Complex action expression: _PyPegen_name_default_pair(p, a, c, NULL)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_name_default_pair
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20193,8 +20292,8 @@ namespace SharpPy.Generated
                 // TODO: Parse lookahead content for StringLiteral
                 _position = _lookahead_mark_50; // Restore position
                 // Action: _PyPegen_name_default_pair(p, a, c, NULL)
-                // TODO: Complex action expression: _PyPegen_name_default_pair(p, a, c, NULL)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_name_default_pair
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20211,11 +20310,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: lambda_param_maybe_default from python.gram
-        public GeneratedSeq LambdaParamMaybeDefault()
+        public GeneratedAstNode? LambdaParamMaybeDefault()
         {
             // CPython 3.12 PEG: lambda_param_maybe_default
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -20254,7 +20353,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? c = _opt_c;
+                GeneratedExpr? c = _opt_c;
                 if (c == null)
                 {
                     _position = _opt_mark_c; // Reset position
@@ -20269,8 +20368,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_name_default_pair(p, a, c, NULL)
-                // TODO: Complex action expression: _PyPegen_name_default_pair(p, a, c, NULL)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_name_default_pair
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20304,7 +20403,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? c = _opt_c;
+                GeneratedExpr? c = _opt_c;
                 if (c == null)
                 {
                     _position = _opt_mark_c; // Reset position
@@ -20315,8 +20414,8 @@ namespace SharpPy.Generated
                 // TODO: Parse lookahead content for StringLiteral
                 _position = _lookahead_mark_51; // Restore position
                 // Action: _PyPegen_name_default_pair(p, a, c, NULL)
-                // TODO: Complex action expression: _PyPegen_name_default_pair(p, a, c, NULL)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_name_default_pair
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20333,11 +20432,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: lambda_param from python.gram
-        public GeneratedAstNode LambdaParam()
+        public GeneratedArg LambdaParam()
         {
             // CPython 3.12 PEG: lambda_param
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedArg _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -20370,7 +20469,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_arg(a->v.Name.id, NULL, NULL, EXTRA)
                 // Unknown AST function: _PyAST_arg
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedArg);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20448,7 +20547,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_constant_from_token(p, t)
-                // TODO: Complex action expression: _PyPegen_constant_from_token(p, t)
+                // Unknown AST function: _PyPegen_constant_from_token
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
             } while (false);
@@ -20500,12 +20599,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Group: (yield_expr | star_expressions)
-                object? a = null;
+                GeneratedExpr? a = null;
                 int _group_mark_a = _position;
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark_a;
-                    var _group_alt0_a_item0 = YieldExpr();
+                    GeneratedExpr _group_alt0_a_item0 = YieldExpr();
                     if (_group_alt0_a_item0 != null)
                     {
                         a = _group_alt0_a_item0;
@@ -20515,7 +20614,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _group_mark_a;
-                    var _group_alt1_a_item0 = StarExpressions();
+                    GeneratedExpr _group_alt1_a_item0 = StarExpressions();
                     if (_group_alt1_a_item0 != null)
                     {
                         a = _group_alt1_a_item0;
@@ -20537,7 +20636,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? debug_expr = _opt_debug_expr;
+                GeneratedTokenInfo? debug_expr = _opt_debug_expr;
                 if (debug_expr == null)
                 {
                     _position = _opt_mark_debug_expr; // Reset position
@@ -20546,12 +20645,12 @@ namespace SharpPy.Generated
                 // Optional: [(fstring_conversion)]
                 int _opt_mark_conversion = _position;
                 // Group: (fstring_conversion)
-                object? _opt_conversion = null;
+                GeneratedAstNode? _opt_conversion = null;
                 int _group_mark__opt_conversion = _position;
                 // Try group alternative 1: fstring_conversion
                 {
                     _position = _group_mark__opt_conversion;
-                    var _group_alt0__opt_conversion_item0 = FstringConversion();
+                    GeneratedAstNode? _group_alt0__opt_conversion_item0 = FstringConversion();
                     if (_group_alt0__opt_conversion_item0 != null)
                     {
                         _opt_conversion = _group_alt0__opt_conversion_item0;
@@ -20563,7 +20662,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? conversion = _opt_conversion;
+                GeneratedAstNode? conversion = _opt_conversion;
                 if (conversion == null)
                 {
                     _position = _opt_mark_conversion; // Reset position
@@ -20572,12 +20671,12 @@ namespace SharpPy.Generated
                 // Optional: [(fstring_full_format_spec)]
                 int _opt_mark_format = _position;
                 // Group: (fstring_full_format_spec)
-                object? _opt_format = null;
+                GeneratedAstNode? _opt_format = null;
                 int _group_mark__opt_format = _position;
                 // Try group alternative 1: fstring_full_format_spec
                 {
                     _position = _group_mark__opt_format;
-                    var _group_alt0__opt_format_item0 = FstringFullFormatSpec();
+                    GeneratedAstNode? _group_alt0__opt_format_item0 = FstringFullFormatSpec();
                     if (_group_alt0__opt_format_item0 != null)
                     {
                         _opt_format = _group_alt0__opt_format_item0;
@@ -20589,7 +20688,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? format = _opt_format;
+                GeneratedAstNode? format = _opt_format;
                 if (format == null)
                 {
                     _position = _opt_mark_format; // Reset position
@@ -20604,7 +20703,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_formatted_value(p, a, debug_expr, conversion, format, rbrace, EXTRA)
-                // TODO: Complex action expression: _PyPegen_formatted_value(p, a, debug_expr, conversion, format, rbrace, EXTRA)
+                // Unknown AST function: _PyPegen_formatted_value
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
             } while (false);
@@ -20651,11 +20750,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: fstring_conversion from python.gram
-        public GeneratedSeq FstringConversion()
+        public GeneratedAstNode? FstringConversion()
         {
             // CPython 3.12 PEG: fstring_conversion
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -20695,8 +20794,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_check_fstring_conversion(p, conv_token, conv)
-                // TODO: Complex action expression: _PyPegen_check_fstring_conversion(p, conv_token, conv)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_check_fstring_conversion
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20713,11 +20812,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: fstring_full_format_spec from python.gram
-        public GeneratedSeq FstringFullFormatSpec()
+        public GeneratedAstNode? FstringFullFormatSpec()
         {
             // CPython 3.12 PEG: fstring_full_format_spec
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -20747,7 +20846,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: fstring_format_spec*
-                var spec = new System.Collections.Generic.List<object?>();
+                var spec = new GeneratedExprSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -20768,8 +20867,8 @@ namespace SharpPy.Generated
                 }
                 // Collected spec.Count items (may be 0)
                 // Action: _PyPegen_setup_full_format_spec(p, colon, (asdl_expr_seq *) spec, EXTRA)
-                // TODO: Complex action expression: _PyPegen_setup_full_format_spec(p, colon, (asdl_expr_seq *) spec, EXTRA)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_setup_full_format_spec
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20822,7 +20921,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_decoded_constant_from_token(p, t)
-                // TODO: Complex action expression: _PyPegen_decoded_constant_from_token(p, t)
+                // Unknown AST function: _PyPegen_decoded_constant_from_token
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
             } while (false);
@@ -20901,7 +21000,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: fstring_middle*
-                var b = new System.Collections.Generic.List<object?>();
+                var b = new GeneratedExprSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -20932,7 +21031,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_joined_str(p, a, (asdl_expr_seq*)b, c)
-                // TODO: Complex action expression: _PyPegen_joined_str(p, a, (asdl_expr_seq*)b, c)
+                // Unknown AST function: _PyPegen_joined_str
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
             } while (false);
@@ -20992,7 +21091,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_constant_from_string(p, s)
-                // TODO: Complex action expression: _PyPegen_constant_from_string(p, s)
+                // Unknown AST function: _PyPegen_constant_from_string
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
             } while (false);
@@ -21042,17 +21141,17 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: (fstring | string)+
-                var a = new System.Collections.Generic.List<object?>();
+                var a = new GeneratedExprSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Group: (fstring | string)
-                    object? _loop_elem_a = null;
+                    GeneratedExpr? _loop_elem_a = null;
                     int _group_mark__loop_elem_a = _position;
                     // Try group alternative 1: fstring
                     {
                         _position = _group_mark__loop_elem_a;
-                        var _group_alt0__loop_elem_a_item0 = Fstring();
+                        GeneratedExpr _group_alt0__loop_elem_a_item0 = Fstring();
                         if (_group_alt0__loop_elem_a_item0 != null)
                         {
                             _loop_elem_a = _group_alt0__loop_elem_a_item0;
@@ -21062,7 +21161,7 @@ namespace SharpPy.Generated
                     if (_loop_elem_a == null)
                     {
                         _position = _group_mark__loop_elem_a;
-                        var _group_alt1__loop_elem_a_item0 = String();
+                        GeneratedExpr _group_alt1__loop_elem_a_item0 = String();
                         if (_group_alt1__loop_elem_a_item0 != null)
                         {
                             _loop_elem_a = _group_alt1__loop_elem_a_item0;
@@ -21089,7 +21188,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_concatenate_strings(p, a, EXTRA)
-                // TODO: Complex action expression: _PyPegen_concatenate_strings(p, a, EXTRA)
+                // Unknown AST function: _PyPegen_concatenate_strings
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
             } while (false);
@@ -21143,12 +21242,12 @@ namespace SharpPy.Generated
                 // Optional: [(star_named_expressions)]
                 int _opt_mark_a = _position;
                 // Group: (star_named_expressions)
-                object? _opt_a = null;
+                GeneratedExprSeq? _opt_a = null;
                 int _group_mark__opt_a = _position;
                 // Try group alternative 1: star_named_expressions
                 {
                     _position = _group_mark__opt_a;
-                    var _group_alt0__opt_a_item0 = StarNamedExpressions();
+                    GeneratedExprSeq _group_alt0__opt_a_item0 = StarNamedExpressions();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
@@ -21160,7 +21259,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? a = _opt_a;
+                GeneratedExprSeq? a = _opt_a;
                 if (a == null)
                 {
                     _position = _opt_mark_a; // Reset position
@@ -21229,19 +21328,43 @@ namespace SharpPy.Generated
                 // Optional: [(y=star_named_expression ',' z=[(star_named_expressions)] { _PyPegen_seq_insert_in_front(p, y, z) })]
                 int _opt_mark_a = _position;
                 // Group: (y=star_named_expression ',' z=[(star_named_expressions)] { _PyPegen_seq_insert_in_front(p, y, z) })
-                object? _opt_a = null;
+                GeneratedExprSeq? _opt_a = null;
                 int _group_mark__opt_a = _position;
                 // Try group alternative 1: y=star_named_expression ',' z=[(star_named_expressions)] { _PyPegen_seq_insert_in_front(p, y, z) }
                 {
                     _position = _group_mark__opt_a;
-                    var _group_alt0__opt_a_item0 = StarNamedExpression();
+                    GeneratedExpr _group_alt0__opt_a_item0 = StarNamedExpression();
                     if (_group_alt0__opt_a_item0 != null)
                     {
-                        var _group_alt0__opt_a_item1 = Expect(",");
+                        GeneratedTokenInfo? _group_alt0__opt_a_item1 = Expect(",");
                         if (_group_alt0__opt_a_item1 != null)
                         {
-                            object? _group_alt0__opt_a_item2 = null;
-                            // TODO: Complex group item type: Optional
+                            // Optional: [(star_named_expressions)]
+                            int _opt_mark__group_alt0__opt_a_item2 = _position;
+                            // Group: (star_named_expressions)
+                            GeneratedExprSeq? _opt__group_alt0__opt_a_item2 = null;
+                            int _group_mark__opt__group_alt0__opt_a_item2 = _position;
+                            // Try group alternative 1: star_named_expressions
+                            {
+                                _position = _group_mark__opt__group_alt0__opt_a_item2;
+                                GeneratedExprSeq _group_alt0__opt__group_alt0__opt_a_item2_item0 = StarNamedExpressions();
+                                if (_group_alt0__opt__group_alt0__opt_a_item2_item0 != null)
+                                {
+                                    _opt__group_alt0__opt_a_item2 = _group_alt0__opt__group_alt0__opt_a_item2_item0;
+                                }
+                            }
+                            if (_opt__group_alt0__opt_a_item2 == null)
+                            {
+                                _position = _mark;
+                                _res = null;
+                                break;  // Exit this alternative
+                            }
+                            GeneratedExprSeq? _group_alt0__opt_a_item2 = _opt__group_alt0__opt_a_item2;
+                            if (_group_alt0__opt_a_item2 == null)
+                            {
+                                _position = _opt_mark__group_alt0__opt_a_item2; // Reset position
+                                _group_alt0__opt_a_item2 = null; // Optional not present
+                            }
                             if (_group_alt0__opt_a_item2 != null)
                             {
                                 _opt_a = _group_alt0__opt_a_item2;
@@ -21255,7 +21378,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? a = _opt_a;
+                GeneratedExprSeq? a = _opt_a;
                 if (a == null)
                 {
                     _position = _opt_mark_a; // Reset position
@@ -21392,12 +21515,12 @@ namespace SharpPy.Generated
                 // Optional: [(double_starred_kvpairs)]
                 int _opt_mark_a = _position;
                 // Group: (double_starred_kvpairs)
-                object? _opt_a = null;
+                GeneratedSeq? _opt_a = null;
                 int _group_mark__opt_a = _position;
                 // Try group alternative 1: double_starred_kvpairs
                 {
                     _position = _group_mark__opt_a;
-                    var _group_alt0__opt_a_item0 = DoubleStarredKvpairs();
+                    GeneratedSeq _group_alt0__opt_a_item0 = DoubleStarredKvpairs();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
@@ -21409,7 +21532,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? a = _opt_a;
+                GeneratedSeq? a = _opt_a;
                 if (a == null)
                 {
                     _position = _opt_mark_a; // Reset position
@@ -21516,13 +21639,43 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Zero or more: ','*
-                var a = new System.Collections.Generic.List<object?>();
+                // Gather: ','.double_starred_kvpair+
+                var a = new GeneratedAstNodeSeq();
+                // Parse first item (no separator)
+                // Call rule: double_starred_kvpair
+                var _first_a = DoubleStarredKvpair();
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                a.Add(_first_a);
+                // Parse remaining items (separator + item)
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Expect ','
-                    var _loop_elem_a = Expect(",");
+                    var _sep_a = Expect(",");
+                    if (_sep_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep_a == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: double_starred_kvpair
+                    var _loop_elem_a = DoubleStarredKvpair();
                     if (_loop_elem_a == null)
                     {
                         _position = _mark;
@@ -21531,64 +21684,36 @@ namespace SharpPy.Generated
                     }
                     if (_loop_elem_a == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
                     }
                     a.Add(_loop_elem_a);
                 }
-                // Collected a.Count items (may be 0)
-                // One or more: double_starred_kvpair+
-                var _tmp0 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: double_starred_kvpair
-                    var _loop_elem__tmp0 = DoubleStarredKvpair();
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
-                }
-                if (_tmp0.Count == 0)
-                {
-                    // One or more requires at least one match
-                    _position = _mark;
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // Optional: [(',')]
-                int _opt_mark__tmp1 = _position;
+                int _opt_mark__tmp0 = _position;
                 // Group: (',')
-                object? _opt__tmp1 = null;
-                int _group_mark__opt__tmp1 = _position;
+                GeneratedTokenInfo? _opt__tmp0 = null;
+                int _group_mark__opt__tmp0 = _position;
                 // Try group alternative 1: ','
                 {
-                    _position = _group_mark__opt__tmp1;
-                    var _group_alt0__opt__tmp1_item0 = Expect(",");
-                    if (_group_alt0__opt__tmp1_item0 != null)
+                    _position = _group_mark__opt__tmp0;
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = Expect(",");
+                    if (_group_alt0__opt__tmp0_item0 != null)
                     {
-                        _opt__tmp1 = _group_alt0__opt__tmp1_item0;
+                        _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
                 }
-                if (_opt__tmp1 == null)
+                if (_opt__tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp1 = _opt__tmp1;
-                if (_tmp1 == null)
+                GeneratedTokenInfo? _tmp0 = _opt__tmp0;
+                if (_tmp0 == null)
                 {
-                    _position = _opt_mark__tmp1; // Reset position
-                    _tmp1 = null; // Optional not present
+                    _position = _opt_mark__tmp0; // Reset position
+                    _tmp0 = null; // Optional not present
                 }
                 // Action: a
                 _res = (GeneratedSeq)((object?)a);
@@ -21608,11 +21733,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: double_starred_kvpair from python.gram
-        public GeneratedSeq DoubleStarredKvpair()
+        public GeneratedAstNode? DoubleStarredKvpair()
         {
             // CPython 3.12 PEG: double_starred_kvpair
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -21650,8 +21775,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_key_value_pair(p, NULL, a)
-                // TODO: Complex action expression: _PyPegen_key_value_pair(p, NULL, a)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_key_value_pair
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -21676,7 +21801,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)((object?)_tmp0);
+                _res = (GeneratedAstNode?)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -21693,11 +21818,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: kvpair from python.gram
-        public GeneratedSeq Kvpair()
+        public GeneratedAstNode? Kvpair()
         {
             // CPython 3.12 PEG: kvpair
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -21743,8 +21868,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_key_value_pair(p, a, b)
-                // TODO: Complex action expression: _PyPegen_key_value_pair(p, a, b)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_key_value_pair
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -21761,11 +21886,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: for_if_clauses from python.gram
-        public GeneratedSeq ForIfClauses()
+        public GeneratedComprehensionSeq ForIfClauses()
         {
             // CPython 3.12 PEG: for_if_clauses
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedComprehensionSeq _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -21787,7 +21912,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: for_if_clause+
-                var a = new System.Collections.Generic.List<object?>();
+                var a = new GeneratedComprehensionSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -21814,7 +21939,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedSeq)((object?)a);
+                _res = (GeneratedComprehensionSeq)((object?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -21831,11 +21956,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: for_if_clause from python.gram
-        public GeneratedAstNode ForIfClause()
+        public GeneratedComprehension ForIfClause()
         {
             // CPython 3.12 PEG: for_if_clause
             int _mark = _position;
-            GeneratedAstNode _res = null;
+            GeneratedComprehension _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -21901,20 +22026,20 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: ('if' z=disjunction { z })*
-                var c = new System.Collections.Generic.List<object?>();
+                var c = new GeneratedExprSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Group: ('if' z=disjunction { z })
-                    object? _loop_elem_c = null;
+                    GeneratedExpr? _loop_elem_c = null;
                     int _group_mark__loop_elem_c = _position;
                     // Try group alternative 1: 'if' z=disjunction { z }
                     {
                         _position = _group_mark__loop_elem_c;
-                        var _group_alt0__loop_elem_c_item0 = Expect("if");
+                        GeneratedTokenInfo? _group_alt0__loop_elem_c_item0 = Expect("if");
                         if (_group_alt0__loop_elem_c_item0 != null)
                         {
-                            var _group_alt0__loop_elem_c_item1 = Disjunction();
+                            GeneratedExpr _group_alt0__loop_elem_c_item1 = Disjunction();
                             if (_group_alt0__loop_elem_c_item1 != null)
                             {
                                 _loop_elem_c = _group_alt0__loop_elem_c_item1;
@@ -21936,8 +22061,8 @@ namespace SharpPy.Generated
                 }
                 // Collected c.Count items (may be 0)
                 // Action: CHECK_VERSION(comprehension_ty, 6, "Async comprehensions are", _PyAST_comprehension(a, b, c, 1, p->arena))
-                // No _PyAST_ function in action: p->arena)
-                _res = default(GeneratedAstNode);
+                // No _PyAST_ or _PyPegen_ function in action: p->arena)
+                _res = default(GeneratedComprehension);
                 if (_res != null) goto done;
             } while (false);
 
@@ -21988,20 +22113,20 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: ('if' z=disjunction { z })*
-                var c = new System.Collections.Generic.List<object?>();
+                var c = new GeneratedExprSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Group: ('if' z=disjunction { z })
-                    object? _loop_elem_c = null;
+                    GeneratedExpr? _loop_elem_c = null;
                     int _group_mark__loop_elem_c = _position;
                     // Try group alternative 1: 'if' z=disjunction { z }
                     {
                         _position = _group_mark__loop_elem_c;
-                        var _group_alt0__loop_elem_c_item0 = Expect("if");
+                        GeneratedTokenInfo? _group_alt0__loop_elem_c_item0 = Expect("if");
                         if (_group_alt0__loop_elem_c_item0 != null)
                         {
-                            var _group_alt0__loop_elem_c_item1 = Disjunction();
+                            GeneratedExpr _group_alt0__loop_elem_c_item1 = Disjunction();
                             if (_group_alt0__loop_elem_c_item1 != null)
                             {
                                 _loop_elem_c = _group_alt0__loop_elem_c_item1;
@@ -22024,7 +22149,7 @@ namespace SharpPy.Generated
                 // Collected c.Count items (may be 0)
                 // Action: _PyAST_comprehension(a, b, c, 0, p->arena)
                 // Unknown AST function: _PyAST_comprehension
-                _res = default(GeneratedAstNode);
+                _res = default(GeneratedComprehension);
                 if (_res != null) goto done;
             } while (false);
 
@@ -22053,7 +22178,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode)((object?)_tmp0);
+                _res = (GeneratedComprehension)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -22314,12 +22439,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Group: (assignment_expression | expression !':=')
-                object? a = null;
+                GeneratedExpr? a = null;
                 int _group_mark_a = _position;
                 // Try group alternative 1: assignment_expression
                 {
                     _position = _group_mark_a;
-                    var _group_alt0_a_item0 = AssignmentExpression();
+                    GeneratedExpr _group_alt0_a_item0 = AssignmentExpression();
                     if (_group_alt0_a_item0 != null)
                     {
                         a = _group_alt0_a_item0;
@@ -22329,14 +22454,24 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _group_mark_a;
-                    var _group_alt1_a_item0 = Expression();
+                    GeneratedExpr _group_alt1_a_item0 = Expression();
                     if (_group_alt1_a_item0 != null)
                     {
-                        object? _group_alt1_a_item1 = null;
-                        // TODO: Complex group item type: NegativeLookahead
-                        if (_group_alt1_a_item1 != null)
+                        // WARNING: Lookahead in value position - this is unusual
+                        // Negative lookahead: !(':=')
+                        object? _lookahead_test_52 = null;
+                        if (CurrentToken?.Value == ":=") { _lookahead_test_52 = CurrentToken; }
+                        if (_lookahead_test_52 != null)
                         {
-                            a = _group_alt1_a_item1;
+                            // Negative lookahead matched - fail this alternative
+                            _position = _mark;
+                            _res = null;
+                            break;  // Exit this alternative
+                        }
+                        bool _group_alt1_a_item1 = true; // Lookahead succeeded
+                        if (_group_alt1_a_item0 != null)
+                        {
+                            a = _group_alt1_a_item0;
                         }
                     }
                 }
@@ -22557,12 +22692,12 @@ namespace SharpPy.Generated
                 // Optional: [(',')]
                 int _opt_mark__tmp0 = _position;
                 // Group: (',')
-                object? _opt__tmp0 = null;
+                GeneratedTokenInfo? _opt__tmp0 = null;
                 int _group_mark__opt__tmp0 = _position;
                 // Try group alternative 1: ','
                 {
                     _position = _group_mark__opt__tmp0;
-                    var _group_alt0__opt__tmp0_item0 = Expect(",");
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = Expect(",");
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
@@ -22574,16 +22709,16 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp0 = _opt__tmp0;
+                GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
                     _position = _opt_mark__tmp0; // Reset position
                     _tmp0 = null; // Optional not present
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_52 = _position;
+                int _lookahead_mark_53 = _position;
                 // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_52; // Restore position
+                _position = _lookahead_mark_53; // Restore position
                 // Action: a
                 _res = (GeneratedExpr)((object?)a);
                 if (_res != null) goto done;
@@ -22656,92 +22791,222 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Zero or more: ','*
-                var a = new System.Collections.Generic.List<object?>();
-                while (true)
+                // Gather: ','.(starred_expression | (assignment_expression | expression !':=') !'=')+
+                var a = new GeneratedExprSeq();
+                // Parse first item (no separator)
+                // Group: (starred_expression | (assignment_expression | expression !':=') !'=')
+                GeneratedExpr? _first_a = null;
+                int _group_mark__first_a = _position;
+                // Try group alternative 1: starred_expression
                 {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _loop_elem_a = Expect(",");
-                    if (_loop_elem_a == null)
+                    _position = _group_mark__first_a;
+                    GeneratedExpr _group_alt0__first_a_item0 = StarredExpression();
+                    if (_group_alt0__first_a_item0 != null)
                     {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
+                        _first_a = _group_alt0__first_a_item0;
                     }
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    a.Add(_loop_elem_a);
                 }
-                // Collected a.Count items (may be 0)
-                // One or more: (starred_expression | (assignment_expression | expression !':=') !'=')+
-                var _tmp0 = new System.Collections.Generic.List<object?>();
-                while (true)
+                // Try group alternative 2: (assignment_expression | expression !':=') !'='
+                if (_first_a == null)
                 {
-                    int _loop_mark = _position;
-                    // Group: (starred_expression | (assignment_expression | expression !':=') !'=')
-                    object? _loop_elem__tmp0 = null;
-                    int _group_mark__loop_elem__tmp0 = _position;
-                    // Try group alternative 1: starred_expression
+                    _position = _group_mark__first_a;
+                    // Group: (assignment_expression | expression !':=')
+                    GeneratedExpr? _group_alt1__first_a_item0 = null;
+                    int _group_mark__group_alt1__first_a_item0 = _position;
+                    // Try group alternative 1: assignment_expression
                     {
-                        _position = _group_mark__loop_elem__tmp0;
-                        var _group_alt0__loop_elem__tmp0_item0 = StarredExpression();
-                        if (_group_alt0__loop_elem__tmp0_item0 != null)
+                        _position = _group_mark__group_alt1__first_a_item0;
+                        GeneratedExpr _group_alt0__group_alt1__first_a_item0_item0 = AssignmentExpression();
+                        if (_group_alt0__group_alt1__first_a_item0_item0 != null)
                         {
-                            _loop_elem__tmp0 = _group_alt0__loop_elem__tmp0_item0;
+                            _group_alt1__first_a_item0 = _group_alt0__group_alt1__first_a_item0_item0;
                         }
                     }
-                    // Try group alternative 2: (assignment_expression | expression !':=') !'='
-                    if (_loop_elem__tmp0 == null)
+                    // Try group alternative 2: expression !':='
+                    if (_group_alt1__first_a_item0 == null)
                     {
-                        _position = _group_mark__loop_elem__tmp0;
-                        object? _group_alt1__loop_elem__tmp0_item0 = null;
-                        // TODO: Complex group item type: Group
-                        if (_group_alt1__loop_elem__tmp0_item0 != null)
+                        _position = _group_mark__group_alt1__first_a_item0;
+                        GeneratedExpr _group_alt1__group_alt1__first_a_item0_item0 = Expression();
+                        if (_group_alt1__group_alt1__first_a_item0_item0 != null)
                         {
-                            object? _group_alt1__loop_elem__tmp0_item1 = null;
-                            // TODO: Complex group item type: NegativeLookahead
-                            if (_group_alt1__loop_elem__tmp0_item1 != null)
+                            // WARNING: Lookahead in value position - this is unusual
+                            // Negative lookahead: !(':=')
+                            object? _lookahead_test_54 = null;
+                            if (CurrentToken?.Value == ":=") { _lookahead_test_54 = CurrentToken; }
+                            if (_lookahead_test_54 != null)
                             {
-                                _loop_elem__tmp0 = _group_alt1__loop_elem__tmp0_item1;
+                                // Negative lookahead matched - fail this alternative
+                                _position = _mark;
+                                _res = null;
+                                break;  // Exit this alternative
+                            }
+                            bool _group_alt1__group_alt1__first_a_item0_item1 = true; // Lookahead succeeded
+                            if (_group_alt1__group_alt1__first_a_item0_item0 != null)
+                            {
+                                _group_alt1__first_a_item0 = _group_alt1__group_alt1__first_a_item0_item0;
                             }
                         }
                     }
-                    if (_loop_elem__tmp0 == null)
+                    if (_group_alt1__first_a_item0 == null)
                     {
                         _position = _mark;
                         _res = null;
                         break;  // Exit this alternative
                     }
-                    if (_loop_elem__tmp0 == null)
+                    if (_group_alt1__first_a_item0 != null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        // WARNING: Lookahead in value position - this is unusual
+                        // Negative lookahead: !('=')
+                        object? _lookahead_test_55 = null;
+                        if (CurrentToken?.Value == "=") { _lookahead_test_55 = CurrentToken; }
+                        if (_lookahead_test_55 != null)
+                        {
+                            // Negative lookahead matched - fail this alternative
+                            _position = _mark;
+                            _res = null;
+                            break;  // Exit this alternative
+                        }
+                        bool _group_alt1__first_a_item1 = true; // Lookahead succeeded
+                        if (_group_alt1__first_a_item0 != null)
+                        {
+                            _first_a = _group_alt1__first_a_item0;
+                        }
                     }
-                    _tmp0.Add(_loop_elem__tmp0);
                 }
-                if (_tmp0.Count == 0)
+                if (_first_a == null)
                 {
-                    // One or more requires at least one match
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                a.Add(_first_a);
+                // Parse remaining items (separator + item)
+                while (true)
+                {
+                    int _loop_mark = _position;
+                    // Expect ','
+                    var _sep_a = Expect(",");
+                    if (_sep_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep_a == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Group: (starred_expression | (assignment_expression | expression !':=') !'=')
+                    GeneratedExpr? _loop_elem_a = null;
+                    int _group_mark__loop_elem_a = _position;
+                    // Try group alternative 1: starred_expression
+                    {
+                        _position = _group_mark__loop_elem_a;
+                        GeneratedExpr _group_alt0__loop_elem_a_item0 = StarredExpression();
+                        if (_group_alt0__loop_elem_a_item0 != null)
+                        {
+                            _loop_elem_a = _group_alt0__loop_elem_a_item0;
+                        }
+                    }
+                    // Try group alternative 2: (assignment_expression | expression !':=') !'='
+                    if (_loop_elem_a == null)
+                    {
+                        _position = _group_mark__loop_elem_a;
+                        // Group: (assignment_expression | expression !':=')
+                        GeneratedExpr? _group_alt1__loop_elem_a_item0 = null;
+                        int _group_mark__group_alt1__loop_elem_a_item0 = _position;
+                        // Try group alternative 1: assignment_expression
+                        {
+                            _position = _group_mark__group_alt1__loop_elem_a_item0;
+                            GeneratedExpr _group_alt0__group_alt1__loop_elem_a_item0_item0 = AssignmentExpression();
+                            if (_group_alt0__group_alt1__loop_elem_a_item0_item0 != null)
+                            {
+                                _group_alt1__loop_elem_a_item0 = _group_alt0__group_alt1__loop_elem_a_item0_item0;
+                            }
+                        }
+                        // Try group alternative 2: expression !':='
+                        if (_group_alt1__loop_elem_a_item0 == null)
+                        {
+                            _position = _group_mark__group_alt1__loop_elem_a_item0;
+                            GeneratedExpr _group_alt1__group_alt1__loop_elem_a_item0_item0 = Expression();
+                            if (_group_alt1__group_alt1__loop_elem_a_item0_item0 != null)
+                            {
+                                // WARNING: Lookahead in value position - this is unusual
+                                // Negative lookahead: !(':=')
+                                object? _lookahead_test_56 = null;
+                                if (CurrentToken?.Value == ":=") { _lookahead_test_56 = CurrentToken; }
+                                if (_lookahead_test_56 != null)
+                                {
+                                    // Negative lookahead matched - fail this alternative
+                                    _position = _mark;
+                                    _res = null;
+                                    break;  // Exit this alternative
+                                }
+                                bool _group_alt1__group_alt1__loop_elem_a_item0_item1 = true; // Lookahead succeeded
+                                if (_group_alt1__group_alt1__loop_elem_a_item0_item0 != null)
+                                {
+                                    _group_alt1__loop_elem_a_item0 = _group_alt1__group_alt1__loop_elem_a_item0_item0;
+                                }
+                            }
+                        }
+                        if (_group_alt1__loop_elem_a_item0 == null)
+                        {
+                            _position = _mark;
+                            _res = null;
+                            break;  // Exit this alternative
+                        }
+                        if (_group_alt1__loop_elem_a_item0 != null)
+                        {
+                            // WARNING: Lookahead in value position - this is unusual
+                            // Negative lookahead: !('=')
+                            object? _lookahead_test_57 = null;
+                            if (CurrentToken?.Value == "=") { _lookahead_test_57 = CurrentToken; }
+                            if (_lookahead_test_57 != null)
+                            {
+                                // Negative lookahead matched - fail this alternative
+                                _position = _mark;
+                                _res = null;
+                                break;  // Exit this alternative
+                            }
+                            bool _group_alt1__loop_elem_a_item1 = true; // Lookahead succeeded
+                            if (_group_alt1__loop_elem_a_item0 != null)
+                            {
+                                _loop_elem_a = _group_alt1__loop_elem_a_item0;
+                            }
+                        }
+                    }
+                    if (_loop_elem_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_loop_elem_a == null)
+                    {
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
+                    }
+                    a.Add(_loop_elem_a);
+                }
                 // Optional: [(',' k=kwargs { k })]
                 int _opt_mark_b = _position;
                 // Group: (',' k=kwargs { k })
-                object? _opt_b = null;
+                GeneratedSeq? _opt_b = null;
                 int _group_mark__opt_b = _position;
                 // Try group alternative 1: ',' k=kwargs { k }
                 {
                     _position = _group_mark__opt_b;
-                    var _group_alt0__opt_b_item0 = Expect(",");
+                    GeneratedTokenInfo? _group_alt0__opt_b_item0 = Expect(",");
                     if (_group_alt0__opt_b_item0 != null)
                     {
-                        var _group_alt0__opt_b_item1 = Kwargs();
+                        GeneratedSeq _group_alt0__opt_b_item1 = Kwargs();
                         if (_group_alt0__opt_b_item1 != null)
                         {
                             _opt_b = _group_alt0__opt_b_item1;
@@ -22754,14 +23019,14 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? b = _opt_b;
+                GeneratedSeq? b = _opt_b;
                 if (b == null)
                 {
                     _position = _opt_mark_b; // Reset position
                     b = null; // Optional not present
                 }
                 // Action: _PyPegen_collect_call_seqs(p, a, b, EXTRA)
-                // TODO: Complex action expression: _PyPegen_collect_call_seqs(p, a, b, EXTRA)
+                // Unknown AST function: _PyPegen_collect_call_seqs
                 _res = default(GeneratedExpr);
                 if (_res != null) goto done;
             } while (false);
@@ -22834,13 +23099,43 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Zero or more: ','*
-                var a = new System.Collections.Generic.List<object?>();
+                // Gather: ','.kwarg_or_starred+
+                var a = new GeneratedKeywordOrStarredSeq();
+                // Parse first item (no separator)
+                // Call rule: kwarg_or_starred
+                var _first_a = KwargOrStarred();
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                a.Add(_first_a);
+                // Parse remaining items (separator + item)
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Expect ','
-                    var _loop_elem_a = Expect(",");
+                    var _sep_a = Expect(",");
+                    if (_sep_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep_a == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: kwarg_or_starred
+                    var _loop_elem_a = KwargOrStarred();
                     if (_loop_elem_a == null)
                     {
                         _position = _mark;
@@ -22849,54 +23144,56 @@ namespace SharpPy.Generated
                     }
                     if (_loop_elem_a == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
                     }
                     a.Add(_loop_elem_a);
                 }
-                // Collected a.Count items (may be 0)
-                // One or more: kwarg_or_starred+
-                var _tmp0 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: kwarg_or_starred
-                    var _loop_elem__tmp0 = KwargOrStarred();
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
-                }
-                if (_tmp0.Count == 0)
-                {
-                    // One or more requires at least one match
-                    _position = _mark;
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // Expect ','
-                var _tmp1 = Expect(",");
-                if (_tmp1 == null)
+                var _tmp0 = Expect(",");
+                if (_tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Zero or more: ','*
-                var b = new System.Collections.Generic.List<object?>();
+                // Gather: ','.kwarg_or_double_starred+
+                var b = new GeneratedKeywordOrStarredSeq();
+                // Parse first item (no separator)
+                // Call rule: kwarg_or_double_starred
+                var _first_b = KwargOrDoubleStarred();
+                if (_first_b == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                if (_first_b == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                b.Add(_first_b);
+                // Parse remaining items (separator + item)
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Expect ','
-                    var _loop_elem_b = Expect(",");
+                    var _sep_b = Expect(",");
+                    if (_sep_b == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep_b == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: kwarg_or_double_starred
+                    var _loop_elem_b = KwargOrDoubleStarred();
                     if (_loop_elem_b == null)
                     {
                         _position = _mark;
@@ -22905,41 +23202,13 @@ namespace SharpPy.Generated
                     }
                     if (_loop_elem_b == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
                     }
                     b.Add(_loop_elem_b);
                 }
-                // Collected b.Count items (may be 0)
-                // One or more: kwarg_or_double_starred+
-                var _tmp2 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: kwarg_or_double_starred
-                    var _loop_elem__tmp2 = KwargOrDoubleStarred();
-                    if (_loop_elem__tmp2 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp2 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp2.Add(_loop_elem__tmp2);
-                }
-                if (_tmp2.Count == 0)
-                {
-                    // One or more requires at least one match
-                    _position = _mark;
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // Action: _PyPegen_join_sequences(p, a, b)
-                // TODO: Complex action expression: _PyPegen_join_sequences(p, a, b)
+                // Unknown AST function: _PyPegen_join_sequences
                 _res = default(GeneratedSeq);
                 if (_res != null) goto done;
             } while (false);
@@ -22956,13 +23225,43 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Zero or more: ','*
-                var _tmp0 = new System.Collections.Generic.List<object?>();
+                // Gather: ','.kwarg_or_starred+
+                var _tmp0 = new GeneratedKeywordOrStarredSeq();
+                // Parse first item (no separator)
+                // Call rule: kwarg_or_starred
+                var _first__tmp0 = KwargOrStarred();
+                if (_first__tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                if (_first__tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                _tmp0.Add(_first__tmp0);
+                // Parse remaining items (separator + item)
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Expect ','
-                    var _loop_elem__tmp0 = Expect(",");
+                    var _sep__tmp0 = Expect(",");
+                    if (_sep__tmp0 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep__tmp0 == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: kwarg_or_starred
+                    var _loop_elem__tmp0 = KwargOrStarred();
                     if (_loop_elem__tmp0 == null)
                     {
                         _position = _mark;
@@ -22971,38 +23270,10 @@ namespace SharpPy.Generated
                     }
                     if (_loop_elem__tmp0 == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
                     }
                     _tmp0.Add(_loop_elem__tmp0);
-                }
-                // Collected _tmp0.Count items (may be 0)
-                // One or more: kwarg_or_starred+
-                var _tmp1 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: kwarg_or_starred
-                    var _loop_elem__tmp1 = KwargOrStarred();
-                    if (_loop_elem__tmp1 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp1 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp1.Add(_loop_elem__tmp1);
-                }
-                if (_tmp1.Count == 0)
-                {
-                    // One or more requires at least one match
-                    _position = _mark;
-                    _res = null;
-                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = (GeneratedSeq)((object?)_tmp0);
@@ -23021,13 +23292,43 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Zero or more: ','*
-                var _tmp0 = new System.Collections.Generic.List<object?>();
+                // Gather: ','.kwarg_or_double_starred+
+                var _tmp0 = new GeneratedKeywordOrStarredSeq();
+                // Parse first item (no separator)
+                // Call rule: kwarg_or_double_starred
+                var _first__tmp0 = KwargOrDoubleStarred();
+                if (_first__tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                if (_first__tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                _tmp0.Add(_first__tmp0);
+                // Parse remaining items (separator + item)
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Expect ','
-                    var _loop_elem__tmp0 = Expect(",");
+                    var _sep__tmp0 = Expect(",");
+                    if (_sep__tmp0 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep__tmp0 == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: kwarg_or_double_starred
+                    var _loop_elem__tmp0 = KwargOrDoubleStarred();
                     if (_loop_elem__tmp0 == null)
                     {
                         _position = _mark;
@@ -23036,38 +23337,10 @@ namespace SharpPy.Generated
                     }
                     if (_loop_elem__tmp0 == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
                     }
                     _tmp0.Add(_loop_elem__tmp0);
-                }
-                // Collected _tmp0.Count items (may be 0)
-                // One or more: kwarg_or_double_starred+
-                var _tmp1 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: kwarg_or_double_starred
-                    var _loop_elem__tmp1 = KwargOrDoubleStarred();
-                    if (_loop_elem__tmp1 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp1 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp1.Add(_loop_elem__tmp1);
-                }
-                if (_tmp1.Count == 0)
-                {
-                    // One or more requires at least one match
-                    _position = _mark;
-                    _res = null;
-                    break;  // Exit this alternative
                 }
                 // No action specified - using default result
                 _res = (GeneratedSeq)((object?)_tmp0);
@@ -23204,11 +23477,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: kwarg_or_starred from python.gram
-        public GeneratedSeq KwargOrStarred()
+        public GeneratedKeywordOrStarred KwargOrStarred()
         {
             // CPython 3.12 PEG: kwarg_or_starred
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedKeywordOrStarred _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -23242,7 +23515,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)((object?)_tmp0);
+                _res = (GeneratedKeywordOrStarred)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -23286,7 +23559,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyPegen_keyword_or_starred(p, CHECK(keyword_ty, _PyAST_keyword(a->v.Name.id, b, EXTRA)), 1)
                 // Unknown AST function: _PyAST_keyword
-                _res = default(GeneratedSeq);
+                _res = default(GeneratedKeywordOrStarred);
                 if (_res != null) goto done;
             } while (false);
 
@@ -23311,8 +23584,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_keyword_or_starred(p, a, 0)
-                // TODO: Complex action expression: _PyPegen_keyword_or_starred(p, a, 0)
-                _res = default(GeneratedSeq);
+                // Unknown AST function: _PyPegen_keyword_or_starred
+                _res = default(GeneratedKeywordOrStarred);
                 if (_res != null) goto done;
             } while (false);
 
@@ -23329,11 +23602,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: kwarg_or_double_starred from python.gram
-        public GeneratedSeq KwargOrDoubleStarred()
+        public GeneratedKeywordOrStarred KwargOrDoubleStarred()
         {
             // CPython 3.12 PEG: kwarg_or_double_starred
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedKeywordOrStarred _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -23367,7 +23640,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)((object?)_tmp0);
+                _res = (GeneratedKeywordOrStarred)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -23411,7 +23684,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyPegen_keyword_or_starred(p, CHECK(keyword_ty, _PyAST_keyword(a->v.Name.id, b, EXTRA)), 1)
                 // Unknown AST function: _PyAST_keyword
-                _res = default(GeneratedSeq);
+                _res = default(GeneratedKeywordOrStarred);
                 if (_res != null) goto done;
             } while (false);
 
@@ -23445,7 +23718,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyPegen_keyword_or_starred(p, CHECK(keyword_ty, _PyAST_keyword(NULL, a, EXTRA)), 1)
                 // Unknown AST function: _PyAST_keyword
-                _res = default(GeneratedSeq);
+                _res = default(GeneratedKeywordOrStarred);
                 if (_res != null) goto done;
             } while (false);
 
@@ -23496,9 +23769,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(',')
-                object? _lookahead_test_53 = null;
-                if (CurrentToken?.Value == ",") { _lookahead_test_53 = CurrentToken; }
-                if (_lookahead_test_53 != null)
+                object? _lookahead_test_58 = null;
+                if (CurrentToken?.Value == ",") { _lookahead_test_58 = CurrentToken; }
+                if (_lookahead_test_58 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -23531,20 +23804,20 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: (',' c=star_target { c })*
-                var b = new System.Collections.Generic.List<object?>();
+                var b = new GeneratedExprSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Group: (',' c=star_target { c })
-                    object? _loop_elem_b = null;
+                    GeneratedExpr? _loop_elem_b = null;
                     int _group_mark__loop_elem_b = _position;
                     // Try group alternative 1: ',' c=star_target { c }
                     {
                         _position = _group_mark__loop_elem_b;
-                        var _group_alt0__loop_elem_b_item0 = Expect(",");
+                        GeneratedTokenInfo? _group_alt0__loop_elem_b_item0 = Expect(",");
                         if (_group_alt0__loop_elem_b_item0 != null)
                         {
-                            var _group_alt0__loop_elem_b_item1 = StarTarget();
+                            GeneratedExpr _group_alt0__loop_elem_b_item1 = StarTarget();
                             if (_group_alt0__loop_elem_b_item1 != null)
                             {
                                 _loop_elem_b = _group_alt0__loop_elem_b_item1;
@@ -23568,12 +23841,12 @@ namespace SharpPy.Generated
                 // Optional: [(',')]
                 int _opt_mark__tmp0 = _position;
                 // Group: (',')
-                object? _opt__tmp0 = null;
+                GeneratedTokenInfo? _opt__tmp0 = null;
                 int _group_mark__opt__tmp0 = _position;
                 // Try group alternative 1: ','
                 {
                     _position = _group_mark__opt__tmp0;
-                    var _group_alt0__opt__tmp0_item0 = Expect(",");
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = Expect(",");
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
@@ -23585,7 +23858,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp0 = _opt__tmp0;
+                GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
                     _position = _opt_mark__tmp0; // Reset position
@@ -23635,13 +23908,43 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Zero or more: ','*
-                var a = new System.Collections.Generic.List<object?>();
+                // Gather: ','.star_target+
+                var a = new GeneratedExprSeq();
+                // Parse first item (no separator)
+                // Call rule: star_target
+                var _first_a = StarTarget();
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                a.Add(_first_a);
+                // Parse remaining items (separator + item)
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Expect ','
-                    var _loop_elem_a = Expect(",");
+                    var _sep_a = Expect(",");
+                    if (_sep_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep_a == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: star_target
+                    var _loop_elem_a = StarTarget();
                     if (_loop_elem_a == null)
                     {
                         _position = _mark;
@@ -23650,64 +23953,36 @@ namespace SharpPy.Generated
                     }
                     if (_loop_elem_a == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
                     }
                     a.Add(_loop_elem_a);
                 }
-                // Collected a.Count items (may be 0)
-                // One or more: star_target+
-                var _tmp0 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: star_target
-                    var _loop_elem__tmp0 = StarTarget();
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
-                }
-                if (_tmp0.Count == 0)
-                {
-                    // One or more requires at least one match
-                    _position = _mark;
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // Optional: [(',')]
-                int _opt_mark__tmp1 = _position;
+                int _opt_mark__tmp0 = _position;
                 // Group: (',')
-                object? _opt__tmp1 = null;
-                int _group_mark__opt__tmp1 = _position;
+                GeneratedTokenInfo? _opt__tmp0 = null;
+                int _group_mark__opt__tmp0 = _position;
                 // Try group alternative 1: ','
                 {
-                    _position = _group_mark__opt__tmp1;
-                    var _group_alt0__opt__tmp1_item0 = Expect(",");
-                    if (_group_alt0__opt__tmp1_item0 != null)
+                    _position = _group_mark__opt__tmp0;
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = Expect(",");
+                    if (_group_alt0__opt__tmp0_item0 != null)
                     {
-                        _opt__tmp1 = _group_alt0__opt__tmp1_item0;
+                        _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
                 }
-                if (_opt__tmp1 == null)
+                if (_opt__tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp1 = _opt__tmp1;
-                if (_tmp1 == null)
+                GeneratedTokenInfo? _tmp0 = _opt__tmp0;
+                if (_tmp0 == null)
                 {
-                    _position = _opt_mark__tmp1; // Reset position
-                    _tmp1 = null; // Optional not present
+                    _position = _opt_mark__tmp0; // Reset position
+                    _tmp0 = null; // Optional not present
                 }
                 // Action: a
                 _res = (GeneratedExprSeq)((object?)a);
@@ -23761,20 +24036,20 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: (',' c=star_target { c })+
-                var b = new System.Collections.Generic.List<object?>();
+                var b = new GeneratedExprSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Group: (',' c=star_target { c })
-                    object? _loop_elem_b = null;
+                    GeneratedExpr? _loop_elem_b = null;
                     int _group_mark__loop_elem_b = _position;
                     // Try group alternative 1: ',' c=star_target { c }
                     {
                         _position = _group_mark__loop_elem_b;
-                        var _group_alt0__loop_elem_b_item0 = Expect(",");
+                        GeneratedTokenInfo? _group_alt0__loop_elem_b_item0 = Expect(",");
                         if (_group_alt0__loop_elem_b_item0 != null)
                         {
-                            var _group_alt0__loop_elem_b_item1 = StarTarget();
+                            GeneratedExpr _group_alt0__loop_elem_b_item1 = StarTarget();
                             if (_group_alt0__loop_elem_b_item1 != null)
                             {
                                 _loop_elem_b = _group_alt0__loop_elem_b_item1;
@@ -23804,12 +24079,12 @@ namespace SharpPy.Generated
                 // Optional: [(',')]
                 int _opt_mark__tmp0 = _position;
                 // Group: (',')
-                object? _opt__tmp0 = null;
+                GeneratedTokenInfo? _opt__tmp0 = null;
                 int _group_mark__opt__tmp0 = _position;
                 // Try group alternative 1: ','
                 {
                     _position = _group_mark__opt__tmp0;
-                    var _group_alt0__opt__tmp0_item0 = Expect(",");
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = Expect(",");
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
@@ -23821,15 +24096,14 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp0 = _opt__tmp0;
+                GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
                     _position = _opt_mark__tmp0; // Reset position
                     _tmp0 = null; // Optional not present
                 }
                 // Action: (asdl_expr_seq*) _PyPegen_seq_insert_in_front(p, a, b)
-                // TODO: Complex action expression: (asdl_expr_seq*) _PyPegen_seq_insert_in_front(p, a, b)
-                _res = default(GeneratedExprSeq);
+                _res = _PyPegen_seq_insert_in_front(a, b);
                 if (_res != null) goto done;
             } while (false);
 
@@ -23862,8 +24136,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: (asdl_expr_seq*) _PyPegen_singleton_seq(p, a)
-                // TODO: Complex action expression: (asdl_expr_seq*) _PyPegen_singleton_seq(p, a)
-                _res = default(GeneratedExprSeq);
+                _res = _PyPegen_singleton_seq(a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -23920,16 +24193,26 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Group: (!'*' star_target)
-                object? a = null;
+                GeneratedExpr? a = null;
                 int _group_mark_a = _position;
                 // Try group alternative 1: !'*' star_target
                 {
                     _position = _group_mark_a;
-                    object? _group_alt0_a_item0 = null;
-                    // TODO: Complex group item type: NegativeLookahead
+                    // WARNING: Lookahead in value position - this is unusual
+                    // Negative lookahead: !('*')
+                    object? _lookahead_test_59 = null;
+                    if (CurrentToken?.Value == "*") { _lookahead_test_59 = CurrentToken; }
+                    if (_lookahead_test_59 != null)
+                    {
+                        // Negative lookahead matched - fail this alternative
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    bool _group_alt0_a_item0 = true; // Lookahead succeeded
                     if (_group_alt0_a_item0 != null)
                     {
-                        var _group_alt0_a_item1 = StarTarget();
+                        GeneratedExpr _group_alt0_a_item1 = StarTarget();
                         if (_group_alt0_a_item1 != null)
                         {
                             a = _group_alt0_a_item1;
@@ -24044,9 +24327,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(t_lookahead)
-                object? _lookahead_test_54 = null;
+                object? _lookahead_test_60 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_54 != null)
+                if (_lookahead_test_60 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -24104,9 +24387,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(t_lookahead)
-                object? _lookahead_test_55 = null;
+                object? _lookahead_test_61 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_55 != null)
+                if (_lookahead_test_61 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -24193,8 +24476,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_set_expr_context(p, a, Store)
-                // TODO: Complex action expression: _PyPegen_set_expr_context(p, a, Store)
-                _res = default(GeneratedExpr);
+                _res = _PyPegen_set_expr_context(a, Store);
                 if (_res != null) goto done;
             } while (false);
 
@@ -24235,8 +24517,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_set_expr_context(p, a, Store)
-                // TODO: Complex action expression: _PyPegen_set_expr_context(p, a, Store)
-                _res = default(GeneratedExpr);
+                _res = _PyPegen_set_expr_context(a, Store);
                 if (_res != null) goto done;
             } while (false);
 
@@ -24263,12 +24544,12 @@ namespace SharpPy.Generated
                 // Optional: [(star_targets_tuple_seq)]
                 int _opt_mark_a = _position;
                 // Group: (star_targets_tuple_seq)
-                object? _opt_a = null;
+                GeneratedExprSeq? _opt_a = null;
                 int _group_mark__opt_a = _position;
                 // Try group alternative 1: star_targets_tuple_seq
                 {
                     _position = _group_mark__opt_a;
-                    var _group_alt0__opt_a_item0 = StarTargetsTupleSeq();
+                    GeneratedExprSeq _group_alt0__opt_a_item0 = StarTargetsTupleSeq();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
@@ -24280,7 +24561,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? a = _opt_a;
+                GeneratedExprSeq? a = _opt_a;
                 if (a == null)
                 {
                     _position = _opt_mark_a; // Reset position
@@ -24323,12 +24604,12 @@ namespace SharpPy.Generated
                 // Optional: [(star_targets_list_seq)]
                 int _opt_mark_a = _position;
                 // Group: (star_targets_list_seq)
-                object? _opt_a = null;
+                GeneratedExprSeq? _opt_a = null;
                 int _group_mark__opt_a = _position;
                 // Try group alternative 1: star_targets_list_seq
                 {
                     _position = _group_mark__opt_a;
-                    var _group_alt0__opt_a_item0 = StarTargetsListSeq();
+                    GeneratedExprSeq _group_alt0__opt_a_item0 = StarTargetsListSeq();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
@@ -24340,7 +24621,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? a = _opt_a;
+                GeneratedExprSeq? a = _opt_a;
                 if (a == null)
                 {
                     _position = _opt_mark_a; // Reset position
@@ -24434,8 +24715,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_set_expr_context(p, a, Store)
-                // TODO: Complex action expression: _PyPegen_set_expr_context(p, a, Store)
-                _res = default(GeneratedExpr);
+                _res = _PyPegen_set_expr_context(a, Store);
                 if (_res != null) goto done;
             } while (false);
 
@@ -24545,9 +24825,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(t_lookahead)
-                object? _lookahead_test_56 = null;
+                object? _lookahead_test_62 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_56 != null)
+                if (_lookahead_test_62 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -24605,9 +24885,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(t_lookahead)
-                object? _lookahead_test_57 = null;
+                object? _lookahead_test_63 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_57 != null)
+                if (_lookahead_test_63 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -24691,9 +24971,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_58 = _position;
+                int _lookahead_mark_64 = _position;
                 // TODO: Parse lookahead content for RuleRef
-                _position = _lookahead_mark_58; // Restore position
+                _position = _lookahead_mark_64; // Restore position
                 // Action: _PyAST_Attribute(a, b->v.Name.id, Load, EXTRA)
                 _res = _PyAST_Attribute(a, ASTHelpers.ExtractStringValue(b), Load, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
@@ -24745,9 +25025,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_59 = _position;
+                int _lookahead_mark_65 = _position;
                 // TODO: Parse lookahead content for RuleRef
-                _position = _lookahead_mark_59; // Restore position
+                _position = _lookahead_mark_65; // Restore position
                 // Action: _PyAST_Subscript(a, b, Load, EXTRA)
                 _res = _PyAST_Subscript(a, b, Load, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
@@ -24783,9 +25063,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_60 = _position;
+                int _lookahead_mark_66 = _position;
                 // TODO: Parse lookahead content for RuleRef
-                _position = _lookahead_mark_60; // Restore position
+                _position = _lookahead_mark_66; // Restore position
                 // Action: _PyAST_Call(a, CHECK(asdl_expr_seq*, (asdl_expr_seq*)_PyPegen_singleton_seq(p, b)), NULL, EXTRA)
                 _res = _PyAST_Call(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
@@ -24823,12 +25103,12 @@ namespace SharpPy.Generated
                 // Optional: [(arguments)]
                 int _opt_mark_b = _position;
                 // Group: (arguments)
-                object? _opt_b = null;
+                GeneratedExpr? _opt_b = null;
                 int _group_mark__opt_b = _position;
                 // Try group alternative 1: arguments
                 {
                     _position = _group_mark__opt_b;
-                    var _group_alt0__opt_b_item0 = Arguments();
+                    GeneratedExpr _group_alt0__opt_b_item0 = Arguments();
                     if (_group_alt0__opt_b_item0 != null)
                     {
                         _opt_b = _group_alt0__opt_b_item0;
@@ -24840,7 +25120,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? b = _opt_b;
+                GeneratedExpr? b = _opt_b;
                 if (b == null)
                 {
                     _position = _opt_mark_b; // Reset position
@@ -24855,9 +25135,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_61 = _position;
+                int _lookahead_mark_67 = _position;
                 // TODO: Parse lookahead content for RuleRef
-                _position = _lookahead_mark_61; // Restore position
+                _position = _lookahead_mark_67; // Restore position
                 // Action (multiline):
                 //   _PyAST_Call(a,
                 //   (b) ? ((expr_ty) b)->v.Call.args : NULL,
@@ -24889,9 +25169,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_62 = _position;
+                int _lookahead_mark_68 = _position;
                 // TODO: Parse lookahead content for RuleRef
-                _position = _lookahead_mark_62; // Restore position
+                _position = _lookahead_mark_68; // Restore position
                 // Action: a
                 _res = (GeneratedExpr)((object?)a);
                 if (_res != null) goto done;
@@ -24944,7 +25224,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (object?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -24969,7 +25249,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (object?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -24994,7 +25274,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (object?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -25036,13 +25316,43 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Zero or more: ','*
-                var a = new System.Collections.Generic.List<object?>();
+                // Gather: ','.del_target+
+                var a = new GeneratedExprSeq();
+                // Parse first item (no separator)
+                // Call rule: del_target
+                var _first_a = DelTarget();
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                a.Add(_first_a);
+                // Parse remaining items (separator + item)
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Expect ','
-                    var _loop_elem_a = Expect(",");
+                    var _sep_a = Expect(",");
+                    if (_sep_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep_a == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: del_target
+                    var _loop_elem_a = DelTarget();
                     if (_loop_elem_a == null)
                     {
                         _position = _mark;
@@ -25051,64 +25361,36 @@ namespace SharpPy.Generated
                     }
                     if (_loop_elem_a == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
                     }
                     a.Add(_loop_elem_a);
                 }
-                // Collected a.Count items (may be 0)
-                // One or more: del_target+
-                var _tmp0 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: del_target
-                    var _loop_elem__tmp0 = DelTarget();
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
-                }
-                if (_tmp0.Count == 0)
-                {
-                    // One or more requires at least one match
-                    _position = _mark;
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // Optional: [(',')]
-                int _opt_mark__tmp1 = _position;
+                int _opt_mark__tmp0 = _position;
                 // Group: (',')
-                object? _opt__tmp1 = null;
-                int _group_mark__opt__tmp1 = _position;
+                GeneratedTokenInfo? _opt__tmp0 = null;
+                int _group_mark__opt__tmp0 = _position;
                 // Try group alternative 1: ','
                 {
-                    _position = _group_mark__opt__tmp1;
-                    var _group_alt0__opt__tmp1_item0 = Expect(",");
-                    if (_group_alt0__opt__tmp1_item0 != null)
+                    _position = _group_mark__opt__tmp0;
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = Expect(",");
+                    if (_group_alt0__opt__tmp0_item0 != null)
                     {
-                        _opt__tmp1 = _group_alt0__opt__tmp1_item0;
+                        _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
                 }
-                if (_opt__tmp1 == null)
+                if (_opt__tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp1 = _opt__tmp1;
-                if (_tmp1 == null)
+                GeneratedTokenInfo? _tmp0 = _opt__tmp0;
+                if (_tmp0 == null)
                 {
-                    _position = _opt_mark__tmp1; // Reset position
-                    _tmp1 = null; // Optional not present
+                    _position = _opt_mark__tmp0; // Reset position
+                    _tmp0 = null; // Optional not present
                 }
                 // Action: a
                 _res = (GeneratedExprSeq)((object?)a);
@@ -25186,9 +25468,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(t_lookahead)
-                object? _lookahead_test_63 = null;
+                object? _lookahead_test_69 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_63 != null)
+                if (_lookahead_test_69 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -25246,9 +25528,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(t_lookahead)
-                object? _lookahead_test_64 = null;
+                object? _lookahead_test_70 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_64 != null)
+                if (_lookahead_test_70 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -25335,8 +25617,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_set_expr_context(p, a, Del)
-                // TODO: Complex action expression: _PyPegen_set_expr_context(p, a, Del)
-                _res = default(GeneratedExpr);
+                _res = _PyPegen_set_expr_context(a, Del);
                 if (_res != null) goto done;
             } while (false);
 
@@ -25377,8 +25658,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_set_expr_context(p, a, Del)
-                // TODO: Complex action expression: _PyPegen_set_expr_context(p, a, Del)
-                _res = default(GeneratedExpr);
+                _res = _PyPegen_set_expr_context(a, Del);
                 if (_res != null) goto done;
             } while (false);
 
@@ -25405,12 +25685,12 @@ namespace SharpPy.Generated
                 // Optional: [(del_targets)]
                 int _opt_mark_a = _position;
                 // Group: (del_targets)
-                object? _opt_a = null;
+                GeneratedExprSeq? _opt_a = null;
                 int _group_mark__opt_a = _position;
                 // Try group alternative 1: del_targets
                 {
                     _position = _group_mark__opt_a;
-                    var _group_alt0__opt_a_item0 = DelTargets();
+                    GeneratedExprSeq _group_alt0__opt_a_item0 = DelTargets();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
@@ -25422,7 +25702,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? a = _opt_a;
+                GeneratedExprSeq? a = _opt_a;
                 if (a == null)
                 {
                     _position = _opt_mark_a; // Reset position
@@ -25465,12 +25745,12 @@ namespace SharpPy.Generated
                 // Optional: [(del_targets)]
                 int _opt_mark_a = _position;
                 // Group: (del_targets)
-                object? _opt_a = null;
+                GeneratedExprSeq? _opt_a = null;
                 int _group_mark__opt_a = _position;
                 // Try group alternative 1: del_targets
                 {
                     _position = _group_mark__opt_a;
-                    var _group_alt0__opt_a_item0 = DelTargets();
+                    GeneratedExprSeq _group_alt0__opt_a_item0 = DelTargets();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
@@ -25482,7 +25762,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? a = _opt_a;
+                GeneratedExprSeq? a = _opt_a;
                 if (a == null)
                 {
                     _position = _opt_mark_a; // Reset position
@@ -25540,65 +25820,67 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Zero or more: ','*
-                var a = new System.Collections.Generic.List<object?>();
-                while (true)
+                // Gather: ','.expression+
+                var a = new GeneratedExprSeq();
+                // Parse first item (no separator)
+                // Call rule: expression
+                var _first_a = Expression();
+                if (_first_a == null)
                 {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _loop_elem_a = Expect(",");
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    a.Add(_loop_elem_a);
-                }
-                // Collected a.Count items (may be 0)
-                // One or more: expression+
-                var _tmp0 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: expression
-                    var _loop_elem__tmp0 = Expression();
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
-                }
-                if (_tmp0.Count == 0)
-                {
-                    // One or more requires at least one match
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                a.Add(_first_a);
+                // Parse remaining items (separator + item)
+                while (true)
+                {
+                    int _loop_mark = _position;
+                    // Expect ','
+                    var _sep_a = Expect(",");
+                    if (_sep_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep_a == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: expression
+                    var _loop_elem_a = Expression();
+                    if (_loop_elem_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_loop_elem_a == null)
+                    {
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
+                    }
+                    a.Add(_loop_elem_a);
+                }
                 // Expect ','
-                var _tmp1 = Expect(",");
-                if (_tmp1 == null)
+                var _tmp0 = Expect(",");
+                if (_tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // Expect '*'
-                var _tmp2 = Expect("*");
-                if (_tmp2 == null)
+                var _tmp1 = Expect("*");
+                if (_tmp1 == null)
                 {
                     _position = _mark;
                     _res = null;
@@ -25613,16 +25895,16 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp3 = Expect(",");
-                if (_tmp3 == null)
+                var _tmp2 = Expect(",");
+                if (_tmp2 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // Expect '**'
-                var _tmp4 = Expect("**");
-                if (_tmp4 == null)
+                var _tmp3 = Expect("**");
+                if (_tmp3 == null)
                 {
                     _position = _mark;
                     _res = null;
@@ -25641,12 +25923,7 @@ namespace SharpPy.Generated
                 //   p,
                 //   CHECK(asdl_seq*, _PyPegen_seq_append_to_end(p, a, b)),
                 //   c)
-                // TODO: Complex action expression (multiline):
-                //   (asdl_expr_seq*)_PyPegen_seq_append_to_end(
-                //   p,
-                //   CHECK(asdl_seq*, _PyPegen_seq_append_to_end(p, a, b)),
-                //   c)
-                _res = default(GeneratedExprSeq);
+                _res = _PyPegen_seq_append_to_end(_PyPegen_seq_append_to_end(a, b), c);
                 if (_res != null) goto done;
             } while (false);
 
@@ -25662,65 +25939,67 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Zero or more: ','*
-                var a = new System.Collections.Generic.List<object?>();
-                while (true)
+                // Gather: ','.expression+
+                var a = new GeneratedExprSeq();
+                // Parse first item (no separator)
+                // Call rule: expression
+                var _first_a = Expression();
+                if (_first_a == null)
                 {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _loop_elem_a = Expect(",");
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    a.Add(_loop_elem_a);
-                }
-                // Collected a.Count items (may be 0)
-                // One or more: expression+
-                var _tmp0 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: expression
-                    var _loop_elem__tmp0 = Expression();
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
-                }
-                if (_tmp0.Count == 0)
-                {
-                    // One or more requires at least one match
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                a.Add(_first_a);
+                // Parse remaining items (separator + item)
+                while (true)
+                {
+                    int _loop_mark = _position;
+                    // Expect ','
+                    var _sep_a = Expect(",");
+                    if (_sep_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep_a == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: expression
+                    var _loop_elem_a = Expression();
+                    if (_loop_elem_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_loop_elem_a == null)
+                    {
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
+                    }
+                    a.Add(_loop_elem_a);
+                }
                 // Expect ','
-                var _tmp1 = Expect(",");
-                if (_tmp1 == null)
+                var _tmp0 = Expect(",");
+                if (_tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // Expect '*'
-                var _tmp2 = Expect("*");
-                if (_tmp2 == null)
+                var _tmp1 = Expect("*");
+                if (_tmp1 == null)
                 {
                     _position = _mark;
                     _res = null;
@@ -25735,8 +26014,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: (asdl_expr_seq*)_PyPegen_seq_append_to_end(p, a, b)
-                // TODO: Complex action expression: (asdl_expr_seq*)_PyPegen_seq_append_to_end(p, a, b)
-                _res = default(GeneratedExprSeq);
+                _res = _PyPegen_seq_append_to_end(a, b);
                 if (_res != null) goto done;
             } while (false);
 
@@ -25752,65 +26030,67 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Zero or more: ','*
-                var a = new System.Collections.Generic.List<object?>();
-                while (true)
+                // Gather: ','.expression+
+                var a = new GeneratedExprSeq();
+                // Parse first item (no separator)
+                // Call rule: expression
+                var _first_a = Expression();
+                if (_first_a == null)
                 {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _loop_elem_a = Expect(",");
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    a.Add(_loop_elem_a);
-                }
-                // Collected a.Count items (may be 0)
-                // One or more: expression+
-                var _tmp0 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: expression
-                    var _loop_elem__tmp0 = Expression();
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
-                }
-                if (_tmp0.Count == 0)
-                {
-                    // One or more requires at least one match
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                a.Add(_first_a);
+                // Parse remaining items (separator + item)
+                while (true)
+                {
+                    int _loop_mark = _position;
+                    // Expect ','
+                    var _sep_a = Expect(",");
+                    if (_sep_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep_a == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: expression
+                    var _loop_elem_a = Expression();
+                    if (_loop_elem_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_loop_elem_a == null)
+                    {
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
+                    }
+                    a.Add(_loop_elem_a);
+                }
                 // Expect ','
-                var _tmp1 = Expect(",");
-                if (_tmp1 == null)
+                var _tmp0 = Expect(",");
+                if (_tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // Expect '**'
-                var _tmp2 = Expect("**");
-                if (_tmp2 == null)
+                var _tmp1 = Expect("**");
+                if (_tmp1 == null)
                 {
                     _position = _mark;
                     _res = null;
@@ -25825,8 +26105,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: (asdl_expr_seq*)_PyPegen_seq_append_to_end(p, a, b)
-                // TODO: Complex action expression: (asdl_expr_seq*)_PyPegen_seq_append_to_end(p, a, b)
-                _res = default(GeneratedExprSeq);
+                _res = _PyPegen_seq_append_to_end(a, b);
                 if (_res != null) goto done;
             } while (false);
 
@@ -25887,11 +26166,7 @@ namespace SharpPy.Generated
                 //   p,
                 //   CHECK(asdl_seq*, _PyPegen_singleton_seq(p, a)),
                 //   b)
-                // TODO: Complex action expression (multiline):
-                //   (asdl_expr_seq*)_PyPegen_seq_append_to_end(
-                //   p,
-                //   CHECK(asdl_seq*, _PyPegen_singleton_seq(p, a)),
-                //   b)
+                // Unknown AST function: _PyPegen_seq_append_to_end
                 _res = default(GeneratedExprSeq);
                 if (_res != null) goto done;
             } while (false);
@@ -25925,8 +26200,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: (asdl_expr_seq*)_PyPegen_singleton_seq(p, a)
-                // TODO: Complex action expression: (asdl_expr_seq*)_PyPegen_singleton_seq(p, a)
-                _res = default(GeneratedExprSeq);
+                _res = _PyPegen_singleton_seq(a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -25959,8 +26233,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: (asdl_expr_seq*)_PyPegen_singleton_seq(p, a)
-                // TODO: Complex action expression: (asdl_expr_seq*)_PyPegen_singleton_seq(p, a)
-                _res = default(GeneratedExprSeq);
+                _res = _PyPegen_singleton_seq(a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -25976,13 +26249,43 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Zero or more: ','*
-                var a = new System.Collections.Generic.List<object?>();
+                // Gather: ','.expression+
+                var a = new GeneratedExprSeq();
+                // Parse first item (no separator)
+                // Call rule: expression
+                var _first_a = Expression();
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                a.Add(_first_a);
+                // Parse remaining items (separator + item)
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Expect ','
-                    var _loop_elem_a = Expect(",");
+                    var _sep_a = Expect(",");
+                    if (_sep_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep_a == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: expression
+                    var _loop_elem_a = Expression();
                     if (_loop_elem_a == null)
                     {
                         _position = _mark;
@@ -25991,38 +26294,10 @@ namespace SharpPy.Generated
                     }
                     if (_loop_elem_a == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
                     }
                     a.Add(_loop_elem_a);
-                }
-                // Collected a.Count items (may be 0)
-                // One or more: expression+
-                var _tmp0 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: expression
-                    var _loop_elem__tmp0 = Expression();
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
-                }
-                if (_tmp0.Count == 0)
-                {
-                    // One or more requires at least one match
-                    _position = _mark;
-                    _res = null;
-                    break;  // Exit this alternative
                 }
                 // Action: a
                 _res = (GeneratedExprSeq)((object?)a);
@@ -26042,11 +26317,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: func_type_comment from python.gram
-        public GeneratedSeq FuncTypeComment()
+        public GeneratedAstNode? FuncTypeComment()
         {
             // CPython 3.12 PEG: func_type_comment
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -26088,11 +26363,11 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_65 = _position;
+                int _lookahead_mark_71 = _position;
                 // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_65; // Restore position
+                _position = _lookahead_mark_71; // Restore position
                 // Action: t
-                _res = (GeneratedSeq)((object?)t);
+                _res = (GeneratedAstNode?)((object?)t);
                 if (_res != null) goto done;
             } while (false);
 
@@ -26121,7 +26396,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)((object?)_tmp0);
+                _res = (GeneratedAstNode?)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -26148,7 +26423,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)((object?)_tmp0);
+                _res = (GeneratedAstNode?)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -26190,14 +26465,241 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Group: ((','* (starred_expression | (assignment_expression | expression !':=') !'=')+ ',' kwargs) | kwargs)
-                object? _tmp0 = null;
+                // Group: ((','.(starred_expression | (assignment_expression | expression !':=') !'=')+ ',' kwargs) | kwargs)
+                GeneratedSeq? _tmp0 = null;
                 int _group_mark__tmp0 = _position;
-                // Try group alternative 1: (','* (starred_expression | (assignment_expression | expression !':=') !'=')+ ',' kwargs)
+                // Try group alternative 1: (','.(starred_expression | (assignment_expression | expression !':=') !'=')+ ',' kwargs)
                 {
                     _position = _group_mark__tmp0;
-                    object? _group_alt0__tmp0_item0 = null;
-                    // TODO: Complex group item type: Group
+                    // Group: (','.(starred_expression | (assignment_expression | expression !':=') !'=')+ ',' kwargs)
+                    GeneratedSeq? _group_alt0__tmp0_item0 = null;
+                    int _group_mark__group_alt0__tmp0_item0 = _position;
+                    // Try group alternative 1: ','.(starred_expression | (assignment_expression | expression !':=') !'=')+ ',' kwargs
+                    {
+                        _position = _group_mark__group_alt0__tmp0_item0;
+                        // Gather: ','.(starred_expression | (assignment_expression | expression !':=') !'=')+
+                        var _group_alt0__group_alt0__tmp0_item0_item0 = new GeneratedExprSeq();
+                        // Parse first item (no separator)
+                        // Group: (starred_expression | (assignment_expression | expression !':=') !'=')
+                        GeneratedExpr? _first__group_alt0__group_alt0__tmp0_item0_item0 = null;
+                        int _group_mark__first__group_alt0__group_alt0__tmp0_item0_item0 = _position;
+                        // Try group alternative 1: starred_expression
+                        {
+                            _position = _group_mark__first__group_alt0__group_alt0__tmp0_item0_item0;
+                            GeneratedExpr _group_alt0__first__group_alt0__group_alt0__tmp0_item0_item0_item0 = StarredExpression();
+                            if (_group_alt0__first__group_alt0__group_alt0__tmp0_item0_item0_item0 != null)
+                            {
+                                _first__group_alt0__group_alt0__tmp0_item0_item0 = _group_alt0__first__group_alt0__group_alt0__tmp0_item0_item0_item0;
+                            }
+                        }
+                        // Try group alternative 2: (assignment_expression | expression !':=') !'='
+                        if (_first__group_alt0__group_alt0__tmp0_item0_item0 == null)
+                        {
+                            _position = _group_mark__first__group_alt0__group_alt0__tmp0_item0_item0;
+                            // Group: (assignment_expression | expression !':=')
+                            GeneratedExpr? _group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0 = null;
+                            int _group_mark__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0 = _position;
+                            // Try group alternative 1: assignment_expression
+                            {
+                                _position = _group_mark__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0;
+                                GeneratedExpr _group_alt0__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 = AssignmentExpression();
+                                if (_group_alt0__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 != null)
+                                {
+                                    _group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0 = _group_alt0__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item0;
+                                }
+                            }
+                            // Try group alternative 2: expression !':='
+                            if (_group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0 == null)
+                            {
+                                _position = _group_mark__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0;
+                                GeneratedExpr _group_alt1__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 = Expression();
+                                if (_group_alt1__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 != null)
+                                {
+                                    // WARNING: Lookahead in value position - this is unusual
+                                    // Negative lookahead: !(':=')
+                                    object? _lookahead_test_72 = null;
+                                    if (CurrentToken?.Value == ":=") { _lookahead_test_72 = CurrentToken; }
+                                    if (_lookahead_test_72 != null)
+                                    {
+                                        // Negative lookahead matched - fail this alternative
+                                        _position = _mark;
+                                        _res = null;
+                                        break;  // Exit this alternative
+                                    }
+                                    bool _group_alt1__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item1 = true; // Lookahead succeeded
+                                    if (_group_alt1__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 != null)
+                                    {
+                                        _group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0 = _group_alt1__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item0;
+                                    }
+                                }
+                            }
+                            if (_group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0 == null)
+                            {
+                                _position = _mark;
+                                _res = null;
+                                break;  // Exit this alternative
+                            }
+                            if (_group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0 != null)
+                            {
+                                // WARNING: Lookahead in value position - this is unusual
+                                // Negative lookahead: !('=')
+                                object? _lookahead_test_73 = null;
+                                if (CurrentToken?.Value == "=") { _lookahead_test_73 = CurrentToken; }
+                                if (_lookahead_test_73 != null)
+                                {
+                                    // Negative lookahead matched - fail this alternative
+                                    _position = _mark;
+                                    _res = null;
+                                    break;  // Exit this alternative
+                                }
+                                bool _group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item1 = true; // Lookahead succeeded
+                                if (_group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0 != null)
+                                {
+                                    _first__group_alt0__group_alt0__tmp0_item0_item0 = _group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0;
+                                }
+                            }
+                        }
+                        if (_first__group_alt0__group_alt0__tmp0_item0_item0 == null)
+                        {
+                            _position = _mark;
+                            _res = null;
+                            break;  // Exit this alternative
+                        }
+                        if (_first__group_alt0__group_alt0__tmp0_item0_item0 == null)
+                        {
+                            _position = _mark;
+                            _res = null;
+                            break;  // Exit this alternative
+                        }
+                        _group_alt0__group_alt0__tmp0_item0_item0.Add(_first__group_alt0__group_alt0__tmp0_item0_item0);
+                        // Parse remaining items (separator + item)
+                        while (true)
+                        {
+                            int _loop_mark = _position;
+                            // Expect ','
+                            var _sep__group_alt0__group_alt0__tmp0_item0_item0 = Expect(",");
+                            if (_sep__group_alt0__group_alt0__tmp0_item0_item0 == null)
+                            {
+                                _position = _mark;
+                                _res = null;
+                                break;  // Exit this alternative
+                            }
+                            if (_sep__group_alt0__group_alt0__tmp0_item0_item0 == null)
+                            {
+                                _position = _loop_mark;
+                                break; // No more separators
+                            }
+                            // Group: (starred_expression | (assignment_expression | expression !':=') !'=')
+                            GeneratedExpr? _loop_elem__group_alt0__group_alt0__tmp0_item0_item0 = null;
+                            int _group_mark__loop_elem__group_alt0__group_alt0__tmp0_item0_item0 = _position;
+                            // Try group alternative 1: starred_expression
+                            {
+                                _position = _group_mark__loop_elem__group_alt0__group_alt0__tmp0_item0_item0;
+                                GeneratedExpr _group_alt0__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 = StarredExpression();
+                                if (_group_alt0__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 != null)
+                                {
+                                    _loop_elem__group_alt0__group_alt0__tmp0_item0_item0 = _group_alt0__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0;
+                                }
+                            }
+                            // Try group alternative 2: (assignment_expression | expression !':=') !'='
+                            if (_loop_elem__group_alt0__group_alt0__tmp0_item0_item0 == null)
+                            {
+                                _position = _group_mark__loop_elem__group_alt0__group_alt0__tmp0_item0_item0;
+                                // Group: (assignment_expression | expression !':=')
+                                GeneratedExpr? _group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 = null;
+                                int _group_mark__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 = _position;
+                                // Try group alternative 1: assignment_expression
+                                {
+                                    _position = _group_mark__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0;
+                                    GeneratedExpr _group_alt0__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 = AssignmentExpression();
+                                    if (_group_alt0__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 != null)
+                                    {
+                                        _group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 = _group_alt0__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item0;
+                                    }
+                                }
+                                // Try group alternative 2: expression !':='
+                                if (_group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 == null)
+                                {
+                                    _position = _group_mark__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0;
+                                    GeneratedExpr _group_alt1__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 = Expression();
+                                    if (_group_alt1__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 != null)
+                                    {
+                                        // WARNING: Lookahead in value position - this is unusual
+                                        // Negative lookahead: !(':=')
+                                        object? _lookahead_test_74 = null;
+                                        if (CurrentToken?.Value == ":=") { _lookahead_test_74 = CurrentToken; }
+                                        if (_lookahead_test_74 != null)
+                                        {
+                                            // Negative lookahead matched - fail this alternative
+                                            _position = _mark;
+                                            _res = null;
+                                            break;  // Exit this alternative
+                                        }
+                                        bool _group_alt1__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item1 = true; // Lookahead succeeded
+                                        if (_group_alt1__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 != null)
+                                        {
+                                            _group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 = _group_alt1__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item0;
+                                        }
+                                    }
+                                }
+                                if (_group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 == null)
+                                {
+                                    _position = _mark;
+                                    _res = null;
+                                    break;  // Exit this alternative
+                                }
+                                if (_group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 != null)
+                                {
+                                    // WARNING: Lookahead in value position - this is unusual
+                                    // Negative lookahead: !('=')
+                                    object? _lookahead_test_75 = null;
+                                    if (CurrentToken?.Value == "=") { _lookahead_test_75 = CurrentToken; }
+                                    if (_lookahead_test_75 != null)
+                                    {
+                                        // Negative lookahead matched - fail this alternative
+                                        _position = _mark;
+                                        _res = null;
+                                        break;  // Exit this alternative
+                                    }
+                                    bool _group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item1 = true; // Lookahead succeeded
+                                    if (_group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 != null)
+                                    {
+                                        _loop_elem__group_alt0__group_alt0__tmp0_item0_item0 = _group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0;
+                                    }
+                                }
+                            }
+                            if (_loop_elem__group_alt0__group_alt0__tmp0_item0_item0 == null)
+                            {
+                                _position = _mark;
+                                _res = null;
+                                break;  // Exit this alternative
+                            }
+                            if (_loop_elem__group_alt0__group_alt0__tmp0_item0_item0 == null)
+                            {
+                                _position = _loop_mark; // Reset to before separator
+                                break; // No item after separator
+                            }
+                            _group_alt0__group_alt0__tmp0_item0_item0.Add(_loop_elem__group_alt0__group_alt0__tmp0_item0_item0);
+                        }
+                        if (_group_alt0__group_alt0__tmp0_item0_item0 != null)
+                        {
+                            GeneratedTokenInfo? _group_alt0__group_alt0__tmp0_item0_item1 = Expect(",");
+                            if (_group_alt0__group_alt0__tmp0_item0_item1 != null)
+                            {
+                                GeneratedSeq _group_alt0__group_alt0__tmp0_item0_item2 = Kwargs();
+                                if (_group_alt0__group_alt0__tmp0_item0_item2 != null)
+                                {
+                                    _group_alt0__tmp0_item0 = _group_alt0__group_alt0__tmp0_item0_item2;
+                                }
+                            }
+                        }
+                    }
+                    if (_group_alt0__tmp0_item0 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
                     if (_group_alt0__tmp0_item0 != null)
                     {
                         _tmp0 = _group_alt0__tmp0_item0;
@@ -26207,7 +26709,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _group_mark__tmp0;
-                    var _group_alt1__tmp0_item0 = Kwargs();
+                    GeneratedSeq _group_alt1__tmp0_item0 = Kwargs();
                     if (_group_alt1__tmp0_item0 != null)
                     {
                         _tmp0 = _group_alt1__tmp0_item0;
@@ -26227,68 +26729,105 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Zero or more: ','*
-                var _tmp1 = new System.Collections.Generic.List<object?>();
+                // Gather: ','.(starred_expression !'=')+
+                var _tmp1 = new GeneratedExprSeq();
+                // Parse first item (no separator)
+                // Group: (starred_expression !'=')
+                GeneratedExpr? _first__tmp1 = null;
+                int _group_mark__first__tmp1 = _position;
+                // Try group alternative 1: starred_expression !'='
+                {
+                    _position = _group_mark__first__tmp1;
+                    GeneratedExpr _group_alt0__first__tmp1_item0 = StarredExpression();
+                    if (_group_alt0__first__tmp1_item0 != null)
+                    {
+                        // WARNING: Lookahead in value position - this is unusual
+                        // Negative lookahead: !('=')
+                        object? _lookahead_test_76 = null;
+                        if (CurrentToken?.Value == "=") { _lookahead_test_76 = CurrentToken; }
+                        if (_lookahead_test_76 != null)
+                        {
+                            // Negative lookahead matched - fail this alternative
+                            _position = _mark;
+                            _res = null;
+                            break;  // Exit this alternative
+                        }
+                        bool _group_alt0__first__tmp1_item1 = true; // Lookahead succeeded
+                        if (_group_alt0__first__tmp1_item0 != null)
+                        {
+                            _first__tmp1 = _group_alt0__first__tmp1_item0;
+                        }
+                    }
+                }
+                if (_first__tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                if (_first__tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                _tmp1.Add(_first__tmp1);
+                // Parse remaining items (separator + item)
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Expect ','
-                    var _loop_elem__tmp1 = Expect(",");
-                    if (_loop_elem__tmp1 == null)
+                    var _sep__tmp1 = Expect(",");
+                    if (_sep__tmp1 == null)
                     {
                         _position = _mark;
                         _res = null;
                         break;  // Exit this alternative
                     }
-                    if (_loop_elem__tmp1 == null)
+                    if (_sep__tmp1 == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark;
+                        break; // No more separators
                     }
-                    _tmp1.Add(_loop_elem__tmp1);
-                }
-                // Collected _tmp1.Count items (may be 0)
-                // One or more: (starred_expression !'=')+
-                var _tmp2 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
                     // Group: (starred_expression !'=')
-                    object? _loop_elem__tmp2 = null;
-                    int _group_mark__loop_elem__tmp2 = _position;
+                    GeneratedExpr? _loop_elem__tmp1 = null;
+                    int _group_mark__loop_elem__tmp1 = _position;
                     // Try group alternative 1: starred_expression !'='
                     {
-                        _position = _group_mark__loop_elem__tmp2;
-                        var _group_alt0__loop_elem__tmp2_item0 = StarredExpression();
-                        if (_group_alt0__loop_elem__tmp2_item0 != null)
+                        _position = _group_mark__loop_elem__tmp1;
+                        GeneratedExpr _group_alt0__loop_elem__tmp1_item0 = StarredExpression();
+                        if (_group_alt0__loop_elem__tmp1_item0 != null)
                         {
-                            object? _group_alt0__loop_elem__tmp2_item1 = null;
-                            // TODO: Complex group item type: NegativeLookahead
-                            if (_group_alt0__loop_elem__tmp2_item1 != null)
+                            // WARNING: Lookahead in value position - this is unusual
+                            // Negative lookahead: !('=')
+                            object? _lookahead_test_77 = null;
+                            if (CurrentToken?.Value == "=") { _lookahead_test_77 = CurrentToken; }
+                            if (_lookahead_test_77 != null)
                             {
-                                _loop_elem__tmp2 = _group_alt0__loop_elem__tmp2_item1;
+                                // Negative lookahead matched - fail this alternative
+                                _position = _mark;
+                                _res = null;
+                                break;  // Exit this alternative
+                            }
+                            bool _group_alt0__loop_elem__tmp1_item1 = true; // Lookahead succeeded
+                            if (_group_alt0__loop_elem__tmp1_item0 != null)
+                            {
+                                _loop_elem__tmp1 = _group_alt0__loop_elem__tmp1_item0;
                             }
                         }
                     }
-                    if (_loop_elem__tmp2 == null)
+                    if (_loop_elem__tmp1 == null)
                     {
                         _position = _mark;
                         _res = null;
                         break;  // Exit this alternative
                     }
-                    if (_loop_elem__tmp2 == null)
+                    if (_loop_elem__tmp1 == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
                     }
-                    _tmp2.Add(_loop_elem__tmp2);
-                }
-                if (_tmp2.Count == 0)
-                {
-                    // One or more requires at least one match
-                    _position = _mark;
-                    _res = null;
-                    break;  // Exit this alternative
+                    _tmp1.Add(_loop_elem__tmp1);
                 }
                 // Action: RAISE_SYNTAX_ERROR_STARTING_FROM(a, "iterable argument unpacking follows keyword argument unpacking")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
@@ -26337,12 +26876,12 @@ namespace SharpPy.Generated
                 // Optional: [(args)]
                 int _opt_mark__tmp1 = _position;
                 // Group: (args)
-                object? _opt__tmp1 = null;
+                GeneratedExpr? _opt__tmp1 = null;
                 int _group_mark__opt__tmp1 = _position;
                 // Try group alternative 1: args
                 {
                     _position = _group_mark__opt__tmp1;
-                    var _group_alt0__opt__tmp1_item0 = Args();
+                    GeneratedExpr _group_alt0__opt__tmp1_item0 = Args();
                     if (_group_alt0__opt__tmp1_item0 != null)
                     {
                         _opt__tmp1 = _group_alt0__opt__tmp1_item0;
@@ -26354,7 +26893,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp1 = _opt__tmp1;
+                GeneratedExpr? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
                 {
                     _position = _opt_mark__tmp1; // Reset position
@@ -26437,15 +26976,15 @@ namespace SharpPy.Generated
                 // Optional: [(args ',')]
                 int _opt_mark__tmp0 = _position;
                 // Group: (args ',')
-                object? _opt__tmp0 = null;
+                GeneratedTokenInfo? _opt__tmp0 = null;
                 int _group_mark__opt__tmp0 = _position;
                 // Try group alternative 1: args ','
                 {
                     _position = _group_mark__opt__tmp0;
-                    var _group_alt0__opt__tmp0_item0 = Args();
+                    GeneratedExpr _group_alt0__opt__tmp0_item0 = Args();
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
-                        var _group_alt0__opt__tmp0_item1 = Expect(",");
+                        GeneratedTokenInfo? _group_alt0__opt__tmp0_item1 = Expect(",");
                         if (_group_alt0__opt__tmp0_item1 != null)
                         {
                             _opt__tmp0 = _group_alt0__opt__tmp0_item1;
@@ -26458,7 +26997,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp0 = _opt__tmp0;
+                GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
                     _position = _opt_mark__tmp0; // Reset position
@@ -26483,9 +27022,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_66 = _position;
+                int _lookahead_mark_78 = _position;
                 // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_66; // Restore position
+                _position = _lookahead_mark_78; // Restore position
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "expected argument value expression")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected argument value expression";
@@ -26523,8 +27062,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_nonparen_genexp_in_call(p, a, b)
-                // TODO: Complex action expression: _PyPegen_nonparen_genexp_in_call(p, a, b)
-                _res = default(object?);
+                // Unknown AST function: _PyPegen_nonparen_genexp_in_call
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -26617,22 +27156,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_arguments_parsing_error(p, a)
-                // TODO: Complex action expression: _PyPegen_arguments_parsing_error(p, a)
-                _res = default(object?);
+                // Unknown AST function: _PyPegen_arguments_parsing_error
+                _res = default(GeneratedAstNode?);
                 if (_res != null) goto done;
             } while (false);
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -26670,12 +27200,12 @@ namespace SharpPy.Generated
                 }
 
                 // Group: ('True' | 'False' | 'None')
-                object? a = null;
+                GeneratedTokenInfo? a = null;
                 int _group_mark_a = _position;
                 // Try group alternative 1: 'True'
                 {
                     _position = _group_mark_a;
-                    var _group_alt0_a_item0 = Expect("True");
+                    GeneratedTokenInfo? _group_alt0_a_item0 = Expect("True");
                     if (_group_alt0_a_item0 != null)
                     {
                         a = _group_alt0_a_item0;
@@ -26685,7 +27215,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _group_mark_a;
-                    var _group_alt1_a_item0 = Expect("False");
+                    GeneratedTokenInfo? _group_alt1_a_item0 = Expect("False");
                     if (_group_alt1_a_item0 != null)
                     {
                         a = _group_alt1_a_item0;
@@ -26695,7 +27225,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _group_mark_a;
-                    var _group_alt2_a_item0 = Expect("None");
+                    GeneratedTokenInfo? _group_alt2_a_item0 = Expect("None");
                     if (_group_alt2_a_item0 != null)
                     {
                         a = _group_alt2_a_item0;
@@ -26790,9 +27320,9 @@ namespace SharpPy.Generated
                 }
 
                 // Negative lookahead: !((NAME '='))
-                object? _lookahead_test_67 = null;
+                object? _lookahead_test_79 = null;
                 // Test if current token matches: (NAME '=')
-                if (_lookahead_test_67 != null)
+                if (_lookahead_test_79 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -26879,15 +27409,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -27074,9 +27595,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !('(')
-                object? _lookahead_test_68 = null;
-                if (CurrentToken?.Value == "(") { _lookahead_test_68 = CurrentToken; }
-                if (_lookahead_test_68 != null)
+                object? _lookahead_test_80 = null;
+                if (CurrentToken?.Value == "(") { _lookahead_test_80 = CurrentToken; }
+                if (_lookahead_test_80 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -27103,15 +27624,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -27149,9 +27661,9 @@ namespace SharpPy.Generated
                 }
 
                 // Negative lookahead: !((NAME STRING | SOFT_KEYWORD))
-                object? _lookahead_test_69 = null;
+                object? _lookahead_test_81 = null;
                 // Test if current token matches: (NAME STRING | SOFT_KEYWORD)
-                if (_lookahead_test_69 != null)
+                if (_lookahead_test_81 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -27221,11 +27733,11 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('else' | ':'))
-                object? _lookahead_test_70 = null;
+                object? _lookahead_test_82 = null;
                 // Test if current token matches: ('else' | ':')
-                if (CurrentToken?.Value == "else") { _lookahead_test_70 = CurrentToken; }
-                if (CurrentToken?.Value == ":") { _lookahead_test_70 = CurrentToken; }
-                if (_lookahead_test_70 != null)
+                if (CurrentToken?.Value == "else") { _lookahead_test_82 = CurrentToken; }
+                if (CurrentToken?.Value == ":") { _lookahead_test_82 = CurrentToken; }
+                if (_lookahead_test_82 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -27263,12 +27775,12 @@ namespace SharpPy.Generated
                 // Optional: [(lambda_params)]
                 int _opt_mark__tmp0 = _position;
                 // Group: (lambda_params)
-                object? _opt__tmp0 = null;
+                GeneratedArguments? _opt__tmp0 = null;
                 int _group_mark__opt__tmp0 = _position;
                 // Try group alternative 1: lambda_params
                 {
                     _position = _group_mark__opt__tmp0;
-                    var _group_alt0__opt__tmp0_item0 = LambdaParams();
+                    GeneratedArguments _group_alt0__opt__tmp0_item0 = LambdaParams();
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
@@ -27280,7 +27792,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp0 = _opt__tmp0;
+                GeneratedArguments? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
                     _position = _opt_mark__tmp0; // Reset position
@@ -27295,9 +27807,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_71 = _position;
+                int _lookahead_mark_83 = _position;
                 // TODO: Parse lookahead content for RuleRef
-                _position = _lookahead_mark_71; // Restore position
+                _position = _lookahead_mark_83; // Restore position
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "f-string: lambda expressions are not allowed without parentheses")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "f-string: lambda expressions are not allowed without parentheses";
@@ -27308,15 +27820,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -27432,11 +27935,11 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('=' | ':='))
-                object? _lookahead_test_72 = null;
+                object? _lookahead_test_84 = null;
                 // Test if current token matches: ('=' | ':=')
-                if (CurrentToken?.Value == "=") { _lookahead_test_72 = CurrentToken; }
-                if (CurrentToken?.Value == ":=") { _lookahead_test_72 = CurrentToken; }
-                if (_lookahead_test_72 != null)
+                if (CurrentToken?.Value == "=") { _lookahead_test_84 = CurrentToken; }
+                if (CurrentToken?.Value == ":=") { _lookahead_test_84 = CurrentToken; }
+                if (_lookahead_test_84 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -27464,12 +27967,12 @@ namespace SharpPy.Generated
                 }
 
                 // Negative lookahead: !((list | tuple | genexp | 'True' | 'None' | 'False'))
-                object? _lookahead_test_73 = null;
+                object? _lookahead_test_85 = null;
                 // Test if current token matches: (list | tuple | genexp | 'True' | 'None' | 'False')
-                if (CurrentToken?.Value == "True") { _lookahead_test_73 = CurrentToken; }
-                if (CurrentToken?.Value == "None") { _lookahead_test_73 = CurrentToken; }
-                if (CurrentToken?.Value == "False") { _lookahead_test_73 = CurrentToken; }
-                if (_lookahead_test_73 != null)
+                if (CurrentToken?.Value == "True") { _lookahead_test_85 = CurrentToken; }
+                if (CurrentToken?.Value == "None") { _lookahead_test_85 = CurrentToken; }
+                if (CurrentToken?.Value == "False") { _lookahead_test_85 = CurrentToken; }
+                if (_lookahead_test_85 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -27501,11 +28004,11 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('=' | ':='))
-                object? _lookahead_test_74 = null;
+                object? _lookahead_test_86 = null;
                 // Test if current token matches: ('=' | ':=')
-                if (CurrentToken?.Value == "=") { _lookahead_test_74 = CurrentToken; }
-                if (CurrentToken?.Value == ":=") { _lookahead_test_74 = CurrentToken; }
-                if (_lookahead_test_74 != null)
+                if (CurrentToken?.Value == "=") { _lookahead_test_86 = CurrentToken; }
+                if (CurrentToken?.Value == ":=") { _lookahead_test_86 = CurrentToken; }
+                if (_lookahead_test_86 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -27524,15 +28027,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -27639,7 +28133,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: star_named_expressions*
-                var _tmp1 = new System.Collections.Generic.List<object?>();
+                var _tmp1 = new List<GeneratedExprSeq>();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -27740,20 +28234,20 @@ namespace SharpPy.Generated
                 }
 
                 // Zero or more: (star_targets '=')*
-                var _tmp0 = new System.Collections.Generic.List<object?>();
+                var _tmp0 = new List<GeneratedTokenInfo>();
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Group: (star_targets '=')
-                    object? _loop_elem__tmp0 = null;
+                    GeneratedTokenInfo? _loop_elem__tmp0 = null;
                     int _group_mark__loop_elem__tmp0 = _position;
                     // Try group alternative 1: star_targets '='
                     {
                         _position = _group_mark__loop_elem__tmp0;
-                        var _group_alt0__loop_elem__tmp0_item0 = StarTargets();
+                        GeneratedExpr _group_alt0__loop_elem__tmp0_item0 = StarTargets();
                         if (_group_alt0__loop_elem__tmp0_item0 != null)
                         {
-                            var _group_alt0__loop_elem__tmp0_item1 = Expect("=");
+                            GeneratedTokenInfo? _group_alt0__loop_elem__tmp0_item1 = Expect("=");
                             if (_group_alt0__loop_elem__tmp0_item1 != null)
                             {
                                 _loop_elem__tmp0 = _group_alt0__loop_elem__tmp0_item1;
@@ -27811,20 +28305,20 @@ namespace SharpPy.Generated
                 }
 
                 // Zero or more: (star_targets '=')*
-                var _tmp0 = new System.Collections.Generic.List<object?>();
+                var _tmp0 = new List<GeneratedTokenInfo>();
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Group: (star_targets '=')
-                    object? _loop_elem__tmp0 = null;
+                    GeneratedTokenInfo? _loop_elem__tmp0 = null;
                     int _group_mark__loop_elem__tmp0 = _position;
                     // Try group alternative 1: star_targets '='
                     {
                         _position = _group_mark__loop_elem__tmp0;
-                        var _group_alt0__loop_elem__tmp0_item0 = StarTargets();
+                        GeneratedExpr _group_alt0__loop_elem__tmp0_item0 = StarTargets();
                         if (_group_alt0__loop_elem__tmp0_item0 != null)
                         {
-                            var _group_alt0__loop_elem__tmp0_item1 = Expect("=");
+                            GeneratedTokenInfo? _group_alt0__loop_elem__tmp0_item1 = Expect("=");
                             if (_group_alt0__loop_elem__tmp0_item1 != null)
                             {
                                 _loop_elem__tmp0 = _group_alt0__loop_elem__tmp0_item1;
@@ -27898,12 +28392,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Group: (yield_expr | star_expressions)
-                object? _tmp1 = null;
+                GeneratedExpr? _tmp1 = null;
                 int _group_mark__tmp1 = _position;
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt0__tmp1_item0 = YieldExpr();
+                    GeneratedExpr _group_alt0__tmp1_item0 = YieldExpr();
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -27913,7 +28407,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt1__tmp1_item0 = StarExpressions();
+                    GeneratedExpr _group_alt1__tmp1_item0 = StarExpressions();
                     if (_group_alt1__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
@@ -27940,15 +28434,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -28071,15 +28556,6 @@ namespace SharpPy.Generated
             _position = _mark;
             _res = null;
 
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
-
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
             // Update end position before returning
@@ -28142,15 +28618,6 @@ namespace SharpPy.Generated
             _position = _mark;
             _res = null;
 
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
-
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
             // Update end position before returning
@@ -28197,9 +28664,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_75 = null;
+                object? _lookahead_test_87 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_75 != null)
+                if (_lookahead_test_87 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -28216,15 +28683,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -28262,12 +28720,12 @@ namespace SharpPy.Generated
                 }
 
                 // Group: ('[' | '(' | '{')
-                object? _tmp0 = null;
+                GeneratedTokenInfo? _tmp0 = null;
                 int _group_mark__tmp0 = _position;
                 // Try group alternative 1: '['
                 {
                     _position = _group_mark__tmp0;
-                    var _group_alt0__tmp0_item0 = Expect("[");
+                    GeneratedTokenInfo? _group_alt0__tmp0_item0 = Expect("[");
                     if (_group_alt0__tmp0_item0 != null)
                     {
                         _tmp0 = _group_alt0__tmp0_item0;
@@ -28277,7 +28735,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _group_mark__tmp0;
-                    var _group_alt1__tmp0_item0 = Expect("(");
+                    GeneratedTokenInfo? _group_alt1__tmp0_item0 = Expect("(");
                     if (_group_alt1__tmp0_item0 != null)
                     {
                         _tmp0 = _group_alt1__tmp0_item0;
@@ -28287,7 +28745,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _group_mark__tmp0;
-                    var _group_alt2__tmp0_item0 = Expect("{");
+                    GeneratedTokenInfo? _group_alt2__tmp0_item0 = Expect("{");
                     if (_group_alt2__tmp0_item0 != null)
                     {
                         _tmp0 = _group_alt2__tmp0_item0;
@@ -28336,12 +28794,12 @@ namespace SharpPy.Generated
                 }
 
                 // Group: ('[' | '{')
-                object? _tmp0 = null;
+                GeneratedTokenInfo? _tmp0 = null;
                 int _group_mark__tmp0 = _position;
                 // Try group alternative 1: '['
                 {
                     _position = _group_mark__tmp0;
-                    var _group_alt0__tmp0_item0 = Expect("[");
+                    GeneratedTokenInfo? _group_alt0__tmp0_item0 = Expect("[");
                     if (_group_alt0__tmp0_item0 != null)
                     {
                         _tmp0 = _group_alt0__tmp0_item0;
@@ -28351,7 +28809,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _group_mark__tmp0;
-                    var _group_alt1__tmp0_item0 = Expect("{");
+                    GeneratedTokenInfo? _group_alt1__tmp0_item0 = Expect("{");
                     if (_group_alt1__tmp0_item0 != null)
                     {
                         _tmp0 = _group_alt1__tmp0_item0;
@@ -28418,12 +28876,12 @@ namespace SharpPy.Generated
                 }
 
                 // Group: ('[' | '{')
-                object? _tmp0 = null;
+                GeneratedTokenInfo? _tmp0 = null;
                 int _group_mark__tmp0 = _position;
                 // Try group alternative 1: '['
                 {
                     _position = _group_mark__tmp0;
-                    var _group_alt0__tmp0_item0 = Expect("[");
+                    GeneratedTokenInfo? _group_alt0__tmp0_item0 = Expect("[");
                     if (_group_alt0__tmp0_item0 != null)
                     {
                         _tmp0 = _group_alt0__tmp0_item0;
@@ -28433,7 +28891,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _group_mark__tmp0;
-                    var _group_alt1__tmp0_item0 = Expect("{");
+                    GeneratedTokenInfo? _group_alt1__tmp0_item0 = Expect("{");
                     if (_group_alt1__tmp0_item0 != null)
                     {
                         _tmp0 = _group_alt1__tmp0_item0;
@@ -28479,15 +28937,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -28575,15 +29024,6 @@ namespace SharpPy.Generated
             _position = _mark;
             _res = null;
 
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
-
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
             // Update end position before returning
@@ -28656,12 +29096,12 @@ namespace SharpPy.Generated
                 }
 
                 // Group: (slash_no_default | slash_with_default)
-                object? _tmp0 = null;
+                GeneratedAstNode? _tmp0 = null;
                 int _group_mark__tmp0 = _position;
                 // Try group alternative 1: slash_no_default
                 {
                     _position = _group_mark__tmp0;
-                    var _group_alt0__tmp0_item0 = SlashNoDefault();
+                    GeneratedAstNodeSeq _group_alt0__tmp0_item0 = SlashNoDefault();
                     if (_group_alt0__tmp0_item0 != null)
                     {
                         _tmp0 = _group_alt0__tmp0_item0;
@@ -28671,7 +29111,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _group_mark__tmp0;
-                    var _group_alt1__tmp0_item0 = SlashWithDefault();
+                    GeneratedSlashWithDefault _group_alt1__tmp0_item0 = SlashWithDefault();
                     if (_group_alt1__tmp0_item0 != null)
                     {
                         _tmp0 = _group_alt1__tmp0_item0;
@@ -28684,7 +29124,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: param_maybe_default*
-                var _tmp1 = new System.Collections.Generic.List<object?>();
+                var _tmp1 = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -28742,14 +29182,14 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp0 = _opt__tmp0;
+                GeneratedAstNodeSeq? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
                     _position = _opt_mark__tmp0; // Reset position
                     _tmp0 = null; // Optional not present
                 }
                 // Zero or more: param_no_default*
-                var _tmp1 = new System.Collections.Generic.List<object?>();
+                var _tmp1 = new GeneratedArgSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -28810,7 +29250,7 @@ namespace SharpPy.Generated
                 }
 
                 // Zero or more: param_no_default*
-                var _tmp0 = new System.Collections.Generic.List<object?>();
+                var _tmp0 = new GeneratedArgSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -28839,7 +29279,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: param_no_default+
-                var _tmp1 = new System.Collections.Generic.List<object?>();
+                var _tmp1 = new GeneratedArgSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -28875,7 +29315,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp2 = _opt__tmp2;
+                GeneratedTokenInfo? _tmp2 = _opt__tmp2;
                 if (_tmp2 == null)
                 {
                     _position = _opt_mark__tmp2; // Reset position
@@ -28912,12 +29352,12 @@ namespace SharpPy.Generated
                 // Optional: [(slash_no_default | slash_with_default)]
                 int _opt_mark__tmp0 = _position;
                 // Group: (slash_no_default | slash_with_default)
-                object? _opt__tmp0 = null;
+                GeneratedAstNode? _opt__tmp0 = null;
                 int _group_mark__opt__tmp0 = _position;
                 // Try group alternative 1: slash_no_default
                 {
                     _position = _group_mark__opt__tmp0;
-                    var _group_alt0__opt__tmp0_item0 = SlashNoDefault();
+                    GeneratedAstNodeSeq _group_alt0__opt__tmp0_item0 = SlashNoDefault();
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
@@ -28927,7 +29367,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp0 == null)
                 {
                     _position = _group_mark__opt__tmp0;
-                    var _group_alt1__opt__tmp0_item0 = SlashWithDefault();
+                    GeneratedSlashWithDefault _group_alt1__opt__tmp0_item0 = SlashWithDefault();
                     if (_group_alt1__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt1__opt__tmp0_item0;
@@ -28939,14 +29379,14 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp0 = _opt__tmp0;
+                GeneratedAstNode? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
                     _position = _opt_mark__tmp0; // Reset position
                     _tmp0 = null; // Optional not present
                 }
                 // Zero or more: param_maybe_default*
-                var _tmp1 = new System.Collections.Generic.List<object?>();
+                var _tmp1 = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -28976,11 +29416,13 @@ namespace SharpPy.Generated
                 }
                 // Group: (',' | param_no_default)
                 object? _tmp3 = null;
+                // CPython 3.12: void* pattern - only GeneratedTokenInfo or GeneratedArg expected
+                // Type check: if (_tmp3 != null) { var typeName = _tmp3.GetType().Name; /* validate */ }
                 int _group_mark__tmp3 = _position;
                 // Try group alternative 1: ','
                 {
                     _position = _group_mark__tmp3;
-                    var _group_alt0__tmp3_item0 = Expect(",");
+                    GeneratedTokenInfo? _group_alt0__tmp3_item0 = Expect(",");
                     if (_group_alt0__tmp3_item0 != null)
                     {
                         _tmp3 = _group_alt0__tmp3_item0;
@@ -28990,7 +29432,7 @@ namespace SharpPy.Generated
                 if (_tmp3 == null)
                 {
                     _position = _group_mark__tmp3;
-                    var _group_alt1__tmp3_item0 = ParamNoDefault();
+                    GeneratedArg _group_alt1__tmp3_item0 = ParamNoDefault();
                     if (_group_alt1__tmp3_item0 != null)
                     {
                         _tmp3 = _group_alt1__tmp3_item0;
@@ -29003,7 +29445,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: param_maybe_default*
-                var _tmp4 = new System.Collections.Generic.List<object?>();
+                var _tmp4 = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -29052,7 +29494,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: param_maybe_default+
-                var _tmp0 = new System.Collections.Generic.List<object?>();
+                var _tmp0 = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -29105,15 +29547,6 @@ namespace SharpPy.Generated
             _position = _mark;
             _res = null;
 
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
-
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
             // Update end position before returning
@@ -29158,9 +29591,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_76 = _position;
+                int _lookahead_mark_88 = _position;
                 // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_76; // Restore position
+                _position = _lookahead_mark_88; // Restore position
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "expected default value expression")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected default value expression";
@@ -29171,15 +29604,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -29225,12 +29649,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Group: (')' | ',' (')' | '**'))
-                object? _tmp0 = null;
+                GeneratedTokenInfo? _tmp0 = null;
                 int _group_mark__tmp0 = _position;
                 // Try group alternative 1: ')'
                 {
                     _position = _group_mark__tmp0;
-                    var _group_alt0__tmp0_item0 = Expect(")");
+                    GeneratedTokenInfo? _group_alt0__tmp0_item0 = Expect(")");
                     if (_group_alt0__tmp0_item0 != null)
                     {
                         _tmp0 = _group_alt0__tmp0_item0;
@@ -29240,11 +29664,37 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _group_mark__tmp0;
-                    var _group_alt1__tmp0_item0 = Expect(",");
+                    GeneratedTokenInfo? _group_alt1__tmp0_item0 = Expect(",");
                     if (_group_alt1__tmp0_item0 != null)
                     {
-                        object? _group_alt1__tmp0_item1 = null;
-                        // TODO: Complex group item type: Group
+                        // Group: (')' | '**')
+                        GeneratedTokenInfo? _group_alt1__tmp0_item1 = null;
+                        int _group_mark__group_alt1__tmp0_item1 = _position;
+                        // Try group alternative 1: ')'
+                        {
+                            _position = _group_mark__group_alt1__tmp0_item1;
+                            GeneratedTokenInfo? _group_alt0__group_alt1__tmp0_item1_item0 = Expect(")");
+                            if (_group_alt0__group_alt1__tmp0_item1_item0 != null)
+                            {
+                                _group_alt1__tmp0_item1 = _group_alt0__group_alt1__tmp0_item1_item0;
+                            }
+                        }
+                        // Try group alternative 2: '**'
+                        if (_group_alt1__tmp0_item1 == null)
+                        {
+                            _position = _group_mark__group_alt1__tmp0_item1;
+                            GeneratedTokenInfo? _group_alt1__group_alt1__tmp0_item1_item0 = Expect("**");
+                            if (_group_alt1__group_alt1__tmp0_item1_item0 != null)
+                            {
+                                _group_alt1__tmp0_item1 = _group_alt1__group_alt1__tmp0_item1_item0;
+                            }
+                        }
+                        if (_group_alt1__tmp0_item1 == null)
+                        {
+                            _position = _mark;
+                            _res = null;
+                            break;  // Exit this alternative
+                        }
                         if (_group_alt1__tmp0_item1 != null)
                         {
                             _tmp0 = _group_alt1__tmp0_item1;
@@ -29377,11 +29827,13 @@ namespace SharpPy.Generated
                 }
                 // Group: (param_no_default | ',')
                 object? _tmp1 = null;
+                // CPython 3.12: void* pattern - only GeneratedTokenInfo or GeneratedArg expected
+                // Type check: if (_tmp1 != null) { var typeName = _tmp1.GetType().Name; /* validate */ }
                 int _group_mark__tmp1 = _position;
                 // Try group alternative 1: param_no_default
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt0__tmp1_item0 = ParamNoDefault();
+                    GeneratedArg _group_alt0__tmp1_item0 = ParamNoDefault();
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -29391,7 +29843,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt1__tmp1_item0 = Expect(",");
+                    GeneratedTokenInfo? _group_alt1__tmp1_item0 = Expect(",");
                     if (_group_alt1__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
@@ -29404,7 +29856,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: param_maybe_default*
-                var _tmp2 = new System.Collections.Generic.List<object?>();
+                var _tmp2 = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -29434,11 +29886,13 @@ namespace SharpPy.Generated
                 }
                 // Group: (param_no_default | ',')
                 object? _tmp3 = null;
+                // CPython 3.12: void* pattern - only GeneratedTokenInfo or GeneratedArg expected
+                // Type check: if (_tmp3 != null) { var typeName = _tmp3.GetType().Name; /* validate */ }
                 int _group_mark__tmp3 = _position;
                 // Try group alternative 1: param_no_default
                 {
                     _position = _group_mark__tmp3;
-                    var _group_alt0__tmp3_item0 = ParamNoDefault();
+                    GeneratedArg _group_alt0__tmp3_item0 = ParamNoDefault();
                     if (_group_alt0__tmp3_item0 != null)
                     {
                         _tmp3 = _group_alt0__tmp3_item0;
@@ -29448,7 +29902,7 @@ namespace SharpPy.Generated
                 if (_tmp3 == null)
                 {
                     _position = _group_mark__tmp3;
-                    var _group_alt1__tmp3_item0 = Expect(",");
+                    GeneratedTokenInfo? _group_alt1__tmp3_item0 = Expect(",");
                     if (_group_alt1__tmp3_item0 != null)
                     {
                         _tmp3 = _group_alt1__tmp3_item0;
@@ -29470,15 +29924,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -29636,12 +30081,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Group: ('*' | '**' | '/')
-                object? a = null;
+                GeneratedTokenInfo? a = null;
                 int _group_mark_a = _position;
                 // Try group alternative 1: '*'
                 {
                     _position = _group_mark_a;
-                    var _group_alt0_a_item0 = Expect("*");
+                    GeneratedTokenInfo? _group_alt0_a_item0 = Expect("*");
                     if (_group_alt0_a_item0 != null)
                     {
                         a = _group_alt0_a_item0;
@@ -29651,7 +30096,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _group_mark_a;
-                    var _group_alt1_a_item0 = Expect("**");
+                    GeneratedTokenInfo? _group_alt1_a_item0 = Expect("**");
                     if (_group_alt1_a_item0 != null)
                     {
                         a = _group_alt1_a_item0;
@@ -29661,7 +30106,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _group_mark_a;
-                    var _group_alt2_a_item0 = Expect("/");
+                    GeneratedTokenInfo? _group_alt2_a_item0 = Expect("/");
                     if (_group_alt2_a_item0 != null)
                     {
                         a = _group_alt2_a_item0;
@@ -29683,15 +30128,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -29737,8 +30173,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_singleton_seq(p, a)
-                // TODO: Complex action expression: _PyPegen_singleton_seq(p, a)
-                _res = default(object?);
+                _res = _PyPegen_singleton_seq(a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -29755,7 +30190,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: param_with_default+
-                var _tmp0 = new System.Collections.Generic.List<object?>();
+                var _tmp0 = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -29782,21 +30217,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (object?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -29870,12 +30296,12 @@ namespace SharpPy.Generated
                 }
 
                 // Group: (lambda_slash_no_default | lambda_slash_with_default)
-                object? _tmp0 = null;
+                GeneratedAstNode? _tmp0 = null;
                 int _group_mark__tmp0 = _position;
                 // Try group alternative 1: lambda_slash_no_default
                 {
                     _position = _group_mark__tmp0;
-                    var _group_alt0__tmp0_item0 = LambdaSlashNoDefault();
+                    GeneratedAstNodeSeq _group_alt0__tmp0_item0 = LambdaSlashNoDefault();
                     if (_group_alt0__tmp0_item0 != null)
                     {
                         _tmp0 = _group_alt0__tmp0_item0;
@@ -29885,7 +30311,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _group_mark__tmp0;
-                    var _group_alt1__tmp0_item0 = LambdaSlashWithDefault();
+                    GeneratedSlashWithDefault _group_alt1__tmp0_item0 = LambdaSlashWithDefault();
                     if (_group_alt1__tmp0_item0 != null)
                     {
                         _tmp0 = _group_alt1__tmp0_item0;
@@ -29898,7 +30324,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: lambda_param_maybe_default*
-                var _tmp1 = new System.Collections.Generic.List<object?>();
+                var _tmp1 = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -29956,14 +30382,14 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp0 = _opt__tmp0;
+                GeneratedAstNodeSeq? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
                     _position = _opt_mark__tmp0; // Reset position
                     _tmp0 = null; // Optional not present
                 }
                 // Zero or more: lambda_param_no_default*
-                var _tmp1 = new System.Collections.Generic.List<object?>();
+                var _tmp1 = new GeneratedArgSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -30024,7 +30450,7 @@ namespace SharpPy.Generated
                 }
 
                 // Zero or more: lambda_param_no_default*
-                var _tmp0 = new System.Collections.Generic.List<object?>();
+                var _tmp0 = new GeneratedArgSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -30052,13 +30478,43 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Zero or more: ','*
-                var _tmp1 = new System.Collections.Generic.List<object?>();
+                // Gather: ','.lambda_param+
+                var _tmp1 = new GeneratedArgSeq();
+                // Parse first item (no separator)
+                // Call rule: lambda_param
+                var _first__tmp1 = LambdaParam();
+                if (_first__tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                if (_first__tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                _tmp1.Add(_first__tmp1);
+                // Parse remaining items (separator + item)
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Expect ','
-                    var _loop_elem__tmp1 = Expect(",");
+                    var _sep__tmp1 = Expect(",");
+                    if (_sep__tmp1 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep__tmp1 == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: lambda_param
+                    var _loop_elem__tmp1 = LambdaParam();
                     if (_loop_elem__tmp1 == null)
                     {
                         _position = _mark;
@@ -30067,54 +30523,26 @@ namespace SharpPy.Generated
                     }
                     if (_loop_elem__tmp1 == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
                     }
                     _tmp1.Add(_loop_elem__tmp1);
                 }
-                // Collected _tmp1.Count items (may be 0)
-                // One or more: lambda_param+
-                var _tmp2 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: lambda_param
-                    var _loop_elem__tmp2 = LambdaParam();
-                    if (_loop_elem__tmp2 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp2 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp2.Add(_loop_elem__tmp2);
-                }
-                if (_tmp2.Count == 0)
-                {
-                    // One or more requires at least one match
-                    _position = _mark;
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // Optional: [',']
-                int _opt_mark__tmp3 = _position;
+                int _opt_mark__tmp2 = _position;
                 // Expect ','
-                var _opt__tmp3 = Expect(",");
-                if (_opt__tmp3 == null)
+                var _opt__tmp2 = Expect(",");
+                if (_opt__tmp2 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp3 = _opt__tmp3;
-                if (_tmp3 == null)
+                GeneratedTokenInfo? _tmp2 = _opt__tmp2;
+                if (_tmp2 == null)
                 {
-                    _position = _opt_mark__tmp3; // Reset position
-                    _tmp3 = null; // Optional not present
+                    _position = _opt_mark__tmp2; // Reset position
+                    _tmp2 = null; // Optional not present
                 }
                 // Expect ')'
                 var b = Expect(")");
@@ -30147,12 +30575,12 @@ namespace SharpPy.Generated
                 // Optional: [(lambda_slash_no_default | lambda_slash_with_default)]
                 int _opt_mark__tmp0 = _position;
                 // Group: (lambda_slash_no_default | lambda_slash_with_default)
-                object? _opt__tmp0 = null;
+                GeneratedAstNode? _opt__tmp0 = null;
                 int _group_mark__opt__tmp0 = _position;
                 // Try group alternative 1: lambda_slash_no_default
                 {
                     _position = _group_mark__opt__tmp0;
-                    var _group_alt0__opt__tmp0_item0 = LambdaSlashNoDefault();
+                    GeneratedAstNodeSeq _group_alt0__opt__tmp0_item0 = LambdaSlashNoDefault();
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
@@ -30162,7 +30590,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp0 == null)
                 {
                     _position = _group_mark__opt__tmp0;
-                    var _group_alt1__opt__tmp0_item0 = LambdaSlashWithDefault();
+                    GeneratedSlashWithDefault _group_alt1__opt__tmp0_item0 = LambdaSlashWithDefault();
                     if (_group_alt1__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt1__opt__tmp0_item0;
@@ -30174,14 +30602,14 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp0 = _opt__tmp0;
+                GeneratedAstNode? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
                     _position = _opt_mark__tmp0; // Reset position
                     _tmp0 = null; // Optional not present
                 }
                 // Zero or more: lambda_param_maybe_default*
-                var _tmp1 = new System.Collections.Generic.List<object?>();
+                var _tmp1 = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -30211,11 +30639,13 @@ namespace SharpPy.Generated
                 }
                 // Group: (',' | lambda_param_no_default)
                 object? _tmp3 = null;
+                // CPython 3.12: void* pattern - only GeneratedTokenInfo or GeneratedArg expected
+                // Type check: if (_tmp3 != null) { var typeName = _tmp3.GetType().Name; /* validate */ }
                 int _group_mark__tmp3 = _position;
                 // Try group alternative 1: ','
                 {
                     _position = _group_mark__tmp3;
-                    var _group_alt0__tmp3_item0 = Expect(",");
+                    GeneratedTokenInfo? _group_alt0__tmp3_item0 = Expect(",");
                     if (_group_alt0__tmp3_item0 != null)
                     {
                         _tmp3 = _group_alt0__tmp3_item0;
@@ -30225,7 +30655,7 @@ namespace SharpPy.Generated
                 if (_tmp3 == null)
                 {
                     _position = _group_mark__tmp3;
-                    var _group_alt1__tmp3_item0 = LambdaParamNoDefault();
+                    GeneratedArg _group_alt1__tmp3_item0 = LambdaParamNoDefault();
                     if (_group_alt1__tmp3_item0 != null)
                     {
                         _tmp3 = _group_alt1__tmp3_item0;
@@ -30238,7 +30668,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: lambda_param_maybe_default*
-                var _tmp4 = new System.Collections.Generic.List<object?>();
+                var _tmp4 = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -30287,7 +30717,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: lambda_param_maybe_default+
-                var _tmp0 = new System.Collections.Generic.List<object?>();
+                var _tmp0 = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -30340,15 +30770,6 @@ namespace SharpPy.Generated
             _position = _mark;
             _res = null;
 
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
-
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
             // Update end position before returning
@@ -30393,8 +30814,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_singleton_seq(p, a)
-                // TODO: Complex action expression: _PyPegen_singleton_seq(p, a)
-                _res = default(object?);
+                _res = _PyPegen_singleton_seq(a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -30411,7 +30831,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: lambda_param_with_default+
-                var _tmp0 = new System.Collections.Generic.List<object?>();
+                var _tmp0 = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -30438,21 +30858,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (object?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -30498,12 +30909,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Group: (':' | ',' (':' | '**'))
-                object? _tmp1 = null;
+                GeneratedTokenInfo? _tmp1 = null;
                 int _group_mark__tmp1 = _position;
                 // Try group alternative 1: ':'
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt0__tmp1_item0 = Expect(":");
+                    GeneratedTokenInfo? _group_alt0__tmp1_item0 = Expect(":");
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -30513,11 +30924,37 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt1__tmp1_item0 = Expect(",");
+                    GeneratedTokenInfo? _group_alt1__tmp1_item0 = Expect(",");
                     if (_group_alt1__tmp1_item0 != null)
                     {
-                        object? _group_alt1__tmp1_item1 = null;
-                        // TODO: Complex group item type: Group
+                        // Group: (':' | '**')
+                        GeneratedTokenInfo? _group_alt1__tmp1_item1 = null;
+                        int _group_mark__group_alt1__tmp1_item1 = _position;
+                        // Try group alternative 1: ':'
+                        {
+                            _position = _group_mark__group_alt1__tmp1_item1;
+                            GeneratedTokenInfo? _group_alt0__group_alt1__tmp1_item1_item0 = Expect(":");
+                            if (_group_alt0__group_alt1__tmp1_item1_item0 != null)
+                            {
+                                _group_alt1__tmp1_item1 = _group_alt0__group_alt1__tmp1_item1_item0;
+                            }
+                        }
+                        // Try group alternative 2: '**'
+                        if (_group_alt1__tmp1_item1 == null)
+                        {
+                            _position = _group_mark__group_alt1__tmp1_item1;
+                            GeneratedTokenInfo? _group_alt1__group_alt1__tmp1_item1_item0 = Expect("**");
+                            if (_group_alt1__group_alt1__tmp1_item1_item0 != null)
+                            {
+                                _group_alt1__tmp1_item1 = _group_alt1__group_alt1__tmp1_item1_item0;
+                            }
+                        }
+                        if (_group_alt1__tmp1_item1 == null)
+                        {
+                            _position = _mark;
+                            _res = null;
+                            break;  // Exit this alternative
+                        }
                         if (_group_alt1__tmp1_item1 != null)
                         {
                             _tmp1 = _group_alt1__tmp1_item1;
@@ -30604,11 +31041,13 @@ namespace SharpPy.Generated
                 }
                 // Group: (lambda_param_no_default | ',')
                 object? _tmp1 = null;
+                // CPython 3.12: void* pattern - only GeneratedTokenInfo or GeneratedArg expected
+                // Type check: if (_tmp1 != null) { var typeName = _tmp1.GetType().Name; /* validate */ }
                 int _group_mark__tmp1 = _position;
                 // Try group alternative 1: lambda_param_no_default
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt0__tmp1_item0 = LambdaParamNoDefault();
+                    GeneratedArg _group_alt0__tmp1_item0 = LambdaParamNoDefault();
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -30618,7 +31057,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt1__tmp1_item0 = Expect(",");
+                    GeneratedTokenInfo? _group_alt1__tmp1_item0 = Expect(",");
                     if (_group_alt1__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
@@ -30631,7 +31070,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: lambda_param_maybe_default*
-                var _tmp2 = new System.Collections.Generic.List<object?>();
+                var _tmp2 = new GeneratedAstNodeSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -30661,11 +31100,13 @@ namespace SharpPy.Generated
                 }
                 // Group: (lambda_param_no_default | ',')
                 object? _tmp3 = null;
+                // CPython 3.12: void* pattern - only GeneratedTokenInfo or GeneratedArg expected
+                // Type check: if (_tmp3 != null) { var typeName = _tmp3.GetType().Name; /* validate */ }
                 int _group_mark__tmp3 = _position;
                 // Try group alternative 1: lambda_param_no_default
                 {
                     _position = _group_mark__tmp3;
-                    var _group_alt0__tmp3_item0 = LambdaParamNoDefault();
+                    GeneratedArg _group_alt0__tmp3_item0 = LambdaParamNoDefault();
                     if (_group_alt0__tmp3_item0 != null)
                     {
                         _tmp3 = _group_alt0__tmp3_item0;
@@ -30675,7 +31116,7 @@ namespace SharpPy.Generated
                 if (_tmp3 == null)
                 {
                     _position = _group_mark__tmp3;
-                    var _group_alt1__tmp3_item0 = Expect(",");
+                    GeneratedTokenInfo? _group_alt1__tmp3_item0 = Expect(",");
                     if (_group_alt1__tmp3_item0 != null)
                     {
                         _tmp3 = _group_alt1__tmp3_item0;
@@ -30697,15 +31138,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -30863,12 +31295,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Group: ('*' | '**' | '/')
-                object? a = null;
+                GeneratedTokenInfo? a = null;
                 int _group_mark_a = _position;
                 // Try group alternative 1: '*'
                 {
                     _position = _group_mark_a;
-                    var _group_alt0_a_item0 = Expect("*");
+                    GeneratedTokenInfo? _group_alt0_a_item0 = Expect("*");
                     if (_group_alt0_a_item0 != null)
                     {
                         a = _group_alt0_a_item0;
@@ -30878,7 +31310,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _group_mark_a;
-                    var _group_alt1_a_item0 = Expect("**");
+                    GeneratedTokenInfo? _group_alt1_a_item0 = Expect("**");
                     if (_group_alt1_a_item0 != null)
                     {
                         a = _group_alt1_a_item0;
@@ -30888,7 +31320,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _group_mark_a;
-                    var _group_alt2_a_item0 = Expect("/");
+                    GeneratedTokenInfo? _group_alt2_a_item0 = Expect("/");
                     if (_group_alt2_a_item0 != null)
                     {
                         a = _group_alt2_a_item0;
@@ -30910,15 +31342,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -31016,15 +31439,6 @@ namespace SharpPy.Generated
             _position = _mark;
             _res = null;
 
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
-
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
             // Update end position before returning
@@ -31085,9 +31499,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_77 = _position;
+                int _lookahead_mark_89 = _position;
                 // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_77; // Restore position
+                _position = _lookahead_mark_89; // Restore position
                 // Action: RAISE_SYNTAX_ERROR_INVALID_TARGET(STAR_TARGETS, a)
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "invalid syntax";
@@ -31098,15 +31512,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -31155,7 +31560,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp0 = _opt__tmp0;
+                GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
                     _position = _opt_mark__tmp0; // Reset position
@@ -31187,15 +31592,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -31319,15 +31715,6 @@ namespace SharpPy.Generated
             _position = _mark;
             _res = null;
 
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
-
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
             // Update end position before returning
@@ -31371,65 +31758,67 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Zero or more: ','*
-                var _tmp0 = new System.Collections.Generic.List<object?>();
-                while (true)
+                // Gather: ','.dotted_name+
+                var _tmp0 = new GeneratedExprSeq();
+                // Parse first item (no separator)
+                // Call rule: dotted_name
+                var _first__tmp0 = DottedName();
+                if (_first__tmp0 == null)
                 {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _loop_elem__tmp0 = Expect(",");
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
-                }
-                // Collected _tmp0.Count items (may be 0)
-                // One or more: dotted_name+
-                var _tmp1 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: dotted_name
-                    var _loop_elem__tmp1 = DottedName();
-                    if (_loop_elem__tmp1 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp1 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp1.Add(_loop_elem__tmp1);
-                }
-                if (_tmp1.Count == 0)
-                {
-                    // One or more requires at least one match
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                if (_first__tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                _tmp0.Add(_first__tmp0);
+                // Parse remaining items (separator + item)
+                while (true)
+                {
+                    int _loop_mark = _position;
+                    // Expect ','
+                    var _sep__tmp0 = Expect(",");
+                    if (_sep__tmp0 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep__tmp0 == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: dotted_name
+                    var _loop_elem__tmp0 = DottedName();
+                    if (_loop_elem__tmp0 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_loop_elem__tmp0 == null)
+                    {
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
+                    }
+                    _tmp0.Add(_loop_elem__tmp0);
+                }
                 // Expect 'from'
-                var _tmp2 = Expect("from");
-                if (_tmp2 == null)
+                var _tmp1 = Expect("from");
+                if (_tmp1 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // Call rule: dotted_name
-                var _tmp3 = DottedName();
-                if (_tmp3 == null)
+                var _tmp2 = DottedName();
+                if (_tmp2 == null)
                 {
                     _position = _mark;
                     _res = null;
@@ -31445,15 +31834,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -31527,15 +31907,6 @@ namespace SharpPy.Generated
             _position = _mark;
             _res = null;
 
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
-
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
             // Update end position before returning
@@ -31574,12 +31945,12 @@ namespace SharpPy.Generated
                 // Optional: [(ASYNC)]
                 int _opt_mark__tmp0 = _position;
                 // Group: (ASYNC)
-                object? _opt__tmp0 = null;
+                GeneratedTokenInfo? _opt__tmp0 = null;
                 int _group_mark__opt__tmp0 = _position;
                 // Try group alternative 1: ASYNC
                 {
                     _position = _group_mark__opt__tmp0;
-                    var _group_alt0__opt__tmp0_item0 = ExpectToken(GeneratedTokenType.ASYNC);
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = ExpectToken(GeneratedTokenType.ASYNC);
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
@@ -31591,7 +31962,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp0 = _opt__tmp0;
+                GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
                     _position = _opt_mark__tmp0; // Reset position
@@ -31605,60 +31976,63 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Zero or more: ','*
-                var _tmp2 = new System.Collections.Generic.List<object?>();
-                while (true)
+                // Gather: ','.()+
+                var _tmp2 = new GeneratedExprSeq();
+                // Parse first item (no separator)
+                // Group: ()
+                GeneratedAstNode? _first__tmp2 = null;
+                int _group_mark__first__tmp2 = _position;
+                if (_first__tmp2 == null)
                 {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _loop_elem__tmp2 = Expect(",");
-                    if (_loop_elem__tmp2 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp2 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp2.Add(_loop_elem__tmp2);
-                }
-                // Collected _tmp2.Count items (may be 0)
-                // One or more: ()+
-                var _tmp3 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Group: ()
-                    object? _loop_elem__tmp3 = null;
-                    int _group_mark__loop_elem__tmp3 = _position;
-                    if (_loop_elem__tmp3 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp3 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp3.Add(_loop_elem__tmp3);
-                }
-                if (_tmp3.Count == 0)
-                {
-                    // One or more requires at least one match
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                if (_first__tmp2 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                _tmp2.Add((GeneratedExpr)_first__tmp2);
+                // Parse remaining items (separator + item)
+                while (true)
+                {
+                    int _loop_mark = _position;
+                    // Expect ','
+                    var _sep__tmp2 = Expect(",");
+                    if (_sep__tmp2 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep__tmp2 == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Group: ()
+                    GeneratedAstNode? _loop_elem__tmp2 = null;
+                    int _group_mark__loop_elem__tmp2 = _position;
+                    if (_loop_elem__tmp2 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_loop_elem__tmp2 == null)
+                    {
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
+                    }
+                    _tmp2.Add((GeneratedExpr)_loop_elem__tmp2);
+                }
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var _tmp4 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp4 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (_tmp4 == null)
+                var _tmp3 = ExpectToken(GeneratedTokenType.NEWLINE);
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp3 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
+                if (_tmp3 == null)
                 {
                     _position = _mark;
                     _res = null;
@@ -31687,12 +32061,12 @@ namespace SharpPy.Generated
                 // Optional: [(ASYNC)]
                 int _opt_mark__tmp0 = _position;
                 // Group: (ASYNC)
-                object? _opt__tmp0 = null;
+                GeneratedTokenInfo? _opt__tmp0 = null;
                 int _group_mark__opt__tmp0 = _position;
                 // Try group alternative 1: ASYNC
                 {
                     _position = _group_mark__opt__tmp0;
-                    var _group_alt0__opt__tmp0_item0 = ExpectToken(GeneratedTokenType.ASYNC);
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = ExpectToken(GeneratedTokenType.ASYNC);
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
@@ -31704,7 +32078,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp0 = _opt__tmp0;
+                GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
                     _position = _opt_mark__tmp0; // Reset position
@@ -31726,74 +32100,77 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Zero or more: ','*
-                var _tmp3 = new System.Collections.Generic.List<object?>();
+                // Gather: ','.()+
+                var _tmp3 = new GeneratedExprSeq();
+                // Parse first item (no separator)
+                // Group: ()
+                GeneratedAstNode? _first__tmp3 = null;
+                int _group_mark__first__tmp3 = _position;
+                if (_first__tmp3 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                if (_first__tmp3 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                _tmp3.Add((GeneratedExpr)_first__tmp3);
+                // Parse remaining items (separator + item)
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Expect ','
-                    var _loop_elem__tmp3 = Expect(",");
-                    if (_loop_elem__tmp3 == null)
+                    var _sep__tmp3 = Expect(",");
+                    if (_sep__tmp3 == null)
                     {
                         _position = _mark;
                         _res = null;
                         break;  // Exit this alternative
                     }
-                    if (_loop_elem__tmp3 == null)
+                    if (_sep__tmp3 == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark;
+                        break; // No more separators
                     }
-                    _tmp3.Add(_loop_elem__tmp3);
-                }
-                // Collected _tmp3.Count items (may be 0)
-                // One or more: ()+
-                var _tmp4 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
                     // Group: ()
-                    object? _loop_elem__tmp4 = null;
-                    int _group_mark__loop_elem__tmp4 = _position;
-                    if (_loop_elem__tmp4 == null)
+                    GeneratedAstNode? _loop_elem__tmp3 = null;
+                    int _group_mark__loop_elem__tmp3 = _position;
+                    if (_loop_elem__tmp3 == null)
                     {
                         _position = _mark;
                         _res = null;
                         break;  // Exit this alternative
                     }
-                    if (_loop_elem__tmp4 == null)
+                    if (_loop_elem__tmp3 == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
                     }
-                    _tmp4.Add(_loop_elem__tmp4);
-                }
-                if (_tmp4.Count == 0)
-                {
-                    // One or more requires at least one match
-                    _position = _mark;
-                    _res = null;
-                    break;  // Exit this alternative
+                    _tmp3.Add((GeneratedExpr)_loop_elem__tmp3);
                 }
                 // Optional: [',']
-                int _opt_mark__tmp5 = _position;
+                int _opt_mark__tmp4 = _position;
                 // Expect ','
-                var _opt__tmp5 = Expect(",");
-                if (_opt__tmp5 == null)
+                var _opt__tmp4 = Expect(",");
+                if (_opt__tmp4 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp5 = _opt__tmp5;
-                if (_tmp5 == null)
+                GeneratedTokenInfo? _tmp4 = _opt__tmp4;
+                if (_tmp4 == null)
                 {
-                    _position = _opt_mark__tmp5; // Reset position
-                    _tmp5 = null; // Optional not present
+                    _position = _opt_mark__tmp4; // Reset position
+                    _tmp4 = null; // Optional not present
                 }
                 // Expect ')'
-                var _tmp6 = Expect(")");
-                if (_tmp6 == null)
+                var _tmp5 = Expect(")");
+                if (_tmp5 == null)
                 {
                     _position = _mark;
                     _res = null;
@@ -31801,9 +32178,9 @@ namespace SharpPy.Generated
                 }
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var _tmp7 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp7 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (_tmp7 == null)
+                var _tmp6 = ExpectToken(GeneratedTokenType.NEWLINE);
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp6 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
+                if (_tmp6 == null)
                 {
                     _position = _mark;
                     _res = null;
@@ -31819,15 +32196,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -31867,12 +32235,12 @@ namespace SharpPy.Generated
                 // Optional: [(ASYNC)]
                 int _opt_mark__tmp0 = _position;
                 // Group: (ASYNC)
-                object? _opt__tmp0 = null;
+                GeneratedTokenInfo? _opt__tmp0 = null;
                 int _group_mark__opt__tmp0 = _position;
                 // Try group alternative 1: ASYNC
                 {
                     _position = _group_mark__opt__tmp0;
-                    var _group_alt0__opt__tmp0_item0 = ExpectToken(GeneratedTokenType.ASYNC);
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = ExpectToken(GeneratedTokenType.ASYNC);
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
@@ -31884,7 +32252,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp0 = _opt__tmp0;
+                GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
                     _position = _opt_mark__tmp0; // Reset position
@@ -31898,58 +32266,61 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Zero or more: ','*
-                var _tmp1 = new System.Collections.Generic.List<object?>();
-                while (true)
+                // Gather: ','.()+
+                var _tmp1 = new GeneratedExprSeq();
+                // Parse first item (no separator)
+                // Group: ()
+                GeneratedAstNode? _first__tmp1 = null;
+                int _group_mark__first__tmp1 = _position;
+                if (_first__tmp1 == null)
                 {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _loop_elem__tmp1 = Expect(",");
-                    if (_loop_elem__tmp1 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp1 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp1.Add(_loop_elem__tmp1);
-                }
-                // Collected _tmp1.Count items (may be 0)
-                // One or more: ()+
-                var _tmp2 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Group: ()
-                    object? _loop_elem__tmp2 = null;
-                    int _group_mark__loop_elem__tmp2 = _position;
-                    if (_loop_elem__tmp2 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp2 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp2.Add(_loop_elem__tmp2);
-                }
-                if (_tmp2.Count == 0)
-                {
-                    // One or more requires at least one match
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                if (_first__tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                _tmp1.Add((GeneratedExpr)_first__tmp1);
+                // Parse remaining items (separator + item)
+                while (true)
+                {
+                    int _loop_mark = _position;
+                    // Expect ','
+                    var _sep__tmp1 = Expect(",");
+                    if (_sep__tmp1 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep__tmp1 == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Group: ()
+                    GeneratedAstNode? _loop_elem__tmp1 = null;
+                    int _group_mark__loop_elem__tmp1 = _position;
+                    if (_loop_elem__tmp1 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_loop_elem__tmp1 == null)
+                    {
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
+                    }
+                    _tmp1.Add((GeneratedExpr)_loop_elem__tmp1);
+                }
                 // Expect ':'
-                var _tmp3 = Expect(":");
-                if (_tmp3 == null)
+                var _tmp2 = Expect(":");
+                if (_tmp2 == null)
                 {
                     _position = _mark;
                     _res = null;
@@ -31957,18 +32328,18 @@ namespace SharpPy.Generated
                 }
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var _tmp4 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp4 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (_tmp4 == null)
+                var _tmp3 = ExpectToken(GeneratedTokenType.NEWLINE);
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp3 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
+                if (_tmp3 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_78 = null;
+                object? _lookahead_test_90 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_78 != null)
+                if (_lookahead_test_90 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -31998,12 +32369,12 @@ namespace SharpPy.Generated
                 // Optional: [(ASYNC)]
                 int _opt_mark__tmp0 = _position;
                 // Group: (ASYNC)
-                object? _opt__tmp0 = null;
+                GeneratedTokenInfo? _opt__tmp0 = null;
                 int _group_mark__opt__tmp0 = _position;
                 // Try group alternative 1: ASYNC
                 {
                     _position = _group_mark__opt__tmp0;
-                    var _group_alt0__opt__tmp0_item0 = ExpectToken(GeneratedTokenType.ASYNC);
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = ExpectToken(GeneratedTokenType.ASYNC);
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
@@ -32015,7 +32386,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp0 = _opt__tmp0;
+                GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
                     _position = _opt_mark__tmp0; // Reset position
@@ -32037,82 +32408,85 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Zero or more: ','*
-                var _tmp2 = new System.Collections.Generic.List<object?>();
+                // Gather: ','.()+
+                var _tmp2 = new GeneratedExprSeq();
+                // Parse first item (no separator)
+                // Group: ()
+                GeneratedAstNode? _first__tmp2 = null;
+                int _group_mark__first__tmp2 = _position;
+                if (_first__tmp2 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                if (_first__tmp2 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                _tmp2.Add((GeneratedExpr)_first__tmp2);
+                // Parse remaining items (separator + item)
                 while (true)
                 {
                     int _loop_mark = _position;
                     // Expect ','
-                    var _loop_elem__tmp2 = Expect(",");
-                    if (_loop_elem__tmp2 == null)
+                    var _sep__tmp2 = Expect(",");
+                    if (_sep__tmp2 == null)
                     {
                         _position = _mark;
                         _res = null;
                         break;  // Exit this alternative
                     }
-                    if (_loop_elem__tmp2 == null)
+                    if (_sep__tmp2 == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark;
+                        break; // No more separators
                     }
-                    _tmp2.Add(_loop_elem__tmp2);
-                }
-                // Collected _tmp2.Count items (may be 0)
-                // One or more: ()+
-                var _tmp3 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
                     // Group: ()
-                    object? _loop_elem__tmp3 = null;
-                    int _group_mark__loop_elem__tmp3 = _position;
-                    if (_loop_elem__tmp3 == null)
+                    GeneratedAstNode? _loop_elem__tmp2 = null;
+                    int _group_mark__loop_elem__tmp2 = _position;
+                    if (_loop_elem__tmp2 == null)
                     {
                         _position = _mark;
                         _res = null;
                         break;  // Exit this alternative
                     }
-                    if (_loop_elem__tmp3 == null)
+                    if (_loop_elem__tmp2 == null)
                     {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
                     }
-                    _tmp3.Add(_loop_elem__tmp3);
-                }
-                if (_tmp3.Count == 0)
-                {
-                    // One or more requires at least one match
-                    _position = _mark;
-                    _res = null;
-                    break;  // Exit this alternative
+                    _tmp2.Add((GeneratedExpr)_loop_elem__tmp2);
                 }
                 // Optional: [',']
-                int _opt_mark__tmp4 = _position;
+                int _opt_mark__tmp3 = _position;
                 // Expect ','
-                var _opt__tmp4 = Expect(",");
-                if (_opt__tmp4 == null)
+                var _opt__tmp3 = Expect(",");
+                if (_opt__tmp3 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp4 = _opt__tmp4;
-                if (_tmp4 == null)
+                GeneratedTokenInfo? _tmp3 = _opt__tmp3;
+                if (_tmp3 == null)
                 {
-                    _position = _opt_mark__tmp4; // Reset position
-                    _tmp4 = null; // Optional not present
+                    _position = _opt_mark__tmp3; // Reset position
+                    _tmp3 = null; // Optional not present
                 }
                 // Expect ')'
-                var _tmp5 = Expect(")");
-                if (_tmp5 == null)
+                var _tmp4 = Expect(")");
+                if (_tmp4 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp6 = Expect(":");
-                if (_tmp6 == null)
+                var _tmp5 = Expect(":");
+                if (_tmp5 == null)
                 {
                     _position = _mark;
                     _res = null;
@@ -32120,18 +32494,18 @@ namespace SharpPy.Generated
                 }
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var _tmp7 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp7 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (_tmp7 == null)
+                var _tmp6 = ExpectToken(GeneratedTokenType.NEWLINE);
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp6 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
+                if (_tmp6 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_79 = null;
+                object? _lookahead_test_91 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_79 != null)
+                if (_lookahead_test_91 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -32148,15 +32522,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -32220,9 +32585,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_80 = null;
+                object? _lookahead_test_92 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_80 != null)
+                if (_lookahead_test_92 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -32274,11 +32639,11 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('except' | 'finally'))
-                object? _lookahead_test_81 = null;
+                object? _lookahead_test_93 = null;
                 // Test if current token matches: ('except' | 'finally')
-                if (CurrentToken?.Value == "except") { _lookahead_test_81 = CurrentToken; }
-                if (CurrentToken?.Value == "finally") { _lookahead_test_81 = CurrentToken; }
-                if (_lookahead_test_81 != null)
+                if (CurrentToken?.Value == "except") { _lookahead_test_93 = CurrentToken; }
+                if (CurrentToken?.Value == "finally") { _lookahead_test_93 = CurrentToken; }
+                if (_lookahead_test_93 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -32322,7 +32687,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: block*
-                var _tmp2 = new System.Collections.Generic.List<object?>();
+                var _tmp2 = new List<GeneratedStmtSeq>();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -32343,7 +32708,7 @@ namespace SharpPy.Generated
                 }
                 // Collected _tmp2.Count items (may be 0)
                 // One or more: except_block+
-                var _tmp3 = new System.Collections.Generic.List<object?>();
+                var _tmp3 = new GeneratedExceptHandlerSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -32430,7 +32795,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: block*
-                var _tmp2 = new System.Collections.Generic.List<object?>();
+                var _tmp2 = new List<GeneratedStmtSeq>();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -32451,7 +32816,7 @@ namespace SharpPy.Generated
                 }
                 // Collected _tmp2.Count items (may be 0)
                 // One or more: except_star_block+
-                var _tmp3 = new System.Collections.Generic.List<object?>();
+                var _tmp3 = new GeneratedExceptHandlerSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -32488,7 +32853,7 @@ namespace SharpPy.Generated
                 // Optional: [()]
                 int _opt_mark__tmp4 = _position;
                 // Group: ()
-                object? _opt__tmp4 = null;
+                GeneratedAstNode? _opt__tmp4 = null;
                 int _group_mark__opt__tmp4 = _position;
                 // Try group alternative 1: 
                 {
@@ -32500,7 +32865,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp4 = _opt__tmp4;
+                GeneratedAstNode? _tmp4 = _opt__tmp4;
                 if (_tmp4 == null)
                 {
                     _position = _opt_mark__tmp4; // Reset position
@@ -32524,15 +32889,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -32587,7 +32943,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp1 = _opt__tmp1;
+                GeneratedTokenInfo? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
                 {
                     _position = _opt_mark__tmp1; // Reset position
@@ -32655,7 +33011,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp0 = _opt__tmp0;
+                GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
                     _position = _opt_mark__tmp0; // Reset position
@@ -32746,12 +33102,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Group: (NEWLINE | ':')
-                object? _tmp1 = null;
+                GeneratedTokenInfo? _tmp1 = null;
                 int _group_mark__tmp1 = _position;
                 // Try group alternative 1: NEWLINE
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt0__tmp1_item0 = ExpectToken(GeneratedTokenType.NEWLINE);
+                    GeneratedTokenInfo? _group_alt0__tmp1_item0 = ExpectToken(GeneratedTokenType.NEWLINE);
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -32761,7 +33117,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt1__tmp1_item0 = Expect(":");
+                    GeneratedTokenInfo? _group_alt1__tmp1_item0 = Expect(":");
                     if (_group_alt1__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
@@ -32783,15 +33139,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -32855,9 +33202,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_82 = null;
+                object? _lookahead_test_94 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_82 != null)
+                if (_lookahead_test_94 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -32874,15 +33221,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -32946,9 +33284,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_83 = null;
+                object? _lookahead_test_95 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_83 != null)
+                if (_lookahead_test_95 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -33002,9 +33340,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_84 = null;
+                object? _lookahead_test_96 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_84 != null)
+                if (_lookahead_test_96 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -33021,15 +33359,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -33101,9 +33430,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_85 = null;
+                object? _lookahead_test_97 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_85 != null)
+                if (_lookahead_test_97 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -33120,15 +33449,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -33246,9 +33566,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_86 = null;
+                object? _lookahead_test_98 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_86 != null)
+                if (_lookahead_test_98 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -33265,15 +33585,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -33336,7 +33647,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp2 = _opt__tmp2;
+                GeneratedExpr? _tmp2 = _opt__tmp2;
                 if (_tmp2 == null)
                 {
                     _position = _opt_mark__tmp2; // Reset position
@@ -33398,7 +33709,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp1 = _opt__tmp1;
+                GeneratedExpr? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
                 {
                     _position = _opt_mark__tmp1; // Reset position
@@ -33423,9 +33734,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_87 = null;
+                object? _lookahead_test_99 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_87 != null)
+                if (_lookahead_test_99 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -33442,15 +33753,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -33548,9 +33850,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(NAME)
-                object? _lookahead_test_88 = null;
+                object? _lookahead_test_100 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_88 != null)
+                if (_lookahead_test_100 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -33575,15 +33877,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -33663,15 +33956,6 @@ namespace SharpPy.Generated
             _position = _mark;
             _res = null;
 
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
-
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
             // Update end position before returning
@@ -33682,11 +33966,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_class_argument_pattern from python.gram
-        public GeneratedSeq InvalidClassArgumentPattern()
+        public GeneratedAstNodeSeq InvalidClassArgumentPattern()
         {
             // CPython 3.12 PEG: invalid_class_argument_pattern
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedAstNodeSeq _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -33710,15 +33994,15 @@ namespace SharpPy.Generated
                 // Optional: [(positional_patterns ',')]
                 int _opt_mark__tmp0 = _position;
                 // Group: (positional_patterns ',')
-                object? _opt__tmp0 = null;
+                GeneratedTokenInfo? _opt__tmp0 = null;
                 int _group_mark__opt__tmp0 = _position;
                 // Try group alternative 1: positional_patterns ','
                 {
                     _position = _group_mark__opt__tmp0;
-                    var _group_alt0__opt__tmp0_item0 = PositionalPatterns();
+                    GeneratedAstNodeSeq _group_alt0__opt__tmp0_item0 = PositionalPatterns();
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
-                        var _group_alt0__opt__tmp0_item1 = Expect(",");
+                        GeneratedTokenInfo? _group_alt0__opt__tmp0_item1 = Expect(",");
                         if (_group_alt0__opt__tmp0_item1 != null)
                         {
                             _opt__tmp0 = _group_alt0__opt__tmp0_item1;
@@ -33731,7 +34015,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp0 = _opt__tmp0;
+                GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
                     _position = _opt_mark__tmp0; // Reset position
@@ -33762,21 +34046,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedSeq)((object?)a);
+                _res = (GeneratedAstNodeSeq)((object?)a);
                 if (_res != null) goto done;
             } while (false);
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -33894,9 +34169,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_89 = null;
+                object? _lookahead_test_101 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_89 != null)
+                if (_lookahead_test_101 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -33913,15 +34188,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -34039,9 +34305,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_90 = null;
+                object? _lookahead_test_102 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_90 != null)
+                if (_lookahead_test_102 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -34058,15 +34324,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -34130,9 +34387,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_91 = null;
+                object? _lookahead_test_103 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_91 != null)
+                if (_lookahead_test_103 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -34149,15 +34406,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -34275,9 +34523,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_92 = null;
+                object? _lookahead_test_104 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_92 != null)
+                if (_lookahead_test_104 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -34294,15 +34542,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -34342,12 +34581,12 @@ namespace SharpPy.Generated
                 // Optional: [(ASYNC)]
                 int _opt_mark__tmp0 = _position;
                 // Group: (ASYNC)
-                object? _opt__tmp0 = null;
+                GeneratedTokenInfo? _opt__tmp0 = null;
                 int _group_mark__opt__tmp0 = _position;
                 // Try group alternative 1: ASYNC
                 {
                     _position = _group_mark__opt__tmp0;
-                    var _group_alt0__opt__tmp0_item0 = ExpectToken(GeneratedTokenType.ASYNC);
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = ExpectToken(GeneratedTokenType.ASYNC);
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
@@ -34359,7 +34598,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp0 = _opt__tmp0;
+                GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
                     _position = _opt_mark__tmp0; // Reset position
@@ -34430,12 +34669,12 @@ namespace SharpPy.Generated
                 // Optional: [(ASYNC)]
                 int _opt_mark__tmp0 = _position;
                 // Group: (ASYNC)
-                object? _opt__tmp0 = null;
+                GeneratedTokenInfo? _opt__tmp0 = null;
                 int _group_mark__opt__tmp0 = _position;
                 // Try group alternative 1: ASYNC
                 {
                     _position = _group_mark__opt__tmp0;
-                    var _group_alt0__opt__tmp0_item0 = ExpectToken(GeneratedTokenType.ASYNC);
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = ExpectToken(GeneratedTokenType.ASYNC);
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
@@ -34447,7 +34686,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp0 = _opt__tmp0;
+                GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
                     _position = _opt_mark__tmp0; // Reset position
@@ -34504,9 +34743,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_93 = null;
+                object? _lookahead_test_105 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_93 != null)
+                if (_lookahead_test_105 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -34523,15 +34762,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -34571,12 +34801,12 @@ namespace SharpPy.Generated
                 // Optional: [(ASYNC)]
                 int _opt_mark__tmp0 = _position;
                 // Group: (ASYNC)
-                object? _opt__tmp0 = null;
+                GeneratedTokenInfo? _opt__tmp0 = null;
                 int _group_mark__opt__tmp0 = _position;
                 // Try group alternative 1: ASYNC
                 {
                     _position = _group_mark__opt__tmp0;
-                    var _group_alt0__opt__tmp0_item0 = ExpectToken(GeneratedTokenType.ASYNC);
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = ExpectToken(GeneratedTokenType.ASYNC);
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
@@ -34588,7 +34818,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp0 = _opt__tmp0;
+                GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
                     _position = _opt_mark__tmp0; // Reset position
@@ -34613,12 +34843,12 @@ namespace SharpPy.Generated
                 // Optional: [(params)]
                 int _opt_mark__tmp1 = _position;
                 // Group: (params)
-                object? _opt__tmp1 = null;
+                GeneratedArguments? _opt__tmp1 = null;
                 int _group_mark__opt__tmp1 = _position;
                 // Try group alternative 1: params
                 {
                     _position = _group_mark__opt__tmp1;
-                    var _group_alt0__opt__tmp1_item0 = Params();
+                    GeneratedArguments _group_alt0__opt__tmp1_item0 = Params();
                     if (_group_alt0__opt__tmp1_item0 != null)
                     {
                         _opt__tmp1 = _group_alt0__opt__tmp1_item0;
@@ -34630,7 +34860,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp1 = _opt__tmp1;
+                GeneratedArguments? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
                 {
                     _position = _opt_mark__tmp1; // Reset position
@@ -34647,15 +34877,15 @@ namespace SharpPy.Generated
                 // Optional: [('->' expression)]
                 int _opt_mark__tmp3 = _position;
                 // Group: ('->' expression)
-                object? _opt__tmp3 = null;
+                GeneratedExpr? _opt__tmp3 = null;
                 int _group_mark__opt__tmp3 = _position;
                 // Try group alternative 1: '->' expression
                 {
                     _position = _group_mark__opt__tmp3;
-                    var _group_alt0__opt__tmp3_item0 = Expect("->");
+                    GeneratedTokenInfo? _group_alt0__opt__tmp3_item0 = Expect("->");
                     if (_group_alt0__opt__tmp3_item0 != null)
                     {
-                        var _group_alt0__opt__tmp3_item1 = Expression();
+                        GeneratedExpr _group_alt0__opt__tmp3_item1 = Expression();
                         if (_group_alt0__opt__tmp3_item1 != null)
                         {
                             _opt__tmp3 = _group_alt0__opt__tmp3_item1;
@@ -34668,7 +34898,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp3 = _opt__tmp3;
+                GeneratedExpr? _tmp3 = _opt__tmp3;
                 if (_tmp3 == null)
                 {
                     _position = _opt_mark__tmp3; // Reset position
@@ -34693,9 +34923,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_94 = null;
+                object? _lookahead_test_106 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_94 != null)
+                if (_lookahead_test_106 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -34712,15 +34942,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -34768,19 +34989,43 @@ namespace SharpPy.Generated
                 // Optional: [('(' [(arguments)] ')')]
                 int _opt_mark_NAME = _position;
                 // Group: ('(' [(arguments)] ')')
-                object? _opt_NAME = null;
+                GeneratedTokenInfo? _opt_NAME = null;
                 int _group_mark__opt_NAME = _position;
                 // Try group alternative 1: '(' [(arguments)] ')'
                 {
                     _position = _group_mark__opt_NAME;
-                    var _group_alt0__opt_NAME_item0 = Expect("(");
+                    GeneratedTokenInfo? _group_alt0__opt_NAME_item0 = Expect("(");
                     if (_group_alt0__opt_NAME_item0 != null)
                     {
-                        object? _group_alt0__opt_NAME_item1 = null;
-                        // TODO: Complex group item type: Optional
+                        // Optional: [(arguments)]
+                        int _opt_mark__group_alt0__opt_NAME_item1 = _position;
+                        // Group: (arguments)
+                        GeneratedExpr? _opt__group_alt0__opt_NAME_item1 = null;
+                        int _group_mark__opt__group_alt0__opt_NAME_item1 = _position;
+                        // Try group alternative 1: arguments
+                        {
+                            _position = _group_mark__opt__group_alt0__opt_NAME_item1;
+                            GeneratedExpr _group_alt0__opt__group_alt0__opt_NAME_item1_item0 = Arguments();
+                            if (_group_alt0__opt__group_alt0__opt_NAME_item1_item0 != null)
+                            {
+                                _opt__group_alt0__opt_NAME_item1 = _group_alt0__opt__group_alt0__opt_NAME_item1_item0;
+                            }
+                        }
+                        if (_opt__group_alt0__opt_NAME_item1 == null)
+                        {
+                            _position = _mark;
+                            _res = null;
+                            break;  // Exit this alternative
+                        }
+                        GeneratedExpr? _group_alt0__opt_NAME_item1 = _opt__group_alt0__opt_NAME_item1;
+                        if (_group_alt0__opt_NAME_item1 == null)
+                        {
+                            _position = _opt_mark__group_alt0__opt_NAME_item1; // Reset position
+                            _group_alt0__opt_NAME_item1 = null; // Optional not present
+                        }
                         if (_group_alt0__opt_NAME_item1 != null)
                         {
-                            var _group_alt0__opt_NAME_item2 = Expect(")");
+                            GeneratedTokenInfo? _group_alt0__opt_NAME_item2 = Expect(")");
                             if (_group_alt0__opt_NAME_item2 != null)
                             {
                                 _opt_NAME = _group_alt0__opt_NAME_item2;
@@ -34794,7 +35039,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? NAME = _opt_NAME;
+                GeneratedTokenInfo? NAME = _opt_NAME;
                 if (NAME == null)
                 {
                     _position = _opt_mark_NAME; // Reset position
@@ -34841,19 +35086,43 @@ namespace SharpPy.Generated
                 // Optional: [('(' [(arguments)] ')')]
                 int _opt_mark_NAME = _position;
                 // Group: ('(' [(arguments)] ')')
-                object? _opt_NAME = null;
+                GeneratedTokenInfo? _opt_NAME = null;
                 int _group_mark__opt_NAME = _position;
                 // Try group alternative 1: '(' [(arguments)] ')'
                 {
                     _position = _group_mark__opt_NAME;
-                    var _group_alt0__opt_NAME_item0 = Expect("(");
+                    GeneratedTokenInfo? _group_alt0__opt_NAME_item0 = Expect("(");
                     if (_group_alt0__opt_NAME_item0 != null)
                     {
-                        object? _group_alt0__opt_NAME_item1 = null;
-                        // TODO: Complex group item type: Optional
+                        // Optional: [(arguments)]
+                        int _opt_mark__group_alt0__opt_NAME_item1 = _position;
+                        // Group: (arguments)
+                        GeneratedExpr? _opt__group_alt0__opt_NAME_item1 = null;
+                        int _group_mark__opt__group_alt0__opt_NAME_item1 = _position;
+                        // Try group alternative 1: arguments
+                        {
+                            _position = _group_mark__opt__group_alt0__opt_NAME_item1;
+                            GeneratedExpr _group_alt0__opt__group_alt0__opt_NAME_item1_item0 = Arguments();
+                            if (_group_alt0__opt__group_alt0__opt_NAME_item1_item0 != null)
+                            {
+                                _opt__group_alt0__opt_NAME_item1 = _group_alt0__opt__group_alt0__opt_NAME_item1_item0;
+                            }
+                        }
+                        if (_opt__group_alt0__opt_NAME_item1 == null)
+                        {
+                            _position = _mark;
+                            _res = null;
+                            break;  // Exit this alternative
+                        }
+                        GeneratedExpr? _group_alt0__opt_NAME_item1 = _opt__group_alt0__opt_NAME_item1;
+                        if (_group_alt0__opt_NAME_item1 == null)
+                        {
+                            _position = _opt_mark__group_alt0__opt_NAME_item1; // Reset position
+                            _group_alt0__opt_NAME_item1 = null; // Optional not present
+                        }
                         if (_group_alt0__opt_NAME_item1 != null)
                         {
-                            var _group_alt0__opt_NAME_item2 = Expect(")");
+                            GeneratedTokenInfo? _group_alt0__opt_NAME_item2 = Expect(")");
                             if (_group_alt0__opt_NAME_item2 != null)
                             {
                                 _opt_NAME = _group_alt0__opt_NAME_item2;
@@ -34867,7 +35136,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? NAME = _opt_NAME;
+                GeneratedTokenInfo? NAME = _opt_NAME;
                 if (NAME == null)
                 {
                     _position = _opt_mark_NAME; // Reset position
@@ -34892,9 +35161,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_95 = null;
+                object? _lookahead_test_107 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_95 != null)
+                if (_lookahead_test_107 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -34911,15 +35180,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -34956,76 +35216,78 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Zero or more: ','*
-                var _tmp0 = new System.Collections.Generic.List<object?>();
-                while (true)
+                // Gather: ','.double_starred_kvpair+
+                var _tmp0 = new GeneratedAstNodeSeq();
+                // Parse first item (no separator)
+                // Call rule: double_starred_kvpair
+                var _first__tmp0 = DoubleStarredKvpair();
+                if (_first__tmp0 == null)
                 {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _loop_elem__tmp0 = Expect(",");
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
-                }
-                // Collected _tmp0.Count items (may be 0)
-                // One or more: double_starred_kvpair+
-                var _tmp1 = new System.Collections.Generic.List<object?>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Call rule: double_starred_kvpair
-                    var _loop_elem__tmp1 = DoubleStarredKvpair();
-                    if (_loop_elem__tmp1 == null)
-                    {
-                        _position = _mark;
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp1 == null)
-                    {
-                        _position = _loop_mark; // Reset to before failed attempt
-                        break;
-                    }
-                    _tmp1.Add(_loop_elem__tmp1);
-                }
-                if (_tmp1.Count == 0)
-                {
-                    // One or more requires at least one match
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                if (_first__tmp0 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                _tmp0.Add(_first__tmp0);
+                // Parse remaining items (separator + item)
+                while (true)
+                {
+                    int _loop_mark = _position;
+                    // Expect ','
+                    var _sep__tmp0 = Expect(",");
+                    if (_sep__tmp0 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_sep__tmp0 == null)
+                    {
+                        _position = _loop_mark;
+                        break; // No more separators
+                    }
+                    // Call rule: double_starred_kvpair
+                    var _loop_elem__tmp0 = DoubleStarredKvpair();
+                    if (_loop_elem__tmp0 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
+                    if (_loop_elem__tmp0 == null)
+                    {
+                        _position = _loop_mark; // Reset to before separator
+                        break; // No item after separator
+                    }
+                    _tmp0.Add(_loop_elem__tmp0);
+                }
                 // Expect ','
-                var _tmp2 = Expect(",");
-                if (_tmp2 == null)
+                var _tmp1 = Expect(",");
+                if (_tmp1 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // Call rule: invalid_kvpair
-                object? _tmp3 = null;
+                object? _tmp2 = null;
                 if (_callInvalidRules)
                 {
-                    _tmp3 = InvalidKvpair();
+                    _tmp2 = InvalidKvpair();
                 }
-                if (_tmp3 == null)
+                if (_tmp2 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (object?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -35110,9 +35372,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_96 = _position;
+                int _lookahead_mark_108 = _position;
                 // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_96; // Restore position
+                _position = _lookahead_mark_108; // Restore position
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "expression expected after dictionary key and ':'")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expression expected after dictionary key and ':'";
@@ -35123,15 +35385,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -35177,10 +35430,10 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !((':'))
-                object? _lookahead_test_97 = null;
+                object? _lookahead_test_109 = null;
                 // Test if current token matches: (':')
-                if (CurrentToken?.Value == ":") { _lookahead_test_97 = CurrentToken; }
-                if (_lookahead_test_97 != null)
+                if (CurrentToken?.Value == ":") { _lookahead_test_109 = CurrentToken; }
+                if (_lookahead_test_109 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -35276,9 +35529,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_98 = _position;
+                int _lookahead_mark_110 = _position;
                 // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_98; // Restore position
+                _position = _lookahead_mark_110; // Restore position
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "expression expected after dictionary key and ':'")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expression expected after dictionary key and ':'";
@@ -35289,15 +35542,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -35376,15 +35620,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -35574,9 +35809,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !((yield_expr | star_expressions))
-                object? _lookahead_test_99 = null;
+                object? _lookahead_test_111 = null;
                 // Test if current token matches: (yield_expr | star_expressions)
-                if (_lookahead_test_99 != null)
+                if (_lookahead_test_111 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -35612,12 +35847,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Group: (yield_expr | star_expressions)
-                object? _tmp1 = null;
+                GeneratedExpr? _tmp1 = null;
                 int _group_mark__tmp1 = _position;
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt0__tmp1_item0 = YieldExpr();
+                    GeneratedExpr _group_alt0__tmp1_item0 = YieldExpr();
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -35627,7 +35862,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt1__tmp1_item0 = StarExpressions();
+                    GeneratedExpr _group_alt1__tmp1_item0 = StarExpressions();
                     if (_group_alt1__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
@@ -35640,13 +35875,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('=' | '!' | ':' | '}'))
-                object? _lookahead_test_100 = null;
+                object? _lookahead_test_112 = null;
                 // Test if current token matches: ('=' | '!' | ':' | '}')
-                if (CurrentToken?.Value == "=") { _lookahead_test_100 = CurrentToken; }
-                if (CurrentToken?.Value == "!") { _lookahead_test_100 = CurrentToken; }
-                if (CurrentToken?.Value == ":") { _lookahead_test_100 = CurrentToken; }
-                if (CurrentToken?.Value == "}") { _lookahead_test_100 = CurrentToken; }
-                if (_lookahead_test_100 != null)
+                if (CurrentToken?.Value == "=") { _lookahead_test_112 = CurrentToken; }
+                if (CurrentToken?.Value == "!") { _lookahead_test_112 = CurrentToken; }
+                if (CurrentToken?.Value == ":") { _lookahead_test_112 = CurrentToken; }
+                if (CurrentToken?.Value == "}") { _lookahead_test_112 = CurrentToken; }
+                if (_lookahead_test_112 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -35682,12 +35917,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Group: (yield_expr | star_expressions)
-                object? _tmp1 = null;
+                GeneratedExpr? _tmp1 = null;
                 int _group_mark__tmp1 = _position;
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt0__tmp1_item0 = YieldExpr();
+                    GeneratedExpr _group_alt0__tmp1_item0 = YieldExpr();
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -35697,7 +35932,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt1__tmp1_item0 = StarExpressions();
+                    GeneratedExpr _group_alt1__tmp1_item0 = StarExpressions();
                     if (_group_alt1__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
@@ -35718,12 +35953,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('!' | ':' | '}'))
-                object? _lookahead_test_101 = null;
+                object? _lookahead_test_113 = null;
                 // Test if current token matches: ('!' | ':' | '}')
-                if (CurrentToken?.Value == "!") { _lookahead_test_101 = CurrentToken; }
-                if (CurrentToken?.Value == ":") { _lookahead_test_101 = CurrentToken; }
-                if (CurrentToken?.Value == "}") { _lookahead_test_101 = CurrentToken; }
-                if (_lookahead_test_101 != null)
+                if (CurrentToken?.Value == "!") { _lookahead_test_113 = CurrentToken; }
+                if (CurrentToken?.Value == ":") { _lookahead_test_113 = CurrentToken; }
+                if (CurrentToken?.Value == "}") { _lookahead_test_113 = CurrentToken; }
+                if (_lookahead_test_113 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -35759,12 +35994,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Group: (yield_expr | star_expressions)
-                object? _tmp1 = null;
+                GeneratedExpr? _tmp1 = null;
                 int _group_mark__tmp1 = _position;
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt0__tmp1_item0 = YieldExpr();
+                    GeneratedExpr _group_alt0__tmp1_item0 = YieldExpr();
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -35774,7 +36009,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt1__tmp1_item0 = StarExpressions();
+                    GeneratedExpr _group_alt1__tmp1_item0 = StarExpressions();
                     if (_group_alt1__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
@@ -35796,7 +36031,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp2 = _opt__tmp2;
+                GeneratedTokenInfo? _tmp2 = _opt__tmp2;
                 if (_tmp2 == null)
                 {
                     _position = _opt_mark__tmp2; // Reset position
@@ -35815,7 +36050,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (object?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)((object?)_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -35840,12 +36075,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Group: (yield_expr | star_expressions)
-                object? _tmp1 = null;
+                GeneratedExpr? _tmp1 = null;
                 int _group_mark__tmp1 = _position;
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt0__tmp1_item0 = YieldExpr();
+                    GeneratedExpr _group_alt0__tmp1_item0 = YieldExpr();
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -35855,7 +36090,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt1__tmp1_item0 = StarExpressions();
+                    GeneratedExpr _group_alt1__tmp1_item0 = StarExpressions();
                     if (_group_alt1__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
@@ -35877,7 +36112,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp2 = _opt__tmp2;
+                GeneratedTokenInfo? _tmp2 = _opt__tmp2;
                 if (_tmp2 == null)
                 {
                     _position = _opt_mark__tmp2; // Reset position
@@ -35886,15 +36121,15 @@ namespace SharpPy.Generated
                 // Optional: [('!' NAME)]
                 int _opt_mark__tmp3 = _position;
                 // Group: ('!' NAME)
-                object? _opt__tmp3 = null;
+                GeneratedTokenInfo? _opt__tmp3 = null;
                 int _group_mark__opt__tmp3 = _position;
                 // Try group alternative 1: '!' NAME
                 {
                     _position = _group_mark__opt__tmp3;
-                    var _group_alt0__opt__tmp3_item0 = Expect("!");
+                    GeneratedTokenInfo? _group_alt0__opt__tmp3_item0 = Expect("!");
                     if (_group_alt0__opt__tmp3_item0 != null)
                     {
-                        var _group_alt0__opt__tmp3_item1 = ExpectToken(GeneratedTokenType.NAME);
+                        GeneratedTokenInfo? _group_alt0__opt__tmp3_item1 = ExpectToken(GeneratedTokenType.NAME);
                         if (_group_alt0__opt__tmp3_item1 != null)
                         {
                             _opt__tmp3 = _group_alt0__opt__tmp3_item1;
@@ -35907,18 +36142,18 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp3 = _opt__tmp3;
+                GeneratedTokenInfo? _tmp3 = _opt__tmp3;
                 if (_tmp3 == null)
                 {
                     _position = _opt_mark__tmp3; // Reset position
                     _tmp3 = null; // Optional not present
                 }
                 // Negative lookahead: !((':' | '}'))
-                object? _lookahead_test_102 = null;
+                object? _lookahead_test_114 = null;
                 // Test if current token matches: (':' | '}')
-                if (CurrentToken?.Value == ":") { _lookahead_test_102 = CurrentToken; }
-                if (CurrentToken?.Value == "}") { _lookahead_test_102 = CurrentToken; }
-                if (_lookahead_test_102 != null)
+                if (CurrentToken?.Value == ":") { _lookahead_test_114 = CurrentToken; }
+                if (CurrentToken?.Value == "}") { _lookahead_test_114 = CurrentToken; }
+                if (_lookahead_test_114 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -35954,12 +36189,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Group: (yield_expr | star_expressions)
-                object? _tmp1 = null;
+                GeneratedExpr? _tmp1 = null;
                 int _group_mark__tmp1 = _position;
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt0__tmp1_item0 = YieldExpr();
+                    GeneratedExpr _group_alt0__tmp1_item0 = YieldExpr();
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -35969,7 +36204,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt1__tmp1_item0 = StarExpressions();
+                    GeneratedExpr _group_alt1__tmp1_item0 = StarExpressions();
                     if (_group_alt1__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
@@ -35991,7 +36226,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp2 = _opt__tmp2;
+                GeneratedTokenInfo? _tmp2 = _opt__tmp2;
                 if (_tmp2 == null)
                 {
                     _position = _opt_mark__tmp2; // Reset position
@@ -36000,15 +36235,15 @@ namespace SharpPy.Generated
                 // Optional: [('!' NAME)]
                 int _opt_mark__tmp3 = _position;
                 // Group: ('!' NAME)
-                object? _opt__tmp3 = null;
+                GeneratedTokenInfo? _opt__tmp3 = null;
                 int _group_mark__opt__tmp3 = _position;
                 // Try group alternative 1: '!' NAME
                 {
                     _position = _group_mark__opt__tmp3;
-                    var _group_alt0__opt__tmp3_item0 = Expect("!");
+                    GeneratedTokenInfo? _group_alt0__opt__tmp3_item0 = Expect("!");
                     if (_group_alt0__opt__tmp3_item0 != null)
                     {
-                        var _group_alt0__opt__tmp3_item1 = ExpectToken(GeneratedTokenType.NAME);
+                        GeneratedTokenInfo? _group_alt0__opt__tmp3_item1 = ExpectToken(GeneratedTokenType.NAME);
                         if (_group_alt0__opt__tmp3_item1 != null)
                         {
                             _opt__tmp3 = _group_alt0__opt__tmp3_item1;
@@ -36021,7 +36256,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp3 = _opt__tmp3;
+                GeneratedTokenInfo? _tmp3 = _opt__tmp3;
                 if (_tmp3 == null)
                 {
                     _position = _opt_mark__tmp3; // Reset position
@@ -36036,7 +36271,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: fstring_format_spec*
-                var _tmp5 = new System.Collections.Generic.List<object?>();
+                var _tmp5 = new GeneratedExprSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -36057,9 +36292,9 @@ namespace SharpPy.Generated
                 }
                 // Collected _tmp5.Count items (may be 0)
                 // Negative lookahead: !('}')
-                object? _lookahead_test_103 = null;
-                if (CurrentToken?.Value == "}") { _lookahead_test_103 = CurrentToken; }
-                if (_lookahead_test_103 != null)
+                object? _lookahead_test_115 = null;
+                if (CurrentToken?.Value == "}") { _lookahead_test_115 = CurrentToken; }
+                if (_lookahead_test_115 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -36095,12 +36330,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Group: (yield_expr | star_expressions)
-                object? _tmp1 = null;
+                GeneratedExpr? _tmp1 = null;
                 int _group_mark__tmp1 = _position;
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt0__tmp1_item0 = YieldExpr();
+                    GeneratedExpr _group_alt0__tmp1_item0 = YieldExpr();
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -36110,7 +36345,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    var _group_alt1__tmp1_item0 = StarExpressions();
+                    GeneratedExpr _group_alt1__tmp1_item0 = StarExpressions();
                     if (_group_alt1__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
@@ -36132,7 +36367,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp2 = _opt__tmp2;
+                GeneratedTokenInfo? _tmp2 = _opt__tmp2;
                 if (_tmp2 == null)
                 {
                     _position = _opt_mark__tmp2; // Reset position
@@ -36141,15 +36376,15 @@ namespace SharpPy.Generated
                 // Optional: [('!' NAME)]
                 int _opt_mark__tmp3 = _position;
                 // Group: ('!' NAME)
-                object? _opt__tmp3 = null;
+                GeneratedTokenInfo? _opt__tmp3 = null;
                 int _group_mark__opt__tmp3 = _position;
                 // Try group alternative 1: '!' NAME
                 {
                     _position = _group_mark__opt__tmp3;
-                    var _group_alt0__opt__tmp3_item0 = Expect("!");
+                    GeneratedTokenInfo? _group_alt0__opt__tmp3_item0 = Expect("!");
                     if (_group_alt0__opt__tmp3_item0 != null)
                     {
-                        var _group_alt0__opt__tmp3_item1 = ExpectToken(GeneratedTokenType.NAME);
+                        GeneratedTokenInfo? _group_alt0__opt__tmp3_item1 = ExpectToken(GeneratedTokenType.NAME);
                         if (_group_alt0__opt__tmp3_item1 != null)
                         {
                             _opt__tmp3 = _group_alt0__opt__tmp3_item1;
@@ -36162,16 +36397,16 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                object? _tmp3 = _opt__tmp3;
+                GeneratedTokenInfo? _tmp3 = _opt__tmp3;
                 if (_tmp3 == null)
                 {
                     _position = _opt_mark__tmp3; // Reset position
                     _tmp3 = null; // Optional not present
                 }
                 // Negative lookahead: !('}')
-                object? _lookahead_test_104 = null;
-                if (CurrentToken?.Value == "}") { _lookahead_test_104 = CurrentToken; }
-                if (_lookahead_test_104 != null)
+                object? _lookahead_test_116 = null;
+                if (CurrentToken?.Value == "}") { _lookahead_test_116 = CurrentToken; }
+                if (_lookahead_test_116 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -36188,15 +36423,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -36242,9 +36468,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead - check without consuming
-                int _lookahead_mark_105 = _position;
+                int _lookahead_mark_117 = _position;
                 // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_105; // Restore position
+                _position = _lookahead_mark_117; // Restore position
                 // Action: RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: missing conversion character")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "f-string: missing conversion character";
@@ -36274,9 +36500,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(NAME)
-                object? _lookahead_test_106 = null;
+                object? _lookahead_test_118 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_106 != null)
+                if (_lookahead_test_118 != null)
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
@@ -36293,15 +36519,6 @@ namespace SharpPy.Generated
 
             _position = _mark;
             _res = null;
-
-            // CPython 3.12: Invalid rule - throw pending error if set
-            if (_pendingSyntaxError != null)
-            {
-                var errorMsg = _pendingSyntaxError;
-                _pendingSyntaxError = null;
-                _pendingErrorPosition = -1;
-                throw new System.Exception(errorMsg);
-            }
 
             done:
             // CPython 3.12: Simply return result, don't manipulate error indicator
@@ -36325,14 +36542,19 @@ namespace SharpPy.Generated
             if (_position < _tokens.Count) _position++;
         }
 
-        private bool Expect(string expected)
+        /// <summary>
+        /// Expect a specific token value. Returns the token if it matches, null otherwise.
+        /// CPython 3.12 PEG compatible.
+        /// </summary>
+        private GeneratedTokenInfo? Expect(string expected)
         {
-            if (CurrentToken?.Type.ToString() == expected)
+            if (CurrentToken?.Value == expected)
             {
+                var token = CurrentToken;
                 Advance();
-                return true;
+                return token;
             }
-            return false;
+            return null;
         }
 
         /// <summary>
@@ -36344,16 +36566,6 @@ namespace SharpPy.Generated
             {
                 Advance(); // skip NL token
             }
-        }
-
-        private bool ExpectKeyword(string keyword)
-        {
-            if (CurrentToken?.Type.ToString() == "NAME" && CurrentToken?.Value == keyword)
-            {
-                Advance();
-                return true;
-            }
-            return false;
         }
 
         private int Mark() => _position;
@@ -38181,6 +38393,13 @@ namespace SharpPy.Generated
             public EmbeddedAtom Expression { get; set; } = null!;
         }
 
+        public class EmbeddedGather : EmbeddedAtom
+        {
+            public EmbeddedAtom Separator { get; set; } = null!;
+            public EmbeddedAtom Item { get; set; } = null!;
+            public bool IsOneOrMore { get; set; }
+        }
+
         public class EmbeddedItem
         {
             public string? Name { get; set; }
@@ -38414,8 +38633,7 @@ namespace SharpPy.Generated
                             Action = "a",
                             Items = new()
                             {
-                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = ";" } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "simple_stmt" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = ";" }, Item = new EmbeddedRuleRef { Name = "simple_stmt" }, IsOneOrMore = true } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ";" } }, } }, } } } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
                             }
@@ -38912,8 +39130,7 @@ namespace SharpPy.Generated
                             Items = new()
                             {
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "global" } },
-                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "NAME" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "NAME" }, IsOneOrMore = true } },
                             }
                         },
                     }
@@ -38934,8 +39151,7 @@ namespace SharpPy.Generated
                             Items = new()
                             {
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "nonlocal" } },
-                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "NAME" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "NAME" }, IsOneOrMore = true } },
                             }
                         },
                     }
@@ -39167,8 +39383,7 @@ namespace SharpPy.Generated
                             Action = "a",
                             Items = new()
                             {
-                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "import_from_as_name" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "import_from_as_name" }, IsOneOrMore = true } },
                             }
                         },
                     }
@@ -39209,8 +39424,7 @@ namespace SharpPy.Generated
                             Action = "a",
                             Items = new()
                             {
-                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "dotted_as_name" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "dotted_as_name" }, IsOneOrMore = true } },
                             }
                         },
                     }
@@ -40194,8 +40408,7 @@ namespace SharpPy.Generated
                             {
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "with" } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
-                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "with_item" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "with_item" }, IsOneOrMore = true } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "," } } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
@@ -40208,8 +40421,7 @@ namespace SharpPy.Generated
                             Items = new()
                             {
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "with" } },
-                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "with_item" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "with_item" }, IsOneOrMore = true } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
                                 new EmbeddedItem { Name = "tc", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "TYPE_COMMENT" } }, } }, } } } },
                                 new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "block" } },
@@ -40223,8 +40435,7 @@ namespace SharpPy.Generated
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "ASYNC" } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "with" } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
-                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "with_item" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "with_item" }, IsOneOrMore = true } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "," } } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
@@ -40238,8 +40449,7 @@ namespace SharpPy.Generated
                             {
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "ASYNC" } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "with" } },
-                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "with_item" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "with_item" }, IsOneOrMore = true } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
                                 new EmbeddedItem { Name = "tc", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "TYPE_COMMENT" } }, } }, } } } },
                                 new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "block" } },
@@ -40690,8 +40900,7 @@ namespace SharpPy.Generated
                             Action = "asdl_seq_LEN(patterns) == 1 ? asdl_seq_GET(patterns, 0) : _PyAST_MatchOr(patterns, EXTRA)",
                             Items = new()
                             {
-                                new EmbeddedItem { Name = "patterns", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "|" } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "closed_pattern" } } },
+                                new EmbeddedItem { Name = "patterns", Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "|" }, Item = new EmbeddedRuleRef { Name = "closed_pattern" }, IsOneOrMore = true } },
                             }
                         },
                     }
@@ -41248,8 +41457,7 @@ namespace SharpPy.Generated
                             Action = "patterns",
                             Items = new()
                             {
-                                new EmbeddedItem { Name = "patterns", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "maybe_star_pattern" } } },
+                                new EmbeddedItem { Name = "patterns", Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "maybe_star_pattern" }, IsOneOrMore = true } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "," } } },
                             }
                         },
@@ -41384,8 +41592,7 @@ namespace SharpPy.Generated
                             Action = null,
                             Items = new()
                             {
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "key_value_pattern" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "key_value_pattern" }, IsOneOrMore = true } },
                             }
                         },
                     }
@@ -41516,8 +41723,7 @@ namespace SharpPy.Generated
                             Action = "args",
                             Items = new()
                             {
-                                new EmbeddedItem { Name = "args", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "pattern" } } },
+                                new EmbeddedItem { Name = "args", Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "pattern" }, IsOneOrMore = true } },
                             }
                         },
                     }
@@ -41537,8 +41743,7 @@ namespace SharpPy.Generated
                             Action = null,
                             Items = new()
                             {
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "keyword_pattern" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "keyword_pattern" }, IsOneOrMore = true } },
                             }
                         },
                     }
@@ -41626,8 +41831,7 @@ namespace SharpPy.Generated
                             Action = "a",
                             Items = new()
                             {
-                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "type_param" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "type_param" }, IsOneOrMore = true } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } } },
                             }
                         },
@@ -41924,8 +42128,7 @@ namespace SharpPy.Generated
                             Action = "a",
                             Items = new()
                             {
-                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "star_named_expression" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "star_named_expression" }, IsOneOrMore = true } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } } },
                             }
                         },
@@ -42870,8 +43073,7 @@ namespace SharpPy.Generated
                             Action = "_PyAST_Tuple(a, Load, EXTRA)",
                             Items = new()
                             {
-                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "slice" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "starred_expression" } }, } }, } } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "slice" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "starred_expression" } }, } }, } }, IsOneOrMore = true } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } } },
                             }
                         },
@@ -43710,8 +43912,7 @@ namespace SharpPy.Generated
                             Action = "a",
                             Items = new()
                             {
-                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "double_starred_kvpair" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "double_starred_kvpair" }, IsOneOrMore = true } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } } },
                             }
                         },
@@ -44002,8 +44203,7 @@ namespace SharpPy.Generated
                             Action = "_PyPegen_collect_call_seqs(p, a, b, EXTRA)",
                             Items = new()
                             {
-                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "starred_expression" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "assignment_expression" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = ":=" } } }, } }, } } }, new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = "=" } } }, } }, } } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "starred_expression" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "assignment_expression" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = ":=" } } }, } }, } } }, new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = "=" } } }, } }, } }, IsOneOrMore = true } },
                                 new EmbeddedItem { Name = "b", Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, new EmbeddedItem { Name = "k", Atom = new EmbeddedRuleRef { Name = "kwargs" } }, } }, } } } },
                             }
                         },
@@ -44032,11 +44232,9 @@ namespace SharpPy.Generated
                             Action = "_PyPegen_join_sequences(p, a, b)",
                             Items = new()
                             {
-                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "kwarg_or_starred" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "kwarg_or_starred" }, IsOneOrMore = true } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
-                                new EmbeddedItem { Name = "b", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "kwarg_or_double_starred" } } },
+                                new EmbeddedItem { Name = "b", Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "kwarg_or_double_starred" }, IsOneOrMore = true } },
                             }
                         },
                         new EmbeddedAlternative
@@ -44044,8 +44242,7 @@ namespace SharpPy.Generated
                             Action = null,
                             Items = new()
                             {
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "kwarg_or_starred" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "kwarg_or_starred" }, IsOneOrMore = true } },
                             }
                         },
                         new EmbeddedAlternative
@@ -44053,8 +44250,7 @@ namespace SharpPy.Generated
                             Action = null,
                             Items = new()
                             {
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "kwarg_or_double_starred" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "kwarg_or_double_starred" }, IsOneOrMore = true } },
                             }
                         },
                     }
@@ -44219,8 +44415,7 @@ namespace SharpPy.Generated
                             Action = "a",
                             Items = new()
                             {
-                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "star_target" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "star_target" }, IsOneOrMore = true } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } } },
                             }
                         },
@@ -44569,8 +44764,7 @@ namespace SharpPy.Generated
                             Action = "a",
                             Items = new()
                             {
-                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "del_target" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "del_target" }, IsOneOrMore = true } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, } }, } } } },
                             }
                         },
@@ -44684,8 +44878,7 @@ namespace SharpPy.Generated
                             Action = "(asdl_expr_seq*)_PyPegen_seq_append_to_end(\n            p,\n            CHECK(asdl_seq*, _PyPegen_seq_append_to_end(p, a, b)),\n            c)",
                             Items = new()
                             {
-                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "expression" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "expression" }, IsOneOrMore = true } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
                                 new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "expression" } },
@@ -44699,8 +44892,7 @@ namespace SharpPy.Generated
                             Action = "(asdl_expr_seq*)_PyPegen_seq_append_to_end(p, a, b)",
                             Items = new()
                             {
-                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "expression" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "expression" }, IsOneOrMore = true } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "*" } },
                                 new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "expression" } },
@@ -44711,8 +44903,7 @@ namespace SharpPy.Generated
                             Action = "(asdl_expr_seq*)_PyPegen_seq_append_to_end(p, a, b)",
                             Items = new()
                             {
-                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "expression" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "expression" }, IsOneOrMore = true } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "**" } },
                                 new EmbeddedItem { Name = "b", Atom = new EmbeddedRuleRef { Name = "expression" } },
@@ -44753,8 +44944,7 @@ namespace SharpPy.Generated
                             Action = "a",
                             Items = new()
                             {
-                                new EmbeddedItem { Name = "a", Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "expression" } } },
+                                new EmbeddedItem { Name = "a", Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "expression" }, IsOneOrMore = true } },
                             }
                         },
                     }
@@ -44812,10 +45002,9 @@ namespace SharpPy.Generated
                             Action = "RAISE_SYNTAX_ERROR_STARTING_FROM(a, \"iterable argument unpacking follows keyword argument unpacking\")",
                             Items = new()
                             {
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } }, new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "starred_expression" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "assignment_expression" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = ":=" } } }, } }, } } }, new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = "=" } } }, } }, } } } }, new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "kwargs" } }, } }, } } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "kwargs" } }, } }, } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "starred_expression" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "assignment_expression" } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "expression" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = ":=" } } }, } }, } } }, new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = "=" } } }, } }, } }, IsOneOrMore = true } }, new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } }, new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "kwargs" } }, } }, } } }, } }, new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "kwargs" } }, } }, } } },
                                 new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "," } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "starred_expression" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = "=" } } }, } }, } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "starred_expression" } }, new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedStringLiteral { Value = "=" } } }, } }, } }, IsOneOrMore = true } },
                             }
                         },
                         new EmbeddedAlternative
@@ -45580,8 +45769,7 @@ namespace SharpPy.Generated
                             {
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedRuleRef { Name = "lambda_param_no_default" } } },
                                 new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "(" } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "lambda_param" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "lambda_param" }, IsOneOrMore = true } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "," } } },
                                 new EmbeddedItem { Name = "b", Atom = new EmbeddedStringLiteral { Value = ")" } },
                             }
@@ -45844,8 +46032,7 @@ namespace SharpPy.Generated
                             Items = new()
                             {
                                 new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "import" } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "dotted_name" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "dotted_name" }, IsOneOrMore = true } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "from" } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "dotted_name" } },
                             }
@@ -45891,8 +46078,7 @@ namespace SharpPy.Generated
                             {
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "ASYNC" } }, } }, } } } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "with" } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedGroup { Alternatives = new() { } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedGroup { Alternatives = new() { } }, IsOneOrMore = true } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
                             }
                         },
@@ -45904,8 +46090,7 @@ namespace SharpPy.Generated
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "ASYNC" } }, } }, } } } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "with" } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedGroup { Alternatives = new() { } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedGroup { Alternatives = new() { } }, IsOneOrMore = true } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "," } } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
@@ -45930,8 +46115,7 @@ namespace SharpPy.Generated
                             {
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "ASYNC" } }, } }, } } } },
                                 new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "with" } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedGroup { Alternatives = new() { } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedGroup { Alternatives = new() { } }, IsOneOrMore = true } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "NEWLINE" } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedNegativeLookahead { Expression = new EmbeddedRuleRef { Name = "INDENT" } } },
@@ -45945,8 +46129,7 @@ namespace SharpPy.Generated
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedGroup { Alternatives = new() { new EmbeddedAlternative { Items = new() { new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "ASYNC" } }, } }, } } } },
                                 new EmbeddedItem { Name = "a", Atom = new EmbeddedStringLiteral { Value = "with" } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "(" } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedGroup { Alternatives = new() { } } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedGroup { Alternatives = new() { } }, IsOneOrMore = true } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedOptional { Expression = new EmbeddedStringLiteral { Value = "," } } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ")" } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = ":" } },
@@ -46542,8 +46725,7 @@ namespace SharpPy.Generated
                             Action = null,
                             Items = new()
                             {
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedZeroOrMore { Expression = new EmbeddedStringLiteral { Value = "," } } },
-                                new EmbeddedItem { Name = null, Atom = new EmbeddedOneOrMore { Expression = new EmbeddedRuleRef { Name = "double_starred_kvpair" } } },
+                                new EmbeddedItem { Name = null, Atom = new EmbeddedGather { Separator = new EmbeddedStringLiteral { Value = "," }, Item = new EmbeddedRuleRef { Name = "double_starred_kvpair" }, IsOneOrMore = true } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedStringLiteral { Value = "," } },
                                 new EmbeddedItem { Name = null, Atom = new EmbeddedRuleRef { Name = "invalid_kvpair" } },
                             }

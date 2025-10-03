@@ -25,6 +25,7 @@ namespace SharpPy.PegGenerator.Grammar
         EXCLAMATION,    // !
         TILDE,          // ~ (cut operator)
         EQUAL,          // =
+        DOT,            // . (gather separator)
 
         // Delimiters
         LPAR,           // (
@@ -194,7 +195,7 @@ namespace SharpPy.PegGenerator.Grammar
                 ']' => GrammarTokenType.RSQB,
                 '~' => GrammarTokenType.TILDE, // Cut operator in PEG
                 '$' => GrammarTokenType.COLON, // End marker in PEG (map to colon for now)
-                '.' => GrammarTokenType.STAR, // Separator in gather (map to star for now)
+                '.' => GrammarTokenType.DOT, // Separator in gather pattern (e.g., ','.expression+)
                 '@' => GrammarTokenType.NAME, // Directive marker (treat as name for now)
                 '/' => GrammarTokenType.PIPE, // Alternative operator in some grammars
                 ',' => GrammarTokenType.PIPE, // Comma separator (treat as pipe for now)

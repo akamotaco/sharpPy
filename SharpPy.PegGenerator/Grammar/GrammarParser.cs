@@ -428,6 +428,42 @@ namespace SharpPy.PegGenerator.Grammar
                     return null;
             }
 
+            // Check for gather pattern (separator.item+ or separator.item*)
+            // CPython 3.12: Gather must be checked before postfix operators
+            if (CurrentToken?.Type == GrammarTokenType.DOT)
+            {
+                Advance(); // Skip '.'
+
+                // Parse the item part
+                var itemAtom = ParseAtom();
+                if (itemAtom == null)
+                {
+                    throw new ParseException($"Expected item after '.' in gather pattern at position {_position}");
+                }
+
+                // The itemAtom should already have its postfix operator (+ or *)
+                // Determine if it's oneOrMore or zeroOrMore
+                bool isOneOrMore = itemAtom is OneOrMore;
+                bool isZeroOrMore = itemAtom is ZeroOrMore;
+
+                if (!isOneOrMore && !isZeroOrMore)
+                {
+                    throw new ParseException($"Gather pattern requires + or * after item at position {_position}");
+                }
+
+                // Extract the inner expression from OneOrMore/ZeroOrMore
+                var innerItem = isOneOrMore
+                    ? ((OneOrMore)itemAtom).Expression
+                    : ((ZeroOrMore)itemAtom).Expression;
+
+                return new Gather
+                {
+                    Separator = atom,  // The part before '.' is the separator
+                    Item = innerItem,   // The inner expression
+                    IsOneOrMore = isOneOrMore
+                };
+            }
+
             // Handle postfix operators (*, +, ?)
             while (CurrentToken != null)
             {

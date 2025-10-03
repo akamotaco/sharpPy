@@ -176,4 +176,17 @@ namespace SharpPy.PegGenerator.Grammar
 
         public override string ToString() => $"~{Expression}";
     }
+
+    /// <summary>
+    /// Gather pattern: separator.item+ or separator.item*
+    /// CPython 3.12: Used for separated lists like ','.expression+
+    /// </summary>
+    public class Gather : Atom
+    {
+        public Atom Separator { get; set; } = null!;  // e.g., StringLiteral(",")
+        public Atom Item { get; set; } = null!;        // e.g., RuleRef("expression")
+        public bool IsOneOrMore { get; set; }          // true for +, false for *
+
+        public override string ToString() => $"{Separator}.{Item}{(IsOneOrMore ? "+" : "*")}";
+    }
 }

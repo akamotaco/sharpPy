@@ -7,9 +7,11 @@ using SharpPy.PegGenerator.Grammar;
 namespace SharpPy.PegGenerator.CodeGenerator
 {
     /// <summary>
-    /// Maps CPython's _PyAST_* function calls to C# AST construction code
+    /// Maps CPython's _PyAST_* and _PyPegen_* function calls to C# AST construction code
     /// CPython 3.12: _PyAST_If(test, body, orelse, lineno, col_offset, arena)
+    /// CPython 3.12: _PyPegen_set_expr_context(p, expr, Store)
     /// SharpPy: new GeneratedStmt { Type = "If", Test = test, Body = body, Orelse = orelse }
+    /// SharpPy: _PyPegen_set_expr_context(expr, Store)
     /// </summary>
     public class ActionMapper
     {
@@ -84,9 +86,16 @@ namespace SharpPy.PegGenerator.CodeGenerator
         /// <param name="args">List of argument names from the action</param>
         /// <param name="variables">Dictionary of variable names in scope</param>
         /// <param name="rule">The rule being generated</param>
+        /// <param name="typeCast">CPython type cast (e.g., "asdl_stmt_seq*", "asdl_expr_seq*")</param>
         /// <returns>C# code string to construct the AST node</returns>
-        public string? MapAction(string funcName, List<string> args, Dictionary<string, string> variables, Rule rule)
+        public string? MapAction(string funcName, List<string> args, Dictionary<string, string> variables, Rule rule, string typeCast = null)
         {
+            // CPython 3.12: Handle _PyPegen_* helper functions
+            if (funcName.StartsWith("_PyPegen_"))
+            {
+                return MapPyPegenFunction(funcName, args, variables, typeCast);
+            }
+
             // CPython 3.12: Translate action arguments to C# expressions
             // Keep complex expressions intact (constants, function calls, etc.)
             var translatedArgs = new List<string>();
@@ -123,6 +132,82 @@ namespace SharpPy.PegGenerator.CodeGenerator
         }
 
         /// <summary>
+        /// Map _PyPegen_* helper functions to C# equivalents
+        /// CPython 3.12: These are helper functions in pegen.c
+        /// </summary>
+        private string? MapPyPegenFunction(string funcName, List<string> args, Dictionary<string, string> variables, string typeCast)
+        {
+            // Remove 'p' (parser) argument if present - it's the first arg in CPython
+            var filteredArgs = args.Where(a => a.Trim() != "p").ToList();
+
+            switch (funcName)
+            {
+                case "_PyPegen_set_expr_context":
+                    // _PyPegen_set_expr_context(p, expr, context) → _PyPegen_set_expr_context(expr, context)
+                    if (filteredArgs.Count >= 2)
+                    {
+                        var expr = TranslateToCSharp(filteredArgs[0].Trim(), variables);
+                        var context = TranslateToCSharp(filteredArgs[1].Trim(), variables);
+                        return $"_res = _PyPegen_set_expr_context({expr}, {context});";
+                    }
+                    break;
+
+                case "_PyPegen_singleton_seq":
+                    // _PyPegen_singleton_seq(p, item) → _PyPegen_singleton_seq(item)
+                    // CPython 3.12: Use type cast to determine correct overload
+                    if (filteredArgs.Count >= 1)
+                    {
+                        var item = TranslateToCSharp(filteredArgs[0].Trim(), variables);
+                        // Map CPython type cast to C# type
+                        // asdl_stmt_seq* → GeneratedStmtSeq
+                        // asdl_expr_seq* → GeneratedExprSeq
+                        // asdl_alias_seq* → GeneratedAliasSeq
+                        string returnType = MapCPythonTypeToCSharp(typeCast);
+                        return $"_res = _PyPegen_singleton_seq({item});";
+                    }
+                    break;
+
+                case "_PyPegen_seq_insert_in_front":
+                    // _PyPegen_seq_insert_in_front(p, item, seq) → insert item at front of seq
+                    if (filteredArgs.Count >= 2)
+                    {
+                        var item = TranslateToCSharp(filteredArgs[0].Trim(), variables);
+                        var seq = TranslateToCSharp(filteredArgs[1].Trim(), variables);
+                        return $"_res = _PyPegen_seq_insert_in_front({item}, {seq});";
+                    }
+                    break;
+
+                case "_PyPegen_seq_append_to_end":
+                    // _PyPegen_seq_append_to_end(p, seq, item) → append item to end of seq
+                    if (filteredArgs.Count >= 2)
+                    {
+                        var seq = TranslateToCSharp(filteredArgs[0].Trim(), variables);
+                        var item = TranslateToCSharp(filteredArgs[1].Trim(), variables);
+                        return $"_res = _PyPegen_seq_append_to_end({seq}, {item});";
+                    }
+                    break;
+
+                case "_PyPegen_seq_flatten":
+                    // _PyPegen_seq_flatten(p, sequences) → flatten list of sequences into single sequence
+                    // CPython 3.12: Used for statement+ where statement returns seq
+                    if (filteredArgs.Count >= 1)
+                    {
+                        var seq = TranslateToCSharp(filteredArgs[0].Trim(), variables);
+                        return $"_res = _PyPegen_seq_flatten({seq});";
+                    }
+                    break;
+
+                case "_PyPegen_alias_for_star":
+                    // _PyPegen_alias_for_star(p, EXTRA) → creates alias for 'import *'
+                    // Arguments are EXTRA (position info)
+                    return "_res = _PyPegen_alias_for_star(_start_lineno, _start_col_offset, _end_lineno, _end_col_offset);";
+            }
+
+            // Unknown _PyPegen_ function
+            return null;
+        }
+
+        /// <summary>
         /// Translate CPython C expression to C# expression
         /// Examples:
         ///   Or → Or (constant, kept as-is)
@@ -140,6 +225,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // NULL literal
             if (expr == "NULL")
                 return "null";
+
+            // EXTRA macro - expand to position parameters
+            if (expr == "EXTRA")
+                return "_start_lineno, _start_col_offset, _end_lineno, _end_col_offset";
 
             // Numeric literals
             if (int.TryParse(expr, out _) || expr.Contains(".") && double.TryParse(expr, out _))
@@ -227,9 +316,65 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 return $"ASTHelpers.ExtractStringValue({varName})";
             }
 
-            // Function calls: _PyPegen_*, _PyAST_* - keep as-is
+            // Function calls: _PyPegen_*, _PyAST_* - recursively process arguments
+            // CPython 3.12: Need to expand EXTRA in nested function calls
+            // Example: _PyPegen_alias_for_star(p, EXTRA) → _PyPegen_alias_for_star(_start_lineno, _start_col_offset, _end_lineno, _end_col_offset)
             if (expr.Contains("_PyPegen_") || expr.Contains("_PyAST_"))
+            {
+                // Check if it's a function call with arguments
+                var parenStart = expr.IndexOf('(');
+                if (parenStart > 0)
+                {
+                    var funcName = expr.Substring(0, parenStart);
+                    var parenEnd = expr.LastIndexOf(')');
+                    if (parenEnd > parenStart)
+                    {
+                        var argsStr = expr.Substring(parenStart + 1, parenEnd - parenStart - 1);
+
+                        // Parse arguments (simple comma split, assuming no nested function calls with commas)
+                        var argsList = new List<string>();
+                        var depth = 0;
+                        var currentArg = new StringBuilder();
+
+                        foreach (var ch in argsStr)
+                        {
+                            if (ch == '(' || ch == '[' || ch == '{')
+                            {
+                                depth++;
+                                currentArg.Append(ch);
+                            }
+                            else if (ch == ')' || ch == ']' || ch == '}')
+                            {
+                                depth--;
+                                currentArg.Append(ch);
+                            }
+                            else if (ch == ',' && depth == 0)
+                            {
+                                argsList.Add(currentArg.ToString().Trim());
+                                currentArg.Clear();
+                            }
+                            else
+                            {
+                                currentArg.Append(ch);
+                            }
+                        }
+                        if (currentArg.Length > 0)
+                            argsList.Add(currentArg.ToString().Trim());
+
+                        // Recursively translate each argument
+                        var translatedArgs = argsList
+                            .Where(a => a != "p")  // Remove 'p' parser argument
+                            .Select(a => TranslateToCSharp(a.Trim(), variables))
+                            .ToList();
+
+                        // Reconstruct function call
+                        return $"{funcName}({string.Join(", ", translatedArgs)})";
+                    }
+                }
+
+                // No parentheses, keep as-is
                 return expr;
+            }
 
             // Simple variable reference - check if it's in variables dict
             if (variables.ContainsKey(expr))
@@ -465,6 +610,62 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // Default: Variable not found - return null
             // This happens when grammar parsing skips some items (e.g., after cut operator)
             return "null /* Missing variable: " + argName + " */";
+        }
+
+        /// <summary>
+        /// Map CPython type cast to C# type
+        /// CPython 3.12: asdl_stmt_seq*, asdl_expr_seq*, asdl_alias_seq*, etc.
+        /// </summary>
+        private string MapCPythonTypeToCSharp(string typeCast)
+        {
+            if (string.IsNullOrWhiteSpace(typeCast))
+            {
+                return null;
+            }
+
+            // Remove pointer * and whitespace
+            typeCast = typeCast.Replace("*", "").Trim();
+
+            // Map CPython ASDL types to C# Generated types
+            switch (typeCast)
+            {
+                case "asdl_stmt_seq":
+                case "stmt_ty":
+                    return "GeneratedStmtSeq";
+
+                case "asdl_expr_seq":
+                case "expr_ty":
+                    return "GeneratedExprSeq";
+
+                case "asdl_alias_seq":
+                case "alias_ty":
+                    return "GeneratedAliasSeq";
+
+                case "asdl_keyword_seq":
+                    return "GeneratedKeywordSeq";
+
+                case "asdl_pattern_seq":
+                    return "GeneratedPatternSeq";
+
+                case "asdl_arg_seq":
+                    return "GeneratedArgSeq";
+
+                case "asdl_excepthandler_seq":
+                    return "GeneratedExceptHandlerSeq";
+
+                case "asdl_withitem_seq":
+                    return "GeneratedWithItemSeq";
+
+                case "asdl_match_case_seq":
+                    return "GeneratedMatchCaseSeq";
+
+                case "asdl_type_ignore_seq":
+                    return "GeneratedTypeIgnoreSeq";
+
+                default:
+                    // Unknown type - return null
+                    return null;
+            }
         }
     }
 }

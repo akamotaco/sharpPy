@@ -218,8 +218,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             {
                 GenerateRaiseErrorAction();
             }
-            // Check if this is a _PyAST_* function call
-            else if (_alternative.Action.Contains("_PyAST_"))
+            // Check if this is a _PyAST_* or _PyPegen_* function call
+            else if (_alternative.Action.Contains("_PyAST_") || _alternative.Action.Contains("_PyPegen_"))
             {
                 GeneratePyASTAction();
             }
@@ -287,12 +287,31 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 }
             }
 
+            // CPython 3.12: Extract type cast if present
+            // Example: (asdl_stmt_seq*)_PyPegen_singleton_seq(...) → extract "asdl_stmt_seq*"
+            string typeCast = null;
+            if (action.TrimStart().StartsWith("("))
+            {
+                var castEnd = action.IndexOf(')');
+                if (castEnd > 0)
+                {
+                    typeCast = action.Substring(1, castEnd - 1).Trim();
+                    action = action.Substring(castEnd + 1).Trim();
+                }
+            }
+
             // Extract function name and arguments
-            // Example: _PyAST_If(a, b, c, EXTRA)
+            // Example: _PyAST_If(a, b, c, EXTRA) or _PyPegen_set_expr_context(p, a, Store)
             var funcStart = action.IndexOf("_PyAST_");
             if (funcStart < 0)
             {
-                _parent.WriteLine($"// No _PyAST_ function in action: {action}");
+                // Try _PyPegen_* functions
+                funcStart = action.IndexOf("_PyPegen_");
+            }
+
+            if (funcStart < 0)
+            {
+                _parent.WriteLine($"// No _PyAST_ or _PyPegen_ function in action: {action}");
                 _parent.WriteLine($"_res = default({_parent.GetRuleReturnType(_rule)});");
                 return;
             }
@@ -346,7 +365,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             // Use ActionMapper to convert to C# AST construction
             var mapper = new ActionMapper();
-            var astCode = mapper.MapAction(funcName, args, _variables, _rule);
+            var astCode = mapper.MapAction(funcName, args, _variables, _rule, typeCast);
 
             if (needsSequenceWrap && action.Contains("Pass"))
             {
@@ -355,8 +374,15 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             if (astCode != null)
             {
+                // CPython 3.12: If _PyPegen sequence functions are used, they already handle the wrapping/conversion
+                bool isPyPegenSeqFunc = funcName.Contains("_PyPegen_singleton_seq") ||
+                                       funcName.Contains("_PyPegen_seq_insert_in_front") ||
+                                       funcName.Contains("_PyPegen_seq_append_to_end") ||
+                                       funcName.Contains("_PyPegen_seq_flatten");
+
                 // If the action needs a sequence wrap (singleton_seq), modify the generated code
-                if (needsSequenceWrap && _parent.GetRuleReturnType(_rule).Contains("Seq"))
+                // BUT only for _PyAST_ functions, not _PyPegen_ functions that handle sequences themselves
+                if (needsSequenceWrap && _parent.GetRuleReturnType(_rule).Contains("Seq") && !isPyPegenSeqFunc)
                 {
                     // Replace "_res = _PyAST_..." with wrapping in singleton_seq
                     astCode = astCode.Replace("_res = _PyAST_", "var _stmt_tmp = _PyAST_");

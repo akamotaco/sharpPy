@@ -1079,21 +1079,16 @@ namespace SharpPy
                         {
                             foreach (var nameItem in importFromStmt.Names)
                         {
-                            if (nameItem is Dictionary<string, object> nameDict)
+                            if (nameItem is GeneratedAlias alias)
                             {
-                                var name = nameDict.ContainsKey("Name") ? nameDict["Name"]?.ToString() : null;
-                                var asName = nameDict.ContainsKey("AsName") ? nameDict["AsName"]?.ToString() : null;
+                                var name = alias.Name;
+                                var asName = alias.AsName;
 
                                 if (!string.IsNullOrEmpty(name))
                                 {
                                     importAliases.Add(new ImportAlias(name, asName));
                                     Console.WriteLine($"[DEBUG] Added import alias: {name} as {asName ?? name}");
                                 }
-                            }
-                            else if (nameItem is string simpleName)
-                            {
-                                importAliases.Add(new ImportAlias(simpleName));
-                                Console.WriteLine($"[DEBUG] Added simple import: {simpleName}");
                             }
                             else if (nameItem != null)
                             {

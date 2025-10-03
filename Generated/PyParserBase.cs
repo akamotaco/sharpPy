@@ -103,23 +103,8 @@ namespace SharpPy.Generated
             if (_position < _tokens.Count) _position++;
         }
 
-        protected GeneratedTokenInfo? Expect(string expected)
-        {
-            // CPython 3.12: Expect matches string literals (keywords and operators)
-            // For keywords like 'if', 'def', 'class': match token value (NAME token with that value)
-            // For operators like ':', '(', ')': match token value (OP token with that value)
-            // Returns the token if matched, null otherwise
-            Console.WriteLine($"[DEBUG] Expect('{expected}'): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-            if (CurrentToken != null && CurrentToken.Value == expected)
-            {
-                Console.WriteLine($"[DEBUG] Expect('{expected}'): MATCH! Advancing from {_position}");
-                var token = CurrentToken;
-                Advance();
-                return token;
-            }
-            Console.WriteLine($"[DEBUG] Expect('{expected}'): NO MATCH");
-            return null;
-        }
+        // Expect method moved to generated PyParser.cs
+        // Each generated parser has its own Expect implementation
 
 
         protected bool ExpectOperator(string op)
@@ -922,9 +907,9 @@ namespace SharpPy.Generated
         /// _PyAST_FunctionDef - Create function definition AST node
         /// CPython 3.12: _PyAST_FunctionDef(name, arguments, body, decorator_list, returns, type_comment, type_params, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_FunctionDef(object name = null, object arguments = null, object body = null,
+        protected GeneratedStmt _PyAST_FunctionDef(object name = null, object? arguments = null, object body = null,
             object decorator_list = null, object returns = null, object type_comment = null,
-            object type_params = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+            object? type_params = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             // Extract string from name (could be GeneratedToken with Name.id)
             string nameStr = ASTHelpers.ExtractStringValue(name);
@@ -937,7 +922,7 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: arguments value: {arguments}");
             }
 
-            var finalArguments = arguments ?? _PyPegen_empty_arguments();
+            var finalArguments = (arguments as GeneratedArguments) ?? _PyPegen_empty_arguments();
             Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: Using {(arguments == null ? "empty" : "provided")} arguments");
 
             var funcDef = new GeneratedFunctionDefStmt
@@ -948,7 +933,7 @@ namespace SharpPy.Generated
                 DecoratorList = ASTHelpers.ExtractExprSeq(decorator_list),
                 Returns = returns as GeneratedExpr,
                 TypeComment = ASTHelpers.ExtractStringValue(type_comment),
-                TypeParams = type_params,
+                TypeParams = (type_params as GeneratedTypeParamSeq),
                 LineNo = lineno,
                 ColOffset = col_offset,
                 EndLineNo = end_lineno,
@@ -963,21 +948,21 @@ namespace SharpPy.Generated
         /// _PyAST_AsyncFunctionDef - Create async function definition AST node
         /// CPython 3.12: _PyAST_AsyncFunctionDef(name, arguments, body, decorator_list, returns, type_comment, type_params, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedAsyncFunctionDefStmt _PyAST_AsyncFunctionDef(string name, object arguments, object body,
+        protected GeneratedAsyncFunctionDefStmt _PyAST_AsyncFunctionDef(string name, object? arguments = null, object body = null,
             object decorator_list = null, object returns = null, string type_comment = null,
-            object type_params = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+            object? type_params = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             Console.WriteLine($"[DEBUG] _PyAST_AsyncFunctionDef: Creating async function '{name}' with body type: {body?.GetType().Name}");
 
             var funcDef = new GeneratedAsyncFunctionDefStmt
             {
                 Name = name,
-                Arguments = arguments ?? _PyPegen_empty_arguments(),
+                Arguments = (arguments as GeneratedArguments) ?? _PyPegen_empty_arguments(),
                 Body = ASTHelpers.ExtractStmtSeq(body),
                 DecoratorList = ASTHelpers.ExtractExprSeq(decorator_list),
                 Returns = returns as GeneratedExpr,
                 TypeComment = type_comment,
-                TypeParams = type_params,
+                TypeParams = (type_params as GeneratedTypeParamSeq),
                 LineNo = lineno,
                 ColOffset = col_offset,
                 EndLineNo = end_lineno,
@@ -1007,25 +992,24 @@ namespace SharpPy.Generated
             return module;
         }
 
-        /// <summary>
-        /// _PyPegen_singleton_seq - Create sequence with single item
-        /// </summary>
-        protected GeneratedStmtSeq _PyPegen_singleton_seq(GeneratedStmt item)
-        {
-            if (item == null) return new GeneratedStmtSeq();
-            return new GeneratedStmtSeq { item };
-        }
 
         /// <summary>
         /// _PyPegen_seq_flatten - Flatten statement sequences (CPython 3.12 compatible)
-        /// CPython 3.12: NEVER flatten - preserve nested structure exactly as parsed
-        /// Only used for simple_stmts sequences (semicolon-separated statements)
+        /// CPython 3.12: Flatten list of sequences into single sequence
+        /// Used for statement+ where statement returns asdl_stmt_seq*
+        /// Example: [[stmt1, stmt2], [stmt3], [stmt4]] → [stmt1, stmt2, stmt3, stmt4]
         /// </summary>
-        protected GeneratedStmtSeq _PyPegen_seq_flatten(GeneratedStmtSeq sequences)
+        protected GeneratedStmtSeq _PyPegen_seq_flatten(List<GeneratedStmtSeq> sequences)
         {
-            // CRITICAL: CPython 3.12 does NOT flatten compound statement bodies
-            // Return sequences as-is to preserve nested structure
-            return sequences;
+            var result = new GeneratedStmtSeq();
+            foreach (var seq in sequences)
+            {
+                if (seq != null)
+                {
+                    result.AddRange(seq);
+                }
+            }
+            return result;
         }
 
 
@@ -1050,7 +1034,7 @@ namespace SharpPy.Generated
         /// Extract Call.keywords from an expression (if it's a Call)
         /// CPython pattern: ((expr_ty) b)->v.Call.keywords
         /// </summary>
-        protected List<object>? ExtractCallKeywords(object? expr)
+        protected GeneratedKeywordSeq? ExtractCallKeywords(object? expr)
         {
             if (expr == null) return null;
 
@@ -1063,30 +1047,273 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
+        /// Convert GeneratedSeq to GeneratedAliasSeq for type safety
+        /// </summary>
+        protected GeneratedAliasSeq? AsAliasSeq(object? seq)
+        {
+            if (seq == null) return null;
+            if (seq is GeneratedAliasSeq aliasSeq) return aliasSeq;
+            if (seq is GeneratedSeq genSeq)
+            {
+                var result = new GeneratedAliasSeq();
+                foreach (var item in genSeq)
+                {
+                    if (item is GeneratedAlias alias)
+                        result.Add(alias);
+                }
+                return result;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Convert GeneratedSeq to GeneratedKeywordSeq for type safety
+        /// </summary>
+        protected GeneratedKeywordSeq? AsKeywordSeq(object? seq)
+        {
+            if (seq == null) return null;
+            if (seq is GeneratedKeywordSeq kwSeq) return kwSeq;
+            if (seq is List<object> list)
+            {
+                var result = new GeneratedKeywordSeq();
+                foreach (var item in list)
+                {
+                    if (item is GeneratedKeyword kw)
+                        result.Add(kw);
+                }
+                return result;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Convert GeneratedSeq to GeneratedComprehensionSeq for type safety
+        /// </summary>
+        protected GeneratedComprehensionSeq? AsComprehensionSeq(object? seq)
+        {
+            if (seq == null) return null;
+            if (seq is GeneratedComprehensionSeq compSeq) return compSeq;
+            if (seq is GeneratedSeq genSeq)
+            {
+                var result = new GeneratedComprehensionSeq();
+                foreach (var item in genSeq)
+                {
+                    if (item is GeneratedComprehension comp)
+                        result.Add(comp);
+                }
+                return result;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Convert GeneratedSeq or List<object?> to GeneratedWithItemSeq for type safety
+        /// </summary>
+        protected GeneratedWithItemSeq? AsWithItemSeq(object? seq)
+        {
+            if (seq == null) return null;
+            if (seq is GeneratedWithItemSeq withSeq) return withSeq;
+            if (seq is List<object?> list)
+            {
+                var result = new GeneratedWithItemSeq();
+                foreach (var item in list)
+                {
+                    if (item is GeneratedWithItem withItem)
+                        result.Add(withItem);
+                }
+                return result;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Convert GeneratedStmtSeq or List<object?> to GeneratedExceptHandlerSeq for type safety
+        /// </summary>
+        protected GeneratedExceptHandlerSeq? AsExceptHandlerSeq(object? seq)
+        {
+            if (seq == null) return null;
+            if (seq is GeneratedExceptHandlerSeq handlerSeq) return handlerSeq;
+            if (seq is List<object?> list)
+            {
+                var result = new GeneratedExceptHandlerSeq();
+                foreach (var item in list)
+                {
+                    if (item is GeneratedExceptHandler handler)
+                        result.Add(handler);
+                }
+                return result;
+            }
+            return null;
+        }
+
+        /// <summary>
         /// _PyPegen_seq_insert_in_front - Insert element at front of sequence
         /// CPython 3.12: asdl_seq *_PyPegen_seq_insert_in_front(Parser *p, void *a, asdl_seq *seq)
         /// </summary>
-        protected GeneratedExprSeq _PyPegen_seq_insert_in_front(object? a, object? seq)
+        protected GeneratedExprSeq _PyPegen_seq_insert_in_front(GeneratedExpr a, GeneratedExprSeq seq)
         {
             var result = new GeneratedExprSeq();
 
             // Insert 'a' at front
-            if (a is GeneratedExpr expr)
+            if (a != null)
+            {
+                result.Add(a);
+            }
+
+            // Add existing sequence elements
+            if (seq != null)
+            {
+                result.AddRange(seq);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// _PyPegen_seq_insert_in_front - Overload for generic AST node sequences
+        /// CPython 3.12: asdl_seq* can hold patterns, expressions, statements, etc.
+        /// Now that GeneratedPattern inherits from GeneratedAstNode, this works for all types
+        /// </summary>
+        protected GeneratedSeq _PyPegen_seq_insert_in_front(GeneratedAstNode a, GeneratedSeq seq)
+        {
+            var result = new GeneratedSeq();
+
+            // Insert 'a' at front
+            if (a != null)
+            {
+                result.Add(a);
+            }
+
+            // Add existing sequence elements
+            if (seq != null)
+            {
+                result.AddRange(seq);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// _PyPegen_seq_insert_in_front - Overload for object sequences (from gather/loop operations)
+        /// </summary>
+        protected GeneratedExprSeq _PyPegen_seq_insert_in_front(GeneratedAstNode item, List<object?> sequence)
+        {
+            var result = new GeneratedExprSeq();
+
+            // Insert item at front
+            if (item is GeneratedExpr expr)
             {
                 result.Add(expr);
             }
 
             // Add existing sequence elements
-            if (seq is GeneratedExprSeq exprSeq)
+            if (sequence != null)
             {
-                result.AddRange(exprSeq);
-            }
-            else if (seq is List<GeneratedExpr> exprList)
-            {
-                result.AddRange(exprList);
+                foreach (var elem in sequence)
+                {
+                    if (elem is GeneratedExpr e)
+                    {
+                        result.Add(e);
+                    }
+                }
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// _PyPegen_seq_append_to_end - Append element to end of sequence
+        /// CPython 3.12: asdl_seq *_PyPegen_seq_append_to_end(Parser *p, asdl_seq *seq, void *element)
+        /// </summary>
+        protected GeneratedExprSeq _PyPegen_seq_append_to_end(GeneratedExprSeq seq, GeneratedExpr element)
+        {
+            var result = new GeneratedExprSeq();
+
+            // Add existing sequence elements
+            if (seq != null)
+            {
+                result.AddRange(seq);
+            }
+
+            // Append element at end
+            if (element != null)
+            {
+                result.Add(element);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// _PyPegen_singleton_seq - Create a sequence with a single element (Stmt)
+        /// CPython 3.12: asdl_seq *_PyPegen_singleton_seq(Parser *p, void *element)
+        /// </summary>
+        protected GeneratedStmtSeq _PyPegen_singleton_seq(GeneratedStmt element)
+        {
+            return new GeneratedStmtSeq { element };
+        }
+
+        /// <summary>
+        /// _PyPegen_singleton_seq - Create a sequence with a single element (Expr)
+        /// </summary>
+        protected GeneratedExprSeq _PyPegen_singleton_seq(GeneratedExpr element)
+        {
+            return new GeneratedExprSeq { element };
+        }
+
+        /// <summary>
+        /// _PyPegen_singleton_seq - Create a sequence with a single element (Alias)
+        /// </summary>
+        protected GeneratedAliasSeq _PyPegen_singleton_seq(GeneratedAlias element)
+        {
+            return new GeneratedAliasSeq { element };
+        }
+
+        /// <summary>
+        /// _PyPegen_singleton_seq - Overload for SlashWithDefault (used in invalid_* rules)
+        /// CPython 3.12: These helper types are only used for error detection
+        /// Return a generic sequence since the actual value is never used (RAISE_SYNTAX_ERROR)
+        /// </summary>
+        protected GeneratedAstNodeSeq _PyPegen_singleton_seq(GeneratedSlashWithDefault element)
+        {
+            var result = new GeneratedAstNodeSeq();
+            if (element != null)
+            {
+                result.Add(element);
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// _PyPegen_singleton_seq - Overload for StarEtc (used in invalid_* rules)
+        /// CPython 3.12: These helper types are only used for error detection
+        /// Return a generic sequence since the actual value is never used (RAISE_SYNTAX_ERROR)
+        /// </summary>
+        protected GeneratedAstNodeSeq _PyPegen_singleton_seq(GeneratedStarEtc element)
+        {
+            var result = new GeneratedAstNodeSeq();
+            if (element != null)
+            {
+                result.Add(element);
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// _PyPegen_alias_for_star - Create alias for 'import *'
+        /// CPython 3.12: alias_ty _PyPegen_alias_for_star(Parser *p, EXTRA)
+        /// </summary>
+        protected GeneratedAlias _PyPegen_alias_for_star(int lineno, int col_offset, int end_lineno, int end_col_offset)
+        {
+            return new GeneratedAlias
+            {
+                Name = "*",
+                AsName = null,
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
         }
 
         /// <summary>
@@ -1180,18 +1407,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// _PyPegen_empty_arguments - Create empty argument list
         /// </summary>
-        protected object _PyPegen_empty_arguments()
+        protected GeneratedArguments _PyPegen_empty_arguments()
         {
-            return new Dictionary<string, object>
-            {
-                ["posonlyargs"] = new List<object>(),
-                ["args"] = new List<object>(),
-                ["vararg"] = null,
-                ["kwonlyargs"] = new List<object>(),
-                ["kw_defaults"] = new List<object>(),
-                ["kwarg"] = null,
-                ["defaults"] = new List<object>()
-            };
+            return new GeneratedArguments();
         }
 
         /// <summary>
@@ -1513,14 +1731,35 @@ namespace SharpPy.Generated
         /// <summary>
         /// _PyPegen_set_expr_context - Set expression context (Load, Store, Del)
         /// </summary>
-        protected object _PyPegen_set_expr_context(object expr, object context)
+        protected GeneratedExpr _PyPegen_set_expr_context(GeneratedExpr expr, ExprContext context)
         {
-            if (expr is GeneratedExpr genExpr)
+            if (expr != null)
             {
-                genExpr.Context = context?.ToString();
-                return genExpr;
+                expr.Context = context.ToString();
             }
             return expr;
+        }
+
+        /// <summary>
+        /// _PyPegen_set_expr_context - Set expression context for token (overload for NAME tokens)
+        /// CPython 3.12: Automatically converts NAME token to Name expression
+        /// </summary>
+        protected GeneratedExpr _PyPegen_set_expr_context(GeneratedTokenInfo token, ExprContext context)
+        {
+            if (token != null && token.Type == GeneratedTokenType.NAME)
+            {
+                var nameExpr = new GeneratedNameExpr
+                {
+                    Id = token.Value,
+                    Context = context.ToString(),
+                    LineNo = token.Line,
+                    ColOffset = token.Column,
+                    EndLineNo = token.Line,  // Single token: same line
+                    EndColOffset = token.Column + token.Value.Length
+                };
+                return nameExpr;
+            }
+            return null;
         }
 
         /// <summary>
@@ -1648,16 +1887,12 @@ namespace SharpPy.Generated
         /// _PyAST_Match - Create match statement (Python 3.10+)
         /// CPython 3.12: _PyAST_Match(subject, cases, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedMatchStmt _PyAST_Match(object subject, object cases, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedMatchStmt _PyAST_Match(object subject, GeneratedMatchCaseSeq? cases, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var casesList = new List<object>();
-            if (cases is List<object> list)
-                casesList = list;
-
             return new GeneratedMatchStmt
             {
                 Subject = ASTHelpers.ExtractExpr(subject),
-                Cases = casesList,
+                Cases = cases ?? new GeneratedMatchCaseSeq(),
                 LineNo = lineno,
                 ColOffset = col_offset,
                 EndLineNo = end_lineno,
@@ -1723,15 +1958,11 @@ namespace SharpPy.Generated
         /// _PyAST_Import - Create import statement
         /// CPython 3.12: _PyAST_Import(names, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedImportStmt _PyAST_Import(object names, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedImportStmt _PyAST_Import(object? names, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var namesList = new List<object>();
-            if (names is List<object> list)
-                namesList = list;
-
             return new GeneratedImportStmt
             {
-                Names = namesList,
+                Names = AsAliasSeq(names) ?? new GeneratedAliasSeq(),
                 LineNo = lineno,
                 ColOffset = col_offset,
                 EndLineNo = end_lineno,
@@ -1743,12 +1974,8 @@ namespace SharpPy.Generated
         /// _PyAST_ImportFrom - Create from import statement
         /// CPython 3.12: _PyAST_ImportFrom(module, names, level, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedImportFromStmt _PyAST_ImportFrom(object module = null, object names = null, object level = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedImportFromStmt _PyAST_ImportFrom(object module = null, object? names = null, object level = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var namesList = new List<object>();
-            if (names is List<object> list)
-                namesList = list;
-
             int levelInt = 0;
             if (level is int i)
                 levelInt = i;
@@ -1758,7 +1985,7 @@ namespace SharpPy.Generated
             return new GeneratedImportFromStmt
             {
                 Module = module?.ToString(),
-                Names = namesList,
+                Names = AsAliasSeq(names) ?? new GeneratedAliasSeq(),
                 Level = levelInt,
                 LineNo = lineno,
                 ColOffset = col_offset,
@@ -1781,7 +2008,7 @@ namespace SharpPy.Generated
                 Bases = ASTHelpers.ExtractExprSeq(bases),
                 Keywords = ASTHelpers.ExtractExprSeq(keywords),
                 DecoratorList = ASTHelpers.ExtractExprSeq(decorator_list),
-                TypeParams = type_params,
+                TypeParams = (type_params as GeneratedTypeParamSeq),
                 // CPython 3.12 EXTRA: Store position information
                 LineNo = lineno,
                 ColOffset = col_offset,
@@ -1986,28 +2213,11 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
-        /// _PyPegen_seq_insert_in_front - Insert item at front of sequence
-        /// </summary>
-        protected List<object> _PyPegen_seq_insert_in_front(object item, List<object> sequence)
-        {
-            var result = new List<object>();
-            if (item != null)
-            {
-                result.Add(item);
-            }
-            if (sequence != null)
-            {
-                result.AddRange(sequence);
-            }
-            return result;
-        }
-
-        /// <summary>
         /// _PyPegen_seq_extract_starred_exprs - Extract starred expressions from sequence
         /// </summary>
-        protected List<object> _PyPegen_seq_extract_starred_exprs(List<object> sequence)
+        protected GeneratedExprSeq _PyPegen_seq_extract_starred_exprs(GeneratedExprSeq sequence)
         {
-            var result = new List<object>();
+            var result = new GeneratedExprSeq();
             if (sequence != null)
             {
                 foreach (var item in sequence)
@@ -2076,21 +2286,22 @@ namespace SharpPy.Generated
 
         /// <summary>
         /// _PyPegen_seq_count_dots - Count dots in import sequence
+        /// CPython 3.12: Counts '.' and '...' tokens in from imports
         /// </summary>
-        protected int _PyPegen_seq_count_dots(List<object> sequence)
+        protected int _PyPegen_seq_count_dots(List<GeneratedTokenInfo> sequence)
         {
             int count = 0;
             if (sequence != null)
             {
-                foreach (var item in sequence)
+                foreach (var token in sequence)
                 {
-                    if (item?.ToString() == ".")
+                    if (token?.Value == ".")
                     {
                         count++;
                     }
-                    else if (item is string str && str.Contains("."))
+                    else if (token?.Value == "...")
                     {
-                        count += str.Count(c => c == '.');
+                        count += 3; // '...' is 3 dots
                     }
                 }
             }
@@ -2369,16 +2580,12 @@ namespace SharpPy.Generated
         /// _PyAST_Try - Create try statement AST node
         /// CPython 3.12: _PyAST_Try(body, handlers, orelse, finalbody, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedTryStmt _PyAST_Try(object body, object handlers = null, object orelse = null, object finalbody = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedTryStmt _PyAST_Try(object body, object? handlers = null, object orelse = null, object finalbody = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var handlersList = new List<object>();
-            if (handlers is List<object> list)
-                handlersList = list;
-
             return new GeneratedTryStmt
             {
                 Body = ASTHelpers.ExtractStmtSeq(body),
-                Handlers = handlersList,
+                Handlers = AsExceptHandlerSeq(handlers) ?? new GeneratedExceptHandlerSeq(),
                 OrElse = ASTHelpers.ExtractStmtSeq(orelse),
                 FinallyBody = ASTHelpers.ExtractStmtSeq(finalbody),
                 LineNo = lineno,
@@ -2392,16 +2599,12 @@ namespace SharpPy.Generated
         /// _PyAST_TryStar - Create try statement AST node with except* handlers (PEP 654)
         /// CPython 3.12: _PyAST_TryStar(body, handlers, orelse, finalbody, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedTryStarStmt _PyAST_TryStar(object body, object handlers = null, object orelse = null, object finalbody = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedTryStarStmt _PyAST_TryStar(object body, object? handlers = null, object orelse = null, object finalbody = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var handlersList = new List<object>();
-            if (handlers is List<object> list)
-                handlersList = list;
-
             return new GeneratedTryStarStmt
             {
                 Body = ASTHelpers.ExtractStmtSeq(body),
-                Handlers = handlersList,
+                Handlers = AsExceptHandlerSeq(handlers) ?? new GeneratedExceptHandlerSeq(),
                 OrElse = ASTHelpers.ExtractStmtSeq(orelse),
                 FinallyBody = ASTHelpers.ExtractStmtSeq(finalbody),
                 LineNo = lineno,
@@ -2433,8 +2636,8 @@ namespace SharpPy.Generated
             Console.WriteLine($"[DEBUG] _PyPegen_checked_future_import: {featureName} (level: {level})");
 
             // Create proper import from statement for __future__ imports
-            var names = new List<object>();
-            names.Add(new { name = featureName, asname = alias });
+            var names = new GeneratedAliasSeq();
+            names.Add(new GeneratedAlias { Name = featureName, AsName = alias?.ToString() });
 
             var importFrom = new GeneratedImportFromStmt
             {
@@ -2801,11 +3004,11 @@ namespace SharpPy.Generated
         /// _PyAST_Lambda - Create lambda expression
         /// CPython 3.12: _PyAST_Lambda(args, body, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedLambdaExpr _PyAST_Lambda(object args = null, object body = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedLambdaExpr _PyAST_Lambda(object? args = null, object body = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             return new GeneratedLambdaExpr
             {
-                Arguments = args,
+                Arguments = (args as GeneratedArguments),
                 Body = ASTHelpers.ExtractExpr(body),
                 LineNo = lineno,
                 ColOffset = col_offset,
@@ -2818,13 +3021,13 @@ namespace SharpPy.Generated
         /// _PyAST_Call - Create function call expression
         /// CPython 3.12: _PyAST_Call(func, args, keywords, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedCallExpr _PyAST_Call(object func = null, object args = null, object keywords = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedCallExpr _PyAST_Call(object func = null, object args = null, object? keywords = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             return new GeneratedCallExpr
             {
                 Func = ASTHelpers.ExtractExpr(func),
                 Args = ASTHelpers.ExtractExprSeq(args),
-                Keywords = keywords as List<object> ?? new List<object>(),
+                Keywords = AsKeywordSeq(keywords) ?? new GeneratedKeywordSeq(),
                 LineNo = lineno,
                 ColOffset = col_offset,
                 EndLineNo = end_lineno,
@@ -2992,12 +3195,12 @@ namespace SharpPy.Generated
         /// _PyAST_ListComp - Create list comprehension
         /// CPython 3.12: _PyAST_ListComp(elt, generators, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedListCompExpr _PyAST_ListComp(object elt, object generators, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedListCompExpr _PyAST_ListComp(object elt, object? generators, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             return new GeneratedListCompExpr
             {
                 Element = ASTHelpers.ExtractExpr(elt),
-                Generators = generators as List<object> ?? new List<object>(),
+                Generators = AsComprehensionSeq(generators) ?? new GeneratedComprehensionSeq(),
                 LineNo = lineno,
                 ColOffset = col_offset,
                 EndLineNo = end_lineno,
@@ -3009,12 +3212,12 @@ namespace SharpPy.Generated
         /// _PyAST_SetComp - Create set comprehension
         /// CPython 3.12: _PyAST_SetComp(elt, generators, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedSetCompExpr _PyAST_SetComp(object elt, object generators, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedSetCompExpr _PyAST_SetComp(object elt, object? generators, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             return new GeneratedSetCompExpr
             {
                 Element = ASTHelpers.ExtractExpr(elt),
-                Generators = generators as List<object> ?? new List<object>(),
+                Generators = AsComprehensionSeq(generators) ?? new GeneratedComprehensionSeq(),
                 LineNo = lineno,
                 ColOffset = col_offset,
                 EndLineNo = end_lineno,
@@ -3026,13 +3229,13 @@ namespace SharpPy.Generated
         /// _PyAST_DictComp - Create dictionary comprehension
         /// CPython 3.12: _PyAST_DictComp(key, value, generators, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedDictCompExpr _PyAST_DictComp(object key, object value, object generators, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedDictCompExpr _PyAST_DictComp(object key, object value, object? generators, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             return new GeneratedDictCompExpr
             {
                 Key = ASTHelpers.ExtractExpr(key),
                 Value = ASTHelpers.ExtractExpr(value),
-                Generators = generators as List<object> ?? new List<object>(),
+                Generators = AsComprehensionSeq(generators) ?? new GeneratedComprehensionSeq(),
                 LineNo = lineno,
                 ColOffset = col_offset,
                 EndLineNo = end_lineno,
@@ -3044,12 +3247,12 @@ namespace SharpPy.Generated
         /// _PyAST_GeneratorExp - Create generator expression
         /// CPython 3.12: _PyAST_GeneratorExp(elt, generators, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedGeneratorExpExpr _PyAST_GeneratorExp(object elt, object generators, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedGeneratorExpExpr _PyAST_GeneratorExp(object elt, object? generators, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             return new GeneratedGeneratorExpExpr
             {
                 Element = ASTHelpers.ExtractExpr(elt),
-                Generators = generators as List<object> ?? new List<object>(),
+                Generators = AsComprehensionSeq(generators) ?? new GeneratedComprehensionSeq(),
                 LineNo = lineno,
                 ColOffset = col_offset,
                 EndLineNo = end_lineno,
@@ -3113,15 +3316,11 @@ namespace SharpPy.Generated
         /// _PyAST_With - Create with statement
         /// CPython 3.12: _PyAST_With(items, body, type_comment, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedWithStmt _PyAST_With(object items, object body, object type_comment = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedWithStmt _PyAST_With(object? items, object body, object type_comment = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var itemsList = new List<object>();
-            if (items is List<object> list)
-                itemsList = list;
-
             return new GeneratedWithStmt
             {
-                Items = itemsList,
+                Items = AsWithItemSeq(items) ?? new GeneratedWithItemSeq(),
                 Body = ASTHelpers.ExtractStmtSeq(body),
                 TypeComment = type_comment?.ToString(),
                 LineNo = lineno,

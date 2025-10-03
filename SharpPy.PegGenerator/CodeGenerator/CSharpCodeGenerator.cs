@@ -493,18 +493,23 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
 
-            // Expect method
-            WriteLine("private bool Expect(string expected)");
+            // Expect method - CPython 3.12: Returns token if matches, null otherwise
+            WriteLine("/// <summary>");
+            WriteLine("/// Expect a specific token value. Returns the token if it matches, null otherwise.");
+            WriteLine("/// CPython 3.12 PEG compatible.");
+            WriteLine("/// </summary>");
+            WriteLine("private GeneratedTokenInfo? Expect(string expected)");
             WriteLine("{");
             Indent();
-            WriteLine("if (CurrentToken?.Type.ToString() == expected)");
+            WriteLine("if (CurrentToken?.Value == expected)");
             WriteLine("{");
             Indent();
+            WriteLine("var token = CurrentToken;");
             WriteLine("Advance();");
-            WriteLine("return true;");
+            WriteLine("return token;");
             Dedent();
             WriteLine("}");
-            WriteLine("return false;");
+            WriteLine("return null;");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -524,21 +529,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
 
-            // Expect keyword method
-            WriteLine("private bool ExpectKeyword(string keyword)");
-            WriteLine("{");
-            Indent();
-            WriteLine("if (CurrentToken?.Type.ToString() == \"NAME\" && CurrentToken?.Value == keyword)");
-            WriteLine("{");
-            Indent();
-            WriteLine("Advance();");
-            WriteLine("return true;");
-            Dedent();
-            WriteLine("}");
-            WriteLine("return false;");
-            Dedent();
-            WriteLine("}");
-            WriteLine();
+            // ExpectKeyword method - REMOVED: Now using base class Expect() method
+            // Keywords are matched using Expect("keyword") which checks token value
 
             // Mark/Reset for backtracking
             WriteLine("private int Mark() => _position;");
@@ -1754,23 +1746,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("_res = null;");
             WriteLine();
 
-            // CPython 3.12: Only invalid_* rules should throw pending errors
-            // Regular rules just propagate the pending error up
-            bool isInvalidRule = rule.Name.StartsWith("invalid_", StringComparison.OrdinalIgnoreCase);
-            if (isInvalidRule)
-            {
-                WriteLine("// CPython 3.12: Invalid rule - throw pending error if set");
-                WriteLine("if (_pendingSyntaxError != null)");
-                WriteLine("{");
-                Indent();
-                WriteLine("var errorMsg = _pendingSyntaxError;");
-                WriteLine("_pendingSyntaxError = null;");
-                WriteLine("_pendingErrorPosition = -1;");
-                WriteLine("throw new System.Exception(errorMsg);");
-                Dedent();
-                WriteLine("}");
-                WriteLine();
-            }
+            // CPython 3.12: invalid_* rules should NOT throw - they return non-null when pattern matches
+            // The calling code checks the result and throws if needed
+            // Invalid rules just set pending error and return - they don't throw directly
 
             // Done label
             WriteLine("done:");
@@ -2472,17 +2450,37 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 "mod_ty" => "GeneratedModule", // Python module type
                 "asdl_stmt_seq*" => "GeneratedStmtSeq", // Statement sequence
                 "asdl_expr_seq*" => "GeneratedExprSeq", // Expression sequence
+                "asdl_comprehension_seq*" => "GeneratedComprehensionSeq", // Comprehension sequence
+                "asdl_alias_seq*" => "GeneratedAliasSeq", // Alias sequence
+                "asdl_arg_seq*" => "GeneratedAstNodeSeq", // Argument sequence (use generic until specific type needed)
+                "SlashWithDefault*" => "GeneratedSlashWithDefault", // Helper type for parameter parsing with /
+                "StarEtc*" => "GeneratedStarEtc", // Helper type for *args/**kwargs parsing
+                "asdl_excepthandler_seq*" => "GeneratedExceptHandlerSeq", // Exception handler sequence
+                "asdl_match_case_seq*" => "GeneratedMatchCaseSeq", // Match case sequence
+                "asdl_pattern_seq*" => "GeneratedAstNodeSeq", // Pattern sequence (use generic until specific type needed)
+                "asdl_type_param_seq*" => "GeneratedTypeParamSeq", // Type parameter sequence
+                "asdl_withitem_seq*" => "GeneratedWithItemSeq", // With item sequence
                 "stmt_ty" => "GeneratedStmt", // Statement type
                 "expr_ty" => "GeneratedExpr", // Expression type
+                "pattern_ty" => "GeneratedPattern", // Pattern type (CPython 3.10+)
+                "alias_ty" => "GeneratedAlias", // Import alias type
+                "arg_ty" => "GeneratedArg", // Function argument type
+                "arguments_ty" => "GeneratedArguments", // Function arguments type
+                "comprehension_ty" => "GeneratedComprehension", // List/dict comprehension type
+                "excepthandler_ty" => "GeneratedExceptHandler", // Exception handler type
+                "match_case_ty" => "GeneratedMatchCase", // Match case type (CPython 3.10+)
+                "type_param_ty" => "GeneratedTypeParam", // Type parameter (CPython 3.12+)
+                "withitem_ty" => "GeneratedWithItem", // With statement item type
                 "asdl_seq*" => "GeneratedSeq", // Generic sequence
                 "asdl_identifier_seq*" => "GeneratedIdentifierSeq", // Identifier sequence
+                "KeywordOrStarred*" => "GeneratedKeywordOrStarred", // Keyword or starred argument
                 "string" => "string",
                 "int" => "int",
-                "void" => "object", // Changed: void cannot be used as generic type parameter in C#
+                "void" => "GeneratedAstNode?", // void returns nothing (null AST node)
                 "PyObject*" => "GeneratedPyObject", // Python object
                 "token*" => "GeneratedTokenInfo", // Token type
-                _ when cType.EndsWith("_ty") => "GeneratedAstNode", // AST node types
-                _ when cType.EndsWith("*") => "GeneratedSeq", // Generic pointer types
+                _ when cType.EndsWith("_ty") => "GeneratedAstNode?", // Unknown AST node types
+                _ when cType.EndsWith("*") => "GeneratedAstNode?", // Unknown pointer types (likely AST nodes)
                 _ => cType // Keep as-is for standard types
             };
         }
@@ -2493,8 +2491,24 @@ namespace SharpPy.PegGenerator.CodeGenerator
             {
                 return TranslateCTypeToCS(rule.ReturnType);
             }
-            // Default: return object? for rules without explicit type
-            return "object?";
+            // Default: rules without explicit return type use base AST node type
+            // CPython 3.12: All AST nodes inherit from GeneratedAstNode
+            return "GeneratedAstNode?";
+        }
+
+        /// <summary>
+        /// Get return type for a rule by name
+        /// </summary>
+        public string GetRuleReturnType(string ruleName)
+        {
+            var rule = _grammar.Rules.FirstOrDefault(r => r.Name == ruleName);
+            if (rule != null)
+            {
+                return GetRuleReturnType(rule);
+            }
+            // Unknown rule - return base AST node type
+            // CPython 3.12: All AST nodes inherit from GeneratedAstNode
+            return "GeneratedAstNode?";
         }
 
 
@@ -3213,6 +3227,16 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
 
+            WriteLine("public class EmbeddedGather : EmbeddedAtom");
+            WriteLine("{");
+            Indent();
+            WriteLine("public EmbeddedAtom Separator { get; set; } = null!;");
+            WriteLine("public EmbeddedAtom Item { get; set; } = null!;");
+            WriteLine("public bool IsOneOrMore { get; set; }");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
             WriteLine("public class EmbeddedItem");
             WriteLine("{");
             Indent();
@@ -3328,6 +3352,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 Grammar.Optional opt => $"new EmbeddedOptional {{ Expression = {GenerateEmbeddedAtom(opt.Expression)} }}",
                 Grammar.ZeroOrMore zero => $"new EmbeddedZeroOrMore {{ Expression = {GenerateEmbeddedAtom(zero.Expression)} }}",
                 Grammar.OneOrMore one => $"new EmbeddedOneOrMore {{ Expression = {GenerateEmbeddedAtom(one.Expression)} }}",
+                Grammar.Gather gather => $"new EmbeddedGather {{ Separator = {GenerateEmbeddedAtom(gather.Separator)}, Item = {GenerateEmbeddedAtom(gather.Item)}, IsOneOrMore = {(gather.IsOneOrMore ? "true" : "false")} }}",
                 Grammar.PositiveLookahead pos => $"new EmbeddedPositiveLookahead {{ Expression = {GenerateEmbeddedAtom(pos.Expression)} }}",
                 Grammar.NegativeLookahead neg => $"new EmbeddedNegativeLookahead {{ Expression = {GenerateEmbeddedAtom(neg.Expression)} }}",
                 Grammar.Cut cut => $"new EmbeddedCut {{ Expression = {GenerateEmbeddedAtom(cut.Expression)} }}",
