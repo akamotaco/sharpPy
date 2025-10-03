@@ -6,6 +6,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
+using SharpPy.Tokenizer;
+
 namespace SharpPy.Generated
 {
     // AST node types (GeneratedStmt, GeneratedExpr, etc.) are defined in GeneratedAstTypes.cs
@@ -20,15 +22,14 @@ namespace SharpPy.Generated
         private readonly PegInterpreter _interpreter;
 
         // Override base class abstract property
-        protected override GeneratedPtr? InterpreterObject => _interpreter;
+        protected override PegInterpreter? InterpreterObject => _interpreter;
 
         public GeneratedPyParser(List<GeneratedTokenInfo> tokens, string filename = "<string>")
             : base(tokens, filename)
         {
             // CPython 3.12: Initialize PegInterpreter with embedded grammar
             var embeddedGrammar = EmbeddedGrammar.GetGrammar();
-            var tokenInfoList = tokens.Cast<ITokenInfo>().ToList();
-            _interpreter = new PegInterpreter(embeddedGrammar, tokenInfoList);
+            _interpreter = new PegInterpreter(embeddedGrammar, tokens);
         }
 
         // Override abstract Parse method
@@ -36876,9 +36877,9 @@ namespace SharpPy.Generated
             /// </summary>
             public sealed class PegTokenResult : PegParseResult
             {
-                public ITokenInfo Token { get; }
+                public GeneratedTokenInfo Token { get; }
 
-                public PegTokenResult(ITokenInfo token, int endPosition)
+                public PegTokenResult(GeneratedTokenInfo token, int endPosition)
                     : base(true, endPosition)
                 {
                     Token = token ?? throw new ArgumentNullException(nameof(token));
@@ -36908,9 +36909,9 @@ namespace SharpPy.Generated
             /// </summary>
             public sealed class PegAstResult : PegParseResult
             {
-                public GeneratedPtr AstNode { get; }
+                public PegNode AstNode { get; }
 
-                public PegAstResult(object astNode, int endPosition)
+                public PegAstResult(PegNode astNode, int endPosition)
                     : base(true, endPosition)
                 {
                     AstNode = astNode ?? throw new ArgumentNullException(nameof(astNode));
@@ -36955,9 +36956,9 @@ namespace SharpPy.Generated
             /// </summary>
             public sealed class PegActionResult : PegParseResult
             {
-                public GeneratedPtr ActionResult { get; }
+                public PegNode ActionResult { get; }
 
-                public PegActionResult(object actionResult, int endPosition)
+                public PegActionResult(PegNode actionResult, int endPosition)
                     : base(true, endPosition)
                 {
                     ActionResult = actionResult ?? throw new ArgumentNullException(nameof(actionResult));
@@ -36970,18 +36971,18 @@ namespace SharpPy.Generated
         // PegInterpreter Supporting Types
         // ========================================
 
-        public class SimpleModule
+        public class PegModule
         {
             public List<object>? Body { get; set; }
         }
 
-        public class LegacySimpleStmt
+        public class PegStmt
         {
             public string? Type { get; set; }
             public object? Data { get; set; }
         }
 
-        public class LegacySimpleExpr
+        public class PegExpr
         {
             public string? Type { get; set; }
             public object? Data { get; set; }
@@ -36995,7 +36996,7 @@ namespace SharpPy.Generated
         public class PegInterpreter
             {
                 private readonly EmbeddedGrammar _grammar;
-                private readonly List<ITokenInfo> _tokens;
+                private readonly List<GeneratedTokenInfo> _tokens;
                 private int _position;
                 // ===== Performance Optimization: Cache Management =====
                 private readonly Dictionary<(int, string), IPegParseResult> _memoCache = new();
@@ -37019,7 +37020,7 @@ namespace SharpPy.Generated
                 private readonly Stack<ParserContext> _contextStack = new();
                 private int _indentLevel = 0; // Track current indentation level
 
-                public PegInterpreter(EmbeddedGrammar grammar, List<ITokenInfo> tokens)
+                public PegInterpreter(EmbeddedGrammar grammar, List<GeneratedTokenInfo> tokens)
                 {
                     _grammar = grammar ?? throw new ArgumentNullException(nameof(grammar));
                     _tokens = tokens ?? throw new ArgumentNullException(nameof(tokens));
@@ -37032,7 +37033,7 @@ namespace SharpPy.Generated
                 /// <summary>
                 /// Current token for parsing
                 /// </summary>
-                private ITokenInfo? CurrentToken => _position < _tokens.Count ? _tokens[_position] : null;
+                private GeneratedTokenInfo? CurrentToken => _position < _tokens.Count ? _tokens[_position] : null;
 
                 /// <summary>
                 /// Check if we're at end of tokens
@@ -37913,90 +37914,59 @@ namespace SharpPy.Generated
         #endif
 
                         // For now, always allow version checks and return the actual AST construction
-                        if (action.Contains("_PyAST_AnnAssign"))
-                        {
-                            // Annotated Assignment: a=NAME ':' b=expression c=['=' d=annotated_rhs { d }]
-                            var stmt = new LegacySimpleStmt
-                            {
-                                Type = "ann_assign",
-                                Data = new {
-                                    Target = variables.ContainsKey("a") ? variables["a"] : null,
-                                    Annotation = variables.ContainsKey("b") ? variables["b"] : null,
-                                    Value = variables.ContainsKey("c") ? variables["c"] : null,
-                                    Simple = 1 // Always 1 for NAME annotations as per CPython
-                                }
-                            };
-        #if DEBUG_LOG
-                            Console.WriteLine($"[DEBUG] PEG: Created ann_assign statement");
-        #endif
-                            return new PegAstResult(stmt, _position);
-                        }
-
                         // For other version checks, continue with normal processing
                         return results.FirstOrDefault() ?? new PegSuccess(_position);
                     }
                     else if (action.Contains("_PyAST_AnnAssign"))
                     {
                         // Annotated Assignment: a=NAME ':' b=expression c=['=' d=annotated_rhs { d }]
-                        var stmt = new LegacySimpleStmt
+                        var annAssign = new PegAnnAssign
                         {
-                            Type = "ann_assign",
-                            Data = new {
-                                Target = variables.ContainsKey("a") ? variables["a"] : null,
-                                Annotation = variables.ContainsKey("b") ? variables["b"] : null,
-                                Value = variables.ContainsKey("c") ? variables["c"] : null,
-                                Simple = 1 // Always 1 for NAME annotations as per CPython
-                            }
+                            Target = variables.ContainsKey("a") ? variables["a"] : null,
+                            Annotation = variables.ContainsKey("b") ? variables["b"] : null,
+                            Value = variables.ContainsKey("c") ? variables["c"] : null,
+                            Simple = 1 // Always 1 for NAME annotations as per CPython
                         };
-                        return new PegAstResult(stmt, _position);
+                        return new PegAstResult(annAssign, _position);
                     }
                     else if (action.Contains("_PyAST_TryStar"))
                     {
                         // Try statement with except* handlers (Python 3.11+ Exception Groups)
-                        var stmt = new LegacySimpleStmt
+                        var tryStar = new PegTry
                         {
-                            Type = "try_star",
-                            Data = new {
-                                body = variables.ContainsKey("b") ? variables["b"] : null,
-                                handlers = variables.ContainsKey("ex") ? variables["ex"] : null,
-                                orelse = variables.ContainsKey("el") ? variables["el"] : null,
-                                finalbody = variables.ContainsKey("f") ? variables["f"] : null
-                            }
+                            Body = variables.ContainsKey("b") ? variables["b"] : null,
+                            Handlers = variables.ContainsKey("ex") ? variables["ex"] : null,
+                            Orelse = variables.ContainsKey("el") ? variables["el"] : null,
+                            Finalbody = variables.ContainsKey("f") ? variables["f"] : null
                         };
         #if DEBUG_LOG
                         Console.WriteLine($"[DEBUG] PEG: Created try_star statement");
         #endif
-                        return new PegAstResult(stmt, _position);
+                        return new PegAstResult(tryStar, _position);
                     }
                     else if (action.Contains("_PyAST_Try"))
                     {
                         // Regular try statement
-                        var stmt = new LegacySimpleStmt
+                        var tryStmt = new PegTry
                         {
-                            Type = "try",
-                            Data = new {
-                                body = variables.ContainsKey("b") ? variables["b"] : null,
-                                handlers = variables.ContainsKey("ex") ? variables["ex"] : null,
-                                orelse = variables.ContainsKey("el") ? variables["el"] : null,
-                                finalbody = variables.ContainsKey("f") ? variables["f"] : null
-                            }
+                            Body = variables.ContainsKey("b") ? variables["b"] : null,
+                            Handlers = variables.ContainsKey("ex") ? variables["ex"] : null,
+                            Orelse = variables.ContainsKey("el") ? variables["el"] : null,
+                            Finalbody = variables.ContainsKey("f") ? variables["f"] : null
                         };
         #if DEBUG_LOG
                         Console.WriteLine($"[DEBUG] PEG: Created try statement");
         #endif
-                        return new PegAstResult(stmt, _position);
+                        return new PegAstResult(tryStmt, _position);
                     }
                     else if (action.Contains("_PyAST_ExceptHandler"))
                     {
                         // Exception handler: 'except' [expression ['as' NAME]] ':' block
-                        var handler = new LegacySimpleStmt
+                        var handler = new PegExceptHandler
                         {
-                            Type = "except_handler",
-                            Data = new {
-                                type = variables.ContainsKey("e") ? variables["e"] : null,
-                                name = variables.ContainsKey("t") ? variables["t"] : null,
-                                body = variables.ContainsKey("b") ? variables["b"] : null
-                            }
+                            Type = variables.ContainsKey("e") ? variables["e"] : null,
+                            Name = variables.ContainsKey("t") ? variables["t"] : null,
+                            Body = variables.ContainsKey("b") ? variables["b"] : null
                         };
         #if DEBUG_LOG
                         Console.WriteLine($"[DEBUG] PEG: Created except_handler");
@@ -38006,29 +37976,26 @@ namespace SharpPy.Generated
                     else if (action.Contains("_PyAST_Assign"))
                     {
                         // Assignment: a[asdl_expr_seq*]=(z=star_targets '=' { z })+ b=(yield_expr | star_expressions)
-                        var stmt = new LegacySimpleStmt
+                        var assignment = new PegAssignment
                         {
-                            Type = "assignment",
-                            Data = new {
-                                Targets = variables.ContainsKey("a") ? variables["a"] : null,
-                                Value = variables.ContainsKey("b") ? variables["b"] : null
-                            }
+                            Targets = variables.ContainsKey("a") ? variables["a"] : null,
+                            Value = variables.ContainsKey("b") ? variables["b"] : null
                         };
-                        return new PegAstResult(stmt, _position);
+                        return new PegAstResult(assignment, _position);
                     }
                     else if (action.Contains("_PyAST_Module"))
                     {
                         // Module: statements+
-                        var module = new SimpleModule
+                        var module = new PegModule
                         {
-                            Body = variables.ContainsKey("a") ? variables["a"] as List<GeneratedPtr> : new List<GeneratedPtr>()
+                            Body = variables.ContainsKey("a") ? variables["a"] as List<PegNode> : new List<PegNode>()
                         };
                         return new PegAstResult(module, _position);
                     }
                     else if (action.Contains("_PyAST_Name"))
                     {
                         // Name expression: NAME
-                        var expr = new LegacySimpleExpr
+                        var expr = new PegExpr
                         {
                             Type = "name",
                             Data = variables.ContainsKey("id") ? variables["id"] : null
@@ -38038,7 +38005,7 @@ namespace SharpPy.Generated
                     else if (action.Contains("_PyAST_Constant") || action.Contains("_PyAST_Num"))
                     {
                         // Constant/Number expression
-                        var expr = new LegacySimpleExpr
+                        var expr = new PegExpr
                         {
                             Type = "constant",
                             Data = variables.ContainsKey("value") ? variables["value"] : null
@@ -38048,51 +38015,42 @@ namespace SharpPy.Generated
                     else if (action.Contains("_PyAST_BinOp"))
                     {
                         // Binary operation: left op right
-                        var expr = new LegacySimpleExpr
+                        var binOp = new PegBinOp
                         {
-                            Type = "binop",
-                            Data = new {
-                                Left = variables.ContainsKey("left") ? variables["left"] : null,
-                                Op = variables.ContainsKey("op") ? variables["op"] : null,
-                                Right = variables.ContainsKey("right") ? variables["right"] : null
-                            }
+                            Left = variables.ContainsKey("left") ? variables["left"] : null,
+                            Op = variables.ContainsKey("op") ? variables["op"] : null,
+                            Right = variables.ContainsKey("right") ? variables["right"] : null
                         };
-                        return new PegAstResult(expr, _position);
+                        return new PegAstResult(binOp, _position);
                     }
                     else if (action.Contains("_PyAST_TypeAlias"))
                     {
                         // Type alias: "type" n=NAME t=[type_params] '=' b=expression
-                        var stmt = new LegacySimpleStmt
+                        var typeAlias = new PegTypeAlias
                         {
-                            Type = "type_alias",
-                            Data = new {
-                                Name = variables.ContainsKey("n") ? variables["n"] : null,
-                                TypeParams = variables.ContainsKey("t") ? variables["t"] : null,
-                                Value = variables.ContainsKey("b") ? variables["b"] : null
-                            }
+                            Name = variables.ContainsKey("n") ? variables["n"] : null,
+                            TypeParams = variables.ContainsKey("t") ? variables["t"] : null,
+                            Value = variables.ContainsKey("b") ? variables["b"] : null
                         };
-                        return new PegAstResult(stmt, _position);
+                        return new PegAstResult(typeAlias, _position);
                     }
                     else if (action.Contains("_PyAST_AsyncFunctionDef"))
                     {
                         // Async function definition: ASYNC 'def' n=NAME params=[params] b=block
-                        var stmt = new LegacySimpleStmt
+                        var asyncFunc = new PegAsyncFunctionDef
                         {
-                            Type = "async_function_def",
-                            Data = new {
-                                Name = variables.ContainsKey("n") ? variables["n"] : null,
-                                Params = variables.ContainsKey("params") ? variables["params"] : null,
-                                Body = variables.ContainsKey("b") ? variables["b"] : null,
-                                TypeParams = variables.ContainsKey("t") ? variables["t"] : null,
-                                Returns = variables.ContainsKey("a") ? variables["a"] : null
-                            }
+                            Name = variables.ContainsKey("n") ? variables["n"] : null,
+                            Params = variables.ContainsKey("params") ? variables["params"] : null,
+                            Body = variables.ContainsKey("b") ? variables["b"] : null,
+                            TypeParams = variables.ContainsKey("t") ? variables["t"] : null,
+                            Returns = variables.ContainsKey("a") ? variables["a"] : null
                         };
-                        return new PegAstResult(stmt, _position);
+                        return new PegAstResult(asyncFunc, _position);
                     }
                     else if (action.Contains("_PyAST_Break"))
                     {
                         // Break statement: 'break' { _PyAST_Break(EXTRA) }
-                        var stmt = new LegacySimpleStmt
+                        var stmt = new PegStmt
                         {
                             Type = "break",
                             Data = null
@@ -38102,7 +38060,7 @@ namespace SharpPy.Generated
                     else if (action.Contains("_PyAST_Continue"))
                     {
                         // Continue statement: 'continue' { _PyAST_Continue(EXTRA) }
-                        var stmt = new LegacySimpleStmt
+                        var stmt = new PegStmt
                         {
                             Type = "continue",
                             Data = null
@@ -38112,7 +38070,12 @@ namespace SharpPy.Generated
 
                     // Default: return generic success marker for now
                     Console.WriteLine($"[DEBUG] Unhandled action pattern: {action}");
-                    var defaultResult = new { Action = action, Variables = variables, Results = results };
+                    var defaultResult = new PegUnhandledAction
+                    {
+                        Action = action,
+                        Variables = variables,
+                        Results = results
+                    };
                     return new PegActionResult(defaultResult, _position);
                 }
 

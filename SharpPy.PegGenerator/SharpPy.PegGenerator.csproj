@@ -18,5 +18,12 @@
     <Compile Include="..\Generated\PyTokenizer.cs" Link="Generated\PyTokenizer.cs" />
   </ItemGroup>
 
+  <!-- Tokenizer Generation before PegGenerator build -->
+  <Target Name="GenerateTokenizerForPeg" BeforeTargets="BeforeBuild">
+    <Message Text="[PEG] Generating tokenizer from Grammar/Tokens..." Importance="high" />
+    <Exec Command="dotnet run --project $(ProjectDir)..\SharpPy.Tokenizer\SharpPy.Tokenizer.csproj --tokens $(ProjectDir)..\Grammar\Tokens --output $(ProjectDir)..\Generated\PyTokenizer.cs"
+          ContinueOnError="false"
+          WorkingDirectory="$(ProjectDir).." />
+  </Target>
 
 </Project>
